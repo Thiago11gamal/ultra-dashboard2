@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Search, Moon, Sun, Plus, LogOut, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, FileText } from 'lucide-react';
+import { Bell, Plus, LogOut, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
-import { generatePDFReport } from '../utils/pdfExport';
+
 
 export default function Header({
     user,
@@ -20,7 +20,7 @@ export default function Header({
     currentData
 }) {
     const [time, setTime] = useState(new Date());
-    const [searchOpen, setSearchOpen] = useState(false);
+
     const [profileOpen, setProfileOpen] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
 
@@ -57,16 +57,14 @@ export default function Header({
         }
     };
 
-    const handleExportPDF = () => {
-        generatePDFReport(user.name);
-    };
+
 
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
     return (
-        <header className="flex items-center justify-between mb-8 mt-20 z-50 relative">
+        <header className="flex items-center justify-between mb-8 mt-32 z-50 relative">
             {/* Left: Editable Contest Name */}
-            <div className="flex-1">
+            <div className="w-1/2">
                 <div className="relative group">
                     <input
                         type="text"
@@ -88,13 +86,7 @@ export default function Header({
             <div className="flex items-center gap-4">
                 {/* Cloud Sync Buttons */}
                 <div className="flex items-center gap-2 mr-4 border-r border-white/10 pr-4">
-                    <button
-                        onClick={handleExportPDF}
-                        className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-orange-400 group relative"
-                        title="Gerar Relatório PDF"
-                    >
-                        <FileText size={20} />
-                    </button>
+
                     <button
                         onClick={handleCloudBackup}
                         disabled={isSyncing}
@@ -130,21 +122,7 @@ export default function Header({
                     {format(time, 'HH:mm:ss')}
                 </div>
 
-                {/* Search */}
-                <button
-                    onClick={() => setSearchOpen(!searchOpen)}
-                    className="p-3 rounded-xl glass hover:bg-white/10 transition-colors"
-                >
-                    <Search size={20} />
-                </button>
 
-                {/* Dark Mode Toggle */}
-                <button
-                    onClick={onToggleDarkMode}
-                    className="p-3 rounded-xl glass hover:bg-white/10 transition-colors"
-                >
-                    {settings.darkMode ? <Sun size={20} /> : <Moon size={20} />}
-                </button>
 
                 {/* Avatar / Profile Menu */}
                 <div className="relative">

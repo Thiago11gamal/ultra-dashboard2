@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { differenceInDays, subDays, format, addDays } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Pencil } from 'lucide-react';
+import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
 
 // Circular Progress Ring Component with Neon Glow
 const ProgressRing = ({ progress, size = 120, strokeWidth = 10 }) => {
@@ -86,6 +87,13 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     const user = data?.user || { startDate: new Date(), goalDate: new Date() };
     const studyLogs = data?.studyLogs || [];
     const [editingGoalDate, setEditingGoalDate] = useState(false);
+
+    // Gamification Stats
+    const currentXP = user?.xp || 0;
+    const level = calculateLevel(currentXP);
+    const { title: rankTitle, color: rankColor } = getLevelTitle(level);
+    const xpProgress = calculateProgress(currentXP);
+    const xpNeeded = getXpToNextLevel(currentXP);
 
     // Generate 7-day trend data
     const generate7DayTrend = () => {
@@ -280,6 +288,44 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     return (
         <div className="space-y-6 mb-8 mt-6">
 
+            {/* Gamification Banner - Standalone */}
+            <div className="relative overflow-hidden rounded-2xl p-6 border border-white/10 bg-gradient-to-r from-slate-900/90 to-purple-900/40 backdrop-blur-md shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 group">
+                {/* Animated Background */}
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+                <div className={`absolute inset-0 bg-gradient-to-r ${rankColor.replace('text-', 'from-')}/20 to-transparent opacity-30 group-hover:opacity-50 transition-opacity duration-700`}></div>
+
+                {/* Left: Level & Rank */}
+                <div className="flex items-center gap-5 z-10 w-full md:w-auto justify-center md:justify-start">
+                    <div className={`relative w-20 h-20 shrink-0 rounded-full bg-slate-950 flex items-center justify-center text-3xl border-4 ${rankColor.replace('text-', 'border-')} shadow-[0_0_20px_-5px_currentColor] ${rankColor}`}>
+                        <span className="font-black">#{level}</span>
+                    </div>
+                    <div className="text-center md:text-left">
+                        <h3 className={`text-2xl font-black ${rankColor} uppercase tracking-wide drop-shadow-md`}>{rankTitle}</h3>
+                        <p className="text-slate-400 text-xs font-semibold tracking-wider uppercase">Nível Atual</p>
+                    </div>
+                </div>
+
+                {/* Center/Right: XP Progress */}
+                <div className="flex-1 w-full z-10 flex flex-col justify-center">
+                    <div className="flex justify-between items-end mb-2 px-1">
+                        <span className="text-white text-sm font-bold">Progresso de XP</span>
+                        <span className={`text-sm font-black ${rankColor}`}>{xpProgress}%</span>
+                    </div>
+                    <div className="h-4 bg-slate-950/50 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
+                        <div
+                            className={`h-full bg-gradient-to-r ${rankColor.replace('text-', 'from-')} to-white rounded-full transition-all duration-1000 ease-out relative`}
+                            style={{ width: `${xpProgress}%` }}
+                        >
+                            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)] w-1/2 h-full skew-x-12 animate-[shimmer_2s_infinite]"></div>
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 px-1">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">RANK ATUAL</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Faltam {xpNeeded} XP para o próximo nível</span>
+                    </div>
+                </div>
+            </div>
+
             {/* Top Row: Key Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {stats.map((stat, index) => (
@@ -360,10 +406,12 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                 </div>
             )}
 
+
+
             {/* Bottom Row: Detailed Progress */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* Main Progress Ring (Large) */}
+                {/* Main Progress Ring (Restored) */}
                 <div className="lg:col-span-7 rounded-2xl p-6 border border-white/5 bg-slate-900/40 flex items-center justify-around relative overflow-hidden group">
                     {/* Background Glow */}
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -420,6 +468,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }
