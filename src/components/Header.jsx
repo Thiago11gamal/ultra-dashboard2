@@ -66,7 +66,7 @@ export default function Header({
     return (
         <header className="flex items-center justify-between mb-8 z-50 relative">
             {/* Left: Editable Contest Name */}
-            <div className="flex-1 max-w-2xl">
+            <div className="flex-1">
                 <div className="relative group">
                     <input
                         type="text"
