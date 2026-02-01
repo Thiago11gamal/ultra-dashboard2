@@ -1,0 +1,151 @@
+import React, { useMemo } from 'react';
+import { Target, Play, Zap, Clock, ArrowRight, Flame } from 'lucide-react';
+import { getSuggestedFocus } from '../utils/coachLogic';
+
+export default function NextGoalCard({ categories = [], simulados = [], onStartStudying }) {
+
+    // Get the most urgent category using AI Coach logic
+    const suggestion = useMemo(() => {
+        const suggestedCategory = getSuggestedFocus(categories, simulados);
+
+        if (!suggestedCategory) return null;
+
+        // Find the first uncompleted task with highest priority
+        const tasks = suggestedCategory.tasks || [];
+
+        // Priority order: high > medium > low
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+
+        const sortedTasks = tasks
+            .filter(t => !t.completed)
+            .sort((a, b) => (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1));
+
+        const nextTask = sortedTasks[0];
+
+        if (!nextTask) return null;
+
+        return {
+            category: suggestedCategory,
+            task: nextTask,
+            urgency: suggestedCategory.urgency
+        };
+    }, [categories, simulados]);
+
+    if (!suggestion) {
+        return (
+            <div className="rounded-xl p-4 border border-green-500/20 bg-gradient-to-r from-green-900/10 to-emerald-900/10 backdrop-blur-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center animate-pulse">
+                    <Target size={24} className="text-green-400 animate-bounce" />
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-sm font-bold text-green-400">Tudo em dia! 🎉</h3>
+                    <p className="text-xs text-slate-400">Nenhuma tarefa urgente.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const { category, task, urgency } = suggestion;
+
+    // Determine urgency styling
+    let urgencyStyle = {
+        gradient: 'from-blue-500/20 to-cyan-500/20',
+        border: 'border-blue-500/30',
+        badge: 'bg-blue-500/20 text-blue-400',
+        buttonGradient: 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
+    };
+
+    if (urgency?.score > 70) {
+        urgencyStyle = {
+            gradient: 'from-red-500/20 to-orange-500/20',
+            border: 'border-red-500/30 hover:border-red-500/50',
+            badge: 'bg-red-500/20 text-red-400',
+            buttonGradient: 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'
+        };
+    } else if (urgency?.score > 50) {
+        urgencyStyle = {
+            gradient: 'from-amber-500/20 to-orange-500/20',
+            border: 'border-amber-500/30 hover:border-amber-500/50',
+            badge: 'bg-amber-500/20 text-amber-400',
+            buttonGradient: 'from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500'
+        };
+    }
+
+    // Check if we have sufficient data
+    const hasSimuladoData = urgency?.details?.hasData;
+
+    // If no simulado data, show generic "no data" state
+    if (!hasSimuladoData) {
+        return (
+            <div className="relative overflow-hidden rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-900/20 to-purple-900/20 backdrop-blur-sm transition-all duration-300 group">
+                <div className="absolute -top-10 -right-10 w-20 h-20 bg-violet-500/10 rounded-full blur-[40px]" />
+                <div className="relative z-10 p-4 flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-violet-500/20">
+                        📊
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-bold text-sm mb-1">
+                            Aguardando Dados de Performance
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                            Faça simulados para obter sugestões personalizadas de estudo
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`relative overflow-hidden rounded-xl border ${urgencyStyle.border} bg-gradient-to-r ${urgencyStyle.gradient} backdrop-blur-sm transition-all duration-300 group`}>
+            {/* Subtle animated glow */}
+            <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-500" />
+
+            <div className="relative z-10 p-4 flex items-center gap-4">
+                {/* Left: Category Icon */}
+                <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                    style={{ backgroundColor: `${category.color}20` }}
+                >
+                    {category.icon || '📚'}
+                </div>
+
+                {/* Center: Task Info */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded"
+                            style={{ backgroundColor: `${category.color}30`, color: category.color }}
+                        >
+                            {category.name}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${urgencyStyle.badge}`}>
+                            {urgency?.score > 70 ? '🔥 Urgente' : urgency?.score > 50 ? '⚡ Média' : '📋 Normal'}
+                        </span>
+                    </div>
+                    <h3 className="text-white font-bold truncate text-sm mb-1">
+                        {task.title || task.text || 'Tarefa'}
+                    </h3>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                        <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {urgency?.details?.daysSinceLastStudy || 0}d sem praticar
+                        </span>
+                        {urgency?.details?.standardDeviation && (
+                            <span className="text-slate-500">SD: {urgency.details.standardDeviation}</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right: Action Button */}
+                <button
+                    onClick={() => onStartStudying && onStartStudying(category.id, task.id)}
+                    className={`flex-shrink-0 px-5 py-3 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} text-white font-bold text-sm flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-lg group/btn`}
+                >
+                    <Play size={16} className="fill-white group-hover/btn:animate-bounce" />
+                    Estudar
+                </button>
+            </div>
+        </div>
+    );
+}

@@ -1,0 +1,111 @@
+// Initial data structure for the dashboard
+// Theme: Study/Exam Preparation (Ultra-Premium Version)
+
+export const INITIAL_DATA = {
+    user: {
+        name: "Estudante",
+        avatar: "👤",
+        startDate: new Date().toISOString().split('T')[0],
+        goalDate: new Date().toISOString().split('T')[0], // Default to today for 0 days
+        xp: 0,
+        level: 10, // Starts at Level 10, goes down to 1
+        achievements: [] // Unlocked achievement IDs
+    },
+
+    categories: [],
+
+    simuladoRows: [], // Stores the raw input rows for Simulado Analysis per contest
+
+    simulados: [],
+
+    pomodoroSessions: [],
+
+    notes: "",
+
+    achievements: [
+        { id: "first-task", name: "Primeiro Passo", description: "Complete sua primeira tarefa", icon: "🎯", unlocked: false },
+        { id: "five-streak", name: "Esquentando", description: "Complete 5 tarefas seguidas", icon: "🔥", unlocked: false },
+        { id: "category-master", name: "Especialista", description: "Complete uma categoria inteira", icon: "🏆", unlocked: false },
+        { id: "halfway", name: "Metade do Caminho", description: "Atinja 50% de progresso", icon: "⭐", unlocked: false },
+        { id: "champion", name: "Campeão", description: "Complete 100% das tarefas", icon: "👑", unlocked: false },
+    ],
+
+    settings: {
+        darkMode: true,
+        soundEnabled: true,
+        pomodoroWork: 25,
+        pomodoroBreak: 5,
+    }
+};
+
+// Helper to get data from localStorage or use initial
+// returns { contests: { [id]: data }, activeId: string }
+export const loadData = () => {
+    try {
+        const saved = localStorage.getItem('ultra-dashboard-data');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Migration check: if it has 'activeId', it's already the new format
+            if (parsed.activeId && parsed.contests) {
+                return parsed;
+            }
+            // Otherwise, it's the old single-object format. Migrate it.
+            return {
+                contests: { 'default': parsed },
+                activeId: 'default'
+            };
+        }
+    } catch (e) {
+        console.error('Error loading data:', e);
+    }
+    // Default initial state
+    return {
+        contests: { 'default': INITIAL_DATA },
+        activeId: 'default'
+    };
+};
+
+// Helper to save data
+export const saveData = (state) => {
+    try {
+        // Critical Safeguard: Never save null, undefined, or empty state
+        if (!state) {
+            console.error('Attempted to save invalid state (null/undefined). Aborted.');
+            return false;
+        }
+        if (!state.contests && !state.user) {
+            console.error('Attempted to save malformed state (missing contests/user). Aborted.');
+            return false;
+        }
+
+        localStorage.setItem('ultra-dashboard-data', JSON.stringify(state));
+        return true;
+    } catch (e) {
+        console.error('Error saving data:', e);
+        return false;
+    }
+};
+
+// EXTREME SAFETY: Backup on load
+export const backupData = (state) => {
+    try {
+        if (!state) return;
+        localStorage.setItem('ultra-dashboard-data-backup-safety', JSON.stringify(state));
+        console.log('Safety backup created.');
+    } catch (e) {
+        console.error('Backup failed:', e);
+    }
+};
+
+// Export data as JSON file
+export const exportData = (state) => {
+    // Export the currently active contest data mostly, or all?
+    // Let's export ALL data structure for full backup
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ultra-dashboard-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
