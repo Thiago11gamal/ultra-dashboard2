@@ -106,8 +106,13 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
         // Convert Objects to Arrays for rendering
         const finalGroups = Object.values(grouped).sort((a, b) => b.dateObj - a.dateObj).map((dayGroup) => {
-            // Sort categories by total minutes
-            const cats = Object.values(dayGroup.categories).sort((a, b) => b.totalMinutes - a.totalMinutes);
+            // Sort categories by Last Activity Time (Chronological)
+            const cats = Object.values(dayGroup.categories).map(cat => ({
+                ...cat,
+                // Find latest log time for this category on this day
+                lastLogTime: Math.max(...cat.logs.map(l => new Date(l.date).getTime()))
+            })).sort((a, b) => b.lastLogTime - a.lastLogTime);
+
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);
             const dayTotalSessions = cats.reduce((acc, c) => acc + c.logs.length, 0);
             return {
@@ -151,17 +156,17 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             </div>
 
             {/* Timeline Content */}
-            <div className="relative pl-4 space-y-12 before:content-[''] before:absolute before:left-[27px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
+            <div className="relative pl-12 space-y-12 before:content-[''] before:absolute before:left-8 before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup, index) => (
                     <div key={dayGroup.label + index} className="relative z-10">
                         {/* Day Marker */}
-                        <div className="absolute -left-[42px] top-0 flex flex-col items-center">
-                            <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-xl border-4 ${dayGroup.isToday
+                        <div className="absolute -left-[54px] top-0 flex flex-col items-center w-14">
+                            <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shadow-xl border-4 ${dayGroup.isToday
                                 ? 'bg-purple-600 border-slate-900 text-white scale-110'
                                 : 'bg-slate-800 border-slate-900 text-slate-400'
                                 }`}>
-                                <span className="text-xs font-bold uppercase">{dayGroup.subLabel.substring(0, 3)}</span>
-                                <span className={`text-lg font-black ${dayGroup.isToday ? 'text-white' : 'text-slate-200'}`}>
+                                <span className="text-[10px] font-bold uppercase">{dayGroup.subLabel.substring(0, 3)}</span>
+                                <span className={`text-base font-black ${dayGroup.isToday ? 'text-white' : 'text-slate-200'}`}>
                                     {dayGroup.dateObj.getDate()}
                                 </span>
                             </div>
