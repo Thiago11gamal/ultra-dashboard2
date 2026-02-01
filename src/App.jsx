@@ -316,6 +316,37 @@ function App() {
     showToast('Painel alterado!', 'success');
   }, []);
 
+  // Delete Contest
+  const deleteContest = useCallback((contestId) => {
+    if (!window.confirm('Tem certeza que deseja excluir este painel? Essa ação não pode ser desfeita.')) return;
+
+    setAppState(prev => {
+      const newContests = { ...prev.contests };
+      delete newContests[contestId];
+
+      // Determine new active ID
+      let newActiveId = prev.activeId;
+      const remainingIds = Object.keys(newContests);
+
+      if (remainingIds.length === 0) {
+        // If no contests left, create a fresh default one
+        const newId = 'default';
+        newContests[newId] = INITIAL_DATA;
+        newActiveId = newId;
+      } else if (contestId === prev.activeId) {
+        // If deleted current, switch to first available
+        newActiveId = remainingIds[0];
+      }
+
+      return {
+        ...prev,
+        contests: newContests,
+        activeId: newActiveId
+      };
+    });
+    showToast('Painel excluído com sucesso.', 'info');
+  }, [showToast]);
+
   // Auto-save data
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1351,6 +1382,7 @@ function App() {
           activeContestId={safeAppState.activeId}
           onSwitchContest={switchContest}
           onCreateContest={createNewContest}
+          onDeleteContest={deleteContest}
           onUndo={handleUndo}
           onCloudRestore={handleCloudRestore}
           currentData={data}

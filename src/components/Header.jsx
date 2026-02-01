@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, LogOut, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload } from 'lucide-react';
+import { Bell, Plus, LogOut, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
@@ -15,6 +15,7 @@ export default function Header({
     activeContestId,
     onSwitchContest,
     onCreateContest,
+    onDeleteContest,
     onUndo,
     onCloudRestore,
     currentData
@@ -142,21 +143,42 @@ export default function Header({
 
                             <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
                                 {contests && Object.entries(contests).map(([id, contestData]) => (
-                                    <button
+                                    <div
                                         key={id}
-                                        onClick={() => {
-                                            if (id !== activeContestId) onSwitchContest(id);
-                                            setProfileOpen(false);
-                                        }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition-colors ${id === activeContestId
-                                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                            : 'hover:bg-white/5 text-slate-300'
+                                        className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
+                                            ? 'bg-purple-500/20 border border-purple-500/30'
+                                            : 'hover:bg-white/5'
                                             }`}
                                     >
-                                        <LayoutDashboard size={16} />
-                                        <span className="truncate flex-1">{contestData?.user?.name || 'Sem nome'}</span>
-                                        {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>}
-                                    </button>
+                                        <button
+                                            onClick={() => {
+                                                if (id !== activeContestId) onSwitchContest(id);
+                                                setProfileOpen(false);
+                                            }}
+                                            className={`flex-1 flex items-center gap-3 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
+                                        >
+                                            <LayoutDashboard size={16} className="shrink-0" />
+                                            <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
+                                        </button>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteContest(id);
+                                                    // Don't close profile here to allow deleting multiple if needed, or close? 
+                                                    // User might want to manage list. Let's keep it open or close? 
+                                                    // Usually delete confirms -> likely re-render.
+                                                }}
+                                                className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                                                title="Excluir Painel"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
 
