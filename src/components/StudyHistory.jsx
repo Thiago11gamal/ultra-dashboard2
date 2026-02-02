@@ -285,6 +285,9 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             if (validRows.length === 0) return null;
 
                             const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total) || 0), 0);
+
+                            // Visualize empty state if no questions answered yet (e.g. auto-cloned rows)
+                            if (totalQuestions === 0) return null;
                             const totalCorrect = validRows.reduce((acc, r) => acc + (parseInt(r.correct) || 0), 0);
                             const globalPct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
@@ -372,7 +375,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                 <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60">
                                                     {/* Subject Header */}
                                                     <div className="relative p-4 flex items-center justify-between border-b border-indigo-500/20"
-                                                        style={{ borderLeft: `4px solid ${subjColor}` }}>
+                                                        style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '24px' }}>
                                                         <div className="flex items-center gap-3">
                                                             <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
                                                         </div>
@@ -475,16 +478,6 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                         <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
                                     </div>
                                 )}
-
-                                {/* Premium Divider */}
-                                <div className="flex flex-col items-center gap-3 py-4 px-2">
-                                    <div className="w-0.5 flex-1 bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent rounded-full"></div>
-                                    <div className="relative">
-                                        <div className="absolute inset-0 bg-cyan-500/40 blur-lg rounded-full scale-150"></div>
-                                        <div className="relative w-4 h-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 border-2 border-cyan-300/50 shadow-lg shadow-cyan-500/30"></div>
-                                    </div>
-                                    <div className="w-0.5 flex-1 bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent rounded-full"></div>
-                                </div>
 
                                 {todaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">

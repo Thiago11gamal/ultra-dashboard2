@@ -110,16 +110,33 @@ function App() {
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
 
     setData(prev => {
-      // Clean old simulado rows (only keep today and yesterday)
-      const cleanedRows = (prev.simuladoRows || []).filter(row => {
-        if (!row.createdAt) return false; // Remove legacy rows without timestamp
+      // 1. Clean old rows (keep only today + yesterday)
+      let currentRows = (prev.simuladoRows || []).filter(row => {
+        if (!row.createdAt) return false;
         const rowDate = new Date(row.createdAt).toDateString();
         return rowDate === today || rowDate === yesterday;
       });
 
+      // 2. Check for "New Day" condition
+      const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
+      const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
+
+      if (!hasToday && hasYesterday) {
+        // Auto-Clone Yesterday -> Today (Reset values)
+        const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
+        const newTodayRows = yesterdayRows.map(r => ({
+          subject: r.subject,
+          topic: r.topic,
+          correct: 0,
+          total: 0,
+          createdAt: Date.now() // Today
+        }));
+        currentRows = [...currentRows, ...newTodayRows];
+      }
+
       return {
         ...prev,
-        simuladoRows: cleanedRows,
+        simuladoRows: currentRows,
         categories: prev.categories.map(cat => ({
           ...cat,
           tasks: (cat.tasks || []).map(t =>
@@ -423,25 +440,28 @@ function App() {
 
   // Update Simulado Rows (Lifted State from SimuladoAnalysis)
   // Adds timestamp to new rows and cleans up old rows (only keep today and yesterday)
-  const handleUpdateSimuladoRows = useCallback((newRows) => {
+  // Update Simulado Rows (Lifted State from SimuladoAnalysis)
+  // Adds timestamp to new rows and cleans up old rows (only keep today and yesterday)
+  const handleUpdateSimuladoRows = useCallback((updatedTodayRows) => {
     const now = new Date();
     const today = now.toDateString();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
 
-    // Add timestamp to rows that don't have one
-    const rowsWithTimestamp = newRows.map(row => ({
-      ...row,
-      createdAt: Date.now() // Always update to current time when modified
-    }));
+    setData(prev => {
+      const existingRows = prev.simuladoRows || [];
+      // Keep everything that is NOT from today (preserves Yesterday)
+      const nonTodayRows = existingRows.filter(row => {
+        if (!row.createdAt) return false;
+        return new Date(row.createdAt).toDateString() !== today;
+      });
 
-    // Filter to keep only rows from today and yesterday
-    const filteredRows = rowsWithTimestamp.filter(row => {
-      if (!row.createdAt) return true; // Keep rows without timestamp (legacy)
-      const rowDate = new Date(row.createdAt).toDateString();
-      return rowDate === today || rowDate === yesterday;
+      // Ensure updated rows have timestamp and are marked as Today
+      const processedTodayRows = updatedTodayRows.map(row => ({
+        ...row,
+        createdAt: row.createdAt || Date.now()
+      }));
+
+      return { ...prev, simuladoRows: [...nonTodayRows, ...processedTodayRows] };
     });
-
-    setData(prev => ({ ...prev, simuladoRows: filteredRows }));
   }, [setData]);
 
   // Handle Simulado Analysis Results
@@ -934,7 +954,10 @@ function App() {
       case 'simulados':
         return (
           <SimuladoAnalysis
-            rows={data.simuladoRows || []}
+            rows={(data.simuladoRows || []).filter(r => {
+              if (!r.createdAt) return false;
+              return new Date(r.createdAt).toDateString() === new Date().toDateString();
+            })}
             onRowsChange={handleUpdateSimuladoRows}
             onAnalysisComplete={handleSimuladoAnalysis}
           />

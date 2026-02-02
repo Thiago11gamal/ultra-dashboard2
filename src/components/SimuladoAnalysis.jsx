@@ -178,6 +178,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             <button onClick={() => { if (window.confirm('Limpar tudo?')) setRows([{ subject: '', topic: '', correct: 0, total: 0 }]); }} className="text-xs text-slate-500 hover:text-red-400 transition-colors">
                                 Limpar Tudo
                             </button>
+
                         </div>
                     </div>
 
