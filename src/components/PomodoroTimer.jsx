@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -51,10 +51,6 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [speed, setSpeed] = useState(1);
 
-    // Timer Ref to avoid closure staleness
-    const lastTickRef = React.useRef(null);
-    const accumulatorRef = React.useRef(0);
-    const animationFrameRef = React.useRef(null);
 
     // Request notification permission on mount
     useEffect(() => {
@@ -106,58 +102,22 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                 savedAt: Date.now()
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        }, 1000);
+        }, 5000); // Debounce 5 seconds to reduce writes
 
         return () => clearTimeout(timer);
     }, [mode, timeLeft, sessions, completedCycles, targetCycles, sessionHistory]);
 
-    // Cleanup animation frame on unmount
-    useEffect(() => {
-        return () => {
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-        };
-    }, []);
 
-    // Timer Logic - Virtual Time Accumulator (Supports Speed + Drift Safe)
+    // Timer Logic - Simple setInterval (More Stable)
     useEffect(() => {
+        let interval;
         if (isRunning && timeLeft > 0) {
-            lastTickRef.current = Date.now();
-
-            const tick = () => {
-                const now = Date.now();
-                const delta = now - lastTickRef.current;
-                lastTickRef.current = now;
-
-                // Add weighted time to accumulator
-                accumulatorRef.current += delta * speed;
-
-                // If we have accumulated enough time for at least one second
-                if (accumulatorRef.current >= 1000) {
-                    const secondsPassed = Math.floor(accumulatorRef.current / 1000);
-                    accumulatorRef.current %= 1000; // Keep the remainder
-
-                    // Functional update to use latest state without dependency
-                    setTimeLeft(prev => {
-                        const newTime = prev - secondsPassed;
-                        return Math.max(0, newTime);
-                    });
-                }
-
-                animationFrameRef.current = requestAnimationFrame(tick);
-            };
-
-            animationFrameRef.current = requestAnimationFrame(tick);
-        } else {
-            // Paused
-            lastTickRef.current = null;
-            accumulatorRef.current = 0;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            interval = setInterval(() => {
+                setTimeLeft(prev => Math.max(0, prev - 1));
+            }, 1000 / speed);
         }
-
-        return () => {
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-        };
-    }, [isRunning, speed]); // Re-run if speed changes to reset reference frame if needed, though robust loop handles it.
+        return () => clearInterval(interval);
+    }, [isRunning, speed]);
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
     useEffect(() => {
@@ -256,18 +216,41 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         }
     };
 
+    // Format time as MM:SS
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
     const progress = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100)); // Clamp 0-100
+
+    // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
+    const retention = useMemo(() => {
+        if (!activeSubject) return null;
+        const cat = categories.find(c => c.name === activeSubject.category);
+        if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
+
+        const last = new Date(cat.lastStudiedAt).getTime();
+        const diffHours = (Date.now() - last) / (1000 * 60 * 60);
+        const days = diffHours / 24;
+        const val = Math.round(100 * Math.exp(-days / 2));
+
+        if (val >= 90) return { val, label: 'Memória Fresca', color: 'text-emerald-400', border: 'border-emerald-500' };
+        if (val >= 60) return { val, label: 'Risco Médio', color: 'text-yellow-400', border: 'border-yellow-500' };
+        return { val, label: 'Crítico', color: 'text-red-500', border: 'border-red-500' };
+    }, [activeSubject, categories]);
 
     // Layout Variants - Soft / Academic
     const containerClass = "max-w-2xl mx-auto space-y-6 relative font-sans selection:bg-stone-200";
 
-    // Dynamic Colors based on State - DARK STONE THEME (Integrated)
-    const getThemeColors = () => {
+    // Dynamic Colors based on State - Memoized
+    const theme = useMemo(() => {
         if (completedCycles >= targetCycles) return {
             primary: 'text-stone-200',
             secondary: 'text-stone-400',
-            bg: 'bg-[#1c1917]', // Stone 900
+            bg: 'bg-[#1c1917]',
             border: 'border-stone-700',
             iconBg: 'bg-[#292524] border border-stone-700 text-stone-200',
             button: 'bg-stone-800 text-stone-200 hover:bg-stone-700 border border-stone-700',
@@ -282,18 +265,16 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
             button: 'bg-zinc-900 text-stone-200 hover:bg-zinc-800 border border-zinc-700',
             progress: 'bg-zinc-600'
         };
-        return { // Work / Default
+        return {
             primary: 'text-stone-100',
             secondary: 'text-stone-400',
-            bg: 'bg-[#292524]', // Stone 800 (Warm Dark Gray)
+            bg: 'bg-[#292524]',
             border: 'border-stone-700',
-            iconBg: 'bg-[#1c1917] border border-stone-700 text-stone-200', // Stone 900
+            iconBg: 'bg-[#1c1917] border border-stone-700 text-stone-200',
             button: 'bg-[#1c1917] text-stone-200 hover:bg-black border border-stone-700',
             progress: 'bg-stone-200'
         };
-    };
-
-    const theme = getThemeColors();
+    }, [mode, completedCycles, targetCycles]);
 
     return (
         <motion.div
@@ -438,7 +419,10 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
                                 className={`ease-linear ${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
-                                style={{ transition: `stroke-dashoffset ${1000 / speed}ms linear` }}
+                                style={{
+                                    transition: `stroke-dashoffset ${1000 / speed}ms linear`,
+                                    willChange: 'stroke-dashoffset'
+                                }}
                             />
                         </svg>
 
@@ -598,7 +582,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                             }`}
                                         style={{
                                             width: `${workProgress}%`,
-                                            transition: `width ${1000 / speed + 200}ms linear`
+                                            transition: `width ${1000 / speed}ms linear`
                                         }}
                                     ></div>
                                 </div>
@@ -609,7 +593,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                         className="w-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
                                         style={{
                                             height: `${breakProgress}%`,
-                                            transition: `height ${1000 / speed + 200}ms linear`
+                                            transition: `height ${1000 / speed}ms linear`
                                         }}
                                     ></div>
                                 </div>
