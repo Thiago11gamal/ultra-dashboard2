@@ -218,7 +218,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
 
             {/* Performance Panel */}
-            <div className="relative rounded-2xl overflow-hidden">
+            <div className="relative rounded-2xl overflow-hidden -mt-2">
                 {/* Premium Glass Background with animated gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
