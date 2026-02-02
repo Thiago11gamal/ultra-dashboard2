@@ -20,6 +20,7 @@ import NextGoalCard from './components/NextGoalCard';
 import ActivityHeatmap from './components/ActivityHeatmap';
 import ConsistencyAlert from './components/ConsistencyAlert';
 import StudyHistory from './components/StudyHistory';
+import RetentionPanel from './components/RetentionPanel';
 import HelpGuide from './components/HelpGuide';
 import ParticleBackground from './components/ParticleBackground';
 
@@ -808,7 +809,13 @@ function App() {
             ? {
               ...cat,
               totalMinutes: (cat.totalMinutes || 0) + minutes,
-              lastStudiedAt: timestamp
+              lastStudiedAt: timestamp,
+              // Also update the specific task's lastStudiedAt
+              tasks: (cat.tasks || []).map(task =>
+                task.id === taskId
+                  ? { ...task, lastStudiedAt: timestamp }
+                  : task
+              )
             }
             : cat
         )
@@ -1316,6 +1323,20 @@ function App() {
               </div>
             </div>
           </div>
+        );
+      case 'retention':
+        return (
+          <RetentionPanel
+            categories={data.categories}
+            onSelectCategory={(cat) => {
+              // When user clicks a category, switch to pomodoro with that category selected
+              const firstTask = cat.tasks?.[0];
+              if (firstTask) {
+                startStudying(cat.id, firstTask.id);
+              }
+              setActiveTab('pomodoro');
+            }}
+          />
         );
       case 'notes':
         return (

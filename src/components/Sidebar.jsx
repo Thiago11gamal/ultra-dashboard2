@@ -13,7 +13,8 @@ import {
     Sparkles,
     CalendarDays,
     History,
-    HelpCircle
+    HelpCircle,
+    Brain
 } from 'lucide-react';
 import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
 
@@ -35,6 +36,7 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
         { id: 'simulados', label: 'Simulados IA', icon: BrainCircuit },
         { id: 'stats', label: 'Estatísticas', icon: BarChart3 },
         { id: 'heatmap', label: 'Atividade', icon: CalendarDays },
+        { id: 'retention', label: 'Retenção', icon: Brain },
         { id: 'history', label: 'Histórico', icon: History },
         { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
         { id: 'notes', label: 'Notas', icon: FileText },
