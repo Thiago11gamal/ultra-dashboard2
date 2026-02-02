@@ -117,6 +117,21 @@ function App() {
         return rowDate === today || rowDate === yesterday;
       });
 
+      // 1.5 Deduplicate exact matches (fixes accumulation from multiple tests/clicks)
+      const seen = new Set();
+      currentRows = currentRows.filter(row => {
+        const key = JSON.stringify({
+          s: row.subject?.trim(),
+          t: row.topic?.trim(),
+          c: row.correct,
+          tot: row.total,
+          d: new Date(row.createdAt).toDateString()
+        });
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       // 2. Check for "New Day" condition
       const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
       const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
