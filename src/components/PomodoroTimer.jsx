@@ -256,6 +256,9 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         }
     };
 
+    const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+    const progress = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100)); // Clamp 0-100
+
     // Layout Variants - Soft / Academic
     const containerClass = "max-w-2xl mx-auto space-y-6 relative font-sans selection:bg-stone-200";
 
