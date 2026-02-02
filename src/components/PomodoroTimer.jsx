@@ -3,24 +3,9 @@ import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'luc
 import { motion } from 'framer-motion';
 
 export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onStartStudying, onUpdateStudyTime }) {
-    // Restore state from localStorage on mount
-    const [mode, setMode] = useState(() => {
-        const saved = localStorage.getItem('pomodoroState');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            return parsed.mode || 'work';
-        }
-        return 'work';
-    });
-
-    const [timeLeft, setTimeLeft] = useState(() => {
-        const saved = localStorage.getItem('pomodoroState');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            return parsed.timeLeft || settings.pomodoroWork * 60;
-        }
-        return settings.pomodoroWork * 60;
-    });
+    // Always start fresh - no localStorage restoration for time/mode
+    const [mode, setMode] = useState('work');
+    const [timeLeft, setTimeLeft] = useState(settings.pomodoroWork * 60);
 
     const [isRunning, setIsRunning] = useState(false); // Always start paused
 
@@ -224,7 +209,9 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     };
 
     const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
-    const progress = Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100)); // Clamp 0-100
+    // Progress is 0 if timer hasn't started (at full time and not running)
+    const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
+    const progress = (timeLeft === totalTime && !isRunning) ? 0 : Math.max(0, Math.min(100, rawProgress));
 
     // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {
@@ -418,11 +405,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
-                                className={`ease-linear ${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
-                                style={{
-                                    transition: `stroke-dashoffset ${1000 / speed}ms linear`,
-                                    willChange: 'stroke-dashoffset'
-                                }}
+                                className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
 
@@ -580,10 +563,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                                 : 'bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.5)]'
                                             : 'bg-stone-600'
                                             }`}
-                                        style={{
-                                            width: `${workProgress}%`,
-                                            transition: `width ${1000 / speed}ms linear`
-                                        }}
+                                        style={{ width: `${workProgress}%` }}
                                     ></div>
                                 </div>
 
@@ -591,10 +571,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                 <div className="w-6 h-6 rounded-full bg-[#292524] border border-stone-800 relative overflow-hidden flex items-end shrink-0">
                                     <div
                                         className="w-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                                        style={{
-                                            height: `${breakProgress}%`,
-                                            transition: `height ${1000 / speed}ms linear`
-                                        }}
+                                        style={{ height: `${breakProgress}%` }}
                                     ></div>
                                 </div>
                             </React.Fragment>
