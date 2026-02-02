@@ -51,253 +51,137 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [speed, setSpeed] = useState(1);
 
-    // Save state to localStorage whenever it changes
+    // Timer Ref to avoid closure staleness
+    const lastTickRef = React.useRef(null);
+    const accumulatorRef = React.useRef(0);
+    const animationFrameRef = React.useRef(null);
+
+    // Save state to localStorage - Debounced (save every 5s or on important events)
     useEffect(() => {
-        const stateToSave = {
-            mode,
-            timeLeft,
-            sessions,
-            completedCycles,
-            targetCycles,
-            sessionHistory,
-            savedAt: Date.now()
-        };
-        localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        const timer = setTimeout(() => {
+            const stateToSave = {
+                mode,
+                timeLeft,
+                sessions,
+                completedCycles,
+                targetCycles,
+                sessionHistory,
+                savedAt: Date.now()
+            };
+            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        }, 1000);
+
+        return () => clearTimeout(timer);
     }, [mode, timeLeft, sessions, completedCycles, targetCycles, sessionHistory]);
 
-    // Request notification permission on mount
+    // Cleanup animation frame on unmount
     useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        return () => {
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        };
     }, []);
 
-    // Send browser notification
-    const sendNotification = (title, body) => {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-                new Notification(title, {
-                    body,
-                    icon: '🍅',
-                    tag: 'pomodoro-timer'
-                });
-            } catch (e) {
-                console.log('Notification error:', e);
-            }
-        }
-    };
-
-    // Persistent Position
-    const [uiPosition, setUiPosition] = useState(() => {
-        const saved = localStorage.getItem('pomodoroPosition');
-        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
-    });
-
-    const handleDragEnd = (event, info) => {
-        const newPos = {
-            x: uiPosition.x + info.offset.x,
-            y: uiPosition.y + info.offset.y
-        };
-        setUiPosition(newPos);
-        localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
-    };
-
-    // Determine cycles based on Task Priority
-    const getTaskCycles = (task) => {
-        if (!task || !task.priority) return 1;
-        // Priority Mapping: High -> 3, Medium -> 2, Low -> 1
-        switch (task.priority) {
-            case 'high': return 3;
-            case 'medium': return 2;
-            case 'low': return 1;
-            default: return 1;
-        }
-    };
-
-    // Handle Task Selection
-    const handleTaskSelect = (category, task) => {
-        const cycles = getTaskCycles(task);
-        setTargetCycles(cycles);
-        setCompletedCycles(0);
-        setSessions(0); // Reset work sessions counter
-        setSessionHistory([]);
-        setIsRunning(false);
-        setMode('work');
-        setTimeLeft(settings.pomodoroWork * 60);
-
-        // Notify parent to set active subject (Global Sync)
-        if (onStartStudying) {
-            onStartStudying(category.id, task.id);
-        }
-    };
-
-    const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
-    const progress = ((totalTime - timeLeft) / totalTime) * 100;
-
-    // Reset timer when settings change (but not on initial mount to preserve persisted state)
-    const isFirstMount = React.useRef(true);
+    // Timer Logic - Virtual Time Accumulator (Supports Speed + Drift Safe)
     useEffect(() => {
-        if (isFirstMount.current) {
-            isFirstMount.current = false;
-            return; // Skip on first mount to preserve localStorage state
-        }
-        setTimeLeft(mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60);
-    }, [settings, mode]);
-
-    // Format time as MM:SS
-    const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    // Determine difficulty and cycles based on stats
-    const getSubjectDifficulty = (category) => {
-        const average = category.simuladoStats?.average || 0;
-        // Inverted Logic: Low Score = High Difficulty
-        // Assuming average is 0-100
-        if (average === 0 && (!category.simuladoStats || !category.simuladoStats.history || category.simuladoStats.history.length === 0)) {
-            // New subject or no data -> Medium default
-            return { level: 'MÉDIO', cycles: 2, label: 'Normal' };
-        }
-        if (average < 40) return { level: 'ALTO', cycles: 3, label: 'Difícil' };
-        if (average < 70) return { level: 'MÉDIO', cycles: 2, label: 'Médio' };
-        return { level: 'BAIXO', cycles: 1, label: 'Fácil' };
-    };
-
-    // Handle Subject Selection
-    const handleSubjectSelect = (category) => {
-        const { cycles } = getSubjectDifficulty(category);
-        setTargetCycles(cycles);
-        setCompletedCycles(0);
-        setSessions(0); // Reset work sessions counter
-        setSessionHistory([]);
-        setIsRunning(false);
-        setMode('work');
-        setTimeLeft(settings.pomodoroWork * 60);
-        // Note: activeSubject should ideally be updated here too, but that requires lifting state up to App.jsx.
-        // For now, this sets the *intent* and visual target locally. 
-        // We will assume the user clicks "Play" on the timer to actually start.
-    };
-
-    // Ebbinghaus Forgetting Curve Calculation
-    const getRetention = () => {
-        if (!activeSubject) return null;
-        // Match category by name
-        const cat = categories.find(c => c.name === activeSubject.category);
-
-        // If never studied or new, return 100 (Fresh)
-        if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
-
-        const last = new Date(cat.lastStudiedAt).getTime();
-        const now = Date.now();
-        const diffHours = (now - last) / (1000 * 60 * 60);
-
-        // Formula: R = e^(-t/S)
-        // t = days
-        // S = Memory Strength (Using S=2 days as baseline for unreviewed content)
-        const days = diffHours / 24;
-        const R = 100 * Math.exp(-days / 2);
-        const val = Math.round(R);
-
-        if (val >= 90) return { val, label: 'Memória Fresca', color: 'text-emerald-400', border: 'border-emerald-500' };
-        if (val >= 60) return { val, label: 'Risco Médio', color: 'text-yellow-400', border: 'border-yellow-500' };
-        return { val, label: 'Crítico', color: 'text-red-500', border: 'border-red-500' };
-    };
-
-    const retention = getRetention();
-
-    // Initialize target when activeSubject changes
-    // Ref to track the last initialized task ID to avoid unwanted resets
-    const lastInitializedTaskRef = React.useRef(null);
-
-    useEffect(() => {
-        if (activeSubject && categories.length > 0) {
-            const currentTaskId = activeSubject.taskId; // Assuming taskId is available in activeSubject (it is passed in App.jsx)
-
-            // Only initialize if we haven't initialized this task yet
-            if (currentTaskId !== lastInitializedTaskRef.current) {
-                const category = categories.find(c => c.name === activeSubject.category);
-                if (category) {
-                    const { cycles } = getSubjectDifficulty(category);
-                    setTargetCycles(cycles);
-                    lastInitializedTaskRef.current = currentTaskId;
-                }
-            }
-        }
-    }, [activeSubject, categories]);
-
-    // Timer logic
-    useEffect(() => {
-        let interval;
         if (isRunning && timeLeft > 0) {
-            interval = setInterval(() => {
-                setTimeLeft(prev => prev - 1);
-            }, 1000 / speed);
-        } else if (timeLeft === 0) {
-            // Timer complete
-            const completedDuration = mode === 'work' ? settings.pomodoroWork : settings.pomodoroBreak;
-            const newHistoryItem = { type: mode, duration: completedDuration };
+            lastTickRef.current = Date.now();
 
-            setSessionHistory(prev => [...prev, newHistoryItem]);
+            const tick = () => {
+                const now = Date.now();
+                const delta = now - lastTickRef.current;
+                lastTickRef.current = now;
 
-            if (mode === 'work') {
-                const newSessions = sessions + 1;
-                setSessions(newSessions);
-                onSessionComplete?.();
+                // Add weighted time to accumulator
+                accumulatorRef.current += delta * speed;
 
-                // Track Study Time
-                if (activeSubject && onUpdateStudyTime) {
-                    onUpdateStudyTime(activeSubject.categoryId, settings.pomodoroWork, activeSubject.taskId);
+                // If we have accumulated enough time for at least one second
+                if (accumulatorRef.current >= 1000) {
+                    const secondsPassed = Math.floor(accumulatorRef.current / 1000);
+                    accumulatorRef.current %= 1000; // Keep the remainder
+
+                    // Functional update to use latest state without dependency
+                    setTimeLeft(prev => {
+                        const newTime = prev - secondsPassed;
+                        return Math.max(0, newTime);
+                    });
                 }
 
-                // Check for Task Completion immediately after Work
-                // If we reached the target number of 'cycles' (work sessions), we are done.
-                if (newSessions >= targetCycles) {
-                    onFullCycleComplete?.();
-                    setIsRunning(false);
-                    return; // Stop handling, don't switch to break
-                }
+                animationFrameRef.current = requestAnimationFrame(tick);
+            };
 
-                // Work finished -> switch to break
-                setMode('break');
-                setTimeLeft(settings.pomodoroBreak * 60);
-            } else {
-                // Break finished -> Cycle Complete
-                const newCompletedCycles = completedCycles + 1;
-                setCompletedCycles(newCompletedCycles);
-
-                // (Previous completion check removed from here)
-
-                setMode('work');
-                setTimeLeft(settings.pomodoroWork * 60);
-                setIsRunning(false); // Pause after break
-            }
-
-            // Play sound if enabled
-            // Requirement was specific about cycle structure, not auto-start. 
-            // Existing logic had auto-continue for break? No, let's check.
-            // Previous logic: setIsRunning(false) after every timer end.
-            setIsRunning(false);
-
-            // Play sound if enabled
-            if (settings.soundEnabled) {
-                try {
-                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtf' +
-                        'yyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                    audio.play().catch(() => { });
-                } catch (e) { }
-            }
-
-            // Send browser notification
-            if (mode === 'work') {
-                sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
-            } else {
-                sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
-            }
+            animationFrameRef.current = requestAnimationFrame(tick);
+        } else {
+            // Paused
+            lastTickRef.current = null;
+            accumulatorRef.current = 0;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         }
-        return () => clearInterval(interval);
-    }, [isRunning, timeLeft, mode, settings, onSessionComplete, sessions, speed]);
+
+        return () => {
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        };
+    }, [isRunning, speed]); // Re-run if speed changes to reset reference frame if needed, though robust loop handles it.
+
+    // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
+    useEffect(() => {
+        if (timeLeft === 0 && isRunning) {
+            handleTimerComplete();
+        }
+    }, [timeLeft, isRunning]);
+
+    const handleTimerComplete = useCallback(() => {
+        // Timer complete
+        const completedDuration = mode === 'work' ? settings.pomodoroWork : settings.pomodoroBreak;
+        const newHistoryItem = { type: mode, duration: completedDuration };
+
+        setSessionHistory(prev => [...prev, newHistoryItem]);
+
+        if (mode === 'work') {
+            const newSessions = sessions + 1;
+            setSessions(newSessions);
+            onSessionComplete?.();
+
+            // Track Study Time
+            if (activeSubject && onUpdateStudyTime) {
+                onUpdateStudyTime(activeSubject.categoryId, settings.pomodoroWork, activeSubject.taskId);
+            }
+
+            // Check for Task Completion
+            if (newSessions >= targetCycles) {
+                onFullCycleComplete?.();
+                setIsRunning(false);
+                return;
+            }
+
+            // Switch to break
+            setMode('break');
+            setTimeLeft(settings.pomodoroBreak * 60);
+        } else {
+            // Break finished
+            const newCompletedCycles = completedCycles + 1;
+            setCompletedCycles(newCompletedCycles);
+
+            setMode('work');
+            setTimeLeft(settings.pomodoroWork * 60);
+            setIsRunning(false);
+        }
+
+        setIsRunning(false);
+
+        // Sound & Notification
+        if (settings.soundEnabled) {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+                audio.play().catch(() => { });
+            } catch (e) { }
+        }
+
+        if (mode === 'work') {
+            sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
+        } else {
+            sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
+        }
+    }, [mode, sessions, targetCycles, completedCycles, activeSubject, settings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
     const reset = () => {
         setIsRunning(false);
@@ -514,7 +398,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
                                 className={`ease-linear ${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
-                                style={{ transition: `stroke-dashoffset ${1000 / speed + 200}ms linear` }}
+                                style={{ transition: `stroke-dashoffset ${1000 / speed}ms linear` }}
                             />
                         </svg>
 
