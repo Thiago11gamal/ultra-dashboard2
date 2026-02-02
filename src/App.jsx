@@ -105,15 +105,29 @@ function App() {
 
   // Change 'studying' to 'paused' on app initialization (shows indicator where user left off)
   useEffect(() => {
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat => ({
-        ...cat,
-        tasks: (cat.tasks || []).map(t =>
-          t.status === 'studying' ? { ...t, status: 'paused' } : t
-        )
-      }))
-    }));
+    const now = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+
+    setData(prev => {
+      // Clean old simulado rows (only keep today and yesterday)
+      const cleanedRows = (prev.simuladoRows || []).filter(row => {
+        if (!row.createdAt) return false; // Remove legacy rows without timestamp
+        const rowDate = new Date(row.createdAt).toDateString();
+        return rowDate === today || rowDate === yesterday;
+      });
+
+      return {
+        ...prev,
+        simuladoRows: cleanedRows,
+        categories: prev.categories.map(cat => ({
+          ...cat,
+          tasks: (cat.tasks || []).map(t =>
+            t.status === 'studying' ? { ...t, status: 'paused' } : t
+          )
+        }))
+      };
+    });
   }, []); // Empty deps = run once on mount
 
   // --- GAMIFICATION LOGIC ---
@@ -408,8 +422,26 @@ function App() {
   }, [appState, showToast]);
 
   // Update Simulado Rows (Lifted State from SimuladoAnalysis)
+  // Adds timestamp to new rows and cleans up old rows (only keep today and yesterday)
   const handleUpdateSimuladoRows = useCallback((newRows) => {
-    setData(prev => ({ ...prev, simuladoRows: newRows }));
+    const now = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+
+    // Add timestamp to rows that don't have one
+    const rowsWithTimestamp = newRows.map(row => ({
+      ...row,
+      createdAt: row.createdAt || Date.now()
+    }));
+
+    // Filter to keep only rows from today and yesterday
+    const filteredRows = rowsWithTimestamp.filter(row => {
+      if (!row.createdAt) return true; // Keep rows without timestamp (legacy)
+      const rowDate = new Date(row.createdAt).toDateString();
+      return rowDate === today || rowDate === yesterday;
+    });
+
+    setData(prev => ({ ...prev, simuladoRows: filteredRows }));
   }, [setData]);
 
   // Handle Simulado Analysis Results
@@ -950,6 +982,7 @@ function App() {
           <StudyHistory
             studySessions={data.studySessions || []}
             categories={data.categories}
+            simuladoRows={data.simuladoRows || []}
           />
         );
       case 'heatmap':
