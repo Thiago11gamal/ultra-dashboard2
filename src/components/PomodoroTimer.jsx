@@ -56,6 +56,43 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     const accumulatorRef = React.useRef(0);
     const animationFrameRef = React.useRef(null);
 
+    // Request notification permission on mount
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    // Send browser notification
+    const sendNotification = (title, body) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification(title, {
+                    body,
+                    icon: '🍅',
+                    tag: 'pomodoro-timer'
+                });
+            } catch (e) {
+                console.log('Notification error:', e);
+            }
+        }
+    };
+
+    // Persistent Position
+    const [uiPosition, setUiPosition] = useState(() => {
+        const saved = localStorage.getItem('pomodoroPosition');
+        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+    });
+
+    const handleDragEnd = (event, info) => {
+        const newPos = {
+            x: uiPosition.x + info.offset.x,
+            y: uiPosition.y + info.offset.y
+        };
+        setUiPosition(newPos);
+        localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
+    };
+
     // Save state to localStorage - Debounced (save every 5s or on important events)
     useEffect(() => {
         const timer = setTimeout(() => {
