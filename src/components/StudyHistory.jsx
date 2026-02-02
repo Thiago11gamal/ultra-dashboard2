@@ -341,15 +341,15 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                     : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
 
                             return (
-                                <div className={`flex-1 ${isToday ? '' : 'opacity-80'}`}>
+                                <div className={`flex-1 pr-6 ${isToday ? '' : 'opacity-80'}`}>
                                     {/* Section Title */}
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="text-2xl">{icon}</span>
                                         <h3 className={`text-lg font-bold ${isToday ? 'text-emerald-400' : 'text-slate-400'}`}>{title}</h3>
                                     </div>
 
-                                    {/* Global Insight Banner */}
-                                    <div className="mb-6 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-4 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
+                                    {/* Global Insight Banner - More Spacing */}
+                                    <div className="mb-6 mr-4 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
                                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
                                         <div className="relative flex items-center gap-3">
@@ -357,7 +357,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                 <BrainCircuit size={20} />
                                             </div>
                                             <div>
-                                                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Insight Geral</h4>
+                                                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
                                                 <p className="text-sm text-white font-medium">"{globalInsight}"</p>
                                             </div>
                                         </div>
@@ -372,14 +372,14 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                             const subjColor = getSubjectColor(subj.name);
 
                                             return (
-                                                <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60">
-                                                    {/* Subject Header */}
-                                                    <div className="relative p-4 flex items-center justify-between border-b border-indigo-500/20"
-                                                        style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '24px' }}>
+                                                <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
+                                                    {/* Subject Header - Clean Spacing */}
+                                                    <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
+                                                        style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
                                                         <div className="flex items-center gap-3">
                                                             <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
                                                         </div>
-                                                        <span className="text-[10px] text-slate-300 italic">
+                                                        <span className="text-[10px] text-slate-300 italic" style={{ paddingRight: '24px' }}>
                                                             {insight}
                                                         </span>
                                                     </div>
@@ -387,11 +387,11 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                     {/* Topics Table */}
                                                     <div className="p-4">
                                                         {/* Table Header */}
-                                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-3 border-b border-indigo-500/20 mb-2">
+                                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3 border-b border-indigo-500/20 mb-2">
                                                             <div className="col-span-4">Assunto</div>
                                                             <div className="col-span-3 text-center">Status</div>
                                                             <div className="col-span-2 text-center">Desempenho</div>
-                                                            <div className="col-span-3 text-right">Ação Recomendada</div>
+                                                            <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>Ação Recomendada</div>
                                                         </div>
 
                                                         {/* Topics Rows */}
@@ -402,7 +402,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                                 const TopicIcon = topicStatus.icon;
 
                                                                 return (
-                                                                    <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-3 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
+                                                                    <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
                                                                         {/* Topic Name */}
                                                                         <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
                                                                             {topic.name}
@@ -436,7 +436,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                                         </div>
 
                                                                         {/* Action */}
-                                                                        <div className="col-span-3 text-right">
+                                                                        <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>
                                                                             <span className="text-xs text-slate-200 font-medium">{action}</span>
                                                                         </div>
                                                                     </div>
