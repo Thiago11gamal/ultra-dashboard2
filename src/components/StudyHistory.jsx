@@ -71,10 +71,24 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
         return cat?.icon || '📚';
     };
 
+    // Helper to get color for performance subjects
+    const getSubjectColor = (name) => {
+        const cat = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if (cat?.color) return cat.color;
+
+        // Palette fallback for consistent coloring of unknown subjects
+        const palette = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4'];
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return palette[Math.abs(hash) % palette.length];
+    };
+
     return (
         <div className="w-full space-y-5 animate-fade-in-down">
             {/* Top Section - Header & Stats */}
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-6">
                 {/* Header */}
                 <div className="flex items-center gap-3 shrink-0">
                     <div className="relative">
@@ -90,7 +104,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                 </div>
 
                 {/* Stats Cards - Enhanced */}
-                <div className="flex-1 flex gap-3">
+                <div className="w-full flex gap-3">
                     <div className="flex-1 glass p-4 border-l-4 border-emerald-500">
                         <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
                             <Clock size={14} />
@@ -129,12 +143,12 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             {/* Middle Section - Chart and Sessions */}
             <div className="flex gap-4">
                 {/* Weekly Chart - Enhanced */}
-                <div className="w-1/3 glass p-4">
+                <div className="w-1/2 glass p-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
                         <BarChart3 size={14} />
                         Gráfico Semanal
                     </h3>
-                    <div className="flex items-end justify-between gap-2 h-32">
+                    <div className="flex items-end justify-between gap-2 h-40">
                         {stats.weekData.map((day, idx) => (
                             <div key={idx} className="flex-1 flex flex-col items-center gap-1">
                                 {/* Bar */}
@@ -173,7 +187,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                     </h3>
 
                     {stats.todaySessions.length > 0 ? (
-                        <div className="space-y-2 max-h-28 overflow-y-auto custom-scrollbar">
+                        <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                             {[...stats.todaySessions].reverse().map((session, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                                     <div className="flex items-center gap-2.5">
@@ -206,28 +220,28 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             {/* Performance Panel */}
             <div className="relative rounded-2xl overflow-hidden">
                 {/* Premium Glass Background with animated gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800/95 to-slate-900"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-500/10 via-transparent to-purple-500/10"></div>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-cyan-500/10 blur-3xl rounded-full"></div>
-                <div className="absolute inset-[1px] rounded-2xl border border-white/10"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-purple-500/15 blur-3xl rounded-full"></div>
+                <div className="absolute inset-[1px] rounded-2xl border border-indigo-500/20"></div>
 
                 {/* Content */}
-                <div className="relative p-5">
+                <div className="relative p-6">
                     {/* Premium Header */}
-                    <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
                             <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/40 to-blue-500/40 rounded-xl blur-xl group-hover:blur-2xl transition-all"></div>
-                                <div className="relative p-3 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 rounded-xl border border-cyan-500/30 shadow-xl shadow-cyan-500/10">
-                                    <BrainCircuit size={24} className="text-cyan-400" />
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/40 to-indigo-500/40 rounded-xl blur-xl group-hover:blur-2xl transition-all"></div>
+                                <div className="relative p-3 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-xl border border-purple-500/30 shadow-xl shadow-purple-500/10">
+                                    <BrainCircuit size={24} className="text-purple-400" />
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold bg-gradient-to-r from-white via-cyan-100 to-blue-200 bg-clip-text text-transparent">
+                                <h3 className="text-lg font-bold bg-gradient-to-r from-white via-purple-100 to-indigo-200 bg-clip-text text-transparent">
                                     Performance
                                 </h3>
-                                <p className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                                    <Target size={10} className="text-cyan-500/60" />
+                                <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                    <Target size={10} className="text-purple-500/60" />
                                     Análise de Simulados
                                 </p>
                             </div>
@@ -325,6 +339,12 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
 
                             return (
                                 <div className={`flex-1 ${isToday ? '' : 'opacity-80'}`}>
+                                    {/* Section Title */}
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="text-2xl">{icon}</span>
+                                        <h3 className={`text-lg font-bold ${isToday ? 'text-emerald-400' : 'text-slate-400'}`}>{title}</h3>
+                                    </div>
+
                                     {/* Global Insight Banner */}
                                     <div className="mb-6 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-4 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
                                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
@@ -346,22 +366,25 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                             const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
                                             const status = getStatus(subjPct);
                                             const insight = getInsight(subjPct);
+                                            const subjColor = getSubjectColor(subj.name);
 
                                             return (
-                                                <div key={idx} className="bg-slate-900/40 rounded-xl overflow-hidden border border-slate-700/50">
+                                                <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60">
                                                     {/* Subject Header */}
-                                                    <div className="relative bg-slate-800 p-3 flex items-center justify-between border-b border-slate-700/50">
-                                                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-${status.color}-500`}></div>
-                                                        <h3 className="ml-6 text-lg font-bold text-white tracking-tight relative z-10">{subj.name}</h3>
-                                                        <span className="text-[10px] text-slate-400 italic bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                                    <div className="relative p-4 flex items-center justify-between border-b border-indigo-500/20"
+                                                        style={{ borderLeft: `4px solid ${subjColor}` }}>
+                                                        <div className="flex items-center gap-3">
+                                                            <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-300 italic">
                                                             {insight}
                                                         </span>
                                                     </div>
 
                                                     {/* Topics Table */}
-                                                    <div className="p-2">
+                                                    <div className="p-4">
                                                         {/* Table Header */}
-                                                        <div className="grid grid-cols-12 gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider px-3 py-2 border-b border-slate-800 mb-1">
+                                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-3 border-b border-indigo-500/20 mb-2">
                                                             <div className="col-span-4">Assunto</div>
                                                             <div className="col-span-3 text-center">Status</div>
                                                             <div className="col-span-2 text-center">Desempenho</div>
@@ -369,49 +392,49 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                                         </div>
 
                                                         {/* Topics Rows */}
-                                                        <div className="space-y-1">
+                                                        <div className="space-y-2">
                                                             {subj.topics.map((topic, tIdx) => {
                                                                 const topicStatus = getStatus(topic.pct);
                                                                 const action = getAction(topic.pct);
                                                                 const TopicIcon = topicStatus.icon;
 
                                                                 return (
-                                                                    <div key={tIdx} className="grid grid-cols-12 gap-2 items-center px-3 py-3 rounded-lg hover:bg-slate-800/50 transition-colors">
+                                                                    <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-3 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
                                                                         {/* Topic Name */}
-                                                                        <div className="col-span-4 text-xs font-semibold text-slate-200 pr-2 whitespace-normal break-words leading-tight">
+                                                                        <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
                                                                             {topic.name}
                                                                         </div>
 
                                                                         {/* Status Badge */}
                                                                         <div className="col-span-3 flex justify-center">
-                                                                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${topicStatus.wrapper}`}>
-                                                                                <TopicIcon size={10} />
-                                                                                <span className="text-[9px] font-black tracking-wide">{topicStatus.label}</span>
+                                                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
+                                                                                <TopicIcon size={12} />
+                                                                                <span className="text-[10px] font-bold tracking-wide">{topicStatus.label}</span>
                                                                             </div>
                                                                         </div>
 
                                                                         {/* Performance Ring */}
                                                                         <div className="col-span-2 flex flex-col items-center justify-center">
-                                                                            <div className="relative w-9 h-9">
+                                                                            <div className="relative w-10 h-10">
                                                                                 <svg className="w-full h-full -rotate-90">
-                                                                                    <circle cx="18" cy="18" r="15" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
-                                                                                    <circle cx="18" cy="18" r="15" strokeWidth="3" fill="transparent"
+                                                                                    <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
+                                                                                    <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
                                                                                         stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
                                                                                         strokeLinecap="round"
-                                                                                        strokeDasharray={94}
-                                                                                        strokeDashoffset={94 - (94 * topic.pct / 100)}
+                                                                                        strokeDasharray={100}
+                                                                                        strokeDashoffset={100 - topic.pct}
                                                                                     />
                                                                                 </svg>
                                                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                                                    <span className="text-[9px] font-bold text-white">{topic.pct}%</span>
+                                                                                    <span className="text-[10px] font-bold text-white">{topic.pct}%</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <span className="text-[8px] text-slate-500 mt-0.5 font-mono">{topic.correct}/{topic.total}</span>
+                                                                            <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
                                                                         </div>
 
                                                                         {/* Action */}
                                                                         <div className="col-span-3 text-right">
-                                                                            <span className="text-[10px] text-slate-300 font-medium">{action}</span>
+                                                                            <span className="text-xs text-slate-200 font-medium">{action}</span>
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -446,10 +469,10 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
 
                         return (
                             <div className="flex gap-8">
-                                {todaySection || (
+                                {yesterdaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
-                                        <span className="text-3xl mb-2">📅</span>
-                                        <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
+                                        <span className="text-3xl mb-2">📆</span>
+                                        <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
                                     </div>
                                 )}
 
@@ -463,10 +486,10 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                     <div className="w-0.5 flex-1 bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent rounded-full"></div>
                                 </div>
 
-                                {yesterdaySection || (
+                                {todaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
-                                        <span className="text-3xl mb-2">📆</span>
-                                        <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
+                                        <span className="text-3xl mb-2">📅</span>
+                                        <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
                                     </div>
                                 )}
                             </div>

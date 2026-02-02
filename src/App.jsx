@@ -431,7 +431,7 @@ function App() {
     // Add timestamp to rows that don't have one
     const rowsWithTimestamp = newRows.map(row => ({
       ...row,
-      createdAt: row.createdAt || Date.now()
+      createdAt: Date.now() // Always update to current time when modified
     }));
 
     // Filter to keep only rows from today and yesterday
