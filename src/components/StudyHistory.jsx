@@ -311,10 +311,12 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             return (
                                 <div className={`flex-1 flex ${isToday ? '' : 'opacity-80'}`}>
                                     {/* Vertical Icon Column */}
-                                    <div className="flex flex-col items-center justify-center px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20">
-                                        <span className="text-5xl mb-2">{icon}</span>
-                                        <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
-                                    </div>
+                                            <div className="flex flex-col items-center justify-center px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20">
+                                                {icon ? (
+                                                    <span className="text-5xl mb-2">{icon}</span>
+                                                ) : null}
+                                                <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
+                                            </div>
 
                                     {/* Content Column */}
                                     <div className="flex-1 pr-6">
@@ -423,8 +425,8 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             );
                         };
 
-                        const todaySection = renderSection(todayRows, 'Hoje', '📅', true);
-                        const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '📆', false);
+                        const todaySection = renderSection(todayRows, 'Hoje', null, true);
+                        const yesterdaySection = renderSection(yesterdayRows, 'Ontem', null, false);
 
                         if (!todaySection && !yesterdaySection) {
                             return (
@@ -445,14 +447,12 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             <div className="flex gap-8 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(50vh - 8rem)' }}>
                                 {yesterdaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
-                                        <span className="text-3xl mb-2">📆</span>
                                         <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
                                     </div>
                                 )}
 
                                 {todaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
-                                        <span className="text-3xl mb-2">📅</span>
                                         <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
                                     </div>
                                 )}
