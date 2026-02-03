@@ -218,7 +218,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
 
             {/* Performance Panel */}
-            <div className="relative rounded-2xl overflow-hidden -mt-6">
+            <div className="relative rounded-2xl overflow-hidden -mt-6" style={{ minHeight: '50vh' }}>
                 {/* Premium Glass Background with animated gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
@@ -226,7 +226,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                 <div className="absolute inset-[1px] rounded-2xl border border-indigo-500/20"></div>
 
                 {/* Content */}
-                <div className="relative p-6">
+                <div className="relative p-6 flex flex-col h-full" style={{ minHeight: 'calc(50vh - 2rem)' }}>
                     {/* Quick Legend - Now at top right */}
                     <div className="flex justify-end mb-4">
                         <div className="flex items-center gap-3 text-[10px]">
@@ -452,7 +452,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                         }
 
                         return (
-                            <div className="flex gap-8">
+                            <div className="flex gap-8 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(50vh - 8rem)' }}>
                                 {yesterdaySection || (
                                     <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
                                         <span className="text-3xl mb-2">📆</span>
