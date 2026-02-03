@@ -218,7 +218,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
 
             {/* Performance Panel */}
-            <div className="relative rounded-2xl overflow-hidden -mt-2">
+            <div className="relative rounded-2xl overflow-hidden -mt-6">
                 {/* Premium Glass Background with animated gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
@@ -227,27 +227,8 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
 
                 {/* Content */}
                 <div className="relative p-6">
-                    {/* Premium Header */}
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/40 to-indigo-500/40 rounded-xl blur-xl group-hover:blur-2xl transition-all"></div>
-                                <div className="relative p-3 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 rounded-xl border border-purple-500/30 shadow-xl shadow-purple-500/10">
-                                    <BrainCircuit size={24} className="text-purple-400" />
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold bg-gradient-to-r from-white via-purple-100 to-indigo-200 bg-clip-text text-transparent">
-                                    Performance
-                                </h3>
-                                <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                    <Target size={10} className="text-purple-500/60" />
-                                    Análise de Simulados
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Quick Legend */}
+                    {/* Quick Legend - Now at top right */}
+                    <div className="flex justify-end mb-4">
                         <div className="flex items-center gap-3 text-[10px]">
                             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
