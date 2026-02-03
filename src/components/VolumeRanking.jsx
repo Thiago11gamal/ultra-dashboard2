@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { Trophy, BarChart3, TrendingUp, TrendingDown, Target, Award, ArrowUp, ArrowDown, Medal } from 'lucide-react';
-import { motion } from 'framer-motion'; // Keep motion as it's used
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { Medal } from 'lucide-react';
+
 
 const VolumeRanking = ({ categories = [] }) => {
     // Calculate volume stats

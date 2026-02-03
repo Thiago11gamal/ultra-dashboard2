@@ -16,7 +16,7 @@ import {
     HelpCircle,
     Brain
 } from 'lucide-react';
-import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
+import { calculateLevel, calculateProgress } from '../utils/gamification';
 
 export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, collapsed, setCollapsed, user }) {
     // Note: We are keeping the component name 'Sidebar' to avoid breaking imports in App.jsx,
@@ -25,9 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
     // Calculate Gamification Stats
     const currentXP = user?.xp || 0;
     const level = calculateLevel(currentXP);
-    const { title, icon, color } = getLevelTitle(level);
     const progress = calculateProgress(currentXP);
-    const xpNeeded = getXpToNextLevel(currentXP);
 
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

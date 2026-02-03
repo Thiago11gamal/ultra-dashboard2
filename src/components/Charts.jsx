@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-export default function Charts({ data, filter, setFilter, compact = false }) {
+export default function Charts({ data, compact = false }) {
     // Ensure categories exists from data prop or fallback
     const categories = data?.categories || [];
 
@@ -48,16 +48,8 @@ export default function Charts({ data, filter, setFilter, compact = false }) {
         color: cat.color,
     }));
 
-    // Simulated weekly progress data
-    const weeklyData = [
-        { day: 'Seg', tasks: 2 },
-        { day: 'Ter', tasks: 4 },
-        { day: 'Qua', tasks: 3 },
-        { day: 'Qui', tasks: 5 },
-        { day: 'Sex', tasks: 6 },
-        { day: 'Sáb', tasks: 2 },
-        { day: 'Dom', tasks: 1 },
-    ];
+    // Simulated weekly progress data (Unused)
+    // const weeklyData = [ ... ];
 
     return (
         <div className={`grid grid-cols-1 ${compact ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6`}>

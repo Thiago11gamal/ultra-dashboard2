@@ -4,7 +4,7 @@ import { AlertTriangle, TrendingDown, Target, CheckCircle2 } from 'lucide-react'
 export default function ParetoAnalysis({ categories = [] }) {
 
     // Calculate Pareto Data
-    const { topEnemies, totalLostPoints, hiddenOpportunities } = useMemo(() => {
+    const { topEnemies, totalLostPoints, hiddenOpportunities: _hiddenOpportunities } = useMemo(() => {
         let allTopics = [];
 
         categories.forEach(cat => {

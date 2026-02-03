@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Eraser, StickyNote } from 'lucide-react';
-import { motion } from 'framer-motion';
+
 
 export default function QuickNotes({ notes = '', onSave }) {
     const [text, setText] = useState(notes);

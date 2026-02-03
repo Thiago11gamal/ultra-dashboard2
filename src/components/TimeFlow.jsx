@@ -13,7 +13,8 @@ const TimeFlow = () => {
   const dropsRef = useRef([]); // Store drops in ref to access inside loop
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
     // --- Init Functionality ---
     const deathsPerSecond = 1.8;
@@ -25,14 +26,14 @@ const TimeFlow = () => {
     scene.fog = new THREE.Fog(0x000000, 8, 40);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(75, containerRef.current.clientWidth / containerRef.current.clientHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(0, 6, 10);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0x000000, 1);
-    containerRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // Lights
@@ -203,9 +204,9 @@ const TimeFlow = () => {
 
     // Handle Resize
     const handleResize = () => {
-      if (!containerRef.current) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
+      if (!container) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
@@ -219,8 +220,8 @@ const TimeFlow = () => {
       cancelAnimationFrame(requestRef.current);
       clearInterval(dropInterval);
       clearInterval(counterInterval);
-      if (containerRef.current && rendererRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
+      if (container && rendererRef.current) {
+        container.removeChild(rendererRef.current.domElement);
       }
       // Dispose Three.js resources
       if (sceneRef.current) {

@@ -1,0 +1,135 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - button "Dashboard" [ref=e8]:
+        - img [ref=e9]
+      - button "AI Coach" [ref=e14]:
+        - img [ref=e15]
+      - button "Tarefas" [ref=e20]:
+        - img [ref=e21]
+      - button "Simulados IA" [ref=e24]:
+        - img [ref=e25]
+      - button "Estatísticas" [ref=e39]:
+        - img [ref=e40]
+      - button "Atividade" [ref=e45]:
+        - img [ref=e46]
+      - button "Retenção" [ref=e57]:
+        - img [ref=e58]
+      - button "Histórico" [ref=e67]:
+        - img [ref=e68]
+      - button "Pomodoro" [ref=e72]:
+        - img [ref=e73]
+      - button "Notas" [ref=e77]:
+        - img [ref=e78]
+      - button "Ajuda" [ref=e84]:
+        - img [ref=e85]
+      - button "Configurações" [ref=e89]:
+        - img [ref=e90]
+    - generic [ref=e94]:
+      - button "Exportar Backup" [ref=e95]:
+        - img [ref=e96]
+      - generic "Importar Dados" [ref=e100] [cursor=pointer]:
+        - img [ref=e101]
+    - button [ref=e105]:
+      - img [ref=e106]
+  - main [ref=e108]:
+    - generic [ref=e109]:
+      - generic [ref=e110]:
+        - generic [ref=e111]:
+          - textbox "Digite o nome do concurso..." [ref=e112]: Estudante
+          - generic [ref=e113]: Foco Principal ✏️
+        - paragraph [ref=e114]: terça-feira, 3 de fevereiro de 2026
+      - generic [ref=e115]:
+        - generic [ref=e116]:
+          - button "Salvar na Nuvem" [ref=e117]:
+            - img [ref=e118]
+          - button "Restaurar da Nuvem" [ref=e122]:
+            - img [ref=e123]
+        - button "Desfazer" [ref=e127]:
+          - img [ref=e128]
+          - generic: Desfazer
+        - generic [ref=e131]: 14:54:35
+        - button "👤" [ref=e133] [cursor=pointer]
+    - generic [ref=e134]:
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - generic [ref=e139]:
+            - generic [ref=e141]: "#10"
+            - generic [ref=e142]:
+              - heading "Aspirante" [level=3] [ref=e143]
+              - paragraph [ref=e144]: Nível Atual
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]: Progresso de XP
+              - generic [ref=e148]: 0%
+            - generic [ref=e151]:
+              - generic [ref=e152]: RANK ATUAL
+              - generic [ref=e153]: Faltam 500 XP para o próximo nível
+        - generic [ref=e154]:
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - generic [ref=e160]:
+                - paragraph [ref=e161]: Dias Estudados
+                - paragraph [ref=e162]: "0"
+              - generic [ref=e163]: 📅
+            - application [ref=e168]
+          - generic [ref=e172] [cursor=pointer]:
+            - img [ref=e176]
+            - generic [ref=e180]:
+              - generic [ref=e181]:
+                - paragraph [ref=e182]: Dias p/ Prova
+                - paragraph [ref=e183]: "0"
+              - generic [ref=e184]: 🎯
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - paragraph [ref=e192]: Tarefas Feitas
+              - paragraph [ref=e193]: 0/0
+            - generic [ref=e194]: ✅
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - paragraph [ref=e202]: Streak Atual
+                - paragraph [ref=e203]: 0 dias
+              - generic [ref=e204]: 🔥
+            - application [ref=e209]
+        - generic [ref=e213]:
+          - generic [ref=e214]:
+            - generic [ref=e215]:
+              - heading "Progresso Geral" [level=3] [ref=e216]
+              - paragraph [ref=e217]: Você completou 0 de 0 missões.
+            - generic [ref=e219]:
+              - img [ref=e221]
+              - generic [ref=e224]:
+                - generic [ref=e225]: 0%
+                - generic [ref=e226]: Concluído
+          - generic [ref=e227]:
+            - heading "📊 Distribuição por Prioridade" [level=3] [ref=e228]:
+              - generic [ref=e229]: 📊
+              - text: Distribuição por Prioridade
+            - generic [ref=e230]:
+              - generic [ref=e232]:
+                - generic [ref=e233]: Alta Prioridade
+                - generic [ref=e234]: 0%
+              - generic [ref=e237]:
+                - generic [ref=e238]: Média Prioridade
+                - generic [ref=e239]: 0%
+              - generic [ref=e242]:
+                - generic [ref=e243]: Baixa Prioridade
+                - generic [ref=e244]: 0%
+      - generic [ref=e246]:
+        - img [ref=e248]
+        - generic [ref=e252]:
+          - heading "Tudo em dia! 🎉" [level=3] [ref=e253]
+          - paragraph [ref=e254]: Nenhuma tarefa urgente.
+      - generic [ref=e256]:
+        - generic [ref=e257]:
+          - button "Todas" [ref=e258]
+          - button "Ativas" [ref=e259]
+          - button "Concluídas" [ref=e260]
+        - button "📚 Adicionar Disciplina" [ref=e262]:
+          - generic [ref=e263]: 📚
+          - generic [ref=e264]: Adicionar Disciplina
+```

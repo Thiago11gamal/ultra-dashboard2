@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Flag, Plus, Trash2, Edit2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 const priorityColors = {
     high: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
@@ -95,7 +95,7 @@ const PerformancePanel = ({ stats, color }) => {
     );
 };
 
-const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay, categoryColor }) => {
+const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay }) => {
     const priority = priorityColors[task.priority] || priorityColors.medium;
 
     return (
@@ -139,7 +139,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay, c
             <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Play Button */}
                 <button
-                    onClick={(e) => {
+                    onClick={() => {
                         onTriggerPlay();
                     }}
                     className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-purple-500/20'}`}
@@ -314,7 +314,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             if (filter === 'completed') return task.completed;
             return true;
         })
-    })).filter(cat => true); // Always show categories, even if empty
+    })).filter(() => true); // Always show categories, even if empty
 
     return (
         <div>

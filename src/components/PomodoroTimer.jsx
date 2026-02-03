@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
-export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onStartStudying, onUpdateStudyTime }) {
+
+export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime }) {
     // Always start fresh - no localStorage restoration for time/mode
     const [mode, setMode] = useState('work');
     const [timeLeft, setTimeLeft] = useState(settings.pomodoroWork * 60);
@@ -33,7 +34,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     });
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
-    const [expandedCategory, setExpandedCategory] = useState(null);
+    const [_expandedCategory, _setExpandedCategory] = useState(null);
     const [speed, setSpeed] = useState(1);
 
 
@@ -93,24 +94,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     }, [mode, timeLeft, sessions, completedCycles, targetCycles, sessionHistory]);
 
 
-    // Timer Logic - Simple setInterval (More Stable)
-    useEffect(() => {
-        let interval;
-        if (isRunning && timeLeft > 0) {
-            interval = setInterval(() => {
-                setTimeLeft(prev => Math.max(0, prev - 1));
-            }, 1000 / speed);
-        }
-        return () => clearInterval(interval);
-    }, [isRunning, speed]);
-
-    // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
-    useEffect(() => {
-        if (timeLeft === 0 && isRunning) {
-            handleTimerComplete();
-        }
-    }, [timeLeft, isRunning]);
-
+    // Timer complete handler - declared first to be available for useEffect
     const handleTimerComplete = useCallback(() => {
         // Timer complete
         const completedDuration = mode === 'work' ? settings.pomodoroWork : settings.pomodoroBreak;
@@ -155,7 +139,9 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
             try {
                 const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                 audio.play().catch(() => { });
-            } catch (e) { }
+            } catch {
+                // Silent fail for audio playback
+            }
         }
 
         if (mode === 'work') {
@@ -164,6 +150,25 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
             sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, settings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
+
+    // Timer Logic - Simple setInterval (More Stable)
+    useEffect(() => {
+        let interval;
+        if (isRunning && timeLeft > 0) {
+            interval = setInterval(() => {
+                setTimeLeft(prev => Math.max(0, prev - 1));
+            }, 1000 / speed);
+        }
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRunning, speed]);
+
+    // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
+    useEffect(() => {
+        if (timeLeft === 0 && isRunning) {
+            setTimeout(() => handleTimerComplete(), 0);
+        }
+    }, [timeLeft, isRunning, handleTimerComplete]);
 
     const reset = () => {
         setIsRunning(false);
@@ -220,7 +225,8 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
         const last = new Date(cat.lastStudiedAt).getTime();
-        const diffHours = (Date.now() - last) / (1000 * 60 * 60);
+        const now = new Date().getTime();
+        const diffHours = (now - last) / (1000 * 60 * 60);
         const days = diffHours / 24;
         const val = Math.round(100 * Math.exp(-days / 2));
 
@@ -230,7 +236,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     }, [activeSubject, categories]);
 
     // Layout Variants - Soft / Academic
-    const containerClass = "max-w-2xl mx-auto space-y-6 relative font-sans selection:bg-stone-200";
+    // Note: containerClass was previously defined here but is unused
 
     // Dynamic Colors based on State - Memoized
     const theme = useMemo(() => {

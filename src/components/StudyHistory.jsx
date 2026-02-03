@@ -309,112 +309,115 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                     : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
 
                             return (
-                                <div className={`flex-1 pr-6 ${isToday ? '' : 'opacity-80'}`}>
-                                    {/* Section Title */}
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="text-2xl">{icon}</span>
-                                        <h3 className={`text-lg font-bold ${isToday ? 'text-emerald-400' : 'text-slate-400'}`}>{title}</h3>
+                                <div className={`flex-1 flex ${isToday ? '' : 'opacity-80'}`}>
+                                    {/* Vertical Icon Column */}
+                                    <div className="flex flex-col items-center justify-center px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20">
+                                        <span className="text-5xl mb-2">{icon}</span>
+                                        <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
                                     </div>
 
-                                    {/* Global Insight Banner - More Spacing */}
-                                    <div className="mb-6 mr-4 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
-                                        <div className="relative flex items-center gap-3">
-                                            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
-                                                <BrainCircuit size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
-                                                <p className="text-sm text-white font-medium">"{globalInsight}"</p>
+                                    {/* Content Column */}
+                                    <div className="flex-1 pr-6">
+                                        {/* Global Insight Banner - More Spacing */}
+                                        <div className="mb-6 mr-4 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
+                                            <div className="relative flex items-center gap-3">
+                                                <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                                                    <BrainCircuit size={20} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
+                                                    <p className="text-sm text-white font-medium">"{globalInsight}"</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Subjects List */}
-                                    <div className="space-y-6">
-                                        {subjects.map((subj, idx) => {
-                                            const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
-                                            const status = getStatus(subjPct);
-                                            const insight = getInsight(subjPct);
-                                            const subjColor = getSubjectColor(subj.name);
+                                        {/* Subjects List */}
+                                        <div className="space-y-6">
+                                            {subjects.map((subj, idx) => {
+                                                const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
+                                                const _status = getStatus(subjPct);
+                                                const insight = getInsight(subjPct);
+                                                const subjColor = getSubjectColor(subj.name);
 
-                                            return (
-                                                <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
-                                                    {/* Subject Header - Clean Spacing */}
-                                                    <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
-                                                        style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
-                                                        <div className="flex items-center gap-3">
-                                                            <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
-                                                        </div>
-                                                        <span className="text-[10px] text-slate-300 italic" style={{ paddingRight: '24px' }}>
-                                                            {insight}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Topics Table */}
-                                                    <div className="p-4">
-                                                        {/* Table Header */}
-                                                        <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3 border-b border-indigo-500/20 mb-2">
-                                                            <div className="col-span-4">Assunto</div>
-                                                            <div className="col-span-3 text-center">Status</div>
-                                                            <div className="col-span-2 text-center">Desempenho</div>
-                                                            <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>Ação Recomendada</div>
+                                                return (
+                                                    <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
+                                                        {/* Subject Header - Clean Spacing */}
+                                                        <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
+                                                            style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
+                                                            <div className="flex items-center gap-3">
+                                                                <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
+                                                            </div>
+                                                            <span className="text-[10px] text-slate-300 italic" style={{ paddingRight: '24px' }}>
+                                                                {insight}
+                                                            </span>
                                                         </div>
 
-                                                        {/* Topics Rows */}
-                                                        <div className="space-y-2">
-                                                            {subj.topics.map((topic, tIdx) => {
-                                                                const topicStatus = getStatus(topic.pct);
-                                                                const action = getAction(topic.pct);
-                                                                const TopicIcon = topicStatus.icon;
+                                                        {/* Topics Table */}
+                                                        <div className="p-4">
+                                                            {/* Table Header */}
+                                                            <div className="grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3 border-b border-indigo-500/20 mb-2">
+                                                                <div className="col-span-4">Assunto</div>
+                                                                <div className="col-span-3 text-center">Status</div>
+                                                                <div className="col-span-2 text-center">Desempenho</div>
+                                                                <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>Ação Recomendada</div>
+                                                            </div>
 
-                                                                return (
-                                                                    <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
-                                                                        {/* Topic Name */}
-                                                                        <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
-                                                                            {topic.name}
-                                                                        </div>
+                                                            {/* Topics Rows */}
+                                                            <div className="space-y-2">
+                                                                {subj.topics.map((topic, tIdx) => {
+                                                                    const topicStatus = getStatus(topic.pct);
+                                                                    const action = getAction(topic.pct);
+                                                                    const TopicIcon = topicStatus.icon;
 
-                                                                        {/* Status Badge */}
-                                                                        <div className="col-span-3 flex justify-center">
-                                                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
-                                                                                <TopicIcon size={12} />
-                                                                                <span className="text-[10px] font-bold tracking-wide">{topicStatus.label}</span>
+                                                                    return (
+                                                                        <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
+                                                                            {/* Topic Name */}
+                                                                            <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
+                                                                                {topic.name}
                                                                             </div>
-                                                                        </div>
 
-                                                                        {/* Performance Ring */}
-                                                                        <div className="col-span-2 flex flex-col items-center justify-center">
-                                                                            <div className="relative w-10 h-10">
-                                                                                <svg className="w-full h-full -rotate-90">
-                                                                                    <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
-                                                                                    <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
-                                                                                        stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
-                                                                                        strokeLinecap="round"
-                                                                                        strokeDasharray={100}
-                                                                                        strokeDashoffset={100 - topic.pct}
-                                                                                    />
-                                                                                </svg>
-                                                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                                                    <span className="text-[10px] font-bold text-white">{topic.pct}%</span>
+                                                                            {/* Status Badge */}
+                                                                            <div className="col-span-3 flex justify-center">
+                                                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
+                                                                                    <TopicIcon size={12} />
+                                                                                    <span className="text-[10px] font-bold tracking-wide">{topicStatus.label}</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
-                                                                        </div>
 
-                                                                        {/* Action */}
-                                                                        <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>
-                                                                            <span className="text-xs text-slate-200 font-medium">{action}</span>
+                                                                            {/* Performance Ring */}
+                                                                            <div className="col-span-2 flex flex-col items-center justify-center">
+                                                                                <div className="relative w-10 h-10">
+                                                                                    <svg className="w-full h-full -rotate-90">
+                                                                                        <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
+                                                                                        <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
+                                                                                            stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
+                                                                                            strokeLinecap="round"
+                                                                                            strokeDasharray={100}
+                                                                                            strokeDashoffset={100 - topic.pct}
+                                                                                        />
+                                                                                    </svg>
+                                                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                                                        <span className="text-[10px] font-bold text-white">{topic.pct}%</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
+                                                                            </div>
+
+                                                                            {/* Action */}
+                                                                            <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>
+                                                                                <span className="text-xs text-slate-200 font-medium">{action}</span>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             );

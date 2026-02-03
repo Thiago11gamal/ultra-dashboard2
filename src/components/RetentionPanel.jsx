@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ArrowRight, ChevronDown, ChevronUp, BookOpen, RefreshCw } from 'lucide-react';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
@@ -10,7 +10,7 @@ const calculateRetention = (lastStudiedAt) => {
     const days = diffHours / 24;
     const val = Math.round(100 * Math.exp(-days / 2));
 
-    if (val >= 80) return { val, status: 'fresh', label: 'Memória Boa', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
+    if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
     if (val >= 40) return { val, status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
     if (val >= 20) return { val, status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' };
@@ -72,7 +72,7 @@ const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
 };
 
 // Mini retention bar for topics
-const RetentionBar = ({ value, color, bg }) => (
+const RetentionBar = ({ value, bg }) => (
     <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
         <div
             className={`h-full rounded-full transition-all duration-500 ${bg}`}
@@ -101,6 +101,15 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             [catId]: !prev[catId]
         }));
     };
+
+    // Helper to get style from value - moved before useMemo that uses it
+    const getRetentionStyle = useCallback((val) => {
+        if (val >= 80) return { status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
+        if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
+        if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
+        if (val >= 20) return { status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' };
+        return { status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
+    }, []);
 
     // Calculate retention for all categories and their tasks
     const retentionData = useMemo(() => {
@@ -136,16 +145,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 };
             })
             .sort((a, b) => a.retention.val - b.retention.val);
-    }, [categories, tick]); // tick forces recalculation every 60 seconds
-
-    // Helper to get style from value
-    function getRetentionStyle(val) {
-        if (val >= 80) return { status: 'fresh', label: 'Memória Boa', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
-        if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
-        if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
-        if (val >= 20) return { status: 'danger', label: 'Crítico', color: 'text-orange-400', bg: 'bg-orange-500', border: 'border-orange-500/30' };
-        return { status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
-    }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categories, tick, getRetentionStyle]); // tick forces periodic recalculation
 
     // Stats summary
     const stats = useMemo(() => {
@@ -234,7 +235,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                         Saudáveis
                     </div>
                     <div className="text-3xl font-black text-emerald-400">{stats.healthy}</div>
-                    <div className="text-xs text-slate-500 mt-1">memória boa</div>
+                    <div className="text-xs text-slate-500 mt-1">ótimo</div>
                 </div>
             </div>
 

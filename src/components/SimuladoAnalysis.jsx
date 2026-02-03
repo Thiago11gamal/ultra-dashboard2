@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 
-export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete }) {
+export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
     // Controlled component: use props or fallback default
     const rows = (propRows && propRows.length > 0)
         ? propRows
@@ -40,6 +40,33 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleAnalyze = () => {
+        // 0. Strict Validation: Check if subjects exist in Dashboard
+        if (categories && categories.length > 0) {
+            const normalize = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
+            const validNames = new Set(categories.map(c => normalize(c.name)));
+
+            let invalidFound = false;
+            let invalidName = '';
+
+            // Check for invalid subjects and wipe them
+            const validatedRows = rows.map(r => {
+                // If subject is filled but not found in valid list
+                if (r.subject && !validNames.has(normalize(r.subject))) {
+                    invalidFound = true;
+                    invalidName = r.subject;
+                    return { subject: '', topic: '', correct: 0, total: 0 }; // Wipe row
+                }
+                return r;
+            });
+
+            if (invalidFound) {
+                setRows(validatedRows); // Update grid to show wiped row
+                setError(`A matéria '${invalidName}' não existe no Dashboard. Cadastre-a primeiro.`);
+                setAnalysisData(null); // Clear previous results
+                return; // Stop processing
+            }
+        }
+
         const validRows = rows.filter(r => r.subject && r.topic);
 
         if (validRows.length === 0) {

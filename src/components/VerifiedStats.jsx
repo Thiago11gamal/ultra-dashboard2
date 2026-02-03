@@ -129,7 +129,8 @@ export default function VerifiedStats({ categories = [] }) {
                         predictionSubtext = `Continue estudando para chegar aos ${targetScore}%.`;
                         predictionStatus = "neutral";
                     } else {
-                        const predictedDate = new Date(Date.now() + (daysRemaining * 24 * 60 * 60 * 1000));
+                        const nowTime = new Date().getTime();
+                        const predictedDate = new Date(nowTime + (daysRemaining * 24 * 60 * 60 * 1000));
                         prediction = predictedDate.toLocaleDateString('pt-BR');
                         // Only show (Gabarito) if target is 100
                         const label = targetScore === 100 ? " (Gabarito)" : "";

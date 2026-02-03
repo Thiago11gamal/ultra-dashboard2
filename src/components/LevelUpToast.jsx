@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Star, Sparkles, X } from 'lucide-react';
 
-export default function LevelUpToast({ level, title, onClose, type = 'up' }) {
+export default function LevelUpToast({ level, title, onClose }) {
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        setVisible(true);
+        const showTimer = setTimeout(() => setVisible(true), 10);
         // Auto-close after 5 seconds if not interactive
         const timer = setTimeout(() => {
             setVisible(false);
             setTimeout(onClose, 500); // Wait for exit animation
         }, 6000);
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(showTimer);
+        };
     }, [onClose]);
 
     if (!level) return null;

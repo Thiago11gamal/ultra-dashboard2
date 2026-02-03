@@ -83,25 +83,27 @@ function App() {
   }
 
   // Wrapper to update only the current contest data
-  const setData = useCallback((updater, saveHistory = true) => {
-    setAppState(prev => {
-      // Ensure we have valid prev state
-      const safePrev = prev && prev.contests ? prev : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
+  const setData = useCallback((updater) => {
+    setTimeout(() => {
+      setAppState(prev => {
+        // Ensure we have valid prev state
+        const safePrev = prev && prev.contests ? prev : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
 
-      const currentContestId = safePrev.activeId || 'default';
-      const currentData = safePrev.contests[currentContestId] || INITIAL_DATA;
+        const currentContestId = safePrev.activeId || 'default';
+        const currentData = safePrev.contests[currentContestId] || INITIAL_DATA;
 
-      // Calculate new data
-      const newData = typeof updater === 'function' ? updater(currentData) : updater;
+        // Calculate new data
+        const newData = typeof updater === 'function' ? updater(currentData) : updater;
 
-      return {
-        ...safePrev,
-        contests: {
-          ...safePrev.contests,
-          [currentContestId]: newData
-        }
-      };
-    });
+        return {
+          ...safePrev,
+          contests: {
+            ...safePrev.contests,
+            [currentContestId]: newData
+          }
+        };
+      });
+    }, 0);
   }, []);
 
   // Change 'studying' to 'paused' on app initialization (shows indicator where user left off)
@@ -110,57 +112,59 @@ function App() {
     const today = now.toDateString();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
 
-    setData(prev => {
-      // 1. Clean old rows (keep only today + yesterday)
-      let currentRows = (prev.simuladoRows || []).filter(row => {
-        if (!row.createdAt) return false;
-        const rowDate = new Date(row.createdAt).toDateString();
-        return rowDate === today || rowDate === yesterday;
-      });
-
-      // 1.5 Deduplicate exact matches (fixes accumulation from multiple tests/clicks)
-      const seen = new Set();
-      currentRows = currentRows.filter(row => {
-        const key = JSON.stringify({
-          s: row.subject?.trim(),
-          t: row.topic?.trim(),
-          c: row.correct,
-          tot: row.total,
-          d: new Date(row.createdAt).toDateString()
+    setTimeout(() => {
+      setData(prev => {
+        // 1. Clean old rows (keep only today + yesterday)
+        let currentRows = (prev.simuladoRows || []).filter(row => {
+          if (!row.createdAt) return false;
+          const rowDate = new Date(row.createdAt).toDateString();
+          return rowDate === today || rowDate === yesterday;
         });
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
+
+        // 1.5 Deduplicate exact matches (fixes accumulation from multiple tests/clicks)
+        const seen = new Set();
+        currentRows = currentRows.filter(row => {
+          const key = JSON.stringify({
+            s: row.subject?.trim(),
+            t: row.topic?.trim(),
+            c: row.correct,
+            tot: row.total,
+            d: new Date(row.createdAt).toDateString()
+          });
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        // 2. Check for "New Day" condition
+        const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
+        const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
+
+        if (!hasToday && hasYesterday) {
+          // Auto-Clone Yesterday -> Today (Reset values)
+          const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
+          const newTodayRows = yesterdayRows.map(r => ({
+            subject: r.subject,
+            topic: r.topic,
+            correct: 0,
+            total: 0,
+            createdAt: Date.now() // Today
+          }));
+          currentRows = [...currentRows, ...newTodayRows];
+        }
+
+        return {
+          ...prev,
+          simuladoRows: currentRows,
+          categories: prev.categories.map(cat => ({
+            ...cat,
+            tasks: (cat.tasks || []).map(t =>
+              t.status === 'studying' ? { ...t, status: 'paused' } : t
+            )
+          }))
+        };
       });
-
-      // 2. Check for "New Day" condition
-      const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
-      const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
-
-      if (!hasToday && hasYesterday) {
-        // Auto-Clone Yesterday -> Today (Reset values)
-        const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
-        const newTodayRows = yesterdayRows.map(r => ({
-          subject: r.subject,
-          topic: r.topic,
-          correct: 0,
-          total: 0,
-          createdAt: Date.now() // Today
-        }));
-        currentRows = [...currentRows, ...newTodayRows];
-      }
-
-      return {
-        ...prev,
-        simuladoRows: currentRows,
-        categories: prev.categories.map(cat => ({
-          ...cat,
-          tasks: (cat.tasks || []).map(t =>
-            t.status === 'studying' ? { ...t, status: 'paused' } : t
-          )
-        }))
-      };
-    });
+    }, 0);
   }, []); // Empty deps = run once on mount
 
   // --- GAMIFICATION LOGIC ---
@@ -212,17 +216,19 @@ function App() {
     const result = checkAndUnlockAchievements(data, data.user?.achievements || []);
     if (result.newlyUnlocked.length > 0) {
       // Update achievements and award XP
-      setData(prev => ({
-        ...prev,
-        user: {
-          ...prev.user,
-          achievements: result.allUnlocked,
-          xp: (prev.user.xp || 0) + result.xpGained
-        }
-      }));
+      setTimeout(() => {
+        setData(prev => ({
+          ...prev,
+          user: {
+            ...prev.user,
+            achievements: result.allUnlocked,
+            xp: (prev.user.xp || 0) + result.xpGained
+          }
+        }));
+      }, 0);
       // Show toast for each unlocked achievement
-      result.newlyUnlocked.forEach(id => {
-        const ach = result.allUnlocked.find(a => a === id);
+      result.newlyUnlocked.forEach(() => {
+
         showToast(`🏆 Conquista Desbloqueada! +${result.xpGained} XP`, 'success');
       });
     }
@@ -436,7 +442,9 @@ function App() {
     });
 
     if (hasDuplicates) {
-      setData(prev => ({ ...prev, categories: newCategories }));
+      setTimeout(() => {
+        setData(prev => ({ ...prev, categories: newCategories }));
+      }, 0);
     }
   }, [data.categories, setData]);
 
@@ -529,21 +537,8 @@ function App() {
         }
 
         if (catIndex === -1) {
-          // Create new category
-          const palette = [
-            '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4',
-            '#eab308', '#f97316', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e'
-          ];
-          const randomColor = palette[Math.floor(Math.random() * palette.length)];
-
-          newCategories.push({
-            id: `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            name: disc.name || 'Nova Disciplina',
-            color: randomColor,
-            icon: '📚',
-            tasks: []
-          });
-          catIndex = newCategories.length - 1;
+          showToast(`Matéria '${disc.name}' ignorada. Crie-a no Dashboard primeiro.`, 'warning');
+          return;
         }
 
         // Update Simulado Stats
@@ -832,12 +827,7 @@ function App() {
   }, [setData, showToast]);
 
 
-  const addNote = useCallback((note) => {
-    setData(prev => ({
-      ...prev,
-      notes: note
-    }));
-  }, [setData]);
+
 
   const togglePriority = useCallback((categoryId, taskId) => {
     setData(prev => ({
@@ -982,6 +972,7 @@ function App() {
             })}
             onRowsChange={handleUpdateSimuladoRows}
             onAnalysisComplete={handleSimuladoAnalysis}
+            categories={data.categories || []}
           />
         );
       case 'stats':

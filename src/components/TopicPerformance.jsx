@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 export default function TopicPerformance({ categories = [] }) {
     const [selectedCategoryId, setSelectedCategoryId] = useState(categories.length > 0 ? categories[0].id : '');

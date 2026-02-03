@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, TrendingDown, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 export default function ConsistencyAlert({ categories = [], onNavigate }) {
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { differenceInDays, subDays, format, addDays } from 'date-fns';
+import { differenceInDays, subDays, format } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Pencil } from 'lucide-react';
 import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
@@ -124,11 +124,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
 
     const trendData = generate7DayTrend();
 
-    // Calculate streak per day for sparkline
-    const streakTrend = trendData.map((d, i) => ({
-        ...d,
-        value: d.studied ? (i > 0 && trendData[i - 1].studied ? trendData[i - 1].value + 1 : 1) : 0
-    }));
+
 
     // Calculate overall progress
     const safeCategories = categories || [];
@@ -143,14 +139,13 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     const now = new Date();
     // Normalize to midnight to ensure accurate day calculation regardless of time
     const todayNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const goalDateObj = new Date(user.goalDate);
+    const _goalDateObj = new Date(user.goalDate);
     // Use the goal date components explicitly to avoid UTC shift issues if parsing simplistic strings
     // But since input is YYYY-MM-DD, parsing usually results in UTC midnight. 
     // Best to treat goalDate as local midnight too.
     // Assuming user.goalDate is YYYY-MM-DD string or ISO.
     // If string "2026-02-01", new Date() makes it UTC.
     // Let's ensure we compare "local date" vs "local date".
-    const goalNormalized = new Date(goalDateObj.getFullYear(), goalDateObj.getMonth(), goalDateObj.getDate());
     // Wait, if goalDate is ISO string from input type=date, it might be YYYY-MM-DD.
     // If it's stored as full ISO, we just take the day components.
 
@@ -199,7 +194,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     // For safety, set hours to 0
     goalNormalizedFinal.setHours(0, 0, 0, 0);
 
-    const daysSinceStart = differenceInDays(todayNormalized, new Date(user.startDate));
+    const _daysSinceStart = differenceInDays(todayNormalized, new Date(user.startDate));
     const daysUntilGoal = differenceInDays(goalNormalizedFinal, todayNormalized);
 
     // Calculate Unique Days Studied
@@ -216,7 +211,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
         )];
         if (dates.length === 0) return 0;
         const today = new Date().setHours(0, 0, 0, 0);
-        const yesterday = new Date(Date.now() - 86400000).setHours(0, 0, 0, 0);
+        const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
         if (dates[0] !== today && dates[0] !== yesterday) return 0;
         let streakCount = 1;
         let currentDate = dates[0];

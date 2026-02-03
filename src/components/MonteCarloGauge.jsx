@@ -22,7 +22,7 @@ export default function MonteCarloGauge({ categories = [] }) {
     const [weights, setWeights] = useState({});
 
     // Function to calculate equal weights
-    const getEqualWeights = () => {
+    const getEqualWeights = useCallback(() => {
         if (catCount === 0) return {};
         const equalWeight = Math.round(100 / catCount / 10) * 10;
         const newWeights = {};
@@ -36,14 +36,14 @@ export default function MonteCarloGauge({ categories = [] }) {
             }
         });
         return newWeights;
-    };
+    }, [catCount, activeCategories]);
 
     // Initialize weights equally on first load only
     React.useEffect(() => {
         if (catCount > 0 && Object.keys(weights).length === 0) {
             setWeights(getEqualWeights());
         }
-    }, [catCount]);
+    }, [catCount, weights, getEqualWeights]);
 
     // When equal mode turns ON, reset to equal weights
     const handleEqualModeChange = () => {
@@ -94,9 +94,11 @@ export default function MonteCarloGauge({ categories = [] }) {
         }
         // Fallback to equal weights
         return equalW;
-    }, [weights, catCount]);
+    }, [weights, catCount, getEqualWeights, activeCategories]);
 
-    const simulationResult = useMemo(() => {
+    const [simulationResult, setSimulationResult] = useState(null);
+
+    React.useEffect(() => {
         console.log('Simulation effectiveWeights:', JSON.stringify(effectiveWeights));
         // 1. Gather Stats per Category with Weights & Trends
         let categoryStats = [];
@@ -146,7 +148,8 @@ export default function MonteCarloGauge({ categories = [] }) {
         });
 
         if (categoryStats.length === 0 || categoryStats.reduce((acc, c) => acc + c.n, 0) < 5 || totalWeight === 0) {
-            return null; // Not enough data or no weights set
+            setSimulationResult(null);
+            return;
         }
 
         // 2. Calculate Weighted Mean & Pooled SD
@@ -191,14 +194,14 @@ export default function MonteCarloGauge({ categories = [] }) {
         const ci95Low = scores[Math.floor(simulations * 0.025)];
         const ci95High = scores[Math.floor(simulations * 0.975)];
 
-        return {
+        setSimulationResult({
             probability: probability.toFixed(1),
             mean: weightedMean.toFixed(1),
             sd: pooledSD.toFixed(1),
             ci95Low: ci95Low.toFixed(0),
             ci95High: ci95High.toFixed(0),
             categoryStats
-        };
+        });
     }, [categories, effectiveWeights]);
 
     // Show placeholder if not enough data
@@ -225,18 +228,135 @@ export default function MonteCarloGauge({ categories = [] }) {
                     </div>
                 </div>
 
-                <div className="text-center w-full mt-4">
+                <div className="text-center w-full mt-2">
                     <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
                     <p className="text-[9px] text-slate-600 leading-tight">
                         Faça pelo menos 5 simulados para ativar a previsão
                     </p>
                 </div>
+
+                {/* Weights Configuration Footer Trigger (Placeholder) */}
+                <div className="mt-2 w-full pt-2 border-t border-white/5 flex justify-center opacity-50 hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => setShowConfig(true)}
+                        className="flex flex-col items-center gap-1 group/btn"
+                    >
+                        <div className="w-8 h-8 rounded-lg bg-slate-800/50 border border-white/5 flex items-center justify-center group-hover/btn:bg-slate-700/50 group-hover/btn:border-white/10 transition-all">
+                            <Settings2 size={16} className="text-slate-600 group-hover/btn:text-slate-400" />
+                        </div>
+                    </button>
+                    {/* Reuse Modal - Modal is rendered outside this block? No, Modal is rendered in main return. */}
+                </div>
+
+                {/* We need to render the Modal here too or move it outside the if-else blocks?
+                    The best way is to move the Modal JSX to a helper function or render it at the top level.
+                    Refactoring to render Modal via Portal or common component would be best, but for now duplicate the modal logic or move placeholder return.
+                    
+                    Actually, if I return here, the Modal code at the bottom won't run.
+                    I must include the Modal JSX in this return if showConfig is true.
+                */}
+                {showConfig && (
+                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+                        {/* Simplified Modal for Placeholder (or same one) */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                                    <Settings2 size={20} className="text-blue-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">Configuração de Pesos</h3>
+                                    <p className="text-[10px] text-slate-400">Personalize a relevância de cada matéria</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowConfig(false)}
+                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                            >
+                                <Check size={16} className="text-white" />
+                            </button>
+                        </div>
+
+                        {/* Reuse logic... Wait, activeCategories might be empty? 
+                             The placeholder appears if activeCategories.length < 5?
+                             Line 18 CHECK: const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
+                             Line 150 CHECK: if (categoryStats.length === 0 ... ) setSimulationResult(null).
+                             
+                             So activeCategories MIGHT exist, but not enough data for simulation.
+                             So we can still render the config menu!
+                         */}
+
+                        {/* Mode Toggle Checkbox Style */}
+                        <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
+                            <button
+                                onClick={() => {
+                                    if (!equalWeightsMode) { setWeights(getEqualWeights()); }
+                                    setEqualWeightsMode(true);
+                                }}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                                Pesos Iguais
+                            </button>
+                            <button
+                                onClick={() => setEqualWeightsMode(false)}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                                Manual
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                            {equalWeightsMode ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                                    <Minus size={40} className="text-slate-600 mb-2" />
+                                    <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
+                                </div>
+                            ) : (
+                                (activeCategories.length > 0 ? activeCategories : categories).map(cat => {
+                                    // Fallback to all categories if none active
+                                    const weight = parseInt(weights[cat.name]) || 0;
+                                    return (
+                                        <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
+                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>
+                                                {cat.icon || '📚'}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
+                                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
+                                                <button
+                                                    onClick={() => updateWeight(cat.name, weight - 5)}
+                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
+                                                >
+                                                    <Minus size={14} />
+                                                </button>
+                                                <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
+                                                <button
+                                                    onClick={() => updateWeight(cat.name, weight + 5)}
+                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
+                                                >
+                                                    <Plus size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
 
     // Visual Config with Gradient Colors
-    const prob = parseFloat(simulationResult.probability);
+    const { probability, mean: _globalMean, sd: _globalSD, ci95Low: _ci95Low, ci95High: _ci95High, categoryStats: _categoryStats } = simulationResult;
+    const prob = parseFloat(probability);
 
     // Gradient color function: smoothly transitions from red -> orange -> yellow -> green
     const getGradientColor = (percentage) => {
@@ -275,176 +395,23 @@ export default function MonteCarloGauge({ categories = [] }) {
     }
 
     return (
-        <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900/20 group hover:bg-white/5 transition-colors">
+        <div className="glass px-6 pb-6 pt-10 rounded-3xl relative flex flex-col items-center justify-between border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900/20 group hover:bg-white/5 transition-colors">
 
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                 <Gauge size={80} />
             </div>
 
-            {/* Settings Toggle */}
-            <button
-                onClick={() => setShowConfig(!showConfig)}
-                className="absolute top-3 right-3 p-2 rounded-lg hover:bg-white/10 transition-colors z-10"
-            >
-                {showConfig ? <Check size={14} className="text-green-400" /> : <Settings2 size={14} className="text-slate-500" />}
-            </button>
+            {/* Header config button */}
+
 
             <div className="w-full flex justify-between items-center mb-2 pt-2">
                 <div className="flex items-center gap-2">
                     <Gauge size={16} className="text-blue-400" />
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monte Carlo</span>
                 </div>
-                <span className="text-[9px] text-slate-600">Ponderado</span>
             </div>
 
-            {/* Config Panel - Expanded View */}
-            {showConfig && (
-                <div className="w-full mb-4 p-4 bg-gradient-to-br from-slate-800/95 to-slate-900/95 rounded-2xl border border-white/10 shadow-xl">
-                    {/* Header with Toggle */}
-                    <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/10">
-                        <div className="flex items-center gap-2">
-                            <Settings2 size={14} className="text-blue-400" />
-                            <p className="text-xs text-white font-bold">Configurar Pesos</p>
-                        </div>
 
-                        {/* Equal Weights Toggle */}
-                        <button
-                            onClick={handleEqualModeChange}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${equalWeightsMode
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : 'bg-slate-700 text-slate-400 border border-white/10'
-                                }`}
-                        >
-                            <div className={`w-8 h-4 rounded-full relative transition-all ${equalWeightsMode ? 'bg-green-500' : 'bg-slate-600'}`}>
-                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${equalWeightsMode ? 'left-4' : 'left-0.5'}`} />
-                            </div>
-                            Pesos Iguais
-                        </button>
-                    </div>
-
-                    {/* Status message */}
-                    {equalWeightsMode && (
-                        <div className="mb-3 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                            <p className="text-[10px] text-green-400 text-center">
-                                ✓ Pesos distribuídos igualmente ({catCount > 0 ? Math.round(100 / catCount) : 0}% cada)
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Progress Bar Visual */}
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-slate-400">Distribuição Total</span>
-                            <span className={`text-xs font-bold ${currentTotal === 100 ? 'text-green-400' : currentTotal < 100 ? 'text-amber-400' : 'text-red-400'}`}>
-                                {currentTotal}% / 100%
-                            </span>
-                        </div>
-                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-300 ${currentTotal === 100 ? 'bg-green-500' : currentTotal < 100 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                style={{ width: `${Math.min(currentTotal, 100)}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Weights Grid */}
-                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                        {activeCategories.map(cat => {
-                            const weight = parseInt(weights[cat.name]) || 0;
-                            const otherWeights = currentTotal - weight;
-                            const maxAllowed = 100 - otherWeights;
-                            const canIncrease = maxAllowed > weight;
-                            return (
-                                <div
-                                    key={cat.id}
-                                    className="flex items-center gap-3 p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all group"
-                                >
-                                    {/* Category Icon & Name */}
-                                    <div
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                                        style={{ backgroundColor: `${cat.color}25`, border: `1px solid ${cat.color}40` }}
-                                    >
-                                        {cat.icon || '📚'}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <span className="text-[11px] text-white font-medium block truncate">{cat.name}</span>
-                                        {/* Mini progress bar */}
-                                        <div className="h-1 bg-slate-700 rounded-full mt-1 overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-300"
-                                                style={{ width: `${weight}%`, backgroundColor: cat.color || '#3b82f6' }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Weight Controls - Buttons + Value */}
-                                    <div className="flex items-center gap-1">
-                                        {/* Minus Button */}
-                                        <button
-                                            onClick={() => updateWeight(cat.name, weight - 10)}
-                                            disabled={equalWeightsMode}
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold transition-all ${equalWeightsMode
-                                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                                                : 'bg-red-500/20 text-red-400 hover:bg-red-500/40 active:scale-95 cursor-pointer'
-                                                }`}
-                                        >
-                                            −
-                                        </button>
-
-                                        {/* Value Display */}
-                                        <div className={`w-14 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${equalWeightsMode
-                                            ? 'bg-slate-800 text-slate-400'
-                                            : 'bg-slate-900 text-white border border-white/20'
-                                            }`}>
-                                            {weight}%
-                                        </div>
-
-                                        {/* Plus Button */}
-                                        <button
-                                            onClick={() => updateWeight(cat.name, weight + 10)}
-                                            disabled={equalWeightsMode}
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold transition-all ${equalWeightsMode
-                                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                                                : 'bg-green-500/20 text-green-400 hover:bg-green-500/40 active:scale-95 cursor-pointer'
-                                                }`}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Footer Tips */}
-                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                        <p className="text-[9px] text-slate-500">
-                            💡 Use pesos do edital do concurso
-                        </p>
-                        <button
-                            onClick={() => {
-                                // Reset to equal weights (multiples of 10)
-                                const equalWeight = Math.round(100 / catCount / 10) * 10;
-                                const newWeights = {};
-                                let usedWeight = 0;
-                                activeCategories.forEach((cat, idx) => {
-                                    if (idx === catCount - 1) {
-                                        newWeights[cat.name] = 100 - usedWeight;
-                                    } else {
-                                        newWeights[cat.name] = equalWeight;
-                                        usedWeight += equalWeight;
-                                    }
-                                });
-                                setWeights(newWeights);
-                            }}
-                            className="text-[9px] text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                            ⚖️ Equalizar
-                        </button>
-                    </div>
-                </div>
-            )}
 
 
             <div className="relative flex flex-col items-center justify-center py-2 h-full">
@@ -494,6 +461,111 @@ export default function MonteCarloGauge({ categories = [] }) {
                     ))}
                 </div>
             </div>
+
+
+            {/* Weights Configuration Footer Trigger */}
+            <div className="mt-4 w-full pt-3 border-t border-white/10 flex justify-center">
+                <button
+                    onClick={() => setShowConfig(true)}
+                    className="flex flex-col items-center gap-1 group/btn"
+                >
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center group-hover/btn:bg-blue-500 group-hover/btn:border-blue-400 decoration-purple-500 transition-all shadow-lg">
+                        <Settings2 size={20} className="text-slate-400 group-hover/btn:text-white" />
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-500 group-hover/btn:text-blue-400 uppercase tracking-widest transition-colors">Configurar Pesos</span>
+                </button>
+            </div>
+
+            {/* Dedicated Configuration Modal/Overlay */}
+            {
+                showConfig && (
+                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                                    <Settings2 size={20} className="text-blue-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">Configuração de Pesos</h3>
+                                    <p className="text-[10px] text-slate-400">Personalize a relevância de cada matéria</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowConfig(false)}
+                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                            >
+                                <Check size={16} className="text-white" />
+                            </button>
+                        </div>
+
+                        {/* Mode Toggle Checkbox Style */}
+                        <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
+                            <button
+                                onClick={() => {
+                                    if (!equalWeightsMode) { setWeights(getEqualWeights()); }
+                                    setEqualWeightsMode(true);
+                                }}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                                Pesos Iguais
+                            </button>
+                            <button
+                                onClick={() => setEqualWeightsMode(false)}
+                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                                Manual
+                            </button>
+                        </div>
+
+                        {/* Weights List - Large */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                            {equalWeightsMode ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                                    <Minus size={40} className="text-slate-600 mb-2" />
+                                    <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
+                                </div>
+                            ) : (
+                                activeCategories.map(cat => {
+                                    const weight = parseInt(weights[cat.name]) || 0;
+                                    return (
+                                        <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
+                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>
+                                                {cat.icon || '📚'}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
+                                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
+                                                <button
+                                                    onClick={() => updateWeight(cat.name, weight - 5)}
+                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
+                                                >
+                                                    <Minus size={14} />
+                                                </button>
+                                                <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
+                                                <button
+                                                    onClick={() => updateWeight(cat.name, weight + 5)}
+                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
+                                                >
+                                                    <Plus size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 }

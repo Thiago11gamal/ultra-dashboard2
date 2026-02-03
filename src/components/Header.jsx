@@ -8,8 +8,6 @@ import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync'
 
 export default function Header({
     user,
-    settings,
-    onToggleDarkMode,
     onUpdateName,
     contests,
     activeContestId,
