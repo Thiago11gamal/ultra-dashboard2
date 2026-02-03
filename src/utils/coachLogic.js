@@ -1,4 +1,4 @@
-export const calculateUrgency = (category, simulados = []) => {
+export const calculateUrgency = (category, simulados = [], studyLogs = []) => {
     // 1. Calculate Average Score for this category
     const relevantSimulados = simulados.filter(s => s.subject === category.name);
 
@@ -46,51 +46,93 @@ export const calculateUrgency = (category, simulados = []) => {
     const scoreComponent = (100 - averageScore) * 0.5;
 
     // Recency Contribution (0-30 points) -> Exponential decay (Ebbinghaus Forgetting Curve)
-    // Adjusted from 40 to 30 to make room for instability
     const recencyComponent = 30 * (1 - Math.exp(-daysSinceLastStudy / 5));
 
     // Instability Contribution (0-20 points) -> Higher SD means more points
     // Capped at 20 points (triggered at SD >= 15)
     const instabilityComponent = Math.min(20, standardDeviation * 1.33);
 
-    const matchScore = scoreComponent + recencyComponent + instabilityComponent;
+    // NEW: High Priority Task Boost (0-10 points)
+    const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
+    const priorityBoost = hasHighPriorityTasks ? 10 : 0;
+
+    // NEW: Study Efficiency Component (0-15 points penalty)
+    // If you studied a lot but still have low score, you're studying inefficiently
+    let efficiencyPenalty = 0;
+    if (studyLogs && studyLogs.length > 0 && relevantSimulados.length > 0) {
+        const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
+        const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + log.minutes, 0);
+        const totalHours = totalMinutes / 60;
+
+        // If studied more than 5 hours but average score is below 70%, add penalty
+        if (totalHours > 5 && averageScore < 70) {
+            // The more you studied with bad results, the higher the penalty (suggests method change needed)
+            efficiencyPenalty = Math.min(15, (totalHours / 10) * (70 - averageScore) / 10);
+        }
+    }
+
+    let baseScore = scoreComponent + recencyComponent + instabilityComponent + priorityBoost + efficiencyPenalty;
+
+    // NEW: Weight Multiplier (Applied at the end)
+    // If category has a weight, use it. Otherwise default to 100% (no change)
+    const weight = category.weight !== undefined ? category.weight : 100;
+    const weightMultiplier = weight / 100;
+
+    const finalScore = baseScore * weightMultiplier;
 
     return {
-        score: matchScore,
+        score: finalScore,
         details: {
             averageScore,
             daysSinceLastStudy,
             standardDeviation: standardDeviation.toFixed(1),
-            hasData: relevantSimulados.length > 0
+            hasData: relevantSimulados.length > 0,
+            hasHighPriorityTasks,
+            efficiencyPenalty: efficiencyPenalty.toFixed(1),
+            weight
         }
     };
 };
 
-export const getSuggestedFocus = (categories, simulados) => {
+export const getSuggestedFocus = (categories, simulados, studyLogs = []) => {
     if (!categories || categories.length === 0) return null;
 
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados)
+        urgency: calculateUrgency(cat, simulados, studyLogs)
     })).sort((a, b) => b.urgency.score - a.urgency.score);
 
     return ranked[0]; // Return the most urgent category
 };
 
-export const generateDailyGoals = (categories, simulados) => {
+export const generateDailyGoals = (categories, simulados, studyLogs = []) => {
     // Get top 3 urgent categories
     const ranked = categories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados)
+        urgency: calculateUrgency(cat, simulados, studyLogs)
     })).sort((a, b) => b.urgency.score - a.urgency.score);
 
     const top3 = ranked.slice(0, 3);
 
     // Convert to task objects
-    return top3.map(cat => ({
-        id: Date.now() + Math.random(),
-        text: `Foco em ${cat.name}: Revisar erros e fazer 10 questões`,
-        completed: false,
-        categoryId: cat.id
-    }));
+    // If category has high-priority tasks, suggest them specifically
+    return top3.map(cat => {
+        const highPriorityTask = cat.tasks?.find(t => !t.completed && t.priority === 'high');
+
+        if (highPriorityTask) {
+            return {
+                id: Date.now() + Math.random(),
+                text: `Foco em ${cat.name}: ${highPriorityTask.title || highPriorityTask.text}`,
+                completed: false,
+                categoryId: cat.id
+            };
+        } else {
+            return {
+                id: Date.now() + Math.random(),
+                text: `Foco em ${cat.name}: Revisar erros e fazer 10 questões`,
+                completed: false,
+                categoryId: cat.id
+            };
+        }
+    });
 };

@@ -400,6 +400,17 @@ function App() {
     showToast('Painel excluído com sucesso.', 'info');
   }, [showToast]);
 
+  // Update Category Weights (for Monte Carlo / AI Coach)
+  const handleUpdateWeights = useCallback((weights) => {
+    setData(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => ({
+        ...cat,
+        weight: weights[cat.name] !== undefined ? weights[cat.name] : (cat.weight || 100)
+      }))
+    }));
+  }, [setData]);
+
   // Auto-save data
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -857,13 +868,13 @@ function App() {
   const [coachLoading, setCoachLoading] = useState(false);
   const suggestedFocus = React.useMemo(() => {
     if (!data.categories || !data.simulados) return null;
-    return getSuggestedFocus(data.categories, data.simulados);
-  }, [data.categories, data.simulados]);
+    return getSuggestedFocus(data.categories, data.simulados, data.studyLogs || []);
+  }, [data.categories, data.simulados, data.studyLogs]);
 
   const handleGenerateGoals = useCallback(() => {
     setCoachLoading(true);
     setTimeout(() => {
-      const newTasks = generateDailyGoals(data.categories, data.simulados);
+      const newTasks = generateDailyGoals(data.categories, data.simulados, data.studyLogs || []);
 
       if (newTasks.length === 0) {
         setCoachLoading(false);
