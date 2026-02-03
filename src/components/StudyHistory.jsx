@@ -87,21 +87,8 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
 
     return (
         <div className="w-full space-y-5 animate-fade-in-down">
-            {/* Top Section - Header & Stats */}
+            {/* Top Section - Stats */}
             <div className="flex flex-col gap-6">
-                {/* Header */}
-                <div className="flex items-center gap-3 shrink-0">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-emerald-500/30 rounded-xl blur-lg"></div>
-                        <div className="relative p-3 bg-gradient-to-br from-emerald-500/20 to-green-500/20 rounded-xl border border-emerald-500/30">
-                            <BarChart3 size={28} className="text-emerald-400" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Histórico de Estudos</h2>
-                        <p className="text-slate-500 text-xs">Acompanhe seu progresso</p>
-                    </div>
-                </div>
 
                 {/* Stats Cards - Enhanced */}
                 <div className="w-full flex gap-3">
