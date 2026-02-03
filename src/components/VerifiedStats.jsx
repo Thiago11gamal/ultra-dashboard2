@@ -238,12 +238,12 @@ export default function VerifiedStats({ categories = [] }) {
                 categorySDs.push(sd);
 
                 // Individual Status
-                let status = 'CONSISTENTE';
-                let color = 'text-green-400';
-                let bgBorder = 'border-green-500/30';
+                let status = 'ESTÁVEL';
+                let color = 'text-yellow-400';
+                let bgBorder = 'border-yellow-500/30';
 
                 if (sd < 5) {
-                    status = 'ROBÔ 🤖';
+                    status = 'CONSISTENTE';
                     color = 'text-green-400';
                     bgBorder = 'border-green-500/30';
                 } else if (sd > 15) {
@@ -273,7 +273,7 @@ export default function VerifiedStats({ categories = [] }) {
 
             if (avgSD < 5) {
                 consistency = {
-                    status: 'ROBÔ 🤖',
+                    status: 'CONSISTENTE',
                     color: 'text-green-400',
                     bgBorder: 'border-green-500',
                     icon: <Activity size={20} />,
@@ -291,9 +291,9 @@ export default function VerifiedStats({ categories = [] }) {
                 };
             } else {
                 consistency = {
-                    status: 'CONSISTENTE',
-                    color: 'text-green-400',
-                    bgBorder: 'border-green-500',
+                    status: 'ESTÁVEL',
+                    color: 'text-yellow-400',
+                    bgBorder: 'border-yellow-500',
                     icon: <Activity size={20} />,
                     message: "Ritmo constante por disciplina.",
                     sd: sdFixed

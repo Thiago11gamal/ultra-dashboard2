@@ -176,11 +176,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                         <div className={`ml-8 glass rounded-2xl overflow-hidden transition-all hover:border-white/10 ${dayGroup.isToday ? 'border-purple-500/50 shadow-[0_0_30px_-5px_rgba(168,85,247,0.15)]' : ''
                             }`}>
                             {/* Card Header */}
-                            <div className={`px-6 py-4 flex items-center justify-between ${dayGroup.isToday
+                            <div className={`px-6 py-4 grid grid-cols-3 items-center ${dayGroup.isToday
                                 ? 'bg-gradient-to-r from-purple-900/40 to-slate-900/40'
                                 : 'bg-white/5'
                                 }`}>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 justify-start">
                                     <h3 className={`text-lg font-bold ${dayGroup.isToday ? 'text-purple-300' : 'text-slate-300'}`}>
                                         {dayGroup.label} {dayGroup.isToday ? '' : `de ${dayGroup.dateObj.toLocaleString('pt-BR', { month: 'long' })}`}
                                     </h3>
@@ -190,9 +190,12 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         </span>
                                     )}
                                 </div>
-                                <div className="font-mono text-white text-lg font-bold bg-black/30 px-3 py-1 rounded-lg border border-white/10">
-                                    {formatTime(dayGroup.totalMinutes)}
+                                <div className="flex justify-center">
+                                    <div className="font-mono text-white text-lg font-bold bg-black/30 px-6 py-1 min-w-[100px] text-center rounded-lg border border-white/10">
+                                        {formatTime(dayGroup.totalMinutes)}
+                                    </div>
                                 </div>
+                                <div></div>
                             </div>
 
                             {/* Categories List */}
