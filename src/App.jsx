@@ -907,11 +907,7 @@ function App() {
             />
 
             {/* Next Goal Card - AI-powered suggestion */}
-            <NextGoalCard
-              categories={data.categories}
-              simulados={data.simulados}
-              onStartStudying={startStudying}
-            />
+
 
             {/* Tasks / Checklist Area */}
             <div className="mt-4">
