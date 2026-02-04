@@ -706,7 +706,6 @@ function App() {
       if (totalHours >= 50) tryUnlock('marathon', 'Maratonista');
 
       // Polymath (3 subjects in one day)
-      const today = new Date().toISOString().split('T')[0];
       const todayLogs = studyLogs.filter(l => l.date && l.date.startsWith(today));
       const todayCategories = new Set(todayLogs.map(l => l.categoryId));
       if (todayCategories.size >= 3) tryUnlock('polymath', 'Generalista');
@@ -731,11 +730,6 @@ function App() {
         }
       });
       if (highPriorityCompleted >= 5) tryUnlock('strategist', 'Estrategista');
-    }
-
-    // Scribe (Notes Length)
-    if (currentData.notes && currentData.notes.length > 1000) {
-      tryUnlock('scribe', 'Escriba');
     }
 
     // If any unlocked

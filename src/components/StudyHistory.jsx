@@ -128,7 +128,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
 
             {/* Middle Section - Chart and Sessions */}
-                        <div className="flex gap-4 items-stretch">
+            <div className="flex gap-4 items-stretch">
                 {/* Weekly Chart - Enhanced */}
                 <div className="w-1/2 glass p-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
@@ -248,7 +248,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             return new Date(r.createdAt).toDateString() === yesterdayStr;
                         });
 
-                        const renderSection = (rows, title, icon, isToday) => {
+                        const renderSection = (rows, title, icon, isToday, side = 'left') => {
                             const validRows = rows.filter(r => r.subject && r.topic);
                             if (validRows.length === 0) return null;
 
@@ -309,19 +309,22 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                     : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
 
                             return (
-                                <div className={`flex-1 flex flex-col h-full min-h-0 ${isToday ? '' : 'opacity-80'}`}>
-                                    {/* Vertical Icon Column */}
-                                    <div className="flex flex-col items-center justify-between px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20 h-full">
-                                        {icon ? (
-                                            <span className="text-6xl">{icon}</span>
-                                        ) : null}
-                                        <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
+                                <div className={`flex-1 flex h-full min-h-0 ${isToday ? '' : 'opacity-90'} ${side === 'right' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    {/* Vertical Icon Column - Mirrored Logic */}
+                                    <div className={`flex flex-col items-center justify-center px-3 py-8 ${side === 'left' ? 'mr-4 rounded-l-xl border-r' : 'ml-4 rounded-r-xl border-l'} bg-slate-800/40 border-indigo-500/20 shadow-xl self-stretch`}>
+                                        <div className="flex-1 flex flex-col items-center justify-between gap-8 h-full">
+                                            <span className="text-3xl filter grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{icon}</span>
+                                            <h3 className={`text-[11px] font-black tracking-[0.3em] uppercase ${isToday ? 'text-emerald-400' : 'text-indigo-400'} whitespace-nowrap`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: side === 'left' ? 'rotate(180deg)' : 'none' }}>
+                                                {title}
+                                            </h3>
+                                            <div className="w-px h-12 bg-gradient-to-b from-indigo-500/30 to-transparent"></div>
+                                        </div>
                                     </div>
 
                                     {/* Content Column */}
-                                    <div className="flex-1 pr-6">
+                                    <div className="flex-1 min-w-0 pr-2">
                                         {/* Global Insight Banner - More Spacing */}
-                                        <div className="mb-6 mr-4 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
+                                        <div className="mb-6 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
                                             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
                                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
                                             <div className="relative flex items-center gap-3">
@@ -425,8 +428,8 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                             );
                         };
 
-                        const todaySection = renderSection(todayRows, 'Hoje', null, true);
-                        const yesterdaySection = renderSection(yesterdayRows, 'Ontem', null, false);
+                        const todaySection = renderSection(todayRows, 'Hoje', '⚡', true, 'right');
+                        const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '🕰️', false, 'left');
 
                         if (!todaySection && !yesterdaySection) {
                             return (
