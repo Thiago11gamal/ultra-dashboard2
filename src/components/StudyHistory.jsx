@@ -128,7 +128,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
 
             {/* Middle Section - Chart and Sessions */}
-            <div className="flex gap-4">
+                        <div className="flex gap-4 items-stretch">
                 {/* Weekly Chart - Enhanced */}
                 <div className="w-1/2 glass p-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
@@ -309,14 +309,14 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                     : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
 
                             return (
-                                <div className={`flex-1 flex ${isToday ? '' : 'opacity-80'}`}>
+                                <div className={`flex-1 flex flex-col h-full min-h-0 ${isToday ? '' : 'opacity-80'}`}>
                                     {/* Vertical Icon Column */}
-                                            <div className="flex flex-col items-center justify-center px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20">
-                                                {icon ? (
-                                                    <span className="text-5xl mb-2">{icon}</span>
-                                                ) : null}
-                                                <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
-                                            </div>
+                                    <div className="flex flex-col items-center justify-between px-4 py-6 mr-4 bg-gradient-to-b from-slate-800/60 to-slate-900/60 rounded-l-xl border-r border-indigo-500/20 h-full">
+                                        {icon ? (
+                                            <span className="text-6xl">{icon}</span>
+                                        ) : null}
+                                        <h3 className={`text-sm font-bold writing-mode-vertical ${isToday ? 'text-emerald-400' : 'text-slate-400'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>{title}</h3>
+                                    </div>
 
                                     {/* Content Column */}
                                     <div className="flex-1 pr-6">
