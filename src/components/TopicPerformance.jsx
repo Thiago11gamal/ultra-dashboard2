@@ -33,11 +33,14 @@ export default function TopicPerformance({ categories = [] }) {
         // Convert to array and calculate stats
         const topicList = Object.entries(topicMap).map(([name, data]) => {
             const percentage = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+            const missed = data.total - data.correct;
+            const balance = data.correct - missed;
             return {
                 name,
                 total: data.total,
                 correct: data.correct,
-                percentage
+                percentage,
+                balance
             };
         });
 
@@ -134,7 +137,16 @@ export default function TopicPerformance({ categories = [] }) {
                                 className="bg-white/5 border border-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors group"
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="font-medium text-slate-200">{topic.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-slate-200">{topic.name}</span>
+                                        {/* Balance Badge */}
+                                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                            topic.balance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                'bg-slate-500/10 border-slate-500/20 text-slate-400'
+                                            }`}>
+                                            Saldo: {topic.balance > 0 ? '+' : ''}{topic.balance}
+                                        </span>
+                                    </div>
                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${badgeColor}`}>
                                         {icon} {label}
                                     </span>
