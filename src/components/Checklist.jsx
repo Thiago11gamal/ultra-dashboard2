@@ -261,7 +261,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
 
                     <div className="p-4 space-y-3 pb-8">
                         {(category.tasks || []).length === 0 ? (
-                            <p className="text-center text-slate-500 text-sm py-2">Nenhuma tarefa encontrada.</p>
+                            <p className="text-center text-slate-500 text-sm py-2">Nenhum assunto cadastrado.</p>
                         ) : (
                             category.tasks.map(task => (
                                 <TaskItem
@@ -280,13 +280,13 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     <div className="p-4 pt-0">
                         <button
                             onClick={() => {
-                                const title = prompt('Nome da nova tarefa:');
+                                const title = prompt('Nome do novo assunto:');
                                 if (title) onAddTask(category.id, title);
                             }}
-                            className="w-full py-2 rounded-xl border border-dashed border-white/20 text-slate-400 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2 group"
+                            className="w-full py-2 rounded-xl border border-dashed border-orange-500/30 bg-orange-900/20 text-orange-300 hover:bg-orange-800/40 hover:text-orange-100 hover:border-orange-500/50 transition-all flex items-center justify-center gap-2 group"
                         >
                             <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                            <span>Adicionar Tarefa</span>
+                            <span>Adicionar Assunto</span>
                         </button>
                     </div>
                 </div>
@@ -364,9 +364,9 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                             const name = prompt('Nome da nova disciplina:');
                             if (name) onAddCategory(name);
                         }}
-                        className="w-full py-4 rounded-xl border-2 border-dashed border-white/20 text-slate-400 hover:text-white hover:bg-white/5 hover:border-purple-500/50 transition-all flex items-center justify-center gap-3 group"
+                        className="w-full py-4 rounded-xl border-2 border-dashed border-yellow-200/20 bg-yellow-200/5 text-yellow-200 hover:text-yellow-100 hover:bg-yellow-200/10 hover:border-yellow-200/40 transition-all flex items-center justify-center gap-3 group"
                     >
-                        <span className="p-2 rounded-lg bg-white/5 group-hover:bg-purple-500/20 text-2xl transition-colors">📚</span>
+                        <span className="p-2 rounded-lg bg-yellow-200/10 group-hover:bg-yellow-200/20 text-2xl transition-colors">📚</span>
                         <span className="font-semibold text-lg">Adicionar Disciplina</span>
                     </button>
                 </div>

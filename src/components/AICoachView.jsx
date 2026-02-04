@@ -152,6 +152,20 @@ export default function AICoachView({
                                             </div>
                                         </div>
 
+                                        {/* DEBUG / EXPLAINABILITY SECTION */}
+                                        {task.analysis && (
+                                            <details className="mt-2 text-xs text-slate-500 border-t border-white/5 pt-2">
+                                                <summary className="cursor-pointer hover:text-purple-300 flex items-center gap-1 list-none">
+                                                    <span className="bg-purple-500/10 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-purple-400/80 hover:bg-purple-500/20 transition-colors">
+                                                        ? Por que isso?
+                                                    </span>
+                                                </summary>
+                                                <div className="mt-2 p-3 rounded bg-black/40 font-mono text-[10px] whitespace-pre-wrap overflow-x-auto text-slate-400 border border-white/5 shadow-inner">
+                                                    {JSON.stringify(task.analysis, null, 2)}
+                                                </div>
+                                            </details>
+                                        )}
+
                                         <div className="flex items-center justify-between pt-2 mt-auto border-t border-white/5">
                                             <span className="text-[10px] uppercase font-bold text-purple-300/60 bg-purple-500/5 px-2 py-0.5 rounded border border-purple-500/10 group-hover:bg-purple-500/10 group-hover:text-purple-300 transition-colors">
                                                 Meta do Dia

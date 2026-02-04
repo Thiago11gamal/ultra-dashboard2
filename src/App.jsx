@@ -621,6 +621,146 @@ function App() {
     showToast('Dados de simulado sincronizados com Tarefas!', 'success');
   }, [setData, showToast, addXP]);
 
+  // --- NEW ACHIEVEMENT CHECK LOGIC ---
+  const checkAchievements = useCallback((currentData) => {
+    if (!currentData || !currentData.user) return;
+
+    const { user, studyLogs, simulados } = currentData;
+    const unlockedNow = [];
+    const currentUnlocked = new Set(user.achievements || []);
+
+    // Helper to unlock
+    const tryUnlock = (id, title) => {
+      if (!currentUnlocked.has(id)) {
+        unlockedNow.push({ id, title });
+        currentUnlocked.add(id);
+      }
+    };
+
+    // 1. Streak Checks
+    // Calculate current streak
+    // (Simplified logic: assumption is logs are sorted or we just check consecutive days)
+    if (studyLogs && studyLogs.length > 0) {
+      // Sort unique days
+      const uniqueDays = [...new Set(studyLogs.map(l => l.date.split('T')[0]))].sort();
+
+      let streak = 0;
+      let maxStreak = 0;
+      // quick calc
+      let currentStreak = 0;
+      // This is a rough check, ideally we use the StreakDisplay logic or similar
+      // For now, let's just check raw unique days count for "Volume" related streaks or do a proper check
+      // Let's rely on a simplified "total days" for now or check latest consecutive
+      // Actually, let's implement a real streak check
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+      if (uniqueDays.includes(today) || uniqueDays.includes(yesterday)) {
+        // Streak is active
+        // Count backwards
+        let checkDate = new Date();
+        let count = 0;
+        while (true) {
+          const s = checkDate.toISOString().split('T')[0];
+          if (uniqueDays.includes(s)) {
+            count++;
+            checkDate.setDate(checkDate.getDate() - 1);
+          } else if (s === today && !uniqueDays.includes(today) && uniqueDays.includes(yesterday)) {
+            // Allow missing today if it's early
+            checkDate.setDate(checkDate.getDate() - 1);
+            continue;
+          } else {
+            break;
+          }
+        }
+        currentStreak = count;
+      }
+
+      if (currentStreak >= 7) tryUnlock('week-streak', 'Imparável');
+      if (currentStreak >= 30) tryUnlock('month-streak', 'Lenda Viva');
+
+      // Weekend Warrior Check (Sat + Sun study in same week)
+      const weekendLogs = studyLogs.filter(l => {
+        const d = new Date(l.date);
+        const day = d.getDay();
+        return day === 0 || day === 6; // 0=Sun, 6=Sat
+      });
+      if (weekendLogs.length >= 2) {
+        // Basic check: has studied on Sat AND Sun?
+        // We need to group by week, but for now simple check: if has at least one Sat and one Sun ever
+        const hasSat = weekendLogs.some(l => new Date(l.date).getDay() === 6);
+        const hasSun = weekendLogs.some(l => new Date(l.date).getDay() === 0);
+        if (hasSat && hasSun) tryUnlock('weekend-warrior', 'Guerreiro de FDS');
+      }
+
+      // Early Bird / Night Owl
+      const hasEarly = studyLogs.some(l => new Date(l.date).getHours() < 6);
+      if (hasEarly) tryUnlock('early-bird', 'Madrugador');
+
+      const hasLate = studyLogs.some(l => new Date(l.date).getHours() >= 23);
+      if (hasLate) tryUnlock('night-owl', 'Coruja');
+
+      // Marathon (Total Hours)
+      const totalMinutes = studyLogs.reduce((acc, l) => acc + (l.minutes || 0), 0);
+      const totalHours = totalMinutes / 60;
+      if (totalHours >= 50) tryUnlock('marathon', 'Maratonista');
+
+      // Polymath (3 subjects in one day)
+      const today = new Date().toISOString().split('T')[0];
+      const todayLogs = studyLogs.filter(l => l.date && l.date.startsWith(today));
+      const todayCategories = new Set(todayLogs.map(l => l.categoryId));
+      if (todayCategories.size >= 3) tryUnlock('polymath', 'Generalista');
+    }
+
+    // 2. Sniper (Accuracy)
+    if (simulados && simulados.length > 0) {
+      const hasPerfectScore = simulados.some(s => s.total >= 10 && s.correct === s.total);
+      if (hasPerfectScore) tryUnlock('sniper', 'Cirurgião');
+    }
+
+    // 3. Other Diverse Checks
+    // Zen Master (Pomodoro Count - using studyLogs count as proxy if session data missing)
+    if (studyLogs && studyLogs.length >= 50) tryUnlock('zen-master', 'Mestre Zen');
+
+    // Strategist (High Priority Tasks)
+    if (currentData.categories) {
+      let highPriorityCompleted = 0;
+      currentData.categories.forEach(cat => {
+        if (cat.tasks) {
+          highPriorityCompleted += cat.tasks.filter(t => t.completed && t.priority === 'high').length;
+        }
+      });
+      if (highPriorityCompleted >= 5) tryUnlock('strategist', 'Estrategista');
+    }
+
+    // Scribe (Notes Length)
+    if (currentData.notes && currentData.notes.length > 1000) {
+      tryUnlock('scribe', 'Escriba');
+    }
+
+    // If any unlocked
+    if (unlockedNow.length > 0) {
+      setData(prev => ({
+        ...prev,
+        user: {
+          ...prev.user,
+          achievements: [...(prev.user.achievements || []), ...unlockedNow.map(u => u.id)]
+        }
+      }));
+      unlockedNow.forEach(u => showToast(`🏆 Conquista Desbloqueada: ${u.title}!`, 'success'));
+    }
+
+  }, [setData, showToast]);
+
+  // Trigger Check on meaningful updates
+  useEffect(() => {
+    // Debounce check to avoid spam
+    const timer = setTimeout(() => {
+      checkAchievements(data);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [data.studyLogs, data.simulados, checkAchievements]); // Only re-run when logs/sims change
+
   // Import Data - RESTORED
   const handleImport = useCallback((event) => {
     const file = event.target.files[0];
@@ -874,7 +1014,10 @@ function App() {
   const handleGenerateGoals = useCallback(() => {
     setCoachLoading(true);
     setTimeout(() => {
-      const newTasks = generateDailyGoals(data.categories, data.simulados, data.studyLogs || []);
+      const newTasks = generateDailyGoals(data.categories, data.simulados, data.studyLogs || [], {
+        config: {},
+        user: data.user
+      });
 
       if (newTasks.length === 0) {
         setCoachLoading(false);
@@ -1291,34 +1434,32 @@ function App() {
               </button>
             </div>
 
-            {/* Main Grid: Calendar + Stats */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Grid: Stacked Logic */}
+            <div className="flex flex-col gap-6">
 
-              {/* Left: Calendar Heatmap (Takes 2 columns) */}
-              <div className="lg:col-span-2">
-                <div className="rounded-2xl p-6 border border-white/10 bg-slate-900/60 backdrop-blur-sm h-full">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Calendar size={18} className="text-green-400" />
-                    <h3 className="text-lg font-bold text-white">Calendário de Estudos</h3>
-                  </div>
-                  <ActivityHeatmap studyLogs={data.studyLogs} />
-                </div>
+              {/* Top Row: Key Metrics (Streak + XP) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                <StreakDisplay studyLogs={data.studyLogs} />
+                <XPHistory user={data.user} />
               </div>
 
-              {/* Right: Stats Column */}
-              <div className="lg:col-span-1 flex flex-col gap-4">
-                {/* Streak Card */}
-                <StreakDisplay studyLogs={data.studyLogs} />
+              {/* Middle Row: Heatmap (Full Width) */}
+              <div className="rounded-2xl p-6 border border-white/10 bg-slate-900/60 backdrop-blur-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar size={18} className="text-green-400" />
+                  <h3 className="text-lg font-bold text-white">Calendário de Estudos</h3>
+                </div>
+                <ActivityHeatmap studyLogs={data.studyLogs} />
+              </div>
 
-                {/* XP Card */}
-                <XPHistory user={data.user} />
-
-                {/* Achievements Card */}
+              {/* Bottom Row: Achievements */}
+              <div className="">
                 <AchievementsGrid
                   unlockedIds={data.user?.achievements || []}
                   stats={{}}
                 />
               </div>
+
             </div>
           </div>
         );
