@@ -42,28 +42,74 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const handleAnalyze = () => {
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
-            const normalize = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
-            const validNames = new Set(categories.map(c => normalize(c.name)));
+            const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
 
-            let invalidFound = false;
-            let invalidName = '';
-
-            // Check for invalid subjects and wipe them
-            const validatedRows = rows.map(r => {
-                // If subject is filled but not found in valid list
-                if (r.subject && !validNames.has(normalize(r.subject))) {
-                    invalidFound = true;
-                    invalidName = r.subject;
-                    return { subject: '', topic: '', correct: 0, total: 0 }; // Wipe row
-                }
-                return r;
+            const validDataMap = {};
+            categories.forEach(cat => {
+                const subName = normalize(cat.name);
+                const topics = new Set((cat.tasks || []).map(t => normalize(t.title || t.text || '')));
+                validDataMap[subName] = topics;
             });
 
-            if (invalidFound) {
-                setRows(validatedRows); // Update grid to show wiped row
-                setError(`A matéria '${invalidName}' não existe no Dashboard. Cadastre-a primeiro.`);
-                setAnalysisData(null); // Clear previous results
-                return; // Stop processing
+            let invalidSubject = null;
+            let invalidTopic = null;
+            let targetSubject = '';
+            let hasErrors = false;
+
+            const validatedRows = rows.map(r => {
+                if (!r.subject && !r.topic) return r;
+
+                const subNorm = normalize(r.subject);
+                const topNorm = normalize(r.topic);
+
+                const isSubValid = r.subject ? !!validDataMap[subNorm] : true;
+
+                // If subject is invalid, topic is also invalid for this row context.
+                // If subject is valid, check if topic exists within it.
+                let isTopValid = true;
+                if (r.topic) {
+                    if (isSubValid && r.subject) {
+                        isTopValid = validDataMap[subNorm].has(topNorm);
+                    } else if (r.subject) {
+                        // Subject provided but invalid
+                        isTopValid = false;
+                    } else {
+                        // No subject provided, just check if topic exists anywhere
+                        isTopValid = Object.values(validDataMap).some(set => set.has(topNorm));
+                    }
+                }
+
+                let newRow = { ...r };
+
+                if (r.subject && !isSubValid) {
+                    invalidSubject = r.subject;
+                    newRow.subject = '';
+                    hasErrors = true;
+                }
+
+                if (r.topic && !isTopValid) {
+                    invalidTopic = r.topic;
+                    targetSubject = r.subject;
+                    newRow.topic = '';
+                    hasErrors = true;
+                }
+
+                return newRow;
+            });
+
+            if (hasErrors) {
+                setRows(validatedRows);
+
+                if (invalidSubject && invalidTopic) {
+                    setError(`Matéria '${invalidSubject}' e Assunto '${invalidTopic}' não encontrados.`);
+                } else if (invalidSubject) {
+                    setError(`A matéria '${invalidSubject}' não existe no Dashboard.`);
+                } else if (invalidTopic) {
+                    setError(`O assunto '${invalidTopic}' não existe na matéria '${targetSubject}'.`);
+                }
+
+                setAnalysisData(null);
+                return;
             }
         }
 

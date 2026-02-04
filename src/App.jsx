@@ -83,93 +83,105 @@ function App() {
   }
 
   // Wrapper to update only the current contest data
-  const setData = useCallback((updater) => {
-    setTimeout(() => {
-      setAppState(prev => {
-        // Ensure we have valid prev state
-        const safePrev = prev && prev.contests ? prev : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
+  const setData = useCallback((updater, recordHistory = true) => {
+    setAppState(prev => {
+      // Ensure we have valid prev state
+      const safePrev = prev && prev.contests ? prev : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
 
-        const currentContestId = safePrev.activeId || 'default';
-        const currentData = safePrev.contests[currentContestId] || INITIAL_DATA;
+      const currentContestId = safePrev.activeId || 'default';
+      const currentData = safePrev.contests[currentContestId] || INITIAL_DATA;
 
-        // Calculate new data
-        const newData = typeof updater === 'function' ? updater(currentData) : updater;
+      // Calculate new data
+      const newData = typeof updater === 'function' ? updater(currentData) : updater;
 
-        return {
-          ...safePrev,
-          contests: {
-            ...safePrev.contests,
-            [currentContestId]: newData
-          }
-        };
-      });
-    }, 0);
-  }, []);
+      // Optimization: Skip if no changes detected
+      if (newData === currentData) return safePrev;
 
-  // Change 'studying' to 'paused' on app initialization (shows indicator where user left off)
+      // Supreme Undo History Management
+      let newHistory = safePrev.history || [];
+      if (recordHistory) {
+        // Snapshot includes which contest it belongs to
+        newHistory = [...newHistory, {
+          contestId: currentContestId,
+          data: JSON.parse(JSON.stringify(currentData))
+        }];
+        // Limit to 30 actions to prevent memory leaks
+        if (newHistory.length > 30) newHistory.shift();
+      }
+
+      return {
+        ...safePrev,
+        history: newHistory,
+        contests: {
+          ...safePrev.contests,
+          [currentContestId]: newData
+        }
+      };
+    });
+  }, [setAppState]);
+
+  // Change 'studying' to 'paused' on app initialization
   useEffect(() => {
     const now = new Date();
     const today = now.toDateString();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
 
-    setTimeout(() => {
-      setData(prev => {
-        // 1. Clean old rows (keep only today + yesterday)
-        let currentRows = (prev.simuladoRows || []).filter(row => {
-          if (!row.createdAt) return false;
-          const rowDate = new Date(row.createdAt).toDateString();
-          return rowDate === today || rowDate === yesterday;
-        });
-
-        // 1.5 Deduplicate exact matches (fixes accumulation from multiple tests/clicks)
-        const seen = new Set();
-        currentRows = currentRows.filter(row => {
-          const key = JSON.stringify({
-            s: row.subject?.trim(),
-            t: row.topic?.trim(),
-            c: row.correct,
-            tot: row.total,
-            d: new Date(row.createdAt).toDateString()
-          });
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-
-        // 2. Check for "New Day" condition
-        const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
-        const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
-
-        if (!hasToday && hasYesterday) {
-          // Auto-Clone Yesterday -> Today (Reset values)
-          const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
-          const newTodayRows = yesterdayRows.map(r => ({
-            subject: r.subject,
-            topic: r.topic,
-            correct: 0,
-            total: 0,
-            createdAt: Date.now() // Today
-          }));
-          currentRows = [...currentRows, ...newTodayRows];
-        }
-
-        return {
-          ...prev,
-          simuladoRows: currentRows,
-          categories: prev.categories.map(cat => ({
-            ...cat,
-            tasks: (cat.tasks || []).map(t =>
-              t.status === 'studying' ? { ...t, status: 'paused' } : t
-            )
-          }))
-        };
+    setData(prev => {
+      // 1. Clean old rows (keep only today + yesterday)
+      let currentRows = (prev.simuladoRows || []).filter(row => {
+        if (!row.createdAt) return false;
+        const rowDate = new Date(row.createdAt).toDateString();
+        return rowDate === today || rowDate === yesterday;
       });
-    }, 0);
-  }, []); // Empty deps = run once on mount
+
+      // 1.5 Deduplicate
+      const seen = new Set();
+      currentRows = currentRows.filter(row => {
+        const key = JSON.stringify({
+          s: row.subject?.trim(),
+          t: row.topic?.trim(),
+          c: row.correct,
+          tot: row.total,
+          d: new Date(row.createdAt).toDateString()
+        });
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // 2. Check for "New Day" condition
+      const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
+      const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
+
+      if (!hasToday && hasYesterday) {
+        // Auto-Clone Yesterday -> Today (Reset values)
+        const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
+        const newTodayRows = yesterdayRows.map(r => ({
+          subject: r.subject,
+          topic: r.topic,
+          correct: 0,
+          total: 0,
+          createdAt: Date.now() // Today
+        }));
+        currentRows = [...currentRows, ...newTodayRows];
+      }
+
+      return {
+        ...prev,
+        simuladoRows: currentRows,
+        categories: prev.categories.map(cat => ({
+          ...cat,
+          tasks: (cat.tasks || []).map(t =>
+            t.status === 'studying' ? { ...t, status: 'paused' } : t
+          )
+        }))
+      };
+    });
+  }, [setData]); // Run once on mount (setData is stable)
 
   // --- GAMIFICATION LOGIC ---
-  const addXP = useCallback((amount, skipBonus = false) => {
-    // Random Bonus Check (10% chance for 2x XP)
+  // Pure logic helper to apply XP and Level changes to a state object
+  const applyGamification = useCallback((state, amount, skipBonus = false) => {
     let finalAmount = amount;
     let bonusTriggered = false;
 
@@ -178,38 +190,35 @@ function App() {
       bonusTriggered = true;
     }
 
-    setData(prev => {
-      const currentXP = prev.user.xp || 0;
-      const newXP = Math.max(0, currentXP + finalAmount);
+    const currentXP = state.user.xp || 0;
+    const newXP = Math.max(0, currentXP + finalAmount);
+    const oldLevel = calculateLevel(currentXP);
+    const newLevel = calculateLevel(newXP);
 
-      // Calculate levels using new exponential thresholds
-      const oldLevel = calculateLevel(currentXP);
-      const newLevel = calculateLevel(newXP);
+    if (newLevel < oldLevel) {
+      const { title } = getLevelTitle(newLevel);
+      setLevelUpData({ level: newLevel, title });
+    } else if (newLevel > oldLevel) {
+      showToast(`⚠️ Nível Reduzido`, 'info');
+    }
 
-      if (newLevel < oldLevel) {
-        // Level UP (e.g. 10 -> 9)
-        const { title } = getLevelTitle(newLevel);
-        setLevelUpData({ level: newLevel, title });
-      } else if (newLevel > oldLevel) {
-        // Level DOWN (e.g. 9 -> 10)
-        showToast(`⚠️ Nível Reduzido`, 'info');
+    if (bonusTriggered) {
+      setTimeout(() => showToast(`🎲 SORTE! XP Dobrado: +${finalAmount}!`, 'success'), 500);
+    }
+
+    return {
+      ...state,
+      user: {
+        ...state.user,
+        xp: newXP,
+        level: newLevel
       }
+    };
+  }, [showToast]);
 
-      // Show bonus toast
-      if (bonusTriggered) {
-        setTimeout(() => showToast(`🎲 SORTE! XP Dobrado: +${finalAmount}!`, 'success'), 500);
-      }
-
-      return {
-        ...prev,
-        user: {
-          ...prev.user,
-          xp: newXP,
-          level: newLevel
-        }
-      };
-    });
-  }, [setData, showToast]);
+  const addXP = useCallback((amount, skipBonus = false) => {
+    setData(prev => applyGamification(prev, amount, skipBonus));
+  }, [setData, applyGamification]);
 
   // Check achievements whenever data changes
   useEffect(() => {
@@ -297,29 +306,32 @@ function App() {
     if (!activeSubject) return;
     const { categoryId, taskId } = activeSubject;
 
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          tasks: cat.tasks.map(t => {
-            if (t.id !== taskId) return t;
-            return { ...t, completed: true, status: 'completed' };
-          })
-        };
-      })
-    }));
+    setData(prev => {
+      // 1. Update data
+      const updatedState = {
+        ...prev,
+        categories: prev.categories.map(cat => {
+          if (cat.id !== categoryId) return cat;
+          return {
+            ...cat,
+            tasks: cat.tasks.map(t => {
+              if (t.id !== taskId) return t;
+              return { ...t, completed: true, status: 'completed' };
+            })
+          };
+        })
+      };
 
-    // Award XP
-    addXP(300);
-    showToast('Ciclo completo! +300 XP 🎉', 'success');
+      // 2. Apply XP (300) and return combined state in a SINGLE snapshot
+      showToast('Ciclo completo! +300 XP 🎉', 'success');
+      return applyGamification(updatedState, 300);
+    });
 
     setActiveSubject(null);
     setActiveTab('dashboard');
-  }, [activeSubject, setData, showToast, addXP]);
+  }, [activeSubject, setData, showToast, applyGamification]);
 
-  // Undo last action
+  // Undo last action (Contest-Aware)
   const handleUndo = useCallback(() => {
     setAppState(prev => {
       if (!prev.history || prev.history.length === 0) {
@@ -327,14 +339,19 @@ function App() {
       }
 
       const newHistory = [...prev.history];
-      const previousData = newHistory.pop();
+      const snapshot = newHistory.pop();
+
+      // Support both old snapshots (direct data) and new snapshots ({contestId, data})
+      const targetId = snapshot.contestId || prev.activeId;
+      const snapshotData = snapshot.data || snapshot;
 
       return {
         ...prev,
+        activeId: targetId, // Switch back to where the action happened
         history: newHistory,
         contests: {
           ...prev.contests,
-          [prev.activeId]: previousData
+          [targetId]: snapshotData
         }
       };
     });
@@ -454,7 +471,7 @@ function App() {
 
     if (hasDuplicates) {
       setTimeout(() => {
-        setData(prev => ({ ...prev, categories: newCategories }));
+        setData(prev => ({ ...prev, categories: newCategories }), false); // Don't record history for auto-color fixes
       }, 0);
     }
   }, [data.categories, setData]);
@@ -496,16 +513,12 @@ function App() {
       }));
 
       return { ...prev, simuladoRows: [...nonTodayRows, ...processedTodayRows] };
-    });
+    }); // Undo enabled for grade entry
   }, [setData]);
 
   // Handle Simulado Analysis Results
   const handleSimuladoAnalysis = useCallback((payload) => {
     console.log("App: handleSimuladoAnalysis received payload", payload);
-
-    // XP Award
-    addXP(500);
-    showToast('Simulado Processado! +500 XP 📈', 'success');
 
     setData(prev => {
       // Support both old format (direct data) and new format ({analysis, rawRows})
@@ -556,11 +569,26 @@ function App() {
         const category = newCategories[catIndex];
         const currentStats = category.simuladoStats || { history: [], average: 0 };
 
-        // Calculate new stats
+        // --- TOPIC VALIDATION ---
+        const rawTopics = disc.topics || disc.worstTopics || [];
+        const validTopics = [];
+        const categoryTasks = category.tasks || [];
+        const taskTitlesNormalized = categoryTasks.map(t => normalize(t.title));
+
+        rawTopics.forEach(t => {
+          const topicNameNormalized = normalize(t.name);
+          if (taskTitlesNormalized.includes(topicNameNormalized)) {
+            validTopics.push(t);
+          } else {
+            showToast(`Assunto '${t.name}' ignorado na matéria '${category.name}'. Crie-o primeiro.`, 'warning');
+          }
+        });
+
+        // Use validTopics for calculations
+        const topics = validTopics;
+
         let totalQuestions = 0;
         let totalCorrect = 0;
-
-        const topics = disc.topics || disc.worstTopics || [];
 
         if (topics.length > 0) {
           totalQuestions = topics.reduce((acc, t) => acc + (parseInt(t.total) || 0), 0);
@@ -612,14 +640,18 @@ function App() {
         };
       });
 
-      return {
+      const updatedState = {
         ...prev,
         categories: newCategories
       };
-    });
 
-    showToast('Dados de simulado sincronizados com Tarefas!', 'success');
-  }, [setData, showToast, addXP]);
+      showToast('Simulado Processado! +500 XP 📈', 'success');
+      showToast('Dados de simulado sincronizados com Tarefas!', 'success');
+
+      // Apply XP (500) and return consolidated state
+      return applyGamification(updatedState, 500);
+    });
+  }, [setData, showToast, applyGamification]);
 
   // --- NEW ACHIEVEMENT CHECK LOGIC ---
   const checkAchievements = useCallback((currentData) => {
@@ -794,33 +826,35 @@ function App() {
 
   // Task Handlers
   const toggleTask = useCallback((categoryId, taskId) => {
-    let xpChange = 0;
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat =>
-        cat.id === categoryId
-          ? {
-            ...cat,
-            tasks: cat.tasks.map(t => {
-              if (t.id === taskId) {
-                const newCompleted = !t.completed;
-                xpChange = newCompleted ? 150 : -150;
-                return { ...t, completed: newCompleted };
-              }
-              return t;
-            })
-          }
-          : cat
-      )
-    }));
+    setData(prev => {
+      let xpChange = 0;
+      const updatedState = {
+        ...prev,
+        categories: prev.categories.map(cat =>
+          cat.id === categoryId
+            ? {
+              ...cat,
+              tasks: cat.tasks.map(t => {
+                if (t.id === taskId) {
+                  const newCompleted = !t.completed;
+                  xpChange = newCompleted ? 150 : -150;
+                  return { ...t, completed: newCompleted };
+                }
+                return t;
+              })
+            }
+            : cat
+        )
+      };
 
-    if (xpChange > 0) {
-      addXP(xpChange);
-      showToast('Tarefa concluída! +150 XP ✅', 'success');
-    } else {
-      addXP(xpChange);
-    }
-  }, [setData, addXP, showToast]);
+      if (xpChange > 0) {
+        showToast('Tarefa concluída! +150 XP ✅', 'success');
+      }
+
+      // Apply XP change and return consolidated state
+      return applyGamification(updatedState, xpChange);
+    });
+  }, [setData, applyGamification, showToast]);
 
   const deleteTask = useCallback((categoryId, taskId) => {
     setData(prev => ({
@@ -1471,6 +1505,21 @@ function App() {
             }}
           />
         );
+      case 'heatmap':
+        return (
+          <div className="rounded-2xl p-8 border border-white/10 bg-slate-900/60 backdrop-blur-sm">
+            <div className="flex items-center gap-3 mb-8">
+              <Calendar size={28} className="text-green-400" />
+              <div>
+                <h3 className="text-2xl font-bold text-white">Calendário de Atividade</h3>
+                <p className="text-slate-400">Seu histórico visual de consistência</p>
+              </div>
+            </div>
+            <ActivityHeatmap studyLogs={data.studyLogs} />
+          </div>
+        );
+      case 'history':
+        return <StudyHistory studyLogs={data.studyLogs} categories={data.categories} />;
       case 'notes':
         return (
           <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
