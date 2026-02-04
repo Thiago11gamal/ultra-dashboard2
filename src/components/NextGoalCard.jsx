@@ -112,29 +112,55 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
 
                 {/* Center: Task Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span
-                            className="text-xs font-semibold px-2 py-0.5 rounded"
-                            style={{ backgroundColor: `${category.color}30`, color: category.color }}
-                        >
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="px-2 py-0.5 rounded bg-white/10 border border-white/20 shrink-0">
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Matéria</span>
+                        </div>
+                        <span className="text-xs font-bold text-white truncate">
                             {category.name}
                         </span>
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${urgencyStyle.badge}`}>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ml-auto ${urgencyStyle.badge}`}>
                             {urgency?.score > 70 ? '🔥 Urgente' : urgency?.score > 50 ? '⚡ Média' : '📋 Normal'}
                         </span>
                     </div>
-                    <h3 className="text-white font-bold truncate text-sm mb-1">
-                        {task.title || task.text || 'Tarefa'}
-                    </h3>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                        <span className="flex items-center gap-1">
-                            <Clock size={10} />
-                            {urgency?.details?.daysSinceLastStudy || 0}d sem praticar
-                        </span>
-                        {urgency?.details?.standardDeviation && (
-                            <span className="text-slate-500">SD: {urgency.details.standardDeviation}</span>
-                        )}
-                    </div>
+
+                    {(() => {
+                        const fullText = task.title || task.text || "Estudo";
+                        const parts = fullText.split(':');
+                        const hasDetails = parts.length > 1;
+                        let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
+
+                        // Extract topic from brackets [Topic] if present
+                        let topicPart = "";
+                        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
+                        if (topicMatch) {
+                            topicPart = topicMatch[1];
+                            actionPart = topicMatch[2].trim();
+                        }
+
+                        const displayAssunto = topicPart || (actionPart.length > 40 ? actionPart.substring(0, 37) + '...' : actionPart);
+                        const displayMeta = topicPart ? actionPart : "Revisão e exercícios";
+
+                        return (
+                            <>
+                                <div className="flex items-start gap-2">
+                                    <div className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
+                                        <span className="text-[9px] font-black text-amber-300 uppercase tracking-tighter">Assunto</span>
+                                    </div>
+                                    <h3 className="text-white font-bold text-sm leading-tight truncate px-1" title={displayAssunto}>
+                                        {displayAssunto}
+                                    </h3>
+                                </div>
+
+                                <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
+                                    <span className="flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {displayMeta} • {urgency?.details?.daysSinceLastStudy || 0}d
+                                    </span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
 
                 {/* Right: Action Button */}

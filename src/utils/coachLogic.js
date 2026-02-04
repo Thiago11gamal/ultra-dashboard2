@@ -49,14 +49,27 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             averageScore = 50; // Neutral start if no data
         }
 
-        // 2. Calculate Days Since Last Study & Recency Impact
-        let daysSinceLastStudy = 7;
+        // 2. Calculate Days Since Last Study (Recency)
+        // Check both Simulados AND Study Logs
+        let daysSinceLastStudy = 30; // Default if never studied
+        let lastDate = new Date(0);
 
         if (relevantSimulados.length > 0) {
-            // Array is already sorted by date desc above
-            const mostRecentDate = new Date(relevantSimulados[0].date || 0);
+            const simDate = new Date(relevantSimulados[0].date || 0);
+            if (simDate > lastDate) lastDate = simDate;
+        }
+
+        const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
+        if (categoryStudyLogs.length > 0) {
+            // Sort category logs by date desc
+            const sortedLogs = [...categoryStudyLogs].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            const logDate = new Date(sortedLogs[0].date || 0);
+            if (logDate > lastDate) lastDate = logDate;
+        }
+
+        if (lastDate.getTime() > 0) {
             const today = new Date();
-            daysSinceLastStudy = Math.floor((today - mostRecentDate) / (1000 * 60 * 60 * 24));
+            daysSinceLastStudy = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
         }
 
         // 3. Calculate Standard Deviation (Consistency)
@@ -164,11 +177,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 averageScore: Number(averageScore.toFixed(1)),
                 daysSinceLastStudy,
                 standardDeviation: Number(standardDeviation.toFixed(1)),
-                hasData: relevantSimulados.length > 0,
+                hasData: relevantSimulados.length > 0 || categoryStudyLogs.length > 0,
+                hasSimulados: relevantSimulados.length > 0,
                 hasHighPriorityTasks,
                 efficiencyPenalty: Number(efficiencyPenalty.toFixed(1)),
                 weight,
                 srsLabel,
+                humanReadable: {
+                    "Média": `${Math.round(averageScore)}%`,
+                    "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
+                    "Instabilidade": `±${standardDeviation.toFixed(1)} pts`,
+                    "Peso da Matéria": `x${(weight / 100).toFixed(1)}`,
+                    "Status": srsLabel || (normalized > 70 ? "Urgente" : "Estável")
+                },
                 components: {
                     scoreComponent: Number(scoreComponent.toFixed(2)),
                     recencyComponent: Number(recencyComponent.toFixed(2)),
@@ -201,7 +222,14 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
         urgency: calculateUrgency(cat, simulados, studyLogs, options)
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
-    return ranked[0]; // Return the most urgent category
+    const top = ranked[0];
+    if (!top) return null;
+
+    // Attach weakest topic to the result
+    return {
+        ...top,
+        weakestTopic: getWeakestTopic(top)
+    };
 };
 
 // Helper to find the weakest topic in a category
@@ -238,18 +266,20 @@ const getWeakestTopic = (category) => {
     // 2. Populate/Update from Tasks (Intention Data)
     // If a task exists, it IS a topic. Even if no history.
     tasks.forEach(task => {
-        if (task.completed) return; // Ignore completed topics? Or maybe keep them if we want review? Let's ignore completed for now.
-
         const name = (task.text || task.title || "").trim();
         if (!name) return;
 
         if (!topicMap[name]) {
-            // New Topic! (Never tested)
+            // New Topic!
             topicMap[name] = {
                 total: 0,
                 correct: 0,
-                lastSeen: new Date(0) // Never seen
+                lastSeen: new Date(0),
+                completed: !!task.completed // Track completion
             };
+        } else {
+            // If it exists in history but also as a task, update completion status
+            topicMap[name].completed = !!task.completed;
         }
 
         // Inject Priority directly
@@ -295,8 +325,13 @@ const getWeakestTopic = (category) => {
     // We want to include Untested topics now if they come from Tasks
     const pool = topics;
 
-    // Sort descending (Higher Score = More Urgent)
-    pool.sort((a, b) => b.urgencyScore - a.urgencyScore);
+    // Sort descending: Prioritize 1. Manual/High, 2. Untested, 3. Poor Performance, 4. Old Review
+    pool.sort((a, b) => {
+        // Uncompleted tasks first
+        if (!a.completed && b.completed) return -1;
+        if (a.completed && !b.completed) return 1;
+        return b.urgencyScore - a.urgencyScore;
+    });
 
     return pool.length > 0 ? pool[0] : null;
 };
@@ -310,8 +345,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const top3 = ranked.slice(0, 3);
 
-    // --- NEW LOGIC 1: DETECTOR DE PSEUDO-ESTUDO (Theory Trap) ---
-    // Check if user has lots of hours in a top category but NO recent questions
+    // --- Definição das funções auxiliares antes do uso ---
     const performDeepCheck = (category) => {
         const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
         const categorySims = simulados.filter(s => s.subject === category.name);
@@ -332,28 +366,25 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
 
-    // --- NEW LOGIC 2: MOTIVAÇÃO DE VOLUME (Consistency Boost) ---
-    // Check weekly average
-    const getVolumeChallenge = () => {
-        // Simple check: Did you study yesterday?
-        // In a real app, we'd calculate exact weekly avg.
-        // For now, we simulate a "Push" message if logs exist.
-        if (studyLogs.length > 5) {
-            return "🔥 Desafio: Que tal superar sua média? Tente estudar 30min a mais hoje!";
-        }
-        return null;
-    };
-
-
-    // Convert to task objects
+    // Mapeia as 3 principais categorias para criar as tarefas sugeridas
     const suggestedTasks = top3.map(cat => {
+        const weakTopic = getWeakestTopic(cat);
+        // Force a topic label for UI parsing. If no weak topic, use "Revisão Geral"
+        const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
+
         // 0. Check for SRS Trigger (Highest Priority)
-        if (cat.urgency.details.srsLabel) {
+        if (cat.urgency && cat.urgency.details && cat.urgency.details.srsLabel) {
             return {
-                id: Date.now() + Math.random(),
-                text: `🧠 ${cat.urgency.details.srsLabel}: ${cat.name}. Revise para não esquecer!`,
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
                 completed: false,
-                categoryId: cat.id
+                categoryId: cat.id,
+                analysis: {
+                    reason: "SRS (Espaçamento) Triggered",
+                    label: cat.urgency.details.srsLabel,
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
+                }
             };
         }
 
@@ -361,94 +392,74 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const trapCheck = performDeepCheck(cat);
         if (trapCheck.isTrap) {
             return {
-                id: Date.now() + Math.random(),
-                text: trapCheck.msg,
-                completed: false,
-                categoryId: cat.id
-            };
-        }
-
-        // --- NEW LOGIC: PLATEAU DETECTOR (Estagnação) ---
-        // If score is bad (< 70) AND very stable (Dev < 5), user is stuck.
-        // Needs a pattern interrupt (Theory/Video) instead of just more questions.
-        if (cat.urgency.details.hasData &&
-            cat.urgency.details.averageScore < 70 &&
-            cat.urgency.details.standardDeviation < 5 &&
-            cat.urgency.details.standardDeviation >= 0) { // Ensure dev is valid
-
-            return {
-                id: Date.now() + Math.random(),
-                text: `🛑 Alerta de Platô em ${cat.name}: Sua nota travou em ~${Math.round(cat.urgency.details.averageScore)}%. Pare as questões! Volte para a Teoria ou Revise seu Caderno de Erros hoje.`,
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "Plateau Detected",
-                    components: {
-                        "Average Score": cat.urgency.details.averageScore + "%",
-                        "Deviation": cat.urgency.details.standardDeviation + " (Very Stable)",
-                        "Verdict": "Stagnation"
-                    }
+                    reason: "Detector de Pseudo-Estudo",
+                    details: "Alta carga horária com baixíssimo volume de exercícios.",
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                 }
             };
         }
 
-        // Configurável: pesos e limites usados pelo motor (pode ser extraído para arquivo separado)
-        const DEFAULT_CONFIG = {
-            SCORE_MAX: 50,
-            RECENCY_MAX: 30,
-            INSTABILITY_MAX: 20,
-            PRIORITY_BOOST: 30, // INCREASED from 10 to 30 to match Topic Priority weight
-            EFFICIENCY_MAX: 15,
-            SRS_BOOST: 40,
-            // Usado para normalização final (soma dos máximos acima)
-            RAW_MAX: 50 + 30 + 20 + 30 + 15 + 40
-        };
+        // --- NEW LOGIC: PLATEAU DETECTOR (Estagnação) ---
+        if (cat.urgency && cat.urgency.details &&
+            cat.urgency.details.hasData &&
+            cat.urgency.details.averageScore < 70 &&
+            cat.urgency.details.standardDeviation < 5 &&
+            cat.urgency.details.standardDeviation >= 0) {
 
-        // ... (existing code for calculateUrgency) ...
-        // (Note: Since I cannot edit disjoint blocks in one go, I assume I'm editing the block below.
-        // Wait, I need to edit DEFAULT_CONFIG separately or include it.
-        // I will edit generateDailyGoals first and assume I'll do a second edit for DEFAULT_CONFIG or try to capture it if it's close?
-        // No, they are far apart. I will stick to generateDailyGoals logic for this chunk and do the config separately if needed,
-        // OR I will focus on the generateDailyGoals part which is the critical UI fix.)
-
-        // actually, let's fix the generateDailyGoals part first.
+            return {
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}🛑 Alerta de Platô. Sua nota travou. Revise a teoria!`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Plateau Detected (Estagnação)",
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: "Nota estagnada com baixa oscilação. Requer revisão teórica profunda ou novo método."
+                }
+            };
+        }
 
         // 1. Check for specific WEAK TOPIC (Precision Mode)
-        const weakTopic = getWeakestTopic(cat);
+        // weakTopic already calculated above
 
-        // 2. Check for High Priority manual task (Legacy check, kept for safety)
+        // 2. Check for High Priority manual task
         const highPriorityTask = cat.tasks?.find(t => !t.completed && t.priority === 'high');
 
         if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.manualPriority > 0)) {
             // Found a specific weakness!
-
-            // Customize Message based on WHY it was selected
-            let msg = "";
+            let taskTitle = "";
             let reasonStr = "";
             if (weakTopic.isUntested) {
-                msg = `🚨 Foco em ${cat.name}: ${weakTopic.name} (Prioridade/Novo). Comece agora!`;
+                taskTitle = `🚨 (Novo). Comece agora!`; // Topic is already in label
                 reasonStr = "Untested/New Topic";
             } else if (weakTopic.manualPriority > 0) {
-                msg = `🚨 Foco em ${cat.name}: ${weakTopic.name} (Alerta de Prioridade). Nota atual: ${Math.round(weakTopic.percentage)}%`;
+                taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
                 reasonStr = "Manual High Priority";
             } else {
-                msg = `🚨 Foco em ${cat.name}: ${weakTopic.name} (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
+                taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
                 reasonStr = "Low Performance";
             }
 
             return {
-                id: Date.now() + Math.random(),
-                text: msg,
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}${taskTitle}`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
                     reason: `Selected Topic: ${weakTopic.name}`,
                     details: reasonStr,
-                    categoryScore: {
+                    metrics: cat.urgency.details.humanReadable,
+                    categoryDetails: {
                         "Total Urgency": Math.round(cat.urgency.score),
                         ...cat.urgency.details.components
                     },
-                    topicScore: {
+                    topicDetails: {
                         "Topic Grade": Math.round(weakTopic.percentage) + "%",
                         "Days Since": weakTopic.daysSince,
                         "Manual Priority Bonus": weakTopic.priorityBoost,
@@ -458,8 +469,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         } else if (highPriorityTask) {
             return {
-                id: Date.now() + Math.random(),
-                text: `Foco em ${cat.name}: ${highPriorityTask.title || highPriorityTask.text}`,
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `Foco em ${cat.name}: ${topicLabel}${highPriorityTask.title || highPriorityTask.text}`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
@@ -469,13 +480,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         } else {
             return {
-                id: Date.now() + Math.random(),
-                text: `Foco em ${cat.name}: Revisar erros e fazer 10 questões`,
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
                     reason: "General Review (No specific weak topic found)",
-                    categoryScore: {
+                    metrics: cat.urgency.details.humanReadable,
+                    categoryDetails: {
                         "Total Urgency": Math.round(cat.urgency.score),
                         ...cat.urgency.details.components
                     }
@@ -484,12 +496,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
     });
 
-    // Inject Volume Challenge occasionally (New Logic 3) - push it as a 4th generic card or replacing the 3rd if 3rd is weak
-    // For this UI, we return just the top 3 specific tasks to keep layout clean,
-    // but we could append the motivation as a special "System Message" task.
-    // Let's replace the 3rd task with a motivation card ONLY IF the 3rd task is generic.
-
-    // (Implementation choice: keep strict 3 tasks for now to avoid breaking UI layout)
-
     return suggestedTasks;
 };
+
