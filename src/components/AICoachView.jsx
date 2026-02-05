@@ -18,7 +18,7 @@ function AICoachCard({ task, idx }) {
     // Cleanup Subject
     subjectPart = subjectPart
         .replace(/Foco em /i, '')
-        .replace(/[🚨🧠🛑⚠️✅] /g, '')
+        .replace(/[^\w\s\u00C0-\u00FF]/g, '') // Remove non-word chars (keeping unicode accents) instead of listing emojis
         .trim();
 
     // Extract topic from brackets [Topic] if present

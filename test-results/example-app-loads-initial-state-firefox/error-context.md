@@ -41,7 +41,7 @@
         - generic [ref=e111]:
           - textbox "Digite o nome do concurso..." [ref=e112]: Estudante
           - generic [ref=e113]: Foco Principal ✏️
-        - paragraph [ref=e114]: terça-feira, 3 de fevereiro de 2026
+        - paragraph [ref=e114]: quinta-feira, 5 de fevereiro de 2026
       - generic [ref=e115]:
         - generic [ref=e116]:
           - button "Salvar na Nuvem" [ref=e117]:
@@ -51,7 +51,7 @@
         - button "Desfazer" [ref=e127]:
           - img [ref=e128]
           - generic: Desfazer
-        - generic [ref=e131]: 14:54:35
+        - generic [ref=e131]: 17:18:04
         - button "👤" [ref=e133] [cursor=pointer]
     - generic [ref=e134]:
       - generic [ref=e135]:
@@ -119,17 +119,12 @@
               - generic [ref=e242]:
                 - generic [ref=e243]: Baixa Prioridade
                 - generic [ref=e244]: 0%
-      - generic [ref=e246]:
-        - img [ref=e248]
-        - generic [ref=e252]:
-          - heading "Tudo em dia! 🎉" [level=3] [ref=e253]
-          - paragraph [ref=e254]: Nenhuma tarefa urgente.
-      - generic [ref=e256]:
-        - generic [ref=e257]:
-          - button "Todas" [ref=e258]
-          - button "Ativas" [ref=e259]
-          - button "Concluídas" [ref=e260]
-        - button "📚 Adicionar Disciplina" [ref=e262]:
-          - generic [ref=e263]: 📚
-          - generic [ref=e264]: Adicionar Disciplina
+      - generic [ref=e247]:
+        - generic [ref=e248]:
+          - button "Todas" [ref=e249]
+          - button "Ativas" [ref=e250]
+          - button "Concluídas" [ref=e251]
+        - button "📚 Adicionar Disciplina" [ref=e253]:
+          - generic [ref=e254]: 📚
+          - generic [ref=e255]: Adicionar Disciplina
 ```

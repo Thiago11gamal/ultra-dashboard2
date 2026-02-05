@@ -676,8 +676,7 @@ function App() {
       // Sort unique days
       const uniqueDays = [...new Set(studyLogs.map(l => l.date.split('T')[0]))].sort();
 
-      let streak = 0;
-      let maxStreak = 0;
+
       // quick calc
       let currentStreak = 0;
       // This is a rough check, ideally we use the StreakDisplay logic or similar
@@ -1505,21 +1504,7 @@ function App() {
             }}
           />
         );
-      case 'heatmap':
-        return (
-          <div className="rounded-2xl p-8 border border-white/10 bg-slate-900/60 backdrop-blur-sm">
-            <div className="flex items-center gap-3 mb-8">
-              <Calendar size={28} className="text-green-400" />
-              <div>
-                <h3 className="text-2xl font-bold text-white">Calendário de Atividade</h3>
-                <p className="text-slate-400">Seu histórico visual de consistência</p>
-              </div>
-            </div>
-            <ActivityHeatmap studyLogs={data.studyLogs} />
-          </div>
-        );
-      case 'history':
-        return <StudyHistory studyLogs={data.studyLogs} categories={data.categories} />;
+
       case 'notes':
         return (
           <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">

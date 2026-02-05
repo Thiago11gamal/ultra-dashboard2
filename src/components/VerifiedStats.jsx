@@ -105,15 +105,12 @@ export default function VerifiedStats({ categories = [] }) {
 
             const denom = (n * sumXX - sumX * sumX);
             let slope = 0;
-            let intercept = 0;
 
             if (denom !== 0) {
                 slope = (n * sumXY - sumX * sumY) / denom;
-                intercept = (sumY - slope * sumX) / n;
             } else {
                 // All points on same day or insufficient variance
                 slope = 0;
-                intercept = sumY / n; // Just the average
             }
 
             // ANTIGRAVITY PREDICTION ENGINE 🚀

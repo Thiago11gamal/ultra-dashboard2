@@ -231,7 +231,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         };
 
         if (typeof logger === 'function') {
-            try { logger({ categoryId: category.id, name: category.name, urgency: result }); } catch (e) { }
+            try { logger({ categoryId: category.id, name: category.name, urgency: result }); } catch { /* ignore error */ }
         }
 
         return result;

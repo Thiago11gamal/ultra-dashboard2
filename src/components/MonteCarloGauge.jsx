@@ -46,17 +46,9 @@ export default function MonteCarloGauge({ categories = [] }) {
         }
     }, [catCount, weights, getEqualWeights]);
 
-    // When equal mode turns ON, reset to equal weights
-    const handleEqualModeChange = () => {
-        if (!equalWeightsMode) {
-            // Turning ON - set equal weights
-            setWeights(getEqualWeights());
-        }
-        setEqualWeightsMode(!equalWeightsMode);
-    };
 
-    // Calculate total
-    const currentTotal = activeCategories.reduce((sum, cat) => sum + (weights[cat.name] || 0), 0);
+
+
 
     // Update weight with validation to keep total <= 100% - optimized with useCallback
     const updateWeight = useCallback((catName, value) => {
