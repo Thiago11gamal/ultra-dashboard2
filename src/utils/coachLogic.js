@@ -410,7 +410,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "SRS (Espaçamento) Triggered",
+                    reason: "Revisão Espaçada (SRS) Ativada",
                     label: cat.urgency.details.srsLabel,
                     metrics: cat.urgency.details.humanReadable,
                     verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
@@ -448,7 +448,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "Plateau Detected (Estagnação)",
+                    reason: "Estagnação Detectada",
                     metrics: cat.urgency.details.humanReadable,
                     verdict: "Nota estagnada com baixa oscilação. Requer revisão teórica profunda ou novo método."
                 }
@@ -467,13 +467,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             let reasonStr = "";
             if (weakTopic.isUntested) {
                 taskTitle = `🚨 (Novo). Comece agora!`; // Topic is already in label
-                reasonStr = "Untested/New Topic";
+                reasonStr = "Tópico Novo / Não Testado";
             } else if (weakTopic.manualPriority > 0) {
                 taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
-                reasonStr = "Manual High Priority";
+                reasonStr = "Alta Prioridade Manual";
             } else {
                 taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
-                reasonStr = "Low Performance";
+                reasonStr = "Baixa Performance";
             }
 
             return {
@@ -482,18 +482,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: `Selected Topic: ${weakTopic.name}`,
+                    reason: `Tópico Selecionado: ${weakTopic.name}`,
                     details: reasonStr,
                     metrics: cat.urgency.details.humanReadable,
                     categoryDetails: {
-                        "Total Urgency": Math.round(cat.urgency.score),
+                        "Urgência Total": Math.round(cat.urgency.score),
                         ...cat.urgency.details.components
                     },
                     topicDetails: {
-                        "Topic Grade": Math.round(weakTopic.percentage) + "%",
-                        "Days Since": weakTopic.daysSince,
-                        "Manual Priority Bonus": weakTopic.priorityBoost,
-                        "Calculated Topic Urgency": weakTopic.urgencyScore
+                        "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
+                        "Dias sem Ver": weakTopic.daysSince,
+                        "Bônus de Prioridade": weakTopic.priorityBoost,
+                        "Urgência Calculada": weakTopic.urgencyScore
                     }
                 }
             };
@@ -504,7 +504,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "Legacy High Priority Task",
+                    reason: "Tarefa Prioritária (Manual)",
                     categoryScore: Math.round(cat.urgency.score)
                 }
             };
@@ -515,7 +515,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "General Review (No specific weak topic found)",
+                    reason: "Revisão Geral (Sem ponto fraco específico)",
                     metrics: cat.urgency.details.humanReadable,
                     categoryDetails: {
                         "Total Urgency": Math.round(cat.urgency.score),
