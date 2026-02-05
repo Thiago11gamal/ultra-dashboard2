@@ -116,67 +116,69 @@ export default function VerifiedStats({ categories = [] }) {
                 intercept = sumY / n; // Just the average
             }
 
-            // Calculate prediction based on targetScore
-            if (slope > 0.05) { // Minimal positive slope required
-                const targetDays = (targetScore - intercept) / slope;
-                const currentMaxDay = dataPoints[dataPoints.length - 1].x;
+            // ANTIGRAVITY PREDICTION ENGINE 🚀
+            // 1. Inputs
+            const currentScore = currentAvg;
+            const target = targetScore;
 
-                if (targetDays > currentMaxDay) {
-                    const daysRemaining = Math.max(0, Math.ceil(targetDays - currentMaxDay));
+            // 2. Distance Calculation
+            const distance = target - currentScore;
 
-                    if (daysRemaining > 365 * 2) { // Too far
-                        prediction = "Longo Prazo";
-                        predictionSubtext = `Continue estudando para chegar aos ${targetScore}%.`;
-                        predictionStatus = "neutral";
-                    } else {
-                        const nowTime = new Date().getTime();
-                        const predictedDate = new Date(nowTime + (daysRemaining * 24 * 60 * 60 * 1000));
-                        prediction = predictedDate.toLocaleDateString('pt-BR');
-                        // Only show (Gabarito) if target is 100
-                        const label = targetScore === 100 ? " (Gabarito)" : "";
-                        predictionSubtext = `Estimativa para ${targetScore}%${label}`;
-                        predictionStatus = "good";
-                    }
-                } else {
-                    // Mathematically already there or slope is super steep
-                    if (targetScore === 100) {
-                        prediction = "Você é uma Lenda!";
-                        predictionSubtext = "Estatisticamente, você já gabarita.";
-                        predictionStatus = "excellence";
-                    } else {
-                        // Should have switched to 100, but fallback
-                        prediction = "Meta Atingida!";
-                        predictionSubtext = "Rumo aos 100%!";
-                        predictionStatus = "excellence";
-                    }
-                }
-            } else if (slope > -0.05 && slope <= 0.05) {
-                // Plateau - Logic handles slope=0 here naturally
-                if (currentAvg >= 95) {
-                    prediction = "Consistência Total";
-                    predictionSubtext = "Mantendo performance de elite.";
-                    predictionStatus = "excellence";
-                } else if (currentAvg > 85) {
-                    prediction = "Estabilidade Alta";
-                    predictionSubtext = "Fure o teto para chegar aos 100%.";
-                    predictionStatus = "good";
-                } else {
-                    prediction = "Estagnado";
-                    predictionSubtext = " Intensifique os estudos.";
-                    predictionStatus = "warning";
-                }
+            if (distance <= 0 || currentScore >= target) {
+                prediction = "Meta Atingida!";
+                predictionSubtext = "Rumo aos 100%!";
+                predictionStatus = "excellence";
             } else {
-                // Declining
-                if (currentAvg > 90) {
-                    prediction = "Oscilação no Topo";
-                    predictionSubtext = "Cuidado com o 'salto alto'.";
-                    predictionStatus = "warning";
+                // 3. Base Speed Calculation (Weekly Moving Average)
+                // We use slope (daily gain) * 7 to get weekly gain
+                const weeklyBaseSpeed = Math.max(0.1, slope * 7); // Floor at 0.1 points/week so it never halts completely
+
+                // 4. Difficulty Factor (The higher you are, the harder it gets)
+                let difficultyFactor = 1.0;
+                if (currentScore >= 80) difficultyFactor = 0.6;
+                else if (currentScore >= 70) difficultyFactor = 0.8;
+
+                // 5. Efficiency (Quality)
+                // Approximated by Consistency (1 - Normalized SD). 
+                // If SD is high (unstable), efficiency drops.
+                // SD 0 -> Quality 1.0. SD 20 -> Quality 0.5.
+                // Using global history SD roughly here:
+                let quality = 0.8; // Default good
+
+                // Calculate quick SD of recent history
+                const recVariance = recentHistory.reduce((a, b) => a + Math.pow(b.score - currentAvg, 2), 0) / recentHistory.length;
+                const recSD = Math.sqrt(recVariance);
+                quality = Math.max(0.5, 1 - (recSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
+
+                // Final Adjusted Speed (Points per Week)
+                const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
+
+                // 6. Estimated Time
+                const weeksEstimated = distance / adjustedSpeed;
+                const daysEstimated = weeksEstimated * 7;
+
+                // 7. Interval Projection
+                if (daysEstimated > 365 * 2) {
+                    prediction = "Longo Prazo";
+                    predictionSubtext = `Continue firme. O caminho é longo.`;
                 } else {
-                    prediction = "Tendência de Queda";
-                    predictionSubtext = "Identifique as lacunas urgentes.";
-                    predictionStatus = "bad";
+                    const nowTime = new Date().getTime();
+
+                    const daysMin = daysEstimated * 0.8;
+                    const daysMax = daysEstimated * 1.2;
+
+                    const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
+                    const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
+
+                    // Format output
+                    const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+                    prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
+                    predictionSubtext = `Previsão de alcance (${target}%)`;
+                    predictionStatus = "good";
                 }
             }
+            // Legacy logic removed. Antigravity Engine handles all scenarios.
 
         } else {
             predictionSubtext = `Faltam ${3 - allHistory.length} simulados para prever.`;

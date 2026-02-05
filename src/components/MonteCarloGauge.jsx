@@ -153,34 +153,63 @@ export default function MonteCarloGauge({ categories = [] }) {
             return;
         }
 
-        // 2. Calculate Weighted Mean & Pooled SD
+        // 2. Linear Regression Projection (The "Speed" of learning)
+        // Instead of static mean, we project where the user will be in X days (e.g. 30 days)
+        const PROJECT_DAYS = 30; // Simulate exam in 1 month
+
         const weightedMean = categoryStats.reduce((acc, cat) => {
-            return acc + (cat.mean * cat.weight);
+            // Calculate Linear Regression for this category
+            if (!cat.history || cat.history.length < 2) return acc + (cat.mean * cat.weight);
+
+            const dataPoints = cat.history.map(h => ({
+                x: (new Date(h.date).getTime() - new Date(cat.history[0].date).getTime()) / (1000 * 60 * 60 * 24),
+                y: h.score
+            }));
+
+            const n = dataPoints.length;
+            const sumX = dataPoints.reduce((a, b) => a + b.x, 0);
+            const sumY = dataPoints.reduce((a, b) => a + b.y, 0);
+            const sumXY = dataPoints.reduce((a, b) => a + b.x * b.y, 0);
+            const sumXX = dataPoints.reduce((a, b) => a + b.x * b.x, 0);
+
+            const denom = (n * sumXX - sumX * sumX);
+            let slope = 0; // Improvement per day
+            let intercept = cat.mean;
+
+            if (denom !== 0) {
+                slope = (n * sumXY - sumX * sumY) / denom;
+                intercept = (sumY - slope * sumX) / n;
+            }
+
+            // Limit slope to realistic values (-1% to +1% per day is already huge)
+            const safeSlope = Math.max(-1.5, Math.min(1.5, slope));
+            const currentDay = dataPoints[dataPoints.length - 1].x;
+            const projectedScore = intercept + (safeSlope * (currentDay + PROJECT_DAYS));
+
+            // Clamp projection 0-100
+            const safeProjection = Math.max(0, Math.min(100, projectedScore));
+
+            return acc + (safeProjection * cat.weight);
         }, 0) / totalWeight;
 
-        // Pooled SD with trend adjustment (rising trends reduce effective SD)
+        // Pooled SD - Remove the "trendFactor" hack. Trend is now in the Mean.
         const pooledVariance = categoryStats.reduce((acc, cat) => {
-            let trendFactor = 1;
-            if (cat.trend === 'up') trendFactor = 0.85; // Reduce variance if improving
-            if (cat.trend === 'down') trendFactor = 1.15; // Increase variance if declining
-            return acc + (cat.weight * cat.sd * cat.sd * trendFactor);
+            return acc + (cat.weight * cat.sd * cat.sd);
         }, 0) / totalWeight;
         const pooledSD = Math.sqrt(pooledVariance);
 
         // 3. Run Monte Carlo (10,000 iterations)
         const simulations = 10000;
         let scores = [];
-        const target = targetScore; // Use configurable target
+        const target = targetScore;
 
-        console.log('Simulation values: weightedMean=', weightedMean.toFixed(1), 'pooledSD=', pooledSD.toFixed(1), 'totalWeight=', totalWeight, 'target=', target);
-
-        // Box-Muller Transform for Gaussian Random
+        // Box-Muller Transform
         const boxMuller = (m, s) => {
             let u = 0, v = 0;
             while (u === 0) u = Math.random();
             while (v === 0) v = Math.random();
             const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-            return Math.max(0, Math.min(100, num * s + m)); // Clamp to 0-100
+            return Math.max(0, Math.min(100, num * s + m));
         };
 
         for (let i = 0; i < simulations; i++) {

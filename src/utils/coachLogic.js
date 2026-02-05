@@ -22,39 +22,58 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         let averageScore = 0;
         if (relevantSimulados.length > 0) {
-            // Take up to 5 most recent
-            const recentOnes = relevantSimulados.slice(0, 5);
-            // Remaining (older)
-            const olderOnes = relevantSimulados.slice(5);
+            const today = new Date();
+            const K = 0.07;
+            const PESO_MIN = 0.03;
+            const DELTA = 5.0;
 
-            let weightedSum = 0;
-            let totalWeight = 0;
+            // Helper to calculate score for a specific set of simulados
+            const calculateExponentialScore = (dataset) => {
+                let weightedSum = 0;
+                let totalWeight = 0;
 
-            // Recent exams have weight 3
-            recentOnes.forEach(s => {
-                if (s.total > 0) {
+                dataset.forEach(s => {
                     const sScore = (s.correct / s.total) * 100;
-                    weightedSum += sScore * 3;
-                    totalWeight += 3;
-                }
-            });
+                    const simDate = new Date(s.date || 0);
+                    // Difference in days
+                    const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
 
-            // Older exams have weight 1
-            olderOnes.forEach(s => {
-                if (s.total > 0) {
-                    const sScore = (s.correct / s.total) * 100;
-                    weightedSum += sScore * 1;
-                    totalWeight += 1;
-                }
-            });
+                    // Final Formula: max( exp(-k * d), min )
+                    let peso = Math.exp(-K * days);
+                    if (peso < PESO_MIN) peso = PESO_MIN;
 
-            if (totalWeight > 0) {
-                averageScore = weightedSum / totalWeight;
+                    weightedSum += sScore * peso;
+                    totalWeight += peso;
+                });
+
+                return totalWeight > 0 ? weightedSum / totalWeight : 50;
+            };
+
+            // 1. Calculate "Nota Anterior" (Phantom State: Score until Yesterday)
+            // We use this as a proxy for "Previous Grade" since we don't have DB persistence for it yet
+            const yesterdayBound = new Date();
+            yesterdayBound.setHours(0, 0, 0, 0); // Start of today (everything before today is "History")
+
+            const pastSimulados = relevantSimulados.filter(s => new Date(s.date || 0) < yesterdayBound);
+            const notaBruta = calculateExponentialScore(relevantSimulados); // "Nota Bruta" (Updated State)
+
+            if (pastSimulados.length > 0) {
+                const notaAnterior = calculateExponentialScore(pastSimulados); // "Nota Anterior" (Baseline State)
+
+                // 2. Apply Stability Limiter (Clamp)
+                const diff = notaBruta - notaAnterior;
+                let clampedDiff = diff;
+
+                if (diff > DELTA) clampedDiff = DELTA;
+                else if (diff < -DELTA) clampedDiff = -DELTA;
+
+                averageScore = notaAnterior + clampedDiff;
             } else {
-                averageScore = 50; // Neutral if all exams were invalid/empty
+                // No past history, raw score is the only truth
+                averageScore = notaBruta;
             }
         } else {
-            averageScore = 50; // Neutral start if no data
+            averageScore = 50;
         }
 
         // 2. Calculate Days Since Last Study (Recency)
