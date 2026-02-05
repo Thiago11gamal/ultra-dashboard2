@@ -444,7 +444,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             return {
                 id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                text: `${cat.name}: ${topicLabel}🛑 Alerta de Platô. Sua nota travou. Revise a teoria!`,
+                text: `${cat.name}: ${topicLabel}🛑 Alerta de Estagnação. Sua nota travou. Revise a teoria!`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
