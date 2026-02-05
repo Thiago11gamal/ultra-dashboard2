@@ -130,52 +130,59 @@ export default function VerifiedStats({ categories = [] }) {
                 predictionStatus = "excellence";
             } else {
                 // 3. Base Speed Calculation (Weekly Moving Average)
-                // We use slope (daily gain) * 7 to get weekly gain
-                const weeklyBaseSpeed = Math.max(0.1, slope * 7); // Floor at 0.1 points/week so it never halts completely
+                const weeklyBaseSpeed = slope * 7;
 
-                // 4. Difficulty Factor (The higher you are, the harder it gets)
-                let difficultyFactor = 1.0;
-                if (currentScore >= 80) difficultyFactor = 0.6;
-                else if (currentScore >= 70) difficultyFactor = 0.8;
-
-                // 5. Efficiency (Quality)
-                // Approximated by Consistency (1 - Normalized SD). 
-                // If SD is high (unstable), efficiency drops.
-                // SD 0 -> Quality 1.0. SD 20 -> Quality 0.5.
-                // Using global history SD roughly here:
-                let quality = 0.8; // Default good
-
-                // Calculate quick SD of recent history
-                const recVariance = recentHistory.reduce((a, b) => a + Math.pow(b.score - currentAvg, 2), 0) / recentHistory.length;
-                const recSD = Math.sqrt(recVariance);
-                quality = Math.max(0.5, 1 - (recSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
-
-                // Final Adjusted Speed (Points per Week)
-                const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
-
-                // 6. Estimated Time
-                const weeksEstimated = distance / adjustedSpeed;
-                const daysEstimated = weeksEstimated * 7;
-
-                // 7. Interval Projection
-                if (daysEstimated > 365 * 2) {
-                    prediction = "Longo Prazo";
-                    predictionSubtext = `Continue firme. O caminho é longo.`;
+                if (weeklyBaseSpeed <= 0.01) {
+                    // Speed too low or negative
+                    prediction = "Estagnado/Queda";
+                    predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
+                    predictionStatus = "warning";
                 } else {
-                    const nowTime = new Date().getTime();
 
-                    const daysMin = daysEstimated * 0.8;
-                    const daysMax = daysEstimated * 1.2;
+                    // 4. Difficulty Factor (The higher you are, the harder it gets)
+                    let difficultyFactor = 1.0;
+                    if (currentScore >= 80) difficultyFactor = 0.6;
+                    else if (currentScore >= 70) difficultyFactor = 0.8;
 
-                    const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
-                    const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
+                    // 5. Efficiency (Quality)
+                    // Approximated by Consistency (1 - Normalized SD). 
+                    // If SD is high (unstable), efficiency drops.
+                    // SD 0 -> Quality 1.0. SD 20 -> Quality 0.5.
+                    // Using global history SD roughly here:
+                    let quality = 0.8; // Default good
 
-                    // Format output
-                    const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                    // Calculate quick SD of recent history
+                    const recVariance = recentHistory.reduce((a, b) => a + Math.pow(b.score - currentAvg, 2), 0) / recentHistory.length;
+                    const recSD = Math.sqrt(recVariance);
+                    quality = Math.max(0.5, 1 - (recSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
 
-                    prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
-                    predictionSubtext = `Previsão de alcance (${target}%)`;
-                    predictionStatus = "good";
+                    // Final Adjusted Speed (Points per Week)
+                    const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
+
+                    // 6. Estimated Time
+                    const weeksEstimated = distance / adjustedSpeed;
+                    const daysEstimated = weeksEstimated * 7;
+
+                    // 7. Interval Projection
+                    if (daysEstimated > 365 * 2) {
+                        prediction = "Longo Prazo";
+                        predictionSubtext = `Continue firme. O caminho é longo.`;
+                    } else {
+                        const nowTime = new Date().getTime();
+
+                        const daysMin = daysEstimated * 0.8;
+                        const daysMax = daysEstimated * 1.2;
+
+                        const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
+                        const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
+
+                        // Format output
+                        const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+                        prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
+                        predictionSubtext = `Previsão de alcance (${target}%)`;
+                        predictionStatus = "good";
+                    }
                 }
             }
             // Legacy logic removed. Antigravity Engine handles all scenarios.
