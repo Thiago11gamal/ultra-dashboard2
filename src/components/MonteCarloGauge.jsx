@@ -20,6 +20,7 @@ export default function MonteCarloGauge({ categories = [] }) {
 
     // Simple weight storage - just stores what user sets
     const [weights, setWeights] = useState({});
+    const [targetScore, setTargetScore] = useState(70); // Configurable passing target
 
     // Function to calculate equal weights
     const getEqualWeights = useCallback(() => {
@@ -169,7 +170,7 @@ export default function MonteCarloGauge({ categories = [] }) {
         // 3. Run Monte Carlo (10,000 iterations)
         const simulations = 10000;
         let scores = [];
-        const target = 70; // Passing threshold (70% is more realistic)
+        const target = targetScore; // Use configurable target
 
         console.log('Simulation values: weightedMean=', weightedMean.toFixed(1), 'pooledSD=', pooledSD.toFixed(1), 'totalWeight=', totalWeight, 'target=', target);
 
@@ -202,7 +203,7 @@ export default function MonteCarloGauge({ categories = [] }) {
             ci95High: ci95High.toFixed(0),
             categoryStats
         });
-    }, [categories, effectiveWeights]);
+    }, [categories, effectiveWeights, targetScore]);
 
     // Show placeholder if not enough data
     if (!simulationResult) {
@@ -438,7 +439,9 @@ export default function MonteCarloGauge({ categories = [] }) {
             </div>
 
             <div className="text-center w-full mt-4">
-                <p className="text-[10px] font-bold mb-1 leading-tight uppercase tracking-wider" style={{ color: gradientColor }}>{message}</p>
+                <p className="text-[10px] font-bold mb-1 leading-tight uppercase tracking-wider" style={{ color: gradientColor }}>
+                    {message} <span className="opacity-50 text-[9px]">({targetScore}% min)</span>
+                </p>
 
                 {/* Confidence Interval */}
                 <p className="text-[9px] text-slate-400 mb-2">
@@ -498,6 +501,30 @@ export default function MonteCarloGauge({ categories = [] }) {
                             >
                                 <Check size={16} className="text-white" />
                             </button>
+                        </div>
+
+
+
+                        {/* Target Score Slider */}
+                        <div className="bg-slate-800/50 p-4 rounded-xl mb-6 border border-white/5">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Meta de Aprovação</span>
+                                <span className="text-xl font-black text-blue-400">{targetScore}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="60"
+                                max="90"
+                                step="1"
+                                value={targetScore}
+                                onChange={(e) => setTargetScore(parseInt(e.target.value))}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                            <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
+                                <span>60% (Fácil)</span>
+                                <span>75% (Médio)</span>
+                                <span>90% (Hard)</span>
+                            </div>
                         </div>
 
                         {/* Mode Toggle Checkbox Style */}

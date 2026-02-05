@@ -32,19 +32,27 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
             // Recent exams have weight 3
             recentOnes.forEach(s => {
-                const sScore = (s.correct / s.total) * 100;
-                weightedSum += sScore * 3;
-                totalWeight += 3;
+                if (s.total > 0) {
+                    const sScore = (s.correct / s.total) * 100;
+                    weightedSum += sScore * 3;
+                    totalWeight += 3;
+                }
             });
 
             // Older exams have weight 1
             olderOnes.forEach(s => {
-                const sScore = (s.correct / s.total) * 100;
-                weightedSum += sScore * 1;
-                totalWeight += 1;
+                if (s.total > 0) {
+                    const sScore = (s.correct / s.total) * 100;
+                    weightedSum += sScore * 1;
+                    totalWeight += 1;
+                }
             });
 
-            averageScore = weightedSum / totalWeight;
+            if (totalWeight > 0) {
+                averageScore = weightedSum / totalWeight;
+            } else {
+                averageScore = 50; // Neutral if all exams were invalid/empty
+            }
         } else {
             averageScore = 50; // Neutral start if no data
         }
@@ -74,9 +82,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Calculate Standard Deviation (Consistency)
         let standardDeviation = 0;
-        if (relevantSimulados.length >= 2) {
+        // Filter valid simulados first (avoid division by zero)
+        const validForDev = relevantSimulados.filter(s => s.total > 0);
+
+        if (validForDev.length >= 2) {
             // Use top 10 recent for deviation to keep it relevant
-            const recentForDev = relevantSimulados.slice(0, 10).map(s => (s.correct / s.total) * 100);
+            const recentForDev = validForDev.slice(0, 10).map(s => (s.correct / s.total) * 100);
             const mean = recentForDev.reduce((a, b) => a + b, 0) / recentForDev.length;
             const variance = recentForDev.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (recentForDev.length - 1);
             standardDeviation = Math.sqrt(variance);
