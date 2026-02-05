@@ -510,13 +510,22 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setTargetCycles(prev => prev + 1)}
-                            className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase transition-colors"
-                            title="Adicionar Ciclo"
-                        >
-                            +1 Ciclo
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setTargetCycles(prev => Math.max(1, prev - 1))}
+                                className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-bold uppercase transition-colors"
+                                title="Remover Ciclo"
+                            >
+                                -1 Ciclo
+                            </button>
+                            <button
+                                onClick={() => setTargetCycles(prev => prev + 1)}
+                                className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase transition-colors"
+                                title="Adicionar Ciclo"
+                            >
+                                +1 Ciclo
+                            </button>
+                        </div>
                         <div className="flex flex-col items-end">
                             <span className="text-2xl font-bold text-stone-200 tabular-nums">
                                 {completedCycles}<span className="text-stone-400 mx-1">/</span>{targetCycles}
