@@ -120,7 +120,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // B. Recency (Multiplied by Category Weight)
         // If category weight is high (e.g., 2 or 3), delaying study is more dangerous.
         // Assuming weight is usually 1 to 3 in user settings.
-        const categoryWeightMultiplier = (category.weight && category.weight > 0) ? category.weight : 1;
+        const categoryWeightMultiplier = (category.weight && category.weight > 0) ? (category.weight / 100) : 1;
         // Adjusted Recency: Days * Weight. 5 days without weight 2 subject = 10 "risk days"
         const effectiveRiskDays = daysSinceLastStudy * categoryWeightMultiplier;
 
@@ -403,6 +403,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
 
         // 0. Check for SRS Trigger (Highest Priority)
+        // Safety check to ensure urgency details exist
         if (cat.urgency && cat.urgency.details && cat.urgency.details.srsLabel) {
             return {
                 id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

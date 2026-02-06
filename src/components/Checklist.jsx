@@ -298,7 +298,6 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
 export default function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
     if (typeof onPlayContext !== 'function') {
         console.error('Checklist: onPlayContext prop is MISSING or not a function');
-        // alert('DEBUG: Checklist did NOT receive onStartStudying!'); // Too noisy on render
     }
     const filters = [
         { id: 'all', label: 'Todas' },
@@ -346,9 +345,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                         onTogglePriority={onTogglePriority}
                         onDeleteCategory={onDeleteCategory}
                         onPlayContext={(c, t) => {
-                            // alert("DEBUG: Checklist relaying signal");
                             if (onPlayContext) onPlayContext(c, t);
-                            else alert("DEBUG ERROR: Checklist lost the prop!");
                         }}
                         showSimuladoStats={showSimuladoStats}
                         filter={filter}

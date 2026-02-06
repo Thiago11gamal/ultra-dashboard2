@@ -43,22 +43,8 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
         return alerts.sort((a, b) => parseFloat(b.sd) - parseFloat(a.sd));
     }, [categories]);
 
-    // If no oscillating subjects, show nothing (remove demo after testing)
-    // DEMO MODE: Shows example if no real alerts exist
-    const displaySubjects = oscillatingSubjects.length > 0 ? oscillatingSubjects : [
-        {
-            name: 'Exemplo: Raciocínio Lógico',
-            color: '#f59e0b',
-            sd: '18.5',
-            mean: '67',
-            dataPoints: 4,
-            isDemo: true
-        }
-    ];
-
-    // DEMO MODE ATIVADO - Sempre mostra alerta de exemplo
-    // Para desativar, descomente a linha abaixo:
-    // if (oscillatingSubjects.length === 0) return null;
+    // If no oscillating subjects, show nothing
+    if (oscillatingSubjects.length === 0) return null;
 
     return (
         <AnimatePresence>
@@ -69,7 +55,7 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
                 transition={{ duration: 0.3 }}
                 className="space-y-2"
             >
-                {displaySubjects.slice(0, 2).map((subject, index) => (
+                {oscillatingSubjects.slice(0, 2).map((subject, index) => (
                     <motion.div
                         key={subject.name}
                         initial={{ opacity: 0, x: -20 }}
@@ -121,9 +107,9 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
                     </motion.div>
                 ))}
 
-                {displaySubjects.length > 2 && (
+                {oscillatingSubjects.length > 2 && (
                     <p className="text-xs text-slate-500 text-center">
-                        +{displaySubjects.length - 2} outras matérias oscilantes
+                        +{oscillatingSubjects.length - 2} outras matérias oscilantes
                     </p>
                 )}
             </motion.div>

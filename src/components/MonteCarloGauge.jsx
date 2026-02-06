@@ -79,9 +79,6 @@ export default function MonteCarloGauge({ categories = [] }) {
     // Effective weights for simulation - use weights if available, otherwise equal weights
     const effectiveWeights = useMemo(() => {
         const equalW = getEqualWeights();
-        console.log('DEBUG catCount:', catCount, 'activeCategories:', activeCategories.map(c => c.name).join(', '));
-        console.log('DEBUG weights:', JSON.stringify(weights));
-        console.log('DEBUG equalW:', JSON.stringify(equalW));
         if (Object.keys(weights).length > 0) {
             return weights;
         }
@@ -92,7 +89,6 @@ export default function MonteCarloGauge({ categories = [] }) {
     const [simulationResult, setSimulationResult] = useState(null);
 
     React.useEffect(() => {
-        console.log('Simulation effectiveWeights:', JSON.stringify(effectiveWeights));
         // 1. Gather Stats per Category with Weights & Trends
         let categoryStats = [];
         let totalWeight = 0;

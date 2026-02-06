@@ -228,7 +228,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         <BrainCircuit size={40} className="text-purple-400" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-bold neon-text">IA Analyzer Pro <span className="text-xs bg-purple-500/20 px-2 py-1 rounded text-purple-300 ml-2">Offline Mode</span></h2>
+                        <h2 className="text-3xl font-bold neon-text">IA Analyzer Pro <span className="text-xs bg-purple-500/20 px-2 py-1 rounded text-purple-300 ml-2">Modo Offline</span></h2>
                         <p className="text-slate-400">Identificando suas fraquezas para você evoluir mais rápido.</p>
                     </div>
                 </div>
