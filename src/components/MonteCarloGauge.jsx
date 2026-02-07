@@ -18,8 +18,22 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
     const vizSd = Math.max(0.5, sd);
 
     // Define plot range: mean +/- 3.5 SDs for full curve context
-    const xMin = Math.max(0, mean - 3.5 * vizSd);
-    const xMax = Math.min(100, mean + 3.5 * vizSd);
+    // AND force range to include Target Score so user sees "how far" they are.
+    let xMin = Math.max(0, mean - 3.5 * vizSd);
+    let xMax = Math.min(100, mean + 3.5 * vizSd);
+
+    // Expand to include Target (passing grade) with margin
+    xMin = Math.min(xMin, targetScore - 5);
+    xMax = Math.max(xMax, targetScore + 5);
+
+    // Expand to include Current Mean (Today) with margin
+    xMin = Math.min(xMin, currentMean - 5);
+    xMax = Math.max(xMax, currentMean + 5);
+
+    // Clamp to 0-100 logic (but don't clip mean/target if inside)
+    xMin = Math.max(0, xMin);
+    xMax = Math.min(100, xMax);
+
     const range = Math.max(1, xMax - xMin); // Ensure range is never 0
 
     // Gaussian function
@@ -64,7 +78,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 
     return (
         <div
-            className="relative w-full h-24 mt-1 mb-6 cursor-crosshair group/chart"
+            className="relative w-full h-24 mt-1 mb-8 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -168,73 +182,59 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
             {/* Static Labels overlay with Collision Detection */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
                 {(() => {
-                    // Calculate positions (0-100%)
+                    // Calculate X positions (0-100%)
                     const getPos = (val) => (val - xMin) / range * 100;
+
                     const meanPos = getPos(mean);
-                    const targetPos = getPos(targetScore);
+                    const targetPosArr = getPos(targetScore);
                     const lowPos = getPos(low95);
                     const highPos = getPos(high95);
 
-                    // Collision Threshold (approx 12% width for labels)
-                    const threshold = 12;
+                    // Labels objects for sorting and collision
+                    const labels = [
+                        { id: 'mean', pos: meanPos, val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2' },
+                        { id: 'target', pos: targetPosArr, val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2' },
+                        // For IC, position at bottom (y=0) but keep color green
+                        // User wants them "more to the side" and "under the green column".
+                        // Centering (-50%) might make them look detached if the column is wide.
+                        // Let's keep distinct alignment if needed, or stick to centering if that was not the issue.
+                        // "Bem mais do lado" likely means pushing them towards the center of the Green Area? Or Outwards?
+                        // Let's try to keep them centered for now but ensure no overlap logic moves them wrongly.
+                        { id: 'high', pos: highPos, val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: 'transform -translate-x-1/2' },
+                        { id: 'low', pos: lowPos, val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: 'transform -translate-x-1/2' }
+                    ].sort((a, b) => a.pos - b.pos);
 
-                    // Determine staggering (0 = standard line, 10px = lower, 20px = lowest)
-                    let meanOffset = 0;
-                    let targetOffset = 0;
-                    let lowOffset = 0;
-                    let highOffset = 0;
-
-                    // Priority 1: Prevent Mean/Target overlap (Center)
-                    if (Math.abs(meanPos - targetPos) < threshold) {
-                        targetOffset = 12; // Push Target down
-                    }
-
-                    // Priority 2: Prevent Low/Mean overlap
-                    if (Math.abs(lowPos - meanPos) < threshold) {
-                        lowOffset = 12;
-                        // Determine if Low clashes with pushed Target? Unlikely if Mean/Target close
-                    }
-
-                    // Priority 3: Prevent High/Target overlap
-                    if (Math.abs(highPos - targetPos) < threshold) {
-                        highOffset = 12;
-                        // If Target was already pushed down, push High even further? 
-                        if (targetOffset > 0) highOffset = 24;
+                    // Improved Collision Detection (Staggering) for all labels
+                    const minDistance = 12; // percentage
+                    for (let i = 1; i < labels.length; i++) {
+                        if (labels[i].pos - labels[i - 1].pos < minDistance) {
+                            labels[i].offset = labels[i - 1].offset + 12;
+                        }
                     }
 
                     return (
                         <>
-                            {/* Mean Label - Bottom */}
-                            <div
-                                className="absolute bottom-0 text-[10px] font-black text-blue-500 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
-                                style={{ left: `${meanPos}%`, marginBottom: `-${meanOffset}px` }}
-                            >
-                                {mean}%
+                            {/* Static Extremity Labels (0 and 100) - GREEN */}
+                            <div className="absolute bottom-0 left-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">
+                                0
+                            </div>
+                            <div className="absolute bottom-0 right-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">
+                                100
                             </div>
 
-                            {/* Target Label - Bottom */}
-                            <div
-                                className="absolute bottom-0 text-[10px] font-black text-red-500 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
-                                style={{ left: `${Math.max(5, Math.min(95, targetPos))}%`, marginBottom: `-${targetOffset}px` }}
-                            >
-                                {targetScore}%
-                            </div>
-
-                            {/* Optimistic Label - Bottom */}
-                            <div
-                                className="absolute bottom-0 text-[10px] font-black text-green-400 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
-                                style={{ left: `${Math.max(5, Math.min(95, highPos))}%`, marginBottom: `-${highOffset}px` }}
-                            >
-                                {high95}%
-                            </div>
-
-                            {/* Pessimistic Label - Bottom */}
-                            <div
-                                className="absolute bottom-0 text-[10px] font-black text-red-400 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
-                                style={{ left: `${Math.max(5, Math.min(95, lowPos))}%`, marginBottom: `-${lowOffset}px` }}
-                            >
-                                {low95}%
-                            </div>
+                            {labels.map(label => (
+                                <div
+                                    key={label.id}
+                                    className={`absolute bottom-0 text-[10px] font-black ${label.color} tracking-tighter ${label.align} translate-y-full mt-1 transition-all`}
+                                    style={{
+                                        left: `${label.pos}%`,
+                                        transform: `translateY(calc(100% + ${label.offset}px))`
+                                    }}
+                                >
+                                    {label.prefix && <span className="text-[7px] opacity-70 mr-0.5">{label.prefix}</span>}
+                                    {label.val}%
+                                </div>
+                            ))}
                         </>
                     );
                 })()}
@@ -252,26 +252,47 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
     const catCount = activeCategories.length;
 
-    // Simple weight storage - just stores what user sets
-    const [weights, setWeights] = useState({});
-    const [targetScore, setTargetScore] = useState(70); // Configurable passing target
+    // Simple weight storage - persistent
+    const [weights, setWeights] = useState(() => {
+        const saved = localStorage.getItem('monte_carlo_weights');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    // Target Score - Persistent (Default 70)
+    const [targetScore, setTargetScore] = useState(() => {
+        const saved = localStorage.getItem('monte_carlo_target');
+        return saved ? parseInt(saved) : 70;
+    });
+
+    // Save to LocalStorage whenever they change
+    React.useEffect(() => {
+        localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
+    }, [weights]);
+
+    React.useEffect(() => {
+        localStorage.setItem('monte_carlo_target', targetScore.toString());
+    }, [targetScore]);
 
     const projectDays = useMemo(() => {
         if (simulateToday) return 0; // Force 0 days if "Today" is selected
         if (!goalDate) return 30;
         const now = new Date();
+        now.setHours(0, 0, 0, 0); // Normalize to midnight
+
         const goal = new Date(goalDate);
+        goal.setHours(0, 0, 0, 0); // Normalize to midnight
+
         if (isNaN(goal.getTime())) return 30;
 
         const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 30; // Fallback to 30 if passed or invalid
+        return diffDays > 0 ? diffDays : 0; // If today or passed, 0 days projection (which means Today's mean)
     }, [goalDate, simulateToday]);
 
     // Function to calculate equal weights
     const getEqualWeights = useCallback(() => {
         if (catCount === 0) return {};
-        const equalWeight = Math.round(100 / catCount / 10) * 10;
+        const equalWeight = Math.floor(100 / catCount);
         const newWeights = {};
         let total = 0;
         activeCategories.forEach((cat, idx) => {
@@ -324,13 +345,15 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
     // Effective weights for simulation - use weights if available, otherwise equal weights
     const effectiveWeights = useMemo(() => {
-        const equalW = getEqualWeights();
+        if (equalWeightsMode) {
+            return getEqualWeights();
+        }
         if (Object.keys(weights).length > 0) {
             return weights;
         }
         // Fallback to equal weights
-        return equalW;
-    }, [weights, catCount, getEqualWeights, activeCategories]);
+        return getEqualWeights();
+    }, [equalWeightsMode, weights, catCount, getEqualWeights, activeCategories]);
 
     const [simulationResult, setSimulationResult] = useState(null);
 
@@ -356,16 +379,12 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 const sd = Math.sqrt(variance);
 
                 // Calculate trend (compare last 2 vs first 2 entries)
-                let trend = 'stable';
-                if (n >= 4) {
-                    const firstTwo = (scores[0] + scores[1]) / 2;
-                    const lastTwo = (scores[n - 1] + scores[n - 2]) / 2;
-                    if (lastTwo > firstTwo + 5) trend = 'up';
-                    else if (lastTwo < firstTwo - 5) trend = 'down';
-                } else if (n >= 2) {
-                    if (scores[n - 1] > scores[0] + 5) trend = 'up';
-                    else if (scores[n - 1] < scores[0] - 5) trend = 'down';
-                }
+                const windowSize = Math.min(3, Math.floor(n / 2));
+                const recentWindow = scores.slice(n - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+                const previousWindow = scores.slice(n - (windowSize * 2), n - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+
+                if (recentWindow > previousWindow + 2) trend = 'up';
+                else if (recentWindow < previousWindow - 2) trend = 'down';
 
                 // Get weight for this category
                 const weight = effectiveWeights[cat.name] !== undefined ? effectiveWeights[cat.name] : 0;
@@ -379,7 +398,8 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                         sd,
                         trend,
                         weight,
-                        n
+                        n,
+                        history // Added history for regression
                     });
                 }
             }
@@ -422,10 +442,20 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 intercept = (sumY - slope * sumX) / n;
             }
 
-            // Limit slope to realistic values (-1% to +1% per day is already huge)
-            const safeSlope = Math.max(-1.5, Math.min(1.5, slope));
-            const currentDay = dataPoints[dataPoints.length - 1].x;
-            const projectedScore = intercept + (safeSlope * (currentDay + projectDays));
+            // Limit slope to realistic values (-1% to +1% per day is already huge) - reduced to 0.5%
+            const safeSlope = Math.max(-0.5, Math.min(0.5, slope));
+
+            // Calculate Target Days directly from First History Date to (Now + ProjectDays)
+            // This accounts for the gap between Last Simulado and Today correctly.
+            const firstDate = new Date(cat.history[0].date).getTime();
+            const now = new Date().getTime();
+            const projectMs = projectDays * (1000 * 60 * 60 * 24);
+
+            // Target Date = Now + ProjectDays
+            // Target X (days from start) = (Target Date - First Date) / OneDay
+            const targetX = (now + projectMs - firstDate) / (1000 * 60 * 60 * 24);
+
+            const projectedScore = intercept + (safeSlope * targetX);
 
             // Clamp projection 0-100
             const safeProjection = Math.max(0, Math.min(100, projectedScore));
@@ -437,18 +467,36 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         const pooledVariance = categoryStats.reduce((acc, cat) => {
             return acc + (cat.weight * cat.sd * cat.sd);
         }, 0) / (totalWeight || 1);
-        const pooledSD = Math.sqrt(pooledVariance);
+
+        // Add uncertainty over time (Time-dependent variance)
+        // Future predictions are naturally less certain. We add a small variance growth per day.
+        const timeUncertainty = projectDays * 0.5; // Heuristic: SD grows slightly with time
+        const pooledSD = Math.sqrt(pooledVariance + timeUncertainty);
 
         // 3. Run Monte Carlo (10,000 iterations)
         const simulations = 10000;
         let scores = [];
         const target = targetScore;
 
-        // Box-Muller Transform
+        // Seeded RNG (Mulberry32) - Ensures consistency between renders
+        function mulberry32(a) {
+            return function () {
+                var t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        // Use a fixed seed + projectDays to ensure distinct but stable patterns for Today vs Future
+        const seed = 123456 + projectDays;
+        const random = mulberry32(seed);
+
+        // Box-Muller Transform with Seeded Random
         const boxMuller = (m, s) => {
             let u = 0, v = 0;
-            while (u === 0) u = Math.random();
-            while (v === 0) v = Math.random();
+            while (u === 0) u = random();
+            while (v === 0) v = random();
             const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
             return Math.max(0, Math.min(100, num * s + m));
         };
@@ -557,6 +605,23 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                              So we can still render the config menu!
                          */}
 
+                        {/* Target Score Config */}
+                        <div className="bg-slate-800/50 p-3 rounded-xl mb-4 border border-white/5">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Meta de Aprovação</span>
+                                <span className="text-sm font-black text-blue-400">{targetScore}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="50"
+                                max="100"
+                                step="1"
+                                value={targetScore}
+                                onChange={(e) => setTargetScore(parseInt(e.target.value))}
+                                className="w-full accent-blue-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                            />
+                        </div>
+
                         {/* Mode Toggle Checkbox Style */}
                         <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
                             <button
@@ -631,35 +696,40 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     const prob = parseFloat(probability);
 
     // Gradient color function: smoothly transitions from red -> orange -> yellow -> green
+    // Gradient color function: customized to make 62% appear green
     const getGradientColor = (percentage) => {
         if (percentage <= 25) {
             return 'rgb(239, 68, 68)'; // Red
-        } else if (percentage <= 50) {
-            const t = (percentage - 25) / 25;
-            const r = Math.round(239 + (251 - 239) * t);
-            const g = Math.round(68 + (146 - 68) * t);
-            const b = Math.round(68 + (39 - 68) * t);
-            return `rgb(${r}, ${g}, ${b})`; // Red -> Orange
-        } else if (percentage <= 75) {
-            const t = (percentage - 50) / 25;
-            const r = Math.round(251 + (234 - 251) * t);
-            const g = Math.round(146 + (179 - 146) * t);
-            const b = Math.round(39 + (8 - 39) * t);
-            return `rgb(${r}, ${g}, ${b})`; // Orange -> Yellow
-        } else {
-            const t = (percentage - 75) / 25;
+        } else if (percentage <= 55) {
+            // Red -> Yellow
+            const t = (percentage - 25) / 30;
+            const r = Math.round(239 + (234 - 239) * t);
+            const g = Math.round(68 + (179 - 68) * t);
+            const b = Math.round(68 + (8 - 68) * t);
+            return `rgb(${r}, ${g}, ${b})`;
+        } else if (percentage <= 65) {
+            // Yellow -> Green (Transition faster)
+            const t = (percentage - 55) / 10;
             const r = Math.round(234 + (34 - 234) * t);
             const g = Math.round(179 + (197 - 179) * t);
             const b = Math.round(8 + (94 - 8) * t);
-            return `rgb(${r}, ${g}, ${b})`; // Yellow -> Green
+            return `rgb(${r}, ${g}, ${b})`;
+        } else {
+            return 'rgb(34, 197, 94)'; // Green
         }
     };
 
     const gradientColor = getGradientColor(prob);
 
-    let message = "Aprovação Improvável Hoje";
+    let message = "Aprovação Improvável";
+    if (simulateToday) {
+        message += " Hoje";
+    } else {
+        message += " na Data da Prova";
+    }
+
     if (prob > 80) {
-        message = "Aprovação Matematicamente Certa";
+        message = simulateToday ? "Aprovação Matematicamente Certa Hoje" : "Aprovação Matematicamente Certa";
     } else if (prob > 50) {
         message = "Na Zona de Briga";
     } else if (prob > 25) {
@@ -765,42 +835,44 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                     </span>
 
                     {/* Gaussian Curve Visualization Component */}
-                    {(() => {
-                        // Extract values safely
-                        const mean = parseFloat(simulationResult.mean);
-                        const sd = parseFloat(simulationResult.sd);
-                        const low95 = parseFloat(simulationResult.ci95Low);
-                        const high95 = parseFloat(simulationResult.ci95High);
-                        const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
+                    <div className="w-full h-32 relative">
+                        {(() => {
+                            // Extract values safely
+                            const mean = parseFloat(simulationResult.mean);
+                            const sd = parseFloat(simulationResult.sd);
+                            const low95 = parseFloat(simulationResult.ci95Low);
+                            const high95 = parseFloat(simulationResult.ci95High);
+                            const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
 
-                        return (
-                            <GaussianChart
-                                mean={mean}
-                                sd={sd}
-                                low95={low95}
-                                high95={high95}
-                                targetScore={targetScore}
-                                currentMean={currentMean}
-                            />
-                        );
-                    })()}
-
+                            return (
+                                <GaussianChart
+                                    mean={mean}
+                                    sd={sd}
+                                    low95={low95}
+                                    high95={high95}
+                                    targetScore={targetScore}
+                                    currentMean={currentMean}
+                                />
+                            );
+                        })()}
+                    </div>
 
                 </div>
             </div>
 
-
             {/* --- FOOTER: Stats & Trends --- */}
             <div className="w-full mt-auto flex flex-col gap-2">
+
                 {/* Tech Specs */}
-                <div className="flex justify-between px-4 py-1.5 bg-black/40 rounded-lg border border-white/10 text-[9px] text-slate-400 shadow-sm">
-                    <span className="flex items-center gap-1">
-                        Média Pond: <b className="text-slate-300">{simulationResult.mean}%</b>
-                    </span>
-                    <span className="w-px h-3 bg-slate-700/50" />
-                    <span className="flex items-center gap-1">
-                        Consistência: <b className={`${Math.abs(simulationResult.sd) > 10 ? 'text-yellow-400' : 'text-green-400'}`}>±{Math.abs(simulationResult.sd)}%</b>
-                    </span>
+                <div className="flex justify-between px-4 py-2 bg-black/40 rounded-lg border border-white/10 text-[9px] text-slate-400 shadow-sm">
+                    <div className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1">
+                            Média Pond: <b className="text-slate-300">{simulationResult.mean}%</b>
+                        </span>
+                        <span className="flex items-center gap-1">
+                            Consistência: <b className={`${Math.abs(simulationResult.sd) > 10 ? 'text-yellow-400' : 'text-green-400'}`}>±{Math.abs(simulationResult.sd)}%</b>
+                        </span>
+                    </div>
                 </div>
 
                 {/* Trend Chips */}

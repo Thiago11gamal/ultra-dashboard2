@@ -258,13 +258,50 @@ export default function VerifiedStats({ categories = [], user }) {
                     bgBorder = 'border-red-500/30';
                 }
 
+                // --- TOPIC VARIATION ANALYSIS (NEW) ---
+                const topicMap = {}; // { "TopicName": [score1, score2, ...] }
+                cat.simuladoStats.history.forEach(h => {
+                    if (h.topics) {
+                        h.topics.forEach(t => {
+                            // Ensure valid data (ignore topics with 0 total questions to avoid NaN)
+                            const total = parseInt(t.total) || 0;
+                            const correct = parseInt(t.correct) || 0;
+                            if (total > 0) {
+                                const topicScore = (correct / total) * 100;
+                                if (!topicMap[t.name]) topicMap[t.name] = [];
+                                topicMap[t.name].push(topicScore);
+                            }
+                        });
+                    }
+                });
+
+                const unstableTopics = [];
+                Object.entries(topicMap).forEach(([tName, tScores]) => {
+                    if (tScores.length >= 2) {
+                        // Calculate Topic SD
+                        const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
+                        const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
+                        const tSD = Math.sqrt(tVar);
+
+                        // We care about high SD (instability)
+                        if (tSD > 10) { // arbitrary threshold for "unstable"
+                            unstableTopics.push({ name: tName, sd: tSD });
+                        }
+                    }
+                });
+
+                // Sort by SD Descending (Most unstable first)
+                unstableTopics.sort((a, b) => b.sd - a.sd);
+                const villains = unstableTopics.slice(0, 3); // Top 3 villains
+
                 categoryBreakdown.push({
                     name: cat.name,
                     sd: sdFixed,
                     rawSd: sd,
                     status,
                     color,
-                    bgBorder
+                    bgBorder,
+                    villains // Passed to UI
                 });
             }
         });
@@ -414,15 +451,34 @@ export default function VerifiedStats({ categories = [], user }) {
                 {stats.categoryBreakdown.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {stats.categoryBreakdown.map((cat, idx) => (
-                            <div key={idx} className={`p-3 rounded-lg border bg-black/20 flex justify-between items-center ${cat.bgBorder}`}>
-                                <div>
-                                    <div className="text-sm font-bold text-slate-200">{cat.name}</div>
-                                    <div className={`text-xs font-bold ${cat.color}`}>{cat.status}</div>
+                            <div key={idx} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
+                                <div className="flex justify-between items-center w-full">
+                                    <div>
+                                        <div className="text-sm font-bold text-slate-200">{cat.name}</div>
+                                        <div className={`text-xs font-bold ${cat.color}`}>{cat.status}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xs text-slate-400">Desvio</div>
+                                        <div className={`text-sm font-mono ${cat.color}`}>{cat.sd}</div>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-slate-400">Desvio</div>
-                                    <div className={`text-sm font-mono ${cat.color}`}>{cat.sd}</div>
-                                </div>
+
+                                {/* Villains List */}
+                                {cat.villains && cat.villains.length > 0 && (
+                                    <div className="w-full mt-1 pt-2 border-t border-white/5">
+                                        <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                            <AlertTriangle size={8} /> Maiores Oscilações
+                                        </div>
+                                        <div className="space-y-1">
+                                            {cat.villains.map((v, vIdx) => (
+                                                <div key={vIdx} className="flex justify-between items-center text-[10px]">
+                                                    <span className="text-slate-400 truncate max-w-[150px]">{v.name}</span>
+                                                    <span className="text-red-400/80 font-mono">±{v.sd.toFixed(0)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
