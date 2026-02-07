@@ -14,14 +14,17 @@ const DEFAULT_WEIGHTS = {
 function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
     const [hover, setHover] = useState(null); // { x: percent, val: score }
 
+    // Enforce minimum SD for visualization to prevent divide-by-zero or flat line
+    const vizSd = Math.max(0.5, sd);
+
     // Define plot range: mean +/- 3.5 SDs for full curve context
-    const xMin = Math.max(0, mean - 3.5 * sd);
-    const xMax = Math.min(100, mean + 3.5 * sd);
-    const range = xMax - xMin;
+    const xMin = Math.max(0, mean - 3.5 * vizSd);
+    const xMax = Math.min(100, mean + 3.5 * vizSd);
+    const range = Math.max(1, xMax - xMin); // Ensure range is never 0
 
     // Gaussian function
     const gaussian = (x) => {
-        return Math.exp(-0.5 * Math.pow((x - mean) / sd, 2));
+        return Math.exp(-0.5 * Math.pow((x - mean) / vizSd, 2));
     };
 
     // Generate path data
@@ -61,7 +64,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 
     return (
         <div
-            className="relative w-full h-12 mt-1 cursor-crosshair group/chart"
+            className="relative w-full h-24 mt-1 mb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -162,25 +165,79 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
                 </>
             )}
 
-            {/* Static Labels overlay */}
+            {/* Static Labels overlay with Collision Detection */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                {/* Mean Label */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-2 bg-blue-500/90 px-1 rounded text-[8px] text-white font-bold border border-blue-400/50 shadow-lg z-10">
-                    {mean}%
-                </div>
+                {(() => {
+                    // Calculate positions (0-100%)
+                    const getPos = (val) => (val - xMin) / range * 100;
+                    const meanPos = getPos(mean);
+                    const targetPos = getPos(targetScore);
+                    const lowPos = getPos(low95);
+                    const highPos = getPos(high95);
 
-                {/* Target Label */}
-                <div
-                    className="absolute bottom-0 text-[7px] font-bold text-red-500 uppercase tracking-widest transform -translate-x-1/2 translate-y-full mt-0.5"
-                    style={{
-                        left: (() => {
-                            const pos = (targetScore - xMin) / range * 100;
-                            return `${Math.max(5, Math.min(95, pos))}%`;
-                        })()
-                    }}
-                >
-                    Meta
-                </div>
+                    // Collision Threshold (approx 12% width for labels)
+                    const threshold = 12;
+
+                    // Determine staggering (0 = standard line, 10px = lower, 20px = lowest)
+                    let meanOffset = 0;
+                    let targetOffset = 0;
+                    let lowOffset = 0;
+                    let highOffset = 0;
+
+                    // Priority 1: Prevent Mean/Target overlap (Center)
+                    if (Math.abs(meanPos - targetPos) < threshold) {
+                        targetOffset = 12; // Push Target down
+                    }
+
+                    // Priority 2: Prevent Low/Mean overlap
+                    if (Math.abs(lowPos - meanPos) < threshold) {
+                        lowOffset = 12;
+                        // Determine if Low clashes with pushed Target? Unlikely if Mean/Target close
+                    }
+
+                    // Priority 3: Prevent High/Target overlap
+                    if (Math.abs(highPos - targetPos) < threshold) {
+                        highOffset = 12;
+                        // If Target was already pushed down, push High even further? 
+                        if (targetOffset > 0) highOffset = 24;
+                    }
+
+                    return (
+                        <>
+                            {/* Mean Label - Bottom */}
+                            <div
+                                className="absolute bottom-0 text-[10px] font-black text-blue-500 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
+                                style={{ left: `${meanPos}%`, marginBottom: `-${meanOffset}px` }}
+                            >
+                                {mean}%
+                            </div>
+
+                            {/* Target Label - Bottom */}
+                            <div
+                                className="absolute bottom-0 text-[10px] font-black text-red-500 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
+                                style={{ left: `${Math.max(5, Math.min(95, targetPos))}%`, marginBottom: `-${targetOffset}px` }}
+                            >
+                                {targetScore}%
+                            </div>
+
+                            {/* Optimistic Label - Bottom */}
+                            <div
+                                className="absolute bottom-0 text-[10px] font-black text-green-400 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
+                                style={{ left: `${Math.max(5, Math.min(95, highPos))}%`, marginBottom: `-${highOffset}px` }}
+                            >
+                                {high95}%
+                            </div>
+
+                            {/* Pessimistic Label - Bottom */}
+                            <div
+                                className="absolute bottom-0 text-[10px] font-black text-red-400 tracking-tighter transform -translate-x-1/2 translate-y-full mt-1 transition-all"
+                                style={{ left: `${Math.max(5, Math.min(95, lowPos))}%`, marginBottom: `-${lowOffset}px` }}
+                            >
+                                {low95}%
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
         </div>
     );
@@ -691,9 +748,9 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 </div>
 
                 {/* Metric 3: Cenários Projetados (Curva de Distribuição Interativa) */}
-                <div className="col-span-2 bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col justify-between hover:bg-black/60 transition-colors shadow-inner min-h-[90px] group/estimate relative">
+                <div className="col-span-2 bg-black/40 p-2 pb-4 rounded-lg border border-white/10 flex flex-col hover:bg-black/60 transition-colors shadow-inner h-full group/estimate relative">
                     {/* Header */}
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-0.5 flex items-center justify-between z-10 relative">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between z-10 relative">
                         Projeção de Desempenho
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
@@ -728,28 +785,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                         );
                     })()}
 
-                    {/* Scale Check */}
-                    <div className="flex justify-between items-end mt-2 px-1 relative z-10">
-                        <div className="flex flex-col items-start">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Pior (95%)</span>
-                            <span className="text-sm font-black text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 shadow-sm">
-                                {parseFloat(simulationResult.ci95Low)}%
-                            </span>
-                        </div>
 
-                        {/* Mean Label in Center */}
-                        <div className="flex flex-col items-center pb-0.5">
-                            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Média</span>
-                            <span className="text-xs font-bold text-white">{parseFloat(simulationResult.mean)}%</span>
-                        </div>
-
-                        <div className="flex flex-col items-end">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Melhor (95%)</span>
-                            <span className="text-sm font-black text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 shadow-sm">
-                                {parseFloat(simulationResult.ci95High)}%
-                            </span>
-                        </div>
-                    </div>
                 </div>
             </div>
 
