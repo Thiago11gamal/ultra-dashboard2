@@ -8,7 +8,7 @@ const calculateRetention = (lastStudiedAt) => {
     const last = new Date(lastStudiedAt).getTime();
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
-    const val = Math.round(100 * Math.exp(-days / 2));
+    const val = Math.round(100 * Math.exp(-days / 3));
 
     if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
