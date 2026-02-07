@@ -1,12 +1,12 @@
 const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
     RECENCY_MAX: 30,
-    INSTABILITY_MAX: 20,
+    INSTABILITY_MAX: 30,
     PRIORITY_BOOST: 30,
     EFFICIENCY_MAX: 15,
     SRS_BOOST: 40, // High priority for spaced repetition triggers
     // Usado para normalização final (soma dos máximos acima)
-    RAW_MAX: 50 + 30 + 20 + 30 + 15 + 40
+    RAW_MAX: 50 + 30 + 30 + 30 + 15 + 40
 };
 
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {

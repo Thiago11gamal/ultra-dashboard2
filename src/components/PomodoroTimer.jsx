@@ -230,7 +230,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         const now = new Date().getTime();
         const diffHours = (now - last) / (1000 * 60 * 60);
         const days = diffHours / 24;
-        const val = Math.round(100 * Math.exp(-days / 2));
+        const val = Math.round(100 * Math.exp(-days / 3));
 
         if (val >= 90) return { val, label: 'Memória Fresca', color: 'text-emerald-400', border: 'border-emerald-500' };
         if (val >= 60) return { val, label: 'Risco Médio', color: 'text-yellow-400', border: 'border-yellow-500' };
