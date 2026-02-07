@@ -10,9 +10,186 @@ const DEFAULT_WEIGHTS = {
     'Conhecimentos Específicos': 30
 };
 
+// Internal Component for the Gaussian Chart with Tooltip State
+function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
+    const [hover, setHover] = useState(null); // { x: percent, val: score }
+
+    // Define plot range: mean +/- 3.5 SDs for full curve context
+    const xMin = Math.max(0, mean - 3.5 * sd);
+    const xMax = Math.min(100, mean + 3.5 * sd);
+    const range = xMax - xMin;
+
+    // Gaussian function
+    const gaussian = (x) => {
+        return Math.exp(-0.5 * Math.pow((x - mean) / sd, 2));
+    };
+
+    // Generate path data
+    const points = [];
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+        const x = xMin + (range * (i / steps));
+        const y = gaussian(x);
+        points.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`); // Flip Y for SVG
+    }
+    const pathData = `M ${points.join(' L ')}`;
+
+    // Generate Area under curve for 95% CI
+    const areaPoints = [];
+    for (let i = 0; i <= steps; i++) {
+        const x = xMin + (range * (i / steps));
+        if (x >= low95 && x <= high95) {
+            const y = gaussian(x);
+            areaPoints.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
+        }
+    }
+    if (areaPoints.length > 0) {
+        const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
+        const firstX = areaPoints[0].split(',')[0];
+        areaPoints.push(`${lastX},100`);
+        areaPoints.push(`${firstX},100`);
+    }
+    const areaPathData = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
+
+    // Target Line Position
+    const targetPos = (targetScore - xMin) / range * 100;
+    const isTargetVisible = targetPos >= 0 && targetPos <= 100;
+
+    // Current Mean Position
+    const currentPos = (currentMean - xMin) / range * 100;
+    const isCurrentVisible = currentPos >= 0 && currentPos <= 100;
+
+    return (
+        <div
+            className="relative w-full h-12 mt-1 cursor-crosshair group/chart"
+            onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                // Calculate actual value based on percentage
+                const val = xMin + (percentage / 100 * range);
+                setHover({ x: percentage, val });
+            }}
+            onMouseLeave={() => setHover(null)}
+        >
+            <style>
+                {`
+                    @keyframes dash {
+                        from { stroke-dashoffset: 1000; }
+                        to { stroke-dashoffset: 0; }
+                    }
+                    .animate-path {
+                        stroke-dasharray: 1000;
+                        stroke-dashoffset: 0;
+                        animation: dash 2s ease-out forwards;
+                    }
+                `}
+            </style>
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
+                {/* Gradients */}
+                <defs>
+                    <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(59, 130, 246, 0.5)" />
+                        <stop offset="100%" stopColor="rgba(59, 130, 246, 0.0)" />
+                    </linearGradient>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(34, 197, 94, 0.6)" />
+                        <stop offset="100%" stopColor="rgba(34, 197, 94, 0.1)" />
+                    </linearGradient>
+                </defs>
+
+                {/* Base Line */}
+                <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" />
+
+                {/* Full Curve Line with Animation */}
+                <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" />
+
+                {/* 95% CI Area */}
+                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" />
+
+                {/* Current Mean Line (Today) */}
+                {isCurrentVisible && (
+                    <line
+                        x1={currentPos}
+                        y1="100"
+                        x2={currentPos}
+                        y2="20"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeDasharray="1,2"
+                        className="opacity-40"
+                    />
+                )}
+
+                {/* Mean Line (Projected) - Blue Dashed */}
+                <line
+                    x1={(mean - xMin) / range * 100}
+                    y1="100"
+                    x2={(mean - xMin) / range * 100}
+                    y2="0"
+                    stroke="#3b82f6"
+                    strokeWidth="1.5"
+                    strokeDasharray="3,3"
+                    className="opacity-80"
+                />
+
+                {/* Target Line - Red Solid */}
+                {isTargetVisible && (
+                    <line
+                        x1={targetPos}
+                        y1="100"
+                        x2={targetPos}
+                        y2="0"
+                        stroke="#ef4444"
+                        strokeWidth="1.5"
+                    />
+                )}
+            </svg>
+
+            {/* Interactive Tooltip & Hover Line */}
+            {hover && (
+                <>
+                    <div
+                        className="absolute top-0 bottom-0 w-px bg-white/50 pointer-events-none transition-opacity"
+                        style={{ left: `${hover.x}%` }}
+                    />
+                    <div
+                        className="absolute -top-5 transform -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none z-50 whitespace-nowrap"
+                        style={{ left: `${hover.x}%` }}
+                    >
+                        {hover.val.toFixed(1)}%
+                    </div>
+                </>
+            )}
+
+            {/* Static Labels overlay */}
+            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                {/* Mean Label */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-2 bg-blue-500/90 px-1 rounded text-[8px] text-white font-bold border border-blue-400/50 shadow-lg z-10">
+                    {mean}%
+                </div>
+
+                {/* Target Label */}
+                <div
+                    className="absolute bottom-0 text-[7px] font-bold text-red-500 uppercase tracking-widest transform -translate-x-1/2 translate-y-full mt-0.5"
+                    style={{
+                        left: (() => {
+                            const pos = (targetScore - xMin) / range * 100;
+                            return `${Math.max(5, Math.min(95, pos))}%`;
+                        })()
+                    }}
+                >
+                    Meta
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function MonteCarloGauge({ categories = [], goalDate }) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true); // Toggle for equal weights
+    const [simulateToday, setSimulateToday] = useState(false); // Toggle for "Today" simulation
 
     // Get categories that have simulado data
     const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
@@ -23,6 +200,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     const [targetScore, setTargetScore] = useState(70); // Configurable passing target
 
     const projectDays = useMemo(() => {
+        if (simulateToday) return 0; // Force 0 days if "Today" is selected
         if (!goalDate) return 30;
         const now = new Date();
         const goal = new Date(goalDate);
@@ -31,7 +209,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 30; // Fallback to 30 if passed or invalid
-    }, [goalDate]);
+    }, [goalDate, simulateToday]);
 
     // Function to calculate equal weights
     const getEqualWeights = useCallback(() => {
@@ -106,15 +284,18 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length > 0) {
-                const history = cat.simuladoStats.history;
+                // Sort history by date to ensure correct trend and regression
+                const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const scores = history.map(h => h.score);
 
                 // Calculate mean for this category
                 const n = scores.length;
                 const mean = scores.reduce((a, b) => a + b, 0) / n;
 
-                // Calculate SD for this category
-                const variance = scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / n;
+                // Calculate SD for this category (Sample SD, n-1)
+                const variance = n > 1
+                    ? scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
+                    : 0;
                 const sd = Math.sqrt(variance);
 
                 // Calculate trend (compare last 2 vs first 2 entries)
@@ -156,6 +337,10 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         // Instead of static mean, we project where the user will be in X days
         // const PROJECT_DAYS = 30; // Old static value
 
+        const currentWeightedMean = categoryStats.reduce((acc, cat) => {
+            return acc + (cat.mean * cat.weight);
+        }, 0) / (totalWeight || 1);
+
         const weightedMean = categoryStats.reduce((acc, cat) => {
             // Calculate Linear Regression for this category
             if (!cat.history || cat.history.length < 2) return acc + (cat.mean * cat.weight);
@@ -189,12 +374,12 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             const safeProjection = Math.max(0, Math.min(100, projectedScore));
 
             return acc + (safeProjection * cat.weight);
-        }, 0) / totalWeight;
+        }, 0) / (totalWeight || 1);
 
         // Pooled SD - Remove the "trendFactor" hack. Trend is now in the Mean.
         const pooledVariance = categoryStats.reduce((acc, cat) => {
             return acc + (cat.weight * cat.sd * cat.sd);
-        }, 0) / totalWeight;
+        }, 0) / (totalWeight || 1);
         const pooledSD = Math.sqrt(pooledVariance);
 
         // 3. Run Monte Carlo (10,000 iterations)
@@ -226,6 +411,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         setSimulationResult({
             probability: probability.toFixed(1),
             mean: weightedMean.toFixed(1),
+            currentMean: currentWeightedMean.toFixed(1), // Added Current Mean
             sd: pooledSD.toFixed(1),
             ci95Low: ci95Low.toFixed(0),
             ci95High: ci95High.toFixed(0),
@@ -424,36 +610,47 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     }
 
     return (
-        <div className="glass px-6 pb-6 pt-10 rounded-3xl relative flex flex-col items-center justify-between border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900/20 group hover:bg-white/5 transition-colors">
+        <div className="glass h-full p-3 rounded-3xl relative flex flex-col items-center border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl">
 
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-                <Gauge size={80} />
-            </div>
-
-            {/* Header config button */}
-
-
-            <div className="w-full flex justify-between items-center mb-2 pt-2">
+            {/* --- HEADER: Title & Today Button --- */}
+            <div className="w-full flex justify-between items-start mb-1">
                 <div className="flex items-center gap-2">
-                    <Gauge size={16} className="text-blue-400" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monte Carlo</span>
+                    <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                        <Gauge size={16} className="text-blue-400" />
+                    </div>
                 </div>
+
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setSimulateToday(!simulateToday);
+                    }}
+                    className={`
+                        px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all border shadow-sm
+                        ${simulateToday
+                            ? 'bg-green-500 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
+                            : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-slate-700 hover:text-white'}
+                    `}
+                    title="Alternar entre projeção futura e análise imediata"
+                >
+                    {simulateToday ? 'PROJEÇÃO: HOJE' : 'PROJEÇÃO: FUTURA'}
+                </button>
             </div>
 
 
+            {/* --- CENTER: Main Gauge & Probability --- */}
+            <div className="relative flex flex-col items-center justify-center py-2 shrink-0">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl">
+                    <div className="w-32 h-32 rounded-full" style={{ backgroundColor: gradientColor }} />
+                </div>
 
-
-            <div className="relative flex flex-col items-center justify-center py-2 h-full">
-                <svg width="140" height="70" viewBox="0 0 140 70" className="overflow-visible">
-                    {/* Background Arc */}
-                    <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
-
-                    {/* Data Arc */}
+                <svg width="168" height="84" viewBox="0 0 140 70" className="overflow-visible relative z-10">
+                    <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#0f172a" strokeWidth="12" strokeLinecap="round" />
                     <path
                         d="M 10 65 A 60 60 0 0 1 130 65"
                         fill="none"
                         stroke={gradientColor}
-                        strokeWidth="10"
+                        strokeWidth="12"
                         strokeLinecap="round"
                         strokeDasharray={188}
                         strokeDashoffset={188 - (188 * (prob / 100))}
@@ -461,56 +658,150 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                     />
                 </svg>
 
-                <div className="absolute inset-0 flex items-end justify-center pb-2">
-                    <span className="text-3xl font-black tracking-tighter drop-shadow-lg" style={{ color: gradientColor }}>{prob}%</span>
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-1 z-20">
+                    <span className="text-[2.5rem] font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob}%</span>
                 </div>
             </div>
 
-            <div className="text-center w-full mt-4">
-                <p className="text-[10px] font-bold mb-1 leading-tight uppercase tracking-wider" style={{ color: gradientColor }}>
-                    {message} <span className="opacity-50 text-[9px]">({targetScore}% min | {projectDays}d)</span>
-                </p>
+            {/* Verse / Verdict */}
+            <div className="text-center w-full mb-3 -mt-1 relative z-20">
+                <h2 className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block bg-black/40 backdrop-blur-sm border border-white/10 shadow-sm" style={{ color: gradientColor }}>
+                    {message}
+                </h2>
+            </div>
 
-                {/* Confidence Interval */}
-                <p className="text-[9px] text-slate-400 mb-2">
-                    IC 95%: <span className="text-blue-400 font-bold">{simulationResult.ci95Low}% - {simulationResult.ci95High}%</span>
-                </p>
 
-                <p className="text-[9px] text-slate-500 leading-tight">
-                    Média ponderada: {simulationResult.mean}% | Consistência: ±{simulationResult.sd}%
-                </p>
 
-                {/* Trend Indicators */}
-                <div className="flex flex-wrap justify-center gap-1 mt-2">
-                    {simulationResult.categoryStats.map((cat, idx) => (
-                        <span key={idx} className="flex items-center gap-0.5 px-2 py-1 rounded bg-white/5 text-[9px] text-slate-400">
-                            {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
-                            {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
-                            {cat.trend === 'stable' && <Minus size={10} className="text-slate-500" />}
-                            <span className="max-w-[100px] truncate">{cat.name}</span>
+            {/* --- METRICS GRID (Highlighted Stats) --- */}
+            <div className="grid grid-cols-2 gap-1 w-full mb-3 px-0">
+                {/* Metric 1: Target */}
+                <div className="bg-black/40 p-1 rounded-lg border border-white/10 flex flex-col items-center relative overflow-hidden group/item hover:bg-black/60 transition-colors shadow-inner">
+                    <div className="absolute top-0 right-0 w-6 h-6 bg-white/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sua Meta</span>
+                    <span className="text-xs font-black text-white">{targetScore}%</span>
+                </div>
+
+                {/* Metric 2: Projection Days */}
+                <div className="bg-black/40 p-1 rounded-lg border border-white/10 flex flex-col items-center relative overflow-hidden group/item hover:bg-black/60 transition-colors shadow-inner">
+                    <div className="absolute top-0 left-0 w-6 h-6 bg-blue-500/5 rounded-full blur-xl -translate-x-1/2 -translate-y-1/2" />
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tempo</span>
+                    <span className={`text-xs font-black ${simulateToday ? 'text-green-400' : 'text-blue-400'}`}>
+                        {simulateToday ? 'AGORA' : `${projectDays}d`}
+                    </span>
+                </div>
+
+                {/* Metric 3: Cenários Projetados (Curva de Distribuição Interativa) */}
+                <div className="col-span-2 bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col justify-between hover:bg-black/60 transition-colors shadow-inner min-h-[90px] group/estimate relative">
+                    {/* Header */}
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-0.5 flex items-center justify-between z-10 relative">
+                        Projeção de Desempenho
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-white opacity-40"></div>
+                                <span className="text-[8px] text-slate-500">Hoje</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                <span className="text-[8px] text-slate-500">Projeção</span>
+                            </div>
+                        </div>
+                    </span>
+
+                    {/* Gaussian Curve Visualization Component */}
+                    {(() => {
+                        // Extract values safely
+                        const mean = parseFloat(simulationResult.mean);
+                        const sd = parseFloat(simulationResult.sd);
+                        const low95 = parseFloat(simulationResult.ci95Low);
+                        const high95 = parseFloat(simulationResult.ci95High);
+                        const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
+
+                        return (
+                            <GaussianChart
+                                mean={mean}
+                                sd={sd}
+                                low95={low95}
+                                high95={high95}
+                                targetScore={targetScore}
+                                currentMean={currentMean}
+                            />
+                        );
+                    })()}
+
+                    {/* Scale Check */}
+                    <div className="flex justify-between items-end mt-2 px-1 relative z-10">
+                        <div className="flex flex-col items-start">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Pior (95%)</span>
+                            <span className="text-sm font-black text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 shadow-sm">
+                                {parseFloat(simulationResult.ci95Low)}%
+                            </span>
+                        </div>
+
+                        {/* Mean Label in Center */}
+                        <div className="flex flex-col items-center pb-0.5">
+                            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Média</span>
+                            <span className="text-xs font-bold text-white">{parseFloat(simulationResult.mean)}%</span>
+                        </div>
+
+                        <div className="flex flex-col items-end">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Melhor (95%)</span>
+                            <span className="text-sm font-black text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 shadow-sm">
+                                {parseFloat(simulationResult.ci95High)}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            {/* --- FOOTER: Stats & Trends --- */}
+            <div className="w-full mt-auto flex flex-col gap-2">
+                {/* Tech Specs */}
+                <div className="flex justify-between px-4 py-1.5 bg-black/40 rounded-lg border border-white/10 text-[9px] text-slate-400 shadow-sm">
+                    <span className="flex items-center gap-1">
+                        Média Pond: <b className="text-slate-300">{simulationResult.mean}%</b>
+                    </span>
+                    <span className="w-px h-3 bg-slate-700/50" />
+                    <span className="flex items-center gap-1">
+                        Consistência: <b className={`${Math.abs(simulationResult.sd) > 10 ? 'text-yellow-400' : 'text-green-400'}`}>±{Math.abs(simulationResult.sd)}%</b>
+                    </span>
+                </div>
+
+                {/* Trend Chips */}
+                <div className="flex flex-wrap justify-center gap-1">
+                    {simulationResult.categoryStats.slice(0, 5).map((cat, idx) => (
+                        <span key={idx} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/80 border border-white/10 text-[8px] text-slate-300 uppercase tracking-tight shadow-sm">
+                            {cat.trend === 'up' && <TrendingUp size={8} className="text-green-400" />}
+                            {cat.trend === 'down' && <TrendingDown size={8} className="text-red-400" />}
+                            {cat.trend === 'stable' && <Minus size={8} className="text-slate-500" />}
+                            <span className="max-w-[60px] truncate">{cat.name.split(' ')[0]}</span>
                         </span>
                     ))}
+                    {simulationResult.categoryStats.length > 5 && (
+                        <span className="px-1.5 py-0.5 rounded bg-slate-800/80 border border-white/10 text-[8px] text-slate-500">
+                            +{simulationResult.categoryStats.length - 5}
+                        </span>
+                    )}
                 </div>
             </div>
 
 
-            {/* Weights Configuration Footer Trigger */}
-            <div className="mt-4 w-full pt-3 border-t border-white/10 flex justify-center">
+            {/* Config Trigger (Floating or Bottom) */}
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                     onClick={() => setShowConfig(true)}
-                    className="flex flex-col items-center gap-1 group/btn"
+                    className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all shadow-lg text-slate-400 hover:text-white"
+                    title="Configurar Pesos e Metas"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center group-hover/btn:bg-blue-500 group-hover/btn:border-blue-400 decoration-purple-500 transition-all shadow-lg">
-                        <Settings2 size={20} className="text-slate-400 group-hover/btn:text-white" />
-                    </div>
-                    <span className="text-[9px] font-bold text-slate-500 group-hover/btn:text-blue-400 uppercase tracking-widest transition-colors">Configurar Pesos</span>
+                    <Settings2 size={12} />
                 </button>
             </div>
 
             {/* Dedicated Configuration Modal/Overlay */}
             {
                 showConfig && (
-                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
+
+                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
 
                         {/* Modal Header */}
                         <div className="flex items-center justify-between mb-6">
@@ -519,8 +810,8 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                                     <Settings2 size={20} className="text-blue-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-white">Configuração de Pesos</h3>
-                                    <p className="text-[10px] text-slate-400">Personalize a relevância de cada matéria</p>
+                                    <h3 className="text-base font-bold text-white">Configuração</h3>
+                                    <p className="text-[10px] text-slate-400">Ajuste os parâmetros da simulação</p>
                                 </div>
                             </div>
                             <button
@@ -621,7 +912,6 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 }
-

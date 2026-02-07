@@ -311,55 +311,101 @@ export default function VerifiedStats({ categories = [], user }) {
     }, [categories]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in-down">
-            {/* Card 1: Linear Regression Prediction */}
-            <div className="glass px-6 pb-6 pt-10 border-l-4 border-blue-500 relative group hover:bg-white/5 transition-colors">
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Target size={80} />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-down">
+            {/* Card 1: Linear Regression & Base Prediction (25%) */}
+            <div className="col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl border-blue-500">
+
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                            <Target size={16} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Previsão</span>
+                    </div>
                 </div>
-                <div className={`flex items-center gap-2 mb-2 pt-2`}>
-                    <Calculator size={16} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Previsão ({stats.targetScore || 90}%)</h3>
-                    <InfoTooltip text="Estimativa baseada na sua tendência atual e média recente." />
+
+                {/* Main Verdict */}
+                <div className="text-center my-2">
+                    <h2 className={`text-lg md:text-xl font-black leading-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent drop-shadow-md`}>
+                        {stats.prediction}
+                    </h2>
                 </div>
-                <div className={`text-base md:text-lg font-black mb-2 whitespace-normal break-words leading-snug ${stats.predictionStatus === 'excellence' ? 'text-purple-400' :
-                    stats.predictionStatus === 'good' ? 'text-green-400' :
-                        stats.predictionStatus === 'warning' ? 'text-yellow-400' :
-                            stats.predictionStatus === 'bad' ? 'text-red-400' : 'text-white'
-                    }`}>
-                    {stats.prediction}
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 w-full mb-3">
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sua Meta</span>
+                        <span className="text-sm font-black text-blue-400">{stats.targetScore || 90}%</span>
+                    </div>
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tendência (5d)</span>
+                        <div className="flex items-center gap-1">
+                            {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400" />}
+                            {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400" />}
+                            {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                            <span className="text-xs font-bold text-slate-200">{stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}</span>
+                        </div>
+                    </div>
                 </div>
-                <p className="text-[10px] text-slate-400">
-                    {stats.predictionSubtext}
-                </p>
+
+                {/* Footer Message */}
+                <div className="mt-auto pt-2 border-t border-white/10">
+                    <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                        {stats.predictionSubtext}
+                    </p>
+                </div>
             </div>
 
-            {/* Card 2: Consistency (Standard Deviation) */}
-            <div className={`glass px-6 pb-6 pt-10 border-l-4 relative group hover:bg-white/5 transition-colors ${stats.consistency.bgBorder}`}>
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    {stats.consistency.icon}
+            {/* Card 2: Consistency (Standard Deviation) (25%) */}
+            <div className={`col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${stats.consistency.bgBorder}`}>
+
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.bgBorder.replace('/30', '/20').replace('border-', 'bg-').replace('border-', 'border-')}`}>
+                            <Activity size={16} className={stats.consistency.color.replace('text-', 'text-')} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 mb-2 pt-2">
-                    <Activity size={16} className={stats.consistency.color.replace('text-', 'text-')} />
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Consistência</h3>
-                    <InfoTooltip text="Mede o Desvio Padrão das suas notas. Quanto menor, mais estável e previsível é o seu desempenho." />
+
+                {/* Main Verdict */}
+                <div className="text-center my-2">
+                    <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
+                        {stats.consistency.status}
+                    </h2>
                 </div>
-                <div className={`text-base md:text-lg font-black mb-2 whitespace-normal break-words leading-snug ${stats.consistency.color}`}>
-                    {stats.consistency.status}
-                    <span className="block text-xs text-slate-400 mt-1 font-normal">
-                        (Desvio Padrão: {stats.consistency.sd})
-                    </span>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 w-full mb-3">
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
+                        <span className={`text-sm font-black ${stats.consistency.color}`}>±{stats.consistency.sd}%</span>
+                    </div>
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
+                        <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+                            {stats.consistency.status === 'CONSISTENTE' ? 'Alta Estabilidade' : stats.consistency.status === 'OSCILANTE' ? 'Alta Variação' : 'Variação Média'}
+                        </span>
+                    </div>
                 </div>
-                <p className="text-[10px] text-slate-400">
-                    {stats.consistency.message}
-                </p>
+
+                {/* Footer Message */}
+                <div className="mt-auto pt-2 border-t border-white/10">
+                    <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                        {stats.consistency.message}
+                    </p>
+                </div>
             </div>
 
-            {/* Card 3: Monte Carlo */}
-            <MonteCarloGauge categories={categories} goalDate={user?.goalDate} />
+            {/* Card 3: Monte Carlo (50%) */}
+            <div className="col-span-1 md:col-span-2 h-full">
+                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} />
+            </div>
 
             {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass col-span-1 md:col-span-3 p-6 mt-2">
+            <div className="glass col-span-1 md:col-span-4 p-6 mt-2">
                 <div className="flex items-center gap-2 mb-4 text-slate-400">
                     <Activity size={16} />
                     <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
