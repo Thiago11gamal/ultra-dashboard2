@@ -11,7 +11,7 @@ const InfoTooltip = ({ text }) => (
     </div>
 );
 
-export default function VerifiedStats({ categories = [] }) {
+export default function VerifiedStats({ categories = [], user }) {
 
     const stats = useMemo(() => {
         let allHistory = [];
@@ -356,7 +356,7 @@ export default function VerifiedStats({ categories = [] }) {
             </div>
 
             {/* Card 3: Monte Carlo */}
-            <MonteCarloGauge categories={categories} />
+            <MonteCarloGauge categories={categories} goalDate={user?.goalDate} />
 
             {/* Subject Consistency Breakdown - Full Width */}
             <div className="glass col-span-1 md:col-span-3 p-6 mt-2">

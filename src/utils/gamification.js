@@ -7,15 +7,15 @@ export const LEVEL_MIN = 1;  // Goal level
 // Total: 25,750 XP to reach Level 1
 const XP_THRESHOLDS = {
     10: 0,      // Start here
-    9: 500,     // Easy - quick motivation
-    8: 1500,    // +1000
-    7: 3000,    // +1500
-    6: 5000,    // +2000
-    5: 7500,    // +2500
-    4: 10500,   // +3000
-    3: 14500,   // +4000
-    2: 19500,   // +5000
-    1: 25750,   // +6250 - Epic final level
+    9: 800,     // +800 (Slightly harder start)
+    8: 2000,    // +1200
+    7: 3500,    // +1500
+    6: 5500,    // +2000
+    5: 8000,    // +2500
+    4: 11000,   // +3000
+    3: 14500,   // +3500
+    2: 18500,   // +4000
+    1: 23000,   // +4500 - Smoother finish (was +6250)
 };
 
 // Calculate Level based on Total XP

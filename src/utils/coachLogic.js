@@ -383,14 +383,25 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const totalHours = categoryLogs.reduce((acc, l) => acc + (l.minutes || 0), 0) / 60;
         const totalQuestions = categorySims.reduce((acc, s) => acc + (s.total || 0), 0);
 
+        // Calculate average score for Dynamic Threshold (Suggestion E)
+        const avgScore = categorySims.length > 0
+            ? categorySims.reduce((acc, s) => acc + (s.correct / s.total * 100), 0) / categorySims.length
+            : 0;
+
+        // Dynamic Threshold:
+        // If Score > 80% (High Performer) -> Tolerate slower pace (0.5 q/h)
+        // If Score > 60% (Medium) -> Tolerate moderate pace (1.0 q/h)
+        // Else (Low Performer) -> Demand standard pace (2.0 q/h)
+        const dynamicThreshold = avgScore > 80 ? 0.5 : (avgScore > 60 ? 1.0 : 2.0);
+
         // Ratio: Questions per Hour (Ideal is > 5-10 questions per hour of study)
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
 
-        // If studied > 5 hours but has very low question density (< 2 q/h), it's a trap.
-        if (totalHours > 5 && questionsPerHour < 2) {
+        // If studied > 5 hours but has very low question density (< threshold), it's a trap.
+        if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
             return {
                 isTrap: true,
-                msg: `⚠️ Alerta de Método: Você estudou ${totalHours.toFixed(1)}h de ${category.name} mas fez poucas questões. A teoria sozinha engana! Foco TOTAL em exercícios hoje.`
+                msg: `⚠️ Alerta de Método: Você estudou ${totalHours.toFixed(1)}h de ${category.name} mas fez poucas questões (${questionsPerHour.toFixed(1)}/h). Meta para seu nível: >${dynamicThreshold}/h.`
             };
         }
         return { isTrap: false };

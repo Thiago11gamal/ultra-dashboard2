@@ -10,7 +10,7 @@ const DEFAULT_WEIGHTS = {
     'Conhecimentos Específicos': 30
 };
 
-export default function MonteCarloGauge({ categories = [] }) {
+export default function MonteCarloGauge({ categories = [], goalDate }) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true); // Toggle for equal weights
 
@@ -21,6 +21,17 @@ export default function MonteCarloGauge({ categories = [] }) {
     // Simple weight storage - just stores what user sets
     const [weights, setWeights] = useState({});
     const [targetScore, setTargetScore] = useState(70); // Configurable passing target
+
+    const projectDays = useMemo(() => {
+        if (!goalDate) return 30;
+        const now = new Date();
+        const goal = new Date(goalDate);
+        if (isNaN(goal.getTime())) return 30;
+
+        const diffTime = goal - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 ? diffDays : 30; // Fallback to 30 if passed or invalid
+    }, [goalDate]);
 
     // Function to calculate equal weights
     const getEqualWeights = useCallback(() => {
@@ -142,8 +153,8 @@ export default function MonteCarloGauge({ categories = [] }) {
         }
 
         // 2. Linear Regression Projection (The "Speed" of learning)
-        // Instead of static mean, we project where the user will be in X days (e.g. 30 days)
-        const PROJECT_DAYS = 30; // Simulate exam in 1 month
+        // Instead of static mean, we project where the user will be in X days
+        // const PROJECT_DAYS = 30; // Old static value
 
         const weightedMean = categoryStats.reduce((acc, cat) => {
             // Calculate Linear Regression for this category
@@ -172,7 +183,7 @@ export default function MonteCarloGauge({ categories = [] }) {
             // Limit slope to realistic values (-1% to +1% per day is already huge)
             const safeSlope = Math.max(-1.5, Math.min(1.5, slope));
             const currentDay = dataPoints[dataPoints.length - 1].x;
-            const projectedScore = intercept + (safeSlope * (currentDay + PROJECT_DAYS));
+            const projectedScore = intercept + (safeSlope * (currentDay + projectDays));
 
             // Clamp projection 0-100
             const safeProjection = Math.max(0, Math.min(100, projectedScore));
@@ -220,7 +231,7 @@ export default function MonteCarloGauge({ categories = [] }) {
             ci95High: ci95High.toFixed(0),
             categoryStats
         });
-    }, [categories, effectiveWeights, targetScore]);
+    }, [categories, effectiveWeights, targetScore, projectDays]);
 
     // Show placeholder if not enough data
     if (!simulationResult) {
@@ -457,7 +468,7 @@ export default function MonteCarloGauge({ categories = [] }) {
 
             <div className="text-center w-full mt-4">
                 <p className="text-[10px] font-bold mb-1 leading-tight uppercase tracking-wider" style={{ color: gradientColor }}>
-                    {message} <span className="opacity-50 text-[9px]">({targetScore}% min)</span>
+                    {message} <span className="opacity-50 text-[9px]">({targetScore}% min | {projectDays}d)</span>
                 </p>
 
                 {/* Confidence Interval */}

@@ -1158,7 +1158,7 @@ function App() {
       case 'stats':
         return (
           <div className="space-y-8">
-            <VerifiedStats categories={data.categories} />
+            <VerifiedStats categories={data.categories} user={data.user} />
 
             <WeeklyAnalysis studyLogs={data.studyLogs} categories={data.categories} />
 
@@ -1186,17 +1186,16 @@ function App() {
             settings={data.settings}
             onUpdateSettings={updatePomodoroSettings}
             activeSubject={activeSubject}
-            onFullCycleComplete={finishStudying}
             categories={data.categories}
             onStartStudying={startStudying}
             onUpdateStudyTime={handleUpdateStudyTime}
             onExit={() => {
               setActiveTab(previousTab || 'dashboard');
-              setPreviousTab(null); // Reset after returning
+              setPreviousTab(null);
             }}
             onSessionComplete={trackPomodoroComplete}
             onFullCycleComplete={() => {
-              // Automatic return when full cycle is done
+              finishStudying();
               if (previousTab) {
                 setActiveTab(previousTab);
                 setPreviousTab(null);

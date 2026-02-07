@@ -151,7 +151,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     if (pct >= 80) {
                         status = 'DOMINADO';
-                        action = 'Manter Revisão Periódica';
+                        action = 'Manter Revisão';
+                    } else if (pct >= 60) {
+                        status = 'BOM';
+                        action = 'Refinar Detalhes';
                     } else if (pct <= 40) {
                         status = 'CRÍTICO';
                         action = 'Revisão Teórica + Questões';
@@ -178,9 +181,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     const discPct = d.totalQuestions > 0 ? Math.round((d.totalCorrect / d.totalQuestions) * 100) : 0;
 
                     let overview = "";
-                    if (discPct >= 80) overview = `Excelente desempenho (${discPct}%). Continue assim!`;
-                    else if (discPct <= 50) overview = `Desempenho baixo (${discPct}%). Foque na base.`;
-                    else overview = `Desempenho mediano (${discPct}%). Pode evoluir mais.`;
+                    if (discPct >= 80) overview = `Excelente (${discPct}%). Continue assim!`;
+                    else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lá.`;
+                    else if (discPct <= 50) overview = `Baixo (${discPct}%). Foque na base.`;
+                    else overview = `Mediano (${discPct}%). Pode evoluir.`;
 
                     return {
                         name: d.name,
@@ -195,9 +199,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
 
                 let generalInsight = "";
-                if (globalPct >= 80) generalInsight = `Resultado Incrível! Sua média global foi ${globalPct}%. Você está no caminho certo para a aprovação.`;
-                else if (globalPct >= 60) generalInsight = `Bom trabalho! Média global de ${globalPct}%. Ajuste os pontos fracos para subir de nível.`;
-                else generalInsight = `Sinal de Alerta. Média global de ${globalPct}%. É hora de reavaliar sua estratégia de estudos.`;
+                if (globalPct >= 80) generalInsight = `Resultado Incrível! ${globalPct}%. Caminho certo.`;
+                else if (globalPct >= 60) generalInsight = `Bom trabalho! ${globalPct}%. Ajuste os detalhes.`;
+                else generalInsight = `Sinal de Alerta. ${globalPct}%. Reavalie a estratégia.`;
 
                 const data = {
                     disciplines,
@@ -358,6 +362,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                             rowClass = "bg-green-500/5 hover:bg-green-500/10 transition-colors border-l-2 border-green-500";
                                                             textClass = "text-green-100 font-medium";
                                                             statusConfig = { label: 'DOMINADO', color: 'green', icon: '🏆' };
+                                                        } else if (pct >= 60) {
+                                                            rowClass = "bg-blue-500/5 hover:bg-blue-500/10 transition-colors border-l-2 border-blue-500";
+                                                            textClass = "text-blue-100 font-medium";
+                                                            statusConfig = { label: 'BOM', color: 'blue', icon: '👍' };
                                                         } else if (pct <= 40) {
                                                             rowClass = "bg-red-500/5 hover:bg-red-500/10 transition-colors border-l-2 border-red-500";
                                                             textClass = "text-red-100";
@@ -375,8 +383,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                                 <td className="p-3 text-center">
                                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-sm
                                                                         ${statusConfig.color === 'green' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                                            statusConfig.color === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                                                'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                                                                            statusConfig.color === 'blue' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                                                statusConfig.color === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                                                    'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
                                                                         <span>{statusConfig.icon}</span>
                                                                         {statusConfig.label}
                                                                     </span>
@@ -388,7 +397,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                                                 <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent" className="text-slate-700/50" />
                                                                                 <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent"
                                                                                     strokeDasharray={100} strokeDashoffset={100 - pct}
-                                                                                    className={pct >= 80 ? 'text-green-500' : pct <= 40 ? 'text-red-500' : 'text-yellow-500'} />
+                                                                                    className={pct >= 80 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : pct <= 40 ? 'text-red-500' : 'text-yellow-500'} />
                                                                             </svg>
                                                                             <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">{pct}%</span>
                                                                         </div>

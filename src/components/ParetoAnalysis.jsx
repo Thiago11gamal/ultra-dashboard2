@@ -32,11 +32,23 @@ export default function ParetoAnalysis({ categories = [] }) {
             }
         });
 
+        // Default weights (Mirroring MonteCarloGauge or valid system defaults)
+        const WEIGHTS = {
+            'Língua Portuguesa': 20,
+            'Raciocínio Lógico': 20,
+            'Informática': 15,
+            'Geografia': 15,
+            'Conhecimentos Específicos': 30
+        };
+
         // 1. Group by Topic Name (Merge duplicates across simulados)
         const topicMap = {};
         allTopics.forEach(t => {
             const key = `${t.category} - ${t.topic}`;
-            if (!topicMap[key]) topicMap[key] = { ...t, count: 0 };
+            // Get weight for this category (default to 1 if not found)
+            const weight = (WEIGHTS[t.category] || 10) / 10; // Normalized: 1.0, 1.5, 2.0, 3.0
+
+            if (!topicMap[key]) topicMap[key] = { ...t, count: 0, weight };
             else {
                 topicMap[key].total += t.total;
                 topicMap[key].correct += t.correct;
@@ -48,10 +60,15 @@ export default function ParetoAnalysis({ categories = [] }) {
         });
 
         const groupedTopics = Object.values(topicMap);
-        const totalMissedGlobal = groupedTopics.reduce((acc, t) => acc + t.missed, 0);
+        // Calculate Weighted Missed Points
+        groupedTopics.forEach(t => {
+            t.weightedMissed = t.missed * t.weight;
+        });
 
-        // Sort by Missed Points (Descending)
-        groupedTopics.sort((a, b) => b.missed - a.missed);
+        const totalMissedGlobal = groupedTopics.reduce((acc, t) => acc + t.weightedMissed, 0);
+
+        // Sort by Weighted Missed Points (Descending)
+        groupedTopics.sort((a, b) => b.weightedMissed - a.weightedMissed);
 
         // Identify Top 20% (or top 5 items for UI)
         // Pareto: The cumulative missed points
@@ -105,16 +122,16 @@ export default function ParetoAnalysis({ categories = [] }) {
                                 <h4 className="font-bold text-red-100">{item.topic}</h4>
                             </div>
                             <div className="text-right flex flex-col items-end">
-                                <div className="text-2xl font-black text-red-500 leading-none">-{item.missed}</div>
-                                <span className="text-[10px] text-red-400 font-bold uppercase">Pontos Perdidos</span>
-                                <span className="text-[10px] text-slate-600 mt-1">Acerto: {item.percentage}%</span>
+                                <div className="text-2xl font-black text-red-500 leading-none">-{item.weightedMissed.toFixed(1)}</div>
+                                <span className="text-[10px] text-red-400 font-bold uppercase">Pontos Ponderados</span>
+                                <span className="text-[10px] text-slate-600 mt-1">Peso: {item.weight}x | Acerto: {item.percentage}%</span>
                             </div>
                         </div>
                     ))}
 
                     <div className="p-4 rounded-xl border border-dashed border-slate-700 text-center">
                         <p className="text-xs text-slate-400">
-                            Ao dominar apenas estes {topEnemies.length} tópicos, você recupera <span className="text-white font-bold">{Math.round((topEnemies.reduce((a, b) => a + b.missed, 0) / (totalLostPoints || 1)) * 100)}%</span> dos seus pontos perdidos.
+                            Ao dominar apenas estes {topEnemies.length} tópicos, você recupera <span className="text-white font-bold">{Math.round((topEnemies.reduce((a, b) => a + b.weightedMissed, 0) / (totalLostPoints || 1)) * 100)}%</span> dos seus pontos perdidos na prova.
                         </p>
                     </div>
                 </div>
