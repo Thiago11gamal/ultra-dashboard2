@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ArrowRight, ChevronDown, ChevronUp, BookOpen, RefreshCw } from 'lucide-react';
+import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ArrowRight, ChevronDown, ChevronUp, BookOpen, RefreshCw, Play } from 'lucide-react';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
 const calculateRetention = (lastStudiedAt) => {
@@ -401,8 +401,13 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                                             {task.retention.val}%
                                                         </span>
 
-                                                        {/* Arrow */}
-                                                        <ArrowRight size={14} className="text-slate-600 group-hover:text-white transition-all shrink-0" />
+                                                        {/* Play Button */}
+                                                        <button
+                                                            className="w-8 h-8 rounded-full bg-white/5 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 flex items-center justify-center transition-all group/play ml-2"
+                                                            title="Revisar Agora"
+                                                        >
+                                                            <Play size={14} className="fill-current opacity-50 group-hover/play:opacity-100" />
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>

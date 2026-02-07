@@ -47,6 +47,7 @@ function App() {
     return loaded;
   });
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
   const [toast, setToast] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1189,7 +1190,18 @@ function App() {
             categories={data.categories}
             onStartStudying={startStudying}
             onUpdateStudyTime={handleUpdateStudyTime}
+            onExit={() => {
+              setActiveTab(previousTab || 'dashboard');
+              setPreviousTab(null); // Reset after returning
+            }}
             onSessionComplete={trackPomodoroComplete}
+            onFullCycleComplete={() => {
+              // Automatic return when full cycle is done
+              if (previousTab) {
+                setActiveTab(previousTab);
+                setPreviousTab(null);
+              }
+            }}
           />
         );
       case 'history':
@@ -1497,11 +1509,15 @@ function App() {
           <RetentionPanel
             categories={data.categories}
             onSelectCategory={(cat) => {
-              // When user clicks a category, switch to pomodoro with that category selected
-              const firstTask = cat.tasks?.[0];
-              if (firstTask) {
-                startStudying(cat.id, firstTask.id);
+              // When user clicks a category/task, switch to pomodoro
+              // If specific task was clicked (passed as selectedTask), use it.
+              // Otherwise fallback to first task.
+              const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
+
+              if (targetTaskId) {
+                startStudying(cat.id, targetTaskId);
               }
+              setPreviousTab('retention');
               setActiveTab('pomodoro');
             }}
           />

@@ -3,7 +3,9 @@ import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'luc
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
-export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime }) {
+// Update component signature to accept onExit
+export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit }) {
+
     // Always start fresh - no localStorage restoration for time/mode
     const [mode, setMode] = useState('work');
     const [timeLeft, setTimeLeft] = useState(settings.pomodoroWork * 60);
@@ -280,7 +282,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         >
             {/* 1. TOP BAR: Modern Clean Header */}
             <div className="relative flex items-center justify-center py-2">
-                <div className="flex-1 flex justify-center pl-4 pr-16">
+                <div className="flex-1 flex justify-center pl-4 pr-16 bg-transparent">
                     {activeSubject ? (
                         <motion.div
                             initial={{ y: -5, opacity: 0 }}
