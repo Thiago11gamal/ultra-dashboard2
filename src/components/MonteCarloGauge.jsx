@@ -14,65 +14,78 @@ const DEFAULT_WEIGHTS = {
 function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
     const [hover, setHover] = useState(null); // { x: percent, val: score }
 
-    // Enforce minimum SD for visualization to prevent divide-by-zero or flat line
-    const vizSd = Math.max(0.5, sd);
+    // Optimization: generic loop for path data
+    const { pathData, areaPathData, labelsData, range, xMin } = useMemo(() => {
+        // Enforce minimum SD for visualization
+        const vizSd = Math.max(0.5, sd);
 
-    // Define plot range: mean +/- 3.5 SDs for full curve context
-    // AND force range to include Target Score so user sees "how far" they are.
-    let xMin = Math.max(0, mean - 3.5 * vizSd);
-    let xMax = Math.min(100, mean + 3.5 * vizSd);
+        // Define plot range
+        let xMin = Math.max(0, mean - 3.5 * vizSd);
+        let xMax = Math.min(100, mean + 3.5 * vizSd);
 
-    // Expand to include Target (passing grade) with margin
-    xMin = Math.min(xMin, targetScore - 5);
-    xMax = Math.max(xMax, targetScore + 5);
+        xMin = Math.min(xMin, targetScore - 5);
+        xMax = Math.max(xMax, targetScore + 5);
+        xMin = Math.min(xMin, currentMean - 5);
+        xMax = Math.max(xMax, currentMean + 5);
+        xMin = Math.max(0, xMin);
+        xMax = Math.min(100, xMax);
 
-    // Expand to include Current Mean (Today) with margin
-    xMin = Math.min(xMin, currentMean - 5);
-    xMax = Math.max(xMax, currentMean + 5);
+        const range = Math.max(1, xMax - xMin);
 
-    // Clamp to 0-100 logic (but don't clip mean/target if inside)
-    xMin = Math.max(0, xMin);
-    xMax = Math.min(100, xMax);
+        const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - mean) / vizSd, 2));
 
-    const range = Math.max(1, xMax - xMin); // Ensure range is never 0
-
-    // Gaussian function
-    const gaussian = (x) => {
-        return Math.exp(-0.5 * Math.pow((x - mean) / vizSd, 2));
-    };
-
-    // Generate path data
-    const points = [];
-    const steps = 60;
-    for (let i = 0; i <= steps; i++) {
-        const x = xMin + (range * (i / steps));
-        const y = gaussian(x);
-        points.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`); // Flip Y for SVG
-    }
-    const pathData = `M ${points.join(' L ')}`;
-
-    // Generate Area under curve for 95% CI
-    const areaPoints = [];
-    for (let i = 0; i <= steps; i++) {
-        const x = xMin + (range * (i / steps));
-        if (x >= low95 && x <= high95) {
+        const points = [];
+        const steps = 60;
+        for (let i = 0; i <= steps; i++) {
+            const x = xMin + (range * (i / steps));
             const y = gaussian(x);
-            areaPoints.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
+            points.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
         }
-    }
-    if (areaPoints.length > 0) {
-        const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
-        const firstX = areaPoints[0].split(',')[0];
-        areaPoints.push(`${lastX},100`);
-        areaPoints.push(`${firstX},100`);
-    }
-    const areaPathData = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
+        const path = `M ${points.join(' L ')}`;
 
-    // Target Line Position
+        const areaPoints = [];
+        for (let i = 0; i <= steps; i++) {
+            const x = xMin + (range * (i / steps));
+            if (x >= low95 && x <= high95) {
+                const y = gaussian(x);
+                areaPoints.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
+            }
+        }
+        if (areaPoints.length > 0) {
+            const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
+            const firstX = areaPoints[0].split(',')[0];
+            areaPoints.push(`${lastX},100`);
+            areaPoints.push(`${firstX},100`);
+        }
+        const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
+
+        // Pre-calculate label positions
+        const getPos = (val) => (val - xMin) / range * 100;
+        const labels = [
+            { id: 'mean', pos: getPos(mean), val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2' },
+            { id: 'target', pos: getPos(targetScore), val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2' },
+            { id: 'high', pos: getPos(high95), val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: 'transform -translate-x-1/2' },
+            { id: 'low', pos: getPos(low95), val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: 'transform -translate-x-1/2' }
+        ].sort((a, b) => a.pos - b.pos);
+
+        const minDistance = 12;
+        for (let i = 1; i < labels.length; i++) {
+            if (labels[i].pos - labels[i - 1].pos < minDistance) {
+                labels[i].offset = labels[i - 1].offset + 12;
+            }
+        }
+
+        return {
+            pathData: path,
+            areaPathData: areaPath,
+            range,
+            xMin,
+            labelsData: labels
+        };
+    }, [mean, sd, low95, high95, targetScore, currentMean]);
+
     const targetPos = (targetScore - xMin) / range * 100;
     const isTargetVisible = targetPos >= 0 && targetPos <= 100;
-
-    // Current Mean Position
     const currentPos = (currentMean - xMin) / range * 100;
     const isCurrentVisible = currentPos >= 0 && currentPos <= 100;
 
@@ -83,7 +96,6 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                // Calculate actual value based on percentage
                 const val = xMin + (percentage / 100 * range);
                 setHover({ x: percentage, val });
             }}
@@ -103,7 +115,6 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
                 `}
             </style>
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
-                {/* Gradients */}
                 <defs>
                     <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(59, 130, 246, 0.5)" />
@@ -115,129 +126,120 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
                     </linearGradient>
                 </defs>
 
-                {/* Base Line */}
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" />
-
-                {/* Full Curve Line with Animation */}
                 <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" />
-
-                {/* 95% CI Area */}
                 <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" />
 
-                {/* Current Mean Line (Today) */}
                 {isCurrentVisible && (
-                    <line
-                        x1={currentPos}
-                        y1="100"
-                        x2={currentPos}
-                        y2="20"
-                        stroke="white"
-                        strokeWidth="1.5"
-                        strokeDasharray="1,2"
-                        className="opacity-40"
-                    />
+                    <line x1={currentPos} y1="100" x2={currentPos} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="1,2" className="opacity-40" />
                 )}
 
-                {/* Mean Line (Projected) - Blue Dashed */}
-                <line
-                    x1={(mean - xMin) / range * 100}
-                    y1="100"
-                    x2={(mean - xMin) / range * 100}
-                    y2="0"
-                    stroke="#3b82f6"
-                    strokeWidth="1.5"
-                    strokeDasharray="3,3"
-                    className="opacity-80"
-                />
+                <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3,3" className="opacity-80" />
 
-                {/* Target Line - Red Solid */}
                 {isTargetVisible && (
-                    <line
-                        x1={targetPos}
-                        y1="100"
-                        x2={targetPos}
-                        y2="0"
-                        stroke="#ef4444"
-                        strokeWidth="1.5"
-                    />
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" />
                 )}
             </svg>
 
-            {/* Interactive Tooltip & Hover Line */}
             {hover && (
                 <>
-                    <div
-                        className="absolute top-0 bottom-0 w-px bg-white/50 pointer-events-none transition-opacity"
-                        style={{ left: `${hover.x}%` }}
-                    />
-                    <div
-                        className="absolute -top-5 transform -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none z-50 whitespace-nowrap"
-                        style={{ left: `${hover.x}%` }}
-                    >
+                    <div className="absolute top-0 bottom-0 w-px bg-white/50 pointer-events-none transition-opacity" style={{ left: `${hover.x}%` }} />
+                    <div className="absolute -top-5 transform -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none z-50 whitespace-nowrap" style={{ left: `${hover.x}%` }}>
                         {hover.val.toFixed(1)}%
                     </div>
                 </>
             )}
 
-            {/* Static Labels overlay with Collision Detection */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                {(() => {
-                    // Calculate X positions (0-100%)
-                    const getPos = (val) => (val - xMin) / range * 100;
+                <div className="absolute bottom-0 left-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">0</div>
+                <div className="absolute bottom-0 right-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">100</div>
 
-                    const meanPos = getPos(mean);
-                    const targetPosArr = getPos(targetScore);
-                    const lowPos = getPos(low95);
-                    const highPos = getPos(high95);
+                {labelsData.map(label => (
+                    <div key={label.id} className={`absolute bottom-0 text-[10px] font-black ${label.color} tracking-tighter ${label.align} translate-y-full mt-1 transition-all`} style={{ left: `${label.pos}%`, transform: `translateY(calc(100% + ${label.offset}px))` }}>
+                        {label.prefix && <span className="text-[7px] opacity-70 mr-0.5">{label.prefix}</span>}
+                        {label.val}%
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
-                    // Labels objects for sorting and collision
-                    const labels = [
-                        { id: 'mean', pos: meanPos, val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2' },
-                        { id: 'target', pos: targetPosArr, val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2' },
-                        // For IC, position at bottom (y=0) but keep color green
-                        // User wants them "more to the side" and "under the green column".
-                        // Centering (-50%) might make them look detached if the column is wide.
-                        // Let's keep distinct alignment if needed, or stick to centering if that was not the issue.
-                        // "Bem mais do lado" likely means pushing them towards the center of the Green Area? Or Outwards?
-                        // Let's try to keep them centered for now but ensure no overlap logic moves them wrongly.
-                        { id: 'high', pos: highPos, val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: 'transform -translate-x-1/2' },
-                        { id: 'low', pos: lowPos, val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: 'transform -translate-x-1/2' }
-                    ].sort((a, b) => a.pos - b.pos);
+// Config Modal Component
+function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsMode, setEqualWeightsMode, getEqualWeights, setWeights, weights, updateWeight, activeCategories, categories }) {
+    if (!show) return null;
 
-                    // Improved Collision Detection (Staggering) for all labels
-                    const minDistance = 12; // percentage
-                    for (let i = 1; i < labels.length; i++) {
-                        if (labels[i].pos - labels[i - 1].pos < minDistance) {
-                            labels[i].offset = labels[i - 1].offset + 12;
-                        }
-                    }
+    // Fallback to all categories if activeCategories is empty/undefined, or just use active
+    const catsToShow = activeCategories && activeCategories.length > 0 ? activeCategories : categories;
 
-                    return (
-                        <>
-                            {/* Static Extremity Labels (0 and 100) - GREEN */}
-                            <div className="absolute bottom-0 left-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">
-                                0
-                            </div>
-                            <div className="absolute bottom-0 right-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">
-                                100
-                            </div>
+    return (
+        <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                        <Settings2 size={20} className="text-blue-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-bold text-white">Configuração</h3>
+                        <p className="text-[10px] text-slate-400">Ajuste os parâmetros da simulação</p>
+                    </div>
+                </div>
+                <button onClick={() => onClose(false)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <Check size={16} className="text-white" />
+                </button>
+            </div>
 
-                            {labels.map(label => (
-                                <div
-                                    key={label.id}
-                                    className={`absolute bottom-0 text-[10px] font-black ${label.color} tracking-tighter ${label.align} translate-y-full mt-1 transition-all`}
-                                    style={{
-                                        left: `${label.pos}%`,
-                                        transform: `translateY(calc(100% + ${label.offset}px))`
-                                    }}
-                                >
-                                    {label.prefix && <span className="text-[7px] opacity-70 mr-0.5">{label.prefix}</span>}
-                                    {label.val}%
+            <div className="bg-slate-800/50 p-4 rounded-xl mb-6 border border-white/5">
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Meta de Aprovação</span>
+                    <span className="text-xl font-black text-blue-400">{targetScore}%</span>
+                </div>
+                <input type="range" min="60" max="90" step="1" value={targetScore} onChange={(e) => setTargetScore(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
+                    <span>60% (Fácil)</span>
+                    <span>75% (Médio)</span>
+                    <span>90% (Hard)</span>
+                </div>
+            </div>
+
+            <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
+                <button onClick={() => { if (!equalWeightsMode) { setWeights(getEqualWeights()); } setEqualWeightsMode(true); }} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                    Pesos Iguais
+                </button>
+                <button onClick={() => setEqualWeightsMode(false)} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                    <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
+                    Manual
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                {equalWeightsMode ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                        <Minus size={40} className="text-slate-600 mb-2" />
+                        <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
+                    </div>
+                ) : (
+                    catsToShow.map(cat => {
+                        const weight = parseInt(weights[cat.name]) || 0;
+                        return (
+                            <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>{cat.icon || '📚'}</div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
+                                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
+                                    </div>
                                 </div>
-                            ))}
-                        </>
-                    );
-                })()}
+                                <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
+                                    <button onClick={() => updateWeight(cat.name, weight - 5)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Minus size={14} /></button>
+                                    <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
+                                    <button onClick={() => updateWeight(cat.name, weight + 5)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Plus size={14} /></button>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
             </div>
         </div>
     );
@@ -279,7 +281,17 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         const now = new Date();
         now.setHours(0, 0, 0, 0); // Normalize to midnight
 
-        const goal = new Date(goalDate);
+        // Robust Goal Date Parsing (matches StatsCards.jsx logic)
+        // If ISO string (e.g. 2026-02-01T00:00Z), new Date() shifts to local (Jan 31).
+        // We want "Calendar Date", so we extract UTC components to build local date.
+        let goal;
+        if (typeof goalDate === 'string' && goalDate.includes('T')) {
+            const g = new Date(goalDate);
+            goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+        } else {
+            // Fallback for non-ISO or Date objects
+            goal = new Date(goalDate);
+        }
         goal.setHours(0, 0, 0, 0); // Normalize to midnight
 
         if (isNaN(goal.getTime())) return 30;
@@ -357,6 +369,20 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
     const [simulationResult, setSimulationResult] = useState(null);
 
+    // Debounced values to prevent heavy simulation on every slider drag
+    const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
+    const [debouncedWeights, setDebouncedWeights] = useState(effectiveWeights);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebouncedTarget(targetScore), 300);
+        return () => clearTimeout(timer);
+    }, [targetScore]);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebouncedWeights(effectiveWeights), 300);
+        return () => clearTimeout(timer);
+    }, [effectiveWeights]);
+
     React.useEffect(() => {
         // 1. Gather Stats per Category with Weights & Trends
         let categoryStats = [];
@@ -368,26 +394,31 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const scores = history.map(h => h.score);
 
-                // Calculate mean for this category
-                const n = scores.length;
-                const mean = scores.reduce((a, b) => a + b, 0) / n;
+                // Calculate mean for this category (Use Last 5 exams for "Current Status", not lifetime average)
+                // Lifetime average drags down current performance if user improved.
+                const recentScores = scores.slice(-5);
+                const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
 
-                // Calculate SD for this category (Sample SD, n-1)
+                // Calculate SD for this category (Sample SD, n-1) based on RECENT history too (more accurate consistency)
+                const n = recentScores.length;
                 const variance = n > 1
-                    ? scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
+                    ? recentScores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
                     : 0;
                 const sd = Math.sqrt(variance);
 
-                // Calculate trend (compare last 2 vs first 2 entries)
-                const windowSize = Math.min(3, Math.floor(n / 2));
-                const recentWindow = scores.slice(n - windowSize).reduce((a, b) => a + b, 0) / windowSize;
-                const previousWindow = scores.slice(n - (windowSize * 2), n - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+                // Calculate trend (compare last 3 vs previous 3)
+                let trend = 'stable';
+                const totalN = scores.length;
+                // ... (trend logic remains same, it uses full history length for window calc)
+                const windowSize = Math.min(3, Math.floor(totalN / 2));
+                const recentWindow = scores.slice(totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+                const previousWindow = scores.slice(totalN - (windowSize * 2), totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
 
                 if (recentWindow > previousWindow + 2) trend = 'up';
                 else if (recentWindow < previousWindow - 2) trend = 'down';
 
                 // Get weight for this category
-                const weight = effectiveWeights[cat.name] !== undefined ? effectiveWeights[cat.name] : 0;
+                const weight = debouncedWeights[cat.name] !== undefined ? debouncedWeights[cat.name] : 0;
 
                 // Only include categories with weight > 0
                 if (weight > 0) {
@@ -435,7 +466,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
             const denom = (n * sumXX - sumX * sumX);
             let slope = 0; // Improvement per day
-            let intercept = cat.mean;
+            let intercept = cat.mean; // Fallback intercept
 
             if (denom !== 0) {
                 slope = (n * sumXY - sumX * sumY) / denom;
@@ -476,7 +507,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         // 3. Run Monte Carlo (10,000 iterations)
         const simulations = 10000;
         let scores = [];
-        const target = targetScore;
+        const target = debouncedTarget; // Use debounced target
 
         // Seeded RNG (Mulberry32) - Ensures consistency between renders
         function mulberry32(a) {
@@ -522,7 +553,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             ci95High: ci95High.toFixed(0),
             categoryStats
         });
-    }, [categories, effectiveWeights, targetScore, projectDays]);
+    }, [categories, debouncedWeights, debouncedTarget, projectDays]);
 
     // Show placeholder if not enough data
     if (!simulationResult) {
@@ -565,128 +596,22 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                             <Settings2 size={16} className="text-slate-600 group-hover/btn:text-slate-400" />
                         </div>
                     </button>
-                    {/* Reuse Modal - Modal is rendered outside this block? No, Modal is rendered in main return. */}
                 </div>
 
-                {/* We need to render the Modal here too or move it outside the if-else blocks?
-                    The best way is to move the Modal JSX to a helper function or render it at the top level.
-                    Refactoring to render Modal via Portal or common component would be best, but for now duplicate the modal logic or move placeholder return.
-                    
-                    Actually, if I return here, the Modal code at the bottom won't run.
-                    I must include the Modal JSX in this return if showConfig is true.
-                */}
-                {showConfig && (
-                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
-                        {/* Simplified Modal for Placeholder (or same one) */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                                    <Settings2 size={20} className="text-blue-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">Configuração de Pesos</h3>
-                                    <p className="text-[10px] text-slate-400">Personalize a relevância de cada matéria</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowConfig(false)}
-                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
-                            >
-                                <Check size={16} className="text-white" />
-                            </button>
-                        </div>
-
-                        {/* Reuse logic... Wait, activeCategories might be empty? 
-                             The placeholder appears if activeCategories.length < 5?
-                             Line 18 CHECK: const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
-                             Line 150 CHECK: if (categoryStats.length === 0 ... ) setSimulationResult(null).
-                             
-                             So activeCategories MIGHT exist, but not enough data for simulation.
-                             So we can still render the config menu!
-                         */}
-
-                        {/* Target Score Config */}
-                        <div className="bg-slate-800/50 p-3 rounded-xl mb-4 border border-white/5">
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Meta de Aprovação</span>
-                                <span className="text-sm font-black text-blue-400">{targetScore}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="50"
-                                max="100"
-                                step="1"
-                                value={targetScore}
-                                onChange={(e) => setTargetScore(parseInt(e.target.value))}
-                                className="w-full accent-blue-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                            />
-                        </div>
-
-                        {/* Mode Toggle Checkbox Style */}
-                        <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
-                            <button
-                                onClick={() => {
-                                    if (!equalWeightsMode) { setWeights(getEqualWeights()); }
-                                    setEqualWeightsMode(true);
-                                }}
-                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
-                                Pesos Iguais
-                            </button>
-                            <button
-                                onClick={() => setEqualWeightsMode(false)}
-                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
-                                Manual
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
-                            {equalWeightsMode ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                                    <Minus size={40} className="text-slate-600 mb-2" />
-                                    <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
-                                </div>
-                            ) : (
-                                (activeCategories.length > 0 ? activeCategories : categories).map(cat => {
-                                    // Fallback to all categories if none active
-                                    const weight = parseInt(weights[cat.name]) || 0;
-                                    return (
-                                        <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
-                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>
-                                                {cat.icon || '📚'}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
-                                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
-                                                <button
-                                                    onClick={() => updateWeight(cat.name, weight - 5)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                                >
-                                                    <Minus size={14} />
-                                                </button>
-                                                <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
-                                                <button
-                                                    onClick={() => updateWeight(cat.name, weight + 5)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                                >
-                                                    <Plus size={14} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                )}
+                <ConfigModal
+                    show={showConfig}
+                    onClose={setShowConfig}
+                    targetScore={targetScore}
+                    setTargetScore={setTargetScore}
+                    equalWeightsMode={equalWeightsMode}
+                    setEqualWeightsMode={setEqualWeightsMode}
+                    getEqualWeights={getEqualWeights}
+                    setWeights={setWeights}
+                    weights={weights}
+                    updateWeight={updateWeight}
+                    activeCategories={activeCategories}
+                    categories={categories}
+                />
             </div>
         );
     }
@@ -753,11 +678,11 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                         setSimulateToday(!simulateToday);
                     }}
                     className={`
-                        px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all border shadow-sm
-                        ${simulateToday
+                    px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all border shadow-sm
+                    ${simulateToday
                             ? 'bg-green-500 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
                             : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-slate-700 hover:text-white'}
-                    `}
+                `}
                     title="Alternar entre projeção futura e análise imediata"
                 >
                     {simulateToday ? 'PROJEÇÃO: HOJE' : 'PROJEÇÃO: FUTURA'}
@@ -906,120 +831,20 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             </div>
 
             {/* Dedicated Configuration Modal/Overlay */}
-            {
-                showConfig && (
-
-                    <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
-
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                                    <Settings2 size={20} className="text-blue-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">Configuração</h3>
-                                    <p className="text-[10px] text-slate-400">Ajuste os parâmetros da simulação</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowConfig(false)}
-                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
-                            >
-                                <Check size={16} className="text-white" />
-                            </button>
-                        </div>
-
-
-
-                        {/* Target Score Slider */}
-                        <div className="bg-slate-800/50 p-4 rounded-xl mb-6 border border-white/5">
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="text-xs font-bold text-white uppercase tracking-wider">Meta de Aprovação</span>
-                                <span className="text-xl font-black text-blue-400">{targetScore}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="60"
-                                max="90"
-                                step="1"
-                                value={targetScore}
-                                onChange={(e) => setTargetScore(parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                            />
-                            <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
-                                <span>60% (Fácil)</span>
-                                <span>75% (Médio)</span>
-                                <span>90% (Hard)</span>
-                            </div>
-                        </div>
-
-                        {/* Mode Toggle Checkbox Style */}
-                        <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
-                            <button
-                                onClick={() => {
-                                    if (!equalWeightsMode) { setWeights(getEqualWeights()); }
-                                    setEqualWeightsMode(true);
-                                }}
-                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
-                                Pesos Iguais
-                            </button>
-                            <button
-                                onClick={() => setEqualWeightsMode(false)}
-                                className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
-                                Manual
-                            </button>
-                        </div>
-
-                        {/* Weights List - Large */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
-                            {equalWeightsMode ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                                    <Minus size={40} className="text-slate-600 mb-2" />
-                                    <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
-                                </div>
-                            ) : (
-                                activeCategories.map(cat => {
-                                    const weight = parseInt(weights[cat.name]) || 0;
-                                    return (
-                                        <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
-                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>
-                                                {cat.icon || '📚'}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
-                                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
-                                                <button
-                                                    onClick={() => updateWeight(cat.name, weight - 5)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                                >
-                                                    <Minus size={14} />
-                                                </button>
-                                                <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
-                                                <button
-                                                    onClick={() => updateWeight(cat.name, weight + 5)}
-                                                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                                >
-                                                    <Plus size={14} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                )
-            }
+            <ConfigModal
+                show={showConfig}
+                onClose={setShowConfig}
+                targetScore={targetScore}
+                setTargetScore={setTargetScore}
+                equalWeightsMode={equalWeightsMode}
+                setEqualWeightsMode={setEqualWeightsMode}
+                getEqualWeights={getEqualWeights}
+                setWeights={setWeights}
+                weights={weights}
+                updateWeight={updateWeight}
+                activeCategories={activeCategories}
+                categories={categories}
+            />
         </div>
     );
 }

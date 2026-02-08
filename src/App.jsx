@@ -670,22 +670,34 @@ function App() {
       }
     };
 
+    // Helper to get YYYY-MM-DD in Local Time (Fixes Night Owl Bug)
+    const toLocalYMD = (dateInput) => {
+      const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     // 1. Streak Checks
     // Calculate current streak
-    // (Simplified logic: assumption is logs are sorted or we just check consecutive days)
     if (studyLogs && studyLogs.length > 0) {
-      // Sort unique days
-      const uniqueDays = [...new Set(studyLogs.map(l => l.date.split('T')[0]))].sort();
+      // Sort unique days (Local Time)
+      const uniqueDays = [...new Set(studyLogs.map(l => {
+        // Handle both ISO strings and Date objects if necessary
+        return toLocalYMD(l.date);
+      }))].sort();
 
 
       // quick calc
       let currentStreak = 0;
-      // This is a rough check, ideally we use the StreakDisplay logic or similar
-      // For now, let's just check raw unique days count for "Volume" related streaks or do a proper check
-      // Let's rely on a simplified "total days" for now or check latest consecutive
-      // Actually, let's implement a real streak check
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+      const now = new Date();
+      const today = toLocalYMD(now);
+
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const yesterday = toLocalYMD(y);
 
       if (uniqueDays.includes(today) || uniqueDays.includes(yesterday)) {
         // Streak is active
@@ -693,12 +705,12 @@ function App() {
         let checkDate = new Date();
         let count = 0;
         while (true) {
-          const s = checkDate.toISOString().split('T')[0];
+          const s = toLocalYMD(checkDate);
           if (uniqueDays.includes(s)) {
             count++;
             checkDate.setDate(checkDate.getDate() - 1);
           } else if (s === today && !uniqueDays.includes(today) && uniqueDays.includes(yesterday)) {
-            // Allow missing today if it's early
+            // Allow missing today if early
             checkDate.setDate(checkDate.getDate() - 1);
             continue;
           } else {
@@ -707,311 +719,137 @@ function App() {
         }
         currentStreak = count;
       }
+      // Allow missing today if it's early
+      checkDate.setDate(checkDate.getDate() - 1);
+      continue;
+    } else {
+      break;
+    }
+  }
+        currentStreak = count;
+}
 
-      if (currentStreak >= 7) tryUnlock('week-streak', 'Imparável');
-      if (currentStreak >= 30) tryUnlock('month-streak', 'Lenda Viva');
+if (currentStreak >= 7) tryUnlock('week-streak', 'Imparável');
+if (currentStreak >= 30) tryUnlock('month-streak', 'Lenda Viva');
 
-      // Weekend Warrior Check (Sat + Sun study in same week)
-      const weekendLogs = studyLogs.filter(l => {
-        const d = new Date(l.date);
-        const day = d.getDay();
-        return day === 0 || day === 6; // 0=Sun, 6=Sat
-      });
-      if (weekendLogs.length >= 2) {
-        // Basic check: has studied on Sat AND Sun?
-        // We need to group by week, but for now simple check: if has at least one Sat and one Sun ever
-        const hasSat = weekendLogs.some(l => new Date(l.date).getDay() === 6);
-        const hasSun = weekendLogs.some(l => new Date(l.date).getDay() === 0);
-        if (hasSat && hasSun) tryUnlock('weekend-warrior', 'Guerreiro de FDS');
+// Weekend Warrior Check (Sat + Sun study in same week)
+const weekendLogs = studyLogs.filter(l => {
+  const d = new Date(l.date);
+  const day = d.getDay();
+  return day === 0 || day === 6; // 0=Sun, 6=Sat
+});
+if (weekendLogs.length >= 2) {
+  // Basic check: has studied on Sat AND Sun?
+  // We need to group by week, but for now simple check: if has at least one Sat and one Sun ever
+  const hasSat = weekendLogs.some(l => new Date(l.date).getDay() === 6);
+  const hasSun = weekendLogs.some(l => new Date(l.date).getDay() === 0);
+  if (hasSat && hasSun) tryUnlock('weekend-warrior', 'Guerreiro de FDS');
+}
+
+// Early Bird / Night Owl
+const hasEarly = studyLogs.some(l => new Date(l.date).getHours() < 6);
+if (hasEarly) tryUnlock('early-bird', 'Madrugador');
+
+const hasLate = studyLogs.some(l => new Date(l.date).getHours() >= 23);
+if (hasLate) tryUnlock('night-owl', 'Coruja');
+
+// Marathon (Total Hours)
+const totalMinutes = studyLogs.reduce((acc, l) => acc + (l.minutes || 0), 0);
+const totalHours = totalMinutes / 60;
+if (totalHours >= 50) tryUnlock('marathon', 'Maratonista');
+
+// Polymath (3 subjects in one day)
+const todayLogs = studyLogs.filter(l => l.date && l.date.startsWith(today));
+const todayCategories = new Set(todayLogs.map(l => l.categoryId));
+if (todayCategories.size >= 3) tryUnlock('polymath', 'Generalista');
+    }
+
+// 2. Sniper (Accuracy)
+if (simulados && simulados.length > 0) {
+  const hasPerfectScore = simulados.some(s => s.total >= 10 && s.correct === s.total);
+  if (hasPerfectScore) tryUnlock('sniper', 'Cirurgião');
+}
+
+// 3. Other Diverse Checks
+// Zen Master (Pomodoro Count - using studyLogs count as proxy if session data missing)
+if (studyLogs && studyLogs.length >= 50) tryUnlock('zen-master', 'Mestre Zen');
+
+// Strategist (High Priority Tasks)
+if (currentData.categories) {
+  let highPriorityCompleted = 0;
+  currentData.categories.forEach(cat => {
+    if (cat.tasks) {
+      highPriorityCompleted += cat.tasks.filter(t => t.completed && t.priority === 'high').length;
+    }
+  });
+  if (highPriorityCompleted >= 5) tryUnlock('strategist', 'Estrategista');
+}
+
+// If any unlocked
+if (unlockedNow.length > 0) {
+  setData(prev => ({
+    ...prev,
+    user: {
+      ...prev.user,
+      achievements: [...(prev.user.achievements || []), ...unlockedNow.map(u => u.id)]
+    }
+  }));
+  unlockedNow.forEach(u => showToast(`🏆 Conquista Desbloqueada: ${u.title}!`, 'success'));
+}
+
+  }, [setData, showToast]);
+
+// Trigger Check on meaningful updates
+useEffect(() => {
+  // Debounce check to avoid spam
+  const timer = setTimeout(() => {
+    checkAchievements(data);
+  }, 2000);
+  return () => clearTimeout(timer);
+}, [data.studyLogs, data.simulados, checkAchievements]); // Only re-run when logs/sims change
+
+// Import Data - RESTORED
+const handleImport = useCallback((event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (imported.contests && imported.activeId) {
+        setAppState(imported);
+      } else if (imported.user) {
+        setAppState({
+          contests: { 'default': imported },
+          activeId: 'default'
+        });
+      } else {
+        showToast('Formato de arquivo inválido', 'error');
+        return;
       }
-
-      // Early Bird / Night Owl
-      const hasEarly = studyLogs.some(l => new Date(l.date).getHours() < 6);
-      if (hasEarly) tryUnlock('early-bird', 'Madrugador');
-
-      const hasLate = studyLogs.some(l => new Date(l.date).getHours() >= 23);
-      if (hasLate) tryUnlock('night-owl', 'Coruja');
-
-      // Marathon (Total Hours)
-      const totalMinutes = studyLogs.reduce((acc, l) => acc + (l.minutes || 0), 0);
-      const totalHours = totalMinutes / 60;
-      if (totalHours >= 50) tryUnlock('marathon', 'Maratonista');
-
-      // Polymath (3 subjects in one day)
-      const todayLogs = studyLogs.filter(l => l.date && l.date.startsWith(today));
-      const todayCategories = new Set(todayLogs.map(l => l.categoryId));
-      if (todayCategories.size >= 3) tryUnlock('polymath', 'Generalista');
+      showToast('Dados importados com sucesso!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao importar arquivo', 'error');
     }
+  };
+  reader.readAsText(file);
+}, [showToast]);
 
-    // 2. Sniper (Accuracy)
-    if (simulados && simulados.length > 0) {
-      const hasPerfectScore = simulados.some(s => s.total >= 10 && s.correct === s.total);
-      if (hasPerfectScore) tryUnlock('sniper', 'Cirurgião');
-    }
+// Toggle Dark Mode - RESTORED
+const toggleDarkMode = useCallback(() => {
+  setData(prev => ({
+    ...prev,
+    settings: { ...prev.settings, darkMode: !prev.settings.darkMode }
+  }));
+}, [setData]);
 
-    // 3. Other Diverse Checks
-    // Zen Master (Pomodoro Count - using studyLogs count as proxy if session data missing)
-    if (studyLogs && studyLogs.length >= 50) tryUnlock('zen-master', 'Mestre Zen');
-
-    // Strategist (High Priority Tasks)
-    if (currentData.categories) {
-      let highPriorityCompleted = 0;
-      currentData.categories.forEach(cat => {
-        if (cat.tasks) {
-          highPriorityCompleted += cat.tasks.filter(t => t.completed && t.priority === 'high').length;
-        }
-      });
-      if (highPriorityCompleted >= 5) tryUnlock('strategist', 'Estrategista');
-    }
-
-    // If any unlocked
-    if (unlockedNow.length > 0) {
-      setData(prev => ({
-        ...prev,
-        user: {
-          ...prev.user,
-          achievements: [...(prev.user.achievements || []), ...unlockedNow.map(u => u.id)]
-        }
-      }));
-      unlockedNow.forEach(u => showToast(`🏆 Conquista Desbloqueada: ${u.title}!`, 'success'));
-    }
-
-  }, [setData, showToast]);
-
-  // Trigger Check on meaningful updates
-  useEffect(() => {
-    // Debounce check to avoid spam
-    const timer = setTimeout(() => {
-      checkAchievements(data);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [data.studyLogs, data.simulados, checkAchievements]); // Only re-run when logs/sims change
-
-  // Import Data - RESTORED
-  const handleImport = useCallback((event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        if (imported.contests && imported.activeId) {
-          setAppState(imported);
-        } else if (imported.user) {
-          setAppState({
-            contests: { 'default': imported },
-            activeId: 'default'
-          });
-        } else {
-          showToast('Formato de arquivo inválido', 'error');
-          return;
-        }
-        showToast('Dados importados com sucesso!', 'success');
-      } catch (err) {
-        console.error(err);
-        showToast('Erro ao importar arquivo', 'error');
-      }
-    };
-    reader.readAsText(file);
-  }, [showToast]);
-
-  // Toggle Dark Mode - RESTORED
-  const toggleDarkMode = useCallback(() => {
-    setData(prev => ({
-      ...prev,
-      settings: { ...prev.settings, darkMode: !prev.settings.darkMode }
-    }));
-  }, [setData]);
-
-  // Task Handlers
-  const toggleTask = useCallback((categoryId, taskId) => {
-    setData(prev => {
-      let xpChange = 0;
-      const updatedState = {
-        ...prev,
-        categories: prev.categories.map(cat =>
-          cat.id === categoryId
-            ? {
-              ...cat,
-              tasks: cat.tasks.map(t => {
-                if (t.id === taskId) {
-                  const newCompleted = !t.completed;
-                  xpChange = newCompleted ? 150 : -150;
-                  return { ...t, completed: newCompleted };
-                }
-                return t;
-              })
-            }
-            : cat
-        )
-      };
-
-      if (xpChange > 0) {
-        showToast('Tarefa concluída! +150 XP ✅', 'success');
-      }
-
-      // Apply XP change and return consolidated state
-      return applyGamification(updatedState, xpChange);
-    });
-  }, [setData, applyGamification, showToast]);
-
-  const deleteTask = useCallback((categoryId, taskId) => {
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat =>
-        cat.id === categoryId
-          ? { ...cat, tasks: cat.tasks.filter(t => t.id !== taskId) }
-          : cat
-      )
-    }));
-    showToast('Tarefa removida!', 'error');
-  }, [setData, showToast]);
-
-  // Reset Simulado Stats
-  const resetSimuladoStats = useCallback(() => {
-    if (!window.confirm('Tem certeza? Isso apagará TODO o histórico de simulados e saldo líquido. Essa ação não pode ser desfeita.')) {
-      return;
-    }
-
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat => ({
-        ...cat,
-        simuladoStats: {
-          history: [],
-          average: 0,
-          lastAttempt: 0,
-          trend: 'stable',
-          level: 'BAIXO'
-        }
-      }))
-    }));
-    showToast('Histórico de performance resetado!', 'success');
-  }, [setData, showToast]);
-
-  const addCategory = useCallback((input) => {
-    setData(prev => {
-      let newCategory = input;
-
-      if (typeof input === 'string') {
-        if (!input.trim()) return prev; // Invalid input check
-        const palette = [
-          '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4',
-          '#eab308', '#f97316', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e'
-        ];
-        const randomColor = palette[Math.floor(Math.random() * palette.length)];
-
-        newCategory = {
-          id: `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: input,
-          color: randomColor,
-          icon: '📚',
-          tasks: []
-        };
-      }
-
-      return {
-        ...prev,
-        categories: [...prev.categories, newCategory]
-      };
-    });
-    showToast('Nova disciplina adicionada!', 'success');
-  }, [setData, showToast]);
-
-  const deleteCategory = useCallback((categoryId) => {
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.filter(c => c.id !== categoryId)
-    }));
-    showToast('Disciplina removida.', 'info');
-  }, [setData, showToast]);
-
-  const addTask = useCallback((categoryId, input) => {
-    setData(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat => {
-        if (cat.id !== categoryId) return cat;
-
-        let newTask = input;
-        if (typeof input === 'string') {
-          if (!input.trim()) return cat; // Invalid input check
-          newTask = {
-            id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: input,
-            completed: false,
-            priority: 'medium',
-          };
-        }
-
-        return { ...cat, tasks: [...cat.tasks, newTask] };
-      })
-    }));
-    showToast('Nova tarefa adicionada!', 'success');
-  }, [setData, showToast]);
-
-  // Update Study Time & Log Session
-  const handleUpdateStudyTime = useCallback((categoryId, minutes, taskId) => {
-    const timestamp = new Date().toISOString();
-
-    setData(prev => {
-      // Create new log entry (for heatmap/activity)
-      const newLog = {
-        id: `log-${Date.now()}`,
-        date: timestamp,
-        categoryId,
-        taskId,
-        minutes
-      };
-
-      // Create session entry (for history)
-      const newSession = {
-        id: Date.now(),
-        startTime: timestamp,
-        duration: minutes,
-        categoryId,
-        taskId
-      };
-
-      const currentLogs = prev.studyLogs || [];
-      const currentSessions = prev.studySessions || [];
-
-      return {
-        ...prev,
-        studyLogs: [...currentLogs, newLog],
-        studySessions: [...currentSessions, newSession],
-        categories: prev.categories.map(cat =>
-          cat.id === categoryId
-            ? {
-              ...cat,
-              totalMinutes: (cat.totalMinutes || 0) + minutes,
-              lastStudiedAt: timestamp,
-              // Also update the specific task's lastStudiedAt
-              tasks: (cat.tasks || []).map(task =>
-                task.id === taskId
-                  ? { ...task, lastStudiedAt: timestamp }
-                  : task
-              )
-            }
-            : cat
-        )
-      };
-    });
-  }, [setData]);
-
-  const updatePomodoroSettings = useCallback((newSettings) => {
-    setData(prev => ({
-      ...prev,
-      settings: newSettings
-    }));
-    showToast('Configurações salvas!', 'success');
-  }, [setData, showToast]);
-
-
-
-
-  const togglePriority = useCallback((categoryId, taskId) => {
-    setData(prev => ({
+// Task Handlers
+const toggleTask = useCallback((categoryId, taskId) => {
+  setData(prev => {
+    let xpChange = 0;
+    const updatedState = {
       ...prev,
       categories: prev.categories.map(cat =>
         cat.id === categoryId
@@ -1019,653 +857,800 @@ function App() {
             ...cat,
             tasks: cat.tasks.map(t => {
               if (t.id === taskId) {
-                const priorities = ['low', 'medium', 'high'];
-                const currentIdx = priorities.indexOf(t.priority || 'medium');
-                const nextPriority = priorities[(currentIdx + 1) % priorities.length];
-                return { ...t, priority: nextPriority };
+                const newCompleted = !t.completed;
+                xpChange = newCompleted ? 150 : -150;
+                return { ...t, completed: newCompleted };
               }
               return t;
             })
           }
           : cat
       )
-    }));
-  }, [setData]);
-
-  // Render Content - RESTORED
-
-  // AI Coach Logic
-  const [coachLoading, setCoachLoading] = useState(false);
-  const suggestedFocus = React.useMemo(() => {
-    if (!data.categories || !data.simulados) return null;
-    return getSuggestedFocus(data.categories, data.simulados, data.studyLogs || []);
-  }, [data.categories, data.simulados, data.studyLogs]);
-
-  const handleGenerateGoals = useCallback(() => {
-    setCoachLoading(true);
-    setTimeout(() => {
-      const newTasks = generateDailyGoals(data.categories, data.simulados, data.studyLogs || [], {
-        config: {},
-        user: data.user
-      });
-
-      if (newTasks.length === 0) {
-        setCoachLoading(false);
-        showToast('⚠️ Nenhuma meta necessária por enquanto!', 'info');
-        return;
-      }
-
-      setData(prev => {
-        // STORE IN SEPARATE 'coachPlan' - REPLACE instead of append
-        return {
-          ...prev,
-          coachPlan: newTasks
-        };
-      });
-
-      setCoachLoading(false);
-      showToast(`⚡ ${newTasks.length} Sugestões geradas na aba Coach!`, 'success');
-    }, 1500);
-  }, [data.categories, data.simulados, setData, showToast]);
-
-  const handleCloudRestore = useCallback((restoredData) => {
-    if (!restoredData) return;
-    setData(() => restoredData);
-    showToast('☁️ Dados restaurados da Nuvem!', 'success');
-  }, [setData, showToast]);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return (
-          <div className="space-y-6 animate-fade-in">
-            {/* AI Coach Widget */}
-            {/* AI Coach Widget REMOVED from Dashboard */}
-
-            <StatsCards
-              data={data}
-              onUpdateGoalDate={(newDate) => setData(prev => ({
-                ...prev,
-                user: { ...prev.user, goalDate: newDate }
-              }))}
-            />
-
-            {/* Next Goal Card - AI-powered suggestion */}
-
-
-            {/* Tasks / Checklist Area */}
-            <div className="mt-4">
-              <Checklist
-                categories={data.categories}
-                onToggleTask={toggleTask}
-                onDeleteTask={deleteTask}
-                onAddCategory={addCategory}
-                onDeleteCategory={deleteCategory}
-                onAddTask={addTask}
-                onTogglePriority={togglePriority}
-                onPlayContext={startStudying}
-                showSimuladoStats={false}
-                filter={filter}
-                setFilter={setFilter}
-              />
-            </div>
-          </div>
-        );
-      case 'tasks':
-        return (
-          <div className="space-y-10">
-            {/* Top: Rankings (Summary) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-              {/* Left: Stats Cards (2/3 width) */}
-              <div className="lg:col-span-2">
-                <PersonalRanking categories={data.categories} />
-              </div>
-
-              {/* Right: Volume Ranking (1/3 width) */}
-              <div className="lg:col-span-1 h-full">
-                <VolumeRanking categories={data.categories} />
-              </div>
-            </div>
-
-            {/* Bottom: Detailed Table */}
-            <div className="pb-8 border-t border-white/5 pt-24 mt-32">
-              <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
-                📊 Quadro de Performance (Saldo Líquido)
-                <button
-                  onClick={resetSimuladoStats}
-                  className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-2"
-                  title="Resetar dados do painel"
-                >
-                  <RotateCcw size={16} />
-                </button>
-              </h2>
-              <PerformanceTable categories={data.categories} />
-            </div>
-          </div>
-        );
-      case 'simulados':
-        return (
-          <SimuladoAnalysis
-            rows={(data.simuladoRows || []).filter(r => {
-              if (!r.createdAt) return false;
-              return new Date(r.createdAt).toDateString() === new Date().toDateString();
-            })}
-            onRowsChange={handleUpdateSimuladoRows}
-            onAnalysisComplete={handleSimuladoAnalysis}
-            categories={data.categories || []}
-          />
-        );
-      case 'stats':
-        return (
-          <div className="space-y-8">
-            <VerifiedStats categories={data.categories} user={data.user} />
-
-            <WeeklyAnalysis studyLogs={data.studyLogs} categories={data.categories} />
-
-            <Charts
-              data={data}
-              filter={filter}
-              setFilter={setFilter}
-              compact
-            />
-          </div>
-        );
-      case 'coach':
-        return (
-          <AICoachView
-            suggestedFocus={suggestedFocus}
-            onGenerateGoals={handleGenerateGoals}
-            loading={coachLoading}
-            coachPlan={data.coachPlan}
-            onClearHistory={() => setData(prev => ({ ...prev, coachPlan: [] }))}
-          />
-        );
-      case 'pomodoro':
-        return (
-          <PomodoroTimer
-            settings={data.settings}
-            onUpdateSettings={updatePomodoroSettings}
-            activeSubject={activeSubject}
-            categories={data.categories}
-            onStartStudying={startStudying}
-            onUpdateStudyTime={handleUpdateStudyTime}
-            onExit={() => {
-              setActiveTab(previousTab || 'dashboard');
-              setPreviousTab(null);
-            }}
-            onSessionComplete={trackPomodoroComplete}
-            onFullCycleComplete={() => {
-              finishStudying();
-              if (previousTab) {
-                setActiveTab(previousTab);
-                setPreviousTab(null);
-              }
-            }}
-          />
-        );
-      case 'history':
-        return (
-          <StudyHistory
-            studySessions={data.studySessions || []}
-            categories={data.categories}
-            simuladoRows={data.simuladoRows || []}
-          />
-        );
-      case 'heatmap':
-        return (
-          <div className="space-y-6 animate-fade-in">
-            {/* Reset Modal */}
-            {showResetModal && (
-              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                {/* Backdrop */}
-                <div
-                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                  onClick={() => setShowResetModal(false)}
-                />
-
-                {/* Modal */}
-                <div className="relative bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-red-500/20 rounded-lg">
-                        <RotateCcw size={20} className="text-red-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white">Resetar Dados</h3>
-                        <p className="text-xs text-slate-400">Escolha o que deseja resetar</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowResetModal(false)}
-                      className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                      <X size={18} className="text-slate-400" />
-                    </button>
-                  </div>
-
-                  {/* Options */}
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.target);
-                    const selections = {
-                      gamification: formData.get('gamification') === 'on',
-                      achievements: formData.get('achievements') === 'on',
-                      calendar: formData.get('calendar') === 'on',
-                      simulados: formData.get('simulados') === 'on',
-                      tasks: formData.get('tasks') === 'on',
-                      coachPlan: formData.get('coachPlan') === 'on',
-                      pomodoro: formData.get('pomodoro') === 'on',
-                    };
-
-                    // Check if at least one option is selected
-                    if (!Object.values(selections).some(v => v)) {
-                      showToast('Selecione pelo menos uma opção', 'error');
-                      return;
-                    }
-
-                    // Confirm action
-                    const selectedNames = [];
-                    if (selections.gamification) selectedNames.push('XP/Nível');
-                    if (selections.achievements) selectedNames.push('Conquistas');
-                    if (selections.calendar) selectedNames.push('Calendário');
-                    if (selections.simulados) selectedNames.push('Simulados');
-                    if (selections.tasks) selectedNames.push('Tarefas');
-                    if (selections.coachPlan) selectedNames.push('AI Coach');
-                    if (selections.pomodoro) selectedNames.push('Pomodoro');
-
-                    if (!window.confirm(`Confirma o reset de: ${selectedNames.join(', ')}?\n\nEssa ação não pode ser desfeita.`)) {
-                      return;
-                    }
-
-                    // Apply resets
-                    setData(prev => {
-                      let newData = { ...prev };
-
-                      if (selections.gamification) {
-                        newData.user = {
-                          ...newData.user,
-                          xp: 0,
-                          level: 10,
-                        };
-                      }
-
-                      if (selections.achievements) {
-                        newData.user = {
-                          ...newData.user,
-                          achievements: [],
-                        };
-                      }
-
-                      if (selections.calendar) {
-                        newData.studyLogs = [];
-                      }
-
-                      if (selections.simulados) {
-                        // Reset simulados array
-                        newData.simulados = [];
-                        newData.simuladoRows = []; // Clear raw rows state
-                        // Reset simuladoStats in categories
-                        newData.categories = (newData.categories || []).map(cat => ({
-                          ...cat,
-                          simuladoStats: {
-                            history: [],
-                            average: 0,
-                            lastAttempt: 0,
-                            trend: 'stable',
-                            level: 'BAIXO'
-                          }
-                        }));
-                        // Also clear localStorage simulado_rows (backward compatibility)
-                        localStorage.removeItem('simulado_rows');
-                      }
-
-                      if (selections.tasks) {
-                        newData.categories = (newData.categories || []).map(cat => ({
-                          ...cat,
-                          tasks: (cat.tasks || []).map(t => ({
-                            ...t,
-                            completed: false,
-                            status: undefined
-                          })),
-                          totalMinutes: 0,
-                          lastStudiedAt: undefined,
-                        }));
-                      }
-
-                      if (selections.coachPlan) {
-                        newData.coachPlan = [];
-                      }
-
-                      if (selections.pomodoro) {
-                        newData.pomodoroSessions = [];
-                      }
-
-                      return newData;
-                    });
-
-                    setShowResetModal(false);
-                    showToast(`${selectedNames.length} área(s) resetada(s) com sucesso!`, 'success');
-                  }}>
-                    <div className="space-y-2 mb-6 max-h-[350px] overflow-y-auto pr-1">
-                      {/* Option 1: Gamification */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-purple-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="gamification" className="w-4 h-4 rounded accent-purple-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">⚡</span>
-                            <span className="font-medium text-white group-hover:text-purple-300 transition-colors">Gamificação (XP, Nível)</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Zera seu XP e volta ao nível 10</p>
-                        </div>
-                      </label>
-
-                      {/* Option 2: Achievements */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="achievements" className="w-4 h-4 rounded accent-yellow-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">🏆</span>
-                            <span className="font-medium text-white group-hover:text-yellow-300 transition-colors">Conquistas</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Remove todas as conquistas desbloqueadas</p>
-                        </div>
-                      </label>
-
-                      {/* Option 3: Calendar */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-green-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="calendar" className="w-4 h-4 rounded accent-green-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">📅</span>
-                            <span className="font-medium text-white group-hover:text-green-300 transition-colors">Calendário de Atividade</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Limpa o histórico de estudos e streak</p>
-                        </div>
-                      </label>
-
-                      {/* Option 4: Simulados */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-blue-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="simulados" className="w-4 h-4 rounded accent-blue-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">📊</span>
-                            <span className="font-medium text-white group-hover:text-blue-300 transition-colors">Dados de Simulados</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Apaga histórico de performance, saldo líquido e formulário</p>
-                        </div>
-                      </label>
-
-                      {/* Option 5: Tasks */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-orange-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="tasks" className="w-4 h-4 rounded accent-orange-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">✅</span>
-                            <span className="font-medium text-white group-hover:text-orange-300 transition-colors">Tarefas Concluídas</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Marca todas como não concluídas e zera tempo de estudo</p>
-                        </div>
-                      </label>
-
-                      {/* Option 6: AI Coach */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-cyan-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="coachPlan" className="w-4 h-4 rounded accent-cyan-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">🤖</span>
-                            <span className="font-medium text-white group-hover:text-cyan-300 transition-colors">Plano do AI Coach</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Limpa todas as sugestões geradas pelo coach</p>
-                        </div>
-                      </label>
-
-                      {/* Option 7: Pomodoro */}
-                      <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-rose-500/30 cursor-pointer transition-all group">
-                        <input type="checkbox" name="pomodoro" className="w-4 h-4 rounded accent-rose-500" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">🍅</span>
-                            <span className="font-medium text-white group-hover:text-rose-300 transition-colors">Sessões Pomodoro</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">Apaga o histórico de sessões pomodoro</p>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowResetModal(false)}
-                        className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-medium transition-all shadow-lg shadow-red-500/25"
-                      >
-                        Confirmar Reset
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2.5 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/20">
-                <CalendarDays size={22} className="text-green-400" />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-white">Atividade</h1>
-                <p className="text-sm text-slate-400">Acompanhe sua consistência e conquistas</p>
-              </div>
-              {/* Reset Button - Opens Modal */}
-              <button
-                onClick={() => setShowResetModal(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-slate-400 hover:text-red-400 transition-all text-sm"
-                title="Resetar dados"
-              >
-                <RotateCcw size={16} />
-                <span className="hidden sm:inline">Resetar Dados</span>
-              </button>
-            </div>
-
-            {/* Main Grid: Stacked Logic */}
-            <div className="flex flex-col gap-6">
-
-              {/* Top Row: Key Metrics (Streak + XP) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                <StreakDisplay studyLogs={data.studyLogs} />
-                <XPHistory user={data.user} />
-              </div>
-
-              {/* Middle Row: Heatmap (Full Width) */}
-              <div className="rounded-2xl p-6 border border-white/10 bg-slate-900/60 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar size={18} className="text-green-400" />
-                  <h3 className="text-lg font-bold text-white">Calendário de Estudos</h3>
-                </div>
-                <ActivityHeatmap studyLogs={data.studyLogs} />
-              </div>
-
-              {/* Bottom Row: Achievements */}
-              <div className="">
-                <AchievementsGrid
-                  unlockedIds={data.user?.achievements || []}
-                  stats={{}}
-                />
-              </div>
-
-            </div>
-          </div>
-        );
-      case 'retention':
-        return (
-          <RetentionPanel
-            categories={data.categories}
-            onSelectCategory={(cat) => {
-              // When user clicks a category/task, switch to pomodoro
-              // If specific task was clicked (passed as selectedTask), use it.
-              // Otherwise fallback to first task.
-              const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
-
-              if (targetTaskId) {
-                startStudying(cat.id, targetTaskId);
-              }
-              setPreviousTab('retention');
-              setActiveTab('pomodoro');
-            }}
-          />
-        );
-
-      case 'notes':
-        return (
-          <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <TopicPerformance categories={data.categories} />
-            <ParetoAnalysis categories={data.categories} />
-          </div>
-        );
-      case 'settings':
-        return (
-          <div className="glass p-8 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold mb-6">Configurações Gerais</h2>
-            <p className="text-slate-400">Em breve...</p>
-            <div className="mt-8 pt-8 border-t border-white/10">
-              <h3 className="text-lg font-bold mb-4">Zona de Perigo</h3>
-              <button
-                onClick={() => {
-                  if (window.confirm('TEM CERTEZA ABSOLUTA?\n\nIsso apagará TODO o seu progresso, histórico, níveis e personalizações.\n\nO aplicativo voltará ao estado original (como novo).')) {
-                    // 1. Clear LocalStorage
-                    localStorage.removeItem('ultra-dashboard-data');
-
-                    // 2. Prepare Fresh Data (Explicitly Empty)
-                    const freshData = {
-                      ...INITIAL_DATA, // Spread first to get settings/achievement definitions and other static data
-                      user: {
-                        ...INITIAL_DATA.user, // Keep initial user settings like goalDate if not explicitly overridden
-                        name: "Estudante",
-                        avatar: "👤",
-                        startDate: new Date().toISOString().split('T')[0], // Reset start date to today
-                        goalDate: new Date().toISOString().split('T')[0], // Reset exam date to today (0 days left)
-                        xp: 0,
-                        level: 10,
-                        achievements: [] // Clear user achievements
-                      },
-                      categories: [], // Explicitly empty
-                      simuladoRows: [], // Force clear raw rows
-                      simulados: [], // Clear simulados data
-                      pomodoroSessions: [], // Clear pomodoro sessions
-                      studyLogs: [], // Clear study logs
-                      studySessions: [], // Clear study sessions
-                      coachPlan: [], // Clear AI Coach plan
-                      // notes: "", // If notes are part of INITIAL_DATA, this would clear them.
-                      // If notes are dynamic, they should be cleared here.
-                      // Assuming notes are dynamic and should be cleared.
-                      notes: "",
-                      // achievements: [], // This would clear achievement definitions.
-                      // User achievements are handled in user.achievements.
-                      // Keeping achievement definitions from INITIAL_DATA.
-                    };
-
-                    // 3. Save Fresh Data
-                    localStorage.setItem('ultra-dashboard-data', JSON.stringify({
-                      contests: { 'default': freshData },
-                      activeId: 'default'
-                    }));
-
-                    // 4. Reload
-                    window.location.reload();
-                  }
-                }}
-                className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all border border-red-500/20 hover:border-red-500/40 flex items-center gap-2 font-bold"
-              >
-                <div className="p-1 bg-red-500/20 rounded-full">
-                  <RotateCcw size={16} />
-                </div>
-                Resetar Tudo (Começar do Zero)
-              </button>
-            </div>
-          </div>
-        );
-      case 'help':
-        // Help is a modal, open it and return to previous tab
-        setShowHelpGuide(true);
-        setActiveTab('dashboard'); // Return to dashboard immediately
-        return null;
-      default:
-        return null;
-    }
-  };
-
-  // --- MOBILE RENDER ---
-  if (isMobile && !forceDesktopMode) {
-    const mobileActions = {
-      updatePomodoroSettings,
-      finishStudying,
-      startStudying,
-      handleUpdateStudyTime,
-      toggleTask,
-      deleteTask,
-      addTask,
-      addCategory,
-      deleteCategory
     };
 
-    return (
-      <>
-        <MobilePocketMode
-          user={data.user}
-          data={data}
-          actions={mobileActions}
-          onExitPocketMode={() => setForceDesktopMode(true)}
-        />
-        <Toast toast={toast} onClose={() => setToast(null)} />
-        {levelUpData && (
-          <LevelUpToast
-            level={levelUpData.level}
-            title={levelUpData.title}
-            onClose={() => setLevelUpData(null)}
-          />
-        )}
-      </>
-    );
+    if (xpChange > 0) {
+      showToast('Tarefa concluída! +150 XP ✅', 'success');
+    }
+
+    // Apply XP change and return consolidated state
+    return applyGamification(updatedState, xpChange);
+  });
+}, [setData, applyGamification, showToast]);
+
+const deleteTask = useCallback((categoryId, taskId) => {
+  setData(prev => ({
+    ...prev,
+    categories: prev.categories.map(cat =>
+      cat.id === categoryId
+        ? { ...cat, tasks: cat.tasks.filter(t => t.id !== taskId) }
+        : cat
+    )
+  }));
+  showToast('Tarefa removida!', 'error');
+}, [setData, showToast]);
+
+// Reset Simulado Stats
+const resetSimuladoStats = useCallback(() => {
+  if (!window.confirm('Tem certeza? Isso apagará TODO o histórico de simulados e saldo líquido. Essa ação não pode ser desfeita.')) {
+    return;
   }
 
-  return (
-    <div className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
-      <ParticleBackground />
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onExport={handleExport}
-        onImport={handleImport}
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-        user={data.user}
-      />
+  setData(prev => ({
+    ...prev,
+    categories: prev.categories.map(cat => ({
+      ...cat,
+      simuladoStats: {
+        history: [],
+        average: 0,
+        lastAttempt: 0,
+        trend: 'stable',
+        level: 'BAIXO'
+      }
+    }))
+  }));
+  showToast('Histórico de performance resetado!', 'success');
+}, [setData, showToast]);
 
-      <main className="p-8 pt-24 transition-all duration-300 w-full">
-        <Header
-          user={data.user}
-          settings={data.settings}
-          onToggleDarkMode={toggleDarkMode}
-          onUpdateName={updateUserName}
-          contests={safeAppState.contests}
-          activeContestId={safeAppState.activeId}
-          onSwitchContest={switchContest}
-          onCreateContest={createNewContest}
-          onDeleteContest={deleteContest}
-          onUndo={handleUndo}
-          onCloudRestore={handleCloudRestore}
-          currentData={data}
+const addCategory = useCallback((input) => {
+  setData(prev => {
+    let newCategory = input;
+
+    if (typeof input === 'string') {
+      if (!input.trim()) return prev; // Invalid input check
+      const palette = [
+        '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4',
+        '#eab308', '#f97316', '#14b8a6', '#6366f1', '#d946ef', '#84cc16', '#f43f5e'
+      ];
+      const randomColor = palette[Math.floor(Math.random() * palette.length)];
+
+      newCategory = {
+        id: `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: input,
+        color: randomColor,
+        icon: '📚',
+        tasks: []
+      };
+    }
+
+    return {
+      ...prev,
+      categories: [...prev.categories, newCategory]
+    };
+  });
+  showToast('Nova disciplina adicionada!', 'success');
+}, [setData, showToast]);
+
+const deleteCategory = useCallback((categoryId) => {
+  setData(prev => ({
+    ...prev,
+    categories: prev.categories.filter(c => c.id !== categoryId)
+  }));
+  showToast('Disciplina removida.', 'info');
+}, [setData, showToast]);
+
+const addTask = useCallback((categoryId, input) => {
+  setData(prev => ({
+    ...prev,
+    categories: prev.categories.map(cat => {
+      if (cat.id !== categoryId) return cat;
+
+      let newTask = input;
+      if (typeof input === 'string') {
+        if (!input.trim()) return cat; // Invalid input check
+        newTask = {
+          id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: input,
+          completed: false,
+          priority: 'medium',
+        };
+      }
+
+      return { ...cat, tasks: [...cat.tasks, newTask] };
+    })
+  }));
+  showToast('Nova tarefa adicionada!', 'success');
+}, [setData, showToast]);
+
+// Update Study Time & Log Session
+const handleUpdateStudyTime = useCallback((categoryId, minutes, taskId) => {
+  const timestamp = new Date().toISOString();
+
+  setData(prev => {
+    // Create new log entry (for heatmap/activity)
+    const newLog = {
+      id: `log-${Date.now()}`,
+      date: timestamp,
+      categoryId,
+      taskId,
+      minutes
+    };
+
+    // Create session entry (for history)
+    const newSession = {
+      id: Date.now(),
+      startTime: timestamp,
+      duration: minutes,
+      categoryId,
+      taskId
+    };
+
+    const currentLogs = prev.studyLogs || [];
+    const currentSessions = prev.studySessions || [];
+
+    return {
+      ...prev,
+      studyLogs: [...currentLogs, newLog],
+      studySessions: [...currentSessions, newSession],
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId
+          ? {
+            ...cat,
+            totalMinutes: (cat.totalMinutes || 0) + minutes,
+            lastStudiedAt: timestamp,
+            // Also update the specific task's lastStudiedAt
+            tasks: (cat.tasks || []).map(task =>
+              task.id === taskId
+                ? { ...task, lastStudiedAt: timestamp }
+                : task
+            )
+          }
+          : cat
+      )
+    };
+  });
+}, [setData]);
+
+const updatePomodoroSettings = useCallback((newSettings) => {
+  setData(prev => ({
+    ...prev,
+    settings: newSettings
+  }));
+  showToast('Configurações salvas!', 'success');
+}, [setData, showToast]);
+
+
+
+
+const togglePriority = useCallback((categoryId, taskId) => {
+  setData(prev => ({
+    ...prev,
+    categories: prev.categories.map(cat =>
+      cat.id === categoryId
+        ? {
+          ...cat,
+          tasks: cat.tasks.map(t => {
+            if (t.id === taskId) {
+              const priorities = ['low', 'medium', 'high'];
+              const currentIdx = priorities.indexOf(t.priority || 'medium');
+              const nextPriority = priorities[(currentIdx + 1) % priorities.length];
+              return { ...t, priority: nextPriority };
+            }
+            return t;
+          })
+        }
+        : cat
+    )
+  }));
+}, [setData]);
+
+// Render Content - RESTORED
+
+// AI Coach Logic
+const [coachLoading, setCoachLoading] = useState(false);
+const suggestedFocus = React.useMemo(() => {
+  if (!data.categories || !data.simulados) return null;
+  const targetScore = typeof window !== 'undefined' ? (parseInt(localStorage.getItem('monte_carlo_target')) || 70) : 70;
+  return getSuggestedFocus(data.categories, data.simulados, data.studyLogs || [], {
+    config: {},
+    user: data.user,
+    targetScore // Pass User Target
+  });
+}, [data.categories, data.simulados, data.studyLogs]); // Re-run when data changes. Ideally add targetScore to dependency if state.
+
+const handleGenerateGoals = useCallback(() => {
+  setCoachLoading(true);
+  setTimeout(() => {
+    const targetScore = typeof window !== 'undefined' ? (parseInt(localStorage.getItem('monte_carlo_target')) || 70) : 70;
+    const newTasks = generateDailyGoals(data.categories, data.simulados, data.studyLogs || [], {
+      config: {},
+      user: data.user,
+      targetScore // Pass User Target
+    });
+
+    if (newTasks.length === 0) {
+      setCoachLoading(false);
+      showToast('⚠️ Nenhuma meta necessária por enquanto!', 'info');
+      return;
+    }
+
+    setData(prev => {
+      // STORE IN SEPARATE 'coachPlan' - REPLACE instead of append
+      return {
+        ...prev,
+        coachPlan: newTasks
+      };
+    });
+
+    setCoachLoading(false);
+    showToast(`⚡ ${newTasks.length} Sugestões geradas na aba Coach!`, 'success');
+  }, 1500);
+}, [data.categories, data.simulados, setData, showToast]);
+
+const handleCloudRestore = useCallback((restoredData) => {
+  if (!restoredData) return;
+  setData(() => restoredData);
+  showToast('☁️ Dados restaurados da Nuvem!', 'success');
+}, [setData, showToast]);
+
+const renderContent = () => {
+  switch (activeTab) {
+    case 'dashboard':
+      return (
+        <div className="space-y-6 animate-fade-in">
+          {/* AI Coach Widget */}
+          {/* AI Coach Widget REMOVED from Dashboard */}
+
+          <StatsCards
+            data={data}
+            onUpdateGoalDate={(newDate) => setData(prev => ({
+              ...prev,
+              user: { ...prev.user, goalDate: newDate }
+            }))}
+          />
+
+          {/* Next Goal Card - AI-powered suggestion */}
+
+
+          {/* Tasks / Checklist Area */}
+          <div className="mt-4">
+            <Checklist
+              categories={data.categories}
+              onToggleTask={toggleTask}
+              onDeleteTask={deleteTask}
+              onAddCategory={addCategory}
+              onDeleteCategory={deleteCategory}
+              onAddTask={addTask}
+              onTogglePriority={togglePriority}
+              onPlayContext={startStudying}
+              showSimuladoStats={false}
+              filter={filter}
+              setFilter={setFilter}
+            />
+          </div>
+        </div>
+      );
+    case 'tasks':
+      return (
+        <div className="space-y-10">
+          {/* Top: Rankings (Summary) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+            {/* Left: Stats Cards (2/3 width) */}
+            <div className="lg:col-span-2">
+              <PersonalRanking categories={data.categories} />
+            </div>
+
+            {/* Right: Volume Ranking (1/3 width) */}
+            <div className="lg:col-span-1 h-full">
+              <VolumeRanking categories={data.categories} />
+            </div>
+          </div>
+
+          {/* Bottom: Detailed Table */}
+          <div className="pb-8 border-t border-white/5 pt-24 mt-32">
+            <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
+              📊 Quadro de Performance (Saldo Líquido)
+              <button
+                onClick={resetSimuladoStats}
+                className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-2"
+                title="Resetar dados do painel"
+              >
+                <RotateCcw size={16} />
+              </button>
+            </h2>
+            <PerformanceTable categories={data.categories} />
+          </div>
+        </div>
+      );
+    case 'simulados':
+      return (
+        <SimuladoAnalysis
+          rows={(data.simuladoRows || []).filter(r => {
+            if (!r.createdAt) return false;
+            return new Date(r.createdAt).toDateString() === new Date().toDateString();
+          })}
+          onRowsChange={handleUpdateSimuladoRows}
+          onAnalysisComplete={handleSimuladoAnalysis}
+          categories={data.categories || []}
         />
-        {renderContent()}
-      </main>
+      );
+    case 'stats':
+      return (
+        <div className="space-y-8">
+          <VerifiedStats categories={data.categories} user={data.user} />
 
+          <WeeklyAnalysis studyLogs={data.studyLogs} categories={data.categories} />
+
+          <Charts
+            data={data}
+            filter={filter}
+            setFilter={setFilter}
+            compact
+          />
+        </div>
+      );
+    case 'coach':
+      return (
+        <AICoachView
+          suggestedFocus={suggestedFocus}
+          onGenerateGoals={handleGenerateGoals}
+          loading={coachLoading}
+          coachPlan={data.coachPlan}
+          onClearHistory={() => setData(prev => ({ ...prev, coachPlan: [] }))}
+        />
+      );
+    case 'pomodoro':
+      return (
+        <PomodoroTimer
+          settings={data.settings}
+          onUpdateSettings={updatePomodoroSettings}
+          activeSubject={activeSubject}
+          categories={data.categories}
+          onStartStudying={startStudying}
+          onUpdateStudyTime={handleUpdateStudyTime}
+          onExit={() => {
+            setActiveTab(previousTab || 'dashboard');
+            setPreviousTab(null);
+          }}
+          onSessionComplete={trackPomodoroComplete}
+          onFullCycleComplete={() => {
+            finishStudying();
+            if (previousTab) {
+              setActiveTab(previousTab);
+              setPreviousTab(null);
+            }
+          }}
+        />
+      );
+    case 'history':
+      return (
+        <StudyHistory
+          studySessions={data.studySessions || []}
+          categories={data.categories}
+          simuladoRows={data.simuladoRows || []}
+        />
+      );
+    case 'heatmap':
+      return (
+        <div className="space-y-6 animate-fade-in">
+          {/* Reset Modal */}
+          {showResetModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setShowResetModal(false)}
+              />
+
+              {/* Modal */}
+              <div className="relative bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fade-in">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-500/20 rounded-lg">
+                      <RotateCcw size={20} className="text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Resetar Dados</h3>
+                      <p className="text-xs text-slate-400">Escolha o que deseja resetar</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowResetModal(false)}
+                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <X size={18} className="text-slate-400" />
+                  </button>
+                </div>
+
+                {/* Options */}
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  const selections = {
+                    gamification: formData.get('gamification') === 'on',
+                    achievements: formData.get('achievements') === 'on',
+                    calendar: formData.get('calendar') === 'on',
+                    simulados: formData.get('simulados') === 'on',
+                    tasks: formData.get('tasks') === 'on',
+                    coachPlan: formData.get('coachPlan') === 'on',
+                    pomodoro: formData.get('pomodoro') === 'on',
+                  };
+
+                  // Check if at least one option is selected
+                  if (!Object.values(selections).some(v => v)) {
+                    showToast('Selecione pelo menos uma opção', 'error');
+                    return;
+                  }
+
+                  // Confirm action
+                  const selectedNames = [];
+                  if (selections.gamification) selectedNames.push('XP/Nível');
+                  if (selections.achievements) selectedNames.push('Conquistas');
+                  if (selections.calendar) selectedNames.push('Calendário');
+                  if (selections.simulados) selectedNames.push('Simulados');
+                  if (selections.tasks) selectedNames.push('Tarefas');
+                  if (selections.coachPlan) selectedNames.push('AI Coach');
+                  if (selections.pomodoro) selectedNames.push('Pomodoro');
+
+                  if (!window.confirm(`Confirma o reset de: ${selectedNames.join(', ')}?\n\nEssa ação não pode ser desfeita.`)) {
+                    return;
+                  }
+
+                  // Apply resets
+                  setData(prev => {
+                    let newData = { ...prev };
+
+                    if (selections.gamification) {
+                      newData.user = {
+                        ...newData.user,
+                        xp: 0,
+                        level: 10,
+                      };
+                    }
+
+                    if (selections.achievements) {
+                      newData.user = {
+                        ...newData.user,
+                        achievements: [],
+                      };
+                    }
+
+                    if (selections.calendar) {
+                      newData.studyLogs = [];
+                    }
+
+                    if (selections.simulados) {
+                      // Reset simulados array
+                      newData.simulados = [];
+                      newData.simuladoRows = []; // Clear raw rows state
+                      // Reset simuladoStats in categories
+                      newData.categories = (newData.categories || []).map(cat => ({
+                        ...cat,
+                        simuladoStats: {
+                          history: [],
+                          average: 0,
+                          lastAttempt: 0,
+                          trend: 'stable',
+                          level: 'BAIXO'
+                        }
+                      }));
+                      // Also clear localStorage simulado_rows (backward compatibility)
+                      localStorage.removeItem('simulado_rows');
+                    }
+
+                    if (selections.tasks) {
+                      newData.categories = (newData.categories || []).map(cat => ({
+                        ...cat,
+                        tasks: (cat.tasks || []).map(t => ({
+                          ...t,
+                          completed: false,
+                          status: undefined
+                        })),
+                        totalMinutes: 0,
+                        lastStudiedAt: undefined,
+                      }));
+                    }
+
+                    if (selections.coachPlan) {
+                      newData.coachPlan = [];
+                    }
+
+                    if (selections.pomodoro) {
+                      newData.pomodoroSessions = [];
+                    }
+
+                    return newData;
+                  });
+
+                  setShowResetModal(false);
+                  showToast(`${selectedNames.length} área(s) resetada(s) com sucesso!`, 'success');
+                }}>
+                  <div className="space-y-2 mb-6 max-h-[350px] overflow-y-auto pr-1">
+                    {/* Option 1: Gamification */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-purple-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="gamification" className="w-4 h-4 rounded accent-purple-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">⚡</span>
+                          <span className="font-medium text-white group-hover:text-purple-300 transition-colors">Gamificação (XP, Nível)</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Zera seu XP e volta ao nível 10</p>
+                      </div>
+                    </label>
+
+                    {/* Option 2: Achievements */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="achievements" className="w-4 h-4 rounded accent-yellow-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🏆</span>
+                          <span className="font-medium text-white group-hover:text-yellow-300 transition-colors">Conquistas</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Remove todas as conquistas desbloqueadas</p>
+                      </div>
+                    </label>
+
+                    {/* Option 3: Calendar */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-green-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="calendar" className="w-4 h-4 rounded accent-green-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📅</span>
+                          <span className="font-medium text-white group-hover:text-green-300 transition-colors">Calendário de Atividade</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Limpa o histórico de estudos e streak</p>
+                      </div>
+                    </label>
+
+                    {/* Option 4: Simulados */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-blue-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="simulados" className="w-4 h-4 rounded accent-blue-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📊</span>
+                          <span className="font-medium text-white group-hover:text-blue-300 transition-colors">Dados de Simulados</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Apaga histórico de performance, saldo líquido e formulário</p>
+                      </div>
+                    </label>
+
+                    {/* Option 5: Tasks */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-orange-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="tasks" className="w-4 h-4 rounded accent-orange-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">✅</span>
+                          <span className="font-medium text-white group-hover:text-orange-300 transition-colors">Tarefas Concluídas</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Marca todas como não concluídas e zera tempo de estudo</p>
+                      </div>
+                    </label>
+
+                    {/* Option 6: AI Coach */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-cyan-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="coachPlan" className="w-4 h-4 rounded accent-cyan-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🤖</span>
+                          <span className="font-medium text-white group-hover:text-cyan-300 transition-colors">Plano do AI Coach</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Limpa todas as sugestões geradas pelo coach</p>
+                      </div>
+                    </label>
+
+                    {/* Option 7: Pomodoro */}
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5 hover:border-rose-500/30 cursor-pointer transition-all group">
+                      <input type="checkbox" name="pomodoro" className="w-4 h-4 rounded accent-rose-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🍅</span>
+                          <span className="font-medium text-white group-hover:text-rose-300 transition-colors">Sessões Pomodoro</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">Apaga o histórico de sessões pomodoro</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowResetModal(false)}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-medium transition-all shadow-lg shadow-red-500/25"
+                    >
+                      Confirmar Reset
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/20">
+              <CalendarDays size={22} className="text-green-400" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-white">Atividade</h1>
+              <p className="text-sm text-slate-400">Acompanhe sua consistência e conquistas</p>
+            </div>
+            {/* Reset Button - Opens Modal */}
+            <button
+              onClick={() => setShowResetModal(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-slate-400 hover:text-red-400 transition-all text-sm"
+              title="Resetar dados"
+            >
+              <RotateCcw size={16} />
+              <span className="hidden sm:inline">Resetar Dados</span>
+            </button>
+          </div>
+
+          {/* Main Grid: Stacked Logic */}
+          <div className="flex flex-col gap-6">
+
+            {/* Top Row: Key Metrics (Streak + XP) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+              <StreakDisplay studyLogs={data.studyLogs} />
+              <XPHistory user={data.user} />
+            </div>
+
+            {/* Middle Row: Heatmap (Full Width) */}
+            <div className="rounded-2xl p-6 border border-white/10 bg-slate-900/60 backdrop-blur-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar size={18} className="text-green-400" />
+                <h3 className="text-lg font-bold text-white">Calendário de Estudos</h3>
+              </div>
+              <ActivityHeatmap studyLogs={data.studyLogs} />
+            </div>
+
+            {/* Bottom Row: Achievements */}
+            <div className="">
+              <AchievementsGrid
+                unlockedIds={data.user?.achievements || []}
+                stats={{}}
+              />
+            </div>
+
+          </div>
+        </div>
+      );
+    case 'retention':
+      return (
+        <RetentionPanel
+          categories={data.categories}
+          onSelectCategory={(cat) => {
+            // When user clicks a category/task, switch to pomodoro
+            // If specific task was clicked (passed as selectedTask), use it.
+            // Otherwise fallback to first task.
+            const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
+
+            if (targetTaskId) {
+              startStudying(cat.id, targetTaskId);
+            }
+            setPreviousTab('retention');
+            setActiveTab('pomodoro');
+          }}
+        />
+      );
+
+    case 'notes':
+      return (
+        <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <TopicPerformance categories={data.categories} />
+          <ParetoAnalysis categories={data.categories} />
+        </div>
+      );
+    case 'settings':
+      return (
+        <div className="glass p-8 max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold mb-6">Configurações Gerais</h2>
+          <p className="text-slate-400">Em breve...</p>
+          <div className="mt-8 pt-8 border-t border-white/10">
+            <h3 className="text-lg font-bold mb-4">Zona de Perigo</h3>
+            <button
+              onClick={() => {
+                if (window.confirm('TEM CERTEZA ABSOLUTA?\n\nIsso apagará TODO o seu progresso, histórico, níveis e personalizações.\n\nO aplicativo voltará ao estado original (como novo).')) {
+                  // 1. Clear LocalStorage
+                  localStorage.removeItem('ultra-dashboard-data');
+
+                  // 2. Prepare Fresh Data (Explicitly Empty)
+                  const freshData = {
+                    ...INITIAL_DATA, // Spread first to get settings/achievement definitions and other static data
+                    user: {
+                      ...INITIAL_DATA.user, // Keep initial user settings like goalDate if not explicitly overridden
+                      name: "Estudante",
+                      avatar: "👤",
+                      startDate: new Date().toISOString().split('T')[0], // Reset start date to today
+                      goalDate: new Date().toISOString().split('T')[0], // Reset exam date to today (0 days left)
+                      xp: 0,
+                      level: 10,
+                      achievements: [] // Clear user achievements
+                    },
+                    categories: [], // Explicitly empty
+                    simuladoRows: [], // Force clear raw rows
+                    simulados: [], // Clear simulados data
+                    pomodoroSessions: [], // Clear pomodoro sessions
+                    studyLogs: [], // Clear study logs
+                    studySessions: [], // Clear study sessions
+                    coachPlan: [], // Clear AI Coach plan
+                    // notes: "", // If notes are part of INITIAL_DATA, this would clear them.
+                    // If notes are dynamic, they should be cleared here.
+                    // Assuming notes are dynamic and should be cleared.
+                    notes: "",
+                    // achievements: [], // This would clear achievement definitions.
+                    // User achievements are handled in user.achievements.
+                    // Keeping achievement definitions from INITIAL_DATA.
+                  };
+
+                  // 3. Save Fresh Data
+                  localStorage.setItem('ultra-dashboard-data', JSON.stringify({
+                    contests: { 'default': freshData },
+                    activeId: 'default'
+                  }));
+
+                  // 4. Reload
+                  window.location.reload();
+                }
+              }}
+              className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all border border-red-500/20 hover:border-red-500/40 flex items-center gap-2 font-bold"
+            >
+              <div className="p-1 bg-red-500/20 rounded-full">
+                <RotateCcw size={16} />
+              </div>
+              Resetar Tudo (Começar do Zero)
+            </button>
+          </div>
+        </div>
+      );
+    case 'help':
+      // Help is a modal, open it and return to previous tab
+      setShowHelpGuide(true);
+      setActiveTab('dashboard'); // Return to dashboard immediately
+      return null;
+    default:
+      return null;
+  }
+};
+
+// --- MOBILE RENDER ---
+if (isMobile && !forceDesktopMode) {
+  const mobileActions = {
+    updatePomodoroSettings,
+    finishStudying,
+    startStudying,
+    handleUpdateStudyTime,
+    toggleTask,
+    deleteTask,
+    addTask,
+    addCategory,
+    deleteCategory
+  };
+
+  return (
+    <>
+      <MobilePocketMode
+        user={data.user}
+        data={data}
+        actions={mobileActions}
+        onExitPocketMode={() => setForceDesktopMode(true)}
+      />
       <Toast toast={toast} onClose={() => setToast(null)} />
       {levelUpData && (
         <LevelUpToast
@@ -1674,9 +1659,52 @@ function App() {
           onClose={() => setLevelUpData(null)}
         />
       )}
-      <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
-    </div>
+    </>
   );
+}
+
+return (
+  <div className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
+    <ParticleBackground />
+    <Sidebar
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      onExport={handleExport}
+      onImport={handleImport}
+      collapsed={sidebarCollapsed}
+      setCollapsed={setSidebarCollapsed}
+      user={data.user}
+    />
+
+    <main className="p-8 pt-24 transition-all duration-300 w-full">
+      <Header
+        user={data.user}
+        settings={data.settings}
+        onToggleDarkMode={toggleDarkMode}
+        onUpdateName={updateUserName}
+        contests={safeAppState.contests}
+        activeContestId={safeAppState.activeId}
+        onSwitchContest={switchContest}
+        onCreateContest={createNewContest}
+        onDeleteContest={deleteContest}
+        onUndo={handleUndo}
+        onCloudRestore={handleCloudRestore}
+        currentData={data}
+      />
+      {renderContent()}
+    </main>
+
+    <Toast toast={toast} onClose={() => setToast(null)} />
+    {levelUpData && (
+      <LevelUpToast
+        level={levelUpData.level}
+        title={levelUpData.title}
+        onClose={() => setLevelUpData(null)}
+      />
+    )}
+    <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+  </div>
+);
 
 }
 

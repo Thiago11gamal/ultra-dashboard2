@@ -13,6 +13,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const logger = options.logger;
 
+    // Use User Target Score (default 70 if missing)
+    const targetScore = options.targetScore || 70;
+
     try {
         // 1. Calculate Weighted Average Score (Prioritize Recent Performance)
         const relevantSimulados = simulados.filter(s => s.subject === category.name);
@@ -105,8 +108,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const validForDev = relevantSimulados.filter(s => s.total > 0);
 
         if (validForDev.length >= 2) {
-            // Use top 10 recent for deviation to keep it relevant
-            const recentForDev = validForDev.slice(0, 10).map(s => (s.correct / s.total) * 100);
+            // Use top 5 recent for deviation (Standard: Matches Dashboard)
+            const recentForDev = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100);
             const mean = recentForDev.reduce((a, b) => a + b, 0) / recentForDev.length;
             const variance = recentForDev.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (recentForDev.length - 1);
             standardDeviation = Math.sqrt(variance);
@@ -140,8 +143,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
             const totalHours = totalMinutes / 60;
 
-            if (totalHours > 5 && averageScore < 70) {
-                efficiencyPenalty = Math.min(cfg.EFFICIENCY_MAX, (totalHours / 10) * (70 - averageScore) / 10 * cfg.EFFICIENCY_MAX);
+            if (totalHours > 5 && averageScore < targetScore) {
+                efficiencyPenalty = Math.min(cfg.EFFICIENCY_MAX, (totalHours / 10) * (targetScore - averageScore) / 10 * cfg.EFFICIENCY_MAX);
             }
         }
 
@@ -388,11 +391,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             ? categorySims.reduce((acc, s) => acc + (s.correct / s.total * 100), 0) / categorySims.length
             : 0;
 
-        // Dynamic Threshold:
-        // If Score > 80% (High Performer) -> Tolerate slower pace (0.5 q/h)
-        // If Score > 60% (Medium) -> Tolerate moderate pace (1.0 q/h)
+        // Dynamic Threshold based on Target Score (Standardized)
+        // If Score > Target + 10 (High Performer) -> Tolerate slower pace (0.5 q/h)
+        // If Score > Target - 10 (Medium) -> Tolerate moderate pace (1.0 q/h)
         // Else (Low Performer) -> Demand standard pace (2.0 q/h)
-        const dynamicThreshold = avgScore > 80 ? 0.5 : (avgScore > 60 ? 1.0 : 2.0);
+        const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
 
         // Ratio: Questions per Hour (Ideal is > 5-10 questions per hour of study)
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
@@ -412,6 +415,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const weakTopic = getWeakestTopic(cat);
         // Force a topic label for UI parsing. If no weak topic, use "Revisão Geral"
         const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
+
+        const categorySims = simulados.filter(s => s.subject === cat.name);
 
         // 0. Check for SRS Trigger (Highest Priority)
         // Safety check to ensure urgency details exist
@@ -448,9 +453,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
 
         // --- NEW LOGIC: PLATEAU DETECTOR (Estagnação) ---
+        // Uses User Target Score AND requires minimum data volume (3+ exams)
         if (cat.urgency && cat.urgency.details &&
             cat.urgency.details.hasData &&
-            cat.urgency.details.averageScore < 70 &&
+            categorySims.length >= 3 &&
+            cat.urgency.details.averageScore < targetScore &&
             cat.urgency.details.standardDeviation < 5 &&
             cat.urgency.details.standardDeviation >= 0) {
 

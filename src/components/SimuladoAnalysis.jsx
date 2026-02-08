@@ -18,7 +18,27 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     const updateRow = (index, field, value) => {
         const newRows = [...rows];
-        newRows[index][field] = value;
+        let val = parseInt(value) || 0;
+        if (val < 0) val = 0;
+
+        // Logic Check: Correct cannot be > Total
+        if (field === 'correct') {
+            const currentTotal = parseInt(newRows[index].total) || 0;
+            if (val > currentTotal && currentTotal > 0) val = currentTotal;
+        } else if (field === 'total') {
+            const currentCorrect = parseInt(newRows[index].correct) || 0;
+            if (val < currentCorrect) newRows[index].correct = val; // Clamp correct down
+        }
+
+        newRows[index][field] = value; // Keep string for input UX, but logic uses parsed
+
+        // Update with validated numbers for safety
+        if (field === 'correct' || field === 'total') {
+            newRows[index][field] = val;
+        } else {
+            newRows[index][field] = value;
+        }
+
         setRows(newRows);
     };
 

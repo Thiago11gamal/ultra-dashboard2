@@ -204,8 +204,12 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     // Calculate Streak
     const calculateStreak = () => {
         if (!studyLogs.length) return 0;
+        const today = new Date();
+        today.setHours(23, 59, 59, 999); // End of today
+
         const dates = [...new Set(
             studyLogs
+                .filter(l => new Date(l.date) <= today) // Fix: Ignore future dates for streak
                 .map(l => new Date(l.date).setHours(0, 0, 0, 0))
                 .sort((a, b) => b - a)
         )];

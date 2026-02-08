@@ -110,7 +110,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             const cats = Object.values(dayGroup.categories).map(cat => ({
                 ...cat,
                 // Find latest log time for this category on this day
-                lastLogTime: Math.max(...cat.logs.map(l => new Date(l.date).getTime()))
+                lastLogTime: cat.logs.length > 0 ? Math.max(...cat.logs.map(l => new Date(l.date).getTime())) : 0
             })).sort((a, b) => b.lastLogTime - a.lastLogTime);
 
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);

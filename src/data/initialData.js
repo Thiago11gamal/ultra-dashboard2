@@ -1,12 +1,21 @@
 // Initial data structure for the dashboard
 // Theme: Study/Exam Preparation (Ultra-Premium Version)
 
+// Helper for Local YYYY-MM-DD
+const getLocalYMD = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export const INITIAL_DATA = {
     user: {
         name: "Estudante",
         avatar: "👤",
-        startDate: new Date().toISOString().split('T')[0],
-        goalDate: new Date().toISOString().split('T')[0], // Default to today for 0 days
+        startDate: getLocalYMD(), // Local Date
+        goalDate: getLocalYMD(),  // Local Date (0 days default)
         xp: 0,
         level: 10, // Starts at Level 10, goes down to 1
         achievements: [] // Unlocked achievement IDs
@@ -115,7 +124,15 @@ export const exportData = (state) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ultra-dashboard-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Use Local Date for filename
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    a.download = `ultra-dashboard-backup-${dateStr}.json`;
     a.click();
     URL.revokeObjectURL(url);
 };

@@ -77,16 +77,19 @@ export default function VerifiedStats({ categories = [], user }) {
         let prediction = "Calibrando...";
         let predictionSubtext = "Realize mais simulados.";
         let predictionStatus = "neutral"; // neutral, good, warning, excellence
-        let daysToGoal = null;
-        let targetScore = 90;
+        // Read target from localStorage to match Monte Carlo Gauge
+        const savedTarget = typeof window !== 'undefined' ? localStorage.getItem('monte_carlo_target') : null;
+        // Standardize default to 70% (Passing Grade)
+        const userTarget = savedTarget ? parseInt(savedTarget) : 70;
+        let targetScore = userTarget;
 
         if (allHistory.length >= 3) {
-            // Get recent average (last 3)
-            const recentHistory = allHistory.slice(-3);
+            // Get recent average (last 5 for better stability)
+            const recentHistory = allHistory.slice(-5);
             const currentAvg = recentHistory.reduce((a, b) => a + b.score, 0) / recentHistory.length;
 
-            // Determine Target dynamically
-            if (currentAvg >= 88) {
+            // Determine Target dynamically IF user is already above their target
+            if (currentAvg >= userTarget) {
                 targetScore = 100;
             }
 
@@ -107,7 +110,9 @@ export default function VerifiedStats({ categories = [], user }) {
             let slope = 0;
 
             if (denom !== 0) {
-                slope = (n * sumXY - sumX * sumY) / denom;
+                // Limit slope to realistic values (-0.5% to +0.5% per day)
+                // This prevents unrealistic "runaway" predictions based on small sample sizes or lucky streaks.
+                slope = Math.max(-0.5, Math.min(0.5, slope));
             } else {
                 // All points on same day or insufficient variance
                 slope = 0;
@@ -143,15 +148,26 @@ export default function VerifiedStats({ categories = [], user }) {
 
                     // 5. Efficiency (Quality)
                     // Approximated by Consistency (1 - Normalized SD). 
-                    // If SD is high (unstable), efficiency drops.
-                    // SD 0 -> Quality 1.0. SD 20 -> Quality 0.5.
-                    // Using global history SD roughly here:
+                    // Use Average SD across categories to measure true consistency,
+                    // avoiding penalizing students with varied strengths (e.g. Math 90, Hist 40 is consistent!).
                     let quality = 0.8; // Default good
 
-                    // Calculate quick SD of recent history
-                    const recVariance = recentHistory.reduce((a, b) => a + Math.pow(b.score - currentAvg, 2), 0) / recentHistory.length;
-                    const recSD = Math.sqrt(recVariance);
-                    quality = Math.max(0.5, 1 - (recSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
+                    // Calculate Average SD of active categories (Last 5 exams per category)
+                    let totalSD = 0;
+                    let countSD = 0;
+
+                    categories.forEach(cat => {
+                        if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length >= 2) {
+                            const scores = cat.simuladoStats.history.slice(-5).map(h => h.score);
+                            const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+                            const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
+                            totalSD += Math.sqrt(variance);
+                            countSD++;
+                        }
+                    });
+
+                    const avgSD = countSD > 0 ? totalSD / countSD : 20; // Default fallback if no data
+                    quality = Math.max(0.5, 1 - (avgSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
 
                     // Final Adjusted Speed (Points per Week)
                     const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
@@ -190,6 +206,9 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // 3. Confidence Interval (Sample Size)
         // Heuristic: < 50 questions = Low, 50-200 = Medium, > 200 = High
+        // Fallback: If total questions is 0 (missing data), use N of exams.
+        const nExams = allHistory.length;
+
         let confidenceData = {
             level: 'BAIXA',
             color: 'text-red-400',
@@ -198,7 +217,7 @@ export default function VerifiedStats({ categories = [], user }) {
             message: "Amostra muito pequena."
         };
 
-        if (totalQuestionsGlobal > 200) {
+        if (totalQuestionsGlobal > 200 || nExams > 20) {
             confidenceData = {
                 level: 'ALTA',
                 color: 'text-green-400',
@@ -206,7 +225,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 icon: <ShieldCheck size={20} />,
                 message: "Dados estatisticamente relevantes."
             };
-        } else if (totalQuestionsGlobal > 50) {
+        } else if (totalQuestionsGlobal > 50 || nExams > 5) {
             confidenceData = {
                 level: 'MÉDIA',
                 color: 'text-yellow-400',
@@ -344,7 +363,7 @@ export default function VerifiedStats({ categories = [], user }) {
             }
         }
 
-        return { trend, trendValue, prediction, predictionStatus, predictionSubtext, daysToGoal, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
+        return { trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
     }, [categories]);
 
     return (
