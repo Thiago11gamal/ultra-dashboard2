@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
@@ -6,34 +6,59 @@ import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 // Update component signature to accept onExit
 export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit }) {
 
-    // Always start fresh - no localStorage restoration for time/mode
-    const [mode, setMode] = useState('work');
-    const [timeLeft, setTimeLeft] = useState(settings.pomodoroWork * 60);
+    // --- STATE PERSISTENCE INITIALIZATION ---
 
-    const [isRunning, setIsRunning] = useState(false); // Always start paused
+    const getSavedState = (key, defaultValue) => {
+        if (typeof window === 'undefined') return defaultValue;
+        try {
+            const saved = localStorage.getItem('pomodoroState');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed[key] !== undefined ? parsed[key] : defaultValue;
+            }
+        } catch (e) {
+            console.error("Pomodoro State Parse Error", e);
+        }
+        return defaultValue;
+    };
 
-    const [sessions, setSessions] = useState(0);
+    const [mode, setMode] = useState(() => getSavedState('mode', 'work'));
+    // Default time depends on mode if not saved
+    const defaultTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+    const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
+    const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
+    const [sessions, setSessions] = useState(() => getSavedState('sessions', 0));
+    const [completedCycles, setCompletedCycles] = useState(() => getSavedState('completedCycles', 0));
+    const [targetCycles, setTargetCycles] = useState(() => getSavedState('targetCycles', 1));
+    const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
-    // Always start with 0 completed cycles (don't restore from localStorage)
-    const [completedCycles, setCompletedCycles] = useState(0);
+    // Ref to track last tick time for drift correction
+    const lastTickRef = useRef(Date.now());
+    const endTimeRef = useRef(null);
 
-    const [targetCycles, setTargetCycles] = useState(() => {
+    // --- RESUME LOGIC (Back from Background/Refresh) ---
+    useEffect(() => {
         const saved = localStorage.getItem('pomodoroState');
         if (saved) {
-            const parsed = JSON.parse(saved);
-            return parsed.targetCycles || 1;
-        }
-        return 1;
-    });
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.isRunning && parsed.savedAt) {
+                    const now = Date.now();
+                    const elapsedSeconds = Math.floor((now - parsed.savedAt) / 1000);
 
-    const [sessionHistory, setSessionHistory] = useState(() => {
-        const saved = localStorage.getItem('pomodoroState');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            return parsed.sessionHistory || [];
+                    if (elapsedSeconds > 0) {
+                        console.log(`Pomodoro: Resuming... skipped ${elapsedSeconds}s while offline.`);
+                        setTimeLeft(prev => {
+                            const newTime = prev - elapsedSeconds;
+                            return newTime > 0 ? newTime : 0;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Resume logic error", e);
+            }
         }
-        return [];
-    });
+    }, []); // Only run once on mount
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [_expandedCategory, _setExpandedCategory] = useState(null);
@@ -77,23 +102,21 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
     };
 
-    // Save state to localStorage - Debounced (save every 5s or on important events)
+    // --- ROBUST STATE SAVING ---
+    // Save state frequently (on every tick basically) or on major state changes
     useEffect(() => {
-        const timer = setTimeout(() => {
-            const stateToSave = {
-                mode,
-                timeLeft,
-                sessions,
-                completedCycles,
-                targetCycles,
-                sessionHistory,
-                savedAt: Date.now()
-            };
-            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        }, 5000); // Debounce 5 seconds to reduce writes
-
-        return () => clearTimeout(timer);
-    }, [mode, timeLeft, sessions, completedCycles, targetCycles, sessionHistory]);
+        const stateToSave = {
+            mode,
+            timeLeft,
+            isRunning, // Save running state!
+            sessions,
+            completedCycles,
+            targetCycles,
+            sessionHistory,
+            savedAt: Date.now() // Timestamp is crucial for Resume Logic
+        };
+        localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory]);
 
 
     // Timer complete handler - declared first to be available for useEffect
@@ -153,28 +176,125 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, settings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
-    // Timer Logic - Simple setInterval (More Stable)
+    // --- DRIFT-CORRECTED TIMER LOGIC ---
     useEffect(() => {
         let interval;
         if (isRunning && timeLeft > 0) {
+            // Initialize Last Tick Reference
+            lastTickRef.current = Date.now();
+
             interval = setInterval(() => {
-                setTimeLeft(prev => Math.max(0, prev - 1));
-            }, 1000 / speed);
+                const now = Date.now();
+                const delta = now - lastTickRef.current;
+
+                // Threshold to update (usually > 1000ms)
+                // We use a small buffer to prevent ultra-fast updates but ensure accuracy
+                if (delta >= (1000 / speed)) {
+                    const secondsPassed = Math.floor(delta / 1000) * speed; // Speed multiplier support
+
+                    if (secondsPassed >= 1) {
+                        // Only update state if at least 1 second "logic" passed (or speeded up)
+                        setTimeLeft(prev => {
+                            const newValue = Math.max(0, prev - (delta / 1000) * speed); // Precise float substraction
+
+                            // Align to integer for display if needed, but float is better for drift
+                            // For this simple timer, Integer decrement is fine IF we account for the drift remainder
+                            // Let's use the simplest robust method:
+                            // Decrement by 1, but sync with real time if we drifted > 100ms
+
+                            // Actually, best method for React Timer:
+                            // Just subtract 1, but if delta > 2000 (lag), subtract floor(delta/1000).
+                            const realSeconds = Math.floor(delta / 1000);
+                            const decrement = Math.max(1, realSeconds * speed); // Ensure at least 1
+
+                            return Math.max(0, prev - 1); // Simple Tick for UI smoothness
+                        });
+                        // Update ref to "now" minus the remainder (to keep phase)
+                        // But simpler: just reset to now. Drift is negligible with Date.now() check in Resume.
+                        lastTickRef.current = now;
+                    }
+                }
+            }, 100); // Check every 100ms for responsiveness
         }
         return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isRunning, speed]);
+
+    // Better Drift Correction:
+    // When running, define a "Target End Time" and count down to it?
+    // Mixed approach: The `useEffect` above is decent, but let's make it simpler and robust.
+
+    // RE-IMPLEMENTATION OF TIMER EFFECT FOR ACCURACY
+    useEffect(() => {
+        let animationFrameId;
+        let lastTime = Date.now();
+
+        const tick = () => {
+            if (!isRunning) return;
+
+            const now = Date.now();
+            const delta = (now - lastTime) / 1000; // in seconds
+
+            if (delta >= 1 / speed) {
+                setTimeLeft(prev => {
+                    const next = prev - delta * speed; // Use float for internal precision?
+                    // Rounding for display happens in render.
+                    // But we store integer state usually. 
+                    // Let's store float in state for precision, round for display.
+                    return Math.max(0, next);
+                });
+                lastTime = now;
+            }
+
+            if (timeLeft > 0) {
+                // Polling setInterval is better for battery than requestAnimationFrame for a background timer
+                // We will stick to the setInterval below logic but corrected.
+            }
+        };
+        // Changing strategy to purely setInterval with Date.now() check
+    }, [isRunning, speed]);
+
+    // FINAL ROBUST TIMER EFFECT
+    useEffect(() => {
+        let interval;
+        if (isRunning && timeLeft > 0) {
+            const startTime = Date.now(); // When this effect started/resumed
+            const initialTimeLeft = timeLeft;
+
+            interval = setInterval(() => {
+                const now = Date.now();
+                const totalElapsed = (now - startTime) / 1000; // Seconds elapsed since effect start
+
+                // Calculate what timeLeft SHOULD be right now
+                const expectedTimeLeft = initialTimeLeft - (totalElapsed * speed);
+
+                // Update state
+                setTimeLeft(prev => {
+                    if (expectedTimeLeft <= 0) return 0;
+                    return expectedTimeLeft;
+                });
+
+            }, 1000 / speed); // Tick rate matching speed
+        }
+        return () => clearInterval(interval);
+    }, [isRunning, speed]); // If isRunning toggles, we reset start time. If speed changes, reset.
+
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
     useEffect(() => {
-        if (timeLeft === 0 && isRunning) {
+        if (timeLeft <= 0 && isRunning) { // Changed to <= 0 for float safety
+            setTimeLeft(0); // Snap to 0
             setTimeout(() => handleTimerComplete(), 0);
         }
     }, [timeLeft, isRunning, handleTimerComplete]);
 
     const reset = () => {
         setIsRunning(false);
-        setTimeLeft(mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60);
+        const resetTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+        setTimeLeft(resetTime);
+        // Force save immediately to clean state
+        localStorage.setItem('pomodoroState', JSON.stringify({
+            mode, timeLeft: resetTime, isRunning: false, sessions, completedCycles, targetCycles, sessionHistory, savedAt: Date.now()
+        }));
     };
 
     const skip = () => {
@@ -210,15 +330,17 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
     // Format time as MM:SS
     const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
+        // Use Math.ceil to show "00:01" until strictly 0
+        const secsInt = Math.ceil(seconds);
+        const mins = Math.floor(secsInt / 60);
+        const secs = secsInt % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
     const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
     // Progress is 0 if timer hasn't started (at full time and not running)
     const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
-    const progress = (timeLeft === totalTime && !isRunning) ? 0 : Math.max(0, Math.min(100, rawProgress));
+    const progress = (timeLeft >= totalTime && !isRunning) ? 0 : Math.max(0, Math.min(100, rawProgress));
 
     // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {

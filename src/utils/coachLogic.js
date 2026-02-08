@@ -16,6 +16,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     // Use User Target Score (default 70 if missing)
     const targetScore = options.targetScore || 70;
 
+    // Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
+    const normalizeDate = (dateInput) => {
+        if (!dateInput) return new Date(0);
+        const d = new Date(dateInput);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+
     try {
         // 1. Calculate Weighted Average Score (Prioritize Recent Performance)
         const relevantSimulados = simulados.filter(s => s.subject === category.name);
@@ -25,7 +33,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         let averageScore = 0;
         if (relevantSimulados.length > 0) {
-            const today = new Date();
+            const today = normalizeDate(new Date());
             const K = 0.07;
             const PESO_MIN = 0.03;
             const DELTA = 5.0;
@@ -37,8 +45,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
                 dataset.forEach(s => {
                     const sScore = (s.correct / s.total) * 100;
-                    const simDate = new Date(s.date || 0);
-                    // Difference in days
+                    const simDate = normalizeDate(s.date);
+                    // Difference in days (Calendar Days)
                     const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
 
                     // Final Formula: max( exp(-k * d), min )
@@ -54,10 +62,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
             // 1. Calculate "Nota Anterior" (Phantom State: Score until Yesterday)
             // We use this as a proxy for "Previous Grade" since we don't have DB persistence for it yet
-            const yesterdayBound = new Date();
-            yesterdayBound.setHours(0, 0, 0, 0); // Start of today (everything before today is "History")
+            const yesterdayBound = normalizeDate(new Date());
+            // No subtraction needed, normalizeDate sets to 00:00 today. 
+            // So strictly less than today means "Yesterday or earlier"
 
-            const pastSimulados = relevantSimulados.filter(s => new Date(s.date || 0) < yesterdayBound);
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < yesterdayBound);
             const notaBruta = calculateExponentialScore(relevantSimulados); // "Nota Bruta" (Updated State)
 
             if (pastSimulados.length > 0) {
@@ -82,10 +91,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 2. Calculate Days Since Last Study (Recency)
         // Check both Simulados AND Study Logs
         let daysSinceLastStudy = 30; // Default if never studied
-        let lastDate = new Date(0);
+        let lastDate = normalizeDate(new Date(0));
 
         if (relevantSimulados.length > 0) {
-            const simDate = new Date(relevantSimulados[0].date || 0);
+            // Get the MOST RECENT date
+            const simDate = normalizeDate(relevantSimulados[0].date);
             if (simDate > lastDate) lastDate = simDate;
         }
 
@@ -93,12 +103,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (categoryStudyLogs.length > 0) {
             // Sort category logs by date desc
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-            const logDate = new Date(sortedLogs[0].date || 0);
+            const logDate = normalizeDate(sortedLogs[0].date);
             if (logDate > lastDate) lastDate = logDate;
         }
 
         if (lastDate.getTime() > 0) {
-            const today = new Date();
+            const today = normalizeDate(new Date());
             daysSinceLastStudy = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
         }
 
