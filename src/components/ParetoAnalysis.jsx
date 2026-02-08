@@ -80,7 +80,7 @@ export default function ParetoAnalysis({ categories = [] }) {
 
         groupedTopics.forEach(t => {
             if (cumulative < paretoThreshold) {
-                cumulative += t.missed;
+                cumulative += t.weightedMissed;
                 enemies.push(t);
             } else {
                 others.push(t);

@@ -176,82 +176,9 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, settings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
-    // --- DRIFT-CORRECTED TIMER LOGIC ---
-    useEffect(() => {
-        let interval;
-        if (isRunning && timeLeft > 0) {
-            // Initialize Last Tick Reference
-            lastTickRef.current = Date.now();
+    // --- ROBUST TIMER LOGIC ---
+    // Use a single, drift-proof effect based on start time delta.
 
-            interval = setInterval(() => {
-                const now = Date.now();
-                const delta = now - lastTickRef.current;
-
-                // Threshold to update (usually > 1000ms)
-                // We use a small buffer to prevent ultra-fast updates but ensure accuracy
-                if (delta >= (1000 / speed)) {
-                    const secondsPassed = Math.floor(delta / 1000) * speed; // Speed multiplier support
-
-                    if (secondsPassed >= 1) {
-                        // Only update state if at least 1 second "logic" passed (or speeded up)
-                        setTimeLeft(prev => {
-                            const newValue = Math.max(0, prev - (delta / 1000) * speed); // Precise float substraction
-
-                            // Align to integer for display if needed, but float is better for drift
-                            // For this simple timer, Integer decrement is fine IF we account for the drift remainder
-                            // Let's use the simplest robust method:
-                            // Decrement by 1, but sync with real time if we drifted > 100ms
-
-                            // Actually, best method for React Timer:
-                            // Just subtract 1, but if delta > 2000 (lag), subtract floor(delta/1000).
-                            const realSeconds = Math.floor(delta / 1000);
-                            const decrement = Math.max(1, realSeconds * speed); // Ensure at least 1
-
-                            return Math.max(0, prev - 1); // Simple Tick for UI smoothness
-                        });
-                        // Update ref to "now" minus the remainder (to keep phase)
-                        // But simpler: just reset to now. Drift is negligible with Date.now() check in Resume.
-                        lastTickRef.current = now;
-                    }
-                }
-            }, 100); // Check every 100ms for responsiveness
-        }
-        return () => clearInterval(interval);
-    }, [isRunning, speed]);
-
-    // Better Drift Correction:
-    // When running, define a "Target End Time" and count down to it?
-    // Mixed approach: The `useEffect` above is decent, but let's make it simpler and robust.
-
-    // RE-IMPLEMENTATION OF TIMER EFFECT FOR ACCURACY
-    useEffect(() => {
-        let animationFrameId;
-        let lastTime = Date.now();
-
-        const tick = () => {
-            if (!isRunning) return;
-
-            const now = Date.now();
-            const delta = (now - lastTime) / 1000; // in seconds
-
-            if (delta >= 1 / speed) {
-                setTimeLeft(prev => {
-                    const next = prev - delta * speed; // Use float for internal precision?
-                    // Rounding for display happens in render.
-                    // But we store integer state usually. 
-                    // Let's store float in state for precision, round for display.
-                    return Math.max(0, next);
-                });
-                lastTime = now;
-            }
-
-            if (timeLeft > 0) {
-                // Polling setInterval is better for battery than requestAnimationFrame for a background timer
-                // We will stick to the setInterval below logic but corrected.
-            }
-        };
-        // Changing strategy to purely setInterval with Date.now() check
-    }, [isRunning, speed]);
 
     // FINAL ROBUST TIMER EFFECT
     useEffect(() => {
