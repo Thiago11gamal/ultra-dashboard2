@@ -267,7 +267,8 @@ export default function VerifiedStats({ categories = [], user }) {
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length >= 2) {
-                const scores = cat.simuladoStats.history.map(h => h.score);
+                // Focus on RECENT consistency (Last 5 exams) to avoid penalizing past learning curves
+                const scores = cat.simuladoStats.history.slice(-5).map(h => h.score);
                 const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
                 // Sample Standard Deviation (n-1) - Bessel's correction for small samples
                 const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
