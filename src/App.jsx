@@ -3,7 +3,9 @@ import { RotateCcw, CalendarDays, Calendar, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import StatsCards from './components/StatsCards';
-import TimeFlow from './components/TimeFlow';
+import NextGoalCard from './components/NextGoalCard';
+import QuickNotes from './components/QuickNotes';
+
 import Checklist from './components/Checklist';
 import Charts from './components/Charts';
 import PomodoroTimer from './components/PomodoroTimer';
@@ -1046,6 +1048,11 @@ function App() {
     }));
   }, [setData]);
 
+
+  const handleSaveNotes = useCallback((newText) => {
+    setData(prev => ({ ...prev, notes: newText }), false);
+  }, [setData]);
+
   // Render Content - RESTORED
 
   // AI Coach Logic
@@ -1111,9 +1118,13 @@ function App() {
               }))}
             />
 
+
             {/* Next Goal Card - AI-powered suggestion */}
-
-
+            <NextGoalCard
+              categories={data.categories}
+              simulados={data.simulados}
+              onStartStudying={startStudying}
+            />
             {/* Tasks / Checklist Area */}
             <div className="mt-4">
               <Checklist
@@ -1547,7 +1558,10 @@ function App() {
         return (
           <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
             <TopicPerformance categories={data.categories} />
-            <ParetoAnalysis categories={data.categories} />
+            <div className="space-y-8">
+              <QuickNotes notes={data.notes || ''} onSave={handleSaveNotes} />
+              <ParetoAnalysis categories={data.categories} />
+            </div>
           </div>
         );
       case 'settings':

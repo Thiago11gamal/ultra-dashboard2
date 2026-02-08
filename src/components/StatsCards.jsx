@@ -91,7 +91,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     // Gamification Stats
     const currentXP = user?.xp || 0;
     const level = calculateLevel(currentXP);
-    const { title: rankTitle, color: rankColor } = getLevelTitle(level);
+    const { title: rankTitle, color: rankColor, barColor } = getLevelTitle(level);
     const xpProgress = calculateProgress(currentXP);
     const xpNeeded = getXpToNextLevel(currentXP);
 
@@ -310,7 +310,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                     </div>
                     <div className="h-4 bg-slate-950/50 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
                         <div
-                            className={`h-full bg-gradient-to-r ${rankColor.replace('text-', 'from-')} to-white rounded-full transition-all duration-1000 ease-out relative`}
+                            className={`h-full bg-gradient-to-r ${barColor} to-white rounded-full transition-all duration-1000 ease-out relative`}
                             style={{ width: `${xpProgress}%` }}
                         >
                             <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)] w-1/2 h-full skew-x-12 animate-[shimmer_2s_infinite]"></div>

@@ -209,9 +209,13 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     return {
                         name: d.name,
                         overview,
-                        topics: d.topics
+                        topics: d.topics,
+                        percentage: discPct // Add percentage for sorting
                     };
                 });
+
+                // Sort Disciplines by Performance (Worst First) to highlight problems
+                disciplines.sort((a, b) => a.percentage - b.percentage);
 
                 // 3. General Insight
                 const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total) || 0), 0);
@@ -372,7 +376,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-white/5 text-sm">
-                                                    {(disc.topics || disc.worstTopics || []).map((topic, tIdx) => {
+                                                    {disc.topics.map((topic, tIdx) => {
                                                         const pct = topic.percentage || 0;
                                                         let rowClass = "hover:bg-white/5 transition-colors";
                                                         let textClass = "text-slate-200";

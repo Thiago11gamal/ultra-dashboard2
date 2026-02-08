@@ -32,12 +32,12 @@ export const calculateLevel = (xp) => {
 
 // Calculate Title based on Level
 export const getLevelTitle = (level) => {
-    if (level >= 9) return { title: 'Aspirante', icon: '🌱', color: 'text-slate-400' };
-    if (level >= 7) return { title: 'Estudante', icon: '📚', color: 'text-yellow-400' };
-    if (level >= 5) return { title: 'Concorrente', icon: '⚔️', color: 'text-orange-400' };
-    if (level >= 3) return { title: 'Competidor', icon: '🔥', color: 'text-red-500' };
-    if (level === 2) return { title: 'Elite', icon: '💎', color: 'text-purple-400' };
-    return { title: 'Aprovado', icon: '👑', color: 'text-yellow-400' };
+    if (level >= 9) return { title: 'Aspirante', icon: '🌱', color: 'text-slate-400', barColor: 'from-slate-400' };
+    if (level >= 7) return { title: 'Estudante', icon: '📚', color: 'text-yellow-400', barColor: 'from-yellow-400' };
+    if (level >= 5) return { title: 'Concorrente', icon: '⚔️', color: 'text-orange-400', barColor: 'from-orange-400' };
+    if (level >= 3) return { title: 'Competidor', icon: '🔥', color: 'text-red-500', barColor: 'from-red-500' };
+    if (level === 2) return { title: 'Elite', icon: '💎', color: 'text-purple-400', barColor: 'from-purple-400' };
+    return { title: 'Aprovado', icon: '👑', color: 'text-yellow-400', barColor: 'from-yellow-400' };
 };
 
 // Calculate Progress to NEXT Level (percentage)

@@ -602,6 +602,19 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     >
                         Projeção: {simulateToday ? 'Hoje' : 'Futura'}
                     </button>
+                    {!simulateToday && simulationResult.mean === simulationResult.currentMean && projectDays > 0 && (
+                        <div className="group/info relative">
+                            <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help">
+                                <span className="text-[10px] font-bold text-yellow-500">?</span>
+                            </div>
+                            <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity">
+                                <p className="text-[9px] text-slate-300 leading-tight">
+                                    <span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>
+                                    Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     <button
                         onClick={() => setShowConfig(true)}
                         className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white"

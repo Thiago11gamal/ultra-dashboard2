@@ -460,7 +460,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // 0. SRS Trigger
         if (cat.urgency?.details?.srsLabel) {
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-srs-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
                 completed: false,
                 categoryId: cat.id,
@@ -477,7 +477,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const trapCheck = performDeepCheck(cat);
         if (trapCheck.isTrap) {
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-trap-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
                 completed: false,
                 categoryId: cat.id,
@@ -498,7 +498,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             cat.urgency.details.trend >= -1 && cat.urgency.details.trend <= 1) {
 
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-plateau-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}🛑 Alerta de Estagnação. Sua nota travou. Revise a teoria!`,
                 completed: false,
                 categoryId: cat.id,
@@ -513,7 +513,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // DECLINING PERFORMANCE WARNING
         if (cat.urgency?.details?.trend < -5) {
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-declining-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}📉 Nota em queda! Atenção urgente necessária.`,
                 completed: false,
                 categoryId: cat.id,
@@ -543,7 +543,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             }
 
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-weektopic-${weakTopic.name}-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}${taskTitle}`,
                 completed: false,
                 categoryId: cat.id,
@@ -566,7 +566,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         } else if (highPriorityTask) {
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-priority-${highPriorityTask.id}`,
                 text: `Foco em ${cat.name}: ${topicLabel}${highPriorityTask.title || highPriorityTask.text}`,
                 completed: false,
                 categoryId: cat.id,
@@ -577,7 +577,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         } else {
             return {
-                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${cat.id}-general-review-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                 completed: false,
                 categoryId: cat.id,

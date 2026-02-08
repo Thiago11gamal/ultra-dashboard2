@@ -7,8 +7,10 @@ export default function QuickNotes({ notes = '', onSave }) {
     const [isFocused, setIsFocused] = useState(false);
 
     useEffect(() => {
-        setText(notes);
-    }, [notes]);
+        if (!isFocused) {
+            setText(notes);
+        }
+    }, [notes, isFocused]);
 
     const handleChange = (e) => {
         setText(e.target.value);
