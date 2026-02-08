@@ -214,9 +214,9 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                 .sort((a, b) => b - a)
         )];
         if (dates.length === 0) return 0;
-        const today = new Date().setHours(0, 0, 0, 0);
-        const yesterday = new Date(today - 86400000).setHours(0, 0, 0, 0);
-        if (dates[0] !== today && dates[0] !== yesterday) return 0;
+        const todayStart = new Date().setHours(0, 0, 0, 0);
+        const yesterday = new Date(todayStart - 86400000).setHours(0, 0, 0, 0);
+        if (dates[0] !== todayStart && dates[0] !== yesterday) return 0;
         let streakCount = 1;
         let currentDate = dates[0];
         for (let i = 1; i < dates.length; i++) {

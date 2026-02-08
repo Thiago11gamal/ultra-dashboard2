@@ -473,13 +473,18 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 intercept = (sumY - slope * sumX) / n;
             }
 
-            // Limit slope to realistic values (-1% to +1% per day is already huge) - reduced to 0.5%
-            const safeSlope = Math.max(-0.5, Math.min(0.5, slope));
+            // Limit slope to realistic values - increased to 2.0%
+            const safeSlope = Math.max(-2.0, Math.min(2.0, slope));
 
             // Calculate Target Days directly from First History Date to (Now + ProjectDays)
             // This accounts for the gap between Last Simulado and Today correctly.
             const firstDate = new Date(cat.history[0].date).getTime();
-            const now = new Date().getTime();
+
+            // Normalize current date to midnight to avoid intraday jitter
+            const nowObj = new Date();
+            nowObj.setHours(0, 0, 0, 0);
+            const now = nowObj.getTime();
+
             const projectMs = projectDays * (1000 * 60 * 60 * 24);
 
             // Target Date = Now + ProjectDays

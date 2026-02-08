@@ -110,9 +110,9 @@ export default function VerifiedStats({ categories = [], user }) {
             let slope = 0;
 
             if (denom !== 0) {
-                // Limit slope to realistic values (-0.5% to +0.5% per day)
-                // This prevents unrealistic "runaway" predictions based on small sample sizes or lucky streaks.
-                slope = Math.max(-0.5, Math.min(0.5, slope));
+                // Limit slope to realistic values (-2.0% to +2.0% per day)
+                // This prevents unrealistic "runaway" predictions, but must be high enough to catch real improvement.
+                slope = Math.max(-2.0, Math.min(2.0, slope));
             } else {
                 // All points on same day or insufficient variance
                 slope = 0;
