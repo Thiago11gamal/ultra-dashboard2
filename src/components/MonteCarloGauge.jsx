@@ -6,8 +6,7 @@ import {
     calculateWeightedProjectedMean,
     computePooledSD,
     runSimulation,
-    calculateResultMetrics,
-    generateSeed
+    calculateResultMetrics
 } from '../engine';
 
 // Internal Component for the Gaussian Chart with Tooltip State
@@ -445,13 +444,13 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         if (!statsData) return null;
         const { weightedMean, pooledSD } = statsData;
 
-        // Generate explicit seed for auditability
-        const seed = generateSeed();
+        // Use deterministic seed for reproducibility (based on projectDays)
+        const seed = 123456 + projectDays;
 
         // Run simulation with engine module
         // This applies: adaptive count (10k/20k), truncated distribution [0,100]
         return runSimulation(weightedMean, pooledSD, { seed });
-    }, [statsData]);
+    }, [statsData, projectDays]);
 
     // 4. Calculate Final Result (updates on Target change)
     const simulationResult = useMemo(() => {
