@@ -1,5 +1,14 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+    computeCategoryStats,
+    calculateCurrentWeightedMean,
+    calculateWeightedProjectedMean,
+    computePooledSD,
+    runSimulation,
+    calculateResultMetrics,
+    generateSeed
+} from '../engine';
 
 // Internal Component for the Gaussian Chart with Tooltip State
 function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
@@ -385,179 +394,88 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         return () => clearTimeout(timer);
     }, [effectiveWeights]);
 
-    // 1. Gather Stats per Category with Weights & Trends (Memoized)
+    // 1. Gather Stats per Category using Engine Modules (Memoized)
     const statsData = useMemo(() => {
         let categoryStats = [];
         let totalWeight = 0;
 
         categories.forEach(cat => {
-            if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length > 0) {
+            if (cat.simuladoStats?.history?.length > 0) {
                 // Sort history by date
-                const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const scores = history.map(h => h.score);
-
-                // Calculate mean (Last 5 exams)
-                const recentScores = scores.slice(-5);
-                const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-
-                // Calculate SD (Sample SD, n-1)
-                const n = recentScores.length;
-                const variance = n > 1
-                    ? recentScores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
-                    : 0;
-                // FIX: Use minimum SD of 5% when only 1 data point to avoid deterministic results
-                const sd = n > 1 ? Math.sqrt(variance) : 5;
-
-                // Calculate trend
-                let trend = 'stable';
-                const totalN = scores.length;
-                // FIX: Protect against windowSize = 0 when totalN < 2
-                const windowSize = Math.max(1, Math.min(3, Math.floor(totalN / 2)));
-                if (totalN >= 2) {
-                    const recentWindow = scores.slice(totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
-                    const previousWindow = scores.slice(Math.max(0, totalN - (windowSize * 2)), totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
-
-                    if (recentWindow > previousWindow + 2) trend = 'up';
-                    else if (recentWindow < previousWindow - 2) trend = 'down';
-                }
+                const history = [...cat.simuladoStats.history].sort((a, b) =>
+                    new Date(a.date) - new Date(b.date)
+                );
 
                 // Get weight
-                const weight = debouncedWeights[cat.name] !== undefined ? debouncedWeights[cat.name] : 0;
+                const weight = debouncedWeights[cat.name] ?? 0;
 
-                // Always add to stats, even if weight is 0 (for UI visibility)
-                if (weight > 0) {
-                    totalWeight += weight;
+                // Use engine module for stats calculation
+                // This applies: adaptive SD floor + trend-adjusted variance
+                const stats = computeCategoryStats(history, weight);
+
+                if (stats) {
+                    if (weight > 0) {
+                        totalWeight += weight;
+                    }
+                    categoryStats.push({
+                        name: cat.name,
+                        ...stats
+                    });
                 }
-                categoryStats.push({ name: cat.name, mean, sd, trend, weight, n, history });
             }
         });
 
-        if (categoryStats.length === 0 || categoryStats.reduce((acc, c) => acc + c.n, 0) < 5 || totalWeight === 0) {
+        if (categoryStats.length === 0 ||
+            categoryStats.reduce((acc, c) => acc + c.n, 0) < 5 ||
+            totalWeight === 0) {
             return null;
         }
 
-        // 2. Linear Regression Projection
-        // FIX: Normalize weights properly
-        const currentWeightedMean = categoryStats.reduce((acc, cat) => {
-            const normalizedWeight = cat.weight / totalWeight;
-            return acc + (cat.mean * normalizedWeight);
-        }, 0);
+        // Use engine modules for projection and variance
+        // This applies: sublinear time uncertainty + auditable variance
+        const currentWeightedMean = calculateCurrentWeightedMean(categoryStats, totalWeight);
+        const weightedMean = calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays);
+        const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
 
-        const weightedMean = categoryStats.reduce((acc, cat) => {
-            const normalizedWeight = cat.weight / totalWeight;
-            if (!cat.history || cat.history.length < 2) return acc + (cat.mean * normalizedWeight);
-
-            const dataPoints = cat.history.map(h => ({
-                x: (new Date(h.date).getTime() - new Date(cat.history[0].date).getTime()) / (1000 * 60 * 60 * 24),
-                y: h.score
-            }));
-
-            const n = dataPoints.length;
-            const sumX = dataPoints.reduce((a, b) => a + b.x, 0);
-            const sumY = dataPoints.reduce((a, b) => a + b.y, 0);
-            const sumXY = dataPoints.reduce((a, b) => a + b.x * b.y, 0);
-            const sumXX = dataPoints.reduce((a, b) => a + b.x * b.x, 0);
-
-            const denom = (n * sumXX - sumX * sumX);
-            let slope = 0;
-            let intercept = cat.mean;
-
-            if (denom !== 0) {
-                slope = (n * sumXY - sumX * sumY) / denom;
-                // intercept is unused for projection now, we anchor on cat.mean
-            }
-
-            const safeSlope = Math.max(-2.0, Math.min(2.0, slope));
-
-            // ANCHORED PROJECTION:
-            // Project starting from Current Mean (Average of last 5)
-            // Future Score = Current Mean + (Improvement Rate * Days into Future)
-            // If projectDays is 0 (Today), this equals cat.mean
-            const projectedScore = cat.mean + (safeSlope * projectDays);
-
-            const safeProjection = Math.max(0, Math.min(100, projectedScore));
-
-            return acc + (safeProjection * normalizedWeight);
-        }, 0);
-
-        // Pooled SD
-        // FIX: Normalize weights
-        const pooledVariance = categoryStats.reduce((acc, cat) => {
-            // Var(Sum(Wi*Xi)) = Sum(Wi^2 * Var(Xi)) assuming independence
-            const normalizedWeight = cat.weight / totalWeight;
-            return acc + (Math.pow(normalizedWeight, 2) * Math.pow(cat.sd, 2));
-        }, 0);
-
-        // Add uncertainty over time (Squared)
-        const timeUncertaintySD = projectDays * 0.1;
-        const timeUncertaintyVariance = timeUncertaintySD * timeUncertaintySD;
-        const pooledSD = Math.sqrt(pooledVariance + timeUncertaintyVariance);
-
-        return { categoryStats, weightedMean, currentWeightedMean, pooledSD };
+        return { categoryStats, weightedMean, currentWeightedMean, pooledSD, totalWeight };
     }, [categories, debouncedWeights, projectDays]);
 
-    // 3. Run Monte Carlo (Memoized separately from Target)
-    const simulationScores = useMemo(() => {
+    // 3. Run Monte Carlo using Engine Module (Adaptive simulations + Explicit seed)
+    const simulationData = useMemo(() => {
         if (!statsData) return null;
         const { weightedMean, pooledSD } = statsData;
 
-        const simulations = 10000;
-        let scores = [];
+        // Generate explicit seed for auditability
+        const seed = generateSeed();
 
-        // Box-Muller RNG
-        function mulberry32(a) {
-            return function () {
-                var t = a += 0x6D2B79F5;
-                t = Math.imul(t ^ t >>> 15, t | 1);
-                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-                return ((t ^ t >>> 14) >>> 0) / 4294967296;
-            }
-        }
+        // Run simulation with engine module
+        // This applies: adaptive count (10k/20k), truncated distribution [0,100]
+        return runSimulation(weightedMean, pooledSD, { seed });
+    }, [statsData]);
 
-        const seed = 123456 + projectDays;
-        const random = mulberry32(seed);
-
-        const boxMuller = (m, s) => {
-            let u = 0, v = 0;
-            while (u === 0) u = random();
-            while (v === 0) v = random();
-            const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-            return Math.max(0, Math.min(100, num * s + m));
-        };
-
-        for (let i = 0; i < simulations; i++) {
-            scores.push(boxMuller(weightedMean, pooledSD));
-        }
-        scores.sort((a, b) => a - b);
-        return scores;
-    }, [statsData, projectDays]);
-
-    // 4. Calculate Final Result (Cheap, updates on Target change)
+    // 4. Calculate Final Result (updates on Target change)
     const simulationResult = useMemo(() => {
-        if (!statsData || !simulationScores) return null;
+        if (!statsData || !simulationData) return null;
 
         const { categoryStats, weightedMean, currentWeightedMean, pooledSD } = statsData;
         const target = debouncedTarget;
-        const simulations = simulationScores.length;
 
-        const successCount = simulationScores.filter(s => s >= target).length;
-        const probability = (successCount / simulations) * 100;
-
-        const ci95LowIndex = Math.floor(simulations * 0.025);
-        const ci95HighIndex = Math.min(Math.floor(simulations * 0.975), simulations - 1);
-        const ci95Low = simulationScores[ci95LowIndex];
-        const ci95High = simulationScores[ci95HighIndex];
+        // Use engine module for result calculation
+        const metrics = calculateResultMetrics(simulationData.scores, target);
 
         return {
-            probability: probability.toFixed(1),
+            probability: metrics.probability.toFixed(1),
             mean: weightedMean.toFixed(1),
             currentMean: currentWeightedMean.toFixed(1),
             sd: pooledSD.toFixed(1),
-            ci95Low: ci95Low.toFixed(0),
-            ci95High: ci95High.toFixed(0),
-            categoryStats
+            ci95Low: metrics.ci95Low.toFixed(0),
+            ci95High: metrics.ci95High.toFixed(0),
+            categoryStats,
+            // Auditability: expose simulation metadata
+            simulationId: `MC-${simulationData.seed}`,
+            simulations: simulationData.simulations
         };
-    }, [statsData, simulationScores, debouncedTarget]);
+    }, [statsData, simulationData, debouncedTarget]);
 
     // Effect to update local state logic is removed as we use derived state directly
     // setSimulationResult is no longer needed as simulationResult is a derived constant
