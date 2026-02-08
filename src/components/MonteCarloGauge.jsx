@@ -16,8 +16,8 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 
     // Optimization: generic loop for path data
     const { pathData, areaPathData, labelsData, range, xMin } = useMemo(() => {
-        // Enforce minimum SD for visualization
-        const vizSd = Math.max(0.5, sd);
+        // Use a minimum SD for visualization to prevent ultra-thin curves
+        const vizSd = Math.max(3, sd);
 
         // Define plot range
         let xMin = Math.max(0, mean - 3.5 * vizSd);
@@ -62,16 +62,19 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
         // Pre-calculate label positions
         const getPos = (val) => (val - xMin) / range * 100;
         const labels = [
-            { id: 'mean', pos: getPos(mean), val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2' },
-            { id: 'target', pos: getPos(targetScore), val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2' },
-            { id: 'high', pos: getPos(high95), val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: 'transform -translate-x-1/2' },
-            { id: 'low', pos: getPos(low95), val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: 'transform -translate-x-1/2' }
+            { id: 'mean', pos: getPos(mean), val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2', priority: 1 },
+            { id: 'target', pos: getPos(targetScore), val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2', priority: 0 },
+            { id: 'high', pos: Math.min(getPos(high95), 92), val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: getPos(high95) > 85 ? 'transform -translate-x-full' : 'transform -translate-x-1/2', priority: 2 },
+            { id: 'low', pos: Math.max(getPos(low95), 8), val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: getPos(low95) < 15 ? '' : 'transform -translate-x-1/2', priority: 2 }
         ].sort((a, b) => a.pos - b.pos);
 
-        const minDistance = 12;
+        // Spacing algorithm - spread labels vertically when too close
+        const minDistance = 18;
         for (let i = 1; i < labels.length; i++) {
-            if (labels[i].pos - labels[i - 1].pos < minDistance) {
-                labels[i].offset = labels[i - 1].offset + 12;
+            const prevPos = labels[i - 1].pos;
+            const currPos = labels[i].pos;
+            if (currPos - prevPos < minDistance) {
+                labels[i].offset = labels[i - 1].offset + 14;
             }
         }
 
@@ -91,7 +94,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 
     return (
         <div
-            className="relative w-full h-24 mt-1 mb-8 cursor-crosshair group/chart"
+            className="relative w-full h-32 mt-6 mb-4 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -114,6 +117,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
                     }
                 `}
             </style>
+
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
                 <defs>
                     <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
@@ -144,23 +148,15 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
             {hover && (
                 <>
                     <div className="absolute top-0 bottom-0 w-px bg-white/50 pointer-events-none transition-opacity" style={{ left: `${hover.x}%` }} />
-                    <div className="absolute -top-5 transform -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none z-50 whitespace-nowrap" style={{ left: `${hover.x}%` }}>
+                    <div className="absolute top-1 transform -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none z-50 whitespace-nowrap" style={{ left: `${hover.x}%` }}>
                         {hover.val.toFixed(1)}%
                     </div>
                 </>
             )}
 
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div className="absolute bottom-0 left-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">0</div>
-                <div className="absolute bottom-0 right-0 text-[10px] font-black text-green-500 tracking-tighter transform translate-y-full mt-1">100</div>
-
-                {labelsData.map(label => (
-                    <div key={label.id} className={`absolute bottom-0 text-[10px] font-black ${label.color} tracking-tighter ${label.align} translate-y-full mt-1 transition-all`} style={{ left: `${label.pos}%`, transform: `translateY(calc(100% + ${label.offset}px))` }}>
-                        {label.prefix && <span className="text-[7px] opacity-70 mr-0.5">{label.prefix}</span>}
-                        {label.val}%
-                    </div>
-                ))}
-            </div>
+            {/* Scale labels at bottom corners */}
+            <div className="absolute bottom-0 left-1 text-[9px] font-bold text-slate-500 transform translate-y-full">{Math.round(xMin)}%</div>
+            <div className="absolute bottom-0 right-1 text-[9px] font-bold text-slate-500 transform translate-y-full">{Math.round(xMin + range)}%</div>
         </div>
     );
 }
@@ -356,16 +352,40 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     }, [equalWeightsMode, activeCategories]);
 
     // Effective weights for simulation - use weights if available, otherwise equal weights
+    // FIX: Filter out orphan categories and ensure all active categories have weights
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) {
             return getEqualWeights();
         }
-        if (Object.keys(weights).length > 0) {
-            return weights;
+
+        // Get list of active category names
+        const activeCatNames = new Set(activeCategories.map(c => c.name));
+
+        // Filter saved weights to only include active categories
+        const filteredWeights = {};
+        let hasValidWeights = false;
+
+        for (const catName of activeCatNames) {
+            if (weights[catName] !== undefined && weights[catName] > 0) {
+                filteredWeights[catName] = weights[catName];
+                hasValidWeights = true;
+            }
         }
+
+        // If we have valid weights for active categories, use them
+        if (hasValidWeights) {
+            // Ensure all active categories have at least 0 weight
+            for (const catName of activeCatNames) {
+                if (filteredWeights[catName] === undefined) {
+                    filteredWeights[catName] = 0;
+                }
+            }
+            return filteredWeights;
+        }
+
         // Fallback to equal weights
         return getEqualWeights();
-    }, [equalWeightsMode, weights, catCount, getEqualWeights, activeCategories]);
+    }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
 
     const [simulationResult, setSimulationResult] = useState(null);
 
@@ -399,23 +419,26 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 const recentScores = scores.slice(-5);
                 const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
 
-                // Calculate SD for this category (Sample SD, n-1) based on RECENT history too (more accurate consistency)
+                // Calculate SD for this category (Sample SD, n-1) based on RECENT history too
                 const n = recentScores.length;
                 const variance = n > 1
                     ? recentScores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
                     : 0;
-                const sd = Math.sqrt(variance);
+                // FIX: Use minimum SD of 5% when only 1 data point to avoid deterministic results
+                const sd = n > 1 ? Math.sqrt(variance) : 5;
 
                 // Calculate trend (compare last 3 vs previous 3)
                 let trend = 'stable';
                 const totalN = scores.length;
-                // ... (trend logic remains same, it uses full history length for window calc)
-                const windowSize = Math.min(3, Math.floor(totalN / 2));
-                const recentWindow = scores.slice(totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
-                const previousWindow = scores.slice(totalN - (windowSize * 2), totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+                // FIX: Protect against windowSize = 0 when totalN < 2
+                const windowSize = Math.max(1, Math.min(3, Math.floor(totalN / 2)));
+                if (totalN >= 2) {
+                    const recentWindow = scores.slice(totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
+                    const previousWindow = scores.slice(Math.max(0, totalN - (windowSize * 2)), totalN - windowSize).reduce((a, b) => a + b, 0) / windowSize;
 
-                if (recentWindow > previousWindow + 2) trend = 'up';
-                else if (recentWindow < previousWindow - 2) trend = 'down';
+                    if (recentWindow > previousWindow + 2) trend = 'up';
+                    else if (recentWindow < previousWindow - 2) trend = 'down';
+                }
 
                 // Get weight for this category
                 const weight = debouncedWeights[cat.name] !== undefined ? debouncedWeights[cat.name] : 0;
@@ -445,13 +468,16 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         // Instead of static mean, we project where the user will be in X days
         // const PROJECT_DAYS = 30; // Old static value
 
+        // FIX: Normalize weights properly - divide each weight by totalWeight
         const currentWeightedMean = categoryStats.reduce((acc, cat) => {
-            return acc + (cat.mean * cat.weight);
-        }, 0) / (totalWeight || 1);
+            const normalizedWeight = cat.weight / totalWeight;
+            return acc + (cat.mean * normalizedWeight);
+        }, 0);
 
         const weightedMean = categoryStats.reduce((acc, cat) => {
+            const normalizedWeight = cat.weight / totalWeight;
             // Calculate Linear Regression for this category
-            if (!cat.history || cat.history.length < 2) return acc + (cat.mean * cat.weight);
+            if (!cat.history || cat.history.length < 2) return acc + (cat.mean * normalizedWeight);
 
             const dataPoints = cat.history.map(h => ({
                 x: (new Date(h.date).getTime() - new Date(cat.history[0].date).getTime()) / (1000 * 60 * 60 * 24),
@@ -496,18 +522,22 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             // Clamp projection 0-100
             const safeProjection = Math.max(0, Math.min(100, projectedScore));
 
-            return acc + (safeProjection * cat.weight);
-        }, 0) / (totalWeight || 1);
+            return acc + (safeProjection * normalizedWeight);
+        }, 0);
 
         // Pooled SD - Remove the "trendFactor" hack. Trend is now in the Mean.
+        // FIX: Normalize weights to sum to 1 (divide each weight by totalWeight)
         const pooledVariance = categoryStats.reduce((acc, cat) => {
-            return acc + (cat.weight * cat.sd * cat.sd);
-        }, 0) / (totalWeight || 1);
+            const normalizedWeight = cat.weight / totalWeight; // Normalize to 0-1
+            return acc + (normalizedWeight * cat.sd * cat.sd);
+        }, 0);
 
         // Add uncertainty over time (Time-dependent variance)
-        // Future predictions are naturally less certain. We add a small variance growth per day.
-        const timeUncertainty = projectDays * 0.5; // Heuristic: SD grows slightly with time
-        const pooledSD = Math.sqrt(pooledVariance + timeUncertainty);
+        // Future predictions are naturally less certain. We add variance growth per day.
+        // FIX: timeUncertainty should be squared since we're adding to variance, not SD
+        const timeUncertaintySD = projectDays * 0.1; // 0.1% SD growth per day
+        const timeUncertaintyVariance = timeUncertaintySD * timeUncertaintySD;
+        const pooledSD = Math.sqrt(pooledVariance + timeUncertaintyVariance);
 
         // 3. Run Monte Carlo (10,000 iterations)
         const simulations = 10000;
@@ -546,8 +576,11 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         const probability = (successCount / simulations) * 100;
 
         // Calculate 95% Confidence Interval
-        const ci95Low = scores[Math.floor(simulations * 0.025)];
-        const ci95High = scores[Math.floor(simulations * 0.975)];
+        // FIX: Ensure index stays within array bounds (0 to simulations-1)
+        const ci95LowIndex = Math.floor(simulations * 0.025);
+        const ci95HighIndex = Math.min(Math.floor(simulations * 0.975), simulations - 1);
+        const ci95Low = scores[ci95LowIndex];
+        const ci95High = scores[ci95HighIndex];
 
         setSimulationResult({
             probability: probability.toFixed(1),
@@ -622,7 +655,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
     }
 
     // Visual Config with Gradient Colors
-    const { probability, mean: _globalMean, sd: _globalSD, ci95Low: _ci95Low, ci95High: _ci95High, categoryStats: _categoryStats } = simulationResult;
+    const { probability } = simulationResult;
     const prob = parseFloat(probability);
 
     // Gradient color function: smoothly transitions from red -> orange -> yellow -> green
@@ -651,191 +684,168 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
     const gradientColor = getGradientColor(prob);
 
-    let message = "Aprovação Improvável";
-    if (simulateToday) {
-        message += " Hoje";
-    } else {
-        message += " na Data da Prova";
+    // FIX: Determine base message first, then add time suffix consistently
+    let baseMessage = "Aprovação Improvável";
+    if (prob > 80) {
+        baseMessage = "Aprovação Matematicamente Certa";
+    } else if (prob > 50) {
+        baseMessage = "Na Zona de Briga";
+    } else if (prob > 25) {
+        baseMessage = "Precisa Melhorar";
     }
 
-    if (prob > 80) {
-        message = simulateToday ? "Aprovação Matematicamente Certa Hoje" : "Aprovação Matematicamente Certa";
-    } else if (prob > 50) {
-        message = "Na Zona de Briga";
-    } else if (prob > 25) {
-        message = "Precisa Melhorar";
-    }
+    // Add time context suffix
+    const timeSuffix = simulateToday ? " Hoje" : "";
+    const message = baseMessage + timeSuffix;
 
     return (
-        <div className="glass h-full p-3 rounded-3xl relative flex flex-col items-center border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl">
+        <div className="glass p-3 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-colors shadow-2xl overflow-hidden w-full max-w-full">
 
-            {/* --- HEADER: Title & Today Button --- */}
-            <div className="w-full flex justify-between items-start mb-1">
+            {/* ═══════════════ BLOCO 1: HEADER FIXO ═══════════════ */}
+            <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                        <Gauge size={16} className="text-blue-400" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                        <Gauge size={16} className="text-white" />
                     </div>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monte Carlo</span>
                 </div>
-
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setSimulateToday(!simulateToday);
-                    }}
-                    className={`
-                    px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all border shadow-sm
-                    ${simulateToday
-                            ? 'bg-green-500 text-white border-green-400 shadow-[0_0_8px_rgba(34,197,94,0.4)]'
-                            : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-slate-700 hover:text-white'}
-                `}
-                    title="Alternar entre projeção futura e análise imediata"
-                >
-                    {simulateToday ? 'PROJEÇÃO: HOJE' : 'PROJEÇÃO: FUTURA'}
-                </button>
-            </div>
-
-
-            {/* --- CENTER: Main Gauge & Probability --- */}
-            <div className="relative flex flex-col items-center justify-center py-2 shrink-0">
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl">
-                    <div className="w-32 h-32 rounded-full" style={{ backgroundColor: gradientColor }} />
-                </div>
-
-                <svg width="168" height="84" viewBox="0 0 140 70" className="overflow-visible relative z-10">
-                    <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#0f172a" strokeWidth="12" strokeLinecap="round" />
-                    <path
-                        d="M 10 65 A 60 60 0 0 1 130 65"
-                        fill="none"
-                        stroke={gradientColor}
-                        strokeWidth="12"
-                        strokeLinecap="round"
-                        strokeDasharray={188}
-                        strokeDashoffset={188 - (188 * (prob / 100))}
-                        style={{ transition: 'stroke-dashoffset 1.5s ease-out, stroke 0.5s ease-out' }}
-                    />
-                </svg>
-
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-1 z-20">
-                    <span className="text-[2.5rem] font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob}%</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}
+                    >
+                        Projeção: {simulateToday ? 'Hoje' : 'Futura'}
+                    </button>
+                    <button
+                        onClick={() => setShowConfig(true)}
+                        className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white"
+                    >
+                        <Settings2 size={14} />
+                    </button>
                 </div>
             </div>
 
-            {/* Verse / Verdict */}
-            <div className="text-center w-full mb-3 -mt-1 relative z-20">
-                <h2 className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full inline-block bg-black/40 backdrop-blur-sm border border-white/10 shadow-sm" style={{ color: gradientColor }}>
-                    {message}
-                </h2>
-            </div>
 
-
-
-            {/* --- METRICS GRID (Highlighted Stats) --- */}
-            <div className="grid grid-cols-2 gap-1 w-full mb-3 px-0">
-                {/* Metric 1: Target */}
-                <div className="bg-black/40 p-1 rounded-lg border border-white/10 flex flex-col items-center relative overflow-hidden group/item hover:bg-black/60 transition-colors shadow-inner">
-                    <div className="absolute top-0 right-0 w-6 h-6 bg-white/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sua Meta</span>
-                    <span className="text-xs font-black text-white">{targetScore}%</span>
-                </div>
-
-                {/* Metric 2: Projection Days */}
-                <div className="bg-black/40 p-1 rounded-lg border border-white/10 flex flex-col items-center relative overflow-hidden group/item hover:bg-black/60 transition-colors shadow-inner">
-                    <div className="absolute top-0 left-0 w-6 h-6 bg-blue-500/5 rounded-full blur-xl -translate-x-1/2 -translate-y-1/2" />
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tempo</span>
-                    <span className={`text-xs font-black ${simulateToday ? 'text-green-400' : 'text-blue-400'}`}>
-                        {simulateToday ? 'AGORA' : `${projectDays}d`}
-                    </span>
-                </div>
-
-                {/* Metric 3: Cenários Projetados (Curva de Distribuição Interativa) */}
-                <div className="col-span-2 bg-black/40 p-2 pb-4 rounded-lg border border-white/10 flex flex-col hover:bg-black/60 transition-colors shadow-inner h-full group/estimate relative">
-                    {/* Header */}
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between z-10 relative">
-                        Projeção de Desempenho
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-white opacity-40"></div>
-                                <span className="text-[8px] text-slate-500">Hoje</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                                <span className="text-[8px] text-slate-500">Projeção</span>
-                            </div>
+            {/* ═══════════════ BLOCO 2: RESULTADO PRINCIPAL ═══════════════ */}
+            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+                <div className="flex flex-col items-center">
+                    <div className="relative mb-2">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl">
+                            <div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} />
                         </div>
-                    </span>
-
-                    {/* Gaussian Curve Visualization Component */}
-                    <div className="w-full h-32 relative">
-                        {(() => {
-                            // Extract values safely
-                            const mean = parseFloat(simulationResult.mean);
-                            const sd = parseFloat(simulationResult.sd);
-                            const low95 = parseFloat(simulationResult.ci95Low);
-                            const high95 = parseFloat(simulationResult.ci95High);
-                            const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
-
-                            return (
-                                <GaussianChart
-                                    mean={mean}
-                                    sd={sd}
-                                    low95={low95}
-                                    high95={high95}
-                                    targetScore={targetScore}
-                                    currentMean={currentMean}
-                                />
-                            );
-                        })()}
+                        <svg width="180" height="90" viewBox="0 0 140 70" className="overflow-visible relative z-10">
+                            <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
+                            <path
+                                d="M 10 65 A 60 60 0 0 1 130 65"
+                                fill="none"
+                                stroke={gradientColor}
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                strokeDasharray={188}
+                                strokeDashoffset={188 - (188 * (prob / 100))}
+                                style={{ transition: 'stroke-dashoffset 1.5s ease-out, stroke 0.5s ease-out' }}
+                            />
+                        </svg>
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-1 z-20">
+                            <span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob}%</span>
+                        </div>
                     </div>
-
+                    <span className="text-sm font-black uppercase tracking-widest px-4 py-1 rounded-full bg-black/40 border border-white/10" style={{ color: gradientColor }}>
+                        {message}
+                    </span>
                 </div>
             </div>
 
-            {/* --- FOOTER: Stats & Trends --- */}
-            <div className="w-full mt-auto flex flex-col gap-2">
+            {/* ═══════════════ BLOCO 3: MÉTRICAS ESTATÍSTICAS ═══════════════ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Sua Meta</span>
+                    <span className="text-sm font-black text-red-400">{targetScore}%</span>
+                </div>
+                <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Média</span>
+                    <span className="text-sm font-black text-blue-400">{simulationResult.mean}%</span>
+                </div>
+                <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Consistência</span>
+                    <span className={`text-sm font-black ${Math.abs(parseFloat(simulationResult.sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(simulationResult.sd)) <= 10 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        ±{Math.abs(parseFloat(simulationResult.sd))}%
+                    </span>
+                </div>
+                <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">IC 95%</span>
+                    <span className="text-sm font-black text-green-400 whitespace-nowrap">{simulationResult.ci95Low}-{simulationResult.ci95High}%</span>
+                </div>
+            </div>
 
-                {/* Tech Specs */}
-                <div className="flex justify-between px-4 py-2 bg-black/40 rounded-lg border border-white/10 text-[9px] text-slate-400 shadow-sm">
-                    <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1">
-                            Média Pond: <b className="text-slate-300">{simulationResult.mean}%</b>
-                        </span>
-                        <span className="flex items-center gap-1">
-                            Consistência: <b className={`${Math.abs(simulationResult.sd) > 10 ? 'text-yellow-400' : 'text-green-400'}`}>±{Math.abs(simulationResult.sd)}%</b>
-                        </span>
+            {/* ═══════════════ BLOCO 4: PROJEÇÃO DE DESEMPENHO ═══════════════ */}
+            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Projeção de Desempenho</span>
+                </div>
+                <div className="w-full h-36 px-2">
+                    {(() => {
+                        const mean = parseFloat(simulationResult.mean);
+                        const sd = parseFloat(simulationResult.sd);
+                        const low95 = parseFloat(simulationResult.ci95Low);
+                        const high95 = parseFloat(simulationResult.ci95High);
+                        const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
+                        return (
+                            <GaussianChart
+                                mean={mean}
+                                sd={sd}
+                                low95={low95}
+                                high95={high95}
+                                targetScore={targetScore}
+                                currentMean={currentMean}
+                            />
+                        );
+                    })()}
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-0.5 bg-red-500"></div>
+                        <span className="text-[9px] text-slate-400">Meta</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-0.5 bg-blue-500 opacity-50" style={{ borderTop: '1px dashed #3b82f6' }}></div>
+                        <span className="text-[9px] text-slate-400">Média</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm bg-green-500/30 border border-green-500/50"></div>
+                        <span className="text-[9px] text-slate-400">IC 95%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-white/40"></div>
+                        <span className="text-[9px] text-slate-400">Hoje</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-0.5 bg-blue-500"></div>
+                        <span className="text-[9px] text-slate-400">Projeção</span>
                     </div>
                 </div>
+            </div>
 
-                {/* Trend Chips */}
-                <div className="flex flex-wrap justify-center gap-1">
-                    {simulationResult.categoryStats.slice(0, 5).map((cat, idx) => (
-                        <span key={idx} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/80 border border-white/10 text-[8px] text-slate-300 uppercase tracking-tight shadow-sm">
-                            {cat.trend === 'up' && <TrendingUp size={8} className="text-green-400" />}
-                            {cat.trend === 'down' && <TrendingDown size={8} className="text-red-400" />}
-                            {cat.trend === 'stable' && <Minus size={8} className="text-slate-500" />}
-                            <span className="max-w-[60px] truncate">{cat.name.split(' ')[0]}</span>
-                        </span>
+            {/* ═══════════════ BLOCO 5: TENDÊNCIAS POR CATEGORIA ═══════════════ */}
+            <div className="w-full">
+                <div className="flex flex-wrap justify-center gap-1.5">
+                    {simulationResult.categoryStats.slice(0, 8).map((cat, idx) => (
+                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                            {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
+                            {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                            {cat.trend === 'stable' && <Minus size={10} className="text-slate-500" />}
+                            <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
+                        </div>
                     ))}
-                    {simulationResult.categoryStats.length > 5 && (
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800/80 border border-white/10 text-[8px] text-slate-500">
-                            +{simulationResult.categoryStats.length - 5}
+                    {simulationResult.categoryStats.length > 8 && (
+                        <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
+                            +{simulationResult.categoryStats.length - 8}
                         </span>
                     )}
                 </div>
             </div>
 
-
-            {/* Config Trigger (Floating or Bottom) */}
-            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={() => setShowConfig(true)}
-                    className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all shadow-lg text-slate-400 hover:text-white"
-                    title="Configurar Pesos e Metas"
-                >
-                    <Settings2 size={12} />
-                </button>
-            </div>
-
-            {/* Dedicated Configuration Modal/Overlay */}
+            {/* Modal de Configuração */}
             <ConfigModal
                 show={showConfig}
                 onClose={setShowConfig}
