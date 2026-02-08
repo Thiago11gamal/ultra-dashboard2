@@ -42,7 +42,6 @@ export default function VerifiedStats({ categories = [], user }) {
                             totalQuestions: h.total || 0
                         });
                         totalQuestionsGlobal += (h.total || 0);
-                        allScores.push(h.score);
                     }
                 });
             }
