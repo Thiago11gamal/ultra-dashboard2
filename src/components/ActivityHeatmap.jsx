@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);

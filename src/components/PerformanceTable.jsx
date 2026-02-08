@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
 
 const PerformanceTable = ({ categories = [] }) => {
     // Sort by Net Balance (Saldo) descending

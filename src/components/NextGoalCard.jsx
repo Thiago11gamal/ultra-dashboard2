@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Target, Play, Zap, Clock, ArrowRight, Flame } from 'lucide-react';
+import { Target, Play, Clock } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 
 export default function NextGoalCard({ categories = [], simulados = [], onStartStudying }) {

@@ -139,7 +139,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     const now = new Date();
     // Normalize to midnight to ensure accurate day calculation regardless of time
     const todayNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const _goalDateObj = new Date(user.goalDate);
     // Use the goal date components explicitly to avoid UTC shift issues if parsing simplistic strings
     // But since input is YYYY-MM-DD, parsing usually results in UTC midnight. 
     // Best to treat goalDate as local midnight too.
@@ -194,7 +193,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     // For safety, set hours to 0
     goalNormalizedFinal.setHours(0, 0, 0, 0);
 
-    const _daysSinceStart = differenceInDays(todayNormalized, new Date(user.startDate));
     const daysUntilGoal = differenceInDays(goalNormalizedFinal, todayNormalized);
 
     // Calculate Unique Days Studied

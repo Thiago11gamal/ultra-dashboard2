@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, Target, CheckCircle2, AlertCircle, Trophy, Siren } from 'lucide-react';
+import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren } from 'lucide-react';
 
 // Format minutes to hours:minutes
 const formatDuration = (minutes) => {
@@ -342,7 +342,7 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                                         <div className="space-y-6">
                                             {subjects.map((subj, idx) => {
                                                 const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
-                                                const _status = getStatus(subjPct);
+                                                const subjStatus = getStatus(subjPct);
                                                 const insight = getInsight(subjPct);
                                                 const subjColor = getSubjectColor(subj.name);
 

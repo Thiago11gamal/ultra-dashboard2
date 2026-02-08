@@ -81,8 +81,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
             pathData: path,
             areaPathData: areaPath,
             range,
-            xMin,
-            labelsData: labels
+            xMin
         };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 

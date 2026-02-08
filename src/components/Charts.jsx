@@ -10,10 +10,6 @@ import {
     PieChart,
     Pie,
     Cell,
-    LineChart,
-    Line,
-    Area,
-    AreaChart,
 } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label }) => {

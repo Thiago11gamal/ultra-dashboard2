@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 export default function TopicPerformance({ categories = [] }) {

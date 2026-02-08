@@ -7,7 +7,6 @@ import {
     Settings,
     Download,
     Upload,
-    ChevronDown,
     ChevronUp,
     BrainCircuit,
     Sparkles,

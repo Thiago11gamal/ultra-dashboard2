@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Calendar, Clock, BookOpen, Trophy, Zap, ChevronRight, Activity } from 'lucide-react';
+import { BookOpen, Zap, Activity } from 'lucide-react';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 

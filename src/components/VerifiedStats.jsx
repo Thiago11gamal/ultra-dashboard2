@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Calculator, Activity, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
-import { analyzeProgressState, getUIHints } from '../utils/ProgressStateEngine';
+import { analyzeProgressState } from '../utils/ProgressStateEngine';
 
 const InfoTooltip = ({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">

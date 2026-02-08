@@ -61,7 +61,6 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     }, []); // Only run once on mount
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
-    const [_expandedCategory, _setExpandedCategory] = useState(null);
     const [speed, setSpeed] = useState(1);
 
 

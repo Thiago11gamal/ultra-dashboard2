@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Plus, LogOut, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
