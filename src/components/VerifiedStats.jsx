@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Calculator, Activity, AlertCircle } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
+import { analyzeProgressState, getUIHints } from '../utils/ProgressStateEngine';
 
 const InfoTooltip = ({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -29,7 +30,6 @@ export default function VerifiedStats({ categories = [], user }) {
     const stats = useMemo(() => {
         let allHistory = [];
         let totalQuestionsGlobal = 0;
-        let allScores = []; // For SD calculation
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
@@ -52,40 +52,21 @@ export default function VerifiedStats({ categories = [], user }) {
         // Sort by date (Robust against string dates)
         allHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // 1. Daily Trend Algorithm (Last 5 Days)
-        let trend = 'stable';
-        let trendValue = 0;
-
-        // Group by Date for Daily Average calculation
-        const dailyGroups = {};
-        allHistory.forEach(h => {
-            const dateKey = new Date(h.date).toLocaleDateString();
-            if (!dailyGroups[dateKey]) dailyGroups[dateKey] = { sum: 0, count: 0, dateFull: h.date };
-            dailyGroups[dateKey].sum += h.score;
-            dailyGroups[dateKey].count += 1;
+        // 1. Progress State Analysis (using ProgressStateEngine)
+        const allScores = allHistory.map(h => h.score);
+        const globalAnalysis = analyzeProgressState(allScores, {
+            window_size: Math.min(5, allScores.length),
+            stagnation_threshold: 0.5,
+            low_level_limit: 60,
+            high_level_limit: targetScore
         });
 
-        // Convert to array of { date, avgScore } and sort
-        const dailyAverages = Object.values(dailyGroups)
-            .map(g => ({ date: g.dateFull, score: g.sum / g.count }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        const recentDays = dailyAverages.slice(-5);
-
-        if (recentDays.length >= 3) {
-            // Split: Recent (Last 2 days) vs Base (Previous 3 days)
-            const splitIndex = Math.max(0, recentDays.length - 2);
-
-            const baseSet = recentDays.slice(0, splitIndex);
-            const recentSet = recentDays.slice(splitIndex);
-
-            const baseAvg = baseSet.reduce((a, b) => a + b.score, 0) / baseSet.length;
-            const recentAvg = recentSet.reduce((a, b) => a + b.score, 0) / recentSet.length;
-
-            trendValue = recentAvg - baseAvg;
-            if (trendValue > 2) trend = 'up';
-            else if (trendValue < -2) trend = 'down';
-        }
+        // Map to UI-compatible format
+        const trend = globalAnalysis.trend_slope > 0.01 ? 'up' :
+            globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable';
+        const trendValue = globalAnalysis.trend_slope;
+        const progressState = globalAnalysis.state;
+        const progressLabel = globalAnalysis.label;
 
         // 2. Linear Regression & Contextual Prediction
         let prediction = "Calibrando...";
@@ -249,133 +230,84 @@ export default function VerifiedStats({ categories = [], user }) {
             };
         }
 
-        // 4. Content Consistency (Weighted Standard Deviation)
-        // New Algorithm: Average of SDs per Category
-        // Logic: being consistent in Math (always 90) and Port (always 40) makes you a "Consistent Student" with knowledge gaps, not an "Oscillating Student".
-
+        // 4. Progress State Analysis per Category (using ProgressStateEngine)
         let consistency = {
             status: 'Dados Insuficientes',
             color: 'text-slate-400',
             bgBorder: 'border-slate-500',
             icon: <Minus size={20} />,
             message: "Mínimo 2 simulados em cada matéria.",
+            delta: 0,
             sd: 0
         };
 
-        const categorySDs = [];
         const categoryBreakdown = [];
+        const categoryAnalyses = [];
+
+        // State to UI mapping
+        const stateMap = {
+            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
+            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-yellow-400', bgBorder: 'border-yellow-500/30', icon: <AlertCircle size={20} /> },
+            stagnation_positive: { status: 'EXCELENTE', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
+            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
+            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
+            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30', icon: <Activity size={20} /> },
+            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
+        };
 
         categories.forEach(cat => {
-            if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length >= 2) {
-                // Focus on RECENT consistency (Last 5 exams) to avoid penalizing past learning curves
+            if (cat.simuladoStats?.history?.length >= 2) {
                 const scores = cat.simuladoStats.history.slice(-5).map(h => h.score);
-                const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-                // Sample Standard Deviation (n-1) - Bessel's correction for small samples
-                const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
-                const sd = Math.sqrt(variance);
-                const sdFixed = sd.toFixed(1);
 
-                categorySDs.push(sd);
-
-                // Individual Status
-                let status = 'ESTÁVEL';
-                let color = 'text-yellow-400';
-                let bgBorder = 'border-yellow-500/30';
-
-                if (sd < 5) {
-                    status = 'CONSISTENTE';
-                    color = 'text-green-400';
-                    bgBorder = 'border-green-500/30';
-                } else if (sd > 15) {
-                    status = 'OSCILANTE';
-                    color = 'text-red-400';
-                    bgBorder = 'border-red-500/30';
-                }
-
-                // --- TOPIC VARIATION ANALYSIS (NEW) ---
-                const topicMap = {}; // { "TopicName": [score1, score2, ...] }
-                cat.simuladoStats.history.forEach(h => {
-                    if (h.topics) {
-                        h.topics.forEach(t => {
-                            // Ensure valid data (ignore topics with 0 total questions to avoid NaN)
-                            const total = parseInt(t.total) || 0;
-                            const correct = parseInt(t.correct) || 0;
-                            if (total > 0) {
-                                const topicScore = (correct / total) * 100;
-                                if (!topicMap[t.name]) topicMap[t.name] = [];
-                                topicMap[t.name].push(topicScore);
-                            }
-                        });
-                    }
+                const analysis = analyzeProgressState(scores, {
+                    window_size: Math.min(5, scores.length),
+                    stagnation_threshold: 0.5,
+                    low_level_limit: 60,
+                    high_level_limit: 75
                 });
 
-                const unstableTopics = [];
-                Object.entries(topicMap).forEach(([tName, tScores]) => {
-                    if (tScores.length >= 2) {
-                        // Calculate Topic SD
-                        const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
-                        const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
-                        const tSD = Math.sqrt(tVar);
+                categoryAnalyses.push(analysis);
 
-                        // We care about high SD (instability)
-                        if (tSD > 10) { // arbitrary threshold for "unstable"
-                            unstableTopics.push({ name: tName, sd: tSD });
-                        }
-                    }
-                });
-
-                // Sort by SD Descending (Most unstable first)
-                unstableTopics.sort((a, b) => b.sd - a.sd);
-                const villains = unstableTopics.slice(0, 3); // Top 3 villains
+                const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
+                const sd = Math.sqrt(analysis.variance);
 
                 categoryBreakdown.push({
                     name: cat.name,
-                    sd: sdFixed,
+                    status: uiState.status,
+                    color: uiState.color,
+                    bgBorder: uiState.bgBorder,
+                    delta: analysis.delta,
+                    sd: sd.toFixed(1),
                     rawSd: sd,
-                    status,
-                    color,
-                    bgBorder,
-                    villains // Passed to UI
+                    message: analysis.label,
+                    state: analysis.state,
+                    villains: [] // Topic analysis removed for cleaner code
                 });
             }
         });
 
-        // Sort Breakdown: Worst consistency (highest SD) first
-        categoryBreakdown.sort((a, b) => b.rawSd - a.rawSd);
+        // Sort: Worst states first (regression > stagnation_negative > unstable > others)
+        const statePriority = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5 };
+        categoryBreakdown.sort((a, b) => (statePriority[a.state] || 6) - (statePriority[b.state] || 6));
 
-        if (categorySDs.length > 0) {
-            // Global SD is the average of individual SDs
-            const avgSD = categorySDs.reduce((a, b) => a + b, 0) / categorySDs.length;
-            const sdFixed = avgSD.toFixed(1);
+        // Consolidate for Global Card
+        if (categoryAnalyses.length > 0) {
+            const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
+            const avgSD = categoryAnalyses.reduce((a, b) => a + Math.sqrt(b.variance), 0) / categoryAnalyses.length;
 
-            if (avgSD < 5) {
-                consistency = {
-                    status: 'CONSISTENTE',
-                    color: 'text-green-400',
-                    bgBorder: 'border-green-500',
-                    icon: <Activity size={20} />,
-                    message: "Variação mínima intra-matéria. Excelente.",
-                    sd: sdFixed
-                };
-            } else if (avgSD > 15) {
-                consistency = {
-                    status: 'OSCILANTE',
-                    color: 'text-red-400',
-                    bgBorder: 'border-red-500',
-                    icon: <AlertCircle size={20} />,
-                    message: "⚠️ Busque estabilidade nas matérias.",
-                    sd: sdFixed
-                };
-            } else {
-                consistency = {
-                    status: 'ESTÁVEL',
-                    color: 'text-yellow-400',
-                    bgBorder: 'border-yellow-500',
-                    icon: <Activity size={20} />,
-                    message: "Ritmo constante por disciplina.",
-                    sd: sdFixed
-                };
-            }
+            // Use worst category state for global status
+            const worstCategory = categoryBreakdown[0];
+            const uiState = stateMap[worstCategory.state] || stateMap.insufficient_data;
+
+            consistency = {
+                status: uiState.status,
+                color: uiState.color,
+                bgBorder: uiState.bgBorder,
+                icon: uiState.icon,
+                message: worstCategory.message,
+                delta: avgDelta.toFixed(1),
+                sd: avgSD.toFixed(1)
+            };
         }
 
         return { trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };

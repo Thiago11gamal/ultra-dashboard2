@@ -1,0 +1,143 @@
+/**
+ * ProgressStateEngine
+ * 
+ * Detects qualified stagnation states and differentiates from
+ * evolution, regression, and instability.
+ */
+
+// Default configuration
+const DEFAULT_CONFIG = {
+    window_size: 10,
+    stagnation_threshold: 0.5,  // epsilon
+    low_level_limit: 60,        // L1
+    high_level_limit: 75        // L2
+};
+
+/**
+ * Analyze progress state from an array of scores
+ * @param {number[]} scores - Array of scores ordered by time
+ * @param {Object} config - Configuration parameters
+ * @returns {Object} Analysis result with state, label, and metrics
+ */
+export function analyzeProgressState(scores, config = {}) {
+    const {
+        window_size,
+        stagnation_threshold,
+        low_level_limit,
+        high_level_limit
+    } = { ...DEFAULT_CONFIG, ...config };
+
+    // 3. Pre-condition check
+    if (!scores || scores.length < window_size) {
+        return {
+            state: 'insufficient_data',
+            label: 'Dados Insuficientes',
+            mean_score: 0,
+            delta: 0,
+            variance: 0,
+            trend_slope: 0,
+            severity: 'none'
+        };
+    }
+
+    // 4. Extract window
+    const recentScores = scores.slice(-window_size);
+
+    // 5.1 Mean (Absolute Level)
+    const mean = recentScores.reduce((a, b) => a + b, 0) / window_size;
+
+    // 5.2 Delta (Mean Absolute Variation)
+    let variationTotal = 0;
+    for (let i = 1; i < recentScores.length; i++) {
+        variationTotal += Math.abs(recentScores[i] - recentScores[i - 1]);
+    }
+    const delta = variationTotal / (window_size - 1);
+
+    // 5.3 Variance (Consistency)
+    const variance = recentScores.reduce((acc, score) =>
+        acc + Math.pow(score - mean, 2), 0) / window_size;
+
+    // 5.4 Trend (Linear Regression Slope)
+    const xMean = (window_size - 1) / 2;
+    let numerator = 0;
+    let denominator = 0;
+
+    for (let i = 0; i < window_size; i++) {
+        numerator += (i - xMean) * (recentScores[i] - mean);
+        denominator += Math.pow(i - xMean, 2);
+    }
+
+    const slope = denominator !== 0 ? numerator / denominator : 0;
+
+    // 6. Stagnation Detection
+    const stagnated = delta < stagnation_threshold;
+
+    // 7. Semantic Classification
+    let state = '';
+    let label = '';
+    let severity = 'none';
+
+    if (stagnated) {
+        // 7.1 Qualified Stagnation
+        if (mean < low_level_limit) {
+            state = 'stagnation_negative';
+            label = 'Estagnação em nível baixo';
+            severity = 'high';
+        } else if (mean < high_level_limit) {
+            state = 'stagnation_neutral';
+            label = 'Estagnação em nível médio';
+            severity = 'medium';
+        } else {
+            state = 'stagnation_positive';
+            label = 'Estagnação em nível alto';
+            severity = 'low';
+        }
+    } else {
+        // 7.2 Dynamic States (Not Stagnated)
+        if (slope > 0) {
+            state = 'progression';
+            label = 'Em evolução';
+            severity = 'none';
+        } else if (slope < 0) {
+            state = 'regression';
+            label = 'Em regressão';
+            severity = 'high';
+        } else {
+            state = 'unstable';
+            label = 'Instável';
+            severity = 'medium';
+        }
+    }
+
+    // 8. Standardized Output
+    return {
+        state,
+        label,
+        mean_score: Number(mean.toFixed(2)),
+        delta: Number(delta.toFixed(2)),
+        variance: Number(variance.toFixed(2)),
+        trend_slope: Number(slope.toFixed(4)),
+        severity
+    };
+}
+
+/**
+ * Get UI hints for a given state
+ * @param {string} state - The state from analyzeProgressState
+ * @returns {Object} UI hints with color and icon
+ */
+export function getUIHints(state) {
+    const hints = {
+        insufficient_data: { color: 'slate', icon: 'minus' },
+        stagnation_negative: { color: 'red', icon: 'alert-triangle' },
+        stagnation_neutral: { color: 'yellow', icon: 'pause-circle' },
+        stagnation_positive: { color: 'green', icon: 'shield-check' },
+        progression: { color: 'blue', icon: 'trending-up' },
+        regression: { color: 'red', icon: 'trending-down' },
+        unstable: { color: 'orange', icon: 'activity' }
+    };
+
+    return hints[state] || hints.insufficient_data;
+}
+
+export default { analyzeProgressState, getUIHints };
