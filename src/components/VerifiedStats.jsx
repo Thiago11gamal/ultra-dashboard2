@@ -49,7 +49,8 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         // Sort by date
-        allHistory.sort((a, b) => a.date - b.date);
+        // Sort by date (Robust against string dates)
+        allHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         // 1. Daily Trend Algorithm (Last 5 Days)
         let trend = 'stable';
@@ -67,7 +68,7 @@ export default function VerifiedStats({ categories = [], user }) {
         // Convert to array of { date, avgScore } and sort
         const dailyAverages = Object.values(dailyGroups)
             .map(g => ({ date: g.dateFull, score: g.sum / g.count }))
-            .sort((a, b) => a.date - b.date);
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
 
         const recentDays = dailyAverages.slice(-5);
 
@@ -106,9 +107,9 @@ export default function VerifiedStats({ categories = [], user }) {
             }
 
             // Simple Linear Regression
-            const startStr = allHistory[0].date;
+            const startTime = new Date(allHistory[0].date).getTime();
             const dataPoints = allHistory.map(h => ({
-                x: (h.date - startStr) / (1000 * 60 * 60 * 24), // Days
+                x: (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24), // Days
                 y: h.score
             }));
 
@@ -122,6 +123,7 @@ export default function VerifiedStats({ categories = [], user }) {
             let slope = 0;
 
             if (denom !== 0) {
+                slope = (n * sumXY - sumX * sumY) / denom;
                 // Limit slope to realistic values (-2.0% to +2.0% per day)
                 // This prevents unrealistic "runaway" predictions, but must be high enough to catch real improvement.
                 slope = Math.max(-2.0, Math.min(2.0, slope));
