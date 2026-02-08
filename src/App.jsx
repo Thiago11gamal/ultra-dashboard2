@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import StatsCards from './components/StatsCards';
 import NextGoalCard from './components/NextGoalCard';
-import QuickNotes from './components/QuickNotes';
+
 
 import Checklist from './components/Checklist';
 import Charts from './components/Charts';
@@ -1069,9 +1069,6 @@ function App() {
   }, [setData]);
 
 
-  const handleSaveNotes = useCallback((newText) => {
-    setData(prev => ({ ...prev, notes: newText }), false);
-  }, [setData]);
 
   // Render Content - RESTORED
 
@@ -1578,10 +1575,7 @@ function App() {
         return (
           <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
             <TopicPerformance categories={data.categories} />
-            <div className="space-y-8">
-              <QuickNotes notes={data.notes || ''} onSave={handleSaveNotes} />
-              <ParetoAnalysis categories={data.categories} />
-            </div>
+            <ParetoAnalysis categories={data.categories} />
           </div>
         );
       case 'settings':
