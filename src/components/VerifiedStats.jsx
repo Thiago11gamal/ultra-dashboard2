@@ -270,6 +270,37 @@ export default function VerifiedStats({ categories = [], user }) {
                 const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
                 const sd = Math.sqrt(analysis.variance);
 
+                // --- TOPIC VARIATION ANALYSIS ---
+                const topicMap = {}; // { "TopicName": [score1, score2, ...] }
+                cat.simuladoStats.history.forEach(h => {
+                    if (h.topics) {
+                        h.topics.forEach(t => {
+                            const total = parseInt(t.total) || 0;
+                            const correct = parseInt(t.correct) || 0;
+                            if (total > 0) {
+                                const topicScore = (correct / total) * 100;
+                                if (!topicMap[t.name]) topicMap[t.name] = [];
+                                topicMap[t.name].push(topicScore);
+                            }
+                        });
+                    }
+                });
+
+                const unstableTopics = [];
+                Object.entries(topicMap).forEach(([tName, tScores]) => {
+                    if (tScores.length >= 2) {
+                        const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
+                        const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
+                        const tSD = Math.sqrt(tVar);
+                        if (tSD > 10) {
+                            unstableTopics.push({ name: tName, sd: tSD });
+                        }
+                    }
+                });
+
+                unstableTopics.sort((a, b) => b.sd - a.sd);
+                const villains = unstableTopics.slice(0, 3);
+
                 categoryBreakdown.push({
                     name: cat.name,
                     status: uiState.status,
@@ -280,7 +311,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     rawSd: sd,
                     message: analysis.label,
                     state: analysis.state,
-                    villains: [] // Topic analysis removed for cleaner code
+                    villains: villains
                 });
             }
         });
