@@ -12,6 +12,19 @@ const InfoTooltip = ({ text }) => (
 );
 
 export default function VerifiedStats({ categories = [], user }) {
+    // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
+    const [targetScore, setTargetScore] = React.useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('monte_carlo_target');
+            return saved ? parseInt(saved) : 70;
+        }
+        return 70;
+    });
+
+    // Save to LocalStorage whenever it changes
+    React.useEffect(() => {
+        localStorage.setItem('monte_carlo_target', targetScore.toString());
+    }, [targetScore]);
 
     const stats = useMemo(() => {
         let allHistory = [];
@@ -76,12 +89,11 @@ export default function VerifiedStats({ categories = [], user }) {
         // 2. Linear Regression & Contextual Prediction
         let prediction = "Calibrando...";
         let predictionSubtext = "Realize mais simulados.";
-        let predictionStatus = "neutral"; // neutral, good, warning, excellence
-        // Read target from localStorage to match Monte Carlo Gauge
-        const savedTarget = typeof window !== 'undefined' ? localStorage.getItem('monte_carlo_target') : null;
-        // Standardize default to 70% (Passing Grade)
-        const userTarget = savedTarget ? parseInt(savedTarget) : 70;
-        let targetScore = userTarget;
+        let predictionStatus = "neutral";
+
+        // Use the lifted state directly
+        const userTarget = targetScore;
+        let calculatedTarget = userTarget;
 
         if (allHistory.length >= 3) {
             // Get recent average (last 5 for better stability)
@@ -90,7 +102,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             // Determine Target dynamically IF user is already above their target
             if (currentAvg >= userTarget) {
-                targetScore = 100;
+                calculatedTarget = 100;
             }
 
             // Simple Linear Regression
@@ -121,7 +133,7 @@ export default function VerifiedStats({ categories = [], user }) {
             // ANTIGRAVITY PREDICTION ENGINE 🚀
             // 1. Inputs
             const currentScore = currentAvg;
-            const target = targetScore;
+            const target = calculatedTarget;
 
             // 2. Distance Calculation
             const distance = target - currentScore;
@@ -364,7 +376,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         return { trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
-    }, [categories]);
+    }, [categories, targetScore]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-down">
@@ -457,7 +469,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             {/* Card 3: Monte Carlo (50%) */}
             <div className="col-span-1 md:col-span-2 h-full">
-                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} />
+                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} targetScore={targetScore} onTargetChange={setTargetScore} />
             </div>
 
             {/* Subject Consistency Breakdown - Full Width */}

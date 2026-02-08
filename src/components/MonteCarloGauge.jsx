@@ -1,21 +1,12 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 
-// Default weights for subjects (can be customized)
-const DEFAULT_WEIGHTS = {
-    'Língua Portuguesa': 20,
-    'Raciocínio Lógico': 20,
-    'Informática': 15,
-    'Geografia': 15,
-    'Conhecimentos Específicos': 30
-};
-
 // Internal Component for the Gaussian Chart with Tooltip State
 function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
     const [hover, setHover] = useState(null); // { x: percent, val: score }
 
     // Optimization: generic loop for path data
-    const { pathData, areaPathData, labelsData, range, xMin } = useMemo(() => {
+    const { pathData, areaPathData, range, xMin } = useMemo(() => {
         // Use a minimum SD for visualization to prevent ultra-thin curves
         const vizSd = Math.max(3, sd);
 
@@ -241,7 +232,7 @@ function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsM
     );
 }
 
-export default function MonteCarloGauge({ categories = [], goalDate }) {
+export default function MonteCarloGauge({ categories = [], goalDate, targetScore, onTargetChange }) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true); // Toggle for equal weights
     const [simulateToday, setSimulateToday] = useState(false); // Toggle for "Today" simulation
@@ -256,20 +247,10 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         return saved ? JSON.parse(saved) : {};
     });
 
-    // Target Score - Persistent (Default 70)
-    const [targetScore, setTargetScore] = useState(() => {
-        const saved = localStorage.getItem('monte_carlo_target');
-        return saved ? parseInt(saved) : 70;
-    });
-
-    // Save to LocalStorage whenever they change
+    // Save weights to LocalStorage whenever they change
     React.useEffect(() => {
         localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
     }, [weights]);
-
-    React.useEffect(() => {
-        localStorage.setItem('monte_carlo_target', targetScore.toString());
-    }, [targetScore]);
 
     const projectDays = useMemo(() => {
         if (simulateToday) return 0; // Force 0 days if "Today" is selected
@@ -387,7 +368,8 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         return getEqualWeights();
     }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
 
-    const [simulationResult, setSimulationResult] = useState(null);
+    // Simulation result is now derived from useMemo, so we don't need state
+    // const [simulationResult, setSimulationResult] = useState(null);
 
     // Debounced values to prevent heavy simulation on every slider drag
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
@@ -403,23 +385,22 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         return () => clearTimeout(timer);
     }, [effectiveWeights]);
 
-    React.useEffect(() => {
-        // 1. Gather Stats per Category with Weights & Trends
+    // 1. Gather Stats per Category with Weights & Trends (Memoized)
+    const statsData = useMemo(() => {
         let categoryStats = [];
         let totalWeight = 0;
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length > 0) {
-                // Sort history by date to ensure correct trend and regression
+                // Sort history by date
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const scores = history.map(h => h.score);
 
-                // Calculate mean for this category (Use Last 5 exams for "Current Status", not lifetime average)
-                // Lifetime average drags down current performance if user improved.
+                // Calculate mean (Last 5 exams)
                 const recentScores = scores.slice(-5);
                 const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
 
-                // Calculate SD for this category (Sample SD, n-1) based on RECENT history too
+                // Calculate SD (Sample SD, n-1)
                 const n = recentScores.length;
                 const variance = n > 1
                     ? recentScores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / (n - 1)
@@ -427,7 +408,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 // FIX: Use minimum SD of 5% when only 1 data point to avoid deterministic results
                 const sd = n > 1 ? Math.sqrt(variance) : 5;
 
-                // Calculate trend (compare last 3 vs previous 3)
+                // Calculate trend
                 let trend = 'stable';
                 const totalN = scores.length;
                 // FIX: Protect against windowSize = 0 when totalN < 2
@@ -440,35 +421,22 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                     else if (recentWindow < previousWindow - 2) trend = 'down';
                 }
 
-                // Get weight for this category
+                // Get weight
                 const weight = debouncedWeights[cat.name] !== undefined ? debouncedWeights[cat.name] : 0;
 
-                // Only include categories with weight > 0
                 if (weight > 0) {
                     totalWeight += weight;
-                    categoryStats.push({
-                        name: cat.name,
-                        mean,
-                        sd,
-                        trend,
-                        weight,
-                        n,
-                        history // Added history for regression
-                    });
+                    categoryStats.push({ name: cat.name, mean, sd, trend, weight, n, history });
                 }
             }
         });
 
         if (categoryStats.length === 0 || categoryStats.reduce((acc, c) => acc + c.n, 0) < 5 || totalWeight === 0) {
-            setSimulationResult(null);
-            return;
+            return null;
         }
 
-        // 2. Linear Regression Projection (The "Speed" of learning)
-        // Instead of static mean, we project where the user will be in X days
-        // const PROJECT_DAYS = 30; // Old static value
-
-        // FIX: Normalize weights properly - divide each weight by totalWeight
+        // 2. Linear Regression Projection
+        // FIX: Normalize weights properly
         const currentWeightedMean = categoryStats.reduce((acc, cat) => {
             const normalizedWeight = cat.weight / totalWeight;
             return acc + (cat.mean * normalizedWeight);
@@ -476,7 +444,6 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
 
         const weightedMean = categoryStats.reduce((acc, cat) => {
             const normalizedWeight = cat.weight / totalWeight;
-            // Calculate Linear Regression for this category
             if (!cat.history || cat.history.length < 2) return acc + (cat.mean * normalizedWeight);
 
             const dataPoints = cat.history.map(h => ({
@@ -491,60 +458,51 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             const sumXX = dataPoints.reduce((a, b) => a + b.x * b.x, 0);
 
             const denom = (n * sumXX - sumX * sumX);
-            let slope = 0; // Improvement per day
-            let intercept = cat.mean; // Fallback intercept
+            let slope = 0;
+            let intercept = cat.mean;
 
             if (denom !== 0) {
                 slope = (n * sumXY - sumX * sumY) / denom;
-                intercept = (sumY - slope * sumX) / n;
+                // intercept is unused for projection now, we anchor on cat.mean
             }
 
-            // Limit slope to realistic values - increased to 2.0%
             const safeSlope = Math.max(-2.0, Math.min(2.0, slope));
 
-            // Calculate Target Days directly from First History Date to (Now + ProjectDays)
-            // This accounts for the gap between Last Simulado and Today correctly.
-            const firstDate = new Date(cat.history[0].date).getTime();
+            // ANCHORED PROJECTION:
+            // Project starting from Current Mean (Average of last 5)
+            // Future Score = Current Mean + (Improvement Rate * Days into Future)
+            // If projectDays is 0 (Today), this equals cat.mean
+            const projectedScore = cat.mean + (safeSlope * projectDays);
 
-            // Normalize current date to midnight to avoid intraday jitter
-            const nowObj = new Date();
-            nowObj.setHours(0, 0, 0, 0);
-            const now = nowObj.getTime();
-
-            const projectMs = projectDays * (1000 * 60 * 60 * 24);
-
-            // Target Date = Now + ProjectDays
-            // Target X (days from start) = (Target Date - First Date) / OneDay
-            const targetX = (now + projectMs - firstDate) / (1000 * 60 * 60 * 24);
-
-            const projectedScore = intercept + (safeSlope * targetX);
-
-            // Clamp projection 0-100
             const safeProjection = Math.max(0, Math.min(100, projectedScore));
 
             return acc + (safeProjection * normalizedWeight);
         }, 0);
 
-        // Pooled SD - Remove the "trendFactor" hack. Trend is now in the Mean.
-        // FIX: Normalize weights to sum to 1 (divide each weight by totalWeight)
+        // Pooled SD
+        // FIX: Normalize weights
         const pooledVariance = categoryStats.reduce((acc, cat) => {
-            const normalizedWeight = cat.weight / totalWeight; // Normalize to 0-1
+            const normalizedWeight = cat.weight / totalWeight;
             return acc + (normalizedWeight * cat.sd * cat.sd);
         }, 0);
 
-        // Add uncertainty over time (Time-dependent variance)
-        // Future predictions are naturally less certain. We add variance growth per day.
-        // FIX: timeUncertainty should be squared since we're adding to variance, not SD
-        const timeUncertaintySD = projectDays * 0.1; // 0.1% SD growth per day
+        // Add uncertainty over time (Squared)
+        const timeUncertaintySD = projectDays * 0.1;
         const timeUncertaintyVariance = timeUncertaintySD * timeUncertaintySD;
         const pooledSD = Math.sqrt(pooledVariance + timeUncertaintyVariance);
 
-        // 3. Run Monte Carlo (10,000 iterations)
+        return { categoryStats, weightedMean, currentWeightedMean, pooledSD };
+    }, [categories, debouncedWeights, projectDays]);
+
+    // 3. Run Monte Carlo (Memoized separately from Target)
+    const simulationScores = useMemo(() => {
+        if (!statsData) return null;
+        const { weightedMean, pooledSD } = statsData;
+
         const simulations = 10000;
         let scores = [];
-        const target = debouncedTarget; // Use debounced target
 
-        // Seeded RNG (Mulberry32) - Ensures consistency between renders
+        // Box-Muller RNG
         function mulberry32(a) {
             return function () {
                 var t = a += 0x6D2B79F5;
@@ -554,11 +512,9 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             }
         }
 
-        // Use a fixed seed + projectDays to ensure distinct but stable patterns for Today vs Future
         const seed = 123456 + projectDays;
         const random = mulberry32(seed);
 
-        // Box-Muller Transform with Seeded Random
         const boxMuller = (m, s) => {
             let u = 0, v = 0;
             while (u === 0) u = random();
@@ -570,28 +526,40 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
         for (let i = 0; i < simulations; i++) {
             scores.push(boxMuller(weightedMean, pooledSD));
         }
-
         scores.sort((a, b) => a - b);
-        const successCount = scores.filter(s => s >= target).length;
+        return scores;
+    }, [statsData, projectDays]);
+
+    // 4. Calculate Final Result (Cheap, updates on Target change)
+    const simulationResult = useMemo(() => {
+        if (!statsData || !simulationScores) return null;
+
+        const { categoryStats, weightedMean, currentWeightedMean, pooledSD } = statsData;
+        const target = debouncedTarget;
+        const simulations = simulationScores.length;
+
+        const successCount = simulationScores.filter(s => s >= target).length;
         const probability = (successCount / simulations) * 100;
 
-        // Calculate 95% Confidence Interval
-        // FIX: Ensure index stays within array bounds (0 to simulations-1)
         const ci95LowIndex = Math.floor(simulations * 0.025);
         const ci95HighIndex = Math.min(Math.floor(simulations * 0.975), simulations - 1);
-        const ci95Low = scores[ci95LowIndex];
-        const ci95High = scores[ci95HighIndex];
+        const ci95Low = simulationScores[ci95LowIndex];
+        const ci95High = simulationScores[ci95HighIndex];
 
-        setSimulationResult({
+        return {
             probability: probability.toFixed(1),
             mean: weightedMean.toFixed(1),
-            currentMean: currentWeightedMean.toFixed(1), // Added Current Mean
+            currentMean: currentWeightedMean.toFixed(1),
             sd: pooledSD.toFixed(1),
             ci95Low: ci95Low.toFixed(0),
             ci95High: ci95High.toFixed(0),
             categoryStats
-        });
-    }, [categories, debouncedWeights, debouncedTarget, projectDays]);
+        };
+    }, [statsData, simulationScores, debouncedTarget]);
+
+    // Effect to update local state logic is removed as we use derived state directly
+    // setSimulationResult is no longer needed as simulationResult is a derived constant
+
 
     // Show placeholder if not enough data
     if (!simulationResult) {
@@ -829,8 +797,8 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
             {/* ═══════════════ BLOCO 5: TENDÊNCIAS POR CATEGORIA ═══════════════ */}
             <div className="w-full">
                 <div className="flex flex-wrap justify-center gap-1.5">
-                    {simulationResult.categoryStats.slice(0, 8).map((cat, idx) => (
-                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                    {simulationResult.categoryStats.slice(0, 8).map((cat) => (
+                        <div key={cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
                             {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
                             {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
                             {cat.trend === 'stable' && <Minus size={10} className="text-slate-500" />}
@@ -850,7 +818,7 @@ export default function MonteCarloGauge({ categories = [], goalDate }) {
                 show={showConfig}
                 onClose={setShowConfig}
                 targetScore={targetScore}
-                setTargetScore={setTargetScore}
+                setTargetScore={onTargetChange}
                 equalWeightsMode={equalWeightsMode}
                 setEqualWeightsMode={setEqualWeightsMode}
                 getEqualWeights={getEqualWeights}
