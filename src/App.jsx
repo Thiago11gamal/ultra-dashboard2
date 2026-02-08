@@ -18,7 +18,7 @@ import SimuladoAnalysis from './components/SimuladoAnalysis';
 import WeeklyAnalysis from './components/WeeklyAnalysis';
 import VerifiedStats from './components/VerifiedStats';
 import ParetoAnalysis from './components/ParetoAnalysis';
-import NextGoalCard from './components/NextGoalCard';
+
 import ActivityHeatmap from './components/ActivityHeatmap';
 import ConsistencyAlert from './components/ConsistencyAlert';
 import StudyHistory from './components/StudyHistory';
@@ -124,63 +124,83 @@ function App() {
   }, [setAppState]);
 
   // Change 'studying' to 'paused' on app initialization
+  // Change 'studying' to 'paused' on app initialization AND check for day change on focus
   useEffect(() => {
-    const now = new Date();
-    const today = now.toDateString();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+    const checkAndResetDay = () => {
+      const now = new Date();
+      const today = now.toDateString();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
 
-    setData(prev => {
-      // 1. Clean old rows (keep only today + yesterday)
-      let currentRows = (prev.simuladoRows || []).filter(row => {
-        if (!row.createdAt) return false;
-        const rowDate = new Date(row.createdAt).toDateString();
-        return rowDate === today || rowDate === yesterday;
-      });
-
-      // 1.5 Deduplicate
-      const seen = new Set();
-      currentRows = currentRows.filter(row => {
-        const key = JSON.stringify({
-          s: row.subject?.trim(),
-          t: row.topic?.trim(),
-          c: row.correct,
-          tot: row.total,
-          d: new Date(row.createdAt).toDateString()
+      setData(prev => {
+        // 1. Clean old rows (keep only today + yesterday)
+        let currentRows = (prev.simuladoRows || []).filter(row => {
+          if (!row.createdAt) return false;
+          const rowDate = new Date(row.createdAt).toDateString();
+          return rowDate === today || rowDate === yesterday;
         });
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
 
-      // 2. Check for "New Day" condition
-      const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
-      const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
+        // 1.5 Deduplicate
+        const seen = new Set();
+        currentRows = currentRows.filter(row => {
+          const key = JSON.stringify({
+            s: row.subject?.trim(),
+            t: row.topic?.trim(),
+            c: row.correct,
+            tot: row.total,
+            d: new Date(row.createdAt).toDateString()
+          });
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
 
-      if (!hasToday && hasYesterday) {
-        // Auto-Clone Yesterday -> Today (Reset values)
-        const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
-        const newTodayRows = yesterdayRows.map(r => ({
-          subject: r.subject,
-          topic: r.topic,
-          correct: 0,
-          total: 0,
-          createdAt: Date.now() // Today
-        }));
-        currentRows = [...currentRows, ...newTodayRows];
-      }
+        // 2. Check for "New Day" condition
+        const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
+        const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
 
-      return {
-        ...prev,
-        simuladoRows: currentRows,
-        categories: prev.categories.map(cat => ({
-          ...cat,
-          tasks: (cat.tasks || []).map(t =>
-            t.status === 'studying' ? { ...t, status: 'paused' } : t
-          )
-        }))
-      };
-    });
-  }, [setData]); // Run once on mount (setData is stable)
+        if (!hasToday && hasYesterday) {
+          // Auto-Clone Yesterday -> Today (Reset values)
+          const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
+          const newTodayRows = yesterdayRows.map(r => ({
+            subject: r.subject,
+            topic: r.topic,
+            correct: 0,
+            total: 0,
+            createdAt: Date.now() // Today
+          }));
+          currentRows = [...currentRows, ...newTodayRows];
+        }
+
+        return {
+          ...prev,
+          simuladoRows: currentRows,
+          categories: prev.categories.map(cat => ({
+            ...cat,
+            tasks: (cat.tasks || []).map(t =>
+              t.status === 'studying' ? { ...t, status: 'paused' } : t
+            )
+          }))
+        };
+      }, false); // Pass 'false' to skip recording history for these auto-updates
+    };
+
+    // 1. Executa imediatamente ao carregar
+    checkAndResetDay();
+
+    // 2. Adiciona listeners para quando a janela "acorda"
+    const onFocus = () => {
+      // Pequeno delay para garantir que o sistema operativo atualizou a data
+      setTimeout(checkAndResetDay, 1000);
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [setData]);
 
   // --- GAMIFICATION LOGIC ---
   // Pure logic helper to apply XP and Level changes to a state object
