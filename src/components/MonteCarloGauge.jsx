@@ -424,10 +424,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 // Get weight
                 const weight = debouncedWeights[cat.name] !== undefined ? debouncedWeights[cat.name] : 0;
 
+                // Always add to stats, even if weight is 0 (for UI visibility)
                 if (weight > 0) {
                     totalWeight += weight;
-                    categoryStats.push({ name: cat.name, mean, sd, trend, weight, n, history });
                 }
+                categoryStats.push({ name: cat.name, mean, sd, trend, weight, n, history });
             }
         });
 
@@ -482,8 +483,9 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         // Pooled SD
         // FIX: Normalize weights
         const pooledVariance = categoryStats.reduce((acc, cat) => {
+            // Var(Sum(Wi*Xi)) = Sum(Wi^2 * Var(Xi)) assuming independence
             const normalizedWeight = cat.weight / totalWeight;
-            return acc + (normalizedWeight * cat.sd * cat.sd);
+            return acc + (Math.pow(normalizedWeight, 2) * Math.pow(cat.sd, 2));
         }, 0);
 
         // Add uncertainty over time (Squared)
