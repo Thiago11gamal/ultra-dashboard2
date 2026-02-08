@@ -55,14 +55,17 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
         buttonGradient: 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
     };
 
-    if (urgency?.score > 70) {
+    // Use normalizedScore (0-100) for thresholds
+    const urgencyScore = urgency?.normalizedScore ?? urgency?.score ?? 0;
+
+    if (urgencyScore > 70) {
         urgencyStyle = {
             gradient: 'from-red-500/20 to-orange-500/20',
             border: 'border-red-500/30 hover:border-red-500/50',
             badge: 'bg-red-500/20 text-red-400',
             buttonGradient: 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'
         };
-    } else if (urgency?.score > 50) {
+    } else if (urgencyScore > 50) {
         urgencyStyle = {
             gradient: 'from-amber-500/20 to-orange-500/20',
             border: 'border-amber-500/30 hover:border-amber-500/50',
@@ -120,7 +123,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                             {category.name}
                         </span>
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ml-auto ${urgencyStyle.badge}`}>
-                            {urgency?.score > 70 ? '🔥 Urgente' : urgency?.score > 50 ? '⚡ Média' : '📋 Normal'}
+                            {urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal'}
                         </span>
                     </div>
 

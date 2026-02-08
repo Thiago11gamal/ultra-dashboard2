@@ -1,13 +1,79 @@
+// ==================== CONSTANTES ====================
 const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
     RECENCY_MAX: 30,
     INSTABILITY_MAX: 30,
     PRIORITY_BOOST: 30,
     EFFICIENCY_MAX: 15,
-    SRS_BOOST: 40, // High priority for spaced repetition triggers
-    // Usado para normalização final (soma dos máximos acima)
-    RAW_MAX: 50 + 30 + 30 + 30 + 15 + 40
+    SRS_BOOST: 40,
+    BASE_HOURS_THRESHOLD: 5
 };
+
+// ==================== FUNÇÕES AUXILIARES ====================
+
+// Calcula tendência via regressão linear simples
+function calculateTrend(scores) {
+    if (!scores || scores.length < 3) return 0;
+    const n = scores.length;
+    const x = scores.map((_, i) => i);
+    const y = scores;
+
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+
+    const denom = n * sumX2 - sumX * sumX;
+    if (denom === 0) return 0;
+
+    const slope = (n * sumXY - sumX * sumY) / denom;
+    return slope * 10; // Escalar para facilitar interpretação
+}
+
+// Calcula desvio padrão
+function calculateStandardDeviation(scores) {
+    if (!scores || scores.length < 2) return 0;
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / (scores.length - 1);
+    return Math.sqrt(variance);
+}
+
+// Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
+const normalizeDate = (dateInput) => {
+    if (!dateInput) return new Date(0);
+    const d = new Date(dateInput);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+
+// Calcula dias desde uma data
+function getDaysSince(date) {
+    if (!date) return 999;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const diff = now - new Date(date);
+    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+// Boost SRS baseado em dias
+function getSRSBoost(daysSince, cfg) {
+    if (daysSince === 1) return { boost: cfg.SRS_BOOST, label: "Revisão de 24h" };
+    if (daysSince >= 7 && daysSince <= 8) return { boost: cfg.SRS_BOOST, label: "Revisão de 7 dias" };
+    if (daysSince >= 30 && daysSince <= 32) return { boost: cfg.SRS_BOOST, label: "Revisão de 30 dias" };
+    return { boost: 0, label: null };
+}
+
+// Crunch Multiplier ESCALONADO (Reta Final)
+function getCrunchMultiplier(daysToExam) {
+    if (!daysToExam || daysToExam > 60) return 1.0;
+    if (daysToExam <= 3) return 2.5;
+    if (daysToExam <= 7) return 2.0;
+    if (daysToExam <= 14) return 1.5;
+    if (daysToExam <= 30) return 1.2;
+    return 1.0;
+}
+
+// ==================== FUNÇÃO PRINCIPAL ====================
 
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
@@ -15,20 +81,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     // Use User Target Score (default 70 if missing)
     const targetScore = options.targetScore || 70;
+    const weight = category.weight !== undefined ? category.weight : 100;
 
-    // Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
-    const normalizeDate = (dateInput) => {
-        if (!dateInput) return new Date(0);
-        const d = new Date(dateInput);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    };
+    // Calculate days to exam
+    let daysToExam = null;
+    if (options.user && options.user.goalDate) {
+        const examDate = new Date(options.user.goalDate);
+        const today = new Date();
+        daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+    }
 
     try {
         // 1. Calculate Weighted Average Score (Prioritize Recent Performance)
         const relevantSimulados = simulados.filter(s => s.subject === category.name);
-
-        // Sort by date (descending) to get recent ones first
         relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
         let averageScore = 0;
@@ -38,7 +103,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const PESO_MIN = 0.03;
             const DELTA = 5.0;
 
-            // Helper to calculate score for a specific set of simulados
             const calculateExponentialScore = (dataset) => {
                 let weightedSum = 0;
                 let totalWeight = 0;
@@ -46,10 +110,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 dataset.forEach(s => {
                     const sScore = (s.correct / s.total) * 100;
                     const simDate = normalizeDate(s.date);
-                    // Difference in days (Calendar Days)
                     const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
 
-                    // Final Formula: max( exp(-k * d), min )
                     let peso = Math.exp(-K * days);
                     if (peso < PESO_MIN) peso = PESO_MIN;
 
@@ -60,48 +122,35 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 return totalWeight > 0 ? weightedSum / totalWeight : 50;
             };
 
-            // 1. Calculate "Nota Anterior" (Phantom State: Score until Yesterday)
-            // We use this as a proxy for "Previous Grade" since we don't have DB persistence for it yet
             const yesterdayBound = normalizeDate(new Date());
-            // No subtraction needed, normalizeDate sets to 00:00 today. 
-            // So strictly less than today means "Yesterday or earlier"
-
             const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < yesterdayBound);
-            const notaBruta = calculateExponentialScore(relevantSimulados); // "Nota Bruta" (Updated State)
+            const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
-                const notaAnterior = calculateExponentialScore(pastSimulados); // "Nota Anterior" (Baseline State)
-
-                // 2. Apply Stability Limiter (Clamp)
+                const notaAnterior = calculateExponentialScore(pastSimulados);
                 const diff = notaBruta - notaAnterior;
                 let clampedDiff = diff;
-
                 if (diff > DELTA) clampedDiff = DELTA;
                 else if (diff < -DELTA) clampedDiff = -DELTA;
-
                 averageScore = notaAnterior + clampedDiff;
             } else {
-                // No past history, raw score is the only truth
                 averageScore = notaBruta;
             }
         } else {
             averageScore = 50;
         }
 
-        // 2. Calculate Days Since Last Study (Recency)
-        // Check both Simulados AND Study Logs
-        let daysSinceLastStudy = 30; // Default if never studied
+        // 2. Calculate Days Since Last Study
+        let daysSinceLastStudy = 30;
         let lastDate = normalizeDate(new Date(0));
 
         if (relevantSimulados.length > 0) {
-            // Get the MOST RECENT date
             const simDate = normalizeDate(relevantSimulados[0].date);
             if (simDate > lastDate) lastDate = simDate;
         }
 
         const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
         if (categoryStudyLogs.length > 0) {
-            // Sort category logs by date desc
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
             const logDate = normalizeDate(sortedLogs[0].date);
             if (logDate > lastDate) lastDate = logDate;
@@ -112,139 +161,127 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             daysSinceLastStudy = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
         }
 
-        // 3. Calculate Standard Deviation (Consistency)
-        let standardDeviation = 0;
-        // Filter valid simulados first (avoid division by zero)
+        // 3. Calculate Standard Deviation and Trend
         const validForDev = relevantSimulados.filter(s => s.total > 0);
-
-        if (validForDev.length >= 2) {
-            // Use top 5 recent for deviation (Standard: Matches Dashboard)
-            const recentForDev = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100);
-            const mean = recentForDev.reduce((a, b) => a + b, 0) / recentForDev.length;
-            const variance = recentForDev.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (recentForDev.length - 1);
-            standardDeviation = Math.sqrt(variance);
-        }
+        const lastNScores = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100);
+        const standardDeviation = calculateStandardDeviation(lastNScores);
+        const trend = calculateTrend(lastNScores);
 
         // --- COMPONENT CALCULATION ---
 
-        // A. Performance Score (The lower the score, the higher the urgency)
+        // A. Performance Score
         const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - averageScore) * (cfg.SCORE_MAX / 100));
 
-        // B. Recency (Multiplied by Category Weight)
-        // If category weight is high (e.g., 2 or 3), delaying study is more dangerous.
-        // Assuming weight is usually 1 to 3 in user settings.
-        const categoryWeightMultiplier = (category.weight && category.weight > 0) ? (category.weight / 100) : 1;
-        // Adjusted Recency: Days * Weight. 5 days without weight 2 subject = 10 "risk days"
+        // B. Recency (with weight and crunch multiplier)
+        const categoryWeightMultiplier = weight / 100;
         const effectiveRiskDays = daysSinceLastStudy * categoryWeightMultiplier;
+        const crunchMultiplier = getCrunchMultiplier(daysToExam);
+        const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier;
 
-        const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)); // Slower decay curve (7), but accelerated by weight
-
-        // C. Instability
-        const instabilityComponent = Math.min(cfg.INSTABILITY_MAX, standardDeviation * (cfg.INSTABILITY_MAX / 15));
+        // C. Instability (ADJUSTED BY TREND)
+        let instabilityComponent = Math.min(cfg.INSTABILITY_MAX, standardDeviation * (cfg.INSTABILITY_MAX / 15));
+        if (trend > 0) {
+            instabilityComponent *= 0.5; // Improving = less urgent
+        } else if (trend < -5) {
+            instabilityComponent *= 1.3; // Getting worse = more urgent
+        }
 
         // D. Priority Boost
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
-        // E. Efficiency (Low ROI)
+        // E. Efficiency Penalty
         let efficiencyPenalty = 0;
-        if (studyLogs && studyLogs.length > 0 && relevantSimulados.length > 0) {
-            const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
-            const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
-            const totalHours = totalMinutes / 60;
+        const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
+        const totalHours = totalMinutes / 60;
 
-            if (totalHours > 5 && averageScore < targetScore) {
-                efficiencyPenalty = Math.min(cfg.EFFICIENCY_MAX, (totalHours / 10) * (targetScore - averageScore) / 10 * cfg.EFFICIENCY_MAX);
-            }
+        if (totalHours > cfg.BASE_HOURS_THRESHOLD && averageScore < targetScore) {
+            const gap = targetScore - averageScore;
+            efficiencyPenalty = Math.min(cfg.EFFICIENCY_MAX, (totalHours / cfg.BASE_HOURS_THRESHOLD - 1) * gap * 0.5);
         }
 
-        // F. Spaced Repetition System (SRS)
-        let srsBoost = 0;
-        let srsLabel = null;
+        // F. SRS Boost
+        const { boost: srsBoost, label: srsLabel } = getSRSBoost(daysSinceLastStudy, cfg);
 
-        if (daysSinceLastStudy === 1) {
-            srsBoost = cfg.SRS_BOOST;
-            srsLabel = "Revisão de 24h";
-        } else if (daysSinceLastStudy >= 7 && daysSinceLastStudy <= 8) {
-            srsBoost = cfg.SRS_BOOST;
-            srsLabel = "Revisão de 7 dias";
-        } else if (daysSinceLastStudy >= 30 && daysSinceLastStudy <= 32) {
-            srsBoost = cfg.SRS_BOOST;
-            srsLabel = "Revisão de 30 dias";
-        }
-
-        // --- NEW LOGIC: STUDY CYCLE ROTATION (COOLDOWN) ---
-        // If studied yesterday or today, apply penalty to encourage variety
+        // G. Rotation Penalty
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            // Studied Today -> Huge penalty to prevent same day repetition unless urgent
             rotationPenalty = 30;
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
-            // Studied Yesterday -> Small penalty (unless SRS triggered it)
             rotationPenalty = 10;
         }
+        // Reduce penalty if SRS is active
+        if (srsBoost > 0) rotationPenalty *= 0.3;
 
-        // --- NEW LOGIC: EXAM CRUNCH MODE (RETA FINAL) ---
-        let crunchMultiplier = 1;
-        if (options.user && options.user.goalDate) {
-            const examDate = new Date(options.user.goalDate);
-            const today = new Date();
-            const daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+        // --- DYNAMIC RAW_MAX ---
+        const RAW_MAX_BASE = cfg.SCORE_MAX + cfg.RECENCY_MAX + cfg.INSTABILITY_MAX;
+        const RAW_MAX_ACTUAL = RAW_MAX_BASE +
+            (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
+            (srsBoost > 0 ? cfg.SRS_BOOST : 0);
 
-            if (daysToExam > 0 && daysToExam < 30) {
-                // < 30 Days: CRUNCH MODE ON
-                // Logic: Focus on SRS (Retention) and Strengths. Ignore new theory if possible.
-                // We boost SRS impact and reduce weight of "Low Score" (learning new stuff)
+        const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost) -
+            (efficiencyPenalty + rotationPenalty);
 
-                // Boost Recency Importance (Don't let things fade)
-                crunchMultiplier = 1.5;
-
-                // If it's a weak subject, we actually REDUCE urgency slightly in favor of consolidating medium/good subs
-                // (Unless urgency is massive). This is controversial but standard for "Reta Final" strategy.
-            }
-        }
-
-        const rawScore = (scoreComponent + (recencyComponent * crunchMultiplier) + instabilityComponent + priorityBoost + srsBoost) - (efficiencyPenalty + rotationPenalty);
-
-
-        const weight = category.weight !== undefined ? category.weight : 100;
         const weightedRaw = rawScore * (weight / 100);
+        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / (RAW_MAX_ACTUAL * (weight / 100))) * 100)));
 
-        // Normalize to 0-100 based on configured RAW_MAX
-        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / (cfg.RAW_MAX * (weight / 100))) * 100)));
+        // --- DYNAMIC RECOMMENDATION ---
+        let recommendation = "";
+        if (srsBoost > 0) {
+            recommendation = `${srsLabel} - Não pule essa revisão!`;
+        } else if (efficiencyPenalty > 5) {
+            recommendation = `${totalHours.toFixed(1)}h investidas sem melhora - Revise o método`;
+        } else if (daysSinceLastStudy > 14) {
+            recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
+        } else if (trend < -5) {
+            recommendation = `Nota caindo (${trend.toFixed(1)} pts) - Atenção urgente`;
+        } else if (averageScore < targetScore - 20) {
+            recommendation = `Gap de ${(targetScore - averageScore).toFixed(1)} pontos para a meta`;
+        } else if (averageScore >= targetScore) {
+            recommendation = "No caminho certo! Continue consolidando";
+        } else {
+            recommendation = "Pratique com regularidade";
+        }
 
         const result = {
             score: weightedRaw,
             normalizedScore: normalized,
+            recommendation,
             details: {
                 averageScore: Number(averageScore.toFixed(1)),
                 daysSinceLastStudy,
                 standardDeviation: Number(standardDeviation.toFixed(1)),
+                trend: Number(trend.toFixed(1)),
+                totalHours: Number(totalHours.toFixed(1)),
                 hasData: relevantSimulados.length > 0 || categoryStudyLogs.length > 0,
                 hasSimulados: relevantSimulados.length > 0,
                 hasHighPriorityTasks,
                 efficiencyPenalty: Number(efficiencyPenalty.toFixed(1)),
                 weight,
                 srsLabel,
+                crunchMultiplier: Number(crunchMultiplier.toFixed(1)),
                 humanReadable: {
                     "Média": `${Math.round(averageScore)}%`,
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
+                    "Tendência": trend > 0.5 ? `↑ +${trend.toFixed(1)}` : trend < -0.5 ? `↓ ${trend.toFixed(1)}` : "→ Estável",
                     "Instabilidade": `±${standardDeviation.toFixed(1)} pts`,
                     "Peso da Matéria": `x${(weight / 100).toFixed(1)}`,
-                    "Status": srsLabel || (normalized > 70 ? "Urgente" : "Estável")
+                    "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
                 },
                 components: {
                     scoreComponent: Number(scoreComponent.toFixed(2)),
                     recencyComponent: Number(recencyComponent.toFixed(2)),
                     instabilityComponent: Number(instabilityComponent.toFixed(2)),
                     priorityBoost: Number(priorityBoost.toFixed(2)),
-                    srsBoost: Number(srsBoost.toFixed(2))
+                    srsBoost: Number(srsBoost.toFixed(2)),
+                    efficiencyPenalty: Number(efficiencyPenalty.toFixed(2)),
+                    rotationPenalty: Number(rotationPenalty.toFixed(2))
                 }
             }
         };
 
         if (typeof logger === 'function') {
-            try { logger({ categoryId: category.id, name: category.name, urgency: result }); } catch { /* ignore error */ }
+            try { logger({ categoryId: category.id, name: category.name, urgency: result }); } catch { /* ignore */ }
         }
 
         return result;
@@ -252,6 +289,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         return {
             score: 0,
             normalizedScore: 0,
+            recommendation: "Erro no cálculo",
             details: { hasData: false, error: err.message }
         };
     }
@@ -268,23 +306,22 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const top = ranked[0];
     if (!top) return null;
 
-    // Attach weakest topic to the result
     return {
         ...top,
-        weakestTopic: getWeakestTopic(top)
+        weakestTopic: getWeakestTopic(top, simulados)
     };
 };
 
-// Helper to find the weakest topic in a category
-const getWeakestTopic = (category) => {
-    // We need either history OR tasks to find a topic
-    if ((!category.simuladoStats || !category.simuladoStats.history) && (!category.tasks || category.tasks.length === 0)) return null;
-
+// Helper to find the weakest topic in a category (IMPROVED)
+const getWeakestTopic = (category, simulados = []) => {
     const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
-    const tasks = category.tasks || []; // Get tasks (which are Topics)
+    const tasks = category.tasks || [];
     const topicMap = {};
 
-    // 1. Populate from History (Real Data)
+    // Get count of category simulados for context
+    const categorySimuladoCount = simulados.filter(s => s.subject === category.name).length;
+
+    // 1. Populate from History
     history.forEach(entry => {
         const entryDate = new Date(entry.date || 0);
         const topics = entry.topics || [];
@@ -294,11 +331,18 @@ const getWeakestTopic = (category) => {
                 topicMap[name] = {
                     total: 0,
                     correct: 0,
-                    lastSeen: new Date(0)
+                    lastSeen: new Date(0),
+                    scores: []
                 };
             }
             topicMap[name].total += (parseInt(t.total) || 0);
             topicMap[name].correct += (parseInt(t.correct) || 0);
+
+            const topicTotal = parseInt(t.total) || 0;
+            const topicCorrect = parseInt(t.correct) || 0;
+            if (topicTotal > 0) {
+                topicMap[name].scores.push((topicCorrect / topicTotal) * 100);
+            }
 
             if (entryDate > topicMap[name].lastSeen) {
                 topicMap[name].lastSeen = entryDate;
@@ -306,40 +350,33 @@ const getWeakestTopic = (category) => {
         });
     });
 
-    // 2. Populate/Update from Tasks (Intention Data)
-    // If a task exists, it IS a topic. Even if no history.
+    // 2. Populate from Tasks
     tasks.forEach(task => {
         const name = (task.text || task.title || "").trim();
         if (!name) return;
 
         if (!topicMap[name]) {
-            // New Topic!
             topicMap[name] = {
                 total: 0,
                 correct: 0,
                 lastSeen: new Date(0),
-                completed: !!task.completed // Track completion
+                completed: !!task.completed,
+                scores: []
             };
         } else {
-            // If it exists in history but also as a task, update completion status
             topicMap[name].completed = !!task.completed;
         }
 
-        // Inject Priority directly
-        // We store it here to easier access later
         if (task.priority === 'high') topicMap[name].manualPriority = 40;
         else if (task.priority === 'medium') topicMap[name].manualPriority = 20;
     });
 
     const today = new Date();
 
-    // Convert to array
     const topics = Object.entries(topicMap).map(([name, data]) => {
-        // If total is 0 (Task only), we treat percentage as 0 (Unknown/Weak)
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
+        const trend = calculateTrend(data.scores.slice(-3));
 
-        // Calculate days since last seen
-        // If never seen (Date 0), daysSince is huge (good for urgency)
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
@@ -349,38 +386,42 @@ const getWeakestTopic = (category) => {
 
         const priorityBoost = data.manualPriority || 0;
 
-        // Urgency Formula: (Low Grade * 2) + (Days Since * 1) + Priority Boost
-        // If untested (0%): (100*2) + 60 + Boost = 260+? Very high.
-        const urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
+        // Base urgency formula
+        let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
+
+        // Reduce urgency of untested topics if category has data
+        if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
+            urgencyScore *= 0.7;
+        }
+
+        // Boost for declining topics
+        if (trend < -10) urgencyScore *= 1.2;
 
         return {
             name,
             total: data.total,
             percentage,
             daysSince,
+            trend: Number(trend.toFixed(1)),
             priorityBoost,
             urgencyScore,
             isUntested: data.total === 0
         };
     });
 
-    // Filter/Sort
-    // We want to include Untested topics now if they come from Tasks
-    const pool = topics;
-
-    // Sort descending: Prioritize 1. Manual/High, 2. Untested, 3. Poor Performance, 4. Old Review
-    pool.sort((a, b) => {
-        // Uncompleted tasks first
+    // Sort
+    topics.sort((a, b) => {
         if (!a.completed && b.completed) return -1;
         if (a.completed && !b.completed) return 1;
         return b.urgencyScore - a.urgencyScore;
     });
 
-    return pool.length > 0 ? pool[0] : null;
+    return topics.length > 0 ? topics[0] : null;
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
-    // Get top 3 urgent categories
+    const targetScore = options.targetScore || 70;
+
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, options)
@@ -388,7 +429,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const top3 = ranked.slice(0, 3);
 
-    // --- Definição das funções auxiliares antes do uso ---
     const performDeepCheck = (category) => {
         const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
         const categorySims = simulados.filter(s => s.subject === category.name);
@@ -396,21 +436,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const totalHours = categoryLogs.reduce((acc, l) => acc + (l.minutes || 0), 0) / 60;
         const totalQuestions = categorySims.reduce((acc, s) => acc + (s.total || 0), 0);
 
-        // Calculate average score for Dynamic Threshold (Suggestion E)
         const avgScore = categorySims.length > 0
-            ? categorySims.reduce((acc, s) => acc + (s.correct / s.total * 100), 0) / categorySims.length
+            ? categorySims.reduce((acc, s) => acc + ((s.total || 0) > 0 ? (s.correct / s.total * 100) : 0), 0) / categorySims.length
             : 0;
 
-        // Dynamic Threshold based on Target Score (Standardized)
-        // If Score > Target + 10 (High Performer) -> Tolerate slower pace (0.5 q/h)
-        // If Score > Target - 10 (Medium) -> Tolerate moderate pace (1.0 q/h)
-        // Else (Low Performer) -> Demand standard pace (2.0 q/h)
         const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
-
-        // Ratio: Questions per Hour (Ideal is > 5-10 questions per hour of study)
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
 
-        // If studied > 5 hours but has very low question density (< threshold), it's a trap.
         if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
             return {
                 isTrap: true,
@@ -420,17 +452,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
 
-    // Mapeia as 3 principais categorias para criar as tarefas sugeridas
     const suggestedTasks = top3.map(cat => {
-        const weakTopic = getWeakestTopic(cat);
-        // Force a topic label for UI parsing. If no weak topic, use "Revisão Geral"
+        const weakTopic = getWeakestTopic(cat, simulados);
         const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
-
         const categorySims = simulados.filter(s => s.subject === cat.name);
 
-        // 0. Check for SRS Trigger (Highest Priority)
-        // Safety check to ensure urgency details exist
-        if (cat.urgency && cat.urgency.details && cat.urgency.details.srsLabel) {
+        // 0. SRS Trigger
+        if (cat.urgency?.details?.srsLabel) {
             return {
                 id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
@@ -445,7 +473,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         }
 
-        // 0.5 Check for Pseudo-Study Trap (New Logic 1)
+        // 0.5 Pseudo-Study Trap
         const trapCheck = performDeepCheck(cat);
         if (trapCheck.isTrap) {
             return {
@@ -462,14 +490,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         }
 
-        // --- NEW LOGIC: PLATEAU DETECTOR (Estagnação) ---
-        // Uses User Target Score AND requires minimum data volume (3+ exams)
-        if (cat.urgency && cat.urgency.details &&
-            cat.urgency.details.hasData &&
+        // PLATEAU DETECTOR (with trend)
+        if (cat.urgency?.details?.hasData &&
             categorySims.length >= 3 &&
             cat.urgency.details.averageScore < targetScore &&
             cat.urgency.details.standardDeviation < 5 &&
-            cat.urgency.details.standardDeviation >= 0) {
+            cat.urgency.details.trend >= -1 && cat.urgency.details.trend <= 1) {
 
             return {
                 id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -484,18 +510,29 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         }
 
-        // 1. Check for specific WEAK TOPIC (Precision Mode)
-        // weakTopic already calculated above
+        // DECLINING PERFORMANCE WARNING
+        if (cat.urgency?.details?.trend < -5) {
+            return {
+                id: `${cat.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${cat.name}: ${topicLabel}📉 Nota em queda! Atenção urgente necessária.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Desempenho em Queda",
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: cat.urgency.recommendation
+                }
+            };
+        }
 
-        // 2. Check for High Priority manual task
+        // Weak Topic
         const highPriorityTask = cat.tasks?.find(t => !t.completed && t.priority === 'high');
 
         if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.manualPriority > 0)) {
-            // Found a specific weakness!
             let taskTitle = "";
             let reasonStr = "";
             if (weakTopic.isUntested) {
-                taskTitle = `🚨 (Novo). Comece agora!`; // Topic is already in label
+                taskTitle = `🚨 (Novo). Comece agora!`;
                 reasonStr = "Tópico Novo / Não Testado";
             } else if (weakTopic.manualPriority > 0) {
                 taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
@@ -521,8 +558,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     topicDetails: {
                         "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
                         "Dias sem Ver": weakTopic.daysSince,
+                        "Tendência": weakTopic.trend > 0 ? `↑ ${weakTopic.trend}` : `↓ ${weakTopic.trend}`,
                         "Bônus de Prioridade": weakTopic.priorityBoost,
-                        "Urgência Calculada": weakTopic.urgencyScore
+                        "Urgência Calculada": Math.round(weakTopic.urgencyScore)
                     }
                 }
             };
@@ -557,4 +595,3 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     return suggestedTasks;
 };
-

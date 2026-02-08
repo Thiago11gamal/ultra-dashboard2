@@ -50,6 +50,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         >
                                             <HelpCircle size={18} />
                                         </button>
+                                        {urgency.crunchMultiplier > 1 && (
+                                            <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-[10px] text-red-200 border border-red-500/30 animate-pulse">
+                                                🔥 Reta Final x{urgency.crunchMultiplier}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0">
@@ -59,6 +64,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                             {topic ? topic.name : "Revisão Geral / Diagnóstico"}
                                         </p>
                                     </div>
+                                    {/* Dynamic Recommendation */}
+                                    {(suggestion.urgency?.recommendation || urgency.recommendation) && (
+                                        <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                                            <Zap size={12} className="text-violet-400" />
+                                            <span className="text-xs text-violet-200">{suggestion.urgency?.recommendation || urgency.recommendation}</span>
+                                        </div>
+                                    )}
                                     {!urgency.hasSimulados && (
                                         <div className="flex items-center gap-1.5 mt-1 opacity-60">
                                             <Target size={10} className="text-amber-400" />
