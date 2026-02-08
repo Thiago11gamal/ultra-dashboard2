@@ -1,5 +1,4 @@
 import { defineConfig, devices } from '@playwright/test';
-import path from 'path';
 import os from 'os';
 
 // Fix for Windows where HOME might not be set for some tools

@@ -137,7 +137,10 @@ export const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
     // Helper to calculate SD from history
     const calculateSD = (history) => {
         if (!history || history.length < 3) return 999;
-        const scores = history.map(h => (h.correct / h.total) * 100);
+        // Filter out entries with total of 0 to avoid division by zero
+        const validEntries = history.filter(h => h.total > 0);
+        if (validEntries.length < 3) return 999;
+        const scores = validEntries.map(h => (h.correct / h.total) * 100);
         const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
         const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
         return Math.sqrt(variance);

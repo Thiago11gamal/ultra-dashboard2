@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RotateCcw, BrainCircuit, Target, Zap, Sparkles, CalendarDays, Calendar, X } from 'lucide-react';
+import { RotateCcw, CalendarDays, Calendar, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import StatsCards from './components/StatsCards';
