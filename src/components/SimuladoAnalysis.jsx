@@ -157,6 +157,45 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             return;
         }
 
+        // --- VALIDATION BLOCK START ---
+        // Ensure all rows have valid subjects and topics
+        const validDataMap = {};
+        categories.forEach(c => {
+            const subNorm = normalize(c.name);
+            validDataMap[subNorm] = new Set((c.tasks || []).map(t => {
+                const text = t.text || t.title || "";
+                // Extract topic from [Topic] or use full text
+                const match = text.match(/^\[(.*?)\]/);
+                return normalize(match ? match[1] : text);
+            }));
+            // Also add raw task titles just in case
+            (c.tasks || []).forEach(t => validDataMap[subNorm].add(normalize(t.text || t.title || "")));
+        });
+
+        let validationError = null;
+        const validatedRows = validRows.filter(r => {
+            const subNorm = normalize(r.subject);
+            if (!validDataMap[subNorm]) {
+                validationError = `A matéria '${r.subject}' não existe no seu plano.`;
+                return false;
+            }
+            // Optional: Check topic validity if strict mode is on
+            // For now, we only enforce Subject existence as requested.
+            return true;
+        });
+
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+
+        if (validatedRows.length !== validRows.length) {
+            setError("Algumas linhas contêm matérias inválidas e foram ignoradas.");
+            return;
+        }
+        // --- VALIDATION BLOCK END ---
+
+
         setLoading(true);
         setError(null);
         setAnalysisData(null);

@@ -530,10 +530,15 @@ function App() {
       });
 
       // Ensure updated rows have timestamp and are marked as Today
-      const processedTodayRows = updatedTodayRows.map(row => ({
-        ...row,
-        createdAt: row.createdAt || Date.now()
-      }));
+      // IMPORTANT: Remove 'validated' flag so modified rows must be re-validated
+      // before appearing in the History panel
+      const processedTodayRows = updatedTodayRows.map(row => {
+        const { validated, ...rowWithoutValidated } = row;
+        return {
+          ...rowWithoutValidated,
+          createdAt: row.createdAt || Date.now()
+        };
+      });
 
       return { ...prev, simuladoRows: [...nonTodayRows, ...processedTodayRows] };
     }); // Undo enabled for grade entry
@@ -663,9 +668,33 @@ function App() {
         };
       });
 
+      // Mark rawRows as validated (so StudyHistory only shows validated data)
+      const now = new Date();
+      const today = now.toDateString();
+      const validatedSimuladoRows = (prev.simuladoRows || []).map(row => {
+        // Only mark today's rows that match the processed rawRows
+        if (!row.createdAt) return row;
+        const rowDate = new Date(row.createdAt).toDateString();
+        if (rowDate !== today) return row; // Keep yesterday's rows as-is
+
+        // Check if this row was part of the successful analysis
+        const wasProcessed = rawRows.some(r =>
+          r.subject === row.subject &&
+          r.topic === row.topic &&
+          r.correct === row.correct &&
+          r.total === row.total
+        );
+
+        if (wasProcessed && row.subject && row.topic) {
+          return { ...row, validated: true };
+        }
+        return row;
+      });
+
       const updatedState = {
         ...prev,
-        categories: newCategories
+        categories: newCategories,
+        simuladoRows: validatedSimuladoRows
       };
 
       showToast('Simulado Processado! +500 XP 📈', 'success');

@@ -238,13 +238,14 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
                         const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
                         const yesterdayStr = yesterday.toDateString();
 
+                        // Only show validated rows (rows that passed analysis validation)
                         const todayRows = simuladoRows.filter(r => {
-                            if (!r.createdAt) return false;
+                            if (!r.createdAt || !r.validated) return false;
                             return new Date(r.createdAt).toDateString() === todayStr;
                         });
 
                         const yesterdayRows = simuladoRows.filter(r => {
-                            if (!r.createdAt) return false;
+                            if (!r.createdAt || !r.validated) return false;
                             return new Date(r.createdAt).toDateString() === yesterdayStr;
                         });
 
