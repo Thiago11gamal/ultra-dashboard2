@@ -396,8 +396,8 @@ export default function VerifiedStats({ categories = [], user }) {
                 {/* Header */}
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.bgBorder.replace('/30', '/20').replace('border-', 'bg-').replace('border-', 'border-')}`}>
-                            <Activity size={16} className={stats.consistency.color.replace('text-', 'text-')} />
+                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
+                            <Activity size={16} className={stats.consistency.color} />
                         </div>
                         <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
                     </div>

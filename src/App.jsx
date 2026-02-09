@@ -264,7 +264,7 @@ function App() {
         showToast(`🏆 Conquista Desbloqueada! +${result.xpGained} XP`, 'success');
       });
     }
-  }, [data.categories, data.studyLogs, data.pomodorosCompleted]);
+  }, [data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate]);
 
   // Track Pomodoro completion for achievements
   const trackPomodoroComplete = useCallback(() => {
