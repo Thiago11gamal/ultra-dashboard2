@@ -167,7 +167,13 @@ export const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
     const newlyUnlocked = [];
 
     ACHIEVEMENTS.forEach(achievement => {
-        if (!currentUnlocked.includes(achievement.id) && achievement.condition(stats)) {
+        // Safe check handling both string IDs and object items (legacy data)
+        const isUnlocked = currentUnlocked.some(u => {
+            const uId = typeof u === 'string' ? u : u.id;
+            return uId === achievement.id;
+        });
+
+        if (!isUnlocked && achievement.condition(stats)) {
             newlyUnlocked.push(achievement.id);
         }
     });

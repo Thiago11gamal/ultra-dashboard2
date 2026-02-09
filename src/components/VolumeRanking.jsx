@@ -111,4 +111,4 @@ const VolumeRanking = ({ categories = [] }) => {
     );
 };
 
-export default VolumeRanking;
+export default React.memo(VolumeRanking);

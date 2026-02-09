@@ -15,7 +15,7 @@ const getDayName = (date) => {
     return days[date.getDay()];
 };
 
-export default function StudyHistory({ studySessions = [], categories = [], simuladoRows = [] }) {
+const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [] }) {
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
@@ -467,4 +467,6 @@ export default function StudyHistory({ studySessions = [], categories = [], simu
             </div>
         </div>
     );
-}
+});
+
+export default StudyHistory;
