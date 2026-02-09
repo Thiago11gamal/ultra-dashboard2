@@ -43,6 +43,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
             try {
                 const parsed = JSON.parse(saved);
                 if (parsed.isRunning && parsed.savedAt) {
+                    // Timer was running, calculate elapsed time
                     const now = Date.now();
                     const elapsedSeconds = Math.floor((now - parsed.savedAt) / 1000);
 
@@ -53,6 +54,11 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                             return newTime > 0 ? newTime : 0;
                         });
                     }
+                } else {
+                    // Timer was NOT running - reset to full time to prevent partial bar display
+                    const currentMode = parsed.mode || 'work';
+                    const fullTime = currentMode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+                    setTimeLeft(fullTime);
                 }
             } catch (e) {
                 console.error("Resume logic error", e);
