@@ -4,9 +4,17 @@ import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
 // Update component signature to accept onExit
-export default function PomodoroTimer({ settings, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit }) {
+export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit }) {
 
     // --- STATE PERSISTENCE INITIALIZATION ---
+
+    // Safe Settings with Defaults
+    const safeSettings = useMemo(() => ({
+        pomodoroWork: settings?.pomodoroWork || 25,
+        pomodoroBreak: settings?.pomodoroBreak || 5,
+        soundEnabled: settings?.soundEnabled ?? true,
+        ...settings
+    }), [settings]);
 
     const getSavedState = (key, defaultValue) => {
         if (typeof window === 'undefined') return defaultValue;
@@ -24,7 +32,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
     const [mode, setMode] = useState(() => getSavedState('mode', 'work'));
     // Default time depends on mode if not saved
-    const defaultTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+    const defaultTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [sessions, setSessions] = useState(() => getSavedState('sessions', 0));
@@ -58,7 +66,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                     // Timer was NOT running - FULL RESET to prevent stale progress bars
                     // Reset everything to initial state for a clean start
                     setMode('work');
-                    setTimeLeft(settings.pomodoroWork * 60);
+                    setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
                     setSessions(0);
                     setCompletedCycles(0);
                     // Clear the stale state from localStorage
@@ -131,7 +139,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
     // Timer complete handler - declared first to be available for useEffect
     const handleTimerComplete = useCallback(() => {
         // Timer complete
-        const completedDuration = mode === 'work' ? settings.pomodoroWork : settings.pomodoroBreak;
+        const completedDuration = mode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
         const newHistoryItem = { type: mode, duration: completedDuration };
 
         setSessionHistory(prev => [...prev, newHistoryItem]);
@@ -143,7 +151,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
             // Track Study Time
             if (activeSubject && onUpdateStudyTime) {
-                onUpdateStudyTime(activeSubject.categoryId, settings.pomodoroWork, activeSubject.taskId);
+                onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }
 
             // Check for Task Completion
@@ -155,21 +163,21 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
             // Switch to break
             setMode('break');
-            setTimeLeft(settings.pomodoroBreak * 60);
+            setTimeLeft(safeSettings.pomodoroBreak * 60);
         } else {
             // Break finished
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
 
             setMode('work');
-            setTimeLeft(settings.pomodoroWork * 60);
+            setTimeLeft(safeSettings.pomodoroWork * 60);
             setIsRunning(false);
         }
 
         setIsRunning(false);
 
         // Sound & Notification
-        if (settings.soundEnabled) {
+        if (safeSettings.soundEnabled) {
             try {
                 const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                 audio.play().catch(() => { });
@@ -183,7 +191,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         } else {
             sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
         }
-    }, [mode, sessions, targetCycles, completedCycles, activeSubject, settings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
+    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
     // --- ROBUST TIMER LOGIC ---
     // Use a single, drift-proof effect based on start time delta.
@@ -225,7 +233,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
     const reset = () => {
         setIsRunning(false);
-        const resetTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+        const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         setTimeLeft(resetTime);
         // Force save immediately to clean state
         localStorage.setItem('pomodoroState', JSON.stringify({
@@ -243,7 +251,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
 
             // Track Study Time
             if (activeSubject && onUpdateStudyTime) {
-                onUpdateStudyTime(activeSubject.categoryId, settings.pomodoroWork, activeSubject.taskId);
+                onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }
 
             // Check for Full Completion
@@ -253,14 +261,14 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
             }
 
             setMode('break');
-            setTimeLeft(settings.pomodoroBreak * 60);
+            setTimeLeft(safeSettings.pomodoroBreak * 60);
         } else {
             // Treat skip as completion of break
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
 
             setMode('work');
-            setTimeLeft(settings.pomodoroWork * 60);
+            setTimeLeft(safeSettings.pomodoroWork * 60);
         }
     };
 
@@ -273,7 +281,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const totalTime = mode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
+    const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
     // Progress is 0 if timer hasn't started (at full time and not running)
     const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
     const progress = (timeLeft >= totalTime && !isRunning) ? 0 : Math.max(0, Math.min(100, rawProgress));
@@ -444,13 +452,13 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                     {/* Mode Toggles - Soft Tabs */}
                     <div className="flex items-center gap-1 mb-8 bg-[#1c1917] p-2 rounded-full border border-stone-800">
                         <button
-                            onClick={() => { setMode('work'); setTimeLeft(settings.pomodoroWork * 60); setIsRunning(false); }}
+                            onClick={() => { setMode('work'); setTimeLeft(safeSettings.pomodoroWork * 60); setIsRunning(false); }}
                             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'work' ? 'bg-[#292524] text-emerald-400 shadow-sm border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
                         >
                             Foco
                         </button>
                         <button
-                            onClick={() => { setMode('break'); setTimeLeft(settings.pomodoroBreak * 60); setIsRunning(false); }}
+                            onClick={() => { setMode('break'); setTimeLeft(safeSettings.pomodoroBreak * 60); setIsRunning(false); }}
                             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'break' ? 'bg-[#292524] text-emerald-400 border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
                         >
                             Pausa
@@ -613,7 +621,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                         } else if (i === sessions && mode === 'work') {
                             // Only show progress if timer is actively running or has made progress
                             // Check if timer has started by comparing timeLeft to full time
-                            const workTotalTime = settings.pomodoroWork * 60;
+                            const workTotalTime = safeSettings.pomodoroWork * 60;
                             const hasStarted = isRunning || timeLeft < workTotalTime;
                             workProgress = hasStarted ? progress : 0;
                         }

@@ -84,6 +84,15 @@ function App() {
   if (!data.simulados) {
     data.simulados = INITIAL_DATA.simulados || [];
   }
+  // Data Patching: Ensure settings exists (for old saves)
+  if (!data.settings) {
+    data.settings = INITIAL_DATA.settings || {
+      pomodoroWork: 25,
+      pomodoroBreak: 5,
+      soundEnabled: true,
+      darkMode: true
+    };
+  }
 
   // Wrapper to update only the current contest data
   const setData = useCallback((updater, recordHistory = true) => {
