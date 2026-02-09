@@ -239,6 +239,7 @@ function App() {
     };
   }, [showToast]);
 
+  // eslint-disable-next-line no-unused-vars
   const addXP = useCallback((amount, skipBonus = false) => {
     setData(prev => applyGamification(prev, amount, skipBonus));
   }, [setData, applyGamification]);
@@ -1140,7 +1141,7 @@ function App() {
       setCoachLoading(false);
       showToast(`⚡ ${newTasks.length} Sugestões geradas na aba Coach!`, 'success');
     }, 1500);
-  }, [data.categories, data.simulados, setData, showToast]);
+  }, [data.categories, data.simulados, data.studyLogs, data.user, setData, showToast]);
 
   const handleCloudRestore = useCallback((restoredData) => {
     if (!restoredData) return;
