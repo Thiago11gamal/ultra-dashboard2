@@ -55,10 +55,14 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                         });
                     }
                 } else {
-                    // Timer was NOT running - reset to full time to prevent partial bar display
-                    const currentMode = parsed.mode || 'work';
-                    const fullTime = currentMode === 'work' ? settings.pomodoroWork * 60 : settings.pomodoroBreak * 60;
-                    setTimeLeft(fullTime);
+                    // Timer was NOT running - FULL RESET to prevent stale progress bars
+                    // Reset everything to initial state for a clean start
+                    setMode('work');
+                    setTimeLeft(settings.pomodoroWork * 60);
+                    setSessions(0);
+                    setCompletedCycles(0);
+                    // Clear the stale state from localStorage
+                    localStorage.removeItem('pomodoroState');
                 }
             } catch (e) {
                 console.error("Resume logic error", e);
