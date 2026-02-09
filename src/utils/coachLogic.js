@@ -47,6 +47,7 @@ const normalizeDate = (dateInput) => {
 };
 
 // Calcula dias desde uma data
+// eslint-disable-next-line no-unused-vars
 function getDaysSince(date) {
     if (!date) return 999;
     const now = new Date();

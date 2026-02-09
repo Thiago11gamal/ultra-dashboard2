@@ -442,6 +442,7 @@ function App() {
   }, [showToast]);
 
   // Update Category Weights (for Monte Carlo / AI Coach)
+  // eslint-disable-next-line no-unused-vars
   const handleUpdateWeights = useCallback((weights) => {
     setData(prev => ({
       ...prev,
@@ -534,7 +535,7 @@ function App() {
       // IMPORTANT: Remove 'validated' flag so modified rows must be re-validated
       // before appearing in the History panel
       const processedTodayRows = updatedTodayRows.map(row => {
-        const { validated, ...rowWithoutValidated } = row;
+        const { validated: _validated, ...rowWithoutValidated } = row;
         return {
           ...rowWithoutValidated,
           createdAt: row.createdAt || Date.now()
