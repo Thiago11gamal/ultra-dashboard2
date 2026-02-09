@@ -597,10 +597,15 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                         let breakProgress = 0;
 
                         // Work Progress Logic
+                        // Only show progress if timer has actually been started (isRunning or progress > 0 AND time has passed)
                         if (i < sessions) {
                             workProgress = 100;
                         } else if (i === sessions && mode === 'work') {
-                            workProgress = progress;
+                            // Only show progress if timer is actively running or has made progress
+                            // Check if timer has started by comparing timeLeft to full time
+                            const workTotalTime = settings.pomodoroWork * 60;
+                            const hasStarted = isRunning || timeLeft < workTotalTime;
+                            workProgress = hasStarted ? progress : 0;
                         }
 
                         // Break Progress Logic
