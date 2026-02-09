@@ -64,8 +64,8 @@ export default function VerifiedStats({ categories = [], user }) {
         const trend = globalAnalysis.trend_slope > 0.01 ? 'up' :
             globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable';
         const trendValue = globalAnalysis.trend_slope;
-        const progressState = globalAnalysis.state;
-        const progressLabel = globalAnalysis.label;
+        const progressState = globalAnalysis.state; // eslint-disable-line no-unused-vars
+        const progressLabel = globalAnalysis.label; // eslint-disable-line no-unused-vars
 
         // 2. Linear Regression & Contextual Prediction
         let prediction = "Calibrando...";

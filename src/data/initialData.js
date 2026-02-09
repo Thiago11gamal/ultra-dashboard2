@@ -31,23 +31,7 @@ export const INITIAL_DATA = {
 
     notes: "",
 
-    achievements: [
-        { id: "first-task", name: "Primeiro Passo", description: "Complete sua primeira tarefa", icon: "🎯", unlocked: false },
-        { id: "five-streak", name: "Esquentando", description: "Complete 5 tarefas seguidas", icon: "🔥", unlocked: false },
-        { id: "week-streak", name: "Imparável", description: "Estude por 7 dias consecutivos", icon: "⚡", unlocked: false },
-        { id: "month-streak", name: "Lenda Viva", description: "Estude por 30 dias consecutivos", icon: "🦁", unlocked: false },
-        { id: "category-master", name: "Especialista", description: "Complete uma categoria inteira", icon: "🏆", unlocked: false },
-        { id: "sniper", name: "Cirurgião", description: "Acerte 100% em um simulado com >10 questões", icon: "🎯", unlocked: false },
-        { id: "marathon", name: "Maratonista", description: "Acumule 50h de estudo total", icon: "🏃", unlocked: false },
-        { id: "weekend-warrior", name: "Guerreiro de FDS", description: "Estude no Sábado e Domingo", icon: "⚔️", unlocked: false },
-        { id: "early-bird", name: "Madrugador", description: "Comece a estudar antes das 6am", icon: "🌅", unlocked: false },
-        { id: "night-owl", name: "Coruja", description: "Estude depois das 23h", icon: "🦉", unlocked: false },
-        { id: "polymath", name: "Generalista", description: "Estude 3 matérias diferentes num dia", icon: "🎨", unlocked: false },
-        { id: "zen-master", name: "Mestre Zen", description: "Complete 50 sessões de Pomodoro", icon: "🧘", unlocked: false },
-        { id: "strategist", name: "Estrategista", description: "Complete 5 tarefas de Alta Prioridade", icon: "chess_pawn", unlocked: false },
-        { id: "halfway", name: "Metade do Caminho", description: "Atinja 50% de progresso", icon: "⭐", unlocked: false },
-        { id: "champion", name: "Campeão", description: "Complete 100% das tarefas", icon: "👑", unlocked: false },
-    ],
+
 
     settings: {
         darkMode: true,
@@ -110,7 +94,7 @@ export const backupData = (state) => {
     try {
         if (!state) return;
         localStorage.setItem('ultra-dashboard-data-backup-safety', JSON.stringify(state));
-        console.log('Safety backup created.');
+
     } catch (e) {
         console.error('Backup failed:', e);
     }

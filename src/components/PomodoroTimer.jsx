@@ -48,7 +48,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                     const elapsedSeconds = Math.floor((now - parsed.savedAt) / 1000);
 
                     if (elapsedSeconds > 0) {
-                        console.log(`Pomodoro: Resuming... skipped ${elapsedSeconds}s while offline.`);
+
                         setTimeLeft(prev => {
                             const newTime = prev - elapsedSeconds;
                             return newTime > 0 ? newTime : 0;
@@ -91,7 +91,7 @@ export default function PomodoroTimer({ settings, onSessionComplete, activeSubje
                     tag: 'pomodoro-timer'
                 });
             } catch (e) {
-                console.log('Notification error:', e);
+
             }
         }
     };

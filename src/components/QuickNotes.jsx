@@ -7,10 +7,13 @@ export default function QuickNotes({ notes = '', onSave }) {
     const [isFocused, setIsFocused] = useState(false);
 
     useEffect(() => {
-        if (!isFocused) {
+        // Only update local text if notes prop changes from outside
+        // and it's different from current text (avoids loops)
+        if (notes !== text) {
             setText(notes);
         }
-    }, [notes, isFocused]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notes]);
 
     const handleChange = (e) => {
         setText(e.target.value);

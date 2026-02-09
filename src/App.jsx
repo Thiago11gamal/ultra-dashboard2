@@ -281,7 +281,7 @@ function App() {
 
   // Jump to Pomodoro with specific subject
   const startStudying = useCallback((categoryId, taskId) => {
-    console.log('startStudying called with:', categoryId, taskId);
+
     // 1. Find names specifically for navigation/toast (Synchronous look up)
     const category = data.categories.find(c => c.id === categoryId);
     if (!category) {
@@ -548,7 +548,7 @@ function App() {
 
   // Handle Simulado Analysis Results
   const handleSimuladoAnalysis = useCallback((payload) => {
-    console.log("App: handleSimuladoAnalysis received payload", payload);
+
 
     setData(prev => {
       // Support both old format (direct data) and new format ({analysis, rawRows})

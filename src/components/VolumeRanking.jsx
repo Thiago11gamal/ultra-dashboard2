@@ -64,20 +64,20 @@ const VolumeRanking = ({ categories = [] }) => {
                         <motion.div
                             key={item.id}
                             variants={itemVariant}
-                            className={`group flex items - center gap - 4 p - 3 rounded - xl transition - all hover: bg - white / 5 ${isTop3 ? 'bg-white/[0.02] border border-white/5' : ''} `}
+                            className={`group flex items-center gap-4 p-3 rounded-xl transition-all hover:bg-white/5 ${isTop3 ? 'bg-white/[0.02] border border-white/5' : ''}`}
                         >
                             {/* Rank */}
-                            <div className={`flex items - center justify - center w - 8 h - 8 rounded - full ${isTop3 ? 'bg-black/20' : ''} `}>
+                            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isTop3 ? 'bg-black/20' : ''}`}>
                                 {getRankIcon(index)}
                             </div>
 
                             {/* Icon & Name */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className={`text - sm font - medium truncate ${isTop3 ? 'text-slate-200' : 'text-slate-500'} `}>
+                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200' : 'text-slate-500'}`}>
                                         {item.name}
                                     </span>
-                                    <span className={`text - xs font - bold font - mono ${isTop3 ? 'text-purple-300' : 'text-slate-600'} `}>
+                                    <span className={`text-xs font-bold font-mono ${isTop3 ? 'text-purple-300' : 'text-slate-600'}`}>
                                         {volume}
                                     </span>
                                 </div>
@@ -86,13 +86,13 @@ const VolumeRanking = ({ categories = [] }) => {
                                 <div className="w-full bg-slate-800/50 h-1 rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
-                                        animate={{ width: `${Math.max(percentage, 2)}% ` }}
+                                        animate={{ width: `${Math.max(percentage, 2)}%` }}
                                         transition={{ duration: 1, delay: 0.2 }}
-                                        className={`h - full rounded - full ${index === 0 ? 'bg-yellow-500/80' :
+                                        className={`h-full rounded-full ${index === 0 ? 'bg-yellow-500/80' :
                                             index === 1 ? 'bg-slate-400/80' :
                                                 index === 2 ? 'bg-orange-500/80' :
                                                     'bg-slate-700'
-                                            } `}
+                                            }`}
                                     />
                                 </div>
                             </div>

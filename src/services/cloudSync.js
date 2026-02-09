@@ -17,7 +17,7 @@ export const uploadDataToCloud = async (data) => {
 
         const docRef = doc(db, BACKUP_COLLECTION, DOC_ID);
         await setDoc(docRef, payload);
-        console.log("Data successfully uploaded to cloud!");
+
         return true;
     } catch (e) {
         console.error("Error uploading data: ", e);
@@ -31,7 +31,7 @@ export const downloadDataFromCloud = async () => {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-            console.log("Data retrieved from cloud:", docSnap.data());
+
             return docSnap.data();
         } else {
             console.warn("No backup found!");
