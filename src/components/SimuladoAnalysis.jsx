@@ -77,9 +77,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleAnalyze = () => {
+        // Helper function to normalize strings for comparison
+        const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
+
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
-            const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
 
             const validDataMap = {};
             categories.forEach(cat => {
