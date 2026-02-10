@@ -16,16 +16,25 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         ...settings
     }), [settings]);
 
-    const getSavedState = (key, defaultValue) => {
-        if (typeof window === 'undefined') return defaultValue;
+    // Load saved state ONLY if it matches the current task
+    const savedState = useMemo(() => {
+        if (typeof window === 'undefined') return null;
         try {
-            const saved = localStorage.getItem('pomodoroState');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                return parsed[key] !== undefined ? parsed[key] : defaultValue;
+            const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+            // If we have a saved task ID and it matches the current one, return saved state
+            // If activeSubject is null (free mode), we accept any saved state that didn't have a specific task
+            if (saved && saved.activeTaskId === activeSubject?.taskId) {
+                return saved;
             }
-        } catch (e) {
-            console.error("Pomodoro State Parse Error", e);
+        } catch (error) {
+            console.error('Error loading pomodoro state:', error);
+        }
+        return null;
+    }, [activeSubject]);
+
+    const getSavedState = (key, defaultValue) => {
+        if (savedState && savedState[key] !== undefined) {
+            return savedState[key];
         }
         return defaultValue;
     };

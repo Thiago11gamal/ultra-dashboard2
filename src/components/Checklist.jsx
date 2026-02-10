@@ -139,7 +139,8 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
             <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Play Button */}
                 <button
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation();
                         onTriggerPlay();
                     }}
                     className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-purple-500/20'}`}
