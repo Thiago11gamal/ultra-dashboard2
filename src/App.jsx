@@ -328,7 +328,8 @@ function App() {
       taskId,
       category: categoryName,
       task: taskName,
-      priority: task.priority
+      priority: task.priority,
+      sessionInstanceId: Date.now() // Force fresh session on every "Play" click
     });
     setActiveTab('pomodoro');
     showToast(`Iniciando estudos: ${categoryName} - ${taskName}`, 'success');

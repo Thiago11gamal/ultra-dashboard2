@@ -21,9 +21,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (typeof window === 'undefined') return null;
         try {
             const saved = JSON.parse(localStorage.getItem('pomodoroState'));
-            // If we have a saved task ID and it matches the current one, return saved state
-            // If activeSubject is null (free mode), we accept any saved state that didn't have a specific task
-            if (saved && saved.activeTaskId === activeSubject?.taskId) {
+            // If we have a saved task ID and it matches the current one AND the session instance matches
+            // This ensures that clicking "Play" (which generates a new sessionInstanceId) always starts fresh
+            // while preserving state during re-renders or accidental closes if we persist activeSubject later
+            if (saved &&
+                saved.activeTaskId === activeSubject?.taskId &&
+                saved.sessionInstanceId === activeSubject?.sessionInstanceId) {
                 return saved;
             }
         } catch (error) {
@@ -134,15 +137,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const stateToSave = {
             mode,
             timeLeft,
-            isRunning, // Save running state!
+            isRunning,
             sessions,
             completedCycles,
             targetCycles,
             sessionHistory,
-            savedAt: Date.now() // Timestamp is crucial for Resume Logic
+            savedAt: Date.now(), // Timestamp is crucial for Resume Logic
+            activeTaskId: activeSubject?.taskId, // Bind state to specific task
+            sessionInstanceId: activeSubject?.sessionInstanceId // Bind to specific click instance
         };
         localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory]);
+    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
 
 
     // Timer complete handler - declared first to be available for useEffect
