@@ -62,12 +62,35 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
+
+                // CRITICAL FIX: Only resume if the saved session matches the current valid session instance
+                // This prevents old/stale sessions from zeroing out a new timer
+                if (activeSubject && parsed.sessionInstanceId !== activeSubject.sessionInstanceId) {
+                    return;
+                }
+
+                // Staleness Check: If saved more than 24 hours ago, ignore it completely
+                const now = Date.now();
+                const msSinceSave = now - (parsed.savedAt || 0);
+                if (msSinceSave > 24 * 60 * 60 * 1000) {
+                    return;
+                }
+
                 if (parsed.isRunning && parsed.savedAt) {
                     // Timer was running, calculate elapsed time
-                    const now = Date.now();
-                    const elapsedSeconds = Math.floor((now - parsed.savedAt) / 1000);
+                    const elapsedSeconds = Math.floor(msSinceSave / 1000);
 
                     if (elapsedSeconds > 0) {
+                        // If too much time passed (more than the timer itself), just reset to clean slate
+                        // meaningful limit: if we exceeded the timer by > 5 minutes, force reset
+                        if (parsed.timeLeft - elapsedSeconds < -300) {
+                            setMode('work');
+                            setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
+                            setSessions(0);
+                            setIsRunning(false);
+                            localStorage.removeItem('pomodoroState');
+                            return;
+                        }
 
                         setTimeLeft(prev => {
                             const newTime = prev - elapsedSeconds;
@@ -75,20 +98,26 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         });
                     }
                 } else {
-                    // Timer was NOT running - FULL RESET to prevent stale progress bars
-                    // Reset everything to initial state for a clean start
-                    setMode('work');
-                    setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
-                    setSessions(0);
-                    setCompletedCycles(0);
-                    // Clear the stale state from localStorage
-                    localStorage.removeItem('pomodoroState');
+                    // Timer was NOT running - rely on default initialization (which is fresh)
+                    // unless we are specifically in a "paused" state of the SAME session?
+                    // For now, if it wasn't running, we assume we don't need to "catch up" time.
+                    // But if it was the SAME session, we might want to restore the EXACT time left?
+                    // The 'useState' initialization already tried to load 'timeLeft' from 'savedState' (which checks IDs).
+                    // So this Effect is mostly for "Elapsed Time Correction" when coming back to a RUNNING timer.
+
+                    // If IDs match (checked above) and it was paused, useState likely already handled it.
+                    // If IDs don't match, we returned early.
+
+                    // Cleanup old state if meaningful
+                    if (msSinceSave > 12 * 60 * 60 * 1000) {
+                        localStorage.removeItem('pomodoroState');
+                    }
                 }
             } catch (e) {
                 console.error("Resume logic error", e);
             }
         }
-    }, []); // Only run once on mount
+    }, [activeSubject, safeSettings]); // Added dependencies
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [speed, setSpeed] = useState(1);
