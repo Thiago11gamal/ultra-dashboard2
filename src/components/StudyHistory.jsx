@@ -15,7 +15,7 @@ const getDayName = (date) => {
     return days[date.getDay()];
 };
 
-const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [], onDeleteSession }) {
+const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [], onDeleteSession, onDeleteSimulado }) {
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
@@ -327,7 +327,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                             return (
                                 <div className={`flex-1 flex h-full min-h-0 ${isToday ? '' : 'opacity-90'} ${side === 'right' ? 'flex-row-reverse' : 'flex-row'}`}>
                                     {/* Vertical Icon Column - Mirrored Logic */}
-                                    <div className={`flex flex-col items-center justify-center px-3 py-8 ${side === 'left' ? 'mr-4 rounded-l-xl border-r' : 'ml-4 rounded-r-xl border-l'} bg-slate-800/40 border-indigo-500/20 shadow-xl self-stretch`}>
+                                    <div className={`flex flex-col items-center justify-center px-3 py-8 ${side === 'left' ? 'mr-4 rounded-l-xl border-r' : 'ml-4 rounded-r-xl border-l'} bg-slate-800/40 border-indigo-500/20 shadow-xl self-stretch relative group`}>
                                         <div className="flex-1 flex flex-col items-center justify-between gap-8 h-full">
                                             <span className="text-3xl filter grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{icon}</span>
                                             <h3 className={`text-[11px] font-black tracking-[0.3em] uppercase ${isToday ? 'text-emerald-400' : 'text-indigo-400'} whitespace-nowrap`} style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: side === 'left' ? 'rotate(180deg)' : 'none' }}>
@@ -335,6 +335,23 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                             </h3>
                                             <div className="w-px h-12 bg-gradient-to-b from-indigo-500/30 to-transparent"></div>
                                         </div>
+
+                                        {/* DELETE BUTTON - ABSOLUTE BOTTOM */}
+                                        {onDeleteSimulado && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Pass the date of one of the rows. 
+                                                    // Since we group by "Hoje" (today) or "Ontem" (yesterday), any row's createdAt works.
+                                                    const dateToDelete = rows[0]?.createdAt || new Date().toISOString();
+                                                    onDeleteSimulado(dateToDelete);
+                                                }}
+                                                className="absolute bottom-2 left-1/2 -translate-x-1/2 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
+                                                title={`Excluir histórico de ${title}`}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Content Column */}

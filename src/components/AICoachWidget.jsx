@@ -17,16 +17,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-600/10 blur-[60px] rounded-full pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
-                    <div className="flex items-center gap-5">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full"></div>
-                            <div className="relative w-28 h-12 flex items-center justify-center rounded-sm bg-black/40 border border-white/10 shadow-inner backdrop-blur-md">
-                                <BrainCircuit size={28} className="text-amber-300" />
-                            </div>
-                        </div>
-                        <div>
+                    <div className="relative w-full md:w-1/2 flex items-center gap-6 p-6 rounded-sm bg-black/40 border border-white/10 shadow-inner backdrop-blur-md">
+                        <div className="absolute inset-0 bg-amber-500/5 blur-xl rounded-sm"></div>
+                        <BrainCircuit size={40} className="relative z-10 text-amber-300 shrink-0" />
+
+                        <div className="relative z-10">
                             {/* Duplicate 'AI Coach' removed. Using the subtitle as the primary label. */}
-                            <h2 className="text-xl font-black text-white/90 tracking-[0.35em] uppercase">
+                            <h2 className="text-xl font-black text-white/90 tracking-[0.2em] uppercase">
                                 Análise em Tempo Real
                             </h2>
                             <div className="flex items-center gap-2 mt-1">

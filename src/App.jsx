@@ -905,6 +905,8 @@ function App() {
   const toggleTask = useCallback((categoryId, taskId) => {
     setData(prev => {
       let xpChange = 0;
+      const timestamp = new Date().toISOString();
+
       const updatedState = {
         ...prev,
         categories: prev.categories.map(cat =>
@@ -915,7 +917,25 @@ function App() {
                 if (t.id === taskId) {
                   const newCompleted = !t.completed;
                   xpChange = newCompleted ? 150 : -150;
-                  return { ...t, completed: newCompleted };
+
+                  // RETENTION SYNC LOGIC
+                  // If completing, update lastStudiedAt to NOW
+                  // If uncompleting, revert to the LATEST LOG date (or null)
+                  let newLastStudiedAt = t.lastStudiedAt;
+
+                  if (newCompleted) {
+                    newLastStudiedAt = timestamp;
+                  } else {
+                    // Revert logic: Find latest log for this task
+                    const taskLogs = (prev.studyLogs || []).filter(l => l.taskId == taskId); // Loose equality for string/int IDs
+                    const latestLog = taskLogs.length > 0
+                      ? taskLogs.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b)
+                      : null;
+
+                    newLastStudiedAt = latestLog ? latestLog.date : null;
+                  }
+
+                  return { ...t, completed: newCompleted, lastStudiedAt: newLastStudiedAt };
                 }
                 return t;
               })
@@ -965,6 +985,74 @@ function App() {
       }))
     }));
     showToast('Histórico de performance resetado!', 'success');
+  }, [setData, showToast]);
+
+  // DELETE SIMULADO (By Date)
+  const deleteSimulado = useCallback((dateStr) => {
+    // dateStr should be YYYY-MM-DD or similar to match how we group them
+    // Actually StudyHistory passes the full date string of the group (which is usually today/yesterday)
+    // We will remove ALL stats and rows that match this date (ignoring time)
+
+    const targetDate = new Date(dateStr).toDateString();
+
+    if (!window.confirm(`Excluir histórico de simulados de ${targetDate}? A performance será recalculada.`)) {
+      return;
+    }
+
+    setData(prev => {
+      // 1. Filter rows
+      const newRows = (prev.simuladoRows || []).filter(r => {
+        if (!r.createdAt) return true; // Keep legacy/unknown? Or delete? Safety: keep.
+        return new Date(r.createdAt).toDateString() !== targetDate;
+      });
+
+      // 2. Filter Category Stats
+      const newCategories = (prev.categories || []).map(cat => {
+        if (!cat.simuladoStats || !cat.simuladoStats.history) return cat;
+
+        const newHistory = cat.simuladoStats.history.filter(h => {
+          return new Date(h.date).toDateString() !== targetDate;
+        });
+
+        // Recalculate Stats
+        const grandTotalQuestions = newHistory.reduce((acc, h) => acc + (h.total || 0), 0);
+        const grandTotalCorrect = newHistory.reduce((acc, h) => acc + (h.correct || 0), 0);
+        const newAverage = grandTotalQuestions > 0 ? Math.round((grandTotalCorrect / grandTotalQuestions) * 100) : 0;
+
+        // Recalculate Trend
+        let trend = 'stable';
+        if (newHistory.length >= 2) {
+          const last = newHistory[newHistory.length - 1].score;
+          const prevScore = newHistory[newHistory.length - 2].score;
+          if (last > prevScore) trend = 'up';
+          else if (last < prevScore) trend = 'down';
+        }
+
+        // Recalculate Level
+        let level = 'BAIXO';
+        if (newAverage > 70) level = 'ALTO';
+        else if (newAverage > 40) level = 'MÉDIO';
+
+        return {
+          ...cat,
+          simuladoStats: {
+            ...cat.simuladoStats,
+            history: newHistory,
+            average: newAverage,
+            lastAttempt: newHistory.length > 0 ? newHistory[newHistory.length - 1].score : 0,
+            trend,
+            level
+          }
+        };
+      });
+
+      return {
+        ...prev,
+        simuladoRows: newRows,
+        categories: newCategories
+      };
+    });
+    showToast('Dados de simulado excluídos.', 'info');
   }, [setData, showToast]);
 
   const addCategory = useCallback((input) => {
@@ -1361,6 +1449,7 @@ function App() {
           categories={data.categories}
           simuladoRows={data.simuladoRows || []}
           onDeleteSession={deleteSession}
+          onDeleteSimulado={deleteSimulado}
         />
       case 'heatmap':
         return (
