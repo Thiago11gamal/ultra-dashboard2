@@ -1115,7 +1115,7 @@ function App() {
             tasks: (cat.tasks || []).map(task => {
               if (task.id === taskId) {
                 // Find new latest log for this specific task
-                const taskLogs = updatedLogs.filter(l => l.taskId === taskId);
+                const taskLogs = updatedLogs.filter(l => l.taskId == taskId); // Use loose equality for null/undefined
                 const latestTaskLog = taskLogs.length > 0
                   ? taskLogs.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b)
                   : null;
@@ -1135,7 +1135,7 @@ function App() {
         categories: updatedCategories
       };
     });
-    showToast('Sessão excluída e histórico revertido!', 'success');
+    showToast('Sessão excluída. Retenção e Estatísticas recalculadas!', 'success');
   }, [setData, showToast]);
 
   const updatePomodoroSettings = useCallback((newSettings) => {
