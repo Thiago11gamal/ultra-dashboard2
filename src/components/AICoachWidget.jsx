@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity } from 'lucide-react';
+import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity, Sparkles, ChevronRight } from 'lucide-react';
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
     const [showWhy, setShowWhy] = useState(false);
@@ -10,116 +10,120 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const urgency = suggestion.urgency?.details || {};
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-900/50 to-fuchsia-900/50 border border-violet-500/30 p-6 mb-8 group">
-            {/* Background Effects */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="relative group mb-8">
+            <div className="relative rounded-sm bg-slate-950/40 border border-white/10 p-8 shadow-2xl backdrop-blur-xl overflow-hidden">
+                {/* Subtle high-end gradient accent - Dark Yellow/Amber */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-600/10 blur-[60px] rounded-full pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col items-stretch gap-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                    {/* Left: Logic / Brain */}
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-xl bg-violet-500/20 border border-violet-500/50 flex items-center justify-center text-violet-300 shadow-[0_0_15px_-5px_#8b5cf6]">
-                            <BrainCircuit size={32} className="animate-pulse" />
+                <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-5">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full"></div>
+                            <div className="relative p-3.5 rounded-sm bg-black/40 border border-white/10 shadow-inner backdrop-blur-md">
+                                <BrainCircuit size={32} className="text-amber-300" />
+                            </div>
                         </div>
                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-bold uppercase tracking-widest text-violet-300">AI Study Coach</span>
-                                <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-[10px] text-violet-200 border border-violet-500/30">Análise de Dados</span>
+                            {/* Duplicate 'AI Coach' removed. Using the subtitle as the primary label. */}
+                            <h2 className="text-xl font-black text-white/90 tracking-widest uppercase">
+                                Análise em Tempo Real
+                            </h2>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="w-1.5 h-1.5 rounded-sm bg-amber-500 animate-pulse" />
+                                <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
+                                    Inteligência Ativa
+                                </span>
                             </div>
-                            {!urgency.hasData ? (
-                                <>
-                                    <h3 className="text-xl font-bold text-white mb-0.5">
-                                        Aguardando Dados de Performance
-                                    </h3>
-                                    <p className="text-sm text-slate-400 flex items-center gap-2">
-                                        <Target size={14} />
-                                        Faça seu primeiro simulado para receber sugestões personalizadas
-                                    </p>
-                                </>
-                            ) : (
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-xl font-bold text-white">
-                                            Matéria: <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-orange-100">{suggestion.name}</span>
-                                        </h3>
-                                        <button
-                                            onClick={() => setShowWhy(!showWhy)}
-                                            className="p-1 rounded-full hover:bg-white/10 text-violet-300 transition-colors"
-                                            title="Por que essa sugestão?"
-                                        >
-                                            <HelpCircle size={18} />
-                                        </button>
-                                        {urgency.crunchMultiplier > 1 && (
-                                            <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-[10px] text-red-200 border border-red-500/30 animate-pulse">
-                                                🔥 Reta Final x{urgency.crunchMultiplier}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0">
-                                            <span className="text-[10px] font-black text-amber-300 uppercase">Assunto</span>
-                                        </div>
-                                        <p className="text-lg font-bold text-slate-200 truncate">
-                                            {topic ? topic.name : "Revisão Geral / Diagnóstico"}
-                                        </p>
-                                    </div>
-                                    {/* Dynamic Recommendation */}
-                                    {(suggestion.urgency?.recommendation || urgency.recommendation) && (
-                                        <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                                            <Zap size={12} className="text-violet-400" />
-                                            <span className="text-xs text-violet-200">{suggestion.urgency?.recommendation || urgency.recommendation}</span>
-                                        </div>
-                                    )}
-                                    {!urgency.hasSimulados && (
-                                        <div className="flex items-center gap-1.5 mt-1 opacity-60">
-                                            <Target size={10} className="text-amber-400" />
-                                            <span className="text-[10px] text-slate-400 italic">Sugestão baseada em recência (sem simulados)</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 
-                    {/* Right: Action */}
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-violet-900 font-bold hover:bg-violet-50 transition-all shadow-[0_0_20px_-5px_rgba(139,92,246,0.5)] transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                        className="group/btn relative px-8 py-4 rounded-sm bg-amber-500/10 text-amber-200 font-black text-sm hover:bg-amber-500/20 transition-all shadow-lg backdrop-blur-md border border-amber-500/20 hover:border-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 overflow-hidden"
                     >
-                        <Zap size={20} className={`fill-violet-900 ${loading ? 'animate-spin' : 'group-hover/btn:animate-bounce'}`} />
-                        {loading ? 'Gerando Plano...' : 'Gerar Meta do Dia'}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-200/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
+                        {loading ? <Sparkles size={18} className="animate-spin text-amber-400" /> : <Zap size={18} className="fill-amber-400 text-amber-400" />}
+                        <span className="relative z-10">{loading ? 'PROCESSANDO...' : 'GERAR META DO DIA'}</span>
                     </button>
                 </div>
 
-                {/* Explainability Panel */}
-                {showWhy && (
-                    <div className="mt-2 p-4 rounded-xl bg-black/40 border border-violet-500/20 animate-fade-in-down">
-                        <div className="flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
-                            <HelpCircle size={14} className="text-violet-400" />
-                            <h4 className="text-xs font-bold text-violet-200 uppercase tracking-wider">Por que estamos sugerindo isso?</h4>
+                {!urgency.hasData ? (
+                    <div className="p-8 rounded-sm bg-white/5 border border-white/5 flex items-center gap-6 backdrop-blur-md">
+                        <div className="p-4 rounded-full bg-slate-800/50 text-slate-400 ring-1 ring-white/10">
+                            <Activity size={32} />
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {Object.entries(urgency.humanReadable || {}).map(([label, value]) => (
-                                <div key={label} className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/5">
-                                    <div className="shrink-0">
-                                        {label === "Média" && <TrendingDown className="text-red-400" size={16} />}
-                                        {label === "Recência" && <Clock className="text-blue-400" size={16} />}
-                                        {label === "Instabilidade" && <Activity className="text-purple-400" size={16} />}
-                                        {label === "Peso da Matéria" && <Target className="text-amber-400" size={16} />}
-                                        {label === "Status" && <Zap className="text-green-400" size={16} />}
+                        <div>
+                            <h3 className="text-white font-bold text-lg mb-1">Aguardando Dados</h3>
+                            <p className="text-slate-400 text-sm">Realize simulados para ativar a inteligência neural.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        <div className="relative p-8 rounded-sm bg-white/5 border border-white/5 backdrop-blur-md overflow-hidden group/card hover:border-amber-500/30 hover:bg-amber-500/5 transition-colors duration-500">
+                            <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover/card:opacity-[0.07] transition-opacity duration-500">
+                                <Target size={200} className="text-white" />
+                            </div>
+
+                            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="px-2 py-0.5 rounded-sm bg-amber-500/20 text-amber-200 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 backdrop-blur-sm">
+                                            Prioridade Máxima
+                                        </span>
                                     </div>
-                                    <div className="min-w-0">
-                                        <span className="block text-[9px] uppercase text-slate-500 font-bold truncate">{label}</span>
-                                        <span className="text-xs font-mono font-bold text-white">{value}</span>
+                                    <h3 className="text-5xl font-black text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                                        {suggestion.name}
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <span className="inline-flex items-center px-4 py-2 rounded-sm bg-white/5 border border-white/10 text-slate-300 text-xs font-bold uppercase tracking-wide backdrop-blur-md hover:bg-white/10 transition-colors">
+                                            <Target size={14} className="mr-2 text-amber-400" />
+                                            {topic ? topic.name : "Foco Geral"}
+                                        </span>
+                                        {urgency.crunchMultiplier > 1 && (
+                                            <span className="inline-flex items-center px-4 py-2 rounded-sm bg-red-500/10 border border-red-500/20 text-red-200 text-xs font-bold uppercase tracking-wide backdrop-blur-md animate-pulse">
+                                                <Clock size={14} className="mr-2" />
+                                                Reta Final x{urgency.crunchMultiplier}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                            ))}
+
+                                <div className="flex flex-col items-start md:items-end gap-4">
+                                    {(suggestion.urgency?.recommendation || urgency.recommendation) && (
+                                        <div className="text-right max-w-md">
+                                            <p className="text-xl text-amber-100/90 font-medium leading-relaxed drop-shadow-md italic">
+                                                "{suggestion.urgency?.recommendation || urgency.recommendation}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => setShowWhy(!showWhy)}
+                                        className="group/metric flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-300 transition-colors uppercase tracking-widest mt-2 py-2 px-4 rounded-sm hover:bg-white/5 border border-white/5 backdrop-blur-sm"
+                                    >
+                                        VER ANÁLISE TÉCNICA
+                                        <ChevronRight size={14} className={`transition-transform duration-300 ${showWhy ? 'rotate-90' : 'group-hover/metric:translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <p className="mt-4 text-[11px] text-slate-400 leading-relaxed italic">
-                            O motor de IA detectou que esta combinação de <span className="text-violet-300">baixa performance</span>, <span className="text-violet-300">tempo sem revisar</span> e <span className="text-violet-300">peso da matéria</span> representa o maior risco para sua aprovação.
-                        </p>
+
+                        {showWhy && (
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 animate-fade-in-down pt-2">
+                                {Object.entries(urgency.humanReadable || {}).map(([label, value]) => (
+                                    <div key={label} className="p-4 rounded-sm bg-white/5 border border-white/5 hover:bg-amber-500/10 hover:border-amber-500/20 transition-colors backdrop-blur-md group/stat">
+                                        <div className="flex items-center gap-2 mb-2 text-slate-500 group-hover/stat:text-amber-300 transition-colors">
+                                            <span className="text-[10px] uppercase font-bold tracking-widest">{label}</span>
+                                        </div>
+                                        <div className="text-lg font-mono font-bold text-white tracking-tight">
+                                            {value}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

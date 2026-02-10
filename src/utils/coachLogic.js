@@ -237,7 +237,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else if (trend < -5) {
             recommendation = `Nota caindo (${trend.toFixed(1)} pts) - Atenção urgente`;
         } else if (averageScore < targetScore - 20) {
-            recommendation = `Gap de ${(targetScore - averageScore).toFixed(1)} pontos para a meta`;
+            recommendation = `Nota Crítica: ${Math.round(averageScore)}% (Meta ${targetScore}%)`;
         } else if (averageScore >= targetScore) {
             recommendation = "No caminho certo! Continue consolidando";
         } else {
