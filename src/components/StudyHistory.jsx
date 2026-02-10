@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren } from 'lucide-react';
+import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 
 // Format minutes to hours:minutes
 const formatDuration = (minutes) => {
@@ -15,7 +15,7 @@ const getDayName = (date) => {
     return days[date.getDay()];
 };
 
-const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [] }) {
+const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [], onDeleteSession }) {
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
@@ -176,7 +176,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                     {stats.todaySessions.length > 0 ? (
                         <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                             {[...stats.todaySessions].reverse().map((session, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                                <div key={session.id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                     <div className="flex items-center gap-2.5">
                                         <span className="text-lg">{getCategoryIcon(session.categoryId)}</span>
                                         <div>
@@ -188,8 +188,23 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="text-sm font-bold text-emerald-400">
-                                        {formatDuration(session.duration)}
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-sm font-bold text-emerald-400">
+                                            {formatDuration(session.duration)}
+                                        </div>
+                                        {onDeleteSession && (
+                                            <button
+                                                onClick={() => {
+                                                    if (window.confirm('Tem certeza que deseja excluir esta sessão? Todo o tempo será removido do histórico.')) {
+                                                        onDeleteSession(session.id);
+                                                    }
+                                                }}
+                                                className="p-1.5 rounded-md bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
+                                                title="Excluir Sessão"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}

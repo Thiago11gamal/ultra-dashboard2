@@ -1074,7 +1074,69 @@ function App() {
         )
       };
     });
+
   }, [setData]);
+
+  // DELETE SESSION LOGIC - NEW
+  const deleteSession = useCallback((sessionId) => {
+    setData(prev => {
+      const sessionToDelete = (prev.studySessions || []).find(s => s.id === sessionId);
+      if (!sessionToDelete) return prev; // Not found
+
+      const { duration, categoryId, startTime, taskId } = sessionToDelete;
+
+      // 1. Remove from Sessions
+      const updatedSessions = (prev.studySessions || []).filter(s => s.id !== sessionId);
+
+      // 2. Remove from Logs (match by exact date/timestamp and category)
+      const updatedLogs = (prev.studyLogs || []).filter(l => {
+        const isMatch = l.date === startTime && l.categoryId === categoryId;
+        return !isMatch;
+      });
+
+      // 3. Update Category Totals & Revert lastStudiedAt
+      const updatedCategories = (prev.categories || []).map(cat => {
+        if (cat.id === categoryId) {
+          const newTotal = Math.max(0, (cat.totalMinutes || 0) - duration);
+
+          // Find the new latest log for this category to revert lastStudiedAt
+          const catLogs = updatedLogs.filter(l => l.categoryId === categoryId);
+          const latestCatLog = catLogs.length > 0
+            ? catLogs.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b)
+            : null;
+
+          const newCatLastStudiedAt = latestCatLog ? latestCatLog.date : null;
+
+          return {
+            ...cat,
+            totalMinutes: newTotal,
+            lastStudiedAt: newCatLastStudiedAt,
+            // Update specific task if it matches
+            tasks: (cat.tasks || []).map(task => {
+              if (task.id === taskId) {
+                // Find new latest log for this specific task
+                const taskLogs = updatedLogs.filter(l => l.taskId === taskId);
+                const latestTaskLog = taskLogs.length > 0
+                  ? taskLogs.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b)
+                  : null;
+                return { ...task, lastStudiedAt: latestTaskLog ? latestTaskLog.date : null };
+              }
+              return task;
+            })
+          };
+        }
+        return cat;
+      });
+
+      return {
+        ...prev,
+        studySessions: updatedSessions,
+        studyLogs: updatedLogs,
+        categories: updatedCategories
+      };
+    });
+    showToast('Sessão excluída e histórico revertido!', 'success');
+  }, [setData, showToast]);
 
   const updatePomodoroSettings = useCallback((newSettings) => {
     setData(prev => ({
@@ -1294,13 +1356,12 @@ function App() {
           />
         );
       case 'history':
-        return (
-          <StudyHistory
-            studySessions={data.studySessions || []}
-            categories={data.categories}
-            simuladoRows={data.simuladoRows || []}
-          />
-        );
+        return <StudyHistory
+          studySessions={data.studySessions || []}
+          categories={data.categories}
+          simuladoRows={data.simuladoRows || []}
+          onDeleteSession={deleteSession}
+        />
       case 'heatmap':
         return (
           <div className="space-y-6 animate-fade-in">
