@@ -48,7 +48,7 @@ import MobilePocketMode from './components/MobilePocketMode';
 function App() {
   const { currentUser } = useAuth();
   const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("Iniciando...");
 
   // Cloud Data Fetching
   useEffect(() => {
@@ -59,18 +59,23 @@ function App() {
       }
 
       setLoadingData(true);
+      setLoadingStatus("Conectando ao servidor...");
+
       try {
         // Timeout Promise to prevent infinite hanging
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: A conexão com o banco de dados demorou muito.")), 15000)
+          setTimeout(() => reject(new Error("Timeout: A conexão com o banco de dados demorou muito.")), 30000)
         );
 
         const docRef = doc(db, 'users_data', currentUser.uid);
+
         // Race between Firestore and Timeout
         const docSnap = await Promise.race([
           getDoc(docRef),
           timeoutPromise
         ]);
+
+        setLoadingStatus("Processando dados...");
 
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -97,6 +102,17 @@ function App() {
 
     fetchData();
   }, [currentUser]);
+
+  // ... (existing code) ...
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center space-y-4">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="text-slate-400 font-medium animate-pulse">{loadingStatus}</div>
+      </div>
+    );
+  }
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
@@ -1899,8 +1915,9 @@ function App() {
 
   if (loadingData) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center space-y-4">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="text-slate-400 font-medium animate-pulse">{loadingStatus}</div>
       </div>
     );
   }
