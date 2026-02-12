@@ -1903,9 +1903,57 @@ function App() {
 
   if (loadingData) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center space-y-4">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
-        <div className="text-slate-400 font-medium animate-pulse">{loadingStatus}</div>
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Premium Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center">
+          {/* Logo / Icon */}
+          <div className="w-24 h-24 mb-8 relative">
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+            <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10">
+              <svg className="w-12 h-12 text-white animate-spin-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Typography */}
+          <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2">
+            Ultra Dashboard
+          </h1>
+
+          <div className="h-6 flex items-center justify-center">
+            <span className="text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">
+              {loadingStatus}
+            </span>
+          </div>
+
+          {/* Loading Bar */}
+          <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-1/3 animate-loading-bar rounded-full"></div>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes loading-bar {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-loading-bar {
+            animation: loading-bar 1.5s infinite ease-in-out;
+          }
+          .animate-spin-slow {
+             animation: spin 8s linear infinite;
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
