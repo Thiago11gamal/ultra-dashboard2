@@ -37,7 +37,7 @@ import Toast from './components/Toast';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { db } from './services/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
@@ -52,37 +52,25 @@ function App() {
   const [loadingData, setLoadingData] = useState(true);
 
   // Cloud Data Fetching
+  // Cloud Data Fetching (Real-time & Cache-First)
   useEffect(() => {
-    async function fetchData() {
-      if (!currentUser) {
-        setAppState(null);
-        return;
-      }
+    if (!currentUser) {
+      setAppState(null);
+      return;
+    }
 
-      setLoadingData(true);
-      setLoadingStatus("Conectando ao servidor...");
+    setLoadingData(true);
+    setLoadingStatus("Sincronizando...");
 
-      try {
-        // Timeout Promise to prevent infinite hanging
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: A conexão com o banco de dados demorou muito.")), 30000)
-        );
+    const docRef = doc(db, 'users_data', currentUser.uid);
 
-        const docRef = doc(db, 'users_data', currentUser.uid);
-
-        // Race between Firestore and Timeout
-        const docSnap = await Promise.race([
-          getDoc(docRef),
-          timeoutPromise
-        ]);
-
-        setLoadingStatus("Processando dados...");
-
+    // onSnapshot fires immediately with cached data (if available)
+    const unsubscribe = onSnapshot(docRef,
+      (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           // Migration/Safety: Ensure structure
           if (!data.contests) {
-            // Fallback for migrated but empty doc
             setAppState({ contests: { 'default': data }, activeId: 'default' });
           } else {
             setAppState(data);
@@ -90,18 +78,24 @@ function App() {
         } else {
           // New User or First Cloud Login: Initialize Structure
           const initial = { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
-          await setDoc(docRef, initial);
+          setDoc(docRef, initial).catch(console.error);
           setAppState(initial);
         }
-      } catch (err) {
-        console.error("CRITICAL ERROR loading cloud data:", err);
-        // Error will be handled by UI state (appState === null)
-      } finally {
+
+        // Data loaded (either from cache or server)
+        setLoadingData(false);
+      },
+      (error) => {
+        console.error("Error listening to database:", error);
+        setLoadingStatus("Erro na conexão.");
+        // Keep loadingData true or false? If false, App might crash if appState is null. 
+        // But invalidating loadingData allows the "Error" UI to show (if implemented).
+        // Looking at App structure, if !appState it shows error screen. So set false.
         setLoadingData(false);
       }
-    }
+    );
 
-    fetchData();
+    return () => unsubscribe();
   }, [currentUser]);
 
   // ... (existing code) ...
