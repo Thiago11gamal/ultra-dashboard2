@@ -79,8 +79,8 @@ function App() {
           setAppState(initial);
         }
       } catch (err) {
-        console.error("Error loading cloud data:", err);
-        // Fallback or Alert?
+        console.error("CRITICAL ERROR loading cloud data:", err);
+        alert("Erro de Conexão: " + err.message); // Temporary alert to help user debug
       } finally {
         setLoadingData(false);
       }
@@ -1888,10 +1888,27 @@ function App() {
   // --- AUTH CHECK ---
   if (!currentUser) return <Login />;
 
-  if (loadingData || !appState) {
+  if (loadingData) {
     return (
       <div className="min-h-screen bg-[#0f0c29] flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  if (!appState) {
+    return (
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center text-white p-4">
+        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-md text-center">
+          <h2 className="text-xl font-bold text-red-400 mb-2">Erro ao carregar dados</h2>
+          <p className="text-slate-400 mb-6">Não foi possível conectar ao banco de dados.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-lg font-bold transition-colors"
+          >
+            Tentar Novamente
+          </button>
+        </div>
       </div>
     );
   }
