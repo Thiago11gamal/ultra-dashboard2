@@ -726,7 +726,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             {/* ═══════════════ BLOCO 5: TENDÊNCIAS POR CATEGORIA ═══════════════ */}
             <div className="w-full">
                 <div className="flex flex-wrap justify-center gap-1.5">
-                    {simulationResult.categoryStats.slice(0, 8).map((cat) => (
+                    {statsData.categoryStats.slice(0, 8).map((cat) => (
                         <div key={cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
                             {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
                             {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
@@ -734,9 +734,9 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                             <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
                         </div>
                     ))}
-                    {simulationResult.categoryStats.length > 8 && (
+                    {statsData.categoryStats.length > 8 && (
                         <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
-                            +{simulationResult.categoryStats.length - 8}
+                            +{statsData.categoryStats.length - 8}
                         </span>
                     )}
                 </div>
