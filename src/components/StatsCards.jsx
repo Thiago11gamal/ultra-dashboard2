@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { differenceInDays, subDays, format } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Pencil } from 'lucide-react';
+import { Pencil, AlertCircle } from 'lucide-react';
 import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
 
 // Circular Progress Ring Component with Neon Glow
@@ -164,7 +164,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
         return uniqueDays.size;
     }, [studyLogs]);
 
-    // Calculate Streak (Memoized)
+    // Calculate Streak (Memoized) - With Freeze Logic ❄️
     const streak = React.useMemo(() => {
         if (!studyLogs.length) return 0;
         const today = new Date();
@@ -176,22 +176,44 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                 .map(l => new Date(l.date).setHours(0, 0, 0, 0))
                 .sort((a, b) => b - a)
         )];
+
         if (dates.length === 0) return 0;
+
         const todayStart = new Date().setHours(0, 0, 0, 0);
         const yesterday = new Date(todayStart - 86400000).setHours(0, 0, 0, 0);
-        if (dates[0] !== todayStart && dates[0] !== yesterday) return 0;
+
+        // Gap check: If last study was before yesterday, streak might be broken
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const daysSinceLastStudy = Math.round((todayStart - dates[0]) / msPerDay);
+
+        // Allow up to 2 days gap (Study Mon -> Skip Tue -> Study Wed is OK)
+        // If gap is > 2 (Study Mon -> Skip Tue, Wed -> Thu), streak breaks
+        if (daysSinceLastStudy > 2) return 0;
 
         let streakCount = 1;
         let currentDate = dates[0];
+        let freezeUsed = false; // Allow 1 freeze per week logic (simplified here to per streak gap)
+
         for (let i = 1; i < dates.length; i++) {
             const prevDate = dates[i];
             const diffTime = Math.abs(currentDate - prevDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / msPerDay);
+
             if (diffDays === 1) {
+                // Consecutive day
                 streakCount++;
                 currentDate = prevDate;
+            } else if (diffDays === 2) {
+                // 1 Day gap (Freeze used!) ❄️
+                if (!freezeUsed) {
+                    streakCount++; // Count the freeze day as part of streak persistence
+                    freezeUsed = true;
+                    currentDate = prevDate;
+                } else {
+                    break; // Streak broken
+                }
             } else {
-                break;
+                break; // Too big gap
             }
         }
         return streakCount;
@@ -220,7 +242,11 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
             sparklineColor: '#f97316',
             sparklineData: null,
             editable: true,
-            goalDate: user.goalDate
+            sparklineData: null,
+            editable: true,
+            goalDate: user.goalDate,
+            hasStartAlert: daysUntilGoal <= 0, // Only alert if "0 days" (default/expired)
+            alertText: daysUntilGoal <= 0 ? "Defina o dia da sua prova" : null
         },
         {
             label: 'Tarefas Feitas',
@@ -321,6 +347,12 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                                     <p className={`text-3xl lg:text-4xl font-black ${stat.textColor} drop-shadow-lg leading-normal tracking-tight pb-2`}>
                                         {stat.value}
                                     </p>
+                                    {/* Alert Text */}
+                                    {stat.hasStartAlert && stat.alertText && (
+                                        <p className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-widest mt-1">
+                                            {stat.alertText}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="relative">
                                     {/* Icon glow effect */}
@@ -331,6 +363,17 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                                     <span className="relative text-3xl opacity-70 group-hover:opacity-100 grayscale group-hover:grayscale-0 transition-all duration-500 transform group-hover:scale-125 group-hover:-rotate-12">
                                         {stat.icon}
                                     </span>
+                                    {/* Alert Badge */}
+                                    {stat.hasStartAlert && (
+                                        <div className="absolute -top-1 -right-1 z-20">
+                                            <span className="relative flex h-4 w-4">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 items-center justify-center border border-white/20">
+                                                    <AlertCircle size={10} className="text-white" />
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             {/* Sparkline */}
