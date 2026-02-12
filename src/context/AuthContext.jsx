@@ -40,6 +40,9 @@ export function AuthProvider({ children }) {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
             setLoading(false);
+        }, (error) => {
+            console.error("Auth Error", error);
+            setLoading(false);
         });
 
         return unsubscribe;
