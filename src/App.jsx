@@ -34,7 +34,11 @@ import AICoachWidget from './components/AICoachWidget';
 import AICoachView from './components/AICoachView';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import Toast from './components/Toast';
-import { loadData, saveData, exportData, backupData, INITIAL_DATA } from './data/initialData';
+import { useAuth } from './context/AuthContext';
+import Login from './components/Login';
+import { db } from './services/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { exportData, backupData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
 
@@ -42,12 +46,48 @@ import MobilePocketMode from './components/MobilePocketMode';
 
 
 function App() {
-  const [appState, setAppState] = useState(() => {
-    const loaded = loadData();
-    // Immediate Safety Backup on Load
-    backupData(loaded);
-    return loaded;
-  });
+  const { currentUser, logout } = useAuth();
+  const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Cloud Data Fetching
+  useEffect(() => {
+    async function fetchData() {
+      if (!currentUser) {
+        setAppState(null);
+        return;
+      }
+
+      setLoadingData(true);
+      try {
+        const docRef = doc(db, 'users_data', currentUser.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Migration/Safety: Ensure structure
+          if (!data.contests) {
+            // Fallback for migrated but empty doc
+            setAppState({ contests: { 'default': data }, activeId: 'default' });
+          } else {
+            setAppState(data);
+          }
+        } else {
+          // New User or First Cloud Login: Initialize Structure
+          const initial = { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
+          await setDoc(docRef, initial);
+          setAppState(initial);
+        }
+      } catch (err) {
+        console.error("Error loading cloud data:", err);
+        // Fallback or Alert?
+      } finally {
+        setLoadingData(false);
+      }
+    }
+
+    fetchData();
+  }, [currentUser]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
@@ -463,16 +503,20 @@ function App() {
     }));
   }, [setData]);
 
-  // Auto-save data
+  // Auto-save data to Cloud
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const success = saveData(appState);
-      if (!success) {
-        console.error("Auto-save failed - Check console for details");
+    if (!currentUser || !appState) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await setDoc(doc(db, 'users_data', currentUser.uid), appState);
+        // Optional: Show small indicator of 'saved'
+      } catch (e) {
+        console.error("Cloud Auto-save failed:", e);
       }
-    }, 500);
+    }, 2000); // Debounce 2s to save writes
     return () => clearTimeout(timer);
-  }, [appState]);
+  }, [appState, currentUser]);
 
   // Fix duplicate colors on load/change
   useEffect(() => {
@@ -1840,6 +1884,17 @@ function App() {
         return null;
     }
   };
+
+  // --- AUTH CHECK ---
+  if (!currentUser) return <Login />;
+
+  if (loadingData || !appState) {
+    return (
+      <div className="min-h-screen bg-[#0f0c29] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   // --- MOBILE RENDER ---
   if (isMobile && !forceDesktopMode) {
