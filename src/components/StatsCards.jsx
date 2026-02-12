@@ -243,7 +243,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
             sparklineData: null,
             editable: true,
             sparklineData: null,
-            editable: true,
+
             goalDate: user.goalDate,
             hasStartAlert: daysUntilGoal <= 0, // Only alert if "0 days" (default/expired)
             alertText: daysUntilGoal <= 0 ? "Defina o dia da sua prova" : null
