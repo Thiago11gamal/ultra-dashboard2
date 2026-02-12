@@ -5,8 +5,9 @@ import {
     calculateCurrentWeightedMean,
     calculateWeightedProjectedMean,
     computePooledSD,
-    runSimulation,
-    calculateResultMetrics
+    runMonteCarloAnalysis,
+    // runSimulation and calculateResultMetrics are now internal to the engine
+    // runSimulation and calculateResultMetrics are now internal to the engine
 } from '../engine';
 
 // Internal Component for the Gaussian Chart with Tooltip State
@@ -15,39 +16,53 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 
     // Optimization: generic loop for path data
     const { pathData, areaPathData, range, xMin } = useMemo(() => {
-        // Use a minimum SD for visualization to prevent ultra-thin curves
-        const vizSd = Math.max(3, sd);
+        // Optimization: generic loop for path data
+        // Safety: Ensure vizSd is at least 3 to prevent division by zero or tiny ranges
+        const vizSd = Math.max(3, sd || 3);
 
-        // Define plot range
-        let xMin = Math.max(0, mean - 3.5 * vizSd);
-        let xMax = Math.min(100, mean + 3.5 * vizSd);
+        const meanVal = mean || 0;
+        const targetVal = targetScore || 70;
+        const currentVal = currentMean || 0;
 
-        xMin = Math.min(xMin, targetScore - 5);
-        xMax = Math.max(xMax, targetScore + 5);
-        xMin = Math.min(xMin, currentMean - 5);
-        xMax = Math.max(xMax, currentMean + 5);
+        // Define plot range with safety clamps
+        let xMin = Math.max(0, meanVal - 3.5 * vizSd);
+        let xMax = Math.min(100, meanVal + 3.5 * vizSd);
+
+        // Expand range to include key points
+        xMin = Math.min(xMin, targetVal - 5);
+        xMax = Math.max(xMax, targetVal + 5);
+        xMin = Math.min(xMin, currentVal - 5);
+        xMax = Math.max(xMax, currentVal + 5);
+
+        // Final safety clamp
         xMin = Math.max(0, xMin);
         xMax = Math.min(100, xMax);
 
-        const range = Math.max(1, xMax - xMin);
+        // Ensure range is non-zero
+        const range = Math.max(10, xMax - xMin);
 
-        const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - mean) / vizSd, 2));
+        const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - meanVal) / vizSd, 2));
 
         const points = [];
-        const steps = 60;
+        // Reduce steps from 60 to 40 for performance
+        const steps = 40;
+
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
             const y = gaussian(x);
-            points.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
+            // Ensure y is valid number
+            const safeY = isNaN(y) ? 0 : y;
+            points.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
         }
         const path = `M ${points.join(' L ')}`;
 
         const areaPoints = [];
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
-            if (x >= low95 && x <= high95) {
+            if (x >= (low95 || 0) && x <= (high95 || 100)) {
                 const y = gaussian(x);
-                areaPoints.push(`${(x - xMin) / range * 100},${100 - (y * 100)}`);
+                const safeY = isNaN(y) ? 0 : y;
+                areaPoints.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
             }
         }
         if (areaPoints.length > 0) {
@@ -446,34 +461,17 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         // Use deterministic seed for reproducibility (based on projectDays)
         const seed = 123456 + projectDays;
 
-        // Run simulation with engine module
-        // This applies: adaptive count (10k/20k), truncated distribution [0,100]
-        return runSimulation(weightedMean, pooledSD, { seed });
-    }, [statsData, projectDays]);
+        // Run simulation with NEW engine module
+        const result = runMonteCarloAnalysis(weightedMean, pooledSD, debouncedTarget, {
+            seed: seed,
+            days: 30 // Default projection window
+        });
 
-    // 4. Calculate Final Result (updates on Target change)
-    const simulationResult = useMemo(() => {
-        if (!statsData || !simulationData) return null;
+        // Ensure result has all necessary fields expected by UI
+        return result;
+    }, [statsData, projectDays, debouncedTarget]);
 
-        const { categoryStats, weightedMean, currentWeightedMean, pooledSD } = statsData;
-        const target = debouncedTarget;
-
-        // Use engine module for result calculation
-        const metrics = calculateResultMetrics(simulationData.scores, target);
-
-        return {
-            probability: metrics.probability.toFixed(1),
-            mean: weightedMean.toFixed(1),
-            currentMean: currentWeightedMean.toFixed(1),
-            sd: pooledSD.toFixed(1),
-            ci95Low: metrics.ci95Low.toFixed(0),
-            ci95High: metrics.ci95High.toFixed(0),
-            categoryStats,
-            // Auditability: expose simulation metadata
-            simulationId: `MC-${simulationData.seed}`,
-            simulations: simulationData.simulations
-        };
-    }, [statsData, simulationData, debouncedTarget]);
+    const simulationResult = simulationData;
 
     // Effect to update local state logic is removed as we use derived state directly
     // setSimulationResult is no longer needed as simulationResult is a derived constant
