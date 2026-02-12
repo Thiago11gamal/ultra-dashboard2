@@ -89,7 +89,7 @@ function App() {
         }
       } catch (err) {
         console.error("CRITICAL ERROR loading cloud data:", err);
-        alert("Erro de Conexão: " + err.message); // Temporary alert to help user debug
+        // Error will be handled by UI state (appState === null)
       } finally {
         setLoadingData(false);
       }
