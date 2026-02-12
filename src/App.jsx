@@ -60,8 +60,17 @@ function App() {
 
       setLoadingData(true);
       try {
+        // Timeout Promise to prevent infinite hanging
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout: A conexão com o banco de dados demorou muito.")), 15000)
+        );
+
         const docRef = doc(db, 'users_data', currentUser.uid);
-        const docSnap = await getDoc(docRef);
+        // Race between Firestore and Timeout
+        const docSnap = await Promise.race([
+          getDoc(docRef),
+          timeoutPromise
+        ]);
 
         if (docSnap.exists()) {
           const data = docSnap.data();
