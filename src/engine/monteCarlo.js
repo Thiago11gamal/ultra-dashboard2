@@ -227,6 +227,7 @@ export function runMonteCarloAnalysis(meanVal, sdVal, target, options = {}) {
         ...result,
         target,
         // Legacy fields for UI compatibility:
+        sd: result.std, // Critical fix: UI expects 'sd', engine returns 'std'
         ci95Low: result.ci95[0],
         ci95High: result.ci95[1],
         median: result.mean
