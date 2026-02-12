@@ -49,6 +49,7 @@ function App() {
   const { currentUser } = useAuth();
   const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
   const [loadingStatus, setLoadingStatus] = useState("Iniciando...");
+  const [loadingData, setLoadingData] = useState(true);
 
   // Cloud Data Fetching
   useEffect(() => {
