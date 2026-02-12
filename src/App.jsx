@@ -1906,14 +1906,26 @@ function App() {
   }
 
   if (!appState) {
+    const isConfigLoaded = !!import.meta.env.VITE_PROJECT_ID;
+    const projectId = import.meta.env.VITE_PROJECT_ID || 'MISSING';
+
     return (
       <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center text-white p-4">
-        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-md text-center">
-          <h2 className="text-xl font-bold text-red-400 mb-2">Erro ao carregar dados</h2>
-          <p className="text-slate-400 mb-6">Não foi possível conectar ao banco de dados.</p>
+        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-md w-full">
+          <h2 className="text-xl font-bold text-red-400 mb-2 text-center">Erro de Conexão</h2>
+          <p className="text-slate-400 mb-4 text-center">Não foi possível carregar os dados.</p>
+
+          <div className="bg-black/30 p-4 rounded-lg mb-4 text-xs font-mono text-slate-300 overflow-auto">
+            <p><strong>Status:</strong> {loadingData ? 'Carregando...' : 'Falha'}</p>
+            <p><strong>User ID:</strong> {currentUser ? currentUser.uid : 'Não Logado'}</p>
+            <p><strong>Project ID:</strong> {projectId}</p>
+            <p><strong>API Key:</strong> {import.meta.env.VITE_API_KEY ? 'Presente' : 'AUSENTE'}</p>
+            <p><strong>Auth Domain:</strong> {import.meta.env.VITE_AUTH_DOMAIN ? 'Presente' : 'AUSENTE'}</p>
+          </div>
+
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-lg font-bold transition-colors"
+            className="w-full py-3 bg-red-500 hover:bg-red-600 rounded-lg font-bold transition-colors"
           >
             Tentar Novamente
           </button>
