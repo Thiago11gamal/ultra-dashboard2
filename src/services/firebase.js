@@ -23,7 +23,6 @@ const app = initializeApp(firebaseConfig);
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true, // Force long polling to bypass proxy/firewall issues
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
