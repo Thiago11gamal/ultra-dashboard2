@@ -106,14 +106,7 @@ function App() {
 
   // ... (existing code) ...
 
-  if (loadingData) {
-    return (
-      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center space-y-4">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
-        <div className="text-slate-400 font-medium animate-pulse">{loadingStatus}</div>
-      </div>
-    );
-  }
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
