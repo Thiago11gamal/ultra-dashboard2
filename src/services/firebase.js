@@ -24,9 +24,6 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 
 const db = initializeFirestore(app, {
     experimentalForceLongPolling: true, // Force long polling to bypass proxy/firewall issues
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
 });
 
 const auth = getAuth(app);
