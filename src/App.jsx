@@ -38,7 +38,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { db } from './services/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { exportData, backupData, INITIAL_DATA } from './data/initialData';
+import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
 
@@ -46,7 +46,7 @@ import MobilePocketMode from './components/MobilePocketMode';
 
 
 function App() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
   const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
   const [loadingData, setLoadingData] = useState(false);
 
@@ -314,7 +314,7 @@ function App() {
         showToast(`🏆 Conquista Desbloqueada! +${result.xpGained} XP`, 'success');
       });
     }
-  }, [data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate]);
+  }, [data, data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate]);
 
   // Track Pomodoro completion for achievements
   const trackPomodoroComplete = useCallback(() => {
@@ -1317,7 +1317,7 @@ function App() {
       user: data.user,
       targetScore // Pass User Target
     });
-  }, [data.categories, data.simulados, data.studyLogs]); // Re-run when data changes. Ideally add targetScore to dependency if state.
+  }, [data.categories, data.simulados, data.studyLogs, data.user]); // Re-run when data changes. Ideally add targetScore to dependency if state.
 
   const handleGenerateGoals = useCallback(() => {
     setCoachLoading(true);
