@@ -405,11 +405,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01 }}
-            className={`max-w-3xl mx-auto space-y-6 relative font-sans ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* 1. TOP BAR: Modern Clean Header */}
-            <div className="relative flex items-center justify-center py-2">
-                <div className="flex-1 flex justify-center pl-4 pr-16 bg-transparent">
+            <div className="relative flex items-center justify-center py-2 w-full">
+                <div className="flex-1 flex justify-center px-12 bg-transparent">
                     {activeSubject ? (
                         <motion.div
                             initial={{ y: -5, opacity: 0 }}
@@ -441,24 +441,48 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     ) : (
                         <motion.div
                             animate={showWarning ? {
-                                scale: [1, 1.08, 1],
-                                color: ['#cbd5e1', '#ffffff', '#cbd5e1'],
-                                borderColor: ['#44403c', '#ef4444', '#44403c'],
-                                backgroundColor: ['#1c1917', '#991b1b', '#1c1917'],
-                                boxShadow: ['0 0 0px rgba(239, 68, 68, 0)', '0 0 40px rgba(239, 68, 68, 0.6)', '0 0 0px rgba(239, 68, 68, 0)']
+                                scale: [1, 1.15, 1],
+                                borderColor: ['#ef4444', '#ffffff', '#ef4444'],
+                                backgroundColor: ['#991b1b', '#ef4444', '#991b1b'],
+                                boxShadow: [
+                                    '0 0 20px rgba(239, 68, 68, 0.4)',
+                                    '0 0 60px rgba(239, 68, 68, 0.9)',
+                                    '0 0 20px rgba(239, 68, 68, 0.4)'
+                                ]
                             } : {}}
-                            transition={{ duration: 0.6, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
+                            transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
                             onClick={onExit}
-                            className={`flex items-center gap-4 text-stone-300 text-sm font-black uppercase tracking-widest border-2 border-dashed border-stone-700 px-10 py-5 rounded-2xl bg-[#1c1917] cursor-pointer hover:border-white/40 hover:text-white transition-all shadow-2xl relative z-20`}
+                            className={`flex items-center gap-4 text-white text-base font-black uppercase tracking-widest border-4 border-dashed border-red-500 px-12 py-6 rounded-2xl bg-red-900/80 cursor-pointer hover:scale-105 transition-all shadow-2xl relative z-20 overflow-hidden group`}
                         >
-                            <AlertCircle className={showWarning ? "text-white animate-bounce" : "text-stone-500"} size={24} />
-                            <span>Selecionar um assunto para começar</span>
+                            {/* Inner Glow Pulse */}
+                            {showWarning && (
+                                <motion.div
+                                    animate={{ opacity: [0.1, 0.3, 0.1] }}
+                                    transition={{ duration: 0.4, repeat: Infinity }}
+                                    className="absolute inset-0 bg-white"
+                                />
+                            )}
+                            <AlertCircle className={showWarning ? "text-white animate-bounce shrink-0" : "text-stone-500 shrink-0"} size={32} />
+                            <span className="relative z-10 drop-shadow-md">Selecionar um assunto para começar</span>
                         </motion.div>
                     )}
                 </div>
 
-                {/* Lock Control */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                {/* Lock & Reset Controls */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {!isLayoutLocked && (
+                        <button
+                            onClick={() => {
+                                setUiPosition({ x: 0, y: 0 });
+                                localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
+                            }}
+                            className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
+                            title="Resetar Posição"
+                        >
+                            <RotateCcw size={14} />
+                            <span className="text-[10px] font-bold uppercase">Resetar</span>
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsLayoutLocked(!isLayoutLocked)}
                         className={`p-3 rounded-xl transition-all duration-300 ${isLayoutLocked
@@ -478,8 +502,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                 }}
-                className={`border-4 border-[#3f2e26] transition-all duration-500 ease-out p-8 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
-                    ${!isLayoutLocked ? 'ring-2 ring-stone-600 cursor-grab active:cursor-grabbing' : ''}`}
+                animate={showWarning ? {
+                    x: [-2, 2, -2, 2, 0],
+                    rotate: [-0.5, 0.5, -0.5, 0.5, 0]
+                } : {}}
+                transition={showWarning ? { duration: 0.2, repeat: Infinity } : {}}
+                whileDrag={{ scale: 1.01 }}
+                className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-8 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
+                    ${!isLayoutLocked ? 'ring-2 ring-stone-600' : ''}
+                    ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
             >
                 <div className="relative z-10 w-full flex flex-col items-center">
                     {/* Subject Level Indicator - Left Side */}
@@ -641,7 +672,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                 }}
-                className={`pl-8 pr-16 py-8 rounded-2xl relative overflow-hidden border border-white/20
+                className={`w-full px-12 py-8 rounded-2xl relative overflow-hidden border border-white/20
                     ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
                 <div className="flex items-center justify-between mb-4">
