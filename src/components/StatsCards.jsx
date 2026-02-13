@@ -347,12 +347,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                                     <p className={`text-3xl lg:text-4xl font-black ${stat.textColor} drop-shadow-lg leading-normal tracking-tight pb-2`}>
                                         {stat.value}
                                     </p>
-                                    {/* Alert Text */}
-                                    {stat.hasStartAlert && stat.alertText && (
-                                        <p className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-widest mt-1">
-                                            {stat.alertText}
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="relative">
                                     {/* Icon glow effect */}
@@ -376,6 +370,16 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Alert Text - Centered Row */}
+                            {stat.hasStartAlert && stat.alertText && (
+                                <div className="mt-4 pb-2 w-full flex justify-center border-t border-white/5 pt-4">
+                                    <p className="text-[11px] font-black text-red-500 animate-pulse uppercase tracking-widest text-center bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                                        {stat.alertText}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Sparkline */}
                             {stat.sparklineData && (
                                 <Sparkline data={stat.sparklineData} color={stat.sparklineColor} />
@@ -408,7 +412,8 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                         </button>
                     </div>
                 </div>
-            )}
+            )
+            }
 
 
 
@@ -472,6 +477,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
