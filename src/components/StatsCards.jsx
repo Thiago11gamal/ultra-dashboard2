@@ -242,7 +242,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
             sparklineColor: '#f97316',
             sparklineData: null,
             editable: true,
-            sparklineData: null,
+
 
             goalDate: user.goalDate,
             hasStartAlert: daysUntilGoal <= 0, // Only alert if "0 days" (default/expired)
