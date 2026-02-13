@@ -51,6 +51,11 @@ function App() {
   const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
   const [loadingStatus, setLoadingStatus] = useState("Iniciando...");
   const [loadingData, setLoadingData] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Cloud Data Fetching
   // Cloud Data Fetching (Real-time & Cache-First)
@@ -1906,6 +1911,7 @@ function App() {
   };
 
   // --- AUTH CHECK ---
+  if (!isClient) return null;
   if (!currentUser) return <Login />;
 
   if (loadingData) {
