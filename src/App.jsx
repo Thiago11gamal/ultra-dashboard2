@@ -1954,8 +1954,13 @@ function App() {
           <div className="w-24 h-24 mb-8 relative">
             <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
             <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 overflow-hidden">
-              <svg viewBox="0 0 24 24" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
-                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+              <svg viewBox="0 0 200 200" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
+                {/* Giant Manta Silhouette */}
+                <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
+                <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+                <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.3" />
+                <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
               </svg>
             </div>
           </div>
