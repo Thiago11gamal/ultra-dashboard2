@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
-import FireAnimation from './FireAnimation';
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
@@ -15,8 +14,55 @@ export default function Login() {
     const { login, signup } = useAuth();
     const canvasRef = useRef(null);
 
-    // Starfield removed in favor of FireAnimation
-    // useEffect(() => { ... }, []);
+    // Starfield Animation
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        let W, H, stars = [];
+        let animationFrameId;
+
+        function init() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+            stars = Array.from({ length: 180 }, () => ({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                r: Math.random() * 1.4 + 0.2,
+                a: Math.random(),
+                spd: Math.random() * 0.4 + 0.1,
+                dir: Math.random() * Math.PI * 2
+            }));
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+            stars.forEach(s => {
+                s.a += (Math.random() - 0.5) * 0.04;
+                s.a = Math.max(0.05, Math.min(1, s.a));
+                s.x += Math.cos(s.dir) * s.spd * 0.25;
+                s.y += Math.sin(s.dir) * s.spd * 0.25;
+                if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+                if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
+
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(200, 190, 255, ' + s.a + ')';
+                ctx.fill();
+            });
+            animationFrameId = requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+        draw();
+
+        return () => {
+            window.removeEventListener('resize', init);
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []);
 
     const handleRipple = (e) => {
         const btn = e.currentTarget;
@@ -171,7 +217,7 @@ export default function Login() {
             .card-footer button { background: none; border: none; color: #a78bfa; cursor: pointer; text-decoration: none; transition: color .2s; font-family: inherit; font-size: inherit; }
             .card-footer button:hover { color: #00d4ff; }
             `}</style>
-            <FireAnimation />
+            <canvas ref={canvasRef} />
 
             <div className="orbs">
                 <div className="orb orb-1"></div>
