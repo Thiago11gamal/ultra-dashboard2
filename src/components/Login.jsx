@@ -146,9 +146,21 @@ export default function Login() {
             }
             .logo-icon::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255, 255, 255, .25) 0%, transparent 60%); }
             .card-title {
-                font-family: 'Cinzel', serif; font-size: 1.75rem; font-weight: 600; letter-spacing: .04em;
+                font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: .04em;
                 background: linear-gradient(120deg, #e0d7ff 0%, #00d4ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
                 text-align: center; margin-bottom: 6px; animation: fadeDown .7s .25s both;
+            }
+            .method-title {
+                text-align: center; font-size: 1.8rem; font-weight: 800; color: #fff;
+                margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.1em;
+                background: linear-gradient(to right, #fff, #a5f3fc, #fff);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-size: 200% auto;
+                animation: shine 3s linear infinite, fadeDown 0.7s 0.2s both;
+            }
+            @keyframes shine {
+                to { background-position: 200% center; }
             }
             .card-sub { text-align: center; color: #7c7ca8; font-size: .85rem; letter-spacing: .02em; margin-bottom: 40px; animation: fadeDown .7s .35s both; }
             @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: translateY(0); } }
@@ -220,12 +232,16 @@ export default function Login() {
                     {/* Header */}
                     <div className="logo-wrap">
                         <div className="logo-icon">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                            {/* Stingray / Arraia Icon */}
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="#fff">
+                                <path d="M12 2C5 2 1 6 1 10c0 3 3 6 6 7.5L6 22l3-2 3 2 3-2 3 2-1-4.5c3-1.5 6-4.5 6-7.5 0-4-4-8-11-8z" />
+                            </svg>
                         </div>
                     </div>
 
-                    <h1 className="card-title">{isLogin ? 'Bem-vindo de volta' : 'Criar Conta'}</h1>
-                    <p className="card-sub">{isLogin ? 'Faça login na sua conta premium' : 'Inicie sua jornada ultra'}</p>
+                    <h1 className="method-title">MÉTODO THI</h1>
+                    <h2 className="card-title">{isLogin ? 'Bem-vindo' : 'Criar Conta'}</h2>
+                    <p className="card-sub">{isLogin ? 'Acesse sua área exclusiva' : 'Inicie sua jornada ultra'}</p>
 
                     {error && (
                         <div className="mb-6 p-4 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-200 text-sm flex items-center gap-2 animate-fade-in">
