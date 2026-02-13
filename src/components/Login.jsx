@@ -16,6 +16,7 @@ export default function Login() {
     const canvasRef = useRef(null);
 
     // Starfield Animation
+    /*
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -64,6 +65,7 @@ export default function Login() {
             cancelAnimationFrame(animationFrameId);
         };
     }, []);
+    */
 
     const handleRipple = (e) => {
         const btn = e.currentTarget;
@@ -116,7 +118,7 @@ export default function Login() {
         }}>
 
 
-            <canvas ref={canvasRef} />
+            {/* <canvas ref={canvasRef} /> */}
 
             <div className="container">
                 <div className="left">

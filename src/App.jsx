@@ -2014,8 +2014,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
-      <ParticleBackground />
+    <div suppressHydrationWarning={true} className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
+      {/* <ParticleBackground /> */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}

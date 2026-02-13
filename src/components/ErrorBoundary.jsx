@@ -21,7 +21,7 @@ class ErrorBoundary extends React.Component {
         if (this.state.hasError) {
             // You can render any custom fallback UI
             return (
-                <div className="min-h-screen text-white p-8 flex flex-col items-center justify-center bg-slate-900">
+                <div suppressHydrationWarning={true} className="min-h-screen text-white p-8 flex flex-col items-center justify-center bg-slate-900">
                     <h1 className="text-3xl font-bold text-red-500 mb-4">Algo deu errado 😔</h1>
                     <div className="bg-slate-800 p-6 rounded-xl max-w-2xl w-full overflow-auto border border-red-500/30">
                         <p className="text-xl mb-4 font-mono text-red-300">
