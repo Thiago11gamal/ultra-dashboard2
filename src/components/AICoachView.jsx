@@ -59,19 +59,23 @@ function AICoachCard({ task, idx }) {
                 </p>
             </div>
 
+
             {/* Footer / Analysis */}
-            <div className="relative mt-auto pt-4 border-t border-white/10 flex items-center justify-between">
+            <div
+                className={`relative mt-auto pt-4 border-t border-white/10 flex items-center justify-between ${task.analysis ? 'cursor-pointer group/footer' : ''}`}
+                onClick={() => task.analysis && setIsExpanded(!isExpanded)}
+            >
                 {task.analysis ? (
                     <button
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors group/toggle py-2"
+                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover/footer:text-white transition-colors py-2"
                     >
-                        <BrainCircuit size={14} className="group-hover/toggle:text-amber-400 transition-colors" />
+                        <BrainCircuit size={14} className="group-hover/footer:text-amber-400 transition-colors" />
                         <span>INSIGHT DO COACH</span>
                         <ChevronDown size={12} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
                 ) : <div />}
             </div>
+
 
             <AnimatePresence>
                 {isExpanded && task.analysis && (
@@ -192,7 +196,7 @@ export default function AICoachView({
                                 <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Sem plano ativo</p>
                             </motion.div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                                 {coachPlan.map((task, idx) => (
                                     <AICoachCard key={idx} task={task} idx={idx} />
                                 ))}
