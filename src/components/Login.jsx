@@ -103,245 +103,129 @@ export default function Login() {
 
     return (
         <div style={{
-            fontFamily: "'Outfit', sans-serif",
-            background: "#030b1a",
-            color: "#e8e4ff",
+            fontFamily: "'Segoe UI', sans-serif",
+            background: "radial-gradient(circle at 20% 20%,#1e3a8a,#0b1120 60%)",
+            color: "#fff",
             overflow: "hidden",
             minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             position: "relative"
         }}>
             <style>{`
-            canvas { position: fixed; inset: 0; z-index: 0; }
-            .orbs { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-            .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .45; animation: drift linear infinite; }
-            .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, #4f0aad 0%, transparent 70%); top: -10%; left: -10%; animation-duration: 22s; }
-            .orb-2 { width: 420px; height: 420px; background: radial-gradient(circle, #0d4bce 0%, transparent 70%); bottom: -15%; right: -8%; animation-duration: 28s; animation-delay: -8s; }
-            .orb-3 { width: 280px; height: 280px; background: radial-gradient(circle, #00d4ff33 0%, transparent 70%); top: 40%; left: 60%; animation-duration: 18s; animation-delay: -4s; }
-            @keyframes drift {
-                0% { transform: translate(0, 0) scale(1); }
-                33% { transform: translate(30px, -40px) scale(1.08); }
-                66% { transform: translate(-20px, 30px) scale(.94); }
-                100% { transform: translate(0, 0) scale(1); }
-            }
-            .grid-overlay {
-                position: fixed; inset: 0; z-index: 2; pointer-events: none;
-                background-image: linear-gradient(rgba(100, 80, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(100, 80, 255, .04) 1px, transparent 1px);
-                background-size: 60px 60px;
-            }
-            .page { position: relative; z-index: 10; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-            .card {
-                width: 100%; max-width: 430px;
-                background: linear-gradient(135deg, rgba(13, 27, 62, .85) 0%, rgba(6, 15, 36, .9) 100%);
-                border: 1px solid rgba(124, 58, 237, .35); border-radius: 24px; padding: 52px 44px 48px;
-                backdrop-filter: blur(28px);
-                box-shadow: 0 0 0 1px rgba(255, 255, 255, .04) inset, 0 40px 100px rgba(3, 11, 26, .8), 0 0 60px rgba(93, 33, 208, .2);
-                animation: cardIn .9s cubic-bezier(.22, 1, .36, 1) both;
-            }
-            @keyframes cardIn { from { opacity: 0; transform: translateY(36px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .logo-wrap { display: flex; justify-content: center; margin-bottom: 32px; animation: fadeDown .7s .15s both; }
-            .logo-icon {
-                width: 58px; height: 58px; background: linear-gradient(135deg, #7c3aed 0%, #00d4ff 100%);
-                border-radius: 16px; display: flex; align-items: center; justify-content: center;
-                box-shadow: 0 0 28px rgba(124, 58, 237, .6), 0 0 60px rgba(0, 212, 255, .15); position: relative; overflow: hidden;
-            }
-            .logo-icon::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255, 255, 255, .25) 0%, transparent 60%); }
-            .card-title {
-                font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: .04em;
-                background: linear-gradient(120deg, #e0d7ff 0%, #00d4ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-                text-align: center; margin-bottom: 6px; animation: fadeDown .7s .25s both;
-            }
-            .method-title {
-                text-align: center; font-size: 1.8rem; font-weight: 800; color: #fff;
-                margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.1em;
-                background: linear-gradient(to right, #fff, #a5f3fc, #fff);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-size: 200% auto;
-                animation: shine 3s linear infinite, fadeDown 0.7s 0.2s both;
-            }
-            @keyframes shine {
-                to { background-position: 200% center; }
-            }
-            .card-sub { text-align: center; color: #7c7ca8; font-size: .85rem; letter-spacing: .02em; margin-bottom: 40px; animation: fadeDown .7s .35s both; }
-            @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: translateY(0); } }
-            .field { position: relative; margin-bottom: 22px; animation: fadeUp .7s both; }
-            @keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-            .field label { display: block; font-size: .78rem; font-weight: 500; color: #a78bfa; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
-            .input-wrap { position: relative; }
-            .input-wrap.icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); opacity: .45; pointer-events: none; transition: opacity .25s; }
-            .input-wrap:focus-within.icon { opacity: 1; }
-            .input-wrap input {
-                width: 100%; background: rgba(5, 14, 35, .7); border: 1px solid rgba(124, 58, 237, .3); border-radius: 12px;
-                padding: 14px 16px 14px 46px; font-family: 'Outfit', sans-serif; font-size: .95rem; color: #e8e4ff; outline: none;
-                transition: border-color .3s, box-shadow .3s, background .3s; caret-color: #00d4ff;
-            }
-            .input-wrap input:focus { border-color: #7c3aed; background: rgba(8, 18, 48, .85); box-shadow: 0 0 0 3px rgba(124, 58, 237, .2), 0 0 20px rgba(124, 58, 237, .1); }
-            .input-wrap::after {
-                content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 0; height: 2px;
-                background: linear-gradient(90deg, #7c3aed, #00d4ff); border-radius: 0 0 12px 12px; transition: width .35s cubic-bezier(.22, 1, .36, 1);
-            }
-            .input-wrap:focus-within::after { width: 80%; }
-            .eye-btn { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #7c7ca8; padding: 4px; transition: color .2s; }
-            .eye-btn:hover { color: #a78bfa; }
-            .opts { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; animation: fadeUp .7s .65s both; }
-            .remember { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-            .remember input[type=checkbox] { display: none; }
-            .chk-box { width: 18px; height: 18px; border: 1.5px solid rgba(124, 58, 237, .5); border-radius: 5px; display: flex; align-items: center; justify-content: center; background: rgba(5, 14, 35, .8); transition: border-color .2s, background .2s; flex-shrink: 0; }
-            .remember input:checked ~ .chk-box { border-color: #7c3aed; background: #7c3aed; }
-            .remember span { font-size: .82rem; color: #7c7ca8; user-select: none; }
-            .forgot { font-size: .82rem; color: #a78bfa; text-decoration: none; transition: color .2s; }
-            .forgot:hover { color: #00d4ff; }
-            .btn-wrap { animation: fadeUp .7s .75s both; }
-            .btn {
-                width: 100%; padding: 15px;
-                background: linear-gradient(135deg, #5a1fd6 0%, #7c3aed 50%, #0d9cce 100%); background-size: 200% 200%;
-                border: none; border-radius: 14px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 600; color: #fff;
-                letter-spacing: .05em; text-transform: uppercase; cursor: pointer; position: relative; overflow: hidden;
-                box-shadow: 0 8px 32px rgba(93, 33, 208, .45), 0 2px 0 rgba(255, 255, 255, .08) inset;
-                transition: background-position .5s, box-shadow .3s, transform .15s;
-            }
-            .btn:hover { background-position: 100% 100%; box-shadow: 0 12px 40px rgba(93, 33, 208, .6), 0 0 30px rgba(0, 212, 255, .2); transform: translateY(-1px); }
-            .btn:active { transform: translateY(1px); }
-            .btn::before {
-                content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), transparent);
-                transform: skewX(-20deg); animation: shimmer 3s 2s infinite;
-            }
-            @keyframes shimmer { 0% { left: -100%; } 40% { left: 140%; } 100% { left: 140%; } }
-            .ripple { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, .25); transform: scale(0); animation: rippleAnim .6s linear; pointer-events: none; }
-            @keyframes rippleAnim { to { transform: scale(4); opacity: 0; } }
-            .divider { display: flex; align-items: center; gap: 12px; margin: 28px 0; animation: fadeUp .7s .85s both; }
-            .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(124, 58, 237, .35), transparent); }
-            .divider span { font-size: .75rem; color: #7c7ca8; white-space: nowrap; }
-            .card-footer { text-align: center; margin-top: 30px; font-size: .82rem; color: #7c7ca8; animation: fadeUp .7s 1.05s both; }
-            .card-footer button { background: none; border: none; color: #a78bfa; cursor: pointer; text-decoration: none; transition: color .2s; font-family: inherit; font-size: inherit; }
-            .card-footer button:hover { color: #00d4ff; }
+                canvas { position: absolute; top:0; left:0; z-index:0; }
+                .container { width:1100px; height:650px; display:flex; background:rgba(10,15,35,0.85); border-radius:25px; backdrop-filter:blur(12px); box-shadow:0 0 60px rgba(0,0,0,0.6); overflow:hidden; position:relative; z-index:2; animation:fadeIn 1.5s ease forwards; }
+                .left { width:50%; background:radial-gradient(circle,#1e3a8a 0%,#0b1120 70%); display:flex; align-items:center; justify-content:center; flex-direction:column; padding:40px; position:relative; }
+                .left svg { width:320px; animation:float 4s ease-in-out infinite; filter:drop-shadow(0 0 25px rgba(0,150,255,0.7)); }
+                .left h1 { font-family: 'Cinzel', serif; font-size: 2.5rem; margin-top: 20px; color: #fff; text-shadow: 0 0 20px rgba(0,150,255,0.8); text-align: center; }
+                .right { width:50%; padding:60px; display:flex; flex-direction:column; justify-content:center; color:white; }
+                .right h2 { font-size:28px; margin-bottom:10px; font-weight: 600; }
+                .right p { opacity:0.7; margin-bottom:30px; font-size: 1rem; }
+                .input-group { margin-bottom:25px; position: relative; }
+                .input-group label { font-size:14px; letter-spacing:2px; opacity:0.7; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 5px; }
+                .input-group input { width:100%; padding:15px; border-radius:12px; border:none; margin-top:0px; background:#1c233f; color:white; font-size:16px; outline:none; transition:0.3s; box-sizing: border-box; }
+                .input-group input:focus { box-shadow:0 0 15px #6366f1; background:#242c55; }
+                
+                .btn { margin-top:20px; padding:18px; border:none; border-radius:15px; font-size:18px; font-weight:bold; letter-spacing:2px; cursor:pointer; background:linear-gradient(90deg,#6366f1,#9333ea); color:white; transition:0.4s; box-shadow:0 0 20px rgba(147,51,234,0.6); width: 100%; position: relative; overflow: hidden; }
+                .btn:hover { transform:scale(1.02); box-shadow:0 0 35px rgba(147,51,234,0.9); }
+                .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+                
+                .toggle-link { margin-top: 20px; text-align: center; font-size: 0.9rem; opacity: 0.8; cursor: pointer; transition: 0.3s; }
+                .toggle-link:hover { opacity: 1; color: #6366f1; text-decoration: underline; }
+                
+                .error-box { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 12px; border-radius: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+                
+                .eye-btn { position: absolute; right: 15px; top: 38px; background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.5); transition: color 0.3s; }
+                .eye-btn:hover { color: #fff; }
+
+                .ripple { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, 0.4); transform: scale(0); animation: rippleAnim 0.6s linear; pointer-events: none; }
+                @keyframes rippleAnim { to { transform: scale(4); opacity: 0; } }
+
+                @keyframes fadeIn { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+                @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-20px); } }
+                @media(max-width:1000px) { .container { flex-direction:column; height:auto; width: 95%; } .left, .right { width:100%; } .left { padding:60px 20px; } .left svg { width: 180px; } .left h1 { font-size: 1.8rem; } }
             `}</style>
+
             <canvas ref={canvasRef} />
 
-            <div className="orbs">
-                <div className="orb orb-1"></div>
-                <div className="orb orb-2"></div>
-                <div className="orb orb-3"></div>
-            </div>
+            <div className="container">
+                <div className="left">
+                    <svg viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+                    </svg>
+                    <h1>MÉTODO THI</h1>
+                </div>
 
-            <div className="grid-overlay"></div>
-
-            <div className="page">
-                <div className="card">
-                    {/* Header */}
-                    <div className="logo-wrap">
-                        <div className="logo-icon">
-                            {/* Manta Ray / Arraia Logo */}
-                            <svg viewBox="0 0 24 24" width="38" height="38" fill="#fff">
-                                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
-                            </svg>
-                        </div>
-                    </div>
-
-                    <h1 className="method-title">MÉTODO THI</h1>
-
-                    <h2 className="card-title">{isLogin ? 'Bem-vindo' : 'Criar Conta'}</h2>
-                    <p className="card-sub">{isLogin ? 'Acesse sua área exclusiva' : 'Inicie sua jornada ultra'}</p>
+                <div className="right">
+                    <h2>{isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}</h2>
+                    <p>{isLogin ? 'Acesse sua área exclusiva para continuar.' : 'Comece sua jornada de alta performance agora.'}</p>
 
                     {error && (
-                        <div className="mb-6 p-4 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-200 text-sm flex items-center gap-2 animate-fade-in">
-                            <AlertCircle size={16} />
-                            {error}
+                        <div className="error-box">
+                            <AlertCircle size={18} />
+                            <span>{error}</span>
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit}>
                         {!isLogin && (
-                            <div className="field">
+                            <div className="input-group">
                                 <label>Nome</label>
-                                <div className="input-wrap">
-                                    <span className="icon">
-                                        <User size={16} color="#a78bfa" />
-                                    </span>
-                                    <input
-                                        type="text"
-                                        placeholder="Seu Nome"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        required={!isLogin}
-                                    />
-                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Seu Nome"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    required={!isLogin}
+                                />
                             </div>
                         )}
 
-                        <div className="field">
+                        <div className="input-group">
                             <label>E-mail</label>
-                            <div className="input-wrap">
-                                <span className="icon">
-                                    <Mail size={16} color="#a78bfa" />
-                                </span>
-                                <input
-                                    type="email"
-                                    placeholder="seu@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
+                            <input
+                                type="email"
+                                placeholder="seu@email.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
                         </div>
 
-                        <div className="field">
+                        <div className="input-group">
                             <label>Senha</label>
-                            <div className="input-wrap">
-                                <span className="icon">
-                                    <Lock size={16} color="#a78bfa" />
-                                </span>
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="eye-btn"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                >
-                                    {showPassword ? (
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                    ) : (
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        {isLogin && (
-                            <div className="opts">
-                                <label className="remember">
-                                    <input type="checkbox" />
-                                    <div className="chk-box">
-                                        <svg className="chk-mark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                    </div>
-                                    <span>Lembrar-me</span>
-                                </label>
-                                <a href="#" className="forgot">Esqueci a senha</a>
-                            </div>
-                        )}
-
-                        <div className="btn-wrap" style={{ marginTop: isLogin ? 0 : '30px' }}>
-                            <button type="submit" className="btn" disabled={loading} onClick={handleRipple}>
-                                {loading ? (
-                                    <Loader2 className="animate-spin mx-auto text-white" />
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                            <button
+                                type="button"
+                                className="eye-btn"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? (
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                                 ) : (
-                                    <span className="btn-text">{isLogin ? 'Entrar' : 'Cadastrar'}</span>
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                                 )}
                             </button>
                         </div>
+
+                        <button type="submit" className="btn" disabled={loading} onClick={handleRipple}>
+                            {loading ? (
+                                <Loader2 className="animate-spin mx-auto text-white" />
+                            ) : (
+                                <span>{isLogin ? 'ENTRAR' : 'CADASTRAR'}</span>
+                            )}
+                        </button>
                     </form>
 
-                    <div className="card-footer">
-                        {isLogin ? 'Não tem conta? ' : 'Já tem conta? '}
-                        <button onClick={() => { setIsLogin(!isLogin); setError(''); }}>
-                            {isLogin ? 'Criar conta grátis' : 'Fazer Login'}
-                        </button>
+                    <div className="toggle-link" onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+                        {isLogin ? 'Ainda não tem conta? Crie agora' : 'Já tem uma conta? Faça login'}
                     </div>
                 </div>
             </div>
