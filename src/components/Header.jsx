@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
+import { useAuth } from '../context/AuthContext';
 
 
 export default function Header({
@@ -18,6 +18,7 @@ export default function Header({
     onCloudRestore,
     currentData
 }) {
+    const { logout } = useAuth();
     const [time, setTime] = useState(new Date());
 
     const [profileOpen, setProfileOpen] = useState(false);
@@ -56,6 +57,15 @@ export default function Header({
         }
     };
 
+    const handleLogout = async () => {
+        if (window.confirm("Deseja realmente sair?")) {
+            try {
+                await logout();
+            } catch (error) {
+                console.error("Erro ao sair:", error);
+            }
+        }
+    }
 
 
     const toggleProfile = () => setProfileOpen(!profileOpen);
@@ -166,9 +176,6 @@ export default function Header({
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onDeleteContest(id);
-                                                    // Don't close profile here to allow deleting multiple if needed, or close? 
-                                                    // User might want to manage list. Let's keep it open or close? 
-                                                    // Usually delete confirms -> likely re-render.
                                                 }}
                                                 className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
                                                 title="Excluir Painel"
@@ -180,7 +187,7 @@ export default function Header({
                                 ))}
                             </div>
 
-                            <div className="mt-2 pt-2 border-t border-white/10">
+                            <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
                                 <button
                                     onClick={() => {
                                         onCreateContest();
@@ -190,6 +197,14 @@ export default function Header({
                                 >
                                     <Plus size={16} />
                                     <span>Criar Novo Painel</span>
+                                </button>
+
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Sair da Conta</span>
                                 </button>
                             </div>
                         </div>
