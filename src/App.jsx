@@ -64,33 +64,39 @@ function App() {
 
     const docRef = doc(db, 'users_data', currentUser.uid);
 
-    // onSnapshot fires immediately with cached data (if available)
+    // RE-IMPLEMENTATION TO CORRECTLY HANDLE LISTENER + DELAY
+    // We want the listener to Stay Active, but only clear loadingData after ALL (data + delay) are done.
+
+    const startTime = Date.now();
+
+    // Listener
     const unsubscribe = onSnapshot(docRef,
       (docSnap) => {
+        // Process Data
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // Migration/Safety: Ensure structure
           if (!data.contests) {
             setAppState({ contests: { 'default': data }, activeId: 'default' });
           } else {
             setAppState(data);
           }
         } else {
-          // New User or First Cloud Login: Initialize Structure
           const initial = { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
           setDoc(docRef, initial).catch(console.error);
           setAppState(initial);
         }
 
-        // Data loaded (either from cache or server)
-        setLoadingData(false);
+        // Handle Loading State with Delay
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 2000 - elapsed);
+
+        setTimeout(() => {
+          setLoadingData(false);
+        }, remaining);
       },
       (error) => {
-        console.error("Error listening to database:", error);
+        console.error("Error:", error);
         setLoadingStatus("Erro na conexão.");
-        // Keep loadingData true or false? If false, App might crash if appState is null. 
-        // But invalidating loadingData allows the "Error" UI to show (if implemented).
-        // Looking at App structure, if !appState it shows error screen. So set false.
         setLoadingData(false);
       }
     );
