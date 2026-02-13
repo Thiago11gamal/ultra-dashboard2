@@ -1916,15 +1916,21 @@ function App() {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center">
-          <div className="mb-4 relative">
-            <img
-              src="/logo-thi.png"
-              alt="MÉTODO THI"
-              className="w-48 h-auto object-contain animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] filter brightness-0 invert"
-            />
+          {/* Logo / Icon */}
+          <div className="w-24 h-24 mb-8 relative">
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+            <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 overflow-hidden">
+              {/* Manta Ray / Arraia Logo */}
+              <svg viewBox="0 0 24 24" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
+                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+              </svg>
+            </div>
           </div>
 
-          {/* Typography Removed - Included in Logo Image */}
+          {/* Typography */}
+          <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">
+            MÉTODO THI
+          </h1>
 
           <div className="h-6 flex items-center justify-center">
             <span className="text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">
