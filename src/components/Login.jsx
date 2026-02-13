@@ -117,7 +117,7 @@ export default function Login() {
                 canvas { position: absolute; top:0; left:0; z-index:0; }
                 .container { width:1100px; height:650px; display:flex; background:rgba(10,15,35,0.85); border-radius:25px; backdrop-filter:blur(12px); box-shadow:0 0 60px rgba(0,0,0,0.6); overflow:hidden; position:relative; z-index:2; animation:fadeIn 1.5s ease forwards; }
                 .left { width:50%; background:radial-gradient(circle,#1e3a8a 0%,#0b1120 70%); display:flex; align-items:center; justify-content:center; flex-direction:column; padding:40px; position:relative; }
-                .left svg { width:320px; animation:float 4s ease-in-out infinite; filter:drop-shadow(0 0 25px rgba(0,150,255,0.7)); }
+                .left img { width:320px; animation:float 4s ease-in-out infinite; filter:drop-shadow(0 0 25px rgba(0,150,255,0.7)); }
                 .left h1 { font-family: 'Cinzel', serif; font-size: 2.5rem; margin-top: 20px; color: #fff; text-shadow: 0 0 20px rgba(0,150,255,0.8); text-align: center; }
                 .right { width:50%; padding:60px; display:flex; flex-direction:column; justify-content:center; color:white; }
                 .right h2 { font-size:28px; margin-bottom:10px; font-weight: 600; }
@@ -144,16 +144,14 @@ export default function Login() {
 
                 @keyframes fadeIn { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
                 @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-20px); } }
-                @media(max-width:1000px) { .container { flex-direction:column; height:auto; width: 95%; } .left, .right { width:100%; } .left { padding:60px 20px; } .left svg { width: 180px; } .left h1 { font-size: 1.8rem; } }
+                @media(max-width:1000px) { .container { flex-direction:column; height:auto; width: 95%; } .left, .right { width:100%; } .left { padding:60px 20px; } .left img { width: 180px; } .left h1 { font-size: 1.8rem; } }
             `}</style>
 
             <canvas ref={canvasRef} />
 
             <div className="container">
                 <div className="left">
-                    <svg viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
-                    </svg>
+                    <img src="/logo-thi.png" alt="Método THI Logo" />
                     <h1>MÉTODO THI</h1>
                 </div>
 
