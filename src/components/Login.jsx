@@ -73,15 +73,17 @@ export default function Login() {
 
             <div className="container">
                 <div className="left">
-                    {/* Manta Ray Logo */}
+                    {/* Manta Ray Logo Silhouette */}
                     <svg viewBox="0 0 24 24" className="manta-logo" fill="currentColor" style={{
                         width: '280px',
                         height: '280px',
-                        color: '#6366f1',
-                        filter: 'drop-shadow(0 0 30px rgba(99, 102, 241, 0.6))',
-                        animation: 'float 4s ease-in-out infinite'
+                        color: '#818cf8',
+                        filter: 'drop-shadow(0 0 20px rgba(99, 102, 241, 0.5))',
+                        animation: 'float 6s ease-in-out infinite'
                     }}>
-                        <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+                        <path d="M12,2c-5,0-9,3-9,7c0,2,2,3,4,4c0.5,2,2,5,3,9c0.2,0.8,1.8,0.8,2,0c1-4,2.5-7,3-9c2-1,4-2,4-4C19,5,16,2,12,2z M12,6 c0.6,0,1,0.4,1,1s-0.4,1-1,1s-1-0.4-1-1S11.4,6,12,6z" opacity="0.9" />
+                        <path d="M22,9c-1-2-4-2-7-1c-0.5-0.5-1-1-1.8-1.4C15.5,5,18,3,20,3c0.6,0,1,0.4,1,1C21,5.5,21.5,7,22,9z" opacity="0.7" />
+                        <path d="M2,9c1-2,4-2,7-1c0.5-0.5,1-1,1.8-1.4C8.5,5,6,3,4,3C3.4,3,3,3.4,3,4C3,5.5,2.5,7,2,9z" opacity="0.7" />
                     </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
