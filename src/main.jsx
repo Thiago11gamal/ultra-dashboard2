@@ -5,7 +5,12 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 
-createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+if (rootElement.hasChildNodes()) {
+  rootElement.innerHTML = '';
+}
+
+createRoot(rootElement).render(
   <ErrorBoundary>
     <AuthProvider>
       <App />
