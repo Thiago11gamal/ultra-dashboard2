@@ -52,10 +52,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [targetCycles, setTargetCycles] = useState(() => getSavedState('targetCycles', 1));
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
-    // Ref to track last tick time for drift correction
-    const lastTickRef = useRef(Date.now());
-    const endTimeRef = useRef(null);
-
     // --- RESUME LOGIC (Back from Background/Refresh) ---
     useEffect(() => {
         const saved = localStorage.getItem('pomodoroState');
@@ -113,8 +109,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         localStorage.removeItem('pomodoroState');
                     }
                 }
-            } catch (e) {
-                console.error("Resume logic error", e);
+            } catch (err) {
+                console.error("Resume logic error", err);
             }
         }
     }, [activeSubject, safeSettings]); // Added dependencies
@@ -140,8 +136,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     icon: '🍅',
                     tag: 'pomodoro-timer'
                 });
-            } catch (e) {
-
+            } catch (err) {
+                // Ignore notification errors
             }
         }
     };

@@ -1,7 +1,7 @@
 [36mvite v7.2.6 [32mbuilding client environment for production...[36m[39m
 transforming...
 [32mÔ£ô[39m 3937 modules transformed.
-Ô£ù Build failed in 10.97s
+Ô£ù Build failed in 9.54s
 error during build:
 src/components/MonteCarloGauge.jsx (4:4): "computeCategoryStats" is not exported by "src/engine/index.js", imported by "src/components/MonteCarloGauge.jsx".
 file: C:/Users/antun.BOOK-201QO8FPFE/Downloads/fly/ultra-dashboard2/src/components/MonteCarloGauge.jsx:4:4

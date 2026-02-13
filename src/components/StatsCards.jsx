@@ -156,7 +156,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
 
         goalNormalizedFinal.setHours(0, 0, 0, 0);
         return differenceInDays(goalNormalizedFinal, todayNormalized);
-    }, [user.goalDate]);
+    }, [user]);
 
     // Calculate Unique Days Studied (Memoized)
     const daysStudying = React.useMemo(() => {
@@ -180,7 +180,6 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
         if (dates.length === 0) return 0;
 
         const todayStart = new Date().setHours(0, 0, 0, 0);
-        const yesterday = new Date(todayStart - 86400000).setHours(0, 0, 0, 0);
 
         // Gap check: If last study was before yesterday, streak might be broken
         const msPerDay = 1000 * 60 * 60 * 24;

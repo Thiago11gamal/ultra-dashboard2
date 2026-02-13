@@ -37,7 +37,7 @@ import Toast from './components/Toast';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { db } from './services/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
