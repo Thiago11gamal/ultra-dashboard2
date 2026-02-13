@@ -150,18 +150,6 @@ export default function Login() {
                 background: linear-gradient(120deg, #e0d7ff 0%, #00d4ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
                 text-align: center; margin-bottom: 6px; animation: fadeDown .7s .25s both;
             }
-            .method-title {
-                text-align: center; font-size: 1.8rem; font-weight: 800; color: #fff;
-                margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.1em;
-                background: linear-gradient(to right, #fff, #a5f3fc, #fff);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-size: 200% auto;
-                animation: shine 3s linear infinite, fadeDown 0.7s 0.2s both;
-            }
-            @keyframes shine {
-                to { background-position: 200% center; }
-            }
             .card-sub { text-align: center; color: #7c7ca8; font-size: .85rem; letter-spacing: .02em; margin-bottom: 40px; animation: fadeDown .7s .35s both; }
             @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: translateY(0); } }
             .field { position: relative; margin-bottom: 22px; animation: fadeUp .7s both; }
@@ -231,15 +219,14 @@ export default function Login() {
                 <div className="card">
                     {/* Header */}
                     <div className="logo-wrap">
-                        <div className="logo-icon">
-                            {/* Manta Ray / Arraia Logo */}
-                            <svg viewBox="0 0 24 24" width="38" height="38" fill="#fff">
-                                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
-                            </svg>
-                        </div>
+                        {/* Logo Image */}
+                        <img
+                            src="/logo-thi.png"
+                            alt="MÉTODO THI"
+                            className="w-48 h-auto object-contain animate-fade-in-down drop-shadow-lg mx-auto mb-2"
+                        />
                     </div>
 
-                    <h1 className="method-title">MÉTODO THI</h1>
                     <h2 className="card-title">{isLogin ? 'Bem-vindo' : 'Criar Conta'}</h2>
                     <p className="card-sub">{isLogin ? 'Acesse sua área exclusiva' : 'Inicie sua jornada ultra'}</p>
 
