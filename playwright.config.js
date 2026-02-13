@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import { defineConfig, devices } from '@playwright/test';
 import os from 'os';
 
