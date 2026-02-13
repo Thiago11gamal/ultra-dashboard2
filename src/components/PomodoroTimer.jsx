@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
@@ -121,6 +121,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [speed, setSpeed] = useState(1);
+    const [showWarning, setShowWarning] = useState(false);
 
 
     // Request notification permission on mount
@@ -438,9 +439,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         </motion.div>
                     ) : (
-                        <div className="text-stone-500 text-sm font-medium border-2 border-dashed border-stone-700 px-8 py-4 rounded-xl bg-[#292524]">
-                            Selecione uma tarefa para começar
-                        </div>
+                        <motion.div
+                            animate={showWarning ? {
+                                scale: [1, 1.08, 1],
+                                color: ['#cbd5e1', '#ffffff', '#cbd5e1'],
+                                borderColor: ['#44403c', '#ef4444', '#44403c'],
+                                backgroundColor: ['#1c1917', '#991b1b', '#1c1917'],
+                                boxShadow: ['0 0 0px rgba(239, 68, 68, 0)', '0 0 40px rgba(239, 68, 68, 0.6)', '0 0 0px rgba(239, 68, 68, 0)']
+                            } : {}}
+                            transition={{ duration: 0.6, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
+                            onClick={onExit}
+                            className={`flex items-center gap-4 text-stone-300 text-sm font-black uppercase tracking-widest border-2 border-dashed border-stone-700 px-10 py-5 rounded-2xl bg-[#1c1917] cursor-pointer hover:border-white/40 hover:text-white transition-all shadow-2xl relative z-20`}
+                        >
+                            <AlertCircle className={showWarning ? "text-white animate-bounce" : "text-stone-500"} size={24} />
+                            <span>Selecionar um assunto para começar</span>
+                        </motion.div>
                     )}
                 </div>
 
@@ -572,11 +585,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <RotateCcw size={18} strokeWidth={2.5} />
                         </motion.button>
 
-                        {/* PLAY/PAUSE - Main Action */}
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => setIsRunning(!isRunning)}
+                            onClick={() => {
+                                if (!activeSubject) {
+                                    setShowWarning(true);
+                                    setTimeout(() => setShowWarning(false), 3000);
+                                    return;
+                                }
+                                setIsRunning(!isRunning);
+                            }}
                             className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
                         >
                             {isRunning
