@@ -206,15 +206,31 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             // Switch to break
             setMode('break');
-            setTimeLeft(safeSettings.pomodoroBreak * 60);
+            const breakTime = safeSettings.pomodoroBreak * 60;
+            setTimeLeft(breakTime);
+            // Explicitly sync to localStorage for immediate state consistency
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                ...JSON.parse(localStorage.getItem('pomodoroState') || '{}'),
+                mode: 'break',
+                timeLeft: breakTime,
+                isRunning: false
+            }));
         } else {
             // Break finished
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
 
             setMode('work');
-            setTimeLeft(safeSettings.pomodoroWork * 60);
+            const workTime = safeSettings.pomodoroWork * 60;
+            setTimeLeft(workTime);
             setIsRunning(false);
+            // Explicitly sync to localStorage
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                ...JSON.parse(localStorage.getItem('pomodoroState') || '{}'),
+                mode: 'work',
+                timeLeft: workTime,
+                isRunning: false
+            }));
         }
 
         setIsRunning(false);
@@ -325,9 +341,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-    // Progress is 0 if timer hasn't started (at full time and not running)
+    // Progress is 0 if timer hasn't started or is at exactly totalTime
+    // Use a small epsilon to avoid floating point issues where 1500 - 1500.000001 might cause a blip
     const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
-    const progress = (timeLeft >= totalTime && !isRunning) ? 0 : Math.max(0, Math.min(100, rawProgress));
+    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress));
 
     // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {
@@ -662,11 +679,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         if (i < sessions) {
                             workProgress = 100;
                         } else if (i === sessions && mode === 'work') {
-                            // Only show progress if timer is actively running or has made progress
-                            // Check if timer has started by comparing timeLeft to full time
+                            // Only show progress if timer has actually been modified or started
                             const workTotalTime = safeSettings.pomodoroWork * 60;
-                            const hasStarted = isRunning || timeLeft < workTotalTime;
-                            workProgress = hasStarted ? progress : 0;
+                            // If we just finished a break, sessions increments, but timeLeft might still be from previous state
+                            // So we check if timeLeft is strictly less than workTotalTime to show fill
+                            const hasTimePassed = timeLeft < workTotalTime;
+                            workProgress = (isRunning || hasTimePassed) ? progress : 0;
                         }
 
                         // Break Progress Logic
