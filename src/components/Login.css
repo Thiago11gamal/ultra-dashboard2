@@ -1,0 +1,237 @@
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+.container {
+    width: 1100px;
+    height: 650px;
+    display: flex;
+    background: rgba(10, 15, 35, 0.85);
+    border-radius: 25px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+    animation: fadeIn 1.5s ease forwards;
+}
+
+.left {
+    width: 50%;
+    background: radial-gradient(circle, #1e3a8a 0%, #0b1120 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 40px;
+    position: relative;
+}
+
+.left img {
+    width: 320px;
+    animation: float 4s ease-in-out infinite;
+    filter: drop-shadow(0 0 25px rgba(0, 150, 255, 0.7));
+}
+
+.left h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 2.5rem;
+    margin-top: 20px;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(0, 150, 255, 0.8);
+    text-align: center;
+}
+
+.right {
+    width: 50%;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: white;
+}
+
+.right h2 {
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.right p {
+    opacity: 0.7;
+    margin-bottom: 30px;
+    font-size: 1rem;
+}
+
+.input-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.input-group label {
+    font-size: 14px;
+    letter-spacing: 2px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    margin-top: 0px;
+    background: #1c233f;
+    color: white;
+    font-size: 16px;
+    outline: none;
+    transition: 0.3s;
+    box-sizing: border-box;
+}
+
+.input-group input:focus {
+    box-shadow: 0 0 15px #6366f1;
+    background: #242c55;
+}
+
+.btn {
+    margin-top: 20px;
+    padding: 18px;
+    border: none;
+    border-radius: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    cursor: pointer;
+    background: linear-gradient(90deg, #6366f1, #9333ea);
+    color: white;
+    transition: 0.4s;
+    box-shadow: 0 0 20px rgba(147, 51, 234, 0.6);
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 35px rgba(147, 51, 234, 0.9);
+}
+
+.btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.toggle-link {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.toggle-link:hover {
+    opacity: 1;
+    color: #6366f1;
+    text-decoration: underline;
+}
+
+.error-box {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.eye-btn {
+    position: absolute;
+    right: 15px;
+    top: 38px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.3s;
+}
+
+.eye-btn:hover {
+    color: #fff;
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0);
+    animation: rippleAnim 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes rippleAnim {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+@media(max-width:1000px) {
+    .container {
+        flex-direction: column;
+        height: auto;
+        width: 95%;
+    }
+
+    .left,
+    .right {
+        width: 100%;
+    }
+
+    .left {
+        padding: 60px 20px;
+    }
+
+    .left img {
+        width: 180px;
+    }
+
+    .left h1 {
+        font-size: 1.8rem;
+    }
+}
