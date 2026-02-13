@@ -223,7 +223,7 @@ export default function Login() {
                         <img
                             src="/logo-thi.png"
                             alt="MÉTODO THI"
-                            className="w-48 h-auto object-contain animate-fade-in-down drop-shadow-lg mx-auto mb-2"
+                            className="w-48 h-auto object-contain animate-fade-in-down drop-shadow-lg mx-auto mb-2 filter brightness-0 invert"
                         />
                     </div>
 

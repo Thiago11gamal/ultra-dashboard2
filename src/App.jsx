@@ -1920,7 +1920,7 @@ function App() {
             <img
               src="/logo-thi.png"
               alt="MÉTODO THI"
-              className="w-48 h-auto object-contain animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+              className="w-48 h-auto object-contain animate-pulse drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] filter brightness-0 invert"
             />
           </div>
 
