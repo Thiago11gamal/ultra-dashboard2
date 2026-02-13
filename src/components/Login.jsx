@@ -232,9 +232,9 @@ export default function Login() {
                     {/* Header */}
                     <div className="logo-wrap">
                         <div className="logo-icon">
-                            {/* Stingray / Arraia Icon */}
-                            <svg viewBox="0 0 24 24" width="32" height="32" fill="#fff">
-                                <path d="M12 2C5 2 1 6 1 10c0 3 3 6 6 7.5L6 22l3-2 3 2 3-2 3 2-1-4.5c3-1.5 6-4.5 6-7.5 0-4-4-8-11-8z" />
+                            {/* Manta Ray / Arraia Logo */}
+                            <svg viewBox="0 0 24 24" width="38" height="38" fill="#fff">
+                                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
                             </svg>
                         </div>
                     </div>
