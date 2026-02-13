@@ -73,17 +73,31 @@ export default function Login() {
 
             <div className="container">
                 <div className="left">
-                    {/* Manta Ray Logo Silhouette */}
-                    <svg viewBox="0 0 24 24" className="manta-logo" fill="currentColor" style={{
-                        width: '280px',
-                        height: '280px',
-                        color: '#818cf8',
-                        filter: 'drop-shadow(0 0 20px rgba(99, 102, 241, 0.5))',
+                    {/* Manta Ray Silhouette Logo (Refined to match image) */}
+                    <svg viewBox="0 0 200 200" className="manta-logo" fill="currentColor" style={{
+                        width: '320px',
+                        height: '320px',
+                        color: '#a5b4fc', // Indigo 300
+                        filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }}>
-                        <path d="M12,2c-5,0-9,3-9,7c0,2,2,3,4,4c0.5,2,2,5,3,9c0.2,0.8,1.8,0.8,2,0c1-4,2.5-7,3-9c2-1,4-2,4-4C19,5,16,2,12,2z M12,6 c0.6,0,1,0.4,1,1s-0.4,1-1,1s-1-0.4-1-1S11.4,6,12,6z" opacity="0.9" />
-                        <path d="M22,9c-1-2-4-2-7-1c-0.5-0.5-1-1-1.8-1.4C15.5,5,18,3,20,3c0.6,0,1,0.4,1,1C21,5.5,21.5,7,22,9z" opacity="0.7" />
-                        <path d="M2,9c1-2,4-2,7-1c0.5-0.5,1-1,1.8-1.4C8.5,5,6,3,4,3C3.4,3,3,3.4,3,4C3,5.5,2.5,7,2,9z" opacity="0.7" />
+                        {/* Body & Wings (Jamanta Style: Broad, Triangular, Majestic) */}
+                        <path d="M100,55 
+                                 C145,55 185,75 198,105 
+                                 C180,115 150,122 120,122 
+                                 C115,135 108,148 100,152 
+                                 C92,148 85,135 80,122 
+                                 C50,122 20,115 2,105 
+                                 C15,75 55,55 100,55 Z" />
+                        {/* Cephalic Fins (Jamanta Horns - More curved and prominent) */}
+                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+
+                        {/* Internal wing definition/shadow (Subtle) */}
+                        <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.15" />
+
+                        {/* Tail (Long and elegant) */}
+                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
                     </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>

@@ -1910,51 +1910,7 @@ function App() {
     }
   };
 
-  // --- AUTH CHECK ---
-  if (!isClient) return null;
-  if (!currentUser) return <Login />;
-
-  if (loadingData) {
-    return (
-      <div suppressHydrationWarning={true} className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
-        {/* Premium Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center">
-          {/* Logo / Icon */}
-          <div className="w-24 h-24 mb-8 relative">
-            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
-            <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 overflow-hidden">
-              {/* Manta Ray / Arraia Logo */}
-              <svg viewBox="0 0 24 24" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
-                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Typography */}
-          <h1 suppressHydrationWarning className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">
-            MÉTODO THI
-          </h1>
-
-          <div className="h-6 flex items-center justify-center">
-            <span suppressHydrationWarning className="text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">
-              {loadingStatus}
-            </span>
-          </div>
-
-          {/* Loading Bar */}
-          <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-1/3 animate-loading-bar rounded-full"></div>
-          </div>
-        </div>
-
-
-      </div>
-    );
-  }
+  // --- RENDER CONTENT MOVED INSIDE FINAL RETURN ---
 
   if (!appState) {
     const isConfigLoaded = !!import.meta.env.VITE_PROJECT_ID;
@@ -1985,83 +1941,58 @@ function App() {
     );
   }
 
-  // --- MOBILE RENDER ---
-  if (isMobile && !forceDesktopMode) {
-    const mobileActions = {
-      updatePomodoroSettings,
-      finishStudying,
-      startStudying,
-      handleUpdateStudyTime,
-      toggleTask,
-      deleteTask,
-      addTask,
-      addCategory,
-      deleteCategory
-    };
+  // --- NEW UNIFIED RETURN ---
+  if (!isClient) return null;
+  if (!currentUser) return <Login />;
 
+  if (loadingData) {
+    return (
+      <div suppressHydrationWarning={true} className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-24 h-24 mb-8 relative">
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+            <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 overflow-hidden">
+              <svg viewBox="0 0 24 24" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
+                <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+              </svg>
+            </div>
+          </div>
+          <h1 suppressHydrationWarning className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">MÉTODO THI</h1>
+          <div className="h-6 flex items-center justify-center text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">{loadingStatus}</div>
+          <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-1/3 animate-loading-bar rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!appState) return <div>Erro ao carregar appState</div>;
+
+  if (isMobile && !forceDesktopMode) {
+    const mobileActions = { updatePomodoroSettings, finishStudying, startStudying, handleUpdateStudyTime, toggleTask, deleteTask, addTask, addCategory, deleteCategory };
     return (
       <>
-        <MobilePocketMode
-          user={data.user}
-          data={data}
-          actions={mobileActions}
-          onExitPocketMode={() => setForceDesktopMode(true)}
-        />
+        <MobilePocketMode user={data.user} data={data} actions={mobileActions} onExitPocketMode={() => setForceDesktopMode(true)} />
         <Toast toast={toast} onClose={() => setToast(null)} />
-        {levelUpData && (
-          <LevelUpToast
-            level={levelUpData.level}
-            title={levelUpData.title}
-            onClose={() => setLevelUpData(null)}
-          />
-        )}
       </>
     );
   }
 
   return (
     <div suppressHydrationWarning={true} className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
-      {/* <ParticleBackground /> */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onExport={handleExport}
-        onImport={handleImport}
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-        user={data.user}
-      />
-
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onExport={handleExport} onImport={handleImport} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} user={data.user} />
       <main className="p-8 pt-24 transition-all duration-300 w-full">
-        <Header
-          user={data.user}
-          settings={data.settings}
-          onToggleDarkMode={toggleDarkMode}
-          onUpdateName={updateUserName}
-          contests={safeAppState.contests}
-          activeContestId={safeAppState.activeId}
-          onSwitchContest={switchContest}
-          onCreateContest={createNewContest}
-          onDeleteContest={deleteContest}
-          onUndo={handleUndo}
-          onCloudRestore={handleCloudRestore}
-          currentData={data}
-        />
+        <Header user={data.user} settings={data.settings} onToggleDarkMode={toggleDarkMode} onUpdateName={updateUserName} contests={safeAppState.contests} activeContestId={safeAppState.activeId} onSwitchContest={switchContest} onCreateContest={createNewContest} onDeleteContest={deleteContest} onUndo={handleUndo} onCloudRestore={handleCloudRestore} currentData={data} />
         {renderContent()}
       </main>
-
       <Toast toast={toast} onClose={() => setToast(null)} />
-      {levelUpData && (
-        <LevelUpToast
-          level={levelUpData.level}
-          title={levelUpData.title}
-          onClose={() => setLevelUpData(null)}
-        />
-      )}
+      {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={() => setLevelUpData(null)} />}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
     </div>
   );
-
 }
 
 export default App;
