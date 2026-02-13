@@ -35,6 +35,7 @@ import AICoachView from './components/AICoachView';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import Toast from './components/Toast';
 import { useAuth } from './context/AuthContext';
+import FireAnimation from './components/FireAnimation';
 import Login from './components/Login';
 import { db } from './services/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -1911,7 +1912,8 @@ function App() {
     return (
       <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
         {/* Premium Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
+        <FireAnimation />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow opacity-60"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
 
         {/* Content */}
