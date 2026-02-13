@@ -1929,12 +1929,12 @@ function App() {
           </div>
 
           {/* Typography */}
-          <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">
+          <h1 suppressHydrationWarning className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">
             MÉTODO THI
           </h1>
 
           <div className="h-6 flex items-center justify-center">
-            <span className="text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">
+            <span suppressHydrationWarning className="text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">
               {loadingStatus}
             </span>
           </div>

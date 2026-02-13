@@ -121,53 +121,56 @@ export default function Login() {
             <div className="container">
                 <div className="left">
                     <img src="/logo-thi.png" alt="Método THI Logo" />
-                    <h1>MÉTODO THI</h1>
+                    <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
 
                 <div className="right">
-                    <h2>{isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}</h2>
-                    <p>{isLogin ? 'Acesse sua área exclusiva para continuar.' : 'Comece sua jornada de alta performance agora.'}</p>
+                    <h2 suppressHydrationWarning>{isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}</h2>
+                    <p suppressHydrationWarning>{isLogin ? 'Acesse sua área exclusiva para continuar.' : 'Comece sua jornada de alta performance agora.'}</p>
 
                     {error && (
                         <div className="error-box">
                             <AlertCircle size={18} />
-                            <span>{error}</span>
+                            <span suppressHydrationWarning>{error}</span>
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit}>
                         {!isLogin && (
                             <div className="input-group">
-                                <label>Nome</label>
+                                <label suppressHydrationWarning>Nome</label>
                                 <input
                                     type="text"
                                     placeholder="Seu Nome"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required={!isLogin}
+                                    suppressHydrationWarning
                                 />
                             </div>
                         )}
 
                         <div className="input-group">
-                            <label>E-mail</label>
+                            <label suppressHydrationWarning>E-mail</label>
                             <input
                                 type="email"
                                 placeholder="seu@email.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
+                                suppressHydrationWarning
                             />
                         </div>
 
                         <div className="input-group">
-                            <label>Senha</label>
+                            <label suppressHydrationWarning>Senha</label>
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
+                                suppressHydrationWarning
                             />
                             <button
                                 type="button"
@@ -186,12 +189,12 @@ export default function Login() {
                             {loading ? (
                                 <Loader2 className="animate-spin mx-auto text-white" />
                             ) : (
-                                <span>{isLogin ? 'ENTRAR' : 'CADASTRAR'}</span>
+                                <span suppressHydrationWarning>{isLogin ? 'ENTRAR' : 'CADASTRAR'}</span>
                             )}
                         </button>
                     </form>
 
-                    <div className="toggle-link" onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+                    <div className="toggle-link" onClick={() => { setIsLogin(!isLogin); setError(''); }} suppressHydrationWarning>
                         {isLogin ? 'Ainda não tem conta? Crie agora' : 'Já tem uma conta? Faça login'}
                     </div>
                 </div>
