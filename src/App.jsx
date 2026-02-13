@@ -1910,7 +1910,7 @@ function App() {
 
   if (loadingData) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
+      <div suppressHydrationWarning={true} className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
         {/* Premium Animated Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
