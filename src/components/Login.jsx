@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
@@ -19,7 +18,7 @@ export default function Login() {
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        
+
         const ctx = canvas.getContext('2d');
         let W, H, stars = [];
         let animationFrameId;
@@ -49,7 +48,7 @@ export default function Login() {
 
                 ctx.beginPath();
                 ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(200, 190, 255, ${ s.a })`;
+                ctx.fillStyle = 'rgba(200, 190, 255, ' + s.a + ')';
                 ctx.fill();
             });
             animationFrameId = requestAnimationFrame(draw);
@@ -70,9 +69,9 @@ export default function Login() {
         const rect = btn.getBoundingClientRect();
         const r = document.createElement('span');
         r.className = 'ripple';
-        r.style.width = r.style.height = `${ btn.offsetWidth } px`;
-        r.style.left = `${ e.clientX - rect.left - btn.offsetWidth / 2 } px`;
-        r.style.top = `${ e.clientY - rect.top - btn.offsetWidth / 2 } px`;
+        r.style.width = r.style.height = `${btn.offsetWidth} px`;
+        r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2} px`;
+        r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2} px`;
         btn.appendChild(r);
         setTimeout(() => r.remove(), 600);
     };
@@ -222,7 +221,7 @@ export default function Login() {
                     {/* Header */}
                     <div className="logo-wrap">
                         <div className="logo-icon">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
                         </div>
                     </div>
 
@@ -290,9 +289,9 @@ export default function Login() {
                                     onClick={() => setShowPassword(!showPassword)}
                                 >
                                     {showPassword ? (
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                                     ) : (
-                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                                     )}
                                 </button>
                             </div>
@@ -303,7 +302,7 @@ export default function Login() {
                                 <label className="remember">
                                     <input type="checkbox" />
                                     <div className="chk-box">
-                                        <svg className="chk-mark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                        <svg className="chk-mark" width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                     </div>
                                     <span>Lembrar-me</span>
                                 </label>
@@ -333,4 +332,3 @@ export default function Login() {
         </div>
     );
 }
-```
