@@ -13,59 +13,10 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
 
     const { login, signup } = useAuth();
-    const canvasRef = useRef(null);
+    // const canvasRef = useRef(null);
 
     // Starfield Animation
-    /*
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
-        let W, H, stars = [];
-        let animationFrameId;
-
-        function init() {
-            W = canvas.width = window.innerWidth;
-            H = canvas.height = window.innerHeight;
-            stars = Array.from({ length: 180 }, () => ({
-                x: Math.random() * W,
-                y: Math.random() * H,
-                r: Math.random() * 1.4 + 0.2,
-                a: Math.random(),
-                spd: Math.random() * 0.4 + 0.1,
-                dir: Math.random() * Math.PI * 2
-            }));
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, W, H);
-            stars.forEach(s => {
-                s.a += (Math.random() - 0.5) * 0.04;
-                s.a = Math.max(0.05, Math.min(1, s.a));
-                s.x += Math.cos(s.dir) * s.spd * 0.25;
-                s.y += Math.sin(s.dir) * s.spd * 0.25;
-                if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
-                if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
-
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(200, 190, 255, ' + s.a + ')';
-                ctx.fill();
-            });
-            animationFrameId = requestAnimationFrame(draw);
-        }
-
-        window.addEventListener('resize', init);
-        init();
-        draw();
-
-        return () => {
-            window.removeEventListener('resize', init);
-            cancelAnimationFrame(animationFrameId);
-        };
-    }, []);
-    */
 
     const handleRipple = (e) => {
         const btn = e.currentTarget;
@@ -122,7 +73,16 @@ export default function Login() {
 
             <div className="container">
                 <div className="left">
-                    <img src="/logo-thi.png" alt="Método THI Logo" />
+                    {/* Manta Ray Logo */}
+                    <svg viewBox="0 0 24 24" className="manta-logo" fill="currentColor" style={{
+                        width: '280px',
+                        height: '280px',
+                        color: '#6366f1',
+                        filter: 'drop-shadow(0 0 30px rgba(99, 102, 241, 0.6))',
+                        animation: 'float 4s ease-in-out infinite'
+                    }}>
+                        <path d="M12 2.5c-.8 0-1.5.5-1.5 1.5a1.5 1.5 0 0 0 3 0c0-1-.7-1.5-1.5-1.5zM3 9c0-1.1.9-2 2-2 1 0 2 1 3 1.5 1.5.8 2.5 1 4 1s2.5-.2 4-1c1-.5 2-1.5 3-1.5 1.1 0 2 .9 2 2 0 1.5-1.5 3.5-3.5 5-2 1.5-4 2-5.5 2s-3.5-.5-5.5-2C4.5 12.5 3 10.5 3 9zm9 7.5S10 20 10 22c0 1 2 1 2 1s2 0 2-1c0-2-2-5.5-2-5.5z" />
+                    </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
 
