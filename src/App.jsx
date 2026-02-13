@@ -41,6 +41,7 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
+import './components/Loading.css';
 
 
 
@@ -1944,23 +1945,7 @@ function App() {
           </div>
         </div>
 
-        <style>{`
-          @keyframes loading-bar {
-            0% { transform: translateX(-100%); }
-            50% { transform: translateX(0%); }
-            100% { transform: translateX(100%); }
-          }
-          .animate-loading-bar {
-            animation: loading-bar 1.5s infinite ease-in-out;
-          }
-          .animate-spin-slow {
-             animation: spin 8s linear infinite;
-          }
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+
       </div>
     );
   }
