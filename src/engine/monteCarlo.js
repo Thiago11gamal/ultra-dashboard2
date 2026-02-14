@@ -46,10 +46,11 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     return {
-        probability: successCount / simulations,
-        projectedMean,
-        projectedSD,
-        bayesianMean: meanVal
+        probability: (successCount / simulations) * 100,
+        mean: projectedMean.toFixed(1),
+        sd: projectedSD.toFixed(1),
+        ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)
     };
 }
 
@@ -134,9 +135,10 @@ function runMonteCarloAnalysisNew({
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     return {
-        probability: successCount / simulations,
-        projectedMean,
-        projectedSD,
-        bayesianMean: bayesMean
+        probability: (successCount / simulations) * 100,
+        mean: projectedMean.toFixed(1),
+        sd: projectedSD.toFixed(1),
+        ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)
     };
 }

@@ -625,13 +625,13 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
 
             {/* ═══════════════ BLOCO 2: RESULTADO PRINCIPAL ═══════════════ */}
-            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+            <div className="w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5">
                 <div className="flex flex-col items-center">
-                    <div className="relative mb-2">
+                    <div className="relative mb-6">
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl">
                             <div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} />
                         </div>
-                        <svg width="180" height="90" viewBox="0 0 140 70" className="overflow-visible relative z-10">
+                        <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
                             <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
                             <path
                                 d="M 10 65 A 60 60 0 0 1 130 65"
@@ -644,11 +644,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                                 style={{ transition: 'stroke-dashoffset 1.5s ease-out, stroke 0.5s ease-out' }}
                             />
                         </svg>
-                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-1 z-20">
-                            <span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob}%</span>
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
+                            <span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob.toFixed(1)}%</span>
                         </div>
                     </div>
-                    <span className="text-sm font-black uppercase tracking-widest px-4 py-1 rounded-full bg-black/40 border border-white/10" style={{ color: gradientColor }}>
+                    <span className="text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg" style={{ color: gradientColor }}>
                         {message}
                     </span>
                 </div>
