@@ -1467,7 +1467,7 @@ function App() {
       case 'stats':
         return (
           <div className="space-y-8">
-            <VerifiedStats categories={data.categories} user={data.user} />
+            <VerifiedStats categories={data.categories} user={data.user} onUpdateWeights={handleUpdateWeights} />
 
             <WeeklyAnalysis studyLogs={data.studyLogs} categories={data.categories} />
 

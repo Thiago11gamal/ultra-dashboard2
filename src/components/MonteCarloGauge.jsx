@@ -212,7 +212,7 @@ function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsM
             </div>
 
             <div className="bg-slate-800/50 p-1 rounded-xl flex mb-6 border border-white/5">
-                <button onClick={() => { if (!equalWeightsMode) { setWeights(getEqualWeights()); } setEqualWeightsMode(true); }} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                <button onClick={() => { if (!equalWeightsMode) { const ew = getEqualWeights(); setWeights(ew); if (onWeightsChange) onWeightsChange(ew); } setEqualWeightsMode(true); }} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
                     <div className={`w-2 h-2 rounded-full ${equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
                     Pesos Iguais
                 </button>
@@ -254,7 +254,7 @@ function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsM
     );
 }
 
-export default function MonteCarloGauge({ categories = [], goalDate, targetScore, onTargetChange }) {
+export default function MonteCarloGauge({ categories = [], goalDate, targetScore, onTargetChange, onWeightsChange }) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true); // Toggle for equal weights
     const [simulateToday, setSimulateToday] = useState(false); // Toggle for "Today" simulation
@@ -273,6 +273,23 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     React.useEffect(() => {
         localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
     }, [weights]);
+
+    // SYNC: Sync internal weights state with categories prop if weights are missing
+    React.useEffect(() => {
+        if (categories.length > 0) {
+            setWeights(prev => {
+                let hasChanges = false;
+                const nextWeights = { ...prev };
+                categories.forEach(cat => {
+                    if (cat.weight !== undefined && cat.weight !== prev[cat.name]) {
+                        nextWeights[cat.name] = cat.weight;
+                        hasChanges = true;
+                    }
+                });
+                return hasChanges ? nextWeights : prev;
+            });
+        }
+    }, [categories]);
 
     const projectDays = useMemo(() => {
         if (simulateToday) return 0; // Force 0 days if "Today" is selected
@@ -317,12 +334,14 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         return newWeights;
     }, [catCount, activeCategories]);
 
-    // Initialize weights equally on first load only
+    // Initialize weights equally on first load only if none are saved
     React.useEffect(() => {
         if (catCount > 0 && Object.keys(weights).length === 0) {
-            setWeights(getEqualWeights());
+            const initialWeights = getEqualWeights();
+            setWeights(initialWeights);
+            if (onWeightsChange) onWeightsChange(initialWeights);
         }
-    }, [catCount, weights, getEqualWeights]);
+    }, [catCount, weights, getEqualWeights, onWeightsChange]);
 
 
 
@@ -347,12 +366,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             const maxAllowed = Math.max(0, 100 - otherTotal);
             const finalValue = Math.min(newValue, maxAllowed);
 
-            // Only update if value actually changed
-            if (finalValue === (prev[catName] || 0)) return prev;
-
-            return { ...prev, [catName]: finalValue };
+            const updatedWeights = { ...prev, [catName]: finalValue };
+            if (onWeightsChange) onWeightsChange(updatedWeights);
+            return updatedWeights;
         });
-    }, [equalWeightsMode, activeCategories]);
+    }, [equalWeightsMode, activeCategories, onWeightsChange]);
 
     // Effective weights for simulation - use weights if available, otherwise equal weights
     // FIX: Filter out orphan categories and ensure all active categories have weights

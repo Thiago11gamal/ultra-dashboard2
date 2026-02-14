@@ -12,7 +12,7 @@ const InfoTooltip = ({ text }) => (
     </div>
 );
 
-export default function VerifiedStats({ categories = [], user }) {
+export default function VerifiedStats({ categories = [], user, onUpdateWeights }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
@@ -358,8 +358,13 @@ export default function VerifiedStats({ categories = [], user }) {
                     </div>
                 </div>
 
-                {/* Main Verdict */}
-                <div className="text-center my-2">
+                {/* Main Verdict & Gauge */}
+                <div className="flex flex-col items-center gap-2 my-2">
+                    <MiniGauge
+                        value={categories.length > 0 ? (categories.reduce((acc, cat) => acc + (cat.simuladoStats?.average || 0), 0) / categories.length / targetScore * 100) : 0}
+                        color={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "#22c55e" : "#3b82f6"}
+                        label="Meta"
+                    />
                     <h2 className={`text-lg md:text-xl font-black leading-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent drop-shadow-md`}>
                         {stats.prediction}
                     </h2>
@@ -403,8 +408,13 @@ export default function VerifiedStats({ categories = [], user }) {
                     </div>
                 </div>
 
-                {/* Main Verdict */}
-                <div className="text-center my-2">
+                {/* Main Verdict & Gauge */}
+                <div className="flex flex-col items-center gap-2 my-2">
+                    <MiniGauge
+                        value={Math.max(0, 100 - (parseFloat(stats.consistency.sd) * 5))}
+                        color={stats.consistency.status === 'EXCELENTE' ? "#22c55e" : stats.consistency.status === 'INSTÁVEL' ? "#fb923c" : "#3b82f6"}
+                        label="Estabilidade"
+                    />
                     <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
                         {stats.consistency.status}
                     </h2>
@@ -434,7 +444,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             {/* Card 3: Monte Carlo (50%) */}
             <div className="col-span-1 md:col-span-2 h-full">
-                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} targetScore={targetScore} onTargetChange={setTargetScore} />
+                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} targetScore={targetScore} onTargetChange={setTargetScore} onWeightsChange={onUpdateWeights} />
             </div>
 
             {/* Subject Consistency Breakdown - Full Width */}
