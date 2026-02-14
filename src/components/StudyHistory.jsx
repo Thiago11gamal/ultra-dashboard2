@@ -375,7 +375,6 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                         <div className="space-y-6">
                                             {subjects.map((subj, idx) => {
                                                 const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
-                                                const subjStatus = getStatus(subjPct);
                                                 const insight = getInsight(subjPct);
                                                 const subjColor = getSubjectColor(subj.name);
 
