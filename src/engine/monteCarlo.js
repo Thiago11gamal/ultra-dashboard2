@@ -1,6 +1,7 @@
-import { mean, standardDeviation } from "./stats";
-import { mulberry32, randomNormal } from "./random";
-import { updatePosteriorNormal } from "./bayesianEngine";
+import { mean, standardDeviation } from "./stats.js";
+import { mulberry32, randomNormal } from "./random.js";
+import { updatePosteriorNormal } from "./bayesianEngine.js";
+import { calculateSlope } from "./projection.js";
 
 export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
     // 1. Check if using the new Object interface
@@ -23,16 +24,14 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
     let sumSqResults = 0;
 
     for (let i = 0; i < simulations; i++) {
-        let currentValue = meanVal;
+        // Direct Terminal Sampling: Since inputs (meanVal, sdVal) are already projected
+        // and pooled, we sample the final distribution once instead of a daily walk.
+        // This avoids variance explosion (random walk variance grows with sqrt(days)).
+        const noise = sdVal * randomNormal(rng);
+        let currentValue = meanVal + noise;
 
-        for (let d = 0; d < projectionDays; d++) {
-            // Use the same additive model as the new engine for consistency
-            const noise = sdVal * randomNormal(rng);
-            currentValue = currentValue + noise;
-
-            if (currentValue > 100) currentValue = 100;
-            if (currentValue < 0) currentValue = 0;
-        }
+        if (currentValue > 100) currentValue = 100;
+        if (currentValue < 0) currentValue = 0;
 
         if (currentValue >= meta) {
             successCount++;
@@ -99,33 +98,28 @@ function runMonteCarloAnalysisNew({
 
     const bayesSD = sampleSD || 1;
 
-    // Tendência linear simples
-    const slope =
-        (values[n - 1] - values[0]) /
-        (n - 1);
+    // Use robust linear regression for slope if there's history
+    const historyData = values.map((v, idx) => ({
+        date: new Date(Date.now() - (n - 1 - idx) * 86400000).toISOString(),
+        score: v
+    }));
+    const slope = calculateSlope(historyData);
 
     let successCount = 0;
     let sumResults = 0;
     let sumSqResults = 0;
 
     for (let i = 0; i < simulations; i++) {
+        // For the new engine walk, we use the projected noise (sdVal * sqrt(days))
+        // to sample the terminal state directly, adjusted by total slope growth.
+        const totalSlopeGrowth = slope * projectionDays;
+        const terminalNoise = bayesSD * randomNormal(rng) * Math.sqrt(projectionDays || 1);
 
-        let currentValue = bayesMean;
+        let currentValue = bayesMean + totalSlopeGrowth + terminalNoise;
 
-        for (let d = 0; d < projectionDays; d++) {
-
-            const noise =
-                bayesSD * randomNormal(rng);
-
-            currentValue =
-                currentValue +
-                slope +
-                noise;
-
-            // Limite físico
-            if (currentValue > 100) currentValue = 100; // Adjusted to max 100%
-            if (currentValue < 0) currentValue = 0;
-        }
+        // Limite físico
+        if (currentValue > 100) currentValue = 100;
+        if (currentValue < 0) currentValue = 0;
 
         if (currentValue >= meta) {
             successCount++;
@@ -135,15 +129,9 @@ function runMonteCarloAnalysisNew({
         sumSqResults += currentValue * currentValue;
     }
 
-    const projectedMean =
-        sumResults / simulations;
-
-    const projectedVariance =
-        (sumSqResults / simulations) -
-        (projectedMean * projectedMean);
-
-    const projectedSD =
-        Math.sqrt(Math.max(projectedVariance, 0));
+    const projectedMean = sumResults / simulations;
+    const projectedVariance = (sumSqResults / simulations) - (projectedMean * projectedMean);
+    const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     return {
         probability: successCount / simulations,

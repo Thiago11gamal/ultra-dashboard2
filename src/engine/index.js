@@ -5,9 +5,9 @@
  * Monte Carlo simulation of academic performance.
  */
 
-export * from './stats';
-export * from './projection';
-export * from './variance';
-export * from './monteCarlo';
-export * from './random';
-export * from './bayesianEngine';
+export * from './stats.js';
+export * from './projection.js';
+export * from './variance.js';
+export * from './monteCarlo.js';
+export * from './random.js';
+export * from './bayesianEngine.js';

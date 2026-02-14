@@ -464,8 +464,9 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         // Run simulation with NEW engine module
         const result = runMonteCarloAnalysis(weightedMean, pooledSD, debouncedTarget, {
             seed: seed,
-            days: 30 // Default projection window
+            days: projectDays
         });
+
 
         // Ensure result has all necessary fields expected by UI
         return result;
