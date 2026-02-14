@@ -41,7 +41,7 @@ console.log('All required UI fields present:', !!fieldsPresent);
 
 if (!probScaleOk || !fieldsPresent) {
     console.error('FAILED: Output structure not correct for UI');
-    process.exit(1);
+    throw new Error('Output structure not correct for UI');
 } else {
     console.log('PASSED: Structure matches UI expectations');
 }

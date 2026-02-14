@@ -1,6 +1,6 @@
 
-import { calculateSlope, projectScore, calculateWeightedProjectedMean } from './src/engine/projection.js';
-import { computePooledSD, computeTimeUncertainty } from './src/engine/variance.js';
+import { calculateSlope, projectScore } from './src/engine/projection.js';
+import { computePooledSD } from './src/engine/variance.js';
 
 // Test 1: Single data point (Slope should be 0)
 const history1 = [{ date: '2023-01-01', score: 70 }];

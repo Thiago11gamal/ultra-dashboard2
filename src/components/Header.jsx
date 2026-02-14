@@ -3,7 +3,7 @@ import { Plus, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2, L
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 
 export default function Header({
