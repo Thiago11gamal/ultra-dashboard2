@@ -173,9 +173,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // A. Performance Score
         const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - averageScore) * (cfg.SCORE_MAX / 100));
 
-        // B. Recency (with weight and crunch multiplier)
-        const categoryWeightMultiplier = weight / 100;
-        const effectiveRiskDays = daysSinceLastStudy * categoryWeightMultiplier;
+        // B. Recency (DAMPENED weight to avoid explosion)
+        const weightDeviation = (weight / 100) - 1;
+        const dampenedWeightMultiplier = 1 + (weightDeviation * 0.5); // 50% Dampening
+
+        const effectiveRiskDays = daysSinceLastStudy * dampenedWeightMultiplier;
         const crunchMultiplier = getCrunchMultiplier(daysToExam);
         const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier;
 
@@ -223,8 +225,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost) -
             (efficiencyPenalty + rotationPenalty);
 
-        const weightedRaw = rawScore * (weight / 100);
-        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / (RAW_MAX_ACTUAL * (weight / 100))) * 100)));
+        // Final Weight application (DAMPENED for middle ground)
+        const finalWeightImpact = 1 + ((weight / 100) - 1) * 0.6; // 60% weight impact on total
+        const weightedRaw = rawScore * finalWeightImpact;
+
+        const MAX_POSSIBLE = RAW_MAX_ACTUAL * finalWeightImpact;
+        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / MAX_POSSIBLE) * 100)));
 
         // --- DYNAMIC RECOMMENDATION ---
         let recommendation = "";

@@ -358,13 +358,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     </div>
                 </div>
 
-                {/* Main Verdict & Gauge */}
-                <div className="flex flex-col items-center gap-2 my-2">
-                    <MiniGauge
-                        value={categories.length > 0 ? (categories.reduce((acc, cat) => acc + (cat.simuladoStats?.average || 0), 0) / categories.length / targetScore * 100) : 0}
-                        color={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "#22c55e" : "#3b82f6"}
-                        label="Meta"
-                    />
+                {/* Main Verdict */}
+                <div className="text-center my-2">
                     <h2 className={`text-lg md:text-xl font-black leading-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent drop-shadow-md`}>
                         {stats.prediction}
                     </h2>
@@ -408,13 +403,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     </div>
                 </div>
 
-                {/* Main Verdict & Gauge */}
-                <div className="flex flex-col items-center gap-2 my-2">
-                    <MiniGauge
-                        value={Math.max(0, 100 - (parseFloat(stats.consistency.sd) * 5))}
-                        color={stats.consistency.status === 'EXCELENTE' ? "#22c55e" : stats.consistency.status === 'INSTÁVEL' ? "#fb923c" : "#3b82f6"}
-                        label="Estabilidade"
-                    />
+                {/* Main Verdict */}
+                <div className="text-center my-2">
                     <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
                         {stats.consistency.status}
                     </h2>
