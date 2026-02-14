@@ -34,7 +34,7 @@ import AICoachWidget from './components/AICoachWidget';
 import AICoachView from './components/AICoachView';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import Toast from './components/Toast';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import Login from './components/Login';
 import { db } from './services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -51,22 +51,23 @@ function App() {
   const [appState, setAppState] = useState(null); // Cloud-First: Start null, load from DB
   const [loadingStatus, setLoadingStatus] = useState("Iniciando...");
   const [loadingData, setLoadingData] = useState(true);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = typeof window !== 'undefined';
 
   // Cloud Data Fetching
   // Cloud Data Fetching (Real-time & Cache-First)
   useEffect(() => {
     if (!currentUser) {
-      setAppState(null);
+      setTimeout(() => {
+        setAppState(null);
+        setLoadingData(false);
+      }, 0);
       return;
     }
 
-    setLoadingData(true);
-    setLoadingStatus("Sincronizando...");
+    setTimeout(() => {
+      setLoadingData(true);
+      setLoadingStatus("Sincronizando...");
+    }, 0);
 
     const docRef = doc(db, 'users_data', currentUser.uid);
 
@@ -313,11 +314,6 @@ function App() {
     };
   }, [showToast]);
 
-  // eslint-disable-next-line no-unused-vars
-  const addXP = useCallback((amount, skipBonus = false) => {
-    setData(prev => applyGamification(prev, amount, skipBonus));
-  }, [setData, applyGamification]);
-
   // Check achievements whenever data changes
   useEffect(() => {
     const result = checkAndUnlockAchievements(data, data.user?.achievements || []);
@@ -517,7 +513,6 @@ function App() {
   }, [showToast]);
 
   // Update Category Weights (for Monte Carlo / AI Coach)
-  // eslint-disable-next-line no-unused-vars
   const handleUpdateWeights = useCallback((weights) => {
     setData(prev => ({
       ...prev,
@@ -1946,7 +1941,6 @@ function App() {
   }
 
   if (!appState) {
-    const isConfigLoaded = !!import.meta.env.VITE_PROJECT_ID;
     const projectId = import.meta.env.VITE_PROJECT_ID || 'MISSING';
 
     return (

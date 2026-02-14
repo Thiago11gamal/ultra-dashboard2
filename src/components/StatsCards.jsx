@@ -83,9 +83,9 @@ const Sparkline = ({ data, color }) => {
 };
 
 export default function StatsCards({ data, onUpdateGoalDate }) {
-    const categories = data?.categories || [];
-    const user = data?.user || { startDate: new Date(), goalDate: new Date() };
-    const studyLogs = data?.studyLogs || [];
+    const categories = React.useMemo(() => data?.categories ?? [], [data?.categories]);
+    const user = React.useMemo(() => data?.user ?? { startDate: new Date(), goalDate: new Date() }, [data?.user]);
+    const studyLogs = React.useMemo(() => data?.studyLogs ?? [], [data?.studyLogs]);
     const [editingGoalDate, setEditingGoalDate] = useState(false);
 
     // Gamification Stats
@@ -135,28 +135,26 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     }, [categories]);
 
     // Calculate days since start and until goal (Memoized)
-    const daysUntilGoal = React.useMemo(() => {
-        const now = new Date();
-        const todayNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const now = new Date();
+    const todayNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-        let goalNormalizedFinal;
-        if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
-            const g = new Date(user.goalDate);
-            goalNormalizedFinal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
-        } else if (typeof user.goalDate === 'string') {
-            const parts = user.goalDate.split('-');
-            if (parts.length === 3) {
-                goalNormalizedFinal = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            } else {
-                goalNormalizedFinal = new Date(user.goalDate);
-            }
+    let goalNormalizedFinal;
+    if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
+        const g = new Date(user.goalDate);
+        goalNormalizedFinal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+    } else if (typeof user.goalDate === 'string') {
+        const parts = user.goalDate.split('-');
+        if (parts.length === 3) {
+            goalNormalizedFinal = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
         } else {
             goalNormalizedFinal = new Date(user.goalDate);
         }
+    } else {
+        goalNormalizedFinal = new Date(user.goalDate);
+    }
 
-        goalNormalizedFinal.setHours(0, 0, 0, 0);
-        return differenceInDays(goalNormalizedFinal, todayNormalized);
-    }, [user]);
+    goalNormalizedFinal.setHours(0, 0, 0, 0);
+    const daysUntilGoal = differenceInDays(goalNormalizedFinal, todayNormalized);
 
     // Calculate Unique Days Studied (Memoized)
     const daysStudying = React.useMemo(() => {
