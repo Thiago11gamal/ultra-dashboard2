@@ -335,7 +335,7 @@ function App() {
         showToast(`🏆 Conquista Desbloqueada! +${result.xpGained} XP`, 'success');
       });
     }
-  }, [data, data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate]);
+  }, [data, data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate, setData, showToast]);
 
   // Track Pomodoro completion for achievements
   const trackPomodoroComplete = useCallback(() => {
@@ -473,13 +473,13 @@ function App() {
       activeId: newId
     }));
     showToast('Novo painel de concurso criado!', 'success');
-  }, []);
+  }, [showToast]);
 
   // Switch contest
   const switchContest = useCallback((contestId) => {
     setAppState(prev => ({ ...prev, activeId: contestId }));
     showToast('Painel alterado!', 'success');
-  }, []);
+  }, [showToast]);
 
   // Delete Contest
   const deleteContest = useCallback((contestId) => {
@@ -573,7 +573,7 @@ function App() {
         setData(prev => ({ ...prev, categories: newCategories }), false); // Don't record history for auto-color fixes
       }, 0);
     }
-  }, [data.categories, setData]);
+  }, [data, data.categories, setData]);
 
   // Update User Name
   const updateUserName = useCallback((name) => {
@@ -926,7 +926,7 @@ function App() {
       checkAchievements(data);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [data.studyLogs, data.simulados, checkAchievements]); // Only re-run when logs/sims change
+  }, [data, data.studyLogs, data.simulados, checkAchievements]); // Only re-run when logs/sims change
 
   // Import Data - RESTORED
   const handleImport = useCallback((event) => {
