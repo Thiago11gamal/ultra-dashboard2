@@ -1,108 +1,240 @@
 
-// ==============================
-// UTILIDADES ESTATÍSTICAS
-// ==============================
+// ==========================================
+// PROJECTION ENGINE - Versão Institucional
+// Seed fixa para estabilidade visual
+// ==========================================
 
-function calculateMean(history) {
-    if (!history || history.length === 0) return 0;
-    return history.reduce((a, h) => a + h.score, 0) / history.length;
+// -----------------------------
+// Seeded RNG (Linear Congruential Generator)
+// -----------------------------
+function createSeededRandom(seed = 123456) {
+    let value = seed % 2147483647;
+    if (value <= 0) value += 2147483646;
+
+    return function () {
+        value = value * 16807 % 2147483647;
+        return (value - 1) / 2147483646;
+    };
 }
 
-function calculateStdDev(history) {
-    if (history.length < 2) return 0;
-
-    const mean = calculateMean(history);
-
-    const variance = history.reduce((acc, h) => {
-        return acc + Math.pow(h.score - mean, 2);
-    }, 0) / history.length;
-
-    return Math.sqrt(variance);
+// -----------------------------
+// Random normal com seed
+// -----------------------------
+function randomNormal(rng) {
+    const u = rng();
+    const v = rng();
+    return Math.sqrt(-2.0 * Math.log(u)) *
+        Math.cos(2.0 * Math.PI * v);
 }
 
-export function calculateRegression(history) {
-    if (history.length < 2) return { slope: 0, intercept: 0, stdError: 0 };
+// -----------------------------
+// Regressão ponderada temporal
+// -----------------------------
+function weightedRegression(history, lambda = 0.02) {
+    if (!history || history.length < 2) {
+        return { slope: 0, intercept: 0, slopeStdError: 0 };
+    }
 
-    const startTime = new Date(history[0].date).getTime();
+    const now = new Date(history[history.length - 1].date).getTime();
 
-    const data = history.map(h => ({
-        x: (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24),
-        y: h.score
-    }));
+    const data = history.map(h => {
+        const time = new Date(h.date).getTime();
+        const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
+        const weight = Math.exp(-lambda * daysAgo);
 
-    const n = data.length;
+        return {
+            x: -daysAgo,
+            y: h.score,
+            w: weight
+        };
+    });
 
-    const sumX = data.reduce((a, p) => a + p.x, 0);
-    const sumY = data.reduce((a, p) => a + p.y, 0);
-    const sumXY = data.reduce((a, p) => a + p.x * p.y, 0);
-    const sumXX = data.reduce((a, p) => a + p.x * p.x, 0);
+    const Sw = data.reduce((a, p) => a + p.w, 0);
+    const Sx = data.reduce((a, p) => a + p.w * p.x, 0);
+    const Sy = data.reduce((a, p) => a + p.w * p.y, 0);
+    const Sxx = data.reduce((a, p) => a + p.w * p.x * p.x, 0);
+    const Sxy = data.reduce((a, p) => a + p.w * p.x * p.y, 0);
 
-    const denom = n * sumXX - sumX * sumX;
-    if (denom === 0) return { slope: 0, intercept: 0, stdError: 0 };
+    const denom = Sw * Sxx - Sx * Sx;
 
-    const slope = (n * sumXY - sumX * sumY) / denom;
-    const intercept = (sumY - slope * sumX) / n;
+    if (denom === 0) {
+        return { slope: 0, intercept: 0, slopeStdError: 0 };
+    }
 
-    // erro padrão da regressão
-    const residuals = data.map(p => p.y - (slope * p.x + intercept));
-    const variance = residuals.reduce((a, r) => a + r * r, 0) / (n - 2);
-    const stdError = Math.sqrt(variance);
+    const slope = (Sw * Sxy - Sx * Sy) / denom;
+    const intercept = (Sy - slope * Sx) / Sw;
 
-    return { slope, intercept, stdError };
-}
-
-// 🎯 SLOPE ADAPTATIVO COM CONFIANÇA
-export function calculateAdaptiveSlope(history) {
-    if (!history || history.length < 2) return 0;
-
-    const { slope: rawSlope, stdError } = calculateRegression(history);
-
-    const stdDev = calculateStdDev(history);
-    const n = history.length;
-
-    // Consistência (menos variabilidade = maior confiança)
-    const consistencyFactor = 1 / (1 + stdDev / 10);
-
-    // Histórico maior = mais liberdade
-    const historyFactor = Math.min(1.5, 0.5 + n / 10);
-
-    const baseLimit = 1.2;
-
-    const dynamicLimit = baseLimit * consistencyFactor * historyFactor;
-
-    // Clamp dinâmico
-    const clampedSlope = Math.max(
-        -dynamicLimit,
-        Math.min(dynamicLimit, rawSlope)
+    const residuals = data.map(p =>
+        p.w * Math.pow(p.y - (slope * p.x + intercept), 2)
     );
 
-    // Peso de confiança baseado no erro padrão
-    const confidence = 1 / (1 + stdError);
+    const variance =
+        residuals.reduce((a, r) => a + r, 0) /
+        Math.max(1, history.length - 2);
 
-    const finalSlope = clampedSlope * confidence;
+    const slopeStdError = Math.sqrt(variance / Sxx);
 
-    return finalSlope;
+    return { slope, intercept, slopeStdError };
 }
 
-// 🚀 Projeção futura
+// 🎯 calculateSlope (compatível)
+export function calculateSlope(history) {
+    if (!history || history.length < 2) return 0;
+
+    const { slope, slopeStdError } =
+        weightedRegression(history);
+
+    const n = history.length;
+
+    const confidence =
+        1 / (1 + slopeStdError / 0.5);
+
+    const historyBoost =
+        Math.min(1.5, 0.7 + n / 15);
+
+    const baseLimit = 1.2;
+    const absoluteMax = 1.5;
+
+    const dynamicLimit = Math.min(
+        absoluteMax,
+        baseLimit * historyBoost
+    );
+
+    const clamped = Math.max(
+        -dynamicLimit,
+        Math.min(dynamicLimit, slope)
+    );
+
+    return clamped * confidence;
+}
+
+export const calculateAdaptiveSlope = calculateSlope; // Alias
+
+// 📈 projectScore (inalterado externamente)
 export function projectScore(history, projectDays = 60) {
     if (!history || history.length === 0) return 0;
 
-    const slope = calculateAdaptiveSlope(history);
-    const currentScore = history[history.length - 1].score;
+    const slope = calculateSlope(history);
+    const currentScore =
+        history[history.length - 1].score;
 
-    // suavização logarítmica (menos agressiva agora)
-    const effectiveDays = 30 * Math.log(1 + projectDays / 30);
+    const effectiveDays =
+        30 * Math.log(1 + projectDays / 30);
 
-    const projected = currentScore + slope * effectiveDays;
+    const projected =
+        currentScore + slope * effectiveDays;
 
     return Math.max(0, Math.min(100, projected));
 }
 
-/**
- * Adapter for MonteCarloGauge
- * Maintains compatibility with existing UI while using new logic
- */
+// 📉 Volatilidade baseada em resíduos
+function calculateVolatility(history) {
+    if (!history || history.length < 3) return 1;
+
+    const { slope, intercept } =
+        weightedRegression(history);
+
+    const now =
+        new Date(history[history.length - 1].date).getTime();
+
+    const residuals = history.map(h => {
+        const time = new Date(h.date).getTime();
+        const daysAgo =
+            (now - time) / (1000 * 60 * 60 * 24);
+
+        const predicted =
+            slope * (-daysAgo) + intercept;
+
+        return h.score - predicted;
+    });
+
+    const mean =
+        residuals.reduce((a, r) => a + r, 0) /
+        residuals.length;
+
+    const variance =
+        residuals.reduce((a, r) =>
+            a + Math.pow(r - mean, 2), 0
+        ) / residuals.length;
+
+    return Math.sqrt(variance);
+}
+
+// 🎲 Monte Carlo com Seed Fixa
+export function monteCarloSimulation(
+    history,
+    targetScore = 85,
+    days = 90,
+    simulations = 2000
+) {
+    if (!history || history.length < 2) return {
+        probability: 0,
+        mean: "0.0",
+        sd: "0.0",
+        ci95Low: "0.0",
+        ci95High: "0.0",
+        currentMean: "0.0"
+    };
+
+    const drift = calculateSlope(history);
+    const volatility = calculateVolatility(history);
+
+    const currentScore =
+        history[history.length - 1].score;
+
+    // Seed fixa baseada no histórico
+    const seed =
+        history.length * 1000 +
+        Math.floor(currentScore * 10);
+
+    const rng = createSeededRandom(seed);
+
+    let success = 0;
+    let sumResults = 0;
+    let sumSqResults = 0;
+
+    for (let s = 0; s < simulations; s++) {
+        let score = currentScore;
+
+        for (let d = 0; d < days; d++) {
+            const shock =
+                randomNormal(rng) * volatility;
+
+            score += drift + shock;
+
+            score = Math.max(0, Math.min(100, score));
+        }
+
+        if (score >= targetScore)
+            success++;
+
+        // Stats tracking (Added for UI Compatibility)
+        sumResults += score;
+        sumSqResults += score * score;
+    }
+
+    // Stats Calculations (Added for UI Compatibility)
+    const projectedMean = sumResults / simulations;
+    const projectedVariance = (sumSqResults / simulations) - (projectedMean * projectedMean);
+    const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
+
+    return {
+        // Return Probability as Percentage (0-100) consistent with UI components
+        probability: (success / simulations) * 100,
+        mean: projectedMean.toFixed(1),
+        sd: projectedSD.toFixed(1),
+        ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
+        currentMean: currentScore.toFixed(1),
+        drift,
+        volatility
+    };
+}
+
+// ==========================================
+// ADAPTERS FOR BACKWARD COMPATIBILITY
+// ==========================================
+
 export function calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays) {
     if (totalWeight === 0) return 0;
 
@@ -110,7 +242,6 @@ export function calculateWeightedProjectedMean(categoryStats, totalWeight, proje
         const normalizedWeight = cat.weight / totalWeight;
 
         if (!cat.history || cat.history.length < 2) {
-            // No projection possible, use current mean
             return acc + (cat.mean * normalizedWeight);
         }
 
@@ -122,9 +253,6 @@ export function calculateWeightedProjectedMean(categoryStats, totalWeight, proje
     }, 0);
 }
 
-/**
- * Calculate current weighted mean (no projection) - Legacy Support
- */
 export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     if (totalWeight === 0) return 0;
 
@@ -134,13 +262,10 @@ export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     }, 0);
 }
 
-// Legacy export calculateSlope for other modules if needed (aliased to adaptive)
-export const calculateSlope = calculateAdaptiveSlope;
-
 export default {
     calculateSlope,
-    calculateAdaptiveSlope,
     projectScore,
+    monteCarloSimulation,
     calculateWeightedProjectedMean,
     calculateCurrentWeightedMean
 };
