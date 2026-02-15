@@ -513,7 +513,8 @@ function App() {
 
     const timer = setTimeout(async () => {
       try {
-        await setDoc(doc(db, 'users_data', currentUser.uid), appState);
+        const stateToSave = { ...appState, history: [] }; // Remove history to save space
+        await setDoc(doc(db, 'users_data', currentUser.uid), stateToSave);
         // Optional: Show small indicator of 'saved'
       } catch (e) {
         console.error("Cloud Auto-save failed:", e);
