@@ -1,72 +1,107 @@
-/**
- * Monte Carlo Engine - Projection Module
- * 
- * Implements linear regression and temporal projection
- * Projects scores forward based on historical trend
- */
 
-/**
- * Calculate linear regression slope from historical data
- * Uses least squares method with day-based X axis
- * 
- * @param {Object[]} history - Array of { date, score } objects
- * @returns {number} Slope (points per day), clamped to [-0.5, +0.5]
- */
-export function calculateSlope(history) {
-    if (!history || history.length < 2) return 0;
+// ==============================
+// UTILIDADES ESTATÍSTICAS
+// ==============================
 
-    // Convert to data points with X = days from first entry
+function calculateMean(history) {
+    if (!history || history.length === 0) return 0;
+    return history.reduce((a, h) => a + h.score, 0) / history.length;
+}
+
+function calculateStdDev(history) {
+    if (history.length < 2) return 0;
+
+    const mean = calculateMean(history);
+
+    const variance = history.reduce((acc, h) => {
+        return acc + Math.pow(h.score - mean, 2);
+    }, 0) / history.length;
+
+    return Math.sqrt(variance);
+}
+
+export function calculateRegression(history) {
+    if (history.length < 2) return { slope: 0, intercept: 0, stdError: 0 };
+
     const startTime = new Date(history[0].date).getTime();
-    const dataPoints = history.map(h => ({
+
+    const data = history.map(h => ({
         x: (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24),
         y: h.score
     }));
 
-    const n = dataPoints.length;
-    const sumX = dataPoints.reduce((a, p) => a + p.x, 0);
-    const sumY = dataPoints.reduce((a, p) => a + p.y, 0);
-    const sumXY = dataPoints.reduce((a, p) => a + p.x * p.y, 0);
-    const sumXX = dataPoints.reduce((a, p) => a + p.x * p.x, 0);
+    const n = data.length;
+
+    const sumX = data.reduce((a, p) => a + p.x, 0);
+    const sumY = data.reduce((a, p) => a + p.y, 0);
+    const sumXY = data.reduce((a, p) => a + p.x * p.y, 0);
+    const sumXX = data.reduce((a, p) => a + p.x * p.x, 0);
 
     const denom = n * sumXX - sumX * sumX;
-    if (denom === 0) return 0;
+    if (denom === 0) return { slope: 0, intercept: 0, stdError: 0 };
 
-    const rawSlope = (n * sumXY - sumX * sumY) / denom;
+    const slope = (n * sumXY - sumX * sumY) / denom;
+    const intercept = (sumY - slope * sumX) / n;
 
-    // Clamp to realistic range: max ±0.5 points/day (~15 pts/month)
-    // Previous ±2.0 was too aggressive — a student improving 5pts per simulado
-    // every 3 days would get slope=1.67/day, projecting +100pts in 60 days
-    return Math.max(-0.5, Math.min(0.5, rawSlope));
+    // erro padrão da regressão
+    const residuals = data.map(p => p.y - (slope * p.x + intercept));
+    const variance = residuals.reduce((a, r) => a + r * r, 0) / (n - 2);
+    const stdError = Math.sqrt(variance);
+
+    return { slope, intercept, stdError };
 }
 
-/**
- * Project score forward in time with diminishing returns
- * Uses logarithmic dampening so projections don't overshoot to 100%
- * Formula: Projected = CurrentMean + Slope × (30 × ln(1 + days/30))
- * This gives ~linear growth for short periods, but sublinear for long ones
- * 
- * @param {number} currentMean - Current average score
- * @param {number} slope - Daily improvement rate
- * @param {number} projectDays - Days to project forward
- * @returns {number} Projected score, clamped to [0, 100]
- */
-export function projectScore(currentMean, slope, projectDays) {
-    // Diminishing returns: growth decelerates over time
-    // For 30 days: effectiveDays ≈ 21 (dampened from linear)
-    // For 60 days: effectiveDays ≈ 33 (more dampened)
-    // For 90 days: effectiveDays ≈ 42 (strongly dampened)
+// 🎯 SLOPE ADAPTATIVO COM CONFIANÇA
+export function calculateAdaptiveSlope(history) {
+    if (!history || history.length < 2) return 0;
+
+    const { slope: rawSlope, stdError } = calculateRegression(history);
+
+    const stdDev = calculateStdDev(history);
+    const n = history.length;
+
+    // Consistência (menos variabilidade = maior confiança)
+    const consistencyFactor = 1 / (1 + stdDev / 10);
+
+    // Histórico maior = mais liberdade
+    const historyFactor = Math.min(1.5, 0.5 + n / 10);
+
+    const baseLimit = 1.2;
+
+    const dynamicLimit = baseLimit * consistencyFactor * historyFactor;
+
+    // Clamp dinâmico
+    const clampedSlope = Math.max(
+        -dynamicLimit,
+        Math.min(dynamicLimit, rawSlope)
+    );
+
+    // Peso de confiança baseado no erro padrão
+    const confidence = 1 / (1 + stdError);
+
+    const finalSlope = clampedSlope * confidence;
+
+    return finalSlope;
+}
+
+// 🚀 Projeção futura
+export function projectScore(history, projectDays = 60) {
+    if (!history || history.length === 0) return 0;
+
+    const slope = calculateAdaptiveSlope(history);
+    const currentScore = history[history.length - 1].score;
+
+    // suavização logarítmica (menos agressiva agora)
     const effectiveDays = 30 * Math.log(1 + projectDays / 30);
-    const projected = currentMean + (slope * effectiveDays);
+
+    const projected = currentScore + slope * effectiveDays;
+
     return Math.max(0, Math.min(100, projected));
 }
 
 /**
- * Calculate weighted projected mean across all categories
- * 
- * @param {Object[]} categoryStats - Array of category statistics
- * @param {number} totalWeight - Sum of all weights
- * @param {number} projectDays - Days to project forward
- * @returns {number} Weighted projected mean
+ * Adapter for MonteCarloGauge
+ * Maintains compatibility with existing UI while using new logic
  */
 export function calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays) {
     if (totalWeight === 0) return 0;
@@ -79,19 +114,16 @@ export function calculateWeightedProjectedMean(categoryStats, totalWeight, proje
             return acc + (cat.mean * normalizedWeight);
         }
 
-        const slope = calculateSlope(cat.history);
-        const projected = projectScore(cat.mean, slope, projectDays);
-
+        // Use new projectScore signature
+        // Note: The new projectScore expects 'history' array with {score, date}
+        const projected = projectScore(cat.history, projectDays);
         return acc + (projected * normalizedWeight);
+
     }, 0);
 }
 
 /**
- * Calculate current weighted mean (no projection)
- * 
- * @param {Object[]} categoryStats - Array of category statistics
- * @param {number} totalWeight - Sum of all weights
- * @returns {number} Current weighted mean
+ * Calculate current weighted mean (no projection) - Legacy Support
  */
 export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     if (totalWeight === 0) return 0;
@@ -102,8 +134,12 @@ export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     }, 0);
 }
 
+// Legacy export calculateSlope for other modules if needed (aliased to adaptive)
+export const calculateSlope = calculateAdaptiveSlope;
+
 export default {
     calculateSlope,
+    calculateAdaptiveSlope,
     projectScore,
     calculateWeightedProjectedMean,
     calculateCurrentWeightedMean
