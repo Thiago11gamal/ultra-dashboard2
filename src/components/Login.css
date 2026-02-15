@@ -30,6 +30,14 @@ canvas {
     position: relative;
 }
 
+
+.manta-logo {
+    width: 320px;
+    height: 320px;
+    color: #a5b4fc;
+    filter: drop-shadow(0 0 42px rgba(99, 102, 241, 0.5));
+}
+
 .left img {
     width: 320px;
     animation: float 4s ease-in-out infinite;
@@ -241,7 +249,15 @@ canvas {
         padding: 60px 20px;
     }
 
-    .left img {
+    
+.manta-logo {
+    width: 320px;
+    height: 320px;
+    color: #a5b4fc;
+    filter: drop-shadow(0 0 42px rgba(99, 102, 241, 0.5));
+}
+
+.left img {
         width: 180px;
     }
 
