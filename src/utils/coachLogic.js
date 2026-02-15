@@ -123,8 +123,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 return totalWeight > 0 ? weightedSum / totalWeight : 50;
             };
 
-            const yesterdayBound = normalizeDate(new Date());
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < yesterdayBound);
+            // FIX Bug 6: Renamed from 'yesterdayBound' — this is today at midnight, not yesterday
+            const todayBound = normalizeDate(new Date());
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < todayBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {

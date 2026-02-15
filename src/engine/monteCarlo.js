@@ -19,6 +19,9 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
     const projectionDays = options.days || 30;
     const rng = mulberry32(options.seed || 42);
 
+    // FIX Bug 2: Capture the raw mean before simulation noise
+    const currentMean = options.currentMean !== undefined ? options.currentMean : meanVal;
+
     let successCount = 0;
     let sumResults = 0;
     let sumSqResults = 0;
@@ -50,7 +53,8 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
         mean: projectedMean.toFixed(1),
         sd: projectedSD.toFixed(1),
         ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
-        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
+        currentMean: currentMean.toFixed(1)
     };
 }
 
@@ -60,6 +64,7 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
  */
 function runMonteCarloAnalysisNew({
     values,
+    dates,
     meta,
     simulations = 5000,
     projectionDays = 30,
@@ -83,9 +88,9 @@ function runMonteCarloAnalysisNew({
     const sampleVariance = sampleSD * sampleSD;
     const n = values.length;
 
-    // PRIOR conservador
+    // PRIOR conservador — scale with data quantity
     const priorMean = sampleMean;
-    const priorVariance = 400;
+    const priorVariance = n < 5 ? 400 : 200;
 
     const {
         mean: bayesMean
@@ -99,22 +104,33 @@ function runMonteCarloAnalysisNew({
 
     const bayesSD = sampleSD || 1;
 
-    // Use robust linear regression for slope if there's history
-    const historyData = values.map((v, idx) => ({
-        date: new Date(Date.now() - (n - 1 - idx) * 86400000).toISOString(),
-        score: v
-    }));
+    // FIX Bug 4: Use real dates if provided, otherwise fall back to evenly-spaced assumption
+    let historyData;
+    if (dates && dates.length === values.length) {
+        historyData = values.map((v, idx) => ({
+            date: dates[idx],
+            score: v
+        }));
+    } else {
+        historyData = values.map((v, idx) => ({
+            date: new Date(Date.now() - (n - 1 - idx) * 86400000).toISOString(),
+            score: v
+        }));
+    }
     const slope = calculateSlope(historyData);
 
     let successCount = 0;
     let sumResults = 0;
     let sumSqResults = 0;
 
+    // FIX Bug 1: Cap noise scaling at √30 to prevent variance explosion
+    // For projections beyond 30 days, the noise doesn't keep growing unbounded
+    const MAX_NOISE_DAYS = 30;
+    const effectiveNoiseDays = Math.min(projectionDays || 1, MAX_NOISE_DAYS);
+
     for (let i = 0; i < simulations; i++) {
-        // For the new engine walk, we use the projected noise (sdVal * sqrt(days))
-        // to sample the terminal state directly, adjusted by total slope growth.
         const totalSlopeGrowth = slope * projectionDays;
-        const terminalNoise = bayesSD * randomNormal(rng) * Math.sqrt(projectionDays || 1);
+        const terminalNoise = bayesSD * randomNormal(rng) * Math.sqrt(effectiveNoiseDays);
 
         let currentValue = bayesMean + totalSlopeGrowth + terminalNoise;
 
@@ -139,6 +155,7 @@ function runMonteCarloAnalysisNew({
         mean: projectedMean.toFixed(1),
         sd: projectedSD.toFixed(1),
         ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
-        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
+        currentMean: bayesMean.toFixed(1)
     };
 }

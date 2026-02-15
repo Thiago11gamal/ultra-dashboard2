@@ -53,9 +53,9 @@ export function analyzeProgressState(scores, config = {}) {
     }
     const delta = variationTotal / (window_size - 1);
 
-    // 5.3 Variance (Consistency)
+    // 5.3 Variance (Consistency) — FIX Bug 5: Use sample variance (N-1) not population (N)
     const variance = recentScores.reduce((acc, score) =>
-        acc + Math.pow(score - mean, 2), 0) / window_size;
+        acc + Math.pow(score - mean, 2), 0) / (window_size - 1);
 
     // 5.4 Trend (Linear Regression Slope)
     const xMean = (window_size - 1) / 2;

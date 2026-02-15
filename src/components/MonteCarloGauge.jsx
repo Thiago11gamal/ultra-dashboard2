@@ -474,15 +474,17 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     // 3. Run Monte Carlo using Engine Module (Adaptive simulations + Explicit seed)
     const simulationData = useMemo(() => {
         if (!statsData) return null;
-        const { weightedMean, pooledSD } = statsData;
+        const { weightedMean, currentWeightedMean, pooledSD } = statsData;
 
         // Use deterministic seed for reproducibility (based on projectDays)
         const seed = 123456 + projectDays;
 
         // Run simulation with NEW engine module
+        // FIX Bug 2: Pass currentWeightedMean so the result includes it for the GaussianChart
         const result = runMonteCarloAnalysis(weightedMean, pooledSD, debouncedTarget, {
             seed: seed,
-            days: projectDays
+            days: projectDays,
+            currentMean: currentWeightedMean
         });
 
 

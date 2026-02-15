@@ -85,6 +85,7 @@ const ACHIEVEMENTS = [
 ];
 
 const calculateBestStreak = (dates) => {
+    if (!dates || dates.length === 0) return 0;
     let best = 1;
     let current = 1;
 
