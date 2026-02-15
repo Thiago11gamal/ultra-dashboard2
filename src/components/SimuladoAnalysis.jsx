@@ -19,42 +19,40 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [error, setError] = useState(null);
 
     const updateRow = (index, field, value) => {
-        // 1. Converter para número se for um campo numérico
-        let val = parseInt(value) || 0;
-        if (val < 0) val = 0;
+        // 1. Sanitização: Apenas números para campos numéricos
+        let finalValue = value;
 
-        // 2. Criar uma cópia SEGURA do array usando .map()
-        // Isto garante que o React percebe que os dados mudaram
+        if (field === 'correct' || field === 'total') {
+            // Remove tudo que não for dígito
+            const digits = value.replace(/\D/g, '');
+            let val = parseInt(digits);
+
+            // Se vazio ou inválido, vira 0 (mas permite string vazia durante digitação se quisesse, 
+            // porém o design atual parece forçar numero. Vamos deixar comportamento atual mas sem NaN)
+            if (isNaN(val)) val = 0;
+
+            // 2. Lógica de Negócio
+            if (field === 'correct') {
+                const currentTotal = parseInt(rows[index].total) || 0;
+                if (val > currentTotal && currentTotal > 0) val = currentTotal;
+            } else if (field === 'total') {
+                // Se total diminui pra menos que acertos, ajusta acertos
+                const currentCorrect = parseInt(rows[index].correct) || 0;
+                if (val < currentCorrect && val > 0) { // Val > 0 to avoid resetting correct when clearing total
+                    // Side-effect: update correct too
+                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
+                    setRows(newRows);
+                    return;
+                }
+            }
+            finalValue = val;
+        }
+
+        // 3. Atualização Imutável
         const newRows = rows.map((row, i) => {
             if (i === index) {
-                // Lógica de Validação (Mantida do teu código original)
-                let finalValue = value; // Valor padrão (texto)
-
-                if (field === 'correct') {
-                    const currentTotal = parseInt(row.total) || 0;
-                    // Se acertos > total, limita ao total
-                    if (val > currentTotal && currentTotal > 0) {
-                        finalValue = currentTotal;
-                    } else {
-                        finalValue = val;
-                    }
-                } else if (field === 'total') {
-                    const currentCorrect = parseInt(row.correct) || 0;
-                    // Se total < acertos, reduz os acertos (no objeto retornado)
-                    if (val < currentCorrect) {
-                        // Nota: Aqui retornamos um objeto com DOIS campos alterados
-                        return { ...row, total: val, correct: val };
-                    }
-                    finalValue = val;
-                } else {
-                    // Para texto (Matéria/Assunto)
-                    finalValue = value;
-                }
-
-                // Retorna o NOVO objeto para esta linha específica
                 return { ...row, [field]: finalValue };
             }
-            // Retorna a linha antiga sem mexer nela
             return row;
         });
 

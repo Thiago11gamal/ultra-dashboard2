@@ -85,6 +85,12 @@ export const saveData = (state) => {
         return true;
     } catch (e) {
         console.error('Error saving data:', e);
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            alert("⚠️ Espaço local cheio! Não foi possível salvar seus dados automaticamente. Tente limpar dados antigos ou usar o backup na nuvem.");
+        } else {
+            // Optional: alert generic error or just log to avoid spamming
+            console.warn("Falha ao salvar dados localmente.");
+        }
         return false;
     }
 };

@@ -395,6 +395,18 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                             type="date"
                             defaultValue={format(new Date(user.goalDate), 'yyyy-MM-dd')}
                             onChange={(e) => {
+                                // Validate date is not in the past
+                                const newDate = new Date(e.target.value);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+
+                                if (newDate < today) {
+                                    alert("A data da prova não pode ser no passado! 😅");
+                                    // Reset to today or keep old value? 
+                                    // Keeping explicit user action needed usually better but for now let's just not update
+                                    return;
+                                }
+
                                 if (e.target.value && onUpdateGoalDate) {
                                     onUpdateGoalDate(new Date(e.target.value).toISOString());
                                 }
