@@ -1,5 +1,6 @@
 
 import { monteCarloSimulation } from "./projection.js";
+import { mulberry32, randomNormal } from "./random.js";
 
 // Legacy Wrapper for standard interface
 export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
@@ -8,19 +9,51 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
         return runMonteCarloAnalysisNew(arg1);
     }
 
-    // 2. Legacy Interface: (mean, sd, meta, options) - ADAPTER
-    // This path is used when we don't have full history (e.g. initial gauge state sometimes)
-    // We cannot use the Institutional Engine (Regressions) without history.
-    // So we return a placeholder or simplified result.
+    // 2. Legacy Interface: (mean, sd, meta, options)
+    // Used by MonteCarloGauge.jsx
+    const meanVal = arg1 || 0;
+    const sdVal = arg2 || 5;
+    const target = arg3 || 70;
+    const options = arg4 || {};
 
-    // For now, return a basic object. Detailed simulation requires history.
+    const simulations = options.simulations || 2000;
+    const rng = mulberry32(options.seed || 123456);
+    const startMean = options.currentMean !== undefined ? options.currentMean : meanVal;
+
+    // Run simple simulation (No drift, just variance around mean)
+    // This restores functionality for the Gauge
+    let success = 0;
+    let sumResults = 0;
+    let sumSqResults = 0;
+
+    for (let i = 0; i < simulations; i++) {
+        // Simple Normal Distribution around projected mean
+        // Note: In legacy mode, 'meanVal' is ALREADY the projected mean (calculated by linear regression in the component or basic projection)
+        // So we don't add drift step-by-step. We just sample the final distribution.
+
+        let noise = randomNormal(rng) * sdVal;
+        let finalScore = meanVal + noise;
+
+        // Clamp
+        finalScore = Math.max(0, Math.min(100, finalScore));
+
+        if (finalScore >= target) success++;
+
+        sumResults += finalScore;
+        sumSqResults += finalScore * finalScore;
+    }
+
+    const projectedMean = sumResults / simulations;
+    const projectedVariance = (sumSqResults / simulations) - (projectedMean * projectedMean);
+    const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
+
     return {
-        probability: 0,
-        mean: (arg1 || 0).toFixed(1),
-        sd: (arg2 || 0).toFixed(1),
-        ci95Low: "0.0",
-        ci95High: "0.0",
-        currentMean: (arg1 || 0).toFixed(1)
+        probability: (success / simulations) * 100,
+        mean: projectedMean.toFixed(1),
+        sd: projectedSD.toFixed(1),
+        ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
+        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
+        currentMean: startMean.toFixed(1)
     };
 }
 
@@ -31,7 +64,7 @@ function runMonteCarloAnalysisNew({
     values,
     dates,
     meta,
-    simulations = 2000, // Default from institutional spec
+    simulations = 2000,
     projectionDays = 30
 }) {
 
@@ -59,6 +92,5 @@ function runMonteCarloAnalysisNew({
     }
 
     // 2. DELEGATE TO INSTITUTIONAL ENGINE
-    // This uses the "Seeded" monteCarloSimulation which guarantees visual stability
     return monteCarloSimulation(historyData, meta, projectionDays, simulations);
 }
