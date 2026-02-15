@@ -16,7 +16,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
             <div className="glass p-3 text-sm">
-                <p className="font-semibold">{label}</p>
+                <p className="font-semibold">{label || payload[0].name}</p>
                 <p className="text-purple-400">{payload[0].value} tarefas</p>
             </div>
         );

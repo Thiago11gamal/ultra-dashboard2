@@ -19,15 +19,56 @@ export default function Header({
     currentData
 }) {
     const { logout, currentUser } = useAuth();
-    const [time, setTime] = useState(new Date());
+    // const [time, setTime] = useState(new Date()); // Removed to prevent full re-render
 
     const [profileOpen, setProfileOpen] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
 
-    useEffect(() => {
-        const timer = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
+    // Clock Component extracted to prevent parent re-renders
+    const Clock = () => {
+        const [time, setTime] = useState(new Date());
+        useEffect(() => {
+            const timer = setInterval(() => setTime(new Date()), 1000);
+            return () => clearInterval(timer);
+        }, []);
+        return (
+            <>
+                <p className="text-slate-400 mt-2 pl-2">
+                    {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+                {/* Mobile/Desktop distinct rendering handled via CSS classes in parent, but here we return fragments or context? 
+                    Actually, the clock appears in two places. Let's make it return the specific part needed or just use two instances.
+                */}
+            </>
+        );
+    };
+
+    // Better: Create two small components for the two places time is used.
+    const DateDisplay = () => {
+        const [time, setTime] = useState(new Date());
+        useEffect(() => {
+            const timer = setInterval(() => setTime(new Date()), 1000);
+            return () => clearInterval(timer);
+        }, []);
+        return (
+            <p className="text-slate-400 mt-2 pl-2">
+                {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            </p>
+        );
+    };
+
+    const TimeDisplay = () => {
+        const [time, setTime] = useState(new Date());
+        useEffect(() => {
+            const timer = setInterval(() => setTime(new Date()), 1000);
+            return () => clearInterval(timer);
+        }, []);
+        return (
+            <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
+                {format(time, 'HH:mm:ss')}
+            </div>
+        );
+    };
 
     const handleCloudBackup = async () => {
         if (!window.confirm('Subir backup para a nuvem?')) return;

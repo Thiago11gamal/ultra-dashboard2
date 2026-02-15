@@ -32,21 +32,15 @@ export default function ParetoAnalysis({ categories = [] }) {
             }
         });
 
-        // Default weights (Mirroring MonteCarloGauge or valid system defaults)
-        const WEIGHTS = {
-            'Língua Portuguesa': 20,
-            'Raciocínio Lógico': 20,
-            'Informática': 15,
-            'Geografia': 15,
-            'Conhecimentos Específicos': 30
-        };
-
         // 1. Group by Topic Name (Merge duplicates across simulados)
         const topicMap = {};
         allTopics.forEach(t => {
             const key = `${t.category} - ${t.topic}`;
-            // Get weight for this category (default to 1 if not found)
-            const weight = (WEIGHTS[t.category] || 10) / 10; // Normalized: 1.0, 1.5, 2.0, 3.0
+
+            // Find category to get weight
+            const cat = categories.find(c => c.name === t.category);
+            const rawWeight = cat?.weight || 10; // Default to 10 if not set
+            const weight = rawWeight / 10; // Normalized
 
             if (!topicMap[key]) topicMap[key] = { ...t, count: 1, weight };
             else {

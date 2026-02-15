@@ -85,7 +85,7 @@ export default function TopicPerformance({ categories = [] }) {
                                 className="bg-slate-900 text-white py-3 font-medium"
                                 style={{ backgroundColor: '#1a1a2e', color: '#fff', padding: '12px' }}
                             >
-                                {cat.icon} {cat.name}
+                                {cat.name}
                             </option>
                         ))}
                     </select>

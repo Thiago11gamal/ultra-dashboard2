@@ -5,6 +5,14 @@
 // ==========================================
 
 // -----------------------------
+// Helper: Ensure history is sorted by date
+// -----------------------------
+function getSortedHistory(history) {
+    if (!history) return [];
+    return [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+// -----------------------------
 // Seeded RNG (Linear Congruential Generator)
 // -----------------------------
 function createSeededRandom(seed = 123456) {
@@ -31,13 +39,16 @@ function randomNormal(rng) {
 // Regressão ponderada temporal
 // -----------------------------
 function weightedRegression(history, lambda = 0.02) {
-    if (!history || history.length < 2) {
+    // Ensure sorted history for correct time calculations
+    const sortedHistory = getSortedHistory(history);
+
+    if (!sortedHistory || sortedHistory.length < 2) {
         return { slope: 0, intercept: 0, slopeStdError: 0 };
     }
 
-    const now = new Date(history[history.length - 1].date).getTime();
+    const now = new Date(sortedHistory[sortedHistory.length - 1].date).getTime();
 
-    const data = history.map(h => {
+    const data = sortedHistory.map(h => {
         const time = new Date(h.date).getTime();
         const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
         const weight = Math.exp(-lambda * daysAgo);
@@ -112,11 +123,12 @@ export const calculateAdaptiveSlope = calculateSlope; // Alias
 
 // 📈 projectScore (inalterado externamente)
 export function projectScore(history, projectDays = 60) {
-    if (!history || history.length === 0) return 0;
+    const sortedHistory = getSortedHistory(history);
+    if (!sortedHistory || sortedHistory.length === 0) return 0;
 
-    const slope = calculateSlope(history);
+    const slope = calculateSlope(sortedHistory);
     const currentScore =
-        history[history.length - 1].score;
+        sortedHistory[sortedHistory.length - 1].score;
 
     const effectiveDays =
         30 * Math.log(1 + projectDays / 30);
@@ -167,7 +179,9 @@ export function monteCarloSimulation(
     days = 90,
     simulations = 2000
 ) {
-    if (!history || history.length < 2) return {
+    // Ensure sorted history
+    const sortedHistory = getSortedHistory(history);
+    if (!sortedHistory || sortedHistory.length < 2) return {
         probability: 0,
         mean: "0.0",
         sd: "0.0",
@@ -176,11 +190,11 @@ export function monteCarloSimulation(
         currentMean: "0.0"
     };
 
-    const drift = calculateSlope(history);
-    const volatility = calculateVolatility(history);
+    const drift = calculateSlope(sortedHistory);
+    const volatility = calculateVolatility(sortedHistory);
 
     const currentScore =
-        history[history.length - 1].score;
+        sortedHistory[sortedHistory.length - 1].score;
 
     // Seed fixa baseada no histórico
     const seed =

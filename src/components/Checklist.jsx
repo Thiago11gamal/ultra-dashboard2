@@ -184,11 +184,17 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     const [isOpen, setIsOpen] = useState(true);
 
     const tasks = category.tasks || [];
+    const allTasks = category.originalTasks || tasks; // Use original/all tasks for progress bar
 
-    const completedCount = tasks.filter(t => t.completed).length;
-    const progress = tasks.length > 0
-        ? Math.round((completedCount / tasks.length) * 100)
+    const completedCount = allTasks.filter(t => t.completed).length;
+    const progress = allTasks.length > 0
+        ? Math.round((completedCount / allTasks.length) * 100)
         : 0;
+
+    // For display "X de Y concluídas", we probably still want to show the TOTAL progress, not the filtered count.
+    // "completedCount" here is global completed count.
+    // "tasks.length" in render is filtered count. Let's adjust the text below too?
+    // Actually, "X de Y" usually implies Total. Let's use Global stats for the header info.
 
     return (
         <div className="glass relative group">
@@ -212,7 +218,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                             )}
                         </div>
                         <p className="text-sm text-slate-400">
-                            {completedCount} de {tasks.length} concluídas
+                            {completedCount} de {allTasks.length} concluídas
                         </p>
                     </div>
                 </div>
@@ -312,6 +318,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
     // Filter tasks within categories
     const filteredCategories = categories.map(cat => ({
         ...cat,
+        originalTasks: cat.tasks || [], // Keep reference to all tasks
         tasks: (cat.tasks || []).filter(task => {
             if (filter === 'active') return !task.completed;
             if (filter === 'completed') return task.completed;

@@ -67,7 +67,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 <div>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="px-2 py-0.5 rounded-sm bg-amber-500/20 text-amber-200 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 backdrop-blur-sm">
-                                            Prioridade Máxima
+                                            {urgency.humanReadable?.Status || "Prioridade Máxima"}
                                         </span>
                                     </div>
                                     <h3 className="text-5xl font-black text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
