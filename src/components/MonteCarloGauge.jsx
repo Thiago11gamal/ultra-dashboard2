@@ -263,15 +263,35 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
     const catCount = activeCategories.length;
 
+    // Read persisted weights defensively (avoids runtime crash on malformed localStorage payloads)
+    const readPersistedWeights = () => {
+        if (typeof window === 'undefined') return {};
+
+        try {
+            const saved = window.localStorage.getItem('monte_carlo_weights');
+            if (!saved) return {};
+
+            const parsed = JSON.parse(saved);
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    };
+
     // Simple weight storage - persistent
     const [weights, setWeights] = useState(() => {
-        const saved = localStorage.getItem('monte_carlo_weights');
-        return saved ? JSON.parse(saved) : {};
+        return readPersistedWeights();
     });
 
     // Save weights to LocalStorage whenever they change
     React.useEffect(() => {
-        localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
+        if (typeof window === 'undefined') return;
+
+        try {
+            window.localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
+        } catch {
+            // Ignore storage write failures (quota/private mode) and keep UI responsive.
+        }
     }, [weights]);
 
     // SYNC: Sync internal weights state with categories prop if weights are missing
