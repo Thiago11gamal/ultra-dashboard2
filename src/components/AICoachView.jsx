@@ -134,7 +134,7 @@ export default function AICoachView({
 
                 <div className="flex items-center gap-6">
                     <div className="text-right hidden md:block">
-                        <span className="block text-3xl font-black text-white">{coachPlan.length}</span>
+                        <span className="block text-3xl font-black text-white">{coachPlan ? coachPlan.length : 0}</span>
                         <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>
                 </div>
@@ -157,7 +157,7 @@ export default function AICoachView({
                         </div>
 
                         {/* Empty State Helper - Shows only if no plan */}
-                        {coachPlan.length === 0 && (
+                        {(!coachPlan || coachPlan.length === 0) && (
                             <div className="p-8 rounded-2xl border border-dashed border-white/10 bg-black text-center">
                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
                                     Gere novas metas para iniciar
@@ -197,7 +197,7 @@ export default function AICoachView({
                             </motion.div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-                                {coachPlan.map((task, idx) => (
+                                {(coachPlan || []).map((task, idx) => (
                                     <AICoachCard key={task.id || idx} task={task} idx={idx} />
                                 ))}
                             </div>

@@ -393,7 +393,13 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                         <h3 className="text-lg font-bold text-white mb-4">📅 Data da Prova</h3>
                         <input
                             type="date"
-                            defaultValue={format(new Date(user.goalDate), 'yyyy-MM-dd')}
+                            defaultValue={(() => {
+                                try {
+                                    return new Date(user.goalDate).toISOString().split('T')[0];
+                                } catch (e) {
+                                    return "";
+                                }
+                            })()}
                             onChange={(e) => {
                                 // Validate date is not in the past
                                 const newDate = new Date(e.target.value);
