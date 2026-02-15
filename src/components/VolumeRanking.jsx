@@ -1,20 +1,28 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Medal } from 'lucide-react';
 
 
 const VolumeRanking = ({ categories = [] }) => {
-    // Calculate volume stats
-    const stats = categories.map(cat => {
-        const simStats = cat.simuladoStats || { history: [] };
-        const history = simStats.history || [];
-        const total = history.reduce((acc, h) => acc + h.total, 0);
-        return { ...cat, totalVolume: total };
-    });
+    // Calculate volume stats and sort - Memoized for performance
+    const sorted = useMemo(() => {
+        const stats = categories.map(cat => {
+            const simStats = cat.simuladoStats || { history: [] };
+            const history = simStats.history || [];
+            const total = history.reduce((acc, h) => acc + h.total, 0);
+            return { ...cat, totalVolume: total };
+        });
 
-    // Sort by volume descending
-    const sorted = [...stats].sort((a, b) => b.totalVolume - a.totalVolume);
+        // Sort by volume descending, then by name ascending for stability
+        return stats.sort((a, b) => {
+            if (b.totalVolume !== a.totalVolume) {
+                return b.totalVolume - a.totalVolume;
+            }
+            return a.name.localeCompare(b.name);
+        });
+    }, [categories]);
+
     const maxVolume = sorted[0]?.totalVolume || 1;
 
     // Helper for medals

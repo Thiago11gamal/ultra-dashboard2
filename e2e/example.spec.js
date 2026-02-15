@@ -15,14 +15,14 @@ test('app loads initial state', async ({ page }) => {
         console.log('Login page detected. Logging in...');
 
         // Ensure we are in "Login" mode not "Register"
-        const loginButtonText = page.getByText('Já tem conta? Fazer Login');
+        const loginButtonText = page.getByText('Já tem uma conta? Faça login');
         if (await loginButtonText.isVisible()) {
             await loginButtonText.click();
         }
 
         await page.getByPlaceholder('seu@email.com').fill('admin@teste.com');
-        await page.getByPlaceholder('Sua senha secreta').fill('123456');
-        await page.getByRole('button', { name: /Entrar na Plataforma/i }).click();
+        await page.getByPlaceholder('••••••••').fill('123456');
+        await page.getByRole('button', { name: /ENTRAR/i }).click();
 
         // Wait for login to process
         await page.waitForTimeout(2000);
