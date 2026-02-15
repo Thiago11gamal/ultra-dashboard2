@@ -28,7 +28,7 @@ import ParticleBackground from './components/ParticleBackground';
 
 import LevelUpToast from './components/LevelUpToast';
 import { calculateLevel, getLevelTitle } from './utils/gamification';
-import { checkRandomBonus, checkAndUnlockAchievements } from './utils/gamificationLogic';
+import { checkRandomBonus } from './utils/gamificationLogic';
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachWidget from './components/AICoachWidget';
 import AICoachView from './components/AICoachView';
@@ -315,28 +315,8 @@ function App() {
     setData(prev => applyGamification(prev, amount, skipBonus));
   }, [setData, applyGamification]);
 
-  // Check achievements whenever data changes
-  useEffect(() => {
-    const result = checkAndUnlockAchievements(data, data.user?.achievements || []);
-    if (result.newlyUnlocked.length > 0) {
-      // Update achievements and award XP
-      setTimeout(() => {
-        setData(prev => ({
-          ...prev,
-          user: {
-            ...prev.user,
-            achievements: result.allUnlocked,
-            xp: (prev.user.xp || 0) + result.xpGained
-          }
-        }));
-      }, 0);
-      // Show toast for each unlocked achievement
-      result.newlyUnlocked.forEach(() => {
-
-        showToast(`🏆 Conquista Desbloqueada! +${result.xpGained} XP`, 'success');
-      });
-    }
-  }, [data, data.categories, data.studyLogs, data.pomodorosCompleted, data.studiedEarly, data.studiedLate]);
+  // NOTE: Achievement checking is handled by checkAchievements() below (lines ~786-931)
+  // The gamificationLogic.js checkAndUnlockAchievements was a duplicate system removed to prevent double XP awards.
 
   // Track Pomodoro completion for achievements
   const trackPomodoroComplete = useCallback(() => {

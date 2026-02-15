@@ -48,7 +48,7 @@ export default function ParetoAnalysis({ categories = [] }) {
             // Get weight for this category (default to 1 if not found)
             const weight = (WEIGHTS[t.category] || 10) / 10; // Normalized: 1.0, 1.5, 2.0, 3.0
 
-            if (!topicMap[key]) topicMap[key] = { ...t, count: 0, weight };
+            if (!topicMap[key]) topicMap[key] = { ...t, count: 1, weight };
             else {
                 topicMap[key].total += t.total;
                 topicMap[key].correct += t.correct;

@@ -431,8 +431,8 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                                                                         <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
                                                                                             stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
                                                                                             strokeLinecap="round"
-                                                                                            strokeDasharray={100}
-                                                                                            strokeDashoffset={100 - topic.pct}
+                                                                                            strokeDasharray={2 * Math.PI * 16}
+                                                                                            strokeDashoffset={2 * Math.PI * 16 * (1 - topic.pct / 100)}
                                                                                         />
                                                                                     </svg>
                                                                                     <div className="absolute inset-0 flex items-center justify-center">
