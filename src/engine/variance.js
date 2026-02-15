@@ -7,10 +7,12 @@
 
 /**
  * Compute weighted variance from category statistics
- * Formula: Var(Σ wi·Xi) = Σ wi² × Var(Xi)
+ * Formula: Var = Σ wi × σi²  (weighted average of variances)
  * 
- * This is the correct formula for variance of a weighted sum
- * of independent random variables.
+ * We use the weighted AVERAGE of variances (not portfolio variance w²×σ²)
+ * because exam subjects are correlated (shared study effort, test-day effects).
+ * Portfolio variance (w²×σ²) assumes independence and drastically underestimates
+ * the true variance — with 5 equal categories it reduces SD by ~5x.
  * 
  * @param {Object[]} stats - Array of { sd, weight } objects
  * @param {number} totalWeight - Sum of all weights
@@ -21,8 +23,8 @@ export function computeWeightedVariance(stats, totalWeight) {
 
     return stats.reduce((acc, cat) => {
         const w = cat.weight / totalWeight;
-        // Variance = SD², and scales with w²
-        return acc + (w * w * Math.pow(cat.sd, 2));
+        // Weighted average of variances (not portfolio variance)
+        return acc + (w * Math.pow(cat.sd, 2));
     }, 0);
 }
 
