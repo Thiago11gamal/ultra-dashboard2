@@ -10,7 +10,7 @@
  * Uses least squares method with day-based X axis
  * 
  * @param {Object[]} history - Array of { date, score } objects
- * @returns {number} Slope (points per day), clamped to [-2, +2]
+ * @returns {number} Slope (points per day), clamped to [-0.5, +0.5]
  */
 export function calculateSlope(history) {
     if (!history || history.length < 2) return 0;
@@ -33,13 +33,17 @@ export function calculateSlope(history) {
 
     const rawSlope = (n * sumXY - sumX * sumY) / denom;
 
-    // Clamp to realistic range: max ±2% per day
-    return Math.max(-2.0, Math.min(2.0, rawSlope));
+    // Clamp to realistic range: max ±0.5 points/day (~15 pts/month)
+    // Previous ±2.0 was too aggressive — a student improving 5pts per simulado
+    // every 3 days would get slope=1.67/day, projecting +100pts in 60 days
+    return Math.max(-0.5, Math.min(0.5, rawSlope));
 }
 
 /**
- * Project score forward in time using anchored projection
- * Formula: Projected = CurrentMean + (Slope × Days)
+ * Project score forward in time with diminishing returns
+ * Uses logarithmic dampening so projections don't overshoot to 100%
+ * Formula: Projected = CurrentMean + Slope × (30 × ln(1 + days/30))
+ * This gives ~linear growth for short periods, but sublinear for long ones
  * 
  * @param {number} currentMean - Current average score
  * @param {number} slope - Daily improvement rate
@@ -47,7 +51,12 @@ export function calculateSlope(history) {
  * @returns {number} Projected score, clamped to [0, 100]
  */
 export function projectScore(currentMean, slope, projectDays) {
-    const projected = currentMean + (slope * projectDays);
+    // Diminishing returns: growth decelerates over time
+    // For 30 days: effectiveDays ≈ 21 (dampened from linear)
+    // For 60 days: effectiveDays ≈ 33 (more dampened)
+    // For 90 days: effectiveDays ≈ 42 (strongly dampened)
+    const effectiveDays = 30 * Math.log(1 + projectDays / 30);
+    const projected = currentMean + (slope * effectiveDays);
     return Math.max(0, Math.min(100, projected));
 }
 
