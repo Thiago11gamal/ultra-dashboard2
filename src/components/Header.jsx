@@ -93,6 +93,22 @@ export default function Header({
 
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
+    // Local state for debounce
+    const [localName, setLocalName] = useState(user.name);
+
+    useEffect(() => {
+        setLocalName(user.name);
+    }, [user.name]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localName !== user.name) {
+                onUpdateName(localName);
+            }
+        }, 500); // 500ms debounce
+        return () => clearTimeout(timer);
+    }, [localName, user.name, onUpdateName]);
+
     return (
         <header className="flex items-center justify-between mb-8 mt-32 z-50 relative">
             {/* Left: Editable Contest Name */}
@@ -100,8 +116,8 @@ export default function Header({
                 <div className="relative group">
                     <input
                         type="text"
-                        value={user.name}
-                        onChange={(e) => onUpdateName(e.target.value)}
+                        value={localName}
+                        onChange={(e) => setLocalName(e.target.value)}
                         placeholder="Digite o nome do concurso..."
                         className="w-full bg-transparent text-5xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                     />

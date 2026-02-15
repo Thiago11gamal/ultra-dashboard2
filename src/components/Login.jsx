@@ -48,6 +48,10 @@ export default function Login() {
             if (err.code === 'auth/invalid-credential') msg = "E-mail ou senha incorretos.";
             else if (err.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
             else if (err.code === 'auth/weak-password') msg = "A senha deve ter pelo menos 6 caracteres.";
+            else if (err.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+            else if (err.code === 'auth/wrong-password') msg = "Senha incorreta.";
+            else if (err.code === 'auth/too-many-requests') msg = "Muitas tentativas. Aguarde alguns instantes.";
+            else if (err.code === 'auth/network-request-failed') msg = "Erro de conexão. Verifique sua internet.";
             else if (err.message) msg = err.message;
             setError(msg);
         } finally {

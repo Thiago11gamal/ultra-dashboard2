@@ -93,7 +93,7 @@ function App() {
 
         // Handle Loading State with Delay
         const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, 2000 - elapsed);
+        const remaining = Math.max(0, 800 - elapsed);
 
         setTimeout(() => {
           setLoadingData(false);
