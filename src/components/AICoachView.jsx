@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, Target, Zap, Trash2, ArrowRight, HelpCircle, BrainCircuit, ChevronDown, ChevronUp, Layers, Compass } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import AICoachWidget from './AICoachWidget';
 
 function AICoachCard({ task, idx }) {

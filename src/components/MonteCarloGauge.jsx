@@ -175,7 +175,7 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
 }
 
 // Config Modal Component
-function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsMode, setEqualWeightsMode, getEqualWeights, setWeights, weights, updateWeight, activeCategories, categories }) {
+function ConfigModal({ show, onClose, targetScore, setTargetScore, equalWeightsMode, setEqualWeightsMode, getEqualWeights, setWeights, weights, updateWeight, activeCategories, categories, onWeightsChange }) {
     if (!show) return null;
 
     // Fallback to all categories if activeCategories is empty/undefined, or just use active
@@ -554,6 +554,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     updateWeight={updateWeight}
                     activeCategories={activeCategories}
                     categories={categories}
+                    onWeightsChange={onWeightsChange}
                 />
             </div>
         );

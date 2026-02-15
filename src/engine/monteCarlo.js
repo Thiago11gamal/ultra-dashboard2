@@ -16,7 +16,6 @@ export function runMonteCarloAnalysis(arg1, arg2, arg3, arg4) {
     const options = arg4 || {};
 
     const simulations = options.simulations || 5000;
-    const projectionDays = options.days || 30;
     const rng = mulberry32(options.seed || 42);
 
     // FIX Bug 2: Capture the raw mean before simulation noise

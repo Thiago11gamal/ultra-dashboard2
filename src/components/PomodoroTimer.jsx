@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
@@ -80,18 +80,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         // If too much time passed (more than the timer itself), just reset to clean slate
                         // meaningful limit: if we exceeded the timer by > 5 minutes, force reset
                         if (parsed.timeLeft - elapsedSeconds < -300) {
-                            setMode('work');
-                            setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
-                            setSessions(0);
-                            setIsRunning(false);
                             localStorage.removeItem('pomodoroState');
+                            setTimeout(() => {
+                                setMode('work');
+                                setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
+                                setSessions(0);
+                                setIsRunning(false);
+                            }, 0);
                             return;
                         }
 
-                        setTimeLeft(prev => {
-                            const newTime = prev - elapsedSeconds;
-                            return newTime > 0 ? newTime : 0;
-                        });
+                        setTimeout(() => {
+                            setTimeLeft(prev => {
+                                const newTime = prev - elapsedSeconds;
+                                return newTime > 0 ? newTime : 0;
+                            });
+                        }, 0);
                     }
                 } else {
                     // Timer was NOT running - rely on default initialization (which is fresh)
@@ -136,7 +140,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     icon: '🍅',
                     tag: 'pomodoro-timer'
                 });
-            } catch (err) {
+            } catch {
                 // Ignore notification errors
             }
         }
@@ -268,7 +272,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 const expectedTimeLeft = initialTimeLeft - (totalElapsed * speed);
 
                 // Update state
-                setTimeLeft(prev => {
+                setTimeLeft(() => {
                     if (expectedTimeLeft <= 0) return 0;
                     return expectedTimeLeft;
                 });
@@ -282,7 +286,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
     useEffect(() => {
         if (timeLeft <= 0 && isRunning) { // Changed to <= 0 for float safety
-            setTimeLeft(0); // Snap to 0
             setTimeout(() => handleTimerComplete(), 0);
         }
     }, [timeLeft, isRunning, handleTimerComplete]);
