@@ -15,6 +15,8 @@ import PersonalRanking from './components/PersonalRanking';
 import PerformanceTable from './components/PerformanceTable';
 import VolumeRanking from './components/VolumeRanking';
 import SimuladoAnalysis from './components/SimuladoAnalysis';
+import { normalize, aliases } from './utils/normalization';
+
 import WeeklyAnalysis from './components/WeeklyAnalysis';
 import VerifiedStats from './components/VerifiedStats';
 import ParetoAnalysis from './components/ParetoAnalysis';
@@ -613,20 +615,10 @@ function App() {
 
       const newCategories = [...prev.categories];
 
-      // Helper to normalize names for matching
-      const normalize = (str) => {
-        return str.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove accents
-          .replace(/noções de\s+/i, "") // Remove common prefix
-          .trim();
-      };
+      const newCategories = [...prev.categories];
 
-      // Dictionary of aliases manually mapped if needed
-      const aliases = {
-        'informatica': ['noções de informática', 'info', 'computação'],
-        'raciocinio logico': ['rlm', 'raciocínio lógico matemático', 'raciocinio logico quantitativo'],
-        'etica no serviço publico': ['etica', 'ética no serviço público', 'ética'],
-      };
+      // Use shared normalize and aliases from utils/normalization.js
+
 
       // Iterate through each discipline result from the AI
       analysisResult.disciplines.forEach(disc => {

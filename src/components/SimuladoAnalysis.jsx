@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { normalize, aliases } from '../utils/normalization';
+
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
@@ -77,9 +79,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleAnalyze = () => {
-        // Helper function to normalize strings for comparison
-        const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
-
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
 
@@ -88,7 +87,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const subName = normalize(cat.name);
                 const topics = new Set((cat.tasks || []).map(t => normalize(t.title || t.text || '')));
                 validDataMap[subName] = topics;
+
+                // Add aliases mapping to the same topics
+                // This allows inputs like "Info" to map to "Noções de Informática"
+                if (aliases[subName]) {
+                    aliases[subName].forEach(alias => {
+                        const aliasNorm = normalize(alias);
+                        validDataMap[aliasNorm] = topics;
+                    });
+                }
             });
+
 
             let invalidSubject = null;
             let invalidTopic = null;
