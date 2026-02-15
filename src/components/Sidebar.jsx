@@ -46,7 +46,7 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
             {/* Main Bar Container */}
             <div
                 className={`
-                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 -ml-7
+                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 -translate-x-1/2
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
                         : 'glass-panel w-auto px-6 py-3 rounded-2xl'}
@@ -103,6 +103,8 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTab(item.id);
+                                            // Auto-collapse on selection (Mobile friendly)
+                                            setCollapsed(true);
                                         }}
                                         className={`p-2 rounded-lg transition-all duration-300 group/icon ${isActive
                                             ? 'bg-purple-500/20 text-purple-300'

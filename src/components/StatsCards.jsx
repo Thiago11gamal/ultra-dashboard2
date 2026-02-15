@@ -388,7 +388,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
 
             {/* Goal Date Edit Modal */}
             {editingGoalDate && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setEditingGoalDate(false)}>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center" onClick={() => setEditingGoalDate(false)}>
                     <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl min-w-[300px]" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold text-white mb-4">📅 Data da Prova</h3>
                         <input
