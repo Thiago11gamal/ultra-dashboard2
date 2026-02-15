@@ -65,13 +65,16 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             weeks.push(currentWeek);
         }
 
-        // Stats
+        // Stats — filter to current month only
         const totalDays = days.length;
+        const monthKeys = new Set(days.map(day => format(day, 'yyyy-MM-dd')));
         const studiedDays = days.filter(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
             return studyMap[dateKey] > 0;
         }).length;
-        const totalMinutes = Object.values(studyMap).reduce((a, b) => a + b, 0);
+        const totalMinutes = Object.entries(studyMap)
+            .filter(([key]) => monthKeys.has(key))
+            .reduce((acc, [, mins]) => acc + mins, 0);
 
         return { weeks, totalDays, studiedDays, totalMinutes };
     }, [currentMonth, studyLogs]);

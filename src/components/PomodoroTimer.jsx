@@ -316,6 +316,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             // Check for Full Completion
             if (newSessions >= targetCycles) {
                 onFullCycleComplete?.();
+                // Persist completed state
+                localStorage.setItem('pomodoroState', JSON.stringify({
+                    mode: 'work', timeLeft: safeSettings.pomodoroWork * 60,
+                    isRunning: false, sessions: 0, completedCycles: 0,
+                    targetCycles, sessionHistory,
+                    savedAt: Date.now(),
+                    activeTaskId: activeSubject?.taskId,
+                    sessionInstanceId: activeSubject?.sessionInstanceId
+                }));
                 return;
             }
 
@@ -645,21 +654,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         </motion.button>
                     </div>
 
-                    {/* Speed Toggle */}
-                    <div className="absolute top-24 right-6 flex flex-col gap-2">
-                        <button
-                            onClick={() => setSpeed(speed === 10 ? 1 : 10)}
-                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                        >
-                            10x
-                        </button>
-                        <button
-                            onClick={() => setSpeed(speed === 100 ? 1 : 100)}
-                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                        >
-                            100x
-                        </button>
-                    </div>
+                    {/* Speed Toggle — DEV only */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="absolute top-24 right-6 flex flex-col gap-2">
+                            <button
+                                onClick={() => setSpeed(speed === 10 ? 1 : 10)}
+                                className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
+                            >
+                                10x
+                            </button>
+                            <button
+                                onClick={() => setSpeed(speed === 100 ? 1 : 100)}
+                                className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
+                            >
+                                100x
+                            </button>
+                        </div>
+                    )}
 
                 </div>
             </motion.div>

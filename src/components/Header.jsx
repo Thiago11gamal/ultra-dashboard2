@@ -18,7 +18,7 @@ export default function Header({
     onCloudRestore,
     currentData
 }) {
-    const { logout } = useAuth();
+    const { logout, currentUser } = useAuth();
     const [time, setTime] = useState(new Date());
 
     const [profileOpen, setProfileOpen] = useState(false);
@@ -33,7 +33,7 @@ export default function Header({
         if (!window.confirm('Subir backup para a nuvem?')) return;
         setIsSyncing(true);
         try {
-            await uploadDataToCloud(currentData);
+            await uploadDataToCloud(currentData, currentUser?.uid);
             alert('Backup salvo na nuvem com sucesso! ☁️');
         } catch (error) {
             alert('Erro ao salvar backup: ' + error.message);
@@ -46,7 +46,7 @@ export default function Header({
         if (!window.confirm('Restaurar backup da nuvem? Isso substituirá os dados atuais.')) return;
         setIsSyncing(true);
         try {
-            const data = await downloadDataFromCloud();
+            const data = await downloadDataFromCloud(currentUser?.uid);
             if (data && onCloudRestore) {
                 onCloudRestore(data);
             }

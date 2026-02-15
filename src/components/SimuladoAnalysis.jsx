@@ -159,43 +159,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             return;
         }
 
-        // --- VALIDATION BLOCK START ---
-        // Ensure all rows have valid subjects and topics
-        const validDataMap = {};
-        categories.forEach(c => {
-            const subNorm = normalize(c.name);
-            validDataMap[subNorm] = new Set((c.tasks || []).map(t => {
-                const text = t.text || t.title || "";
-                // Extract topic from [Topic] or use full text
-                const match = text.match(/^\[(.*?)\]/);
-                return normalize(match ? match[1] : text);
-            }));
-            // Also add raw task titles just in case
-            (c.tasks || []).forEach(t => validDataMap[subNorm].add(normalize(t.text || t.title || "")));
-        });
 
-        let validationError = null;
-        const validatedRows = validRows.filter(r => {
-            const subNorm = normalize(r.subject);
-            if (!validDataMap[subNorm]) {
-                validationError = `A matéria '${r.subject}' não existe no seu plano.`;
-                return false;
-            }
-            // Optional: Check topic validity if strict mode is on
-            // For now, we only enforce Subject existence as requested.
-            return true;
-        });
 
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
-
-        if (validatedRows.length !== validRows.length) {
-            setError("Algumas linhas contêm matérias inválidas e foram ignoradas.");
-            return;
-        }
-        // --- VALIDATION BLOCK END ---
 
 
         setLoading(true);
@@ -478,7 +443,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                                             <svg className="w-10 h-10 transform -rotate-90">
                                                                                 <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent" className="text-slate-700/50" />
                                                                                 <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent"
-                                                                                    strokeDasharray={100} strokeDashoffset={100 - pct}
+                                                                                    strokeDasharray={2 * Math.PI * 16} strokeDashoffset={2 * Math.PI * 16 * (1 - pct / 100)}
                                                                                     className={pct >= 80 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : pct <= 40 ? 'text-red-500' : 'text-yellow-500'} />
                                                                             </svg>
                                                                             <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">{pct}%</span>

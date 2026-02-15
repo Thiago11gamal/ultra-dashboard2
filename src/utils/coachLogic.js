@@ -165,9 +165,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Calculate Standard Deviation and Trend
         const validForDev = relevantSimulados.filter(s => s.total > 0);
-        const lastNScores = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100);
+        const lastNScores = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100).reverse();
         const standardDeviation = calculateStandardDeviation(lastNScores);
-        const trend = calculateTrend(lastNScores);
+        const trend = calculateTrend(lastNScores); // chronological order (oldest first)
 
         // --- COMPONENT CALCULATION ---
 

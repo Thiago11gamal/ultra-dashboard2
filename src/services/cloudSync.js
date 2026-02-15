@@ -3,11 +3,11 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 
 // Constants
 const BACKUP_COLLECTION = "backups";
-const DOC_ID = "user_main"; // Simplify for single user MVPs
 
-export const uploadDataToCloud = async (data) => {
+export const uploadDataToCloud = async (data, userId) => {
     try {
         if (!data) throw new Error("No data to save");
+        const docId = userId || 'anonymous';
 
         // Add timestamp
         const payload = {
@@ -15,7 +15,7 @@ export const uploadDataToCloud = async (data) => {
             _lastBackup: new Date().toISOString()
         };
 
-        const docRef = doc(db, BACKUP_COLLECTION, DOC_ID);
+        const docRef = doc(db, BACKUP_COLLECTION, docId);
         await setDoc(docRef, payload);
 
         return true;
@@ -25,9 +25,10 @@ export const uploadDataToCloud = async (data) => {
     }
 };
 
-export const downloadDataFromCloud = async () => {
+export const downloadDataFromCloud = async (userId) => {
     try {
-        const docRef = doc(db, BACKUP_COLLECTION, DOC_ID);
+        const docId = userId || 'anonymous';
+        const docRef = doc(db, BACKUP_COLLECTION, docId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {

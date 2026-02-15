@@ -73,24 +73,6 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
         }
         const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
 
-        // Pre-calculate label positions
-        const getPos = (val) => (val - xMin) / range * 100;
-        const labels = [
-            { id: 'mean', pos: getPos(mean), val: mean, color: 'text-blue-500', offset: 0, align: 'transform -translate-x-1/2', priority: 1 },
-            { id: 'target', pos: getPos(targetScore), val: targetScore, color: 'text-red-500', offset: 0, align: 'transform -translate-x-1/2', priority: 0 },
-            { id: 'high', pos: Math.min(getPos(high95), 92), val: high95, color: 'text-green-400', offset: 0, prefix: 'IC+', align: getPos(high95) > 85 ? 'transform -translate-x-full' : 'transform -translate-x-1/2', priority: 2 },
-            { id: 'low', pos: Math.max(getPos(low95), 8), val: low95, color: 'text-green-400', offset: 0, prefix: 'IC-', align: getPos(low95) < 15 ? '' : 'transform -translate-x-1/2', priority: 2 }
-        ].sort((a, b) => a.pos - b.pos);
-
-        // Spacing algorithm - spread labels vertically when too close
-        const minDistance = 18;
-        for (let i = 1; i < labels.length; i++) {
-            const prevPos = labels[i - 1].pos;
-            const currPos = labels[i].pos;
-            if (currPos - prevPos < minDistance) {
-                labels[i].offset = labels[i - 1].offset + 14;
-            }
-        }
 
         return {
             pathData: path,
@@ -778,6 +760,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 updateWeight={updateWeight}
                 activeCategories={activeCategories}
                 categories={categories}
+                onWeightsChange={onWeightsChange}
             />
         </div>
     );
