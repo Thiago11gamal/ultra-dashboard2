@@ -452,9 +452,9 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                             { key: 'medium', label: 'Média Prioridade', color: 'from-yellow-400 to-amber-500', bg: 'bg-yellow-900/20', text: 'text-yellow-400' },
                             { key: 'low', label: 'Baixa Prioridade', color: 'from-green-400 to-emerald-500', bg: 'bg-green-900/20', text: 'text-green-400' }
                         ].map((prio) => {
-                            const total = categories.reduce((acc, cat) => acc + (cat.tasks || []).filter(t => (t.priority === prio.key || (!t.priority && prio.key === 'medium'))).length, 0) || 1;
+                            const total = categories.reduce((acc, cat) => acc + (cat.tasks || []).filter(t => (t.priority === prio.key || (!t.priority && prio.key === 'medium'))).length, 0);
                             const completed = categories.reduce((acc, cat) => acc + (cat.tasks || []).filter(t => (t.priority === prio.key || (!t.priority && prio.key === 'medium')) && t.completed).length, 0);
-                            const pct = Math.round((completed / total) * 100);
+                            const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
                             return (
                                 <div key={prio.key} className="space-y-1.5">

@@ -46,9 +46,9 @@ export default function Login() {
             console.error(err);
             let msg = "Falha na autenticação.";
             if (err.code === 'auth/invalid-credential') msg = "E-mail ou senha incorretos.";
-            if (err.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
-            if (err.code === 'auth/weak-password') msg = "A senha deve ter pelo menos 6 caracteres.";
-            if (err.message) msg = err.message;
+            else if (err.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
+            else if (err.code === 'auth/weak-password') msg = "A senha deve ter pelo menos 6 caracteres.";
+            else if (err.message) msg = err.message;
             setError(msg);
         } finally {
             setLoading(false);

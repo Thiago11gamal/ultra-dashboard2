@@ -72,22 +72,25 @@ const PerformancePanel = ({ stats, color }) => {
                 <div className="mt-4 pt-4 border-t border-white/5">
                     <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Evolução Recente</p>
                     <div className="flex items-end h-16 gap-1 w-full overflow-hidden">
-                        {history.slice(-10).map((h, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center group relative">
-                                <div
-                                    className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
-                                    style={{
-                                        height: `${h.score}%`,
-                                        backgroundColor: i === history.length - 1 ? color : undefined,
-                                        opacity: i === history.length - 1 ? 1 : 0.3
-                                    }}
-                                />
-                                {/* Tooltip */}
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                    {h.score}% ({new Date(h.date).toLocaleDateString()})
+                        {(() => {
+                            const sliced = history.slice(-10);
+                            return sliced.map((h, i) => (
+                                <div key={i} className="flex-1 flex flex-col items-center group relative">
+                                    <div
+                                        className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
+                                        style={{
+                                            height: `${h.score}%`,
+                                            backgroundColor: i === sliced.length - 1 ? color : undefined,
+                                            opacity: i === sliced.length - 1 ? 1 : 0.3
+                                        }}
+                                    />
+                                    {/* Tooltip */}
+                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                        {h.score}% ({new Date(h.date).toLocaleDateString()})
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ));
+                        })()}
                     </div>
                 </div>
             )}

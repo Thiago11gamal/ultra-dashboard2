@@ -419,7 +419,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
                         <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                            {stats.consistency.status === 'CONSISTENTE' ? 'Alta Estabilidade' : stats.consistency.status === 'OSCILANTE' ? 'Alta Variação' : 'Variação Média'}
+                            {['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' : ['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'}
                         </span>
                     </div>
                 </div>
