@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/useAuth';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
 import './Login.css';
-import ArraiaLogo from './ArraiaLogo';
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
@@ -74,9 +73,32 @@ export default function Login() {
 
             <div className="container">
                 <div className="left">
-                    <div style={{ animation: 'float 6s ease-in-out infinite' }}>
-                        <ArraiaLogo className="manta-logo" />
-                    </div>
+                    {/* Manta Ray Silhouette Logo (Refined to match image) */}
+                    <svg viewBox="0 0 200 200" className="manta-logo" fill="currentColor" style={{
+                        width: '320px',
+                        height: '320px',
+                        color: '#a5b4fc', // Indigo 300
+                        filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
+                        animation: 'float 6s ease-in-out infinite'
+                    }}>
+                        {/* Body & Wings (Jamanta Style: Broad, Triangular, Majestic) */}
+                        <path d="M100,55 
+                                 C145,55 185,75 198,105 
+                                 C180,115 150,122 120,122 
+                                 C115,135 108,148 100,152 
+                                 C92,148 85,135 80,122 
+                                 C50,122 20,115 2,105 
+                                 C15,75 55,55 100,55 Z" />
+                        {/* Cephalic Fins (Jamanta Horns - More curved and prominent) */}
+                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+
+                        {/* Internal wing definition/shadow (Subtle) */}
+                        <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.15" />
+
+                        {/* Tail (Long and elegant) */}
+                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
+                    </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
 
