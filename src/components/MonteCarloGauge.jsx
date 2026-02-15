@@ -314,7 +314,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
         const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 0; // If today or passed, 0 days projection (which means Today's mean)
+        return diffDays > 0 ? diffDays : 30; // If goal passed, fallback to 30 days (simulateToday handles "Hoje")
     }, [goalDate, simulateToday]);
 
     // Function to calculate equal weights
