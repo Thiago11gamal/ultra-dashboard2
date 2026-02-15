@@ -45,7 +45,7 @@ export default function TopicPerformance({ categories = [] }) {
         });
 
         // Sort: Highest Percentage Top (Descending)
-        return topicList.sort((a, b) => b.percentage - a.percentage);
+        return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
 
     }, [categories, selectedCategoryId]);
 

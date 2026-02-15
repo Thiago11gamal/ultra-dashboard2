@@ -11,7 +11,7 @@ const priorityColors = {
 const PerformancePanel = ({ stats, color }) => {
     if (!stats) return null;
 
-    const { average, lastAttempt, trend, level, history } = stats;
+    const { average = 0, lastAttempt = 0, trend = 'stable', level = '-', history = [] } = stats;
 
     let trendIcon = <Minus size={16} className="text-slate-400" />;
     let trendText = "Estável";
