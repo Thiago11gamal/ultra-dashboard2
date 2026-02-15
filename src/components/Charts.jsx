@@ -47,6 +47,27 @@ export default function Charts({ data, compact = false }) {
     // Simulated weekly progress data (Unused)
     // const weeklyData = [ ... ];
 
+    // Check if there is any data to display
+    const hasData = pieData.reduce((acc, curr) => acc + curr.value, 0) > 0;
+
+    if (!hasData) {
+        return (
+            <div className={`grid grid-cols-1 ${compact ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6`}>
+                <div className="glass p-8 flex flex-col items-center justify-center text-slate-500 col-span-full min-h-[250px]">
+                    <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 20V10" />
+                            <path d="M18 20V4" />
+                            <path d="M6 20v-4" />
+                        </svg>
+                    </div>
+                    <p className="font-bold">Sem dados para gráficos</p>
+                    <p className="text-xs mt-1">Adicione tarefas para visualizar estatísticas.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={`grid grid-cols-1 ${compact ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6`}>
             {!compact && (

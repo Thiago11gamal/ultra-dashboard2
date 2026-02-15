@@ -47,9 +47,9 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
             }
         });
 
-        // Sort by date
         // Sort by date (Robust against string dates)
-        allHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+        allHistory = allHistory.filter(h => !isNaN(h.date));
+        allHistory.sort((a, b) => a.date - b.date);
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         const allScores = allHistory.map(h => h.score);
