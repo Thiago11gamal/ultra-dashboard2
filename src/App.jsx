@@ -615,7 +615,8 @@ function App() {
 
       const newCategories = [...prev.categories];
 
-      const newCategories = [...prev.categories];
+
+
 
       // Use shared normalize and aliases from utils/normalization.js
 
