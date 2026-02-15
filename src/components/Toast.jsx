@@ -26,7 +26,7 @@ export default function Toast({ toast, onClose }) {
                 initial={{ opacity: 0, y: 50, x: 50 }}
                 animate={{ opacity: 1, y: 0, x: 0 }}
                 exit={{ opacity: 0, y: 50, x: 50 }}
-                className="fixed bottom-8 right-8 z-50"
+                className="fixed bottom-8 right-8 z-[100]"
             >
                 <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r ${colorClass} text-white shadow-2xl`}>
                     <Icon size={24} />

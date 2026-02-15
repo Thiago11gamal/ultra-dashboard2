@@ -198,7 +198,7 @@ export default function AICoachView({
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                                 {coachPlan.map((task, idx) => (
-                                    <AICoachCard key={idx} task={task} idx={idx} />
+                                    <AICoachCard key={task.id || idx} task={task} idx={idx} />
                                 ))}
                             </div>
                         )}
