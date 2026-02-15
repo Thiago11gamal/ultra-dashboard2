@@ -91,7 +91,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     {(suggestion.urgency?.recommendation || urgency.recommendation) && (
                                         <div className="text-right max-w-md">
                                             <p className="text-xl text-amber-100/90 font-medium leading-relaxed drop-shadow-md italic">
-                                                "{suggestion.urgency?.recommendation || urgency.recommendation}"
+                                                {suggestion.urgency?.recommendation}
                                             </p>
                                         </div>
                                     )}
