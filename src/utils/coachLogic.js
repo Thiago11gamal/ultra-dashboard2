@@ -335,7 +335,7 @@ const getWeakestTopic = (category, simulados = []) => {
         const entryDate = new Date(entry.date || 0);
         const topics = entry.topics || [];
         topics.forEach(t => {
-            const name = t.name.trim();
+            const name = (typeof t.name === 'string' ? t.name : "Tópico Desconhecido").trim();
             if (!topicMap[name]) {
                 topicMap[name] = {
                     total: 0,
