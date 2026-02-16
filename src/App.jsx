@@ -1127,9 +1127,12 @@ function App() {
   const deleteCategory = useCallback((categoryId) => {
     setData(prev => ({
       ...prev,
-      categories: prev.categories.filter(c => c.id !== categoryId)
+      categories: prev.categories.filter(c => c.id !== categoryId),
+      studyLogs: (prev.studyLogs || []).filter(l => l.categoryId !== categoryId),
+      studySessions: (prev.studySessions || []).filter(s => s.categoryId !== categoryId),
+      coachPlan: (prev.coachPlan || []).filter(t => t.categoryId !== categoryId),
     }));
-    showToast('Disciplina removida.', 'info');
+    showToast('Disciplina e dados associados removidos.', 'info');
   }, [setData, showToast]);
 
   const addTask = useCallback((categoryId, input) => {

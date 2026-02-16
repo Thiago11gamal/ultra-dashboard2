@@ -21,7 +21,7 @@ export default function TopicPerformance({ categories = [] }) {
         history.forEach(entry => {
             const topics = entry.topics || [];
             topics.forEach(t => {
-                const name = t.name.trim(); // Simple normalization
+                const name = (t.name || "Sem Nome").trim(); // Simple normalization
                 if (!topicMap[name]) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
@@ -137,8 +137,8 @@ export default function TopicPerformance({ categories = [] }) {
                                 className="bg-white/5 border border-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors group"
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-slate-200">{topic.name}</span>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="font-medium text-slate-200 truncate max-w-[140px]" title={topic.name}>{topic.name}</span>
                                         {/* Balance Badge */}
                                         <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                                             topic.balance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' :
