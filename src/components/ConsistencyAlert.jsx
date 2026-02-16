@@ -25,7 +25,7 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
             // Calculate Standard Deviation (Sample SD with Bessel's correction)
             const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
             const variance = validScores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (validScores.length - 1);
-            const sd = Math.sqrt(variance);
+            const sd = Math.sqrt(Math.max(0, variance));
 
             // If SD > 15, it's oscillating
             if (sd > 15) {
