@@ -51,7 +51,12 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
                         : 'glass-panel w-auto px-6 py-3 rounded-2xl'}
                 `}
-                onClick={() => collapsed && setCollapsed(false)}
+                onClick={(e) => {
+                    if (collapsed) {
+                        e.stopPropagation();
+                        setCollapsed(false);
+                    }
+                }}
             >
                 {collapsed ? (
                     // Collapsed State: Simple Level Icon
