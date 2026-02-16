@@ -353,7 +353,15 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                         category={category}
                         onToggleTask={onToggleTask}
                         onDeleteTask={onDeleteTask}
-                        onAddTask={onAddTask}
+                        onAddTask={(catId, title) => {
+                            if (onAddTask) {
+                                onAddTask(catId, title);
+                                // UX Improvement: If filter is hiding new tasks (e.g. 'completed'), switch to 'all'
+                                if (filter === 'completed') {
+                                    setFilter('all');
+                                }
+                            }
+                        }}
                         onTogglePriority={onTogglePriority}
                         onDeleteCategory={onDeleteCategory}
                         onPlayContext={(c, t) => {

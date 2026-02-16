@@ -21,7 +21,8 @@ export default function TopicPerformance({ categories = [] }) {
         history.forEach(entry => {
             const topics = entry.topics || [];
             topics.forEach(t => {
-                const name = (t.name || "Sem Nome").trim(); // Simple normalization
+                const rawName = t.name;
+                const name = (typeof rawName === 'string' ? rawName : "Sem Nome").trim();
                 if (!topicMap[name]) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
