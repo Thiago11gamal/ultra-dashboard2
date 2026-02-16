@@ -144,8 +144,12 @@ export function projectScore(history, projectDays = 60) {
 function calculateVolatility(history) {
     if (!history || history.length < 3) return 1;
 
+    // Use higher lambda (0.1) to measure RECENT volatility
+    // This allows a user to "shed" old inconsistency after ~1-2 weeks of good work
+    const lambda = 0.1;
+
     const { slope, intercept } =
-        weightedRegression(history);
+        weightedRegression(history, lambda);
 
     const now =
         new Date(history[history.length - 1].date).getTime();
@@ -154,8 +158,8 @@ function calculateVolatility(history) {
         const time = new Date(h.date).getTime();
         const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
 
-        // Weight decay for volatility (same as regression or slightly more aggressive)
-        const weight = Math.exp(-0.02 * daysAgo);
+        // Weight decay for volatility (synced with regression)
+        const weight = Math.exp(-0.1 * daysAgo);
 
         const predicted =
             slope * (-daysAgo) + intercept;
