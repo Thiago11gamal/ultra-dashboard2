@@ -29,7 +29,8 @@ import HelpGuide from './components/HelpGuide';
 import ParticleBackground from './components/ParticleBackground';
 
 import LevelUpToast from './components/LevelUpToast';
-import { calculateLevel, getLevelTitle } from './utils/gamification';
+import { calculateLevel, calculateProgress } from './utils/gamification';
+import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import { checkRandomBonus } from './utils/gamificationLogic';
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachWidget from './components/AICoachWidget';
@@ -146,6 +147,29 @@ function App() {
     console.warn('Data seems corrupted, falling back to initial data');
     data = INITIAL_DATA;
   }
+
+  // --- AI COACH LOGIC ---
+  const suggestedFocus = React.useMemo(() => {
+    return getSuggestedFocus(data.categories, data.simulados, data.studyLogs);
+  }, [data.categories, data.simulados, data.studyLogs]);
+
+  const [coachLoading, setCoachLoading] = useState(false);
+
+  const handleGenerateGoals = useCallback(async () => {
+    setCoachLoading(true);
+    // Simulate API/Calculation delay for UX
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const newGoals = generateDailyGoals(data.categories, data.simulados, data.studyLogs);
+
+    setData(prev => ({
+      ...prev,
+      coachPlan: newGoals
+    }));
+
+    showToast('Novas metas geradas com sucesso!', 'success');
+    setCoachLoading(false);
+  }, [data.categories, data.simulados, data.studyLogs, setData, showToast]);
   // Data Patching: Ensure simulados exists (for old saves)
   if (!data.simulados) {
     data.simulados = INITIAL_DATA.simulados || [];
@@ -1948,6 +1972,76 @@ function App() {
       </div>
     );
   }
+
+
+  // --- HELPER FUNCTIONS ---
+
+  const setData = (updateFn) => {
+    setAppState(prev => {
+      if (!prev) return prev;
+      const activeId = prev.activeId;
+      const currentContest = prev.contests[activeId];
+      if (!currentContest) return prev;
+
+      const newData = typeof updateFn === 'function' ? updateFn(currentContest) : updateFn;
+
+      return {
+        ...prev,
+        contests: {
+          ...prev.contests,
+          [activeId]: newData
+        }
+      };
+    });
+  };
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "ultra_dashboard_backup.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        if (json.contests) {
+          setAppState(json);
+          showToast('Backup restaurado com sucesso!', 'success');
+        } else {
+          showToast('Arquivo de backup inválido.', 'error');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        showToast('Erro ao ler arquivo de backup.', 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const toggleDarkMode = () => {
+    setData(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        darkMode: !prev.settings?.darkMode
+      }
+    }));
+  };
+
+  const updateUserName = (name) => {
+    setData(prev => ({
+      ...prev,
+      user: { ...prev.user, name }
+    }));
+  };
 
   if (!appState) return <div>Erro ao carregar appState</div>;
 
