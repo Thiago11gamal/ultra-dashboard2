@@ -140,42 +140,40 @@ export function projectScore(history, projectDays = 60) {
     return Math.max(0, Math.min(100, projected));
 }
 
-// 📉 Volatilidade baseada em resíduos
+// 📉 Volatilidade baseada em MSSD (Robust to Trend Shifts)
 function calculateVolatility(history) {
-    if (!history || history.length < 3) return 1;
+    if (!history || history.length < 3) return 5; // Default safe volatility
 
-    // Use higher lambda (0.1) to measure RECENT volatility
-    // This allows a user to "shed" old inconsistency after ~1-2 weeks of good work
-    const lambda = 0.1;
+    // Ensure sorted history
+    const sorted = getSortedHistory(history);
+    const now = new Date(sorted[sorted.length - 1].date).getTime();
 
-    const { slope, intercept } =
-        weightedRegression(history, lambda);
+    // Calculate weighted sum of squared differences (MSSD)
+    let sumSw = 0;
+    let sumWeights = 0;
 
-    const now =
-        new Date(history[history.length - 1].date).getTime();
+    for (let i = 1; i < sorted.length; i++) {
+        const h0 = sorted[i - 1];
+        const h1 = sorted[i];
 
-    const residuals = history.map(h => {
-        const time = new Date(h.date).getTime();
+        const diff = h1.score - h0.score;
+        const time = new Date(h1.date).getTime();
         const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
 
-        // Weight decay for volatility (synced with regression)
-        const weight = Math.exp(-0.1 * daysAgo);
+        // Exponential weight focusing on recent volatility (lambda=0.05)
+        const weight = Math.exp(-0.05 * daysAgo);
 
-        const predicted =
-            slope * (-daysAgo) + intercept;
+        sumSw += (diff * diff) * weight;
+        sumWeights += weight;
+    }
 
-        return { val: h.score - predicted, weight };
-    });
+    if (sumWeights === 0) return 5;
 
-    const sumWeights = residuals.reduce((a, r) => a + r.weight, 0);
-    const mean = residuals.reduce((a, r) => a + r.val * r.weight, 0) / sumWeights;
+    // MSSD formula: variance = (1/2) * average(diff^2)
+    const mssdVariance = (sumSw / sumWeights) / 2;
 
-    const variance =
-        residuals.reduce((a, r) =>
-            a + Math.pow(r.val - mean, 2) * r.weight, 0
-        ) / sumWeights;
-
-    return Math.sqrt(variance);
+    // Safe sqrt
+    return Math.sqrt(Math.max(0, mssdVariance));
 }
 
 // 🎲 Monte Carlo com Seed Fixa
