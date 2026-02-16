@@ -99,7 +99,8 @@ const PerformancePanel = ({ stats, color }) => {
 };
 
 const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay }) => {
-    const priority = priorityColors[task.priority] || priorityColors.medium;
+    const safePriority = (task.priority || 'medium').toLowerCase();
+    const priority = priorityColors[safePriority] || priorityColors.medium;
 
     return (
         <motion.div

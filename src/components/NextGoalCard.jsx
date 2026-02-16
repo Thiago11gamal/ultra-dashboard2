@@ -18,7 +18,11 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
 
         const sortedTasks = tasks
             .filter(t => !t.completed)
-            .sort((a, b) => (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1));
+            .sort((a, b) => {
+                const pA = (a.priority || 'medium').toLowerCase();
+                const pB = (b.priority || 'medium').toLowerCase();
+                return (priorityOrder[pA] || 1) - (priorityOrder[pB] || 1);
+            });
 
         const nextTask = sortedTasks[0];
 
@@ -108,7 +112,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 {/* Left: Category Icon */}
                 <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                    style={{ backgroundColor: `${category.color}20` }}
+                    style={{ backgroundColor: `${category.color || '#64748b'}20` }}
                 >
                     {category.icon || '📚'}
                 </div>
