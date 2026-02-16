@@ -42,6 +42,7 @@ function calculateStandardDeviation(scores) {
 const normalizeDate = (dateInput) => {
     if (!dateInput) return new Date(0);
     const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return new Date(0);
     d.setHours(0, 0, 0, 0);
     return d;
 };
@@ -86,7 +87,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     // Calculate days to exam
     let daysToExam = null;
-    if (options.user && options.user.goalDate) {
+    if (options && options.user && options.user.goalDate) {
         const examDate = new Date(options.user.goalDate);
         const today = new Date();
         daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));

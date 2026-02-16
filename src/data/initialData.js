@@ -27,7 +27,9 @@ export const INITIAL_DATA = {
 
     simulados: [],
 
-    pomodoroSessions: [],
+    studyLogs: [], // Log of detailed study sessions for AI Coach
+
+    studySessions: [], // History of sessions for StudyHistory
 
     notes: "",
 

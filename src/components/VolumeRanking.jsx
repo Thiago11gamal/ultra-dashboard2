@@ -10,7 +10,7 @@ const VolumeRanking = ({ categories = [] }) => {
         const stats = categories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
             const history = simStats.history || [];
-            const total = history.reduce((acc, h) => acc + h.total, 0);
+            const total = history.reduce((acc, h) => acc + (parseInt(h.total) || 0), 0);
             return { ...cat, totalVolume: total };
         });
 

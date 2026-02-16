@@ -7,7 +7,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     if (!suggestion) return null;
 
     const topic = suggestion.weakestTopic;
-    const urgency = suggestion.urgency?.details || {};
+    const urgency = (suggestion && suggestion.urgency && suggestion.urgency.details) ? suggestion.urgency.details : { hasData: false };
 
     return (
         <div className="relative group mb-8">

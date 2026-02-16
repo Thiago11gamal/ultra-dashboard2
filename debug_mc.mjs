@@ -34,15 +34,18 @@ for (const projectDays of [0, 30, 60, 90]) {
     // Monte Carlo with 5000 sims
     const rng = mulberry32(123456 + projectDays);
     let success = 0;
-    for (let i = 0; i < 5000; i++) {
+    const simulations = 5000;
+    const safeSimulations = Math.max(1, simulations);
+
+    for (let i = 0; i < safeSimulations; i++) {
         let val = projectedMean + pooledSD * randomNormal(rng);
         if (val > 100) val = 100;
         if (val < 0) val = 0;
         if (val >= target) success++;
     }
-    const prob = (success / 5000 * 100).toFixed(1);
+    const prob = (success / safeSimulations * 100).toFixed(1);
 
-    const zScore = (target - projectedMean) / pooledSD;
+    const zScore = pooledSD > 0 ? (target - projectedMean) / pooledSD : 0;
 
     console.log(`${projectDays}d: Projeção=${projectedMean.toFixed(1)}% (Δ=${slopeGrowth.toFixed(1)}) | SD=${pooledSD.toFixed(1)} | Z=${zScore.toFixed(1)} | Prob=${prob}%`);
 }
