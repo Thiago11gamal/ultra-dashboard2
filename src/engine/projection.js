@@ -152,23 +152,24 @@ function calculateVolatility(history) {
 
     const residuals = history.map(h => {
         const time = new Date(h.date).getTime();
-        const daysAgo =
-            (now - time) / (1000 * 60 * 60 * 24);
+        const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
+
+        // Weight decay for volatility (same as regression or slightly more aggressive)
+        const weight = Math.exp(-0.02 * daysAgo);
 
         const predicted =
             slope * (-daysAgo) + intercept;
 
-        return h.score - predicted;
+        return { val: h.score - predicted, weight };
     });
 
-    const mean =
-        residuals.reduce((a, r) => a + r, 0) /
-        residuals.length;
+    const sumWeights = residuals.reduce((a, r) => a + r.weight, 0);
+    const mean = residuals.reduce((a, r) => a + r.val * r.weight, 0) / sumWeights;
 
     const variance =
         residuals.reduce((a, r) =>
-            a + Math.pow(r - mean, 2), 0
-        ) / residuals.length;
+            a + Math.pow(r.val - mean, 2) * r.weight, 0
+        ) / sumWeights;
 
     return Math.sqrt(variance);
 }
