@@ -32,16 +32,13 @@ console.log(`History: 20 days @ 50%, then 10 days @ 90%`);
 const result = monteCarloSimulation(history, 80, 30, 2000);
 
 console.log('--- Result ---');
-console.log(`Mean: ${result.mean}%`);
-console.log(`SD (Volatility): ±${result.sd}%`);
+console.log(`Projected Mean: ${result.mean}%`);
+console.log(`Projected SD: ±${result.sd}%`);
+console.log(`Raw Volatility (Daily): ±${result.volatility.toFixed(2)}%`);
 console.log(`Probability: ${result.probability.toFixed(1)}%`);
 
-// Expectation:
-// If volatility is unweighted, SD will be huge because the 50s are far from the regression line of the 90s (or the average slope).
-// If SD is > 10, it's problematic because the user IS consistent (just shifted level).
-
-if (parseFloat(result.sd) > 10) {
-    console.log('⚠️  High Volatility Detected! Old data is polluting the consistency metric.');
+if (result.volatility > 10) {
+    console.log('⚠️  High Volatility Detected!');
 } else {
     console.log('✅ Volatility is handled correctly.');
 }
