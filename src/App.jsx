@@ -29,13 +29,13 @@ import HelpGuide from './components/HelpGuide';
 import ParticleBackground from './components/ParticleBackground';
 
 import LevelUpToast from './components/LevelUpToast';
-import { calculateLevel, calculateProgress } from './utils/gamification';
+import { calculateLevel, calculateProgress, getLevelTitle } from './utils/gamification';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import { checkRandomBonus } from './utils/gamificationLogic';
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachWidget from './components/AICoachWidget';
 import AICoachView from './components/AICoachView';
-import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
+
 import Toast from './components/Toast';
 import { useAuth } from './context/useAuth';
 import Login from './components/Login';
@@ -1996,13 +1996,8 @@ function App() {
   };
 
   const handleExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "ultra_dashboard_backup.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    exportData(appState);
+    showToast('Backup exportado!', 'success');
   };
 
   const handleImport = (event) => {
