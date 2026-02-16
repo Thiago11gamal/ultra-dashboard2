@@ -9,7 +9,7 @@ export default defineConfig({
     strictPort: false,
   },
   build: {
-    target: 'es2020',
+    target: 'es2022',
     minify: 'esbuild',
     cssMinify: true,
     rollupOptions: {

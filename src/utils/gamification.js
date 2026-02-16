@@ -19,7 +19,8 @@ const XP_THRESHOLDS = {
 };
 
 // Calculate Level based on Total XP
-export const calculateLevel = (xp) => {
+export const calculateLevel = (xpInput) => {
+    const xp = Number(xpInput) || 0;
     // Start from the goal (level 1) and work backwards to find current level
     // Lower level = better (level 1 is the goal, level 10 is starting point)
     for (let level = LEVEL_MIN; level <= LEVEL_MAX; level++) {
