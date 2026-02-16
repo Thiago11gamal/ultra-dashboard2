@@ -40,19 +40,31 @@ class ErrorBoundary extends React.Component {
                         </button>
                         <button
                             onClick={() => {
-                                // Safe Backup before nuclear option? 
-                                // Ideally we don't offer nuclear option easily.
-                                // But if the data is TRULY corrupted, they might be stuck loop.
-                                // Let's rename it to "Modo de Segurança" or just hide it.
-                                // User said "Cannot disappear in any way".
-                                // So I will remove the option to clear data here.
-                                // If they need to clear, they can use devtools or I can provide a hidden way later.
-                                // For now: REMOVE IT.
-                                window.location.reload();
+                                const data = localStorage.getItem('ultra-dashboard-data');
+                                if (data) {
+                                    navigator.clipboard.writeText(data).then(() => alert('Dados copiados para a área de transferência! Salve em um arquivo de texto.'));
+                                } else {
+                                    alert('Nenhum dado encontrado para copiar.');
+                                }
                             }}
-                            className="hidden"
+                            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-colors border border-white/10"
                         >
-                            Apagar Tudo
+                            Copiar Dados de Backup
+                        </button>
+                    </div>
+
+                    <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-2xl text-center">
+                        <p className="text-xs text-slate-500 mb-4">Se recarregar não funcionar, seus dados locais podem estar corrompidos.</p>
+                        <button
+                            onClick={() => {
+                                if (window.confirm('ATENÇÃO: Isso apagará seus dados locais para recuperar o app. Certifique-se de ter copiado o backup acima se possível.\n\nContinuar?')) {
+                                    localStorage.removeItem('ultra-dashboard-data');
+                                    window.location.reload();
+                                }
+                            }}
+                            className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
+                        >
+                            Resetar App de Fábrica (Último Recurso)
                         </button>
                     </div>
                 </div>

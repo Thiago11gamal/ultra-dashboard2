@@ -131,9 +131,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                     : null;
 
                 // Use category-level lastStudiedAt if no task data, otherwise use average
+                // Fallback to 0/never if both are missing
                 const categoryRetention = avgTaskRetention !== null
                     ? { ...calculateRetention(null), val: avgTaskRetention, ...getRetentionStyle(avgTaskRetention) }
-                    : calculateRetention(cat.lastStudiedAt);
+                    : calculateRetention(cat.lastStudiedAt || null);
 
                 return {
                     ...cat,
