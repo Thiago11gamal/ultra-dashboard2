@@ -6,6 +6,7 @@ import Checklist from './Checklist';
 export default function MobilePocketMode({
     user,
     data,
+    activeSubject, // Prop received from App
     actions,
     onExitPocketMode
 }) {
@@ -51,7 +52,7 @@ export default function MobilePocketMode({
                         <PomodoroTimer
                             settings={data.settings}
                             onUpdateSettings={actions.updatePomodoroSettings}
-                            activeSubject={data.activeSubject}
+                            activeSubject={activeSubject}
                             onFullCycleComplete={actions.finishStudying}
                             categories={data.categories}
                             onStartStudying={actions.startStudying}
@@ -62,7 +63,7 @@ export default function MobilePocketMode({
                     <div className="animate-fade-in pb-24">
                         <Checklist
                             categories={data.categories}
-                            activeSubject={data.activeSubject}
+                            activeSubject={activeSubject}
                             onToggleTask={actions.toggleTask}
                             onDeleteTask={actions.deleteTask}
                             onAddTask={actions.addTask}

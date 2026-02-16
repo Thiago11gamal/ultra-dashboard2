@@ -113,24 +113,20 @@ function App() {
 
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeSubject, setActiveSubject] = useState(null);
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
-  const [toast, setToast] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  // Mobile Support
-  const isMobile = useMobileDetect();
-  const [forceDesktopMode, setForceDesktopMode] = useState(false);
-
-  const [activeSubject, setActiveSubject] = useState(null);
-  const [levelUpData, setLevelUpData] = useState(null);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
   // Show toast notification
   const showToast = useCallback((message, type = 'info') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
   }, []);
 
   // Safety check: ensure appState has the expected structure
@@ -1953,8 +1949,16 @@ function App() {
     const mobileActions = { updatePomodoroSettings, finishStudying, startStudying, handleUpdateStudyTime, toggleTask, deleteTask, addTask, addCategory, deleteCategory };
     return (
       <>
-        <MobilePocketMode user={data.user} data={data} actions={mobileActions} onExitPocketMode={() => setForceDesktopMode(true)} />
-        <Toast toast={toast} onClose={() => setToast(null)} />
+        <MobilePocketMode user={data.user} data={data} activeSubject={activeSubject} actions={mobileActions} onExitPocketMode={() => setForceDesktopMode(true)} />
+        <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-2 pointer-events-none">
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              toast={toast}
+              onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+            />
+          ))}
+        </div>
       </>
     );
   }
@@ -1966,7 +1970,18 @@ function App() {
         <Header user={data.user} settings={data.settings} onToggleDarkMode={toggleDarkMode} onUpdateName={updateUserName} contests={safeAppState.contests} activeContestId={safeAppState.activeId} onSwitchContest={switchContest} onCreateContest={createNewContest} onDeleteContest={deleteContest} onUndo={handleUndo} onCloudRestore={handleCloudRestore} currentData={data} />
         {renderContent()}
       </main>
-      <Toast toast={toast} onClose={() => setToast(null)} />
+      {/* Multi-Toast Container */}
+      <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-2 pointer-events-none">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            toast={toast}
+            onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+          />
+        ))}
+      </div>
+
+      {/* Level Up Toast */}
       {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={() => setLevelUpData(null)} />}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
     </div>

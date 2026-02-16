@@ -24,7 +24,15 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const grouped = {};
 
         sortedLogs.forEach(log => {
-            const dateObj = new Date(log.date);
+            // Fix Bug 112: Handle potential timezone drift if date is just "YYYY-MM-DD"
+            let dateObj;
+            if (typeof log.date === 'string' && log.date.length === 10) {
+                // It's likely YYYY-MM-DD. Append T12:00 to force midday local/safe parsing
+                dateObj = new Date(`${log.date}T12:00:00`);
+            } else {
+                dateObj = new Date(log.date);
+            }
+
             const dateStr = dateObj.toLocaleDateString('pt-BR');
 
             // Determine friendly day label

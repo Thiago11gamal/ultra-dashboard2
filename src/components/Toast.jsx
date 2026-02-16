@@ -23,15 +23,16 @@ export default function Toast({ toast, onClose }) {
     return (
         <AnimatePresence>
             <motion.div
-                initial={{ opacity: 0, y: 50, x: 50 }}
-                animate={{ opacity: 1, y: 0, x: 0 }}
-                exit={{ opacity: 0, y: 50, x: 50 }}
-                className="fixed bottom-8 right-8 z-[100]"
+                layout
+                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                className="pointer-events-auto"
             >
-                <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r ${colorClass} text-white shadow-2xl`}>
-                    <Icon size={24} />
-                    <span className="font-medium">{toast.message}</span>
-                    <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded-full p-1 transition-colors">
+                <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r ${colorClass} text-white shadow-2xl min-w-[300px]`}>
+                    <Icon size={24} className="shrink-0" />
+                    <span className="font-medium text-sm flex-1">{toast.message}</span>
+                    <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded-full p-1 transition-colors shrink-0">
                         <X size={16} />
                     </button>
                 </div>
