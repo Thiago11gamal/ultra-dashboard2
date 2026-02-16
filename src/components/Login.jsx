@@ -137,8 +137,7 @@ export default function Login() {
                             <input
                                 type="email"
                                 placeholder="seu@email.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => { setEmail(e.target.value); setError(''); }}
                                 required
                                 suppressHydrationWarning
                             />
@@ -150,7 +149,7 @@ export default function Login() {
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => { setPassword(e.target.value); setError(''); }}
                                 required
                                 suppressHydrationWarning
                             />
