@@ -114,6 +114,8 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubject, setActiveSubject] = useState(null);
+  const isMobile = useMobileDetect();
+  const [forceDesktopMode, setForceDesktopMode] = useState(false);
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
   const [toasts, setToasts] = useState([]);
