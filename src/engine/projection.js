@@ -207,7 +207,9 @@ export function monteCarloSimulation(
     let sumResults = 0;
     let sumSqResults = 0;
 
-    for (let s = 0; s < simulations; s++) {
+    const safeSimulations = Math.max(1, simulations);
+
+    for (let s = 0; s < safeSimulations; s++) {
         let score = currentScore;
 
         for (let d = 0; d < days; d++) {
@@ -228,13 +230,13 @@ export function monteCarloSimulation(
     }
 
     // Stats Calculations (Added for UI Compatibility)
-    const projectedMean = sumResults / simulations;
-    const projectedVariance = (sumSqResults / simulations) - (projectedMean * projectedMean);
+    const projectedMean = sumResults / safeSimulations;
+    const projectedVariance = (sumSqResults / safeSimulations) - (projectedMean * projectedMean);
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     return {
         // Return Probability as Percentage (0-100) consistent with UI components
-        probability: (success / simulations) * 100,
+        probability: (success / safeSimulations) * 100,
         mean: projectedMean.toFixed(1),
         sd: projectedSD.toFixed(1),
         ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),

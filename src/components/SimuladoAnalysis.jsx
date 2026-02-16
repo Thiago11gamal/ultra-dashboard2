@@ -24,7 +24,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
         if (field === 'correct' || field === 'total') {
             // Remove tudo que não for dígito
-            const digits = value.replace(/\D/g, '');
+            const digits = String(value).replace(/\D/g, '');
             let val = parseInt(digits);
 
             // Se vazio ou inválido, vira 0 (mas permite string vazia durante digitação se quisesse, 
