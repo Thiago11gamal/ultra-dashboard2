@@ -68,6 +68,7 @@ function getSRSBoost(daysSince, cfg) {
 // Crunch Multiplier ESCALONADO (Reta Final)
 function getCrunchMultiplier(daysToExam) {
     if (!daysToExam || daysToExam > 60) return 1.0;
+    if (daysToExam < 0) return 1.0; // Exam passed, no crunch
     if (daysToExam <= 3) return 2.5;
     if (daysToExam <= 7) return 2.0;
     if (daysToExam <= 14) return 1.5;

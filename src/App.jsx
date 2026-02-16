@@ -458,7 +458,7 @@ function App() {
           }
 
           const score = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
-          const newHistory = [...currentStats.history, { date: new Date().toISOString(), score, total: totalQ, correct: totalC, topics: validTopics }];
+          const newHistory = [...(currentStats.history || []), { date: new Date().toISOString(), score, total: totalQ, correct: totalC, topics: validTopics }];
 
           const grandTotalQ = newHistory.reduce((acc, h) => acc + h.total, 0);
           const grandTotalC = newHistory.reduce((acc, h) => acc + h.correct, 0);
