@@ -118,7 +118,7 @@ export default function ParetoAnalysis({ categories = [] }) {
                                 <h4 className="font-bold text-red-100">{item.topic}</h4>
                             </div>
                             <div className="text-right flex flex-col items-end">
-                                <div className="text-2xl font-black text-red-500 leading-none">-{item.weightedMissed.toFixed(1)}</div>
+                                <div className="text-2xl font-black text-red-500 leading-none">-{Number(item.weightedMissed || 0).toFixed(1)}</div>
                                 <span className="text-[10px] text-red-400 font-bold uppercase">Pontos Ponderados</span>
                                 <span className="text-[10px] text-slate-600 mt-1">Peso: {item.weight}x | Acerto: {item.percentage}%</span>
                             </div>

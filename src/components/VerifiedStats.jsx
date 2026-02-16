@@ -256,7 +256,12 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length >= 2) {
-                const scores = cat.simuladoStats.history.slice(-5).map(h => h.score);
+                // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
+                const sortedHistory = [...cat.simuladoStats.history]
+                    .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                const scores = sortedHistory.slice(-5).map(h => h.score);
 
                 const analysis = analyzeProgressState(scores, {
                     window_size: Math.min(5, scores.length),
