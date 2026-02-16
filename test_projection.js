@@ -27,3 +27,12 @@ const baseSD = 5;
 const sdToday = computePooledSD([{ sd: baseSD, weight: 100 }], 100, 0);
 const sdFuture = computePooledSD([{ sd: baseSD, weight: 100 }], 100, 30);
 console.log('Test 5 (SD): Today (0d) =', sdToday.toFixed(3), 'Future (30d) =', sdFuture.toFixed(3));
+
+// Test 6: String Handling in History
+const historyString = [{ date: '2023-01-01', score: "70" }, { date: '2023-01-02', score: "80" }];
+const slopeString = calculateSlope(historyString);
+console.log('Test 6 (Strings): Slope =', slopeString); // Should be numeric 10 * confidence
+
+// Test 7: Empty History (Should not crash)
+const slopeEmpty = calculateSlope([]);
+console.log('Test 7 (Empty): Slope =', slopeEmpty);

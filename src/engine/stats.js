@@ -21,7 +21,7 @@ export function standardDeviation(arr) {
  */
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
-    const scores = history.map(h => h.score);
+    const scores = history.map(h => Number(h.score) || 0);
     const m = mean(scores);
     const sd = standardDeviation(scores);
 

@@ -33,9 +33,9 @@ const TimeDisplay = () => {
 };
 
 export default function Header({
-    user,
+    user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
     onUpdateName,
-    contests,
+    contests = {},
     activeContestId,
     onSwitchContest,
     onCreateContest,
