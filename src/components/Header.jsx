@@ -53,10 +53,14 @@ export default function Header({
 
 
     const handleCloudBackup = async () => {
+        if (!currentUser) {
+            alert('Você precisa estar logado para salvar na nuvem!');
+            return;
+        }
         if (!window.confirm('Subir backup para a nuvem?')) return;
         setIsSyncing(true);
         try {
-            await uploadDataToCloud(currentData, currentUser?.uid);
+            await uploadDataToCloud(currentData, currentUser.uid);
             alert('Backup salvo na nuvem com sucesso! ☁️');
         } catch (error) {
             alert('Erro ao salvar backup: ' + error.message);
@@ -66,10 +70,14 @@ export default function Header({
     };
 
     const handleCloudDownload = async () => {
+        if (!currentUser) {
+            alert('Você precisa estar logado para baixar da nuvem!');
+            return;
+        }
         if (!window.confirm('Restaurar backup da nuvem? Isso substituirá os dados atuais.')) return;
         setIsSyncing(true);
         try {
-            const data = await downloadDataFromCloud(currentUser?.uid);
+            const data = await downloadDataFromCloud(currentUser.uid);
             if (data && onCloudRestore) {
                 onCloudRestore(data);
             }

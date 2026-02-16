@@ -37,10 +37,10 @@ export default function Login() {
 
         try {
             if (isLogin) {
-                await login(email, password);
+                await login(email.trim(), password);
             } else {
                 if (!name.trim()) throw new Error("Por favor, insira seu nome.");
-                await signup(email, password, name);
+                await signup(email.trim(), password, name);
             }
         } catch (err) {
             console.error(err);
