@@ -1989,13 +1989,204 @@ function App() {
 
       {/* Level Up Toast */}
       {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={() => setLevelUpData(null)} />}
-      <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
-    </div>
-  );
+              // If specific task was clicked (passed as selectedTask), use it.
+      // Otherwise fallback to first task.
+      const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
+
+      if (targetTaskId) {
+        startStudying(cat.id, targetTaskId);
+              }
+      setPreviousTab('retention');
+      setActiveTab('pomodoro');
+            }}
+          />
+      );
+
+      case 'notes':
+      return (
+      <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <TopicPerformance categories={data.categories} />
+        <ParetoAnalysis categories={data.categories} />
+      </div>
+      );
+      case 'settings':
+      return (
+      <div className="glass p-8 max-w-2xl mx-auto">
+        <h2 className="text-2xl font-bold mb-6">Configurações Gerais</h2>
+        <p className="text-slate-400">Em breve...</p>
+        <div className="mt-8 pt-8 border-t border-white/10">
+          <h3 className="text-lg font-bold mb-4">Zona de Perigo</h3>
+          <button
+            onClick={() => {
+              if (window.confirm('TEM CERTEZA ABSOLUTA?\n\nIsso apagará TODO o seu progresso, histórico, níveis e personalizações.\n\nO aplicativo voltará ao estado original (como novo).')) {
+                // 1. Clear LocalStorage
+                localStorage.removeItem('ultra-dashboard-data');
+
+                // 2. Prepare Fresh Data (Explicitly Empty)
+                const freshData = {
+                  ...INITIAL_DATA, // Spread first to get settings/achievement definitions and other static data
+                  user: {
+                    ...INITIAL_DATA.user, // Keep initial user settings like goalDate if not explicitly overridden
+                    name: "Estudante",
+                    avatar: "👤",
+                    startDate: new Date().toISOString().split('T')[0], // Reset start date to today
+                    goalDate: new Date().toISOString().split('T')[0], // Reset exam date to today (0 days left)
+                    xp: 0,
+                    level: 10,
+                    achievements: [] // Clear user achievements
+                  },
+                  categories: [], // Explicitly empty
+                  simuladoRows: [], // Force clear raw rows
+                  simulados: [], // Clear simulados data
+                  pomodoroSessions: [], // Clear pomodoro sessions
+                  studyLogs: [], // Clear study logs
+                  studySessions: [], // Clear study sessions
+                  coachPlan: [], // Clear AI Coach plan
+                  // notes: "", // If notes are part of INITIAL_DATA, this would clear them.
+                  // If notes are dynamic, they should be cleared here.
+                  // Assuming notes are dynamic and should be cleared.
+                  notes: "",
+                  // achievements: [], // This would clear achievement definitions.
+                  // User achievements are handled in user.achievements.
+                  // Keeping achievement definitions from INITIAL_DATA.
+                };
+
+                // 3. Save Fresh Data
+                localStorage.setItem('ultra-dashboard-data', JSON.stringify({
+                  contests: { 'default': freshData },
+                  activeId: 'default'
+                }));
+
+                // 4. Reload
+                window.location.reload();
+              }
+            }}
+            className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all border border-red-500/20 hover:border-red-500/40 flex items-center gap-2 font-bold"
+          >
+            <div className="p-1 bg-red-500/20 rounded-full">
+              <RotateCcw size={16} />
+            </div>
+            Resetar Tudo (Começar do Zero)
+          </button>
+        </div>
+      </div>
+      );
+      case 'help':
+      // Help is a modal, open it and return to previous tab
+      setShowHelpGuide(true);
+      setActiveTab('dashboard'); // Return to dashboard immediately
+      return null;
+      default:
+      return null;
+    }
+  };
+
+      // --- RENDER CONTENT MOVED INSIDE FINAL RETURN ---
+
+      // --- NEW UNIFIED RETURN ---
+      if (!isClient) return null;
+      if (!currentUser) return <Login />;
+
+      if (loadingData) {
+    return (
+      <div suppressHydrationWarning={true} className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] animate-gradient-slow"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent animate-pulse-slow"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-24 h-24 mb-8 relative">
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+            <div className="relative z-10 w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 overflow-hidden">
+              <svg viewBox="0 0 200 200" className="w-16 h-16 text-white animate-pulse" fill="currentColor">
+                {/* Giant Manta Silhouette */}
+                <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
+                <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+                <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.3" />
+                <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
+              </svg>
+            </div>
+          </div>
+          <h1 suppressHydrationWarning className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400 tracking-tight mb-2 text-center uppercase">MÉTODO THI</h1>
+          <div className="h-6 flex items-center justify-center text-blue-300/80 font-medium text-sm tracking-widest uppercase animate-fade-in-up">{loadingStatus}</div>
+          <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-1/3 animate-loading-bar rounded-full"></div>
+          </div>
+        </div>
+      </div>
+      );
+  }
+
+      if (!appState) {
+    const projectId = import.meta.env.VITE_PROJECT_ID || 'MISSING';
+
+      return (
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center text-white p-4">
+        <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20 max-w-md w-full">
+          <h2 className="text-xl font-bold text-red-400 mb-2 text-center">Erro de Conexão</h2>
+          <p className="text-slate-400 mb-4 text-center">Não foi possível carregar os dados.</p>
+
+          <div className="bg-black/30 p-4 rounded-lg mb-4 text-xs font-mono text-slate-300 overflow-auto">
+            <p><strong>Status:</strong> {loadingData ? 'Carregando...' : 'Falha'}</p>
+            <p><strong>User ID:</strong> {currentUser ? currentUser.uid : 'Não Logado'}</p>
+            <p><strong>Project ID:</strong> {projectId}</p>
+            <p><strong>API Key:</strong> {import.meta.env.VITE_API_KEY ? 'Presente' : 'AUSENTE'}</p>
+            <p><strong>Auth Domain:</strong> {import.meta.env.VITE_AUTH_DOMAIN ? 'Presente' : 'AUSENTE'}</p>
+          </div>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-red-500 hover:bg-red-600 rounded-lg font-bold transition-colors"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+      );
+  }
+
+      if (!appState) return <div>Erro ao carregar appState</div>;
+
+      if (isMobile && !forceDesktopMode) {
+    const mobileActions = {updatePomodoroSettings, finishStudying, startStudying, handleUpdateStudyTime, toggleTask, deleteTask, addTask, addCategory, deleteCategory, togglePriority};
+      return (
+      <>
+        <MobilePocketMode user={data.user} data={data} activeSubject={activeSubject} actions={mobileActions} onExitPocketMode={() => setForceDesktopMode(true)} />
+        <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-2 pointer-events-none">
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              toast={toast}
+              onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+            />
+          ))}
+        </div>
+      </>
+      );
+  }
+
+      return (
+      <div suppressHydrationWarning={true} className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onExport={handleExport} onImport={handleImport} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} user={data.user} isMobile={isMobile} />
+        <main className="p-8 pt-24 transition-all duration-300 w-full">
+          <Header user={data.user} settings={data.settings} onToggleDarkMode={toggleDarkMode} onUpdateName={updateUserName} contests={safeAppState.contests} activeContestId={safeAppState.activeId} onSwitchContest={switchContest} onCreateContest={createNewContest} onDeleteContest={deleteContest} onUndo={handleUndo} onCloudRestore={handleCloudRestore} currentData={data} />
+          {renderContent()}
+        </main>
+        {/* Multi-Toast Container */}
+        <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-2 pointer-events-none">
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              toast={toast}
+              onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+            />
+          ))}
+        </div>
+
+        {/* Level Up Toast */}
+        {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={() => setLevelUpData(null)} />}
+        <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+      </div>
+      );
 }
 
-export default App;
-/ /  
- f o r c e  
- u p d a t e  
- 
+      export default App;
