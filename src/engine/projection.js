@@ -101,7 +101,7 @@ export function calculateSlope(history) {
         1 / (1 + slopeStdError / 0.5);
 
     const historyBoost =
-        Math.min(1.5, 0.7 + n / 15);
+        Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
     const baseLimit = 1.2;
     const absoluteMax = 1.5;
@@ -130,8 +130,9 @@ export function projectScore(history, projectDays = 60) {
     const currentScore =
         sortedHistory[sortedHistory.length - 1].score;
 
+    // Relaxed damping: 45 instead of 30, allows more linear projection for longer
     const effectiveDays =
-        30 * Math.log(1 + projectDays / 30);
+        45 * Math.log(1 + projectDays / 45);
 
     const projected =
         currentScore + slope * effectiveDays;
