@@ -24,28 +24,23 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
         if (field === 'correct' || field === 'total') {
             // Remove tudo que não for dígito
-            const digits = String(value).replace(/\D/g, '');
-            let val = parseInt(digits);
+            const val = parseInt(String(value).replace(/\D/g, '')) || 0;
 
-            // Se vazio ou inválido, vira 0 (mas permite string vazia durante digitação se quisesse, 
-            // porém o design atual parece forçar numero. Vamos deixar comportamento atual mas sem NaN)
-            if (isNaN(val)) val = 0;
-
-            // 2. Lógica de Negócio
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index].total) || 0;
-                if (val > currentTotal && currentTotal > 0) val = currentTotal;
+                // Enforce: Correct cannot exceed Total (unless Total is 0 during typing, but result is clamped)
+                if (currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
+                else finalValue = val;
             } else if (field === 'total') {
-                // Se total diminui pra menos que acertos, ajusta acertos
                 const currentCorrect = parseInt(rows[index].correct) || 0;
-                if (val < currentCorrect && val > 0) { // Val > 0 to avoid resetting correct when clearing total
-                    // Side-effect: update correct too
+                // If Total is reduced below Correct, clamp Correct
+                if (val < currentCorrect) {
                     const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
                     setRows(newRows);
                     return;
                 }
+                finalValue = val;
             }
-            finalValue = val;
         }
 
         // 3. Atualização Imutável
