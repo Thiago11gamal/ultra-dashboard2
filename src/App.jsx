@@ -1961,7 +1961,7 @@ function App() {
 
   return (
     <div suppressHydrationWarning={true} className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onExport={handleExport} onImport={handleImport} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} user={data.user} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onExport={handleExport} onImport={handleImport} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} user={data.user} isMobile={isMobile} />
       <main className="p-8 pt-24 transition-all duration-300 w-full">
         <Header user={data.user} settings={data.settings} onToggleDarkMode={toggleDarkMode} onUpdateName={updateUserName} contests={safeAppState.contests} activeContestId={safeAppState.activeId} onSwitchContest={switchContest} onCreateContest={createNewContest} onDeleteContest={deleteContest} onUndo={handleUndo} onCloudRestore={handleCloudRestore} currentData={data} />
         {renderContent()}
