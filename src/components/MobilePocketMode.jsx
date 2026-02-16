@@ -69,6 +69,8 @@ export default function MobilePocketMode({
                             onAddTask={actions.addTask}
                             onAddCategory={actions.addCategory}
                             onDeleteCategory={actions.deleteCategory}
+                            onPlayContext={actions.startStudying}
+                            onTogglePriority={actions.togglePriority}
                         />
                     </div>
                 )}

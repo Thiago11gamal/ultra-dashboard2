@@ -1952,7 +1952,7 @@ function App() {
   if (!appState) return <div>Erro ao carregar appState</div>;
 
   if (isMobile && !forceDesktopMode) {
-    const mobileActions = { updatePomodoroSettings, finishStudying, startStudying, handleUpdateStudyTime, toggleTask, deleteTask, addTask, addCategory, deleteCategory };
+    const mobileActions = { updatePomodoroSettings, finishStudying, startStudying, handleUpdateStudyTime, toggleTask, deleteTask, addTask, addCategory, deleteCategory, togglePriority };
     return (
       <>
         <MobilePocketMode user={data.user} data={data} activeSubject={activeSubject} actions={mobileActions} onExitPocketMode={() => setForceDesktopMode(true)} />
