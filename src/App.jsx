@@ -116,6 +116,10 @@ function App() {
   const [activeSubject, setActiveSubject] = useState(null);
   const isMobile = useMobileDetect();
   const [forceDesktopMode, setForceDesktopMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
+  const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [previousTab, setPreviousTab] = useState(null); // To return after Pomodoro
   const [filter, setFilter] = useState('all');
   const [toasts, setToasts] = useState([]);
