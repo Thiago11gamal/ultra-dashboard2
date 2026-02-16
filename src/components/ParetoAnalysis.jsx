@@ -7,6 +7,8 @@ export default function ParetoAnalysis({ categories = [] }) {
     const { topEnemies, totalLostPoints } = useMemo(() => {
         let allTopics = [];
 
+        if (!Array.isArray(categories)) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
+
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history

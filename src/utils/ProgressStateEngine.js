@@ -27,8 +27,11 @@ export function analyzeProgressState(scores, config = {}) {
         high_level_limit
     } = { ...DEFAULT_CONFIG, ...config };
 
+    // Safety: Window size must be at least 2 for variance calculation
+    const safeWindowSize = Math.max(2, window_size);
+
     // 3. Pre-condition check
-    if (!scores || scores.length < window_size) {
+    if (!scores || scores.length < safeWindowSize) {
         return {
             state: 'insufficient_data',
             label: 'Dados Insuficientes',
@@ -41,28 +44,28 @@ export function analyzeProgressState(scores, config = {}) {
     }
 
     // 4. Extract window
-    const recentScores = scores.slice(-window_size);
+    const recentScores = scores.slice(-safeWindowSize);
 
     // 5.1 Mean (Absolute Level)
-    const mean = recentScores.reduce((a, b) => a + b, 0) / window_size;
+    const mean = recentScores.reduce((a, b) => a + b, 0) / safeWindowSize;
 
     // 5.2 Delta (Mean Absolute Variation)
     let variationTotal = 0;
     for (let i = 1; i < recentScores.length; i++) {
         variationTotal += Math.abs(recentScores[i] - recentScores[i - 1]);
     }
-    const delta = variationTotal / (window_size - 1);
+    const delta = variationTotal / (safeWindowSize - 1);
 
     // 5.3 Variance (Consistency) — FIX Bug 5: Use sample variance (N-1) not population (N)
     const variance = recentScores.reduce((acc, score) =>
-        acc + Math.pow(score - mean, 2), 0) / (window_size - 1);
+        acc + Math.pow(score - mean, 2), 0) / (safeWindowSize - 1);
 
     // 5.4 Trend (Linear Regression Slope)
-    const xMean = (window_size - 1) / 2;
+    const xMean = (safeWindowSize - 1) / 2;
     let numerator = 0;
     let denominator = 0;
 
-    for (let i = 0; i < window_size; i++) {
+    for (let i = 0; i < safeWindowSize; i++) {
         numerator += (i - xMean) * (recentScores[i] - mean);
         denominator += Math.pow(i - xMean, 2);
     }
