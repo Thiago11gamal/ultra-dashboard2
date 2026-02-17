@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RotateCcw, CalendarDays, Calendar, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
