@@ -29,7 +29,7 @@ import HelpGuide from './components/HelpGuide';
 
 import LevelUpToast from './components/LevelUpToast';
 // REMOVIDO: calculateLevel, getLevelTitle, checkRandomBonus (agora estão no hook)
-import { XP_CONFIG } from './utils/gamification';
+
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachView from './components/AICoachView';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
