@@ -3,16 +3,82 @@ export function mean(arr) {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
+/**
+ * Cálculo de Desvio Padrão com Shrinkage Bayesiano (Melhoria 1)
+ * Estabiliza a volatilidade para alunos com poucos dados (< 10 simulados).
+ */
 export function standardDeviation(arr) {
     if (!arr || arr.length < 2) return 0;
 
+    const n = arr.length;
     const m = mean(arr);
-    const variance =
-        arr.reduce((sum, val) =>
-            sum + Math.pow(val - m, 2), 0
-        ) / (arr.length - 1);
 
-    return Math.sqrt(variance);
+    // Variância da Amostra (cálculo clássico)
+    const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
+
+    // --- SHRINKAGE BAYESIANO ---
+    // Evita que o desvio seja zero ou explosivo com poucos dados.
+    // POPULATION_SD = 12 (Volatilidade típica de concurseiro)
+    // KAPPA = 3 (Força do prior - equivale a ter 3 provas "fantasmas" na média)
+    const POPULATION_SD = 12;
+    const KAPPA = 3;
+
+    const adjustedVar =
+        ((n - 1) * sampleVar + KAPPA * (Math.pow(POPULATION_SD, 2))) /
+        ((n - 1) + KAPPA);
+
+    return Math.sqrt(adjustedVar);
+}
+
+/**
+ * Cálculo de Tendência com Teste de Significância (Melhoria 2)
+ * Retorna o slope apenas se T-Stat > 2.0 (95% confiança).
+ * Caso contrário, retorna 0 (estável), evitando falsos alarmes.
+ */
+export function calculateTrend(scores) {
+    if (!scores || scores.length < 3) return 0;
+
+    // Foca na tendência recente (últimos 10)
+    const recentScores = scores.slice(-10);
+    const n = recentScores.length;
+
+    const x = recentScores.map((_, i) => i);
+    const y = recentScores;
+
+    const meanX = (n - 1) / 2;
+    const meanY = mean(y);
+
+    let num = 0;
+    let den = 0;
+
+    for (let i = 0; i < n; i++) {
+        const dx = x[i] - meanX;
+        num += dx * (y[i] - meanY);
+        den += dx * dx;
+    }
+
+    if (den === 0) return 0;
+
+    const slope = num / den;
+
+    // Cálculo do Erro Padrão (Standard Error) da inclinação
+    let rss = 0; // Residual Sum of Squares
+    for (let i = 0; i < n; i++) {
+        const pred = meanY + slope * (x[i] - meanX);
+        rss += Math.pow(y[i] - pred, 2);
+    }
+
+    const sigma2 = rss / (n - 2); // Variância dos resíduos
+    const seSlope = Math.sqrt(sigma2 / den); // Erro padrão do slope
+
+    // T-Statistic: Se |t| < 2, é apenas ruído, não tendência real.
+    if (seSlope > 0) {
+        const tStat = slope / seSlope;
+        if (Math.abs(tStat) < 2.0) return 0;
+    }
+
+    // Normaliza para "pontos por 10 simulados" para facilitar leitura humana
+    return slope * 10;
 }
 
 /**
@@ -21,54 +87,24 @@ export function standardDeviation(arr) {
  */
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
+
+    // Garante números
     const scores = history.map(h => Number(h.score) || 0);
+
     const m = mean(scores);
+
+    // FIX 1: Usa o novo Desvio Padrão Bayesiano
     const sd = standardDeviation(scores);
 
-    // FIX 1: SafeSD Relativo (Bug Fix Estatístico)
-    // Antes: Math.max(sd, 0.5) -> Punia alunos consistentes
-    // Agora: Máximo entre SD real e 2% da média (ruído branco mínimo)
+    // SafeSD: Mantém um piso mínimo de 2% da média para cálculos de risco
     const safeSD = Math.max(sd, m * 0.02);
 
-    // FIX 2: Tendência com Significância (T-Statistic)
-    let trend = 'stable';
-    if (scores.length >= 3) {
-        const n = scores.length;
-        const xMean = (n - 1) / 2;
+    // FIX 2: Usa a nova Tendência com Significância
+    const rawTrend = calculateTrend(scores);
 
-        // Somas para Regressão Linear Simples
-        let numerator = 0; // Sxy
-        let denominator = 0; // Sxx
-
-        for (let i = 0; i < n; i++) {
-            numerator += (i - xMean) * (scores[i] - m);
-            denominator += Math.pow(i - xMean, 2);
-        }
-
-        const slope = denominator !== 0 ? numerator / denominator : 0;
-
-        // Cálculo do Erro Padrão da Inclinação (Slope Standard Error)
-        // Isso define se a inclinação é real ou ruído
-        let sumSquaredResiduals = 0;
-        for (let i = 0; i < n; i++) {
-            const predicted = m + slope * (i - xMean);
-            sumSquaredResiduals += Math.pow(scores[i] - predicted, 2);
-        }
-
-        // Graus de liberdade = n - 2
-        const seResiduals = Math.sqrt(sumSquaredResiduals / Math.max(1, n - 2));
-        const seSlope = seResiduals / Math.sqrt(denominator);
-
-        // T-Statistic: Quantas vezes o slope é maior que o erro?
-        // Usamos 2.0 (aprox 95% confiança) como corte
-        const tStat = seSlope > 0 ? Math.abs(slope / seSlope) : 0;
-
-        if (tStat > 2.0) {
-            if (slope > 0) trend = 'up';
-            else if (slope < 0) trend = 'down';
-        }
-        // Se tStat < 2.0, mantemos 'stable' pois é ruído estatístico
-    }
+    let trendLabel = 'stable';
+    if (rawTrend > 0.5) trendLabel = 'up'; // Leve tolerância
+    else if (rawTrend < -0.5) trendLabel = 'down';
 
     return {
         mean: m,
@@ -76,6 +112,7 @@ export function computeCategoryStats(history, weight) {
         n: history.length,
         weight: weight,
         history: history,
-        trend
+        trend: trendLabel,
+        trendValue: rawTrend // Valor numérico para gráficos avançados
     };
 }
