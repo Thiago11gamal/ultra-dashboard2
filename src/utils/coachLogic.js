@@ -5,7 +5,7 @@ const DEFAULT_CONFIG = {
     INSTABILITY_MAX: 30,
     PRIORITY_BOOST: 30,
     EFFICIENCY_MAX: 15,
-    SRS_BOOST: 40,
+    SRS_BOOST: 20, // ALTERADO: Reduzido de 40 para 20 para não ofuscar matérias atrasadas
     BASE_HOURS_THRESHOLD: 5
 };
 
@@ -14,9 +14,13 @@ const DEFAULT_CONFIG = {
 // Calcula tendência via regressão linear simples
 function calculateTrend(scores) {
     if (!scores || scores.length < 3) return 0;
-    const n = scores.length;
-    const x = scores.map((_, i) => i);
-    const y = scores;
+
+    // MELHORIA: Usa apenas os últimos 10 simulados para a tendência ser mais atual
+    const recentScores = scores.slice(-10);
+    const n = recentScores.length;
+
+    const x = recentScores.map((_, i) => i);
+    const y = recentScores;
 
     const sumX = x.reduce((a, b) => a + b, 0);
     const sumY = y.reduce((a, b) => a + b, 0);
@@ -104,7 +108,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const today = normalizeDate(new Date());
             const K = 0.07;
             const PESO_MIN = 0.03;
-            const DELTA = 5.0;
+
+            // ALTERADO: Aumentado de 5.0 para 15.0 para destravar evolução rápida
+            const DELTA = 15.0;
 
             const calculateExponentialScore = (dataset) => {
                 let weightedSum = 0;
@@ -125,7 +131,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 return totalWeight > 0 ? weightedSum / totalWeight : 50;
             };
 
-            // FIX Bug 6: Renamed from 'yesterdayBound' — this is today at midnight, not yesterday
             const todayBound = normalizeDate(new Date());
             const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < todayBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
@@ -134,8 +139,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 const notaAnterior = calculateExponentialScore(pastSimulados);
                 const diff = notaBruta - notaAnterior;
                 let clampedDiff = diff;
+
+                // Clamping agora permite saltos maiores (até 15 pontos)
                 if (diff > DELTA) clampedDiff = DELTA;
                 else if (diff < -DELTA) clampedDiff = -DELTA;
+
                 averageScore = notaAnterior + clampedDiff;
             } else {
                 averageScore = notaBruta;
@@ -167,9 +175,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Calculate Standard Deviation and Trend
         const validForDev = relevantSimulados.filter(s => s.total > 0);
-        const lastNScores = validForDev.slice(0, 5).map(s => (s.correct / s.total) * 100).reverse();
+        const lastNScores = validForDev.slice(0, 10).map(s => (s.correct / s.total) * 100).reverse();
         const standardDeviation = calculateStandardDeviation(lastNScores);
-        const trend = calculateTrend(lastNScores); // chronological order (oldest first)
+        const trend = calculateTrend(lastNScores);
 
         // --- COMPONENT CALCULATION ---
 
@@ -209,15 +217,22 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // F. SRS Boost
         const { boost: srsBoost, label: srsLabel } = getSRSBoost(daysSinceLastStudy, cfg);
 
-        // G. Rotation Penalty
+        // G. Rotation Penalty (ALTERADO: Lógica mais inteligente)
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            rotationPenalty = 30;
+            // Se a nota for ruim (< 60), PERMITIR o grind (sem penalidade). 
+            // Se for boa, penalizar levemente (15) para forçar rotação.
+            if (averageScore < 60) {
+                rotationPenalty = 0;
+            } else {
+                rotationPenalty = 15; // Reduzido de 30 para 15
+            }
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
-            rotationPenalty = 10;
+            rotationPenalty = 5; // Reduzido de 10 para 5
         }
+
         // Reduce penalty if SRS is active
-        if (srsBoost > 0) rotationPenalty *= 0.3;
+        if (srsBoost > 0) rotationPenalty *= 0.1;
 
         // --- DYNAMIC RAW_MAX ---
         const RAW_MAX_BASE = cfg.SCORE_MAX + cfg.RECENCY_MAX + cfg.INSTABILITY_MAX;
@@ -225,8 +240,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
             (srsBoost > 0 ? cfg.SRS_BOOST : 0);
 
+        // ALTERADO: Removido 'efficiencyPenalty' do cálculo para não esconder a matéria
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost) -
-            (efficiencyPenalty + rotationPenalty);
+            (rotationPenalty);
 
         // Final Weight application (DAMPENED for middle ground)
         const finalWeightImpact = 1 + ((weight / 100) - 1) * 0.6; // 60% weight impact on total
@@ -240,7 +256,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
         } else if (efficiencyPenalty > 5) {
-            recommendation = `${totalHours.toFixed(1)}h investidas sem melhora - Revise o método`;
+            // O aviso continua aqui, mas a nota não caiu!
+            recommendation = `⚠️ Alerta: ${totalHours.toFixed(1)}h sem melhora. Troque o método!`;
         } else if (daysSinceLastStudy > 14) {
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
         } else if (trend < -5) {
