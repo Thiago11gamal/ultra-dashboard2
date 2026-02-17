@@ -10,3 +10,5 @@ export * from './projection.js';
 export * from './variance.js';
 export * from './random.js';
 export * from './bayesianEngine.js';
+// Explicitly re-exporting ensure to avoid tree-shaking issues
+export { computeCategoryStats } from './stats.js';
