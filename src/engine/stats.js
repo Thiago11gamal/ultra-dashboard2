@@ -25,24 +25,49 @@ export function computeCategoryStats(history, weight) {
     const m = mean(scores);
     const sd = standardDeviation(scores);
 
-    // Safety floor for SD to prevent zero-variance issues in simulation
-    // FIX Bug 8: Reduced from 1.5 to 0.5 — less artificial noise for consistent students
-    const safeSD = Math.max(sd, 0.5);
+    // FIX 1: SafeSD Relativo (Bug Fix Estatístico)
+    // Antes: Math.max(sd, 0.5) -> Punia alunos consistentes
+    // Agora: Máximo entre SD real e 2% da média (ruído branco mínimo)
+    const safeSD = Math.max(sd, m * 0.02);
 
-    // FIX Bug 3: Calculate trend from scores using linear regression
+    // FIX 2: Tendência com Significância (T-Statistic)
     let trend = 'stable';
     if (scores.length >= 3) {
         const n = scores.length;
         const xMean = (n - 1) / 2;
-        let numerator = 0;
-        let denominator = 0;
+
+        // Somas para Regressão Linear Simples
+        let numerator = 0; // Sxy
+        let denominator = 0; // Sxx
+
         for (let i = 0; i < n; i++) {
             numerator += (i - xMean) * (scores[i] - m);
             denominator += Math.pow(i - xMean, 2);
         }
+
         const slope = denominator !== 0 ? numerator / denominator : 0;
-        if (slope > 0.5) trend = 'up';
-        else if (slope < -0.5) trend = 'down';
+
+        // Cálculo do Erro Padrão da Inclinação (Slope Standard Error)
+        // Isso define se a inclinação é real ou ruído
+        let sumSquaredResiduals = 0;
+        for (let i = 0; i < n; i++) {
+            const predicted = m + slope * (i - xMean);
+            sumSquaredResiduals += Math.pow(scores[i] - predicted, 2);
+        }
+
+        // Graus de liberdade = n - 2
+        const seResiduals = Math.sqrt(sumSquaredResiduals / Math.max(1, n - 2));
+        const seSlope = seResiduals / Math.sqrt(denominator);
+
+        // T-Statistic: Quantas vezes o slope é maior que o erro?
+        // Usamos 2.0 (aprox 95% confiança) como corte
+        const tStat = seSlope > 0 ? Math.abs(slope / seSlope) : 0;
+
+        if (tStat > 2.0) {
+            if (slope > 0) trend = 'up';
+            else if (slope < 0) trend = 'down';
+        }
+        // Se tStat < 2.0, mantemos 'stable' pois é ruído estatístico
     }
 
     return {
