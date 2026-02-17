@@ -51,6 +51,18 @@ function App() {
   // const [isClient, setIsClient] = useState(false); // Removed for performance
   // useEffect(() => setIsClient(true), []); // Removed for performance
 
+  // Use Custom Hook for Data Management
+  const {
+    appState,
+    setAppState,
+    data,
+    setData,
+    loadingData,
+    loadingStatus
+  } = useContestData(currentUser);
+
+  const safeAppState = appState && appState.contests ? appState : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubject, setActiveSubject] = useState(null);
   const isMobile = useMobileDetect();
