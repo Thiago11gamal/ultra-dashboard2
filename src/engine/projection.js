@@ -206,6 +206,8 @@ export function monteCarloSimulation(
         volatility: 0
     };
 
+    const currentScore = sortedHistory[sortedHistory.length - 1].score;
+
     // 1. Calcular Tendência (Drift)
     const drift = calculateSlope(sortedHistory);
 
