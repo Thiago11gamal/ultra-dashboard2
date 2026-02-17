@@ -567,7 +567,6 @@ function App() {
     if (d) { setData(() => d); showToast('Restaurado!', 'success'); }
   }, [setData, showToast]);
 
-  if (!isClient) return null;
   if (!currentUser) return <Login />;
   if (loadingData) return <div className="loading-screen">Carregando...</div>;
   if (!appState) return <div className="error-screen">Erro ao carregar.</div>;
