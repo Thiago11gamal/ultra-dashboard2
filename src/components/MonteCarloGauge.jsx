@@ -488,20 +488,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             score: pointsByDate[date].sumScore / pointsByDate[date].sumWeight
         })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        if (globalHistory.length < 1) return null;
-
-        // If only 1 data point (or 1 day), duplicate it to allow slope calculation (0 slope)
-        // or let the engine handle it.
-        // Actually, let's relax the check and ensure the engine handles it.
-        // Engine returns 0s if < 2. We need to fix engine too.
-
-        let processedHistory = globalHistory;
-        if (globalHistory.length === 1) {
-            // Fake a previous point to allow simulation to run with 0 drift
-            // Duplicate the point but with a previous date??
-            // No, better to Handle it in the engine properly.
-            // For now, let's just pass it.
-        }
+        if (globalHistory.length < 2) return null;
 
         // Use deterministic seed for reproducibility (based on projectDays)
         // const seed = 123456 + projectDays; // Engine handles seed internally based on history

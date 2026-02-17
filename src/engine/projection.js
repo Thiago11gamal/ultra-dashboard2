@@ -194,8 +194,8 @@ export function monteCarloSimulation(
 ) {
     const sortedHistory = getSortedHistory(history);
 
-    // Safety check: Require at least 1 data point (previously 2)
-    if (!sortedHistory || sortedHistory.length < 1) return {
+    // Safety check
+    if (!sortedHistory || sortedHistory.length < 2) return {
         probability: 0,
         mean: "0.0",
         sd: "0.0",
@@ -205,24 +205,6 @@ export function monteCarloSimulation(
         drift: 0,
         volatility: 0
     };
-
-    const currentScore = sortedHistory[sortedHistory.length - 1].score;
-
-    // Handle Single Data Point Case (New User / Same Day)
-    // Drift is 0, Volatility is default (5)
-    if (sortedHistory.length < 2) {
-        return {
-            probability: currentScore >= targetScore ? 100 : 0, // Deterministic based on current
-            mean: currentScore.toFixed(1),
-            sd: "5.0", // Default uncertainty
-            ci95Low: Math.max(0, currentScore - 1.96 * 5).toFixed(1),
-            ci95High: Math.min(100, currentScore + 1.96 * 5).toFixed(1),
-            currentMean: currentScore.toFixed(1),
-            drift: 0,
-            volatility: 5,
-            method: "single-point-fallback"
-        };
-    }
 
     // 1. Calcular Tendência (Drift)
     const drift = calculateSlope(sortedHistory);
