@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
-computeCategoryStats,
+import {
+    computeCategoryStats,
     monteCarloSimulation,
     calculateCurrentWeightedMean,
     calculateWeightedProjectedMean,
