@@ -6,9 +6,11 @@
  * @returns {string} - The normalized string
  */
 export const normalize = (str) => {
-    return (str || '').toLowerCase()
+    if (typeof str !== 'string') return '';
+    return str.toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove accents
         .replace(/noções de\s+/i, "") // Remove common prefix
+        .replace(/[^\w\s]/gi, '') // Remove special chars for safer matching
         .trim();
 };
 
