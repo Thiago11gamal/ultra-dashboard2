@@ -60,6 +60,8 @@ function App() {
     loadingStatus
   } = useContestData(currentUser);
 
+  const safeAppState = appState && appState.contests ? appState : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
+
   React.useEffect(() => {
     setIsClient(true);
   }, []);
