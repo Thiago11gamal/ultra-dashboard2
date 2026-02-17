@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Activity, TrendingUp, BarChart2, Trophy } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 
 const StatsCards = ({ data }) => {
-    // Fallsbacks for safety
-    const streak = calculateStudyStreak(data.studyLogs || []);
-    const balance = analyzeSubjectBalance(data.categories || []);
-    const efficiency = analyzeEfficiency(data.categories || [], data.studyLogs || []);
+    // Memoized Analytics
+    const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
+    const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
+    const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []), [data.categories, data.studyLogs]);
+
     // Ensure user data exists
     const user = data.user || { xp: 0, level: 1 };
 
-    const progress = getXPProgress(user.xp);
+    const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-down">
