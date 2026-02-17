@@ -35,6 +35,8 @@ import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import Toast from './components/Toast';
 import { useAuth } from './context/useAuth';
 import Login from './components/Login';
+import { db } from './services/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
