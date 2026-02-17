@@ -379,7 +379,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                                 const subjColor = getSubjectColor(subj.name);
 
                                                 return (
-                                                    <div key={idx} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
+                                                    <div key={subj.name} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
                                                         {/* Subject Header - Clean Spacing */}
                                                         <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
                                                             style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
@@ -409,7 +409,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                                                     const TopicIcon = topicStatus.icon;
 
                                                                     return (
-                                                                        <div key={tIdx} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
+                                                                        <div key={topic.name} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
                                                                             {/* Topic Name */}
                                                                             <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
                                                                                 {topic.name}
