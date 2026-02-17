@@ -608,19 +608,12 @@ function App() {
           <PomodoroTimer settings={data.settings} onUpdateSettings={updatePomodoroSettings} activeSubject={activeSubject} categories={data.categories} onStartStudying={startStudying} onUpdateStudyTime={handleUpdateStudyTime} onExit={() => { setActiveTab(previousTab || 'dashboard'); setPreviousTab(null); }} onSessionComplete={(subject) => {
             // New Pomodoro Handler
             if (subject) handleUpdateStudyTime(subject.categoryId, 25, subject.taskId);
-            const baseXP = XP_CONFIG.pomodoro.base;
-            const bonusXP = subject?.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
-            const totalXP = baseXP + bonusXP;
 
-            setData(prev => {
-              const newState = {
-                ...prev,
-                pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
-                lastPomodoroDate: new Date().toISOString()
-              };
-              return applyGamification(newState, totalXP);
-            });
-            showToast(`Sessão concluída! +${totalXP} XP ${bonusXP ? '(+bônus foco!)' : ''}`, 'success');
+            setData(prev => ({
+              ...prev,
+              pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
+              lastPomodoroDate: new Date().toISOString()
+            }));
           }} onFullCycleComplete={() => { finishStudying(); if (previousTab) { setActiveTab(previousTab); setPreviousTab(null); } }} defaultTargetCycles={dailyGoal} />
         )}
         {activeTab === 'tasks' && (
