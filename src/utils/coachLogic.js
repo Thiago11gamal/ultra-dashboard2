@@ -381,7 +381,7 @@ const getWeakestTopic = (category, simulados = []) => {
 
     // 2. Populate from Tasks
     tasks.forEach(task => {
-        const name = (task.text || task.title || "").trim();
+        const name = String(task.text || task.title || "").trim();
         if (!name) return;
 
         if (!topicMap[name]) {
