@@ -1,6 +1,5 @@
-
 // ==========================================
-// PROJECTION ENGINE - Versão Institucional
+// PROJECTION ENGINE - Versão Institucional 9.5
 // Seed fixa para estabilidade visual
 // ==========================================
 
@@ -181,9 +180,7 @@ function calculateVolatility(history) {
 // -----------------------------
 function getRandomElement(arr, rng) {
     // Usa o RNG seedado para consistência
-    const idx = Math.floor(rng() * arr.length); // rng() retorna 0..1 (exclusive 1 na maioria, mas ajustamos no createSeededRandom)
-    // O createSeededRandom retorna (value - 1) / 2147483646, range quase [0, 1]
-    // Vamos garantir limites seguros
+    const idx = Math.floor(rng() * arr.length);
     const safeIdx = Math.max(0, Math.min(arr.length - 1, idx));
     return arr[safeIdx];
 }
@@ -212,31 +209,22 @@ export function monteCarloSimulation(
     const currentScore = sortedHistory[sortedHistory.length - 1].score;
 
     // 1. Calcular Tendência (Drift)
-    // Usamos a função robusta existente
     const drift = calculateSlope(sortedHistory);
 
     // 2. Extrair Resíduos (Bootstrap Source)
-    // A diferença entre a realidade e o modelo linear
-    // Isso captura a "forma" da volatilidade do aluno (assimetria, cauda longa, etc)
     const n = sortedHistory.length;
     const residuals = sortedHistory.map((h, i) => {
-        // Recria a linha de tendência histórica para extrair o ruído
-        // Assumindo regressão linear simples para extração de resíduos
-        // Nota: O drift calculado é ponderado, mas para resíduos simples usamos o slope local
-        // para não distorcer o bootstrap. Simplificação robusta:
-        // Resíduo = Diferença do score anterior (Variação diária - Drift médio)
         if (i === 0) return 0;
         const prev = sortedHistory[i - 1].score;
         const actualChange = h.score - prev;
         return actualChange - drift;
-    }).slice(1); // Remove o primeiro (0)
+    }).slice(1);
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
-    // Voltamos para Normal Distribution (Legacy Mode)
     const useBootstrap = residuals.length >= 5;
 
-    // Calcula volatilidade clássica apenas para fallback ou info
-    const volatility = calculateVolatility(sortedHistory); // Função existente no seu arquivo
+    // Calcula volatilidade clássica apenas para fallback
+    const volatility = calculateVolatility(sortedHistory);
 
     // Seed fixa baseada no histórico (determinismo visual)
     const seed = history.length * 1000 + Math.floor(currentScore * 10);
@@ -255,24 +243,14 @@ export function monteCarloSimulation(
             let shock;
 
             if (useBootstrap) {
-                // BOOTSTRAP: Sorteia um erro do passado do aluno
-                // Isso implicitamente carrega a curtose e assimetria reais
                 const randomResidual = getRandomElement(residuals, rng);
-
-                // Adiciona um pouco de "jitter" (ruído branco minúsculo) 
-                // para evitar valores discretos repetidos se o histórico for pequeno
                 const jitter = (rng() - 0.5) * 0.1;
-
                 shock = randomResidual + jitter;
             } else {
-                // LEGACY (Fallback): Distribuição Normal
                 shock = randomNormal(rng) * volatility;
             }
 
-            // Modelo: Próximo = Anterior + Tendência + Choque
             score += drift + shock;
-
-            // Clamp físico (notas não podem ser < 0 ou > 100)
             score = Math.max(0, Math.min(100, score));
         }
 
@@ -295,8 +273,29 @@ export function monteCarloSimulation(
         currentMean: currentScore.toFixed(1),
         drift,
         volatility,
-        method: useBootstrap ? "bootstrap" : "normal" // Útil para debug
+        method: useBootstrap ? "bootstrap" : "normal"
     };
+}
+
+// -----------------------------
+// 🔥 Média Móvel Dinâmica (Melhoria 3)
+// -----------------------------
+/**
+ * Calcula EMA com K (Alpha) dinâmico baseado na quantidade de dados.
+ * - Poucos dados (Início): K mais alto (0.12) -> Reage rápido
+ * - Muitos dados (Veterano): K mais baixo (0.07) -> Mais estável
+ */
+export function calculateDynamicEMA(currentScore, previousEMA, dataCount) {
+    let K = 0.07; // Padrão (Veterano)
+
+    if (dataCount < 5) {
+        K = 0.12; // Start frio (reage rápido)
+    } else if (dataCount < 10) {
+        K = 0.09; // Intermediário
+    }
+
+    // EMA Formula: Price(t) * k + EMA(y) * (1 – k)
+    return (currentScore * K) + (previousEMA * (1 - K));
 }
 
 // ==========================================
@@ -312,9 +311,6 @@ export function calculateWeightedProjectedMean(categoryStats, totalWeight, proje
         if (!cat.history || cat.history.length < 2) {
             return acc + (cat.mean * normalizedWeight);
         }
-
-        // Use new projectScore signature
-        // Note: The new projectScore expects 'history' array with {score, date}
         const projected = projectScore(cat.history, projectDays);
         return acc + (projected * normalizedWeight);
 
@@ -334,6 +330,7 @@ export default {
     calculateSlope,
     projectScore,
     monteCarloSimulation,
+    calculateDynamicEMA, // Exportando a nova função
     calculateWeightedProjectedMean,
     calculateCurrentWeightedMean
 };
