@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { RotateCcw, CalendarDays, Calendar, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -28,7 +28,6 @@ import RetentionPanel from './components/RetentionPanel';
 import HelpGuide from './components/HelpGuide';
 
 import LevelUpToast from './components/LevelUpToast';
-// REMOVIDO: calculateLevel, getLevelTitle, checkRandomBonus (agora estão no hook)
 
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachView from './components/AICoachView';
@@ -36,79 +35,38 @@ import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
 import Toast from './components/Toast';
 import { useAuth } from './context/useAuth';
 import Login from './components/Login';
-import { db } from './services/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+
 import { exportData, INITIAL_DATA } from './data/initialData';
 import useMobileDetect from './hooks/useMobileDetect';
 import MobilePocketMode from './components/MobilePocketMode';
 import './components/Loading.css';
 
-// NOVO: Importando o hook
 import { useGamification } from './hooks/useGamification';
+import { useContestData } from './hooks/useContestData';
 
 function App() {
   const { currentUser } = useAuth();
-  const [appState, setAppState] = useState(null);
-  const [loadingStatus, setLoadingStatus] = useState("Iniciando...");
-  const [loadingData, setLoadingData] = useState(true);
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
+  // Use Custom Hook for Data Management
+  const {
+    appState,
+    setAppState,
+    data,
+    setData,
+    loadingData,
+    loadingStatus
+  } = useContestData(currentUser);
+
+  React.useEffect(() => {
     setIsClient(true);
   }, []);
-
-  // Cloud Data Fetching (Real-time & Cache-First)
-  useEffect(() => {
-    if (!currentUser) {
-      setAppState(null);
-      setLoadingData(false);
-      return;
-    }
-
-    setLoadingData(true);
-    setLoadingStatus("Sincronizando...");
-
-    const docRef = doc(db, 'users_data', currentUser.uid);
-    const startTime = Date.now();
-
-    const unsubscribe = onSnapshot(docRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (!data.contests) {
-            setAppState({ contests: { 'default': data }, activeId: 'default' });
-          } else {
-            setAppState(data);
-          }
-        } else {
-          const initial = { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
-          setDoc(docRef, initial).catch(console.error);
-          setAppState(initial);
-        }
-
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, 800 - elapsed);
-
-        setTimeout(() => {
-          setLoadingData(false);
-        }, remaining);
-      },
-      (error) => {
-        console.error("Error:", error);
-        setLoadingStatus("Erro na conexão.");
-        setLoadingData(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [currentUser]);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubject, setActiveSubject] = useState(null);
   const isMobile = useMobileDetect();
   const [forceDesktopMode, setForceDesktopMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // REMOVIDO: const [levelUpData, setLevelUpData] = useState(null);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [previousTab, setPreviousTab] = useState(null);
@@ -123,120 +81,8 @@ function App() {
     }, 3000);
   }, []);
 
-  // NOVO: Inicializando o hook de gamificação
+  // Gamification Hook
   const { applyGamification, levelUpData, closeLevelUpToast } = useGamification(showToast);
-
-  const safeAppState = appState && appState.contests ? appState : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
-  let data = safeAppState.contests[safeAppState.activeId] || Object.values(safeAppState.contests)[0] || INITIAL_DATA;
-
-  if (!data.user || !data.categories) {
-    data = INITIAL_DATA;
-  }
-  if (!data.simulados) data.simulados = INITIAL_DATA.simulados || [];
-  if (!data.settings) {
-    data.settings = INITIAL_DATA.settings || {
-      pomodoroWork: 25,
-      pomodoroBreak: 5,
-      soundEnabled: true,
-      darkMode: true
-    };
-  }
-
-  const setData = useCallback((updater, recordHistory = true) => {
-    setAppState(prev => {
-      const safePrev = prev && prev.contests ? prev : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
-      const currentContestId = safePrev.activeId || 'default';
-      const currentData = safePrev.contests[currentContestId] || INITIAL_DATA;
-      const newData = typeof updater === 'function' ? updater(currentData) : updater;
-
-      if (newData === currentData) return safePrev;
-
-      let newHistory = safePrev.history || [];
-      if (recordHistory) {
-        newHistory = [...newHistory, {
-          contestId: currentContestId,
-          data: JSON.parse(JSON.stringify(currentData))
-        }];
-        if (newHistory.length > 30) newHistory.shift();
-      }
-
-      return {
-        ...safePrev,
-        history: newHistory,
-        contests: {
-          ...safePrev.contests,
-          [currentContestId]: newData
-        }
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    const checkAndResetDay = () => {
-      const now = new Date();
-      const today = now.toDateString();
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
-
-      setData(prev => {
-        let currentRows = (prev.simuladoRows || []).filter(row => {
-          if (!row.createdAt) return false;
-          const rowDate = new Date(row.createdAt).toDateString();
-          return rowDate === today || rowDate === yesterday;
-        });
-
-        const seen = new Set();
-        currentRows = currentRows.filter(row => {
-          const key = JSON.stringify({
-            s: row.subject?.trim(),
-            t: row.topic?.trim(),
-            c: row.correct,
-            tot: row.total,
-            d: new Date(row.createdAt).toDateString()
-          });
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-
-        const hasToday = currentRows.some(r => new Date(r.createdAt).toDateString() === today);
-        const hasYesterday = currentRows.some(r => new Date(r.createdAt).toDateString() === yesterday);
-
-        if (!hasToday && hasYesterday) {
-          const yesterdayRows = currentRows.filter(r => new Date(r.createdAt).toDateString() === yesterday);
-          const newTodayRows = yesterdayRows.map(r => ({
-            subject: r.subject,
-            topic: r.topic,
-            correct: 0,
-            total: 0,
-            createdAt: Date.now()
-          }));
-          currentRows = [...currentRows, ...newTodayRows];
-        }
-
-        return {
-          ...prev,
-          simuladoRows: currentRows,
-          categories: prev.categories.map(cat => ({
-            ...cat,
-            tasks: (cat.tasks || []).map(t =>
-              t.status === 'studying' ? { ...t, status: 'paused' } : t
-            )
-          }))
-        };
-      }, false);
-    };
-
-    checkAndResetDay();
-    const onFocus = () => setTimeout(checkAndResetDay, 1000);
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onFocus);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onFocus);
-    };
-  }, [setData]);
-
-  // REMOVIDO: const applyGamification = ... (agora via hook)
 
   const trackPomodoroComplete = useCallback(() => {
     const hour = new Date().getHours();

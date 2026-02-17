@@ -8,6 +8,5 @@
 export * from './stats.js';
 export * from './projection.js';
 export * from './variance.js';
-export * from './monteCarlo.js';
 export * from './random.js';
 export * from './bayesianEngine.js';

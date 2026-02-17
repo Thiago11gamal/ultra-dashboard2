@@ -2,12 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import {
     computeCategoryStats,
-    calculateCurrentWeightedMean,
-    calculateWeightedProjectedMean,
-    computePooledSD,
-    runMonteCarloAnalysis,
-    // runSimulation and calculateResultMetrics are now internal to the engine
-    // runSimulation and calculateResultMetrics are now internal to the engine
+    monteCarloSimulation
 } from '../engine';
 
 // Internal Component for the Gaussian Chart with Tooltip State
@@ -455,29 +450,58 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
     // 3. Run Monte Carlo using Engine Module (Adaptive simulations + Explicit seed)
     const simulationData = useMemo(() => {
-        if (!statsData) return null;
-        const { weightedMean, currentWeightedMean, pooledSD } = statsData;
+        // Collect all history points
+        let allHistoryPoints = [];
 
-        // Use deterministic seed for reproducibility (based on projectDays)
-        const seed = 123456 + projectDays;
-
-        // Run simulation with NEW engine module
-        // FIX Bug 2: Pass currentWeightedMean so the result includes it for the GaussianChart
-        const result = runMonteCarloAnalysis(weightedMean, pooledSD, debouncedTarget, {
-            seed: seed,
-            days: projectDays,
-            currentMean: currentWeightedMean
+        categories.forEach(cat => {
+            if (cat.simuladoStats?.history?.length > 0) {
+                const weight = debouncedWeights[cat.name] ?? 0;
+                if (weight > 0) {
+                    cat.simuladoStats.history.forEach(h => {
+                        if (h.score && h.date) {
+                            allHistoryPoints.push({
+                                date: new Date(h.date).toISOString().split('T')[0], // Normalize date
+                                score: Number(h.score),
+                                weight: weight
+                            });
+                        }
+                    });
+                }
+            }
         });
 
+        if (allHistoryPoints.length < 5) return null;
 
-        // Ensure result has all necessary fields expected by UI
+        // Group by Date and Calculate Weighted Average
+        const pointsByDate = {};
+        allHistoryPoints.forEach(p => {
+            if (!pointsByDate[p.date]) pointsByDate[p.date] = { sumScore: 0, sumWeight: 0 };
+            pointsByDate[p.date].sumScore += p.score * p.weight;
+            pointsByDate[p.date].sumWeight += p.weight;
+        });
+
+        const globalHistory = Object.keys(pointsByDate).map(date => ({
+            date: date,
+            score: pointsByDate[date].sumScore / pointsByDate[date].sumWeight
+        })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        if (globalHistory.length < 2) return null;
+
+        // Use deterministic seed for reproducibility (based on projectDays)
+        // const seed = 123456 + projectDays; // Engine handles seed internally based on history
+
+        // Run simulation with NEW engine module directly
+        const result = monteCarloSimulation(
+            globalHistory,
+            debouncedTarget,
+            projectDays,
+            2000 // simulations
+        );
+
         return result;
-    }, [statsData, projectDays, debouncedTarget]);
+    }, [categories, debouncedWeights, projectDays, debouncedTarget]);
 
     const simulationResult = simulationData;
-
-    // Effect to update local state logic is removed as we use derived state directly
-    // setSimulationResult is no longer needed as simulationResult is a derived constant
 
 
     // Show placeholder if not enough data
