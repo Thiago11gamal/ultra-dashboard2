@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Check, Plus, ChevronUp, ChevronDown } from 'lucide-react';
-import {
-    computeCategoryStats,
-    monteCarloSimulation
+computeCategoryStats,
+    monteCarloSimulation,
+    calculateCurrentWeightedMean,
+    calculateWeightedProjectedMean,
+    computePooledSD
 } from '../engine';
 
 // Internal Component for the Gaussian Chart with Tooltip State
