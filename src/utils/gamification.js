@@ -1,70 +1,79 @@
-
-// Constants
-export const LEVEL_MAX = 10; // Start level
-export const LEVEL_MIN = 1;  // Goal level
-
-// XP Required PER LEVEL (non-linear, exponential difficulty)
-// Total: 25,750 XP to reach Level 1
-const XP_THRESHOLDS = {
-    10: 0,      // Start here
-    9: 800,     // +800 (Slightly harder start)
-    8: 2000,    // +1200
-    7: 3500,    // +1500
-    6: 5500,    // +2000
-    5: 8000,    // +2500
-    4: 11000,   // +3000
-    3: 14500,   // +3500
-    2: 18500,   // +4000
-    1: 23000,   // +4500 - Smoother finish (was +6250)
+// XP Configuration (Fair System)
+export const XP_CONFIG = {
+    task: {
+        high: 200,      // Tarefas prioritárias valem mais
+        medium: 150,    // Padrão
+        low: 100        // Incentiva fazer as difíceis primeiro
+    },
+    pomodoro: {
+        base: 100,              // XP por pomodoro completo
+        bonusWithTask: 100      // Bônus se estava focado em uma tarefa
+    },
+    penalty: 50,      // Penalidade menor ao desmarcar (era -150)
+    streak: {
+        daily: 25,      // XP por dia de estudo consecutivo
+        weekly: 200     // Bônus ao completar 7 dias seguidos
+    }
 };
 
-// Calculate Level based on Total XP
+/**
+ * Sistema de nivelamento PROGRESSIVO (não linear)
+ * Nível 1: 0 XP
+ * Nível 2: 100 XP (+100)
+ * Nível 3: 400 XP (+300)
+ * Nível 4: 900 XP (+500)
+ * Nível 5: 1,600 XP (+700)
+ */
 export const calculateLevel = (xpInput) => {
-    const xp = Number(xpInput) || 0;
-    // Start from the goal (level 1) and work backwards to find current level
-    // Lower level = better (level 1 is the goal, level 10 is starting point)
-    for (let level = LEVEL_MIN; level <= LEVEL_MAX; level++) {
-        if (xp >= XP_THRESHOLDS[level]) {
-            return level; // Found the level where XP meets the threshold
-        }
-    }
-    return LEVEL_MAX; // Default to starting level (10) if XP is 0 or very low
+    const xp = Math.max(0, Number(xpInput) || 0);
+    // Formula: Level = floor(sqrt(XP / 100)) + 1
+    return Math.floor(Math.sqrt(xp / 100)) + 1;
+};
+
+// Alias for compatibility
+export const getLevelFromXP = calculateLevel;
+
+export const getXpToNextLevel = (currentXP) => {
+    const level = calculateLevel(currentXP);
+    return Math.pow(level, 2) * 100;
+};
+
+// Alias for compatibility if needed, or keep distinct
+export const getXPForNextLevel = (level) => {
+    return Math.pow(level, 2) * 100;
+};
+
+export const getXPProgress = (xpInput) => {
+    const xp = Math.max(0, Number(xpInput) || 0);
+    const level = calculateLevel(xp);
+    const currentLevelXP = Math.pow(level - 1, 2) * 100;
+    const nextLevelXP = Math.pow(level, 2) * 100;
+
+    return {
+        level,
+        current: xp - currentLevelXP,
+        needed: nextLevelXP - currentLevelXP,
+        percentage: Math.min(100, Math.max(0, Math.round(((xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100))),
+        // Backwards compatibility if needed by StatsCards
+        total: xp,
+    };
+};
+
+export const calculateProgress = (xp) => {
+    return getXPProgress(xp).percentage;
+};
+
+export const getTaskXP = (task, completed) => {
+    const baseXP = XP_CONFIG.task[task.priority] || XP_CONFIG.task.medium;
+    return completed ? baseXP : -XP_CONFIG.penalty;
 };
 
 // Calculate Title based on Level
 export const getLevelTitle = (level) => {
-    if (level >= 9) return { title: 'Aspirante', icon: '🌱', color: 'text-slate-400', barColor: 'from-slate-400' };
-    if (level >= 7) return { title: 'Estudante', icon: '📚', color: 'text-yellow-400', barColor: 'from-yellow-400' };
-    if (level >= 5) return { title: 'Concorrente', icon: '⚔️', color: 'text-orange-400', barColor: 'from-orange-400' };
-    if (level >= 3) return { title: 'Competidor', icon: '🔥', color: 'text-red-500', barColor: 'from-red-500' };
-    if (level === 2) return { title: 'Elite', icon: '💎', color: 'text-purple-400', barColor: 'from-purple-400' };
-    return { title: 'Aprovado', icon: '👑', color: 'text-yellow-400', barColor: 'from-yellow-400' };
-};
-
-// Calculate Progress to NEXT Level (percentage)
-export const calculateProgress = (xp) => {
-    const level = calculateLevel(xp);
-    if (level === LEVEL_MIN) return 100; // Max level reached
-
-    const currentThreshold = XP_THRESHOLDS[level];
-    const nextThreshold = XP_THRESHOLDS[level - 1];
-    const xpInLevel = xp - currentThreshold;
-    const xpNeededForLevel = nextThreshold - currentThreshold;
-
-    const progress = Math.round((xpInLevel / xpNeededForLevel) * 100);
-    return Math.min(100, Math.max(0, progress));
-};
-
-// Get XP needed for next level
-export const getXpToNextLevel = (xp) => {
-    const level = calculateLevel(xp);
-    if (level === LEVEL_MIN) return 0; // Already max
-
-    const nextThreshold = XP_THRESHOLDS[level - 1];
-    return nextThreshold - xp;
-};
-
-// Get total XP needed for a specific level
-export const getXpForLevel = (level) => {
-    return XP_THRESHOLDS[level] || 0;
+    if (level >= 50) return { title: 'Lenda', icon: '👑', color: 'text-amber-500', barColor: 'from-amber-500' };
+    if (level >= 30) return { title: 'Mestre', icon: '🔮', color: 'text-purple-400', barColor: 'from-purple-400' };
+    if (level >= 20) return { title: 'Elite', icon: '💎', color: 'text-blue-400', barColor: 'from-blue-400' };
+    if (level >= 10) return { title: 'Veterano', icon: '⚔️', color: 'text-red-500', barColor: 'from-red-500' };
+    if (level >= 5) return { title: 'Competidor', icon: '🔥', color: 'text-orange-400', barColor: 'from-orange-400' };
+    return { title: 'Estudante', icon: '🌱', color: 'text-green-400', barColor: 'from-green-400' };
 };

@@ -1,42 +1,34 @@
 import { useState, useCallback } from 'react';
-import { calculateLevel, getLevelTitle } from '../utils/gamification';
-import { checkRandomBonus } from '../utils/gamificationLogic';
+import { getLevelFromXP } from '../utils/gamification';
 
 export const useGamification = (showToast) => {
     const [levelUpData, setLevelUpData] = useState(null);
 
-    const applyGamification = useCallback((state, amount, skipBonus = false) => {
-        let finalAmount = amount;
-        let bonusTriggered = false;
+    const applyGamification = useCallback((currentData, xpAmount) => {
+        const oldXp = currentData.user.xp || 0;
+        const newXp = Math.max(0, oldXp + xpAmount);
 
-        // Check for random bonus (double XP)
-        if (!skipBonus && amount > 0 && checkRandomBonus()) {
-            finalAmount = amount * 2;
-            bonusTriggered = true;
-        }
+        // ✅ NIVELAMENTO PROGRESSIVO
+        const newLevel = getLevelFromXP(newXp);
+        const oldLevel = getLevelFromXP(oldXp);
 
-        const currentXP = state.user.xp || 0;
-        const newXP = Math.max(0, currentXP + finalAmount);
-        const oldLevel = calculateLevel(currentXP);
-        const newLevel = calculateLevel(newXP);
-
-        // Check for Level Up (Lower level number is better, e.g. 10 -> 1)
-        if (newLevel < oldLevel) {
-            const { title } = getLevelTitle(newLevel);
-            setLevelUpData({ level: newLevel, title });
-        } else if (newLevel > oldLevel) {
-            showToast(`⚠️ Nível Reduzido`, 'info');
-        }
-
-        if (bonusTriggered) {
-            setTimeout(() => showToast(`🎲 SORTE! XP Dobrado: +${finalAmount}!`, 'success'), 500);
+        if (newLevel > oldLevel) {
+            setLevelUpData({
+                level: newLevel,
+                title: `Nível ${newLevel} Desbloqueado!`,
+                xpGained: newXp - oldXp
+            });
         }
 
         return {
-            ...state,
-            user: { ...state.user, xp: newXP, level: newLevel }
+            ...currentData,
+            user: {
+                ...currentData.user,
+                xp: newXp,
+                level: newLevel
+            }
         };
-    }, [showToast]);
+    }, []);
 
     const closeLevelUpToast = useCallback(() => {
         setLevelUpData(null);

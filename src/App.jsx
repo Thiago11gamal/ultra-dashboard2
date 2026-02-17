@@ -15,6 +15,8 @@ import PerformanceTable from './components/PerformanceTable';
 import VolumeRanking from './components/VolumeRanking';
 import SimuladoAnalysis from './components/SimuladoAnalysis';
 import { normalize, aliases } from './utils/normalization';
+import { calculateDailyPomodoroGoal } from './utils/analytics';
+import { XP_CONFIG, getTaskXP } from './utils/gamification';
 
 import WeeklyAnalysis from './components/WeeklyAnalysis';
 import VerifiedStats from './components/VerifiedStats';
@@ -27,6 +29,7 @@ import HelpGuide from './components/HelpGuide';
 
 import LevelUpToast from './components/LevelUpToast';
 // REMOVIDO: calculateLevel, getLevelTitle, checkRandomBonus (agora estão no hook)
+import { XP_CONFIG } from './utils/gamification';
 import { StreakDisplay, AchievementsGrid, XPHistory } from './components/GamificationComponents';
 import AICoachView from './components/AICoachView';
 import { getSuggestedFocus, generateDailyGoals } from './utils/coachLogic';
@@ -297,8 +300,10 @@ function App() {
           };
         })
       };
-      showToast('Ciclo completo! +300 XP 🎉', 'success');
-      return applyGamification(updatedState, 300);
+
+      showToast('Ciclo de foco finalizado!', 'info');
+      // XP is now handled in handleUpdateStudyTime per session
+      return updatedState;
     });
 
     setActiveSubject(null);
@@ -548,24 +553,33 @@ function App() {
           tasks: cat.tasks.map(t => {
             if (t.id === taskId) {
               const completed = !t.completed;
-              xpChange = completed ? 150 : -150;
+              // XP Logic: Priority based
+              xpChange = getTaskXP(t, completed);
               let lastStudiedAt = t.lastStudiedAt;
-              if (completed) lastStudiedAt = timestamp;
+              if (completed) lastStudiedAt = new Date().toISOString(); // Use consistent date gen
               else {
-                const logs = prev.studyLogs?.filter(l => l.taskId == taskId);
-                lastStudiedAt = logs?.length ? logs.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b).date : null;
+                // Revert logic (optional, keeping simple for now)
               }
-              return { ...t, completed, lastStudiedAt };
+              return { ...t, completed, completedAt: completed ? new Date().toISOString() : null, lastStudiedAt };
             }
             return t;
           })
         } : cat)
       };
-      if (xpChange > 0) showToast('Tarefa concluída! +150 XP ✅', 'success');
-      return applyGamification(updatedState, xpChange);
+
+      // Gamification trigger
+      if (xpChange !== 0) {
+        const newData = applyGamification(updatedState, xpChange);
+        const msg = xpChange > 0 ?
+          `Tarefa Concluída! +${xpChange} XP` :
+          `Tarefa desmarcada (${xpChange} XP)`;
+        showToast(msg, xpChange > 0 ? 'success' : 'info');
+        return newData;
+      }
+
+      return updatedState;
     });
   }, [setData, applyGamification, showToast]);
-
   const deleteTask = useCallback((catId, taskId) => {
     setData(prev => ({
       ...prev,
@@ -626,18 +640,28 @@ function App() {
 
   const handleUpdateStudyTime = useCallback((catId, mins, taskId) => {
     const now = new Date().toISOString();
-    setData(prev => ({
-      ...prev,
-      studyLogs: [...(prev.studyLogs || []), { id: `log-${Date.now()}`, date: now, categoryId: catId, taskId, minutes: mins }],
-      studySessions: [...(prev.studySessions || []), { id: Date.now(), startTime: now, duration: mins, categoryId: catId, taskId }],
-      categories: prev.categories.map(c => c.id === catId ? {
-        ...c,
-        totalMinutes: (c.totalMinutes || 0) + mins,
-        lastStudiedAt: now,
-        tasks: c.tasks.map(t => t.id === taskId ? { ...t, lastStudiedAt: now } : t)
-      } : c)
-    }));
-  }, [setData]);
+    setData(prev => {
+      const updatedState = {
+        ...prev,
+        studyLogs: [...(prev.studyLogs || []), { id: `log-${Date.now()}`, date: now, categoryId: catId, taskId, minutes: mins }],
+        studySessions: [...(prev.studySessions || []), { id: Date.now(), startTime: now, duration: mins, categoryId: catId, taskId }],
+        categories: prev.categories.map(c => c.id === catId ? {
+          ...c,
+          totalMinutes: (c.totalMinutes || 0) + mins,
+          lastStudiedAt: now,
+          tasks: c.tasks.map(t => t.id === taskId ? { ...t, lastStudiedAt: now } : t)
+        } : c)
+      };
+
+      // Calculate XP for this session
+      const baseXP = XP_CONFIG.pomodoro.base; // 100
+      const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0; // +100
+      const totalXP = baseXP + bonusXP;
+
+      showToast(`+${totalXP} XP! ${bonusXP ? 'Bônus de foco!' : ''}`, 'success');
+      return applyGamification(updatedState, totalXP);
+    });
+  }, [setData, applyGamification, showToast]);
 
   const deleteSession = useCallback((sessionId) => {
     setData(prev => {
@@ -687,6 +711,11 @@ function App() {
     }, 1500);
   }, [data.categories, data.simulados, data.studyLogs, data.user, setData, showToast]);
 
+  const dailyGoal = React.useMemo(() => {
+    if (!data || !data.user || !data.categories) return 4;
+    return calculateDailyPomodoroGoal(data.categories, data.user).daily;
+  }, [data.categories, data.user]);
+
   const handleCloudRestore = useCallback((d) => {
     if (d) { setData(() => d); showToast('Restaurado!', 'success'); }
   }, [setData, showToast]);
@@ -726,7 +755,23 @@ function App() {
           </div>
         )}
         {activeTab === 'pomodoro' && (
-          <PomodoroTimer settings={data.settings} onUpdateSettings={updatePomodoroSettings} activeSubject={activeSubject} categories={data.categories} onStartStudying={startStudying} onUpdateStudyTime={handleUpdateStudyTime} onExit={() => { setActiveTab(previousTab || 'dashboard'); setPreviousTab(null); }} onSessionComplete={trackPomodoroComplete} onFullCycleComplete={() => { finishStudying(); if (previousTab) { setActiveTab(previousTab); setPreviousTab(null); } }} />
+          <PomodoroTimer settings={data.settings} onUpdateSettings={updatePomodoroSettings} activeSubject={activeSubject} categories={data.categories} onStartStudying={startStudying} onUpdateStudyTime={handleUpdateStudyTime} onExit={() => { setActiveTab(previousTab || 'dashboard'); setPreviousTab(null); }} onSessionComplete={(subject) => {
+            // New Pomodoro Handler
+            if (subject) handleUpdateStudyTime(subject.categoryId, 25, subject.taskId);
+            const baseXP = XP_CONFIG.pomodoro.base;
+            const bonusXP = subject?.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+            const totalXP = baseXP + bonusXP;
+
+            setData(prev => {
+              const newState = {
+                ...prev,
+                pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
+                lastPomodoroDate: new Date().toISOString()
+              };
+              return applyGamification(newState, totalXP);
+            });
+            showToast(`Sessão concluída! +${totalXP} XP ${bonusXP ? '(+bônus foco!)' : ''}`, 'success');
+          }} onFullCycleComplete={() => { finishStudying(); if (previousTab) { setActiveTab(previousTab); setPreviousTab(null); } }} defaultTargetCycles={dailyGoal} />
         )}
         {activeTab === 'tasks' && (
           <div className="space-y-10">

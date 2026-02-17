@@ -3,8 +3,8 @@ import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircl
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
-// Update component signature to accept onExit
-export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit }) {
+// Update component signature to accept onExit and defaultTargetCycles
+export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 4 }) {
 
     // --- STATE PERSISTENCE INITIALIZATION ---
 
@@ -49,7 +49,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [sessions, setSessions] = useState(() => getSavedState('sessions', 0));
     const [completedCycles, setCompletedCycles] = useState(() => getSavedState('completedCycles', 0));
-    const [targetCycles, setTargetCycles] = useState(() => getSavedState('targetCycles', 1));
+    const [targetCycles, setTargetCycles] = useState(() => getSavedState('targetCycles', defaultTargetCycles));
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
     // --- RESUME LOGIC (Back from Background/Refresh) ---

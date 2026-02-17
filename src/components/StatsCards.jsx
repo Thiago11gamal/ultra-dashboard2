@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { differenceInDays, subDays, format } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Pencil, AlertCircle } from 'lucide-react';
-import { calculateLevel, getLevelTitle, calculateProgress, getXpToNextLevel } from '../utils/gamification';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { Pencil, AlertCircle, TrendingUp, Brain, Scale, Target } from 'lucide-react';
+import { getLevelTitle, getXPProgress } from '../utils/gamification';
+import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 
 // Circular Progress Ring Component with Neon Glow
 const ProgressRing = ({ progress, size = 120, strokeWidth = 10 }) => {
@@ -90,37 +92,35 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
 
     // Gamification Stats
     const currentXP = user?.xp || 0;
-    const level = calculateLevel(currentXP);
-    const { title: rankTitle, color: rankColor, barColor } = getLevelTitle(level);
-    const xpProgress = calculateProgress(currentXP);
-    const xpNeeded = getXpToNextLevel(currentXP);
+    const xpInfo = getXPProgress(currentXP);
+    const { title: rankTitle, color: rankColor, barColor } = getLevelTitle(xpInfo.level);
+
+    // Advanced Analytics
+    const streakInfo = calculateStudyStreak(studyLogs);
+    const balance = analyzeSubjectBalance(categories);
+    const efficiency = analyzeEfficiency(categories, studyLogs);
 
     // Generate 7-day trend data (Memoized)
     const trendData = React.useMemo(() => {
         const today = new Date();
         const trend = [];
-
         for (let i = 6; i >= 0; i--) {
             const targetDate = subDays(today, i);
             const dateStr = format(targetDate, 'yyyy-MM-dd');
-
             // Count minutes studied on this day
             const dayLogs = studyLogs.filter(log => {
                 const logDate = format(new Date(log.date), 'yyyy-MM-dd');
                 return logDate === dateStr;
             });
-
             const totalMinutes = dayLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
-
             trend.push({
                 day: format(targetDate, 'EEE'),
                 value: totalMinutes,
                 studied: dayLogs.length > 0
             });
         }
-
         return trend;
-    }, [studyLogs]); // Only recalculate if studyLogs changes
+    }, [studyLogs]);
 
     // Calculate overall progress (Memoized)
     const { progress, completedTasks, totalTasks } = React.useMemo(() => {
@@ -152,121 +152,58 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
     } else {
         goalNormalizedFinal = new Date(user.goalDate);
     }
-
     goalNormalizedFinal.setHours(0, 0, 0, 0);
     const daysUntilGoal = differenceInDays(goalNormalizedFinal, todayNormalized);
 
-    // Calculate Unique Days Studied (Memoized)
-    const daysStudying = React.useMemo(() => {
-        const uniqueDays = new Set(studyLogs.map(log => new Date(log.date).toLocaleDateString()));
-        return uniqueDays.size;
-    }, [studyLogs]);
-
-    // Calculate Streak (Memoized) - With Freeze Logic ❄️
-    const streak = React.useMemo(() => {
-        if (!studyLogs.length) return 0;
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-
-        const dates = [...new Set(
-            studyLogs
-                .filter(l => new Date(l.date) <= today)
-                .map(l => new Date(l.date).setHours(0, 0, 0, 0))
-                .sort((a, b) => b - a)
-        )];
-
-        if (dates.length === 0) return 0;
-
-        const todayStart = new Date().setHours(0, 0, 0, 0);
-
-        // Gap check: If last study was before yesterday, streak might be broken
-        const msPerDay = 1000 * 60 * 60 * 24;
-        const daysSinceLastStudy = Math.round((todayStart - dates[0]) / msPerDay);
-
-        // Allow up to 2 days gap (Study Mon -> Skip Tue -> Study Wed is OK)
-        // If gap is > 2 (Study Mon -> Skip Tue, Wed -> Thu), streak breaks
-        if (daysSinceLastStudy > 2) return 0;
-
-        let streakCount = 1;
-        let currentDate = dates[0];
-        let freezeUsed = false; // Allow 1 freeze per week logic (simplified here to per streak gap)
-
-        for (let i = 1; i < dates.length; i++) {
-            const prevDate = dates[i];
-            const diffTime = Math.abs(currentDate - prevDate);
-            const diffDays = Math.round(diffTime / msPerDay);
-
-            if (diffDays === 1) {
-                // Consecutive day
-                streakCount++;
-                currentDate = prevDate;
-            } else if (diffDays === 2) {
-                // 1 Day gap (Freeze used!) ❄️
-                if (!freezeUsed) {
-                    streakCount++; // Count the freeze day as part of streak persistence
-                    freezeUsed = true;
-                    currentDate = prevDate;
-                } else {
-                    break; // Streak broken
-                }
-            } else {
-                break; // Too big gap
-            }
-        }
-        return streakCount;
-    }, [studyLogs]);
-
     const stats = [
         {
-            label: 'Dias Estudados',
-            value: daysStudying,
-            icon: '📅',
+            label: 'Sequência',
+            value: `${streakInfo.current} dias`,
+            subText: `Recorde: ${streakInfo.best}`,
+            icon: <div className="text-2xl">🔥</div>,
+            startColor: 'rgba(236, 72, 153, 0.5)',
+            endColor: 'rgba(168, 85, 247, 0)',
+            textColor: 'text-pink-400',
+            sparklineColor: '#ec4899',
+            sparklineData: trendData.map(d => ({ value: d.value }))
+        },
+        {
+            label: 'Eficiência',
+            value: `${efficiency.completionRate}%`,
+            subText: `~${Math.round(efficiency.averageTimePerTask)}m / tarefa`,
+            icon: <TrendingUp size={24} />,
+            startColor: 'rgba(34, 197, 94, 0.5)',
+            endColor: 'rgba(16, 185, 129, 0)',
+            textColor: 'text-green-400',
+            sparklineColor: '#22c55e',
+            sparklineData: null
+        },
+        {
+            label: 'Equilíbrio',
+            value: balance.idx.toFixed(1),
+            subText: balance.label,
+            icon: <Scale size={24} />,
             startColor: 'rgba(59, 130, 246, 0.5)',
-            endColor: 'rgba(6, 182, 212, 0)',
-            textGradient: 'from-blue-400 to-cyan-400',
+            endColor: 'rgba(99, 102, 241, 0)',
             textColor: 'text-blue-400',
             sparklineColor: '#3b82f6',
-            sparklineData: trendData.map(d => ({ value: d.studied ? 1 : 0 }))
+            sparklineData: null
         },
         {
             label: 'Dias p/ Prova',
             value: daysUntilGoal > 0 ? daysUntilGoal : 0,
-            icon: '🎯',
+            subText: user.goalDate ? format(new Date(user.goalDate), 'dd/MM/yyyy') : 'Definir data',
+            icon: <Target size={24} />,
             startColor: 'rgba(249, 115, 22, 0.5)',
             endColor: 'rgba(239, 68, 68, 0)',
-            textGradient: 'from-orange-400 to-red-400',
             textColor: 'text-orange-400',
             sparklineColor: '#f97316',
             sparklineData: null,
             editable: true,
-
-
             goalDate: user.goalDate,
-            hasStartAlert: daysUntilGoal <= 0, // Only alert if "0 days" (default/expired)
+            hasStartAlert: daysUntilGoal <= 0,
             alertText: daysUntilGoal <= 0 ? "Defina o dia da sua prova" : null
-        },
-        {
-            label: 'Tarefas Feitas',
-            value: `${completedTasks}/${totalTasks}`,
-            icon: '✅',
-            startColor: 'rgba(34, 197, 94, 0.5)',
-            endColor: 'rgba(16, 185, 129, 0)',
-            textGradient: 'from-green-400 to-emerald-400',
-            textColor: 'text-green-400',
-            sparklineColor: '#22c55e',
-            sparklineData: null // Could add task completion trend later
-        },
-        {
-            label: 'Streak Atual',
-            value: `${streak} dias`,
-            icon: '🔥',
-            startColor: 'rgba(168, 85, 247, 0.5)',
-            endColor: 'rgba(236, 72, 153, 0)',
-            textGradient: 'from-purple-400 to-pink-400',
-            textColor: 'text-purple-400',
-            sparklineColor: '#a855f7',
-            sparklineData: trendData.map(d => ({ value: d.value })) // Minutes studied per day
-        },
+        }
     ];
 
     return (
@@ -281,7 +218,7 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                 {/* Left: Level & Rank */}
                 <div className="flex items-center gap-5 z-10 w-full md:w-auto justify-center md:justify-start">
                     <div className={`relative w-20 h-20 shrink-0 rounded-full bg-slate-950 flex items-center justify-center text-3xl border-4 ${rankColor.replace('text-', 'border-')} shadow-[0_0_20px_-5px_currentColor] ${rankColor}`}>
-                        <span className="font-black">#{level}</span>
+                        <span className="font-black">#{xpInfo.level}</span>
                     </div>
                     <div className="text-center md:text-left">
                         <h3 className={`text-2xl font-black ${rankColor} uppercase tracking-wide drop-shadow-md`}>{rankTitle}</h3>
@@ -293,19 +230,19 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                 <div className="flex-1 w-full z-10 flex flex-col justify-center">
                     <div className="flex justify-between items-end mb-2 px-1">
                         <span className="text-white text-sm font-bold">Progresso de XP</span>
-                        <span className={`text-sm font-black ${rankColor}`}>{xpProgress}%</span>
+                        <span className={`text-sm font-black ${rankColor}`}>{xpInfo.percentage}%</span>
                     </div>
                     <div className="h-4 bg-slate-950/50 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
                         <div
                             className={`h-full bg-gradient-to-r ${barColor} to-white rounded-full transition-all duration-1000 ease-out relative`}
-                            style={{ width: `${xpProgress}%` }}
+                            style={{ width: `${xpInfo.percentage}%` }}
                         >
                             <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)] w-1/2 h-full skew-x-12 animate-[shimmer_2s_infinite]"></div>
                         </div>
                     </div>
                     <div className="flex justify-between items-center mt-2 px-1">
                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">RANK ATUAL</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Faltam {xpNeeded} XP para o próximo nível</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Faltam {xpInfo.needed} XP para o próximo nível</span>
                     </div>
                 </div>
             </div>
@@ -341,9 +278,10 @@ export default function StatsCards({ data, onUpdateGoalDate }) {
                             <div className="flex items-end justify-between gap-4">
                                 <div className="flex-1 min-w-0 py-2 pl-8 translate-y-2">
                                     <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 pt-2 leading-relaxed">{stat.label}</p>
-                                    <p className={`text-3xl lg:text-4xl font-black ${stat.textColor} drop-shadow-lg leading-normal tracking-tight pb-2`}>
+                                    <p className={`text-3xl lg:text-4xl font-black ${stat.textColor} drop-shadow-lg leading-normal tracking-tight pb-0.5`}>
                                         {stat.value}
                                     </p>
+                                    {stat.subText && <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{stat.subText}</p>}
                                 </div>
                                 <div className="relative">
                                     {/* Icon glow effect */}
