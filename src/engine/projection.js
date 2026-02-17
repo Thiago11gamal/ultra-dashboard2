@@ -176,35 +176,70 @@ function calculateVolatility(history) {
     return Math.sqrt(Math.max(0, mssdVariance));
 }
 
-// 🎲 Monte Carlo com Seed Fixa
+// -----------------------------
+// Helper: Bootstrap Sampler
+// -----------------------------
+function getRandomElement(arr, rng) {
+    // Usa o RNG seedado para consistência
+    const idx = Math.floor(rng() * arr.length); // rng() retorna 0..1 (exclusive 1 na maioria, mas ajustamos no createSeededRandom)
+    // O createSeededRandom retorna (value - 1) / 2147483646, range quase [0, 1]
+    // Vamos garantir limites seguros
+    const safeIdx = Math.max(0, Math.min(arr.length - 1, idx));
+    return arr[safeIdx];
+}
+
+// 🎲 Monte Carlo Híbrido (Bootstrap + Tendência)
 export function monteCarloSimulation(
     history,
     targetScore = 85,
     days = 90,
     simulations = 2000
 ) {
-    // Ensure sorted history
     const sortedHistory = getSortedHistory(history);
+
+    // Safety check
     if (!sortedHistory || sortedHistory.length < 2) return {
         probability: 0,
         mean: "0.0",
         sd: "0.0",
         ci95Low: "0.0",
         ci95High: "0.0",
-        currentMean: "0.0"
+        currentMean: "0.0",
+        drift: 0,
+        volatility: 0
     };
 
+    const currentScore = sortedHistory[sortedHistory.length - 1].score;
+
+    // 1. Calcular Tendência (Drift)
+    // Usamos a função robusta existente
     const drift = calculateSlope(sortedHistory);
-    const volatility = calculateVolatility(sortedHistory);
 
-    const currentScore =
-        sortedHistory[sortedHistory.length - 1].score;
+    // 2. Extrair Resíduos (Bootstrap Source)
+    // A diferença entre a realidade e o modelo linear
+    // Isso captura a "forma" da volatilidade do aluno (assimetria, cauda longa, etc)
+    const n = sortedHistory.length;
+    const residuals = sortedHistory.map((h, i) => {
+        // Recria a linha de tendência histórica para extrair o ruído
+        // Assumindo regressão linear simples para extração de resíduos
+        // Nota: O drift calculado é ponderado, mas para resíduos simples usamos o slope local
+        // para não distorcer o bootstrap. Simplificação robusta:
+        // Resíduo = Diferença do score anterior (Variação diária - Drift médio)
+        if (i === 0) return 0;
+        const prev = sortedHistory[i - 1].score;
+        const actualChange = h.score - prev;
+        return actualChange - drift;
+    }).slice(1); // Remove o primeiro (0)
 
-    // Seed fixa baseada no histórico
-    const seed =
-        history.length * 1000 +
-        Math.floor(currentScore * 10);
+    // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
+    // Voltamos para Normal Distribution (Legacy Mode)
+    const useBootstrap = residuals.length >= 5;
 
+    // Calcula volatilidade clássica apenas para fallback ou info
+    const volatility = calculateVolatility(sortedHistory); // Função existente no seu arquivo
+
+    // Seed fixa baseada no histórico (determinismo visual)
+    const seed = history.length * 1000 + Math.floor(currentScore * 10);
     const rng = createSeededRandom(seed);
 
     let success = 0;
@@ -217,29 +252,41 @@ export function monteCarloSimulation(
         let score = currentScore;
 
         for (let d = 0; d < days; d++) {
-            const shock =
-                randomNormal(rng) * volatility;
+            let shock;
 
+            if (useBootstrap) {
+                // BOOTSTRAP: Sorteia um erro do passado do aluno
+                // Isso implicitamente carrega a curtose e assimetria reais
+                const randomResidual = getRandomElement(residuals, rng);
+
+                // Adiciona um pouco de "jitter" (ruído branco minúsculo) 
+                // para evitar valores discretos repetidos se o histórico for pequeno
+                const jitter = (rng() - 0.5) * 0.1;
+
+                shock = randomResidual + jitter;
+            } else {
+                // LEGACY (Fallback): Distribuição Normal
+                shock = randomNormal(rng) * volatility;
+            }
+
+            // Modelo: Próximo = Anterior + Tendência + Choque
             score += drift + shock;
 
+            // Clamp físico (notas não podem ser < 0 ou > 100)
             score = Math.max(0, Math.min(100, score));
         }
 
-        if (score >= targetScore)
-            success++;
+        if (score >= targetScore) success++;
 
-        // Stats tracking (Added for UI Compatibility)
         sumResults += score;
         sumSqResults += score * score;
     }
 
-    // Stats Calculations (Added for UI Compatibility)
     const projectedMean = sumResults / safeSimulations;
     const projectedVariance = (sumSqResults / safeSimulations) - (projectedMean * projectedMean);
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     return {
-        // Return Probability as Percentage (0-100) consistent with UI components
         probability: (success / safeSimulations) * 100,
         mean: projectedMean.toFixed(1),
         sd: projectedSD.toFixed(1),
@@ -247,7 +294,8 @@ export function monteCarloSimulation(
         ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
         currentMean: currentScore.toFixed(1),
         drift,
-        volatility
+        volatility,
+        method: useBootstrap ? "bootstrap" : "normal" // Útil para debug
     };
 }
 
