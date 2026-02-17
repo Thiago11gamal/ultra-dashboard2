@@ -374,15 +374,66 @@ function App() {
   const handleImport = useCallback((event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    // Reset file input so user can retry same file if needed
+    event.target.value = '';
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const imported = JSON.parse(e.target.result);
-        if (imported.contests || imported.user) {
-          setAppState(imported.contests ? imported : { contests: { 'default': imported }, activeId: 'default' });
-          showToast('Dados importados!', 'success');
+        const content = e.target.result;
+        if (!content) throw new Error("Arquivo vazio");
+
+        const imported = JSON.parse(content);
+
+        // Strategy 1: Valid Full Backup (New Format)
+        if (imported.contests && imported.activeId) {
+          setAppState(imported);
+          showToast('Backup restaurado com sucesso!', 'success');
+          return;
         }
-      } catch (err) { showToast('Erro ao importar', 'error'); }
+
+        // Strategy 2: Single Contest Data (Old Format or Partial Export)
+        // If it has 'user' or 'categories', treat as a single contest backup
+        if (imported.user || imported.categories) {
+          // Check if it's wrapped in a 'default' key or direct
+          const contestData = imported;
+
+          // Validate essential fields to ensure it's a valid backup
+          if (!contestData.user && !contestData.categories) {
+            throw new Error("Formato inválido: Faltam dados de usuário ou categorias.");
+          }
+
+          setAppState(prev => ({
+            ...prev,
+            activeId: 'default',
+            contests: {
+              ...prev.contests,
+              'default': contestData
+            }
+          }));
+          showToast('Dados do concurso restaurados!', 'success');
+          return;
+        }
+
+        // Strategy 3: Legacy "Ultra Dashboard" Wrapper
+        if (imported.contests) {
+          // Case where it has contests but missing activeId (rare, but possible)
+          setAppState(prev => ({
+            ...prev,
+            activeId: Object.keys(imported.contests)[0] || 'default',
+            contests: imported.contests
+          }));
+          showToast('Backup legado restaurado!', 'success');
+          return;
+        }
+
+        throw new Error("Formato de arquivo não reconhecido.");
+
+      } catch (err) {
+        console.error("Import Error:", err);
+        showToast(`Erro ao importar: ${err.message}`, 'error');
+      }
     };
     reader.readAsText(file);
   }, [showToast]);
