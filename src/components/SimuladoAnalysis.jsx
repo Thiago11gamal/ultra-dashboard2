@@ -19,18 +19,39 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [error, setError] = useState(null);
 
     const updateRow = (index, field, value) => {
-        // ... (existing logic, mostly same, just ensuring ID preservation)
+        // 1. Sanitização: Apenas números para campos numéricos
+        let finalValue = value;
+
+        if (field === 'correct' || field === 'total') {
+            // Remove tudo que não for dígito
+            const val = parseInt(String(value).replace(/\D/g, '')) || 0;
+
+            if (field === 'correct') {
+                const currentTotal = parseInt(rows[index].total) || 0;
+                // Enforce: Correct cannot exceed Total (unless Total is 0 during typing, but result is clamped)
+                if (currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
+                else finalValue = val;
+            } else if (field === 'total') {
+                const currentCorrect = parseInt(rows[index].correct) || 0;
+                // If Total is reduced below Correct, clamp Correct
+                if (val < currentCorrect) {
+                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
+                    setRows(newRows);
+                    return;
+                }
+                finalValue = val;
+            }
+        }
+
         // 3. Atualização Imutável
         const newRows = rows.map((row, i) => {
             if (i === index) {
-                return { ...row, [field]: value }; // Simplified update for brevity in this tool call, but ideally keep logic
+                return { ...row, [field]: finalValue };
             }
             return row;
         });
-        // WAIT, I need to keep the validation logic from the original file. 
-        // I will just change the `addRow` and initial state, and the `map` in the render.
-        // Actually, replacing `updateRow` is too risky with `replace_file_content` if I don't copy the whole function.
-        // I will ONLY change `addRow` and the `map` in render, and the initialization.
+
+        setRows(newRows);
     };
 
     const addRow = () => {
@@ -301,7 +322,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {rows.map((row, index) => (
-                                    <tr key={index} className="group hover:bg-white/5">
+                                    <tr key={row.id || index} className="group hover:bg-white/5">
                                         <td className="p-1"><input type="text" value={row.subject} onChange={(e) => updateRow(index, 'subject', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm" placeholder="Matéria" /></td>
                                         <td className="p-1"><input type="text" value={row.topic} onChange={(e) => updateRow(index, 'topic', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm" placeholder="Assunto" /></td>
                                         <td className="p-1"><input type="number" min="0" value={row.correct} onChange={(e) => updateRow(index, 'correct', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm text-center font-mono text-green-400" /></td>
