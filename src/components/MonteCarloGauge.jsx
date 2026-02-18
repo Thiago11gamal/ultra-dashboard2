@@ -451,6 +451,31 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         return { categoryStats, weightedMean, currentWeightedMean, pooledSD, totalWeight };
     }, [categories, debouncedWeights, projectDays]);
 
+    const [debugMode, setDebugMode] = useState(false);
+    const [debugHistory, setDebugHistory] = useState([]);
+    const [debugScore, setDebugScore] = useState(70);
+    const [debugDayOffset, setDebugDayOffset] = useState(1);
+
+    const handleAddDebugDay = () => {
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + debugDayOffset);
+
+        setDebugHistory(prev => [
+            ...prev,
+            {
+                date: nextDate.toISOString().split('T')[0],
+                score: Number(debugScore),
+                weight: 100 // Assume full weight for test
+            }
+        ]);
+        setDebugDayOffset(prev => prev + 1);
+    };
+
+    const handleResetDebug = () => {
+        setDebugHistory([]);
+        setDebugDayOffset(1);
+    };
+
     // 3. Run Monte Carlo using Engine Module (Adaptive simulations + Explicit seed)
     const simulationData = useMemo(() => {
         // Collect all history points
@@ -472,6 +497,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 }
             }
         });
+
+        // Debug Mode Injection: Merge real history with debug history
+        if (debugHistory.length > 0) {
+            allHistoryPoints = [...allHistoryPoints, ...debugHistory];
+        }
 
         if (allHistoryPoints.length < 5) return null;
 
@@ -651,8 +681,47 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     >
                         <Settings2 size={14} />
                     </button>
+                    {/* Debug Toggle */}
+                    <button
+                        onClick={() => setDebugMode(!debugMode)}
+                        className={`w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center transition-all ${debugMode ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                    >
+                        <span className="text-[10px] font-bold">🛠️</span>
+                    </button>
                 </div>
             </div>
+
+            {/* DEBUG CONSOLE */}
+            {debugMode && (
+                <div className="mb-4 bg-purple-900/30 border border-purple-500/30 rounded-xl p-3 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-purple-300">Modo de Teste (Cheat Mode)</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-purple-400">Dia +{debugDayOffset}</span>
+                            <button onClick={handleResetDebug} className="text-[10px] text-red-400 hover:text-red-300 underline">Resetar</button>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            type="number"
+                            min="0" max="100"
+                            value={debugScore}
+                            onChange={(e) => setDebugScore(Number(e.target.value))}
+                            className="bg-purple-900/50 border border-purple-500/30 rounded-lg px-2 py-1 text-white text-xs w-20 text-center"
+                            placeholder="Nota"
+                        />
+                        <button
+                            onClick={handleAddDebugDay}
+                            className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-1 rounded-lg transition-colors shadow-lg shadow-purple-900/50"
+                        >
+                            Simular Dia Seguinte
+                        </button>
+                    </div>
+                    <p className="text-[9px] text-purple-400/70 italic text-center">
+                        Isso adiciona um ponto simulado no histórico para testar a projeção.
+                    </p>
+                </div>
+            )}
 
 
             {/* ═══════════════ BLOCO 2: RESULTADO PRINCIPAL ═══════════════ */}

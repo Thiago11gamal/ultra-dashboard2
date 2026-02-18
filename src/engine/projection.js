@@ -234,37 +234,6 @@ export function monteCarloSimulation(
     let sumResults = 0;
     let sumSqResults = 0;
 
-    const safeSimulations = Math.max(1, simulations);
-
-    // Special Case: Projection for "Today" (days === 0)
-    // Instead of simulating drift, we calculate the probability of scoring >= target
-    // based on the current score and volatility (representing consistency/uncertainty).
-    if (days === 0) {
-        // Use pooled volatility or a minimum threshold
-        const sigma = Math.max(2.5, volatility);
-        const z = (currentScore - targetScore) / sigma;
-
-        // Standard Normal CDF approximation
-        // P(X >= target) = P(Z >= (target - mean) / sigma) = 1 - CDF((target - mean) / sigma)
-        // Since we want P(Score >= Target), we use the Z-score of (Current - Target).
-        // Actually, let's use the error function (erf) for accuracy.
-        // P(X >= x) = 0.5 * (1 + erf((mean - x) / (sigma * sqrt(2))))
-
-        const prob = 0.5 * (1 + Math.erf((currentScore - targetScore) / (sigma * Math.sqrt(2))));
-
-        return {
-            probability: (prob * 100),
-            mean: currentScore.toFixed(1),
-            sd: sigma.toFixed(1),
-            ci95Low: Math.max(0, currentScore - 1.96 * sigma).toFixed(1),
-            ci95High: Math.min(100, currentScore + 1.96 * sigma).toFixed(1),
-            currentMean: currentScore.toFixed(1),
-            drift: 0,
-            volatility: sigma,
-            method: "static-normal-cdf"
-        };
-    }
-
     for (let s = 0; s < safeSimulations; s++) {
         let score = currentScore;
 
@@ -303,21 +272,6 @@ export function monteCarloSimulation(
         drift,
         volatility,
         method: useBootstrap ? "bootstrap" : "normal"
-    };
-}
-
-// Helper: Error Function approximation (since Math.erf is not standard in all JS envs, but usually is modern)
-// We'll add a polyfill just in case or assume modern env. Vite/Chrome supports it.
-// Actually, let's add a simple implementation to be safe.
-if (!Math.erf) {
-    Math.erf = function (x) {
-        var m = 1.0, s = 1.0, sum = x * 1.0;
-        for (var i = 1; i < 50; i++) {
-            m *= i;
-            s *= -1;
-            sum += (s * Math.pow(x, 2 * i + 1)) / (m * (2 * i + 1));
-        }
-        return (2 / Math.sqrt(Math.PI)) * sum;
     };
 }
 
