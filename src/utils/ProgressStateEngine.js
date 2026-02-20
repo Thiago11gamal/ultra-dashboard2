@@ -5,26 +5,23 @@
  * evolution, regression, and instability.
  */
 
-// Default configuration
 const DEFAULT_CONFIG = {
     window_size: 10,
-    stagnation_threshold: 0.5,  // epsilon
+    stagnation_threshold: 1.0,  // Aumentado levemente para 1.0 (evita micro-ruídos)
     low_level_limit: 60,        // L1
-    high_level_limit: 75        // L2
+    high_level_limit: 75,       // L2
+    mastery_limit: 85,          // L3 (Teto)
+    trend_tolerance: 0.5        // Slope deadzone
 };
 
-/**
- * Analyze progress state from an array of scores
- * @param {number[]} scores - Array of scores ordered by time
- * @param {Object} config - Configuration parameters
- * @returns {Object} Analysis result with state, label, and metrics
- */
 export function analyzeProgressState(scores, config = {}) {
     const {
         window_size,
         stagnation_threshold,
         low_level_limit,
-        high_level_limit
+        high_level_limit,
+        mastery_limit,
+        trend_tolerance
     } = { ...DEFAULT_CONFIG, ...config };
 
     // Safety: Window size must be at least 2 for variance calculation
@@ -81,8 +78,12 @@ export function analyzeProgressState(scores, config = {}) {
     let severity = 'none';
 
     if (stagnated) {
-        // 7.1 Qualified Stagnation
-        if (mean < low_level_limit) {
+        // 7.1 Qualified Stagnation or Mastery
+        if (mean >= mastery_limit) {
+            state = 'mastery';
+            label = 'Domínio (Consistente no Topo)';
+            severity = 'none';
+        } else if (mean < low_level_limit) {
             state = 'stagnation_negative';
             label = 'Estagnação em nível baixo';
             severity = 'high';
@@ -96,18 +97,18 @@ export function analyzeProgressState(scores, config = {}) {
             severity = 'low';
         }
     } else {
-        // 7.2 Dynamic States (Not Stagnated)
-        if (slope > 0) {
+        // 7.2 Dynamic States (Not Stagnated) with Trend Tolerance
+        if (slope > trend_tolerance) {
             state = 'progression';
             label = 'Em evolução';
             severity = 'none';
-        } else if (slope < 0) {
+        } else if (slope < -trend_tolerance) {
             state = 'regression';
             label = 'Em regressão';
             severity = 'high';
         } else {
             state = 'unstable';
-            label = 'Instável';
+            label = 'Instável / Flutuação';
             severity = 'medium';
         }
     }
@@ -124,14 +125,10 @@ export function analyzeProgressState(scores, config = {}) {
     };
 }
 
-/**
- * Get UI hints for a given state
- * @param {string} state - The state from analyzeProgressState
- * @returns {Object} UI hints with color and icon
- */
 export function getUIHints(state) {
     const hints = {
         insufficient_data: { color: 'slate', icon: 'minus' },
+        mastery: { color: 'violet', icon: 'award' },
         stagnation_negative: { color: 'red', icon: 'alert-triangle' },
         stagnation_neutral: { color: 'yellow', icon: 'pause-circle' },
         stagnation_positive: { color: 'green', icon: 'shield-check' },
