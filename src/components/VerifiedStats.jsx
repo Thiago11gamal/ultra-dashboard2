@@ -245,6 +245,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
 
         // State to UI mapping
         const stateMap = {
+            mastery: { status: 'DOMÍNIO', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
             stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
             stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-yellow-400', bgBorder: 'border-yellow-500/30', icon: <AlertCircle size={20} /> },
             stagnation_positive: { status: 'EXCELENTE', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
