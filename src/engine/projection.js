@@ -28,7 +28,8 @@ function createSeededRandom(seed = 123456) {
 // Random normal com seed
 // -----------------------------
 function randomNormal(rng) {
-    const u = rng();
+    let u = rng();
+    while (u <= 0) u = rng(); // Proteção contra Math.log(0) -> -Infinity
     const v = rng();
     return Math.sqrt(-2.0 * Math.log(u)) *
         Math.cos(2.0 * Math.PI * v);
@@ -78,8 +79,12 @@ function weightedRegression(history, lambda = 0.02) {
         p.w * Math.pow(p.y - (slope * p.x + intercept), 2)
     );
 
+    const variance =
+        residuals.reduce((a, r) => a + r, 0) /
+        Math.max(1, data.length - 2);
+
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
-    // Sxx_centered = \sum w_i (x_i - \bar{x})^2 = Sxx - Sx^2 / Sw
+    // Sxx_centered = \\sum w_i (x_i - \\bar{x})^2 = Sxx - Sx^2 / Sw
     const Sxx_centered = Sxx - (Sx * Sx) / Sw;
 
     const slopeStdError = Sxx_centered > 0 ? Math.sqrt(variance / Sxx_centered) : 0;
