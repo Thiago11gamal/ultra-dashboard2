@@ -192,13 +192,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const crunchMultiplier = getCrunchMultiplier(daysToExam);
         const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier;
 
-        // C. Instability (ADJUSTED BY TREND AND MASTERY)
+        // C. Instability (ADJUSTED BY TREND)
         let instabilityComponent = Math.min(cfg.INSTABILITY_MAX, standardDeviation * (cfg.INSTABILITY_MAX / 15));
-
-        // NOVO: Fairness para alunos iniciantes / notas muito baixas
-        if (averageScore < 50) {
-            instabilityComponent *= 0.5; // Reduz a urgência por instabilidade se o aluno ainda está formando a base
-        }
 
         if (trend > 0) {
             instabilityComponent *= 0.5; // Improving = less urgent
