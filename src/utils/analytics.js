@@ -12,7 +12,12 @@ export const calculateStudyStreak = (studyLogs) => {
         new Date(b) - new Date(a)
     );
 
-    const today = new Date().toDateString();
+    const todayObj = new Date();
+    const today = todayObj.toDateString();
+    const yesterdayObj = new Date();
+    yesterdayObj.setDate(todayObj.getDate() - 1);
+    const yesterday = yesterdayObj.toDateString();
+
     // LET'S USE A ROBUST LOGIC instead of copying potential bug.
     // 1. Determine start date (Today or Yesterday)
     let streak = 0;
