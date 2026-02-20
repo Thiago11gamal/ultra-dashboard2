@@ -655,7 +655,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     </div>
 
                     {/* Speed Toggle — DEV only */}
-                    {process.env.NODE_ENV === 'development' && (
+                    {import.meta.env.DEV && (
                         <div className="absolute top-24 right-6 flex flex-col gap-2">
                             <button
                                 onClick={() => setSpeed(speed === 10 ? 1 : 10)}

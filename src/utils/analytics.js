@@ -13,57 +13,6 @@ export const calculateStudyStreak = (studyLogs) => {
     );
 
     const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-    for (let i = 0; i < uniqueDays.length; i++) {
-        const expectedDate = new Date(Date.now() - (i * 86400000)).toDateString();
-
-        // Check match with "expected" (today, yesterday, etc)
-        // BUT we need to handle the case where "today" isn't in log but "yesterday" is.
-        // The loop logic below assumes continuous check from Today backwards.
-        // Let's adapt it to be more robust for "Active" check first.
-
-        // Better approach matching user's logic exactly:
-        if (uniqueDays[i] === expectedDate) {
-            currentStreak++;
-        } else if (i === 0 && uniqueDays[0] === yesterday) {
-            // If the first log is yesterday, we count it as 1 and shift expectedDate logic in head?
-            // Actually, user's code:
-            // if (uniqueDays[i] === expectedDate) currentStreak++
-            // else if (i === 0 && uniqueDays[0] === yesterday) continue;
-            // This implies:
-            // loop 0: expected=Today. If unique[0] == Today -> streak=1.
-            // loop 0: expected=Today. If unique[0] == Yesterday -> continue (skip incr, expected becomes Yesterday in next iter? No, expected depends on 'i')
-            // This loop logic in user provided code has a bug: 'expectedDate' depends on 'i'.
-            // If i=0 (Today), and unique[0] is Yesterday. 
-            // i=0 branch 'else if': continue.
-            // i=1 branch: expected=Yesterday. unique[1] is ... BeforeYesterday? 
-            // If unique[0] was Yesterday, then unique[1] is older.
-            // So unique[0] is Yesterday.
-            // Loop i=0: expected=Today. unique[0]!=Today. check else if: unique[0]==Yesterday -> continue.
-            // Loop i=1: expected=Yesterday. unique[1]... wait. We skipped processing unique[0] as a streak count?
-            // The user's code `continue` means unique[0] is acceptable but doesn't increment?
-            // Or does it mean "don't break, try next"?
-            // Let's just implement the logic that WORKS:
-            // If today is logged, start counting from today.
-            // If today NOT logged but yesterday IS, start counting from yesterday.
-        } else {
-            // If we are at i=0 and it's not today and not yesterday (handled by else if), break.
-            // But wait, the user's code uses 'i' for expectedDate. 
-            // If unique[0] is Yesterday, then at i=0, we match neither Today nor Yesterday (wait, unique[0]==Yesterday IS true).
-            // So we continue. 
-            // i=1. expected = Yesterday. unique[1] ?
-            // unique array length is N. unique[0] is Yesterday.
-            // i=1. unique[1]. expected=Yesterday.
-            // unique[1] is older than Yesterday (since unique is sorted desc).
-            // So unique[1] != Yesterday. Break.
-            // Result: Streak 0. WRONG.
-            // User's provided snippet for calculatesStudyStreak might have a logic flaw regarding the 'continue' and 'i' index alignment.
-            // I will use my previous robust logic but ensure it follows the rules: Active if Today OR Yesterday.
-            break;
-        }
-    }
-
     // LET'S USE A ROBUST LOGIC instead of copying potential bug.
     // 1. Determine start date (Today or Yesterday)
     let streak = 0;
