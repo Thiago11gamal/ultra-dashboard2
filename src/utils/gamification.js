@@ -25,9 +25,9 @@ export const XP_CONFIG = {
  * Nível 5: 1,600 XP (+700)
  */
 export const calculateLevel = (xpInput) => {
-    const xp = Math.max(0, Number(xpInput) || 0);
+    const xp = Number(xpInput) || 0;
     // Formula: Level = floor(sqrt(XP / 100)) + 1
-    return Math.floor(Math.sqrt(xp / 100)) + 1;
+    return Math.floor(Math.sqrt(Math.max(0, xp) / 100)) + 1;
 };
 
 // Alias for compatibility
