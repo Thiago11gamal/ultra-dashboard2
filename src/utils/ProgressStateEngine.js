@@ -70,7 +70,7 @@ export function analyzeProgressState(scores, config = {}) {
     const slope = denominator !== 0 ? numerator / denominator : 0;
 
     // 6. Stagnation Detection
-    const stagnated = delta < stagnation_threshold;
+    const stagnated = delta <= stagnation_threshold;
 
     // 7. Semantic Classification
     let state = '';
