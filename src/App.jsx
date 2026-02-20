@@ -57,8 +57,7 @@ function App() {
     setAppState,
     data,
     setData,
-    loadingData,
-    loadingStatus
+    loadingData
   } = useContestData(currentUser);
 
   const safeAppState = appState && appState.contests ? appState : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
@@ -84,16 +83,6 @@ function App() {
 
   // Gamification Hook
   const { applyGamification, levelUpData, closeLevelUpToast } = useGamification(showToast);
-
-  const trackPomodoroComplete = useCallback(() => {
-    const hour = new Date().getHours();
-    setData(prev => ({
-      ...prev,
-      pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
-      studiedEarly: prev.studiedEarly || hour < 7,
-      studiedLate: prev.studiedLate || hour >= 0 && hour < 5
-    }));
-  }, [setData]);
 
   const startStudying = useCallback((categoryId, taskId) => {
     const category = data.categories.find(c => c.id === categoryId);
@@ -354,9 +343,6 @@ function App() {
     };
 
     if (studyLogs?.length > 0) {
-      const toYMD = d => new Date(d).toISOString().split('T')[0];
-      const uniqueDays = [...new Set(studyLogs.map(l => toYMD(l.date)))].sort();
-      let streak = 0;
       if (studyLogs.length >= 50) tryUnlock('zen-master', 'Mestre Zen');
     }
 
@@ -443,7 +429,6 @@ function App() {
   const toggleTask = useCallback((categoryId, taskId) => {
     setData(prev => {
       let xpChange = 0;
-      const timestamp = new Date().toISOString();
       const updatedState = {
         ...prev,
         categories: prev.categories.map(cat => cat.id === categoryId ? {

@@ -373,7 +373,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
 
                                         {/* Subjects List */}
                                         <div className="space-y-6">
-                                            {subjects.map((subj, idx) => {
+                                            {subjects.map((subj) => {
                                                 const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
                                                 const insight = getInsight(subjPct);
                                                 const subjColor = getSubjectColor(subj.name);
@@ -403,7 +403,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
 
                                                             {/* Topics Rows */}
                                                             <div className="space-y-2">
-                                                                {subj.topics.map((topic, tIdx) => {
+                                                                {subj.topics.map((topic) => {
                                                                     const topicStatus = getStatus(topic.pct);
                                                                     const action = getAction(topic.pct);
                                                                     const TopicIcon = topicStatus.icon;
