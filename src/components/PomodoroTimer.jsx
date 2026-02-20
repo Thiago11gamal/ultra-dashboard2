@@ -198,12 +198,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }
 
-            // Check for Task Completion
-            if (newSessions >= targetCycles) {
-                onFullCycleComplete?.();
-                setIsRunning(false);
-                return;
-            }
+            // At the end of a work session, ALWAYS offer a break (even if it's the last one)
+            // The user requested that the 5-minute break shouldn't be skipped.
 
             // Switch to break
             setMode('break');
@@ -216,10 +212,18 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 timeLeft: breakTime,
                 isRunning: false
             }));
+            setIsRunning(false); // Pause here so they can manually start the break
         } else {
             // Break finished
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
+
+            // Check for Task Completion NOW (after the break)
+            if (sessions >= targetCycles) {
+                onFullCycleComplete?.();
+                setIsRunning(false);
+                return;
+            }
 
             setMode('work');
             const workTime = safeSettings.pomodoroWork * 60;
@@ -313,27 +317,38 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }
 
-            // Check for Full Completion
-            if (newSessions >= targetCycles) {
+            // ALWAYS offer the final break
+            setMode('break');
+            setTimeLeft(safeSettings.pomodoroBreak * 60);
+
+            // Persist state for break
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                mode: 'break', timeLeft: safeSettings.pomodoroBreak * 60,
+                isRunning: false, sessions: newSessions, completedCycles,
+                targetCycles, sessionHistory,
+                savedAt: Date.now(),
+                activeTaskId: activeSubject?.taskId,
+                sessionInstanceId: activeSubject?.sessionInstanceId
+            }));
+
+        } else {
+            // Treat skip as completion of break
+            const newCompletedCycles = completedCycles + 1;
+            setCompletedCycles(newCompletedCycles);
+
+            if (sessions >= targetCycles) {
                 onFullCycleComplete?.();
                 // Persist completed state
                 localStorage.setItem('pomodoroState', JSON.stringify({
                     mode: 'work', timeLeft: safeSettings.pomodoroWork * 60,
                     isRunning: false, sessions: 0, completedCycles: 0,
-                    targetCycles, sessionHistory,
+                    targetCycles, sessionHistory: [],
                     savedAt: Date.now(),
-                    activeTaskId: activeSubject?.taskId,
-                    sessionInstanceId: activeSubject?.sessionInstanceId
+                    activeTaskId: null,
+                    sessionInstanceId: null
                 }));
                 return;
             }
-
-            setMode('break');
-            setTimeLeft(safeSettings.pomodoroBreak * 60);
-        } else {
-            // Treat skip as completion of break
-            const newCompletedCycles = completedCycles + 1;
-            setCompletedCycles(newCompletedCycles);
 
             setMode('work');
             setTimeLeft(safeSettings.pomodoroWork * 60);
@@ -445,6 +460,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
 
 
+                        </motion.div>
+                    ) : mode === 'break' ? (
+                        <motion.div
+                            initial={{ y: -5, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className={`relative flex items-center justify-center gap-3 w-full border border-emerald-500/30 rounded-3xl py-5 transition-all duration-500 shadow-lg max-w-full bg-emerald-900/40`}
+                        >
+                            <span className="text-xl font-bold text-emerald-400 tracking-normal text-center drop-shadow-md">
+                                Relaxando ☕
+                            </span>
                         </motion.div>
                     ) : (
                         <motion.div
@@ -628,7 +653,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => {
-                                if (!activeSubject) {
+                                if (mode === 'work' && !activeSubject) {
                                     setShowWarning(true);
                                     setTimeout(() => setShowWarning(false), 3000);
                                     return;
@@ -654,23 +679,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         </motion.button>
                     </div>
 
-                    {/* Speed Toggle — DEV only */}
-                    {import.meta.env.DEV && (
-                        <div className="absolute top-24 right-6 flex flex-col gap-2">
-                            <button
-                                onClick={() => setSpeed(speed === 10 ? 1 : 10)}
-                                className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                            >
-                                10x
-                            </button>
-                            <button
-                                onClick={() => setSpeed(speed === 100 ? 1 : 100)}
-                                className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                            >
-                                100x
-                            </button>
-                        </div>
-                    )}
+                    {/* Speed Toggle */}
+                    <div className="absolute top-24 right-6 flex flex-col gap-2">
+                        <button
+                            onClick={() => setSpeed(speed === 10 ? 1 : 10)}
+                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
+                        >
+                            10x
+                        </button>
+                        <button
+                            onClick={() => setSpeed(speed === 100 ? 1 : 100)}
+                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
+                        >
+                            100x
+                        </button>
+                    </div>
 
                 </div>
             </motion.div>
@@ -764,24 +787,46 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         return (
                             <React.Fragment key={i}>
                                 {/* Work Segment - Blue Bar */}
-                                <div className="flex-1 h-3 bg-[#292524] rounded-full overflow-hidden border border-stone-800 relative">
-                                    <div
-                                        className={`h-full rounded-full ${workProgress > 0
-                                            ? isWarning
-                                                ? 'bg-sky-400 shadow-[0_0_30px_rgba(255,80,80,1)] animate-pulse'
-                                                : 'bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.5)]'
-                                            : 'bg-stone-600'
-                                            }`}
-                                        style={{ width: `${workProgress}%` }}
-                                    ></div>
+                                <div className="flex-1 h-3 relative shrink-0">
+                                    <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-300 ${workProgress > 0
+                                                ? isWarning
+                                                    ? 'bg-sky-400'
+                                                    : 'bg-sky-400'
+                                                : 'bg-transparent'
+                                                }`}
+                                            style={{ width: `${workProgress}%` }}
+                                        ></div>
+                                    </div>
+                                    {/* Border on top */}
+                                    <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
+                                    {/* Outer Glow */}
+                                    {workProgress > 0 && (
+                                        <div
+                                            className={`absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300 ${isWarning ? 'shadow-[0_0_15px_rgba(255,80,80,0.8)] animate-pulse' : 'shadow-[0_0_8px_rgba(56,189,248,0.5)]'}`}
+                                            style={{ opacity: workProgress / 100 }}
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Break Indicator - Green Sphere */}
-                                <div className="w-6 h-6 rounded-full bg-[#292524] border border-stone-800 relative overflow-hidden flex items-end shrink-0">
-                                    <div
-                                        className="w-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                                        style={{ height: `${breakProgress}%` }}
-                                    ></div>
+                                <div className="w-6 h-6 relative shrink-0">
+                                    <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden flex items-end">
+                                        <div
+                                            className="w-full bg-emerald-500 transition-all duration-300"
+                                            style={{ height: `${breakProgress}%` }}
+                                        ></div>
+                                    </div>
+                                    {/* Border on top to hide any jagged rendering and clipping from overflow-hidden */}
+                                    <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
+                                    {/* Outer Glow perfectly outside the mask */}
+                                    {breakProgress > 0 && (
+                                        <div
+                                            className="absolute inset-0 rounded-full pointer-events-none shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-opacity duration-300"
+                                            style={{ opacity: breakProgress / 100 }}
+                                        />
+                                    )}
                                 </div>
                             </React.Fragment>
                         );
