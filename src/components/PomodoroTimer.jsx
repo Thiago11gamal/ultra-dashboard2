@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
 // Update component signature to accept onExit and defaultTargetCycles
-export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 4 }) {
+export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
     // --- STATE PERSISTENCE INITIALIZATION ---
 
@@ -49,7 +49,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [sessions, setSessions] = useState(() => getSavedState('sessions', 0));
     const [completedCycles, setCompletedCycles] = useState(() => getSavedState('completedCycles', 0));
-    const [targetCycles, setTargetCycles] = useState(() => getSavedState('targetCycles', defaultTargetCycles));
+    const [targetCycles, setTargetCycles] = useState(() => {
+        // Only load saved target cycles if we are legitimately resuming the same active session instance.
+        // Otherwise, always reset to the default requested by the parent (now 1)
+        if (savedState && savedState.activeTaskId === activeSubject?.taskId && savedState.sessionInstanceId === activeSubject?.sessionInstanceId) {
+            return savedState.targetCycles !== undefined ? savedState.targetCycles : defaultTargetCycles;
+        }
+        return defaultTargetCycles;
+    });
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
     // --- RESUME LOGIC (Back from Background/Refresh) ---
