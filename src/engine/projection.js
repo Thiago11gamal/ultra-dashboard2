@@ -78,11 +78,11 @@ function weightedRegression(history, lambda = 0.02) {
         p.w * Math.pow(p.y - (slope * p.x + intercept), 2)
     );
 
-    const variance =
-        residuals.reduce((a, r) => a + r, 0) /
-        Math.max(1, history.length - 2);
+    // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
+    // Sxx_centered = \sum w_i (x_i - \bar{x})^2 = Sxx - Sx^2 / Sw
+    const Sxx_centered = Sxx - (Sx * Sx) / Sw;
 
-    const slopeStdError = Math.sqrt(variance / Sxx);
+    const slopeStdError = Sxx_centered > 0 ? Math.sqrt(variance / Sxx_centered) : 0;
 
     return { slope, intercept, slopeStdError };
 }
@@ -212,7 +212,6 @@ export function monteCarloSimulation(
     const drift = calculateSlope(sortedHistory);
 
     // 2. Extrair Resíduos (Bootstrap Source)
-    const n = sortedHistory.length;
     const residuals = sortedHistory.map((h, i) => {
         if (i === 0) return 0;
         const prev = sortedHistory[i - 1].score;
@@ -234,10 +233,17 @@ export function monteCarloSimulation(
     let sumResults = 0;
     let sumSqResults = 0;
 
+    const safeSimulations = Math.max(1, simulations);
+
+    // FIX: Simulate at least 1 day with 0 drift for 0-day projections 
+    // to account for inherent test variance, avoiding locking the probability at 0% or 100%.
+    const simulationDays = Math.max(1, days);
+    const dayDrift = days === 0 ? 0 : drift;
+
     for (let s = 0; s < safeSimulations; s++) {
         let score = currentScore;
 
-        for (let d = 0; d < days; d++) {
+        for (let d = 0; d < simulationDays; d++) {
             let shock;
 
             if (useBootstrap) {
@@ -248,7 +254,9 @@ export function monteCarloSimulation(
                 shock = randomNormal(rng) * volatility;
             }
 
-            score += drift + shock;
+            // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
+            const dampedDrift = dayDrift * (45 / (45 + d));
+            score += dampedDrift + shock;
             score = Math.max(0, Math.min(100, score));
         }
 

@@ -154,12 +154,16 @@ export function useContestData(currentUser) {
     const safeAppState = appState && appState.contests ? appState : { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
     let data = safeAppState.contests[safeAppState.activeId] || Object.values(safeAppState.contests)[0] || INITIAL_DATA;
 
-    if (!data.user || !data.categories) {
-        data = INITIAL_DATA;
+    let safeData = { ...data };
+
+    if (!safeData.user || !safeData.categories) {
+        safeData = { ...INITIAL_DATA };
     }
-    if (!data.simulados) data.simulados = INITIAL_DATA.simulados || [];
-    if (!data.settings) {
-        data.settings = INITIAL_DATA.settings || {
+    if (!safeData.simulados) {
+        safeData.simulados = INITIAL_DATA.simulados || [];
+    }
+    if (!safeData.settings) {
+        safeData.settings = INITIAL_DATA.settings || {
             pomodoroWork: 25,
             pomodoroBreak: 5,
             soundEnabled: true,
@@ -170,7 +174,7 @@ export function useContestData(currentUser) {
     return {
         appState,
         setAppState,
-        data,
+        data: safeData,
         setData,
         loadingData,
         loadingStatus

@@ -67,7 +67,6 @@ export default function ParetoAnalysis({ categories = [] }) {
         groupedTopics.sort((a, b) => b.weightedMissed - a.weightedMissed);
 
         // Identify Top 20% (or top 5 items for UI)
-        // Pareto: The cumulative missed points
         let cumulative = 0;
         const paretoThreshold = totalMissedGlobal * 0.8;
 
@@ -75,8 +74,8 @@ export default function ParetoAnalysis({ categories = [] }) {
         let others = [];
 
         groupedTopics.forEach(t => {
-            if (cumulative < paretoThreshold) {
-                cumulative += t.weightedMissed;
+            cumulative += t.weightedMissed;
+            if (cumulative <= paretoThreshold || enemies.length === 0) {
                 enemies.push(t);
             } else {
                 others.push(t);

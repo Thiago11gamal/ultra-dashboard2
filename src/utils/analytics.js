@@ -12,8 +12,6 @@ export const calculateStudyStreak = (studyLogs) => {
         new Date(b) - new Date(a)
     );
 
-    // Calcular streak atual
-    let currentStreak = 0;
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 86400000).toDateString();
 

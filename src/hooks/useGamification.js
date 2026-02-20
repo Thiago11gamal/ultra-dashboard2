@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getLevelFromXP } from '../utils/gamification';
 
-export const useGamification = (showToast) => {
+export const useGamification = () => {
     const [levelUpData, setLevelUpData] = useState(null);
 
     const applyGamification = useCallback((currentData, xpAmount) => {

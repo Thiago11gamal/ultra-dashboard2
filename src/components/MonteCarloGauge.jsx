@@ -450,33 +450,6 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
         return { categoryStats, weightedMean, currentWeightedMean, pooledSD, totalWeight };
     }, [categories, debouncedWeights, projectDays]);
-
-    const [debugMode, setDebugMode] = useState(false);
-    const [debugHistory, setDebugHistory] = useState([]);
-    const [debugScore, setDebugScore] = useState(70);
-    const [debugDayOffset, setDebugDayOffset] = useState(1);
-
-    const handleAddDebugDay = () => {
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + debugDayOffset);
-
-        setDebugHistory(prev => [
-            ...prev,
-            {
-                date: nextDate.toISOString().split('T')[0],
-                score: Number(debugScore),
-                weight: 100 // Assume full weight for test
-            }
-        ]);
-        setDebugDayOffset(prev => prev + 1);
-    };
-
-    const handleResetDebug = () => {
-        setDebugHistory([]);
-        setDebugDayOffset(1);
-    };
-
-    // 3. Run Monte Carlo using Engine Module (Adaptive simulations + Explicit seed)
     const simulationData = useMemo(() => {
         // Collect all history points
         let allHistoryPoints = [];
@@ -497,11 +470,6 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 }
             }
         });
-
-        // Debug Mode Injection: Merge real history with debug history
-        if (debugHistory.length > 0) {
-            allHistoryPoints = [...allHistoryPoints, ...debugHistory];
-        }
 
         if (allHistoryPoints.length < 5) return null;
 
@@ -570,16 +538,18 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 </div>
 
                 {/* Weights Configuration Footer Trigger (Placeholder) */}
-                <div className="mt-2 w-full pt-2 border-t border-white/5 flex justify-center opacity-50 hover:opacity-100 transition-opacity">
+                <div className="mt-2 w-full pt-2 border-t border-white/5 flex justify-center gap-4 opacity-50 hover:opacity-100 transition-opacity">
                     <button
                         onClick={() => setShowConfig(true)}
                         className="flex flex-col items-center gap-1 group/btn"
+                        title="Configurar Pesos"
                     >
                         <div className="w-8 h-8 rounded-lg bg-slate-800/50 border border-white/5 flex items-center justify-center group-hover/btn:bg-slate-700/50 group-hover/btn:border-white/10 transition-all">
                             <Settings2 size={16} className="text-slate-600 group-hover/btn:text-slate-400" />
                         </div>
                     </button>
                 </div>
+
 
                 <ConfigModal
                     show={showConfig}
@@ -681,48 +651,8 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     >
                         <Settings2 size={14} />
                     </button>
-                    {/* Debug Toggle */}
-                    <button
-                        onClick={() => setDebugMode(!debugMode)}
-                        className={`w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center transition-all ${debugMode ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                    >
-                        <span className="text-[10px] font-bold">🛠️</span>
-                    </button>
                 </div>
             </div>
-
-            {/* DEBUG CONSOLE */}
-            {debugMode && (
-                <div className="mb-4 bg-purple-900/30 border border-purple-500/30 rounded-xl p-3 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-purple-300">Modo de Teste (Cheat Mode)</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-purple-400">Dia +{debugDayOffset}</span>
-                            <button onClick={handleResetDebug} className="text-[10px] text-red-400 hover:text-red-300 underline">Resetar</button>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <input
-                            type="number"
-                            min="0" max="100"
-                            value={debugScore}
-                            onChange={(e) => setDebugScore(Number(e.target.value))}
-                            className="bg-purple-900/50 border border-purple-500/30 rounded-lg px-2 py-1 text-white text-xs w-20 text-center"
-                            placeholder="Nota"
-                        />
-                        <button
-                            onClick={handleAddDebugDay}
-                            className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-1 rounded-lg transition-colors shadow-lg shadow-purple-900/50"
-                        >
-                            Simular Dia Seguinte
-                        </button>
-                    </div>
-                    <p className="text-[9px] text-purple-400/70 italic text-center">
-                        Isso adiciona um ponto simulado no histórico para testar a projeção.
-                    </p>
-                </div>
-            )}
-
 
             {/* ═══════════════ BLOCO 2: RESULTADO PRINCIPAL ═══════════════ */}
             <div className="w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5">
@@ -827,7 +757,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             {/* ═══════════════ BLOCO 5: TENDÊNCIAS POR CATEGORIA ═══════════════ */}
             <div className="w-full">
                 <div className="flex flex-wrap justify-center gap-1.5">
-                    {statsData.categoryStats.slice(0, 8).map((cat) => (
+                    {statsData?.categoryStats?.slice(0, 8).map((cat) => (
                         <div key={cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
                             {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
                             {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
@@ -835,7 +765,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                             <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
                         </div>
                     ))}
-                    {statsData.categoryStats.length > 8 && (
+                    {(statsData?.categoryStats?.length || 0) > 8 && (
                         <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
                             +{statsData.categoryStats.length - 8}
                         </span>

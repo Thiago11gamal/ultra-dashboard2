@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { standardDeviation } from '../engine/stats';
 
 export default function ConsistencyAlert({ categories = [], onNavigate }) {
 
@@ -22,10 +23,9 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
             const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s));
             if (validScores.length < 2) return;
 
-            // Calculate Standard Deviation (Sample SD with Bessel's correction)
+            // Calculate Standard Deviation using Bayesian Shrinkage from engine
+            const sd = standardDeviation(validScores);
             const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
-            const variance = validScores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (validScores.length - 1);
-            const sd = Math.sqrt(Math.max(0, variance));
 
             // If SD > 15, it's oscillating
             if (sd > 15) {
