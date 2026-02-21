@@ -71,10 +71,19 @@ export function calculateTrend(scores) {
     const sigma2 = rss / (n - 2); // Variância dos resíduos
     const seSlope = Math.sqrt(sigma2 / den); // Erro padrão do slope
 
-    // T-Statistic: Se |t| < 2, é apenas ruído, não tendência real.
+    // T-Statistic: Aplica Student's t-distribution para punir amostras pequenas (<10)
     if (seSlope > 0) {
         const tStat = slope / seSlope;
-        if (Math.abs(tStat) < 2.0) return 0;
+        const df = n - 2;
+
+        // Tabela empírica para distribuição T-Student (95% confiança)
+        const tDist95 = {
+            1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57,
+            6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23
+        };
+        const tCrit = tDist95[df] || 2.0;
+
+        if (Math.abs(tStat) < tCrit) return 0;
     }
 
     // Normaliza para "pontos por 10 simulados" para facilitar leitura humana

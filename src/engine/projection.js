@@ -161,13 +161,20 @@ function calculateVolatility(history) {
         const h1 = sorted[i];
 
         const diff = h1.score - h0.score;
-        const time = new Date(h1.date).getTime();
-        const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
+        const time1 = new Date(h1.date).getTime();
+        const time0 = new Date(h0.date).getTime();
+        const now = new Date(sorted[sorted.length - 1].date).getTime();
+
+        const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
+        const daysBetween = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
 
-        sumSw += (diff * diff) * weight;
+        // Normalização temporal do quadrado da diferença (Daily Variance)
+        const dailyVariance = (diff * diff) / daysBetween;
+
+        sumSw += dailyVariance * weight;
         sumWeights += weight;
     }
 
@@ -216,12 +223,19 @@ export function monteCarloSimulation(
     // 1. Calcular Tendência (Drift)
     const drift = calculateSlope(sortedHistory);
 
-    // 2. Extrair Resíduos (Bootstrap Source)
+    // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO
     const residuals = sortedHistory.map((h, i) => {
         if (i === 0) return 0;
         const prev = sortedHistory[i - 1].score;
         const actualChange = h.score - prev;
-        return actualChange - drift;
+
+        const time1 = new Date(h.date).getTime();
+        const time0 = new Date(sortedHistory[i - 1].date).getTime();
+        const daysBetween = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
+
+        const expectedChange = drift * daysBetween;
+        // Resíduo diário = (Diferença Efetiva - Diferença Esperada) / sqrt(dias)
+        return (actualChange - expectedChange) / Math.sqrt(daysBetween);
     }).slice(1);
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 

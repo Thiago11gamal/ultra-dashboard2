@@ -18,9 +18,9 @@ const slope3 = calculateSlope(history3);
 console.log('Test 3 (Diff days): Slope =', slope3);
 
 // Test 4: Projection with Slope 0 (Future == Today)
-const currentMean = 75;
-const projected = projectScore(currentMean, 0, 30);
-console.log('Test 4 (Slope 0): Current =', currentMean, 'Projected (30d) =', projected);
+const history4 = [{ date: '2023-01-01', score: 75 }, { date: '2023-01-02', score: 75 }];
+const projected = projectScore(history4, 30);
+console.log('Test 4 (Slope 0): Current =', 75, 'Projected (30d) =', projected);
 
 // Test 5: SD Change with Time
 const baseSD = 5;
