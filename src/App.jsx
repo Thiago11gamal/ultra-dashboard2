@@ -646,7 +646,7 @@ function App() {
               pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
               lastPomodoroDate: new Date().toISOString()
             }));
-          }} onFullCycleComplete={() => { finishStudying(); if (previousTab) { setActiveTab(previousTab); setPreviousTab(null); } }} defaultTargetCycles={dailyGoal} />
+          }} onFullCycleComplete={() => { finishStudying(); if (previousTab) { setActiveTab(previousTab); setPreviousTab(null); } }} defaultTargetCycles={1} key={activeSubject?.sessionInstanceId} />
         )}
         {activeTab === 'tasks' && (
           <div className="space-y-10">

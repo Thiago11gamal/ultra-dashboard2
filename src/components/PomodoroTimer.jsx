@@ -287,8 +287,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     if (expectedTimeLeft <= 0) return 0;
                     return expectedTimeLeft;
                 });
-
-            }, 1000 / speed); // Tick rate matching speed
+            }, 100 / speed); // Smoother tick rate (100ms)
         }
         return () => clearInterval(interval);
     }, [isRunning, speed]); // If isRunning toggles, we reset start time. If speed changes, reset.
@@ -797,7 +796,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="flex-1 h-3 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden">
                                         <div
-                                            className={`h-full rounded-full transition-all duration-300 ${workProgress > 0
+                                            className={`h-full rounded-full transition-all duration-75 ${workProgress > 0
                                                 ? isWarning
                                                     ? 'bg-sky-400'
                                                     : 'bg-sky-400'
@@ -821,7 +820,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="w-6 h-6 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden flex items-end">
                                         <div
-                                            className="w-full bg-emerald-500 transition-all duration-300"
+                                            className="w-full bg-emerald-500 transition-all duration-75"
                                             style={{ height: `${breakProgress}%` }}
                                         ></div>
                                     </div>
