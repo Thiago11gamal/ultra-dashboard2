@@ -55,14 +55,32 @@ function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
         const path = `M ${points.join(' L ')}`;
 
         const areaPoints = [];
+        const l95 = low95 || 0;
+        const h95 = high95 || 100;
+
+        // Add exact lower bound if within range
+        if (l95 >= xMin && l95 <= xMin + range) {
+            const yL = gaussian(l95);
+            areaPoints.push(`${(l95 - xMin) / range * 100},${100 - (isNaN(yL) ? 0 : yL * 100)}`);
+        }
+
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
-            if (x >= (low95 || 0) && x <= (high95 || 100)) {
+            // Only add step points strictly strictly inside the bounds to prevent visual clustering 
+            // and guarantee the edge points act as the exact anchors.
+            if (x > l95 && x < h95) {
                 const y = gaussian(x);
                 const safeY = isNaN(y) ? 0 : y;
                 areaPoints.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
             }
         }
+
+        // Add exact upper bound if within range
+        if (h95 >= xMin && h95 <= xMin + range) {
+            const yH = gaussian(h95);
+            areaPoints.push(`${(h95 - xMin) / range * 100},${100 - (isNaN(yH) ? 0 : yH * 100)}`);
+        }
+
         if (areaPoints.length > 0) {
             const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
             const firstX = areaPoints[0].split(',')[0];
