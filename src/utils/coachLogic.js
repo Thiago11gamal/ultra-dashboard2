@@ -205,9 +205,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
-        // E. Efficiency Penalty
+        // E. Efficiency Penalty & BURNOUT DETECTION
         let efficiencyPenalty = 0;
-        const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
+        let recentStudyDays = 0; // Days studied in the last 7 days
+        const todayBound = normalizeDate(new Date());
+
+        const totalMinutes = categoryStudyLogs.reduce((acc, log) => {
+            const logDate = normalizeDate(log.date);
+            const daysSinceLog = Math.max(0, Math.floor((todayBound - logDate) / (1000 * 60 * 60 * 24)));
+
+            // Check study density for burnout metric
+            if (daysSinceLog <= 7 && (log.minutes || 0) > 30) {
+                recentStudyDays++;
+            }
+
+            return acc + (log.minutes || 0);
+        }, 0);
+
         const totalHours = totalMinutes / 60;
 
         if (totalHours > cfg.BASE_HOURS_THRESHOLD && averageScore < targetScore) {
@@ -254,8 +268,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // --- DYNAMIC RECOMMENDATION ---
         let recommendation = "";
-        if (srsBoost > 0) {
+        let isBurnoutRisk = false;
+
+        // Burnout threshold: High recent effort (>=5 days in last week) + declining/stagnant trend
+        if (recentStudyDays >= 5 && trend <= 0) {
+            recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
+            isBurnoutRisk = true;
+        } else if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
+        } else if (standardDeviation > 10 && trend > 0) {
+            recommendation = `Evolução Frágil (Volatilidade Alta: ±${standardDeviation.toFixed(1)}). Consolide a base.`;
         } else if (efficiencyPenalty > 5) {
             // O aviso continua aqui, mas a nota não caiu!
             recommendation = `⚠️ Alerta: ${totalHours.toFixed(1)}h sem melhora. Troque o método!`;
@@ -287,6 +309,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 efficiencyPenalty: Number(efficiencyPenalty.toFixed(1)),
                 weight,
                 srsLabel,
+                isBurnoutRisk, // Passed for goal generation logic
                 crunchMultiplier: Number(crunchMultiplier.toFixed(1)),
                 humanReadable: {
                     "Média": `${Math.round(averageScore)}%`,
@@ -520,6 +543,22 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             };
         }
 
+        // 0.75 Burnout Detector Overrides Routine
+        if (cat.urgency?.details?.isBurnoutRisk) {
+            return {
+                id: `${cat.id}-burnout-${new Date().toDateString()}`,
+                text: `${cat.name}: ${topicLabel}🛑 ESTAFA MENTAL DETECTADA. Faça uma pausa e limite-se a leituras leves!`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Alerta de Estafa (Burnout)",
+                    details: "Densidade de logs de estudo excessivamente alta sem conversão em acertos.",
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: "O cérebro consolidará melhor as informações com uma pausa do que forçando mais retenção. Descanse."
+                }
+            };
+        }
+
         // PLATEAU DETECTOR (with trend)
         if (cat.urgency?.details?.hasData &&
             categorySims.length >= 3 &&
@@ -541,14 +580,30 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
 
         // DECLINING PERFORMANCE WARNING
-        if (cat.urgency?.details?.trend < -5) {
+        // If standard deviation is extremely high, AI overrides standard 'decline' focus.
+        if (cat.urgency?.details?.standardDeviation > 10 && cat.urgency?.details?.trend > 0) {
             return {
-                id: `${cat.id}-declining-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}📉 Nota em queda! Atenção urgente necessária.`,
+                id: `${cat.id}-fragile-${new Date().toDateString()}`,
+                text: `${cat.name}: ${topicLabel}⚠️ Evolução instável de nota! Consolide seu domínio antes de avançar.`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "Desempenho em Queda",
+                    reason: "Evolução Frágil Pós-Trend",
+                    details: `Seu desvio padrão de segurança está em ${cat.urgency.details.standardDeviation} pontos. Crescimento inconsistente.`,
+                    metrics: cat.urgency.details.humanReadable,
+                    verdict: "Sua média subiu, mas a precisão base está altamente volátil. Reveja os erros recentes urgentes."
+                }
+            };
+        }
+
+        if (cat.urgency?.details?.trend < -5) {
+            return {
+                id: `${cat.id}-declining-${new Date().toDateString()}`,
+                text: `${cat.name}: ${topicLabel}📉 Nota em queda profunda! Atenção urgente necessária.`,
+                completed: false,
+                categoryId: cat.id,
+                analysis: {
+                    reason: "Desempenho em Queda (Trend)",
                     metrics: cat.urgency.details.humanReadable,
                     verdict: cat.urgency.recommendation
                 }
