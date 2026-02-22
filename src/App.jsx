@@ -6,6 +6,7 @@ import StatsCards from './components/StatsCards';
 import NextGoalCard from './components/NextGoalCard';
 
 import Checklist from './components/Checklist';
+import EvolutionChart from './components/EvolutionChart';
 import Charts from './components/Charts';
 import PomodoroTimer from './components/PomodoroTimer';
 import TopicPerformance from './components/TopicPerformance';
@@ -666,10 +667,15 @@ function App() {
           <SimuladoAnalysis rows={(data.simuladoRows || []).filter(r => r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString())} onRowsChange={handleUpdateSimuladoRows} onAnalysisComplete={handleSimuladoAnalysis} categories={data.categories || []} />
         )}
         {activeTab === 'stats' && (
-          <div className="space-y-8">
+          <div className="space-y-8 animate-fade-in">
             <VerifiedStats categories={data.categories} user={data.user} onUpdateWeights={handleUpdateWeights} />
             <WeeklyAnalysis studyLogs={data.studyLogs} categories={data.categories} />
             <Charts data={data} filter={filter} setFilter={setFilter} compact />
+          </div>
+        )}
+        {activeTab === 'evolution' && (
+          <div className="animate-fade-in">
+            <EvolutionChart categories={data.categories} targetScore={70} />
           </div>
         )}
         {activeTab === 'coach' && (
