@@ -169,6 +169,62 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
     }, [activeCategories]);
 
+    // ── DADOS DO HEATMAP (por dia individual: linhas=matérias, colunas=datas) ──
+    const heatmapData = useMemo(() => {
+        if (!activeCategories.length) return { dates: [], rows: [] };
+
+        const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+        // Collect all unique dates that have any data
+        const allDatesSet = new Set();
+        activeCategories.forEach(cat => {
+            (cat.simuladoStats?.history || []).forEach(h => {
+                if (h.date) allDatesSet.add(new Date(h.date).toISOString().split('T')[0]);
+            });
+        });
+
+        const sortedDates = Array.from(allDatesSet).sort();
+
+        // Build date column metadata
+        const dates = sortedDates.map(dateStr => {
+            const d = new Date(`${dateStr}T12:00:00`);
+            const [_y, m, day] = dateStr.split('-');
+            return {
+                key: dateStr,
+                dayName: DAY_NAMES[d.getDay()],
+                label: `${day}/${m}`,
+                isWeekend: d.getDay() === 0 || d.getDay() === 6,
+            };
+        });
+
+        // Build a row per category
+        const rows = activeCategories.map(cat => {
+            // Map dateStr -> { correct, total, pct }
+            const dayMap = {};
+            (cat.simuladoStats?.history || []).forEach(h => {
+                if (!h.date) return;
+                const key = new Date(h.date).toISOString().split('T')[0];
+                if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
+                dayMap[key].correct += (h.correct || 0);
+                dayMap[key].total += (h.total || 0);
+            });
+
+            const cells = sortedDates.map(dateStr => {
+                const entry = dayMap[dateStr];
+                if (!entry || entry.total === 0) return null;
+                return {
+                    pct: (entry.correct / entry.total) * 100,
+                    correct: entry.correct,
+                    total: entry.total,
+                };
+            });
+
+            return { cat, cells };
+        });
+
+        return { dates, rows };
+    }, [activeCategories]);
+
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
@@ -460,75 +516,117 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 <div className="h-[450px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         {activeEngine === "raw_weekly" ? (
-                            /* ── GRÁFICO SEMANAL ─────────────────────────────── */
-                            <ComposedChart data={weeklyData} margin={{ top: 20, right: 10, left: -25, bottom: 20 }} barCategoryGap="25%" barGap={2}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} />
-                                <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                                <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                <Tooltip
-                                    cursor={{ fill: '#ffffff08' }}
-                                    content={({ active, payload, label }) => {
-                                        if (!active || !payload?.length) return null;
-                                        const weekRow = weeklyData.find(d => d.displayDate === label);
-                                        return (
-                                            <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[220px] z-50">
-                                                <p className="text-slate-400 mb-3 font-bold border-b border-slate-700/80 pb-2">📅 {label}</p>
-                                                {weekRow?.weekAvg != null && (
-                                                    <p className="text-[11px] text-pink-300 font-bold mb-2">
-                                                        Média global: <span className="text-white">{weekRow.weekAvg}%</span>
-                                                    </p>
-                                                )}
-                                                <div className="space-y-1.5">
-                                                    {payload.map((p, i) => {
-                                                        const catName = p.name;
-                                                        const total = weekRow?.[`week_total_${catName}`] || 0;
-                                                        const correct = weekRow?.[`week_correct_${catName}`] || 0;
-                                                        return (
-                                                            <div key={i} className="flex flex-col bg-slate-800/50 p-2 rounded-lg">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span style={{ color: p.fill }} className="font-bold text-xs truncate max-w-[130px]">{catName}</span>
-                                                                    <span style={{ color: p.fill }} className="font-bold ml-2">{p.value != null ? `${p.value}%` : '—'}</span>
-                                                                </div>
-                                                                {total > 0 && (
-                                                                    <span className="text-[10px] text-slate-400 text-right">{correct}/{total} q.</span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                            /* ── HEATMAP DE DESEMPENHO ────────────────────── */
+                            (() => {
+                                const { dates, rows } = heatmapData;
+                                if (!dates.length) return (
+                                    <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                                        Sem dados para o heatmap.
+                                    </div>
+                                );
+
+                                // Color cell based on pct vs targetScore
+                                const cellColor = (pct) => {
+                                    if (pct == null) return { bg: 'transparent', text: 'transparent', border: '#1e293b' };
+                                    if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.25)', text: '#4ade80', border: 'rgba(34,197,94,0.4)' };
+                                    if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.2)', text: '#fcd34d', border: 'rgba(251,191,36,0.4)' };
+                                    if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.2)', text: '#fb923c', border: 'rgba(251,146,60,0.4)' };
+                                    return { bg: 'rgba(239,68,68,0.2)', text: '#f87171', border: 'rgba(239,68,68,0.4)' };
+                                };
+
+                                return (
+                                    <div className="w-full h-full overflow-auto custom-scrollbar pr-1">
+                                        {/* Reference line */}
+                                        <div className="flex items-center gap-2 mb-3 text-[10px] text-slate-400">
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'rgba(239,68,68,0.3)', border: '1px solid rgba(239,68,68,0.5)' }} />
+                                                &lt;{Math.round(targetScore * 0.6)}%
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'rgba(251,146,60,0.3)', border: '1px solid rgba(251,146,60,0.5)' }} />
+                                                {Math.round(targetScore * 0.6)}–{Math.round(targetScore * 0.8)}%
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'rgba(251,191,36,0.3)', border: '1px solid rgba(251,191,36,0.5)' }} />
+                                                {Math.round(targetScore * 0.8)}–{targetScore}%
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'rgba(34,197,94,0.3)', border: '1px solid rgba(34,197,94,0.5)' }} />
+                                                ≥{targetScore}% (meta)
+                                            </span>
+                                        </div>
+
+                                        <div style={{ minWidth: `${dates.length * 68 + 160}px` }}>
+                                            {/* Header: date columns */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: `160px repeat(${dates.length}, 64px)`, gap: '3px' }} className="mb-1">
+                                                <div />
+                                                {dates.map(d => (
+                                                    <div key={d.key} className="flex flex-col items-center">
+                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${d.isWeekend ? 'text-purple-400' : 'text-slate-400'
+                                                            }`}>{d.dayName}</span>
+                                                        <span className="text-[10px] font-mono text-slate-300">{d.label}</span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        );
-                                    }}
-                                />
-                                <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                {activeCategories.map((cat) => {
-                                    const isFocused = focusSubjectId === cat.id;
-                                    return (
-                                        <Bar
-                                            key={cat.id}
-                                            dataKey={`week_${cat.name}`}
-                                            name={cat.name}
-                                            fill={cat.color}
-                                            opacity={isFocused ? 1 : 0.6}
-                                            radius={[4, 4, 0, 0]}
-                                            maxBarSize={32}
-                                        />
-                                    );
-                                })}
-                                {/* Linha de média global da semana */}
-                                <Line
-                                    type="monotone"
-                                    dataKey="weekAvg"
-                                    name="Média Semanal"
-                                    stroke="#f472b6"
-                                    strokeWidth={2.5}
-                                    strokeDasharray="5 3"
-                                    dot={{ r: 4, fill: "#f472b6", stroke: "#0f172a", strokeWidth: 2 }}
-                                    activeDot={{ r: 6 }}
-                                    connectNulls
-                                />
-                            </ComposedChart>
+
+                                            {/* Rows: one per category */}
+                                            <div className="space-y-1.5">
+                                                {rows.map(({ cat, cells }) => (
+                                                    <div key={cat.id}
+                                                        style={{ display: 'grid', gridTemplateColumns: `160px repeat(${dates.length}, 64px)`, gap: '3px' }}
+                                                    >
+                                                        {/* Row label */}
+                                                        <div className="flex items-center gap-2 pr-2">
+                                                            <span className="text-base" title={cat.name}>{cat.icon}</span>
+                                                            <span className="text-xs font-bold truncate" style={{ color: cat.color }} title={cat.name}>{cat.name}</span>
+                                                        </div>
+
+                                                        {/* Cells */}
+                                                        {cells.map((cell, ci) => {
+                                                            const col = cellColor(cell?.pct);
+                                                            const [HoverState] = [React.useState];
+                                                            return (
+                                                                <div
+                                                                    key={ci}
+                                                                    title={cell ? `${cat.name} · ${dates[ci].dayName} ${dates[ci].label}\n${cell.pct.toFixed(1)}% (${cell.correct}/${cell.total} q.)` : `${cat.name} · ${dates[ci].dayName} ${dates[ci].label}\nSem dados`}
+                                                                    className="relative group rounded-md flex flex-col items-center justify-center py-2 transition-transform hover:scale-105 hover:z-10 cursor-default"
+                                                                    style={{
+                                                                        background: cell ? col.bg : 'rgba(255,255,255,0.03)',
+                                                                        border: `1px solid ${cell ? col.border : '#1e293b'}`,
+                                                                        minHeight: '44px',
+                                                                    }}
+                                                                >
+                                                                    {cell ? (
+                                                                        <>
+                                                                            <span className="text-[11px] font-black" style={{ color: col.text }}>
+                                                                                {cell.pct.toFixed(0)}%
+                                                                            </span>
+                                                                            <span className="text-[8px] text-slate-500 font-mono">
+                                                                                {cell.correct}/{cell.total}
+                                                                            </span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-slate-700 text-[10px]">—</span>
+                                                                    )}
+
+                                                                    {/* Tooltip popup on hover */}
+                                                                    {cell && (
+                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover:flex flex-col bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-2xl whitespace-nowrap pointer-events-none">
+                                                                            <span className="text-[10px] font-bold text-slate-300">{dates[ci].dayName}, {dates[ci].label}</span>
+                                                                            <span className="text-[10px] font-bold" style={{ color: col.text }}>{cell.pct.toFixed(1)}%</span>
+                                                                            <span className="text-[9px] text-slate-500">{cell.correct} acertos / {cell.total} q.</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         ) : activeEngine !== "compare" ? (
                             <LineChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
