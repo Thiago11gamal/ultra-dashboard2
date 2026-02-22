@@ -14,6 +14,10 @@ const ENGINES = [
         explain: { titulo: "A sua montanha-russa de resultados", simples: "Sem filtros. Apenas a porcentagem exata de acertos. Excelente para detectar anomalias.", dica: "Picos isolados não definem sua aprovação. O importante é a tendência geral." },
     },
     {
+        id: "raw_weekly", label: "📅 Realidade Semanal", color: "#f472b6", prefix: null, style: "linear",
+        explain: { titulo: "Sua evolução semana a semana", simples: "Agrupa todos os simulados por semana. Cada barra mostra a sua taxa de acerto bruta naquela semana.", dica: "Ideal para ver se você está melhorando ao longo das semanas, sem ruído diário." },
+    },
+    {
         id: "bayesian", label: "🧠 Nível Bayesiano", color: "#34d399", prefix: "bay_", style: "monotone",
         explain: { titulo: "A sua sabedoria consolidada", simples: "O algoritmo não se deixa enganar por dias ruins ou sorte. Ele calcula seu nível real.", dica: "Use esta visão para decidir se já pode avançar de matéria." },
     },
@@ -110,6 +114,59 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
 
         return dates.map(d => dataByDate[d]);
+    }, [activeCategories]);
+
+    // ── DADOS SEMANAIS (para o engine raw_weekly) ────────
+    const weeklyData = useMemo(() => {
+        if (!activeCategories.length) return [];
+
+        // Função helper: retorna o início da semana ISO (Segunda-feira) de uma data
+        const getWeekStart = (dateStr) => {
+            const d = new Date(`${dateStr}T12:00:00`);
+            const day = d.getDay(); // 0=Dom
+            const diff = day === 0 ? -6 : 1 - day; // ajusta para segunda
+            const monday = new Date(d);
+            monday.setDate(d.getDate() + diff);
+            return monday.toISOString().split('T')[0];
+        };
+
+        // Agrupar todos os históricos por semana e categoria
+        const weekMap = {}; // weekKey -> { catName -> { correct, total } }
+
+        activeCategories.forEach(cat => {
+            const history = cat.simuladoStats?.history || [];
+            history.forEach(h => {
+                if (!h.date) return;
+                const dateKey = new Date(h.date).toISOString().split('T')[0];
+                const weekKey = getWeekStart(dateKey);
+                if (!weekMap[weekKey]) weekMap[weekKey] = {};
+                if (!weekMap[weekKey][cat.name]) weekMap[weekKey][cat.name] = { correct: 0, total: 0 };
+                weekMap[weekKey][cat.name].correct += (h.correct || 0);
+                weekMap[weekKey][cat.name].total += (h.total || 0);
+            });
+        });
+
+        // Converter para array ordenado por semana
+        return Object.keys(weekMap).sort().map((weekKey, i) => {
+            const [y, m, d] = weekKey.split('-');
+            const row = {
+                weekKey,
+                displayDate: `Sem ${i + 1} (${d}/${m})`,
+            };
+            let totalCorrect = 0;
+            let totalQ = 0;
+            activeCategories.forEach(cat => {
+                const entry = weekMap[weekKey][cat.name];
+                const pct = entry && entry.total > 0 ? (entry.correct / entry.total) * 100 : null;
+                row[`week_${cat.name}`] = pct !== null ? parseFloat(pct.toFixed(1)) : null;
+                row[`week_total_${cat.name}`] = entry?.total || 0;
+                row[`week_correct_${cat.name}`] = entry?.correct || 0;
+                if (entry) { totalCorrect += entry.correct; totalQ += entry.total; }
+            });
+            // Média global da semana
+            row.weekAvg = totalQ > 0 ? parseFloat(((totalCorrect / totalQ) * 100).toFixed(1)) : null;
+            return row;
+        });
     }, [activeCategories]);
 
     const globalMetrics = useMemo(() => {
@@ -403,7 +460,77 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                 <div className="h-[450px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        {activeEngine !== "compare" ? (
+                        {activeEngine === "raw_weekly" ? (
+                            /* ── GRÁFICO SEMANAL ─────────────────────────────── */
+                            <ComposedChart data={weeklyData} margin={{ top: 20, right: 10, left: -25, bottom: 20 }} barCategoryGap="25%" barGap={2}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} />
+                                <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                                <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
+                                <Tooltip
+                                    cursor={{ fill: '#ffffff08' }}
+                                    content={({ active, payload, label }) => {
+                                        if (!active || !payload?.length) return null;
+                                        const weekRow = weeklyData.find(d => d.displayDate === label);
+                                        return (
+                                            <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[220px] z-50">
+                                                <p className="text-slate-400 mb-3 font-bold border-b border-slate-700/80 pb-2">📅 {label}</p>
+                                                {weekRow?.weekAvg != null && (
+                                                    <p className="text-[11px] text-pink-300 font-bold mb-2">
+                                                        Média global: <span className="text-white">{weekRow.weekAvg}%</span>
+                                                    </p>
+                                                )}
+                                                <div className="space-y-1.5">
+                                                    {payload.map((p, i) => {
+                                                        const catName = p.name;
+                                                        const total = weekRow?.[`week_total_${catName}`] || 0;
+                                                        const correct = weekRow?.[`week_correct_${catName}`] || 0;
+                                                        return (
+                                                            <div key={i} className="flex flex-col bg-slate-800/50 p-2 rounded-lg">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span style={{ color: p.fill }} className="font-bold text-xs truncate max-w-[130px]">{catName}</span>
+                                                                    <span style={{ color: p.fill }} className="font-bold ml-2">{p.value != null ? `${p.value}%` : '—'}</span>
+                                                                </div>
+                                                                {total > 0 && (
+                                                                    <span className="text-[10px] text-slate-400 text-right">{correct}/{total} q.</span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                {activeCategories.map((cat) => {
+                                    const isFocused = focusSubjectId === cat.id;
+                                    return (
+                                        <Bar
+                                            key={cat.id}
+                                            dataKey={`week_${cat.name}`}
+                                            name={cat.name}
+                                            fill={cat.color}
+                                            opacity={isFocused ? 1 : 0.6}
+                                            radius={[4, 4, 0, 0]}
+                                            maxBarSize={32}
+                                        />
+                                    );
+                                })}
+                                {/* Linha de média global da semana */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="weekAvg"
+                                    name="Média Semanal"
+                                    stroke="#f472b6"
+                                    strokeWidth={2.5}
+                                    strokeDasharray="5 3"
+                                    dot={{ r: 4, fill: "#f472b6", stroke: "#0f172a", strokeWidth: 2 }}
+                                    activeDot={{ r: 6 }}
+                                    connectNulls
+                                />
+                            </BarChart>
+                        ) : activeEngine !== "compare" ? (
                             <LineChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                                 <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
