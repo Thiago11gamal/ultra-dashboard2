@@ -529,7 +529,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     activeDot={{ r: 6 }}
                                     connectNulls
                                 />
-                            </BarChart>
+                            </ComposedChart>
                         ) : activeEngine !== "compare" ? (
                             <LineChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
@@ -680,7 +680,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <Cell key={`cell-${index}`} fill={entry.value < 50 ? '#ef4444' : entry.value < targetScore ? '#fbbf24' : '#22c55e'} />
                                             ))}
                                         </Bar>
-                                    </BarChart>
+                                    </ComposedChart>
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="h-full flex items-center justify-center text-slate-500 text-sm">Nenhum subtópico detalhado ainda.</div>
