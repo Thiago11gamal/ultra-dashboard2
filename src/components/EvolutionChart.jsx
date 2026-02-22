@@ -680,7 +680,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <Cell key={`cell-${index}`} fill={entry.value < 50 ? '#ef4444' : entry.value < targetScore ? '#fbbf24' : '#22c55e'} />
                                             ))}
                                         </Bar>
-                                    </ComposedChart>
+                                    </BarChart>
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="h-full flex items-center justify-center text-slate-500 text-sm">Nenhum subtópico detalhado ainda.</div>
