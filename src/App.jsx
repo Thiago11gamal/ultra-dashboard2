@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -54,6 +54,18 @@ function MainLayout() {
   const [forceDesktopMode, setForceDesktopMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+
+  // Global Toasts State
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const handleToastEvent = (e) => {
+      const newToast = { id: Date.now() + Math.random(), ...e.detail };
+      setToasts(prev => [...prev, newToast]);
+    };
+    window.addEventListener('show-toast', handleToastEvent);
+    return () => window.removeEventListener('show-toast', handleToastEvent);
+  }, []);
 
   const showToast = useToast();
   const { levelUpData, closeLevelUpToast } = useGamification(showToast);
@@ -190,6 +202,19 @@ function MainLayout() {
       {/* Global Modals & Toasts */}
       {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={closeLevelUpToast} />}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+
+      {/* Global Event Driven Toast Container */}
+      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+        {toasts.map((toast) => (
+          <div key={toast.id} className="pointer-events-auto">
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToasts(current => current.filter(t => t.id !== toast.id))}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
