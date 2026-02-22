@@ -168,6 +168,24 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 </div>
             </div>
 
+            {/* OVERVIEW STATS */}
+            {stats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
+                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Tempo de Foco</span>
+                        <span className="text-3xl font-black text-white leading-none">{formatTime(stats.totalMinutes)}</span>
+                    </div>
+                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
+                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Total de Sessões</span>
+                        <span className="text-3xl font-black text-purple-400 leading-none">{stats.totalSessions} <span className="text-sm text-slate-500 font-bold ml-1">blocos</span></span>
+                    </div>
+                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
+                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Matéria Favorita</span>
+                        <span className="text-2xl font-black text-indigo-400 truncate leading-tight mt-1" title={stats.topCategory}>{stats.topCategory}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Timeline Content */}
             <div className="relative pl-12 space-y-12 before:content-[''] before:absolute before:left-8 before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup, index) => (

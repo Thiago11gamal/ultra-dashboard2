@@ -143,8 +143,9 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                             >
                                 {/* Tooltip */}
                                 {day && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
-                                        {format(day.date, 'dd/MM')} • {day.minutes > 0 ? `${day.minutes} min` : 'Não estudou'}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                                        <p className="text-[10px] text-slate-400 font-bold capitalize mb-1">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
+                                        <p className="text-xs font-black text-white">{day.minutes > 0 ? (day.minutes >= 60 ? `${Math.floor(day.minutes / 60)}h ${day.minutes % 60 > 0 ? `${Math.round(day.minutes % 60)}m` : ''}` : `${Math.round(day.minutes)} min`) : 'Descanso'}</p>
                                     </div>
                                 )}
                             </div>
