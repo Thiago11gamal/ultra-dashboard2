@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-
+import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 
-export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete }) {
+export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
     // Stable ID counter to avoid regenerating IDs on every render
     const idCounter = useRef(0);
 
@@ -77,14 +77,89 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleAnalyze = () => {
-        // Only require at least one row with subject+topic filled — no strict Dashboard matching.
-        // Users can freely add any discipline/topic, even if not in the Dashboard categories.
+        // 0. Strict Validation: Check if subjects exist in Dashboard
+        if (categories && categories.length > 0) {
+
+            const validDataMap = {};
+            categories.forEach(cat => {
+                const subName = normalize(cat.name);
+                const topics = new Set((cat.tasks || []).map(t => normalize(t.title || t.text || '')));
+                validDataMap[subName] = topics;
+
+                // Add aliases mapping to the same topics
+                if (aliases[subName]) {
+                    aliases[subName].forEach(alias => {
+                        const aliasNorm = normalize(alias);
+                        validDataMap[aliasNorm] = topics;
+                    });
+                }
+            });
+
+            let invalidSubject = null;
+            let invalidTopic = null;
+            let targetSubject = '';
+            let hasErrors = false;
+
+            const validatedRows = rows.map(r => {
+                if (!r.subject && !r.topic) return r;
+
+                const subNorm = normalize(r.subject);
+                const topNorm = normalize(r.topic);
+
+                const isSubValid = r.subject ? !!validDataMap[subNorm] : true;
+
+                let isTopValid = true;
+                if (r.topic) {
+                    if (isSubValid && r.subject) {
+                        isTopValid = validDataMap[subNorm].has(topNorm);
+                    } else if (r.subject) {
+                        isTopValid = false;
+                    } else {
+                        isTopValid = Object.values(validDataMap).some(set => set.has(topNorm));
+                    }
+                }
+
+                let newRow = { ...r };
+
+                if (r.subject && !isSubValid) {
+                    invalidSubject = r.subject;
+                    newRow.subject = '';
+                    hasErrors = true;
+                }
+
+                if (r.topic && !isTopValid) {
+                    invalidTopic = r.topic;
+                    targetSubject = r.subject;
+                    newRow.topic = '';
+                    hasErrors = true;
+                }
+
+                return newRow;
+            });
+
+            if (hasErrors) {
+                setRows(validatedRows);
+
+                if (invalidSubject && invalidTopic) {
+                    setError(`Matéria '${invalidSubject}' e Assunto '${invalidTopic}' não encontrados.`);
+                } else if (invalidSubject) {
+                    setError(`A matéria '${invalidSubject}' não existe no Dashboard.`);
+                } else if (invalidTopic) {
+                    setError(`O assunto '${invalidTopic}' não existe na matéria '${targetSubject}'.`);
+                }
+
+                setAnalysisData(null);
+                return;
+            }
+        }
+
         const validRows = rows.filter(r => r.subject && r.topic);
 
         if (validRows.length === 0) {
             setError("Preencha pelo menos uma linha com Matéria e Assunto.");
             return;
         }
+
 
 
 
