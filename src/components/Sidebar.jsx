@@ -17,32 +17,29 @@ import {
     TrendingUp
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
+import { Link, useLocation } from 'react-router-dom';
 
-export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
-    // Note: We are keeping the component name 'Sidebar' to avoid breaking imports in App.jsx,
-    // but functionally this is now a TopBar.
+export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
+    const location = useLocation();
 
-    // Calculate Gamification Stats
+    // Gamification Stats
     const currentXP = user?.xp || 0;
     const level = calculateLevel(currentXP);
     const progress = calculateProgress(currentXP);
 
     const menuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'coach', label: 'AI Coach', icon: Sparkles },
-        { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
-        { id: 'simulados', label: 'Simulados IA', icon: BrainCircuit },
-        { id: 'stats', label: 'Estatísticas', icon: BarChart3 },
-        { id: 'evolution', label: 'Evolução', icon: TrendingUp },
-        { id: 'heatmap', label: 'Atividade', icon: CalendarDays },
-        { id: 'retention', label: 'Retenção', icon: Brain },
-        { id: 'history', label: 'Histórico', icon: History },
-        { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
-        { id: 'notes', label: 'Notas', icon: FileText },
-        // BUG FIX (1): 'help' uses onOpenHelp callback and does NOT navigate to any tab.
-        // BUG FIX (2): 'settings' removed — there is no 'settings' tab in App.jsx.
-        //              Clicking it set activeTab='settings' which rendered nothing, causing a blank screen.
-        { id: 'help', label: 'Ajuda', icon: HelpCircle, action: 'openHelp' },
+        { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/coach', label: 'AI Coach', icon: Sparkles },
+        { path: '/tasks', label: 'Tarefas', icon: CheckSquare },
+        { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit },
+        { path: '/stats', label: 'Estatísticas', icon: BarChart3 },
+        { path: '/evolution', label: 'Evolução', icon: TrendingUp },
+        { path: '/heatmap', label: 'Atividade', icon: CalendarDays },
+        { path: '/retention', label: 'Retenção', icon: Brain },
+        { path: '/history', label: 'Histórico', icon: History },
+        { path: '/pomodoro', label: 'Pomodoro', icon: Timer },
+        { path: '/notes', label: 'Notas', icon: FileText },
+        { path: '#help', label: 'Ajuda', icon: HelpCircle, action: 'openHelp' },
     ];
 
     return (
@@ -105,30 +102,49 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
                         <div className="flex items-center gap-2">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
-                                const isActive = activeTab === item.id;
+                                const isActive = item.action ? false : location.pathname === item.path;
+
+                                const buttonContent = (
+                                    <>
+                                        <Icon size={20} className={`transition-all duration-300 ${isActive ? 'animate-pulse' : 'group-hover/icon:scale-125 group-hover/icon:-rotate-12'}`} />
+                                    </>
+                                );
+
+                                const className = `p-2 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
+                                    ? 'bg-purple-500/20 text-purple-300'
+                                    : 'hover:bg-white/10 text-slate-400 hover:text-white'
+                                    }`;
+
+                                if (item.action === 'openHelp') {
+                                    return (
+                                        <button
+                                            key={item.path}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (onOpenHelp) onOpenHelp();
+                                                if (isMobile) setCollapsed(true);
+                                            }}
+                                            className={className}
+                                            title={item.label}
+                                        >
+                                            {buttonContent}
+                                        </button>
+                                    );
+                                }
+
                                 return (
-                                    <button
-                                        key={item.id}
+                                    <Link
+                                        key={item.path}
+                                        to={item.path}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (item.id === 'help' && onOpenHelp) {
-                                                onOpenHelp();
-                                            } else {
-                                                setActiveTab(item.id);
-                                            }
-                                            // Auto-collapse on selection (Mobile only)
-                                            if (isMobile) {
-                                                setCollapsed(true);
-                                            }
+                                            if (isMobile) setCollapsed(true);
                                         }}
-                                        className={`p-2 rounded-lg transition-all duration-300 group/icon ${isActive
-                                            ? 'bg-purple-500/20 text-purple-300'
-                                            : 'hover:bg-white/10 text-slate-400 hover:text-white'
-                                            }`}
+                                        className={className}
                                         title={item.label}
                                     >
-                                        <Icon size={20} className={`transition-all duration-300 ${isActive ? 'animate-pulse' : 'group-hover/icon:scale-125 group-hover/icon:-rotate-12'}`} />
-                                    </button>
+                                        {buttonContent}
+                                    </Link>
                                 );
                             })}
                         </div>
