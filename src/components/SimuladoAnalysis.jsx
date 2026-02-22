@@ -196,18 +196,18 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     const correct = parseInt(row.correct) || 0;
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
-                    let status = 'ATENÃ‡ÃƒO';
-                    let action = 'Treino PrÃ¡tico';
+                    let status = 'ATENÇÃO';
+                    let action = 'Treino Prático';
 
                     if (pct >= 80) {
                         status = 'DOMINADO';
-                        action = 'Manter RevisÃ£o';
+                        action = 'Manter Revisão';
                     } else if (pct >= 60) {
                         status = 'BOM';
                         action = 'Refinar Detalhes';
                     } else if (pct <= 40) {
                         status = 'CRÃTICO';
-                        action = 'RevisÃ£o TeÃ³rica + QuestÃµes';
+                        action = 'Revisão Teórica + Questões';
                     }
 
                     disciplinesMap[subj].topics.push({
