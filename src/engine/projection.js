@@ -171,7 +171,6 @@ function calculateVolatility(history) {
         const diff = h1.score - h0.score;
         const time1 = new Date(h1.date).getTime();
         const time0 = new Date(h0.date).getTime();
-        const now = new Date(sorted[sorted.length - 1].date).getTime();
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
         const daysBetween = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));

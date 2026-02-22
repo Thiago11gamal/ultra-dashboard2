@@ -15,7 +15,7 @@ const StatsCards = ({ data }) => {
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 animate-fade-in-down">
             {/* Streak */}
             <div className="bg-[#151720] border border-white/5 rounded-2xl p-6 hover:border-orange-500/30 transition-colors group shadow-lg">
                 <div className="flex items-center gap-3 mb-3">

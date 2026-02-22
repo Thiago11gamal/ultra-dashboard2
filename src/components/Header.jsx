@@ -121,7 +121,7 @@ export default function Header({
     }, [localName, user.name, onUpdateName]);
 
     return (
-        <header className="flex items-center justify-between mb-8 mt-32 z-50 relative">
+        <header className="flex items-center justify-between mb-8 mt-20 z-50 relative">
             {/* Left: Editable Contest Name */}
             <div className="w-1/2">
                 <div className="relative group">

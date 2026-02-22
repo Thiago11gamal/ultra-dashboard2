@@ -105,8 +105,8 @@ export default function Charts({ data, compact = false }) {
                         </ResponsiveContainer>
                         {/* Legend */}
                         <div className="flex flex-wrap gap-3 justify-center mt-4">
-                            {pieData.map((entry, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm">
+                            {pieData.map((entry) => (
+                                <div key={entry.name} className="flex items-center gap-2 text-sm">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
                                     <span className="text-slate-400">{entry.name.split(' ')[0]}</span>
                                 </div>

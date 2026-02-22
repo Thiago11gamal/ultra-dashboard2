@@ -350,7 +350,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
     }, [categories, targetScore]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 animate-fade-in-down">
             {/* Card 1: Linear Regression & Base Prediction (25%) */}
             <div className="col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl border-blue-500">
 
@@ -444,7 +444,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
             </div>
 
             {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass col-span-1 md:col-span-4 p-6 mt-2">
+            <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
                 <div className="flex items-center gap-2 mb-4 text-slate-400">
                     <Activity size={16} />
                     <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
@@ -452,8 +452,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
 
                 {stats.categoryBreakdown.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stats.categoryBreakdown.map((cat, idx) => (
-                            <div key={idx} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
+                        {stats.categoryBreakdown.map((cat) => (
+                            <div key={cat.name} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
                                 <div className="flex justify-between items-center w-full">
                                     <div>
                                         <div className="text-sm font-bold text-slate-200">{cat.name}</div>
@@ -472,8 +472,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                                             <AlertTriangle size={8} /> Maiores Oscilações
                                         </div>
                                         <div className="space-y-1">
-                                            {cat.villains.map((v, vIdx) => (
-                                                <div key={vIdx} className="flex justify-between items-center text-[10px]">
+                                            {cat.villains.map((v) => (
+                                                <div key={v.name} className="flex justify-between items-center text-[10px]">
                                                     <span className="text-slate-400 truncate max-w-[150px]">{v.name}</span>
                                                     <span className="text-red-400/80 font-mono">±{v.sd.toFixed(0)}</span>
                                                 </div>

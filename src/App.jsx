@@ -640,7 +640,7 @@ function App() {
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onExport={handleExport} onImport={handleImport} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} user={data.user} isMobile={isMobile} onOpenHelp={() => setShowHelpGuide(true)} />
-      <main className="p-8 pt-24 transition-all duration-300 w-full">
+      <main className="px-6 lg:px-8 pt-20 pb-8 transition-all duration-300 w-full overflow-x-hidden">
         <Header user={data.user} settings={data.settings} onToggleDarkMode={toggleDarkMode} onUpdateName={updateUserName} contests={safeAppState.contests} activeContestId={safeAppState.activeId} onSwitchContest={switchContest} onCreateContest={createNewContest} onDeleteContest={deleteContest} onUndo={handleUndo} onCloudRestore={handleCloudRestore} currentData={data} />
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fade-in">

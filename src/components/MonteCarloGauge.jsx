@@ -518,7 +518,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             projectDays,
             2000 // simulations
         );
-        console.log("Monte Carlo Simulation Result:", result); // Log simulation results for debugging
+
 
         return result;
     }, [categories, debouncedWeights, projectDays, debouncedTarget]);
@@ -732,23 +732,14 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Projeção de Desempenho</span>
                 </div>
                 <div className="w-full h-36 px-2">
-                    {(() => {
-                        const mean = parseFloat(simulationResult.mean);
-                        const sd = parseFloat(simulationResult.sd);
-                        const low95 = parseFloat(simulationResult.ci95Low);
-                        const high95 = parseFloat(simulationResult.ci95High);
-                        const currentMean = simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : mean;
-                        return (
-                            <GaussianChart
-                                mean={mean}
-                                sd={sd}
-                                low95={low95}
-                                high95={high95}
-                                targetScore={targetScore}
-                                currentMean={currentMean}
-                            />
-                        );
-                    })()}
+                    <GaussianChart
+                        mean={parseFloat(simulationResult.mean)}
+                        sd={parseFloat(simulationResult.sd)}
+                        low95={parseFloat(simulationResult.ci95Low)}
+                        high95={parseFloat(simulationResult.ci95High)}
+                        targetScore={targetScore}
+                        currentMean={simulationResult.currentMean ? parseFloat(simulationResult.currentMean) : parseFloat(simulationResult.mean)}
+                    />
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
                     <div className="flex items-center gap-1.5">
