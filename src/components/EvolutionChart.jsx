@@ -116,58 +116,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return dates.map(d => dataByDate[d]);
     }, [activeCategories]);
 
-    // ── DADOS SEMANAIS (para o engine raw_weekly) ────────
-    const weeklyData = useMemo(() => {
-        if (!activeCategories.length) return [];
-
-        // Função helper: retorna o início da semana ISO (Segunda-feira) de uma data
-        const getWeekStart = (dateStr) => {
-            const d = new Date(`${dateStr}T12:00:00`);
-            const day = d.getDay(); // 0=Dom
-            const diff = day === 0 ? -6 : 1 - day; // ajusta para segunda
-            const monday = new Date(d);
-            monday.setDate(d.getDate() + diff);
-            return monday.toISOString().split('T')[0];
-        };
-
-        // Agrupar todos os históricos por semana e categoria
-        const weekMap = {}; // weekKey -> { catName -> { correct, total } }
-
-        activeCategories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
-            history.forEach(h => {
-                if (!h.date) return;
-                const dateKey = new Date(h.date).toISOString().split('T')[0];
-                const weekKey = getWeekStart(dateKey);
-                if (!weekMap[weekKey]) weekMap[weekKey] = {};
-                if (!weekMap[weekKey][cat.name]) weekMap[weekKey][cat.name] = { correct: 0, total: 0 };
-                weekMap[weekKey][cat.name].correct += (h.correct || 0);
-                weekMap[weekKey][cat.name].total += (h.total || 0);
-            });
-        });
-
-        // Converter para array ordenado por semana
-        return Object.keys(weekMap).sort().map((weekKey, i) => {
-            const [y, m, d] = weekKey.split('-');
-            const row = {
-                weekKey,
-                displayDate: `Sem ${i + 1} (${d}/${m})`,
-            };
-            let totalCorrect = 0;
-            let totalQ = 0;
-            activeCategories.forEach(cat => {
-                const entry = weekMap[weekKey][cat.name];
-                const pct = entry && entry.total > 0 ? (entry.correct / entry.total) * 100 : null;
-                row[`week_${cat.name}`] = pct !== null ? parseFloat(pct.toFixed(1)) : null;
-                row[`week_total_${cat.name}`] = entry?.total || 0;
-                row[`week_correct_${cat.name}`] = entry?.correct || 0;
-                if (entry) { totalCorrect += entry.correct; totalQ += entry.total; }
-            });
-            // Média global da semana
-            row.weekAvg = totalQ > 0 ? parseFloat(((totalCorrect / totalQ) * 100).toFixed(1)) : null;
-            return row;
-        });
-    }, [activeCategories]);
 
     // ── DADOS DO HEATMAP (por dia individual: linhas=matérias, colunas=datas) ──
     const heatmapData = useMemo(() => {
@@ -289,7 +237,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             });
         }
         return pts;
-    }, [activeEngine, timeline, focusCategory, mcProjection]);
+    }, [timeline, focusCategory, mcProjection]); // activeEngine removido: compareData não depende dele
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
@@ -638,7 +586,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <Line
                                                 key={cat.id}
                                                 type={engine.style}
-                                                dataKey={`${engine.prefix}${cat.name}`}
+                                                dataKey={engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`}
                                                 name={cat.name}
                                                 stroke={cat.color}
                                                 strokeWidth={isFocused ? 3.5 : 2}

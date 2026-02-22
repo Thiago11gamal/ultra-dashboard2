@@ -497,7 +497,7 @@ function App() {
 
   const addCategory = useCallback((input) => {
     if (!input || typeof input !== 'string') return;
-    const newCat = { id: `cat-${Date.now()}`, name: input, color: '#3b82f6', icon: '📚', tasks: [] };
+    const newCat = { id: `cat-${Date.now()}`, name: input, color: '#3b82f6', icon: '📚', tasks: [], weight: 10 };
     setData(prev => ({ ...prev, categories: [...prev.categories, newCat] }));
     showToast('Disciplina adicionada!', 'success');
   }, [setData, showToast]);
@@ -689,7 +689,7 @@ function App() {
         )}
         {activeTab === 'evolution' && (
           <div className="animate-fade-in">
-            <EvolutionChart categories={data.categories} targetScore={70} />
+            <EvolutionChart categories={data.categories} targetScore={data.user?.targetScore ?? 70} />
           </div>
         )}
         {activeTab === 'coach' && (
