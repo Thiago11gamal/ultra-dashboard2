@@ -288,7 +288,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 // Update state
                 setTimeLeft(() => {
-                    if (expectedTimeLeft <= 0) return 0;
+                    if (expectedTimeLeft <= 0) {
+                        clearInterval(interval);
+                        return 0;
+                    }
                     return expectedTimeLeft;
                 });
             }, 100 / speed); // Smoother tick rate (100ms)
@@ -703,7 +706,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                 }}
-                className={`w-full px-12 py-8 rounded-2xl relative overflow-hidden border border-white/20
+                className={`w-full px-8 sm:px-12 pt-8 pb-10 rounded-2xl relative overflow-hidden border border-white/20
                     ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
                 <div className="flex items-center justify-between mb-4">
