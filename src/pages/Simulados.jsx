@@ -17,10 +17,13 @@ export default function Simulados() {
             const existingRows = prev.simuladoRows || [];
             // Remove as linhas de hoje para evitar repetições antes de reinseri-las atualizadas
             const nonTodayRows = existingRows.filter(row => !row.createdAt || new Date(row.createdAt).toDateString() !== today);
-            const processedTodayRows = updatedTodayRows.map(row => {
-                const { validated, ...rest } = row;
-                return { ...rest, createdAt: row.createdAt || Date.now() };
-            });
+            // BUG FIX: preserve the 'validated' field — do NOT destructure it out.
+            // Previously { validated, ...rest } was stripping 'validated' on every keystroke,
+            // causing StudyHistory to ignore all rows (it filters by r.validated).
+            const processedTodayRows = updatedTodayRows.map(row => ({
+                ...row,
+                createdAt: row.createdAt || Date.now()
+            }));
             return { ...prev, simuladoRows: [...nonTodayRows, ...processedTodayRows] };
         });
     };
@@ -75,10 +78,18 @@ export default function Simulados() {
             });
 
             const today = new Date().toDateString();
+            // BUG FIX: Instead of trying to match rawRows back to stored rows via fragile
+            // string/number comparisons, mark all today's rows that have subject+topic as validated.
+            // rawRows are the rows the user actually analyzed — stamp them all as validated.
+            const processedKeys = new Set(
+                rawRows
+                    .filter(r => r.subject && r.topic)
+                    .map(r => `${(r.subject || '').trim()}|${(r.topic || '').trim()}`)
+            );
             const validatedRows = (prev.simuladoRows || []).map(row => {
                 if (row.createdAt && new Date(row.createdAt).toDateString() === today) {
-                    const wasProcessed = rawRows.some(r => r.subject === row.subject && r.topic === row.topic && r.correct === row.correct && r.total === row.total);
-                    if (wasProcessed) return { ...row, validated: true };
+                    const key = `${(row.subject || '').trim()}|${(row.topic || '').trim()}`;
+                    if (processedKeys.has(key)) return { ...row, validated: true };
                 }
                 return row;
             });
