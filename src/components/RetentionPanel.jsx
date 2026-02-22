@@ -200,43 +200,61 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-4">
                 {/* Average Retention */}
-                <div className="glass p-4 border-l-4 border-purple-500">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                        <BrainCircuit size={14} />
-                        Média Geral
+                <div className="glass p-4 border-l-4 border-purple-500 relative overflow-hidden group hover:border-purple-400 transition-colors">
+                    <BrainCircuit size={80} className="absolute -right-4 -bottom-4 text-purple-500/10 group-hover:text-purple-500/20 transition-colors" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                            <BrainCircuit size={14} />
+                            Média Geral
+                        </div>
+                        <div className="text-3xl font-black text-white mb-2">{stats.avgRetention}%</div>
+
+                        {/* Progress Bar */}
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${stats.avgRetention}%` }} />
+                        </div>
+
+                        <div className="text-xs text-slate-500">{stats.totalTasks} assuntos</div>
                     </div>
-                    <div className="text-3xl font-black text-white">{stats.avgRetention}%</div>
-                    <div className="text-xs text-slate-500 mt-1">{stats.totalTasks} assuntos</div>
                 </div>
 
                 {/* Critical */}
-                <div className="glass p-4 border-l-4 border-red-500">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                        <AlertTriangle size={14} />
-                        Críticos
+                <div className="glass p-4 border-l-4 border-red-500 relative overflow-hidden group hover:border-red-400 transition-colors">
+                    <AlertTriangle size={80} className="absolute -right-4 -bottom-4 text-red-500/10 group-hover:text-red-500/20 transition-colors" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                            <AlertTriangle size={14} />
+                            Críticos
+                        </div>
+                        <div className="text-3xl font-black text-red-400">{stats.critical}</div>
+                        <div className="text-xs text-slate-500 mt-1">precisam revisão</div>
                     </div>
-                    <div className="text-3xl font-black text-red-400">{stats.critical}</div>
-                    <div className="text-xs text-slate-500 mt-1">precisam revisão</div>
                 </div>
 
                 {/* Warning */}
-                <div className="glass p-4 border-l-4 border-yellow-500">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                        <TrendingDown size={14} />
-                        Atenção
+                <div className="glass p-4 border-l-4 border-yellow-500 relative overflow-hidden group hover:border-yellow-400 transition-colors">
+                    <TrendingDown size={80} className="absolute -right-4 -bottom-4 text-yellow-500/10 group-hover:text-yellow-500/20 transition-colors" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                            <TrendingDown size={14} />
+                            Atenção
+                        </div>
+                        <div className="text-3xl font-black text-yellow-400">{stats.warning}</div>
+                        <div className="text-xs text-slate-500 mt-1">em declínio</div>
                     </div>
-                    <div className="text-3xl font-black text-yellow-400">{stats.warning}</div>
-                    <div className="text-xs text-slate-500 mt-1">em declínio</div>
                 </div>
 
                 {/* Healthy */}
-                <div className="glass p-4 border-l-4 border-emerald-500">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                        <CheckCircle2 size={14} />
-                        Saudáveis
+                <div className="glass p-4 border-l-4 border-emerald-500 relative overflow-hidden group hover:border-emerald-400 transition-colors">
+                    <CheckCircle2 size={80} className="absolute -right-4 -bottom-4 text-emerald-500/10 group-hover:text-emerald-500/20 transition-colors" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                            <CheckCircle2 size={14} />
+                            Saudáveis
+                        </div>
+                        <div className="text-3xl font-black text-emerald-400">{stats.healthy}</div>
+                        <div className="text-xs text-slate-500 mt-1">ótimo</div>
                     </div>
-                    <div className="text-3xl font-black text-emerald-400">{stats.healthy}</div>
-                    <div className="text-xs text-slate-500 mt-1">ótimo</div>
                 </div>
             </div>
 
