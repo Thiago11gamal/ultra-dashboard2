@@ -131,8 +131,16 @@ export function projectScore(history, projectDays = 60) {
     if (!sortedHistory || sortedHistory.length === 0) return 0;
 
     const slope = calculateSlope(sortedHistory);
-    const currentScore =
-        sortedHistory[sortedHistory.length - 1].score;
+
+    // Bugfix: Inject EMA (Bayesian Shrinkage) as the anchor point instead of Raw Score
+    let currentScore = sortedHistory[sortedHistory.length - 1].score;
+    if (sortedHistory.length > 2) {
+        let ema = sortedHistory[0].score;
+        for (let i = 1; i < sortedHistory.length; i++) {
+            ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
+        }
+        currentScore = ema;
+    }
 
     // Relaxed damping: 45 instead of 30, allows more linear projection for longer
     const effectiveDays =
@@ -218,7 +226,17 @@ export function monteCarloSimulation(
         volatility: 0
     };
 
-    const currentScore = sortedHistory[sortedHistory.length - 1].score;
+    // Fix: Baseline uses EMA instead of isolated raw score.
+    let baselineScore = sortedHistory[sortedHistory.length - 1].score;
+    if (sortedHistory.length > 2) {
+        let ema = sortedHistory[0].score;
+        for (let i = 1; i < sortedHistory.length; i++) {
+            ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
+        }
+        baselineScore = ema;
+    }
+
+    const currentScore = sortedHistory[sortedHistory.length - 1].score; // Used for returning UI only
 
     // 1. Calcular Tendência (Drift)
     const drift = calculateSlope(sortedHistory);
@@ -260,7 +278,7 @@ export function monteCarloSimulation(
     const dayDrift = days === 0 ? 0 : drift;
 
     for (let s = 0; s < safeSimulations; s++) {
-        let score = currentScore;
+        let score = baselineScore;
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;

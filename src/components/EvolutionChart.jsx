@@ -189,8 +189,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         (focusCategory.simuladoStats?.history || []).forEach(h => {
             (h.topics || []).forEach(t => {
                 if (!topicMap[t.name]) topicMap[t.name] = { correct: 0, total: 0 };
-                topicMap[t.name].correct += t.correct;
-                topicMap[t.name].total += t.total;
+                topicMap[t.name].correct += parseInt(t.correct, 10) || 0;
+                topicMap[t.name].total += parseInt(t.total, 10) || 0;
             });
         });
 
