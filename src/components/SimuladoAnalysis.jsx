@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
@@ -24,11 +24,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [error, setError] = useState(null);
 
     const updateRow = (index, field, value) => {
-        // 1. Sanitização: Apenas números para campos numéricos
+        // 1. SanitizaÃ§Ã£o: Apenas nÃºmeros para campos numÃ©ricos
         let finalValue = value;
 
         if (field === 'correct' || field === 'total') {
-            // Remove tudo que não for dígito
+            // Remove tudo que nÃ£o for dÃ­gito
             const val = parseInt(String(value).replace(/\D/g, '')) || 0;
 
             if (field === 'correct') {
@@ -48,7 +48,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }
 
-        // 3. Atualização Imutável
+        // 3. AtualizaÃ§Ã£o ImutÃ¡vel
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 return { ...row, [field]: finalValue };
@@ -70,7 +70,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const resetScores = () => {
-        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matérias?')) {
+        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matÃ©rias?')) {
             const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
             setRows(newRows);
         }
@@ -87,7 +87,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 validDataMap[subName] = topics;
 
                 // Add aliases mapping to the same topics
-                // This allows inputs like "Info" to map to "Noções de Informática"
+                // This allows inputs like "Info" to map to "NoÃ§Ãµes de InformÃ¡tica"
                 if (aliases[subName]) {
                     aliases[subName].forEach(alias => {
                         const aliasNorm = normalize(alias);
@@ -147,11 +147,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setRows(validatedRows);
 
                 if (invalidSubject && invalidTopic) {
-                    setError(`Matéria '${invalidSubject}' e Assunto '${invalidTopic}' não encontrados.`);
+                    setError(`MatÃ©ria '${invalidSubject}' e Assunto '${invalidTopic}' nÃ£o encontrados.`);
                 } else if (invalidSubject) {
-                    setError(`A matéria '${invalidSubject}' não existe no Dashboard.`);
+                    setError(`A matÃ©ria '${invalidSubject}' nÃ£o existe no Dashboard.`);
                 } else if (invalidTopic) {
-                    setError(`O assunto '${invalidTopic}' não existe na matéria '${targetSubject}'.`);
+                    setError(`O assunto '${invalidTopic}' nÃ£o existe na matÃ©ria '${targetSubject}'.`);
                 }
 
                 setAnalysisData(null);
@@ -162,7 +162,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const validRows = rows.filter(r => r.subject && r.topic);
 
         if (validRows.length === 0) {
-            setError("Preencha pelo menos uma linha com Matéria e Assunto.");
+            setError("Preencha pelo menos uma linha com MatÃ©ria e Assunto.");
             return;
         }
 
@@ -196,18 +196,18 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     const correct = parseInt(row.correct) || 0;
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
-                    let status = 'ATENÇÃO';
-                    let action = 'Treino Prático';
+                    let status = 'ATENÃ‡ÃƒO';
+                    let action = 'Treino PrÃ¡tico';
 
                     if (pct >= 80) {
                         status = 'DOMINADO';
-                        action = 'Manter Revisão';
+                        action = 'Manter RevisÃ£o';
                     } else if (pct >= 60) {
                         status = 'BOM';
                         action = 'Refinar Detalhes';
                     } else if (pct <= 40) {
-                        status = 'CRÍTICO';
-                        action = 'Revisão Teórica + Questões';
+                        status = 'CRÃTICO';
+                        action = 'RevisÃ£o TeÃ³rica + QuestÃµes';
                     }
 
                     disciplinesMap[subj].topics.push({
@@ -232,7 +232,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     let overview = "";
                     if (discPct >= 80) overview = `Excelente (${discPct}%). Continue assim!`;
-                    else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lá.`;
+                    else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lÃ¡.`;
                     else if (discPct <= 50) overview = `Baixo (${discPct}%). Foque na base.`;
                     else overview = `Mediano (${discPct}%). Pode evoluir.`;
 
@@ -253,9 +253,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
 
                 let generalInsight = "";
-                if (globalPct >= 80) generalInsight = `Resultado Incrível! ${globalPct}%. Caminho certo.`;
+                if (globalPct >= 80) generalInsight = `Resultado IncrÃ­vel! ${globalPct}%. Caminho certo.`;
                 else if (globalPct >= 60) generalInsight = `Bom trabalho! ${globalPct}%. Ajuste os detalhes.`;
-                else generalInsight = `Sinal de Alerta. ${globalPct}%. Reavalie a estratégia.`;
+                else generalInsight = `Sinal de Alerta. ${globalPct}%. Reavalie a estratÃ©gia.`;
 
                 const data = {
                     disciplines,
@@ -278,201 +278,192 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     return (
-        <div className="w-full mx-auto space-y-8 animate-fade-in-down pb-20">
-            {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-4 bg-purple-500/20 rounded-2xl border border-purple-500/30">
-                        <BrainCircuit size={40} className="text-purple-400" />
+        <div className="w-full mx-auto space-y-6 animate-fade-in-down pb-20">
+
+            {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <header className="flex items-center gap-4">
+                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-500/30 shrink-0">
+                    <BrainCircuit size={32} className="text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-2xl font-bold neon-text">IA Analyzer Pro</h2>
+                        <span className="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-300 border border-purple-500/20 font-bold uppercase tracking-wider">
+                            Modo Offline
+                        </span>
                     </div>
-                    <div>
-                        <h2 className="text-3xl font-bold neon-text">IA Analyzer Pro <span className="text-xs bg-purple-500/20 px-2 py-1 rounded text-purple-300 ml-2">Modo Offline</span></h2>
-                        <p className="text-slate-400">Identificando suas fraquezas para você evoluir mais rápido.</p>
-                    </div>
+                    <p className="text-slate-400 text-sm">Identifica fraquezas e gera um plano de revisÃ£o personalizado.</p>
                 </div>
             </header>
 
-            {/* Main Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            {/* â”€â”€ GRID PRINCIPAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* 1. Input Panel (Left implementation) */}
-                <div className="lg:col-span-5 glass p-6 flex flex-col min-h-[550px] bg-slate-900/50 border-r border-white/5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                            <FileText size={20} className="text-blue-400" />
+                {/* â•â•â•â• PAINEL ESQUERDO: Entrada de dados â•â•â•â• */}
+                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-lg">
+
+                    {/* CabeÃ§alho do painel */}
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-base font-bold flex items-center gap-2 text-slate-100">
+                            <FileText size={16} className="text-blue-400" />
                             Dados do Simulado
                         </h3>
-                        <div className="flex gap-3">
-                            <button onClick={resetScores} className="text-xs text-slate-500 hover:text-yellow-400 transition-colors">
-                                Zerar Valores
+                        <div className="flex gap-2">
+                            <button onClick={resetScores}
+                                className="text-[11px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
+                                Zerar
                             </button>
-                            <button onClick={() => { if (window.confirm('Limpar tudo?')) setRows([{ subject: '', topic: '', correct: 0, total: 0 }]); }} className="text-xs text-slate-500 hover:text-red-400 transition-colors">
-                                Limpar Tudo
+                            <button onClick={() => { if (window.confirm('Limpar tudo?')) setRows([{ subject: '', topic: '', correct: 0, total: 0 }]); }}
+                                className="text-[11px] text-slate-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-400/10 border border-transparent hover:border-red-400/20">
+                                Limpar
                             </button>
-
                         </div>
                     </div>
 
-                    {/* Fixed height container for table to keep button accessible but allow scrolling */}
-                    <div className="h-[450px] overflow-auto custom-scrollbar mb-6 pr-1 border border-white/5 rounded-lg bg-black/20">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 bg-[#0f1016] z-10 shadow-lg">
-                                <tr>
-                                    <th className="p-2 text-[10px] font-bold text-slate-500 uppercase">Matéria</th>
-                                    <th className="p-2 text-[10px] font-bold text-slate-500 uppercase">Assunto</th>
-                                    <th className="p-2 text-[10px] font-bold text-slate-500 uppercase w-14 text-center">Acertos</th>
-                                    <th className="p-2 text-[10px] font-bold text-slate-500 uppercase w-14 text-center">Total</th>
-                                    <th className="w-8"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {rows.map((row, index) => (
-                                    <tr key={row.id || index} className="group hover:bg-white/5">
-                                        <td className="p-1"><input type="text" value={row.subject} onChange={(e) => updateRow(index, 'subject', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm" placeholder="Matéria" /></td>
-                                        <td className="p-1"><input type="text" value={row.topic} onChange={(e) => updateRow(index, 'topic', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm" placeholder="Assunto" /></td>
-                                        <td className="p-1"><input type="number" min="0" value={row.correct} onChange={(e) => updateRow(index, 'correct', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm text-center font-mono text-green-400" /></td>
-                                        <td className="p-1"><input type="number" min="0" value={row.total} onChange={(e) => updateRow(index, 'total', e.target.value)} className="w-full bg-transparent p-1 focus:bg-white/5 rounded outline-none text-sm text-center font-mono" /></td>
-                                        <td className="p-1 text-center"><button onClick={() => removeRow(index)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={12} /></button></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    {/* Colunas header */}
+                    <div className="grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1">
+                        {['MatÃ©ria', 'Assunto', 'âœ“', 'Total', ''].map((h, i) => (
+                            <span key={i} className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center first:text-left">{h}</span>
+                        ))}
                     </div>
 
-                    <div className="flex gap-3 mt-auto">
-                        <button onClick={addRow} className="px-4 py-3 border border-white/10 rounded-xl text-slate-400 hover:bg-white/5"><Plus size={18} /></button>
-                        <button onClick={handleAnalyze} disabled={loading} className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 ${loading ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
-                            {loading ? <span className="animate-spin">⌛</span> : <><Play size={18} /> Gerar Plano de Revisão</>}
+                    {/* Linhas de entrada */}
+                    <div className="space-y-1.5 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+                        {rows.map((row, index) => {
+                            const pct = row.total > 0 ? Math.round((row.correct / row.total) * 100) : null;
+                            const pctColor = pct == null ? 'bg-slate-700' : pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct <= 40 ? 'bg-red-500' : 'bg-yellow-500';
+                            return (
+                                <div key={row.id || index}
+                                    className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                    <input type="text" value={row.subject}
+                                        onChange={(e) => updateRow(index, 'subject', e.target.value)}
+                                        className="bg-transparent outline-none text-sm text-slate-200 placeholder:text-slate-600 w-full min-w-0"
+                                        placeholder="MatÃ©ria" />
+                                    <input type="text" value={row.topic}
+                                        onChange={(e) => updateRow(index, 'topic', e.target.value)}
+                                        className="bg-transparent outline-none text-sm text-slate-300 placeholder:text-slate-600 w-full min-w-0"
+                                        placeholder="Assunto" />
+                                    <input type="number" min="0" value={row.correct}
+                                        onChange={(e) => updateRow(index, 'correct', e.target.value)}
+                                        className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                    <input type="number" min="0" value={row.total}
+                                        onChange={(e) => updateRow(index, 'total', e.target.value)}
+                                        className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                    <button onClick={() => removeRow(index)}
+                                        className="text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* BotÃµes de aÃ§Ã£o */}
+                    <div className="flex gap-2 pt-1 border-t border-slate-800 mt-auto">
+                        <button onClick={addRow}
+                            className="px-3 py-2.5 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600 transition-all">
+                            <Plus size={16} />
+                        </button>
+                        <button onClick={handleAnalyze} disabled={loading}
+                            className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 py-2.5 text-sm transition-all ${loading
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30'}`}>
+                            {loading
+                                ? <><span className="animate-spin text-base">âŒ›</span> Analisando...</>
+                                : <><Play size={16} /> Gerar Plano de RevisÃ£o</>
+                            }
                         </button>
                     </div>
                 </div>
 
-                {/* 2. Output Panel (Right implementation) */}
-                <div className="lg:col-span-7 glass p-6 min-h-[550px] bg-slate-900/50 border-l border-white/5 flex flex-col">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-semibold flex items-center gap-2">
-                            <CheckCircle2 size={20} className="text-green-400" />
-                            Relatório da Performance
-                        </h3>
+                {/* â•â•â•â• PAINEL DIREITO: Resultado â•â•â•â• */}
+                <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 min-h-[500px] shadow-lg flex flex-col">
+
+                    <div className="flex items-center gap-2 mb-5">
+                        <CheckCircle2 size={16} className="text-green-400" />
+                        <h3 className="text-base font-bold text-slate-100">RelatÃ³rio de Performance</h3>
                     </div>
 
                     {error && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl flex items-center gap-3">
-                            <AlertCircle size={20} />
+                        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl flex items-center gap-3 text-sm">
+                            <AlertCircle size={18} />
                             <p>{error}</p>
                         </div>
                     )}
 
                     {!analysisData && !loading && !error && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-500 min-h-[400px] border-2 border-dashed border-white/5 rounded-3xl">
-                            <BrainCircuit size={64} className="opacity-20 mb-4" />
-                            <p className="max-w-xs text-center text-sm">Seus dados serão processados instantaneamente para gerar tabelas de revisão personalizadas.</p>
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-600 min-h-[380px] border-2 border-dashed border-slate-800 rounded-2xl gap-4">
+                            <BrainCircuit size={52} className="opacity-30" />
+                            <p className="max-w-xs text-center text-sm leading-relaxed">
+                                Preencha os dados ao lado e clique em <strong className="text-slate-400">Gerar Plano de RevisÃ£o</strong> para ver o relatÃ³rio aqui.
+                            </p>
                         </div>
                     )}
 
                     {analysisData && (
-                        <div className="space-y-6 animate-fade-in-up overflow-auto custom-scrollbar pr-2">
-                            {/* General Insight Card */}
-                            <div className="p-4 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-2xl flex gap-4 items-start shadow-lg">
-                                <div className="p-2 bg-purple-500/20 rounded-lg shrink-0">
-                                    <BrainCircuit size={24} className="text-purple-300" />
+                        <div className="space-y-5 overflow-y-auto custom-scrollbar pr-1 flex-1">
+
+                            {/* Insight geral */}
+                            <div className="p-4 bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border border-purple-500/25 rounded-2xl flex gap-3 items-start">
+                                <div className="p-2 bg-purple-500/20 rounded-xl shrink-0 mt-0.5">
+                                    <BrainCircuit size={18} className="text-purple-300" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-purple-200 text-sm uppercase tracking-wide mb-1">Insight Geral</h4>
-                                    {/* BUG FIX: was rendering string literal '"{analysisData.generalInsight}"' */}
-                                    <p className="text-slate-300 text-sm leading-relaxed">“{analysisData.generalInsight}”</p>
+                                    <h4 className="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-1">Insight Geral</h4>
+                                    <p className="text-slate-300 text-sm leading-relaxed">"{analysisData.generalInsight}"</p>
                                 </div>
                             </div>
 
-                            {/* Disciplines Grid */}
-                            <div className="grid grid-cols-1 gap-6">
-                                {analysisData.disciplines.map((disc, idx) => (
-                                    <div key={idx} className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-purple-500/30 transition-colors">
-                                        <div className="bg-black/20 p-4 flex justify-between items-center border-b border-white/5">
-                                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                                <span className="w-1.5 h-6 bg-red-500 rounded-full inline-block shadow-[0_0_10px_rgba(239,68,68,0.5)]"></span>
-                                                {disc.name}
-                                            </h3>
-                                            <span className="text-[10px] text-slate-400 italic bg-white/5 px-2 py-1 rounded border border-white/5 max-w-[50%] truncate">{disc.overview}</span>
-                                        </div>
+                            {/* Cards por disciplina */}
+                            {analysisData.disciplines.map((disc, idx) => (
+                                <div key={idx} className="bg-slate-800/50 rounded-2xl border border-slate-700/60 overflow-hidden hover:border-slate-600 transition-colors">
 
-                                        <div className="p-0">
-                                            <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
-                                                <thead className="bg-white/5 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                                                    <tr>
-                                                        <th className="p-3 pl-4 text-left" style={{ width: '30%' }}>Assunto</th>
-                                                        <th className="p-3 text-center" style={{ width: '15%' }}>Status</th>
-                                                        <th className="p-3 text-center" style={{ width: '15%' }}>Desempenho</th>
-                                                        <th className="p-3 text-right pr-4" style={{ width: '40%' }}>Ação Recomendada</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-white/5 text-sm">
-                                                    {disc.topics.map((topic, tIdx) => {
-                                                        const pct = topic.percentage || 0;
-                                                        let rowClass = "hover:bg-white/5 transition-colors";
-                                                        let textClass = "text-slate-200";
-                                                        let statusConfig = { label: 'Atenção', color: 'yellow', icon: '⚠️' };
-
-                                                        if (pct >= 80) {
-                                                            rowClass = "bg-green-500/5 hover:bg-green-500/10 transition-colors border-l-2 border-green-500";
-                                                            textClass = "text-green-100 font-medium";
-                                                            statusConfig = { label: 'DOMINADO', color: 'green', icon: '🏆' };
-                                                        } else if (pct >= 60) {
-                                                            rowClass = "bg-blue-500/5 hover:bg-blue-500/10 transition-colors border-l-2 border-blue-500";
-                                                            textClass = "text-blue-100 font-medium";
-                                                            statusConfig = { label: 'BOM', color: 'blue', icon: '👍' };
-                                                        } else if (pct <= 40) {
-                                                            rowClass = "bg-red-500/5 hover:bg-red-500/10 transition-colors border-l-2 border-red-500";
-                                                            textClass = "text-red-100";
-                                                            statusConfig = { label: 'CRÍTICO', color: 'red', icon: '🚨' };
-                                                        } else {
-                                                            textClass = "text-yellow-100";
-                                                            statusConfig = { label: 'ATENÇÃO', color: 'yellow', icon: '⚠️' };
-                                                        }
-
-                                                        return (
-                                                            <tr key={tIdx} className={rowClass}>
-                                                                <td className="p-3 pl-4 font-medium">
-                                                                    <span className={textClass}>{topic.name}</span>
-                                                                </td>
-                                                                <td className="p-3 text-center">
-                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-sm
-                                                                        ${statusConfig.color === 'green' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                                            statusConfig.color === 'blue' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                                                                statusConfig.color === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                                                    'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
-                                                                        <span>{statusConfig.icon}</span>
-                                                                        {statusConfig.label}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-3 text-center">
-                                                                    <div className="flex flex-col items-center justify-center">
-                                                                        <div className="relative">
-                                                                            <svg className="w-10 h-10 transform -rotate-90">
-                                                                                <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent" className="text-slate-700/50" />
-                                                                                <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="3" fill="transparent"
-                                                                                    strokeDasharray={2 * Math.PI * 16} strokeDashoffset={2 * Math.PI * 16 * (1 - pct / 100)}
-                                                                                    className={pct >= 80 ? 'text-green-500' : pct >= 60 ? 'text-blue-500' : pct <= 40 ? 'text-red-500' : 'text-yellow-500'} />
-                                                                            </svg>
-                                                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">{pct}%</span>
-                                                                        </div>
-                                                                        <span className="text-[9px] text-slate-500 mt-1">{topic.correct}/{topic.total}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-3 text-right">
-                                                                    <span className="text-xs text-slate-300 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 inline-block max-w-[200px] truncate hover:whitespace-normal hover:bg-black/80 hover:scale-105 transition-all z-10 relative">
-                                                                        {topic.action}
-                                                                    </span>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    {/* CabeÃ§alho da disciplina */}
+                                    <div className="flex justify-between items-center px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
+                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                            <span className="w-1.5 h-5 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full inline-block shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+                                            {disc.name}
+                                        </h3>
+                                        <span className="text-[10px] text-slate-400 italic bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700/50 max-w-[45%] truncate">
+                                            {disc.overview}
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
+
+                                    {/* TÃ³picos */}
+                                    <div className="divide-y divide-slate-700/30">
+                                        {disc.topics.map((topic, tIdx) => {
+                                            const pct = topic.percentage || 0;
+                                            const cfg =
+                                                pct >= 80 ? { label: 'Dominado', icon: 'ðŸ†', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
+                                                    pct >= 60 ? { label: 'Bom', icon: 'ðŸ‘', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
+                                                        pct <= 40 ? { label: 'CrÃ­tico', icon: 'ðŸš¨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
+                                                            { label: 'AtenÃ§Ã£o', icon: 'âš ï¸', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
+                                            return (
+                                                <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
+                                                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                        <span className={`text-sm font-medium truncate flex-1 ${cfg.text}`}>{topic.name}</span>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <span className="text-[10px] font-mono text-slate-500">{topic.correct}/{topic.total}</span>
+                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${cfg.badge}`}>
+                                                                {cfg.icon} {cfg.label}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Barra de progresso */}
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                                                        </div>
+                                                        <span className={`text-[10px] font-black w-8 text-right ${cfg.text}`}>{pct}%</span>
+                                                    </div>
+                                                    {/* AÃ§Ã£o */}
+                                                    <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">â†’ {topic.action}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -481,3 +472,4 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         </div>
     );
 }
+
