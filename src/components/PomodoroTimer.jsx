@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
@@ -168,9 +168,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
     };
 
-    // --- ROBUST STATE SAVING ---
-    // Save state frequently (on every tick basically) or on major state changes
+    // --- ROBUST STATE SAVING (THROTTLED) ---
+    // Save state at most once every 2 seconds to avoid thrashing localStorage at 10x/sec
+    const lastSaveRef = useRef(0);
     useEffect(() => {
+        const now = Date.now();
+        if (now - lastSaveRef.current < 2000) return; // Throttle: max 1 save per 2s
+        lastSaveRef.current = now;
         const stateToSave = {
             mode,
             timeLeft,
@@ -179,9 +183,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             completedCycles,
             targetCycles,
             sessionHistory,
-            savedAt: Date.now(), // Timestamp is crucial for Resume Logic
-            activeTaskId: activeSubject?.taskId, // Bind state to specific task
-            sessionInstanceId: activeSubject?.sessionInstanceId // Bind to specific click instance
+            savedAt: now,
+            activeTaskId: activeSubject?.taskId,
+            sessionInstanceId: activeSubject?.sessionInstanceId
         };
         localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
     }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
@@ -553,25 +557,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             >
                 <div className="relative z-10 w-full flex flex-col items-center">
                     {/* Subject Level Indicator - Left Side */}
-                    {activeSubject && (() => {
-                        // Mirror the Dashboard "Level" (which is actually Priority)
-                        // No calculation, just display what is on the task
+                    {(() => {
+                        if (!activeSubject) return null;
                         const priority = activeSubject.priority || 'medium';
-
                         let label = 'MÉDIA';
                         let levelColor = "text-stone-950 bg-amber-400 border-amber-500 shadow-lg shadow-black/40";
-
-                        if (priority === 'high') {
-                            label = 'ALTA';
-                            levelColor = "text-white bg-red-600 border-red-700 shadow-lg shadow-black/40";
-                        } else if (priority === 'medium') {
-                            label = 'MÉDIA';
-                            levelColor = "text-stone-950 bg-amber-400 border-amber-500 shadow-lg shadow-black/40";
-                        } else if (priority === 'low') {
-                            label = 'BAIXA';
-                            levelColor = "text-white bg-emerald-600 border-emerald-700 shadow-lg shadow-black/40";
-                        }
-
+                        if (priority === 'high') { label = 'ALTA'; levelColor = "text-white bg-red-600 border-red-700 shadow-lg shadow-black/40"; }
+                        else if (priority === 'low') { label = 'BAIXA'; levelColor = "text-white bg-emerald-600 border-emerald-700 shadow-lg shadow-black/40"; }
                         return (
                             <div className="absolute top-6 left-6 flex flex-col items-center gap-1">
                                 <div className={`px-3 py-2 rounded-lg border flex flex-col items-center justify-center ${levelColor}`}>

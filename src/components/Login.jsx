@@ -137,6 +137,7 @@ export default function Login() {
                             <input
                                 type="email"
                                 placeholder="seu@email.com"
+                                value={email}
                                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
                                 required
                                 suppressHydrationWarning
