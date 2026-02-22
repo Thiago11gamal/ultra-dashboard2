@@ -434,10 +434,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         {disc.topics.map((topic, tIdx) => {
                                             const pct = topic.percentage || 0;
                                             const cfg =
-                                                pct >= 80 ? { label: 'Dominado', icon: 'ðŸ†', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
-                                                    pct >= 60 ? { label: 'Bom', icon: 'ðŸ‘', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
+                                                pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
+                                                    pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
                                                         pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
-                                                            { label: 'AtenÃ§Ã£o', icon: 'âš ï¸', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
+                                                            { label: 'Atenção', icon: '⚠️', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
                                             return (
                                                 <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
                                                     <div className="flex items-center justify-between gap-3 mb-1.5">
