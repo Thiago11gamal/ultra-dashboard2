@@ -26,6 +26,36 @@ export function useContestData(currentUser) {
             (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+
+                    // --- SANITIZE ENCODING BUGS IN HISTORY ---
+                    if (data && data.contests) {
+                        Object.keys(data.contests).forEach(cid => {
+                            const contest = data.contests[cid];
+                            if (contest.categories) {
+                                contest.categories.forEach(cat => {
+                                    if (cat.simuladoStats && cat.simuladoStats.history) {
+                                        cat.simuladoStats.history.forEach(h => {
+                                            if (h.topics) {
+                                                h.topics.forEach(t => {
+                                                    if (t.status && typeof t.status === 'string') {
+                                                        t.status = t.status.replace(/ATEN.*O/gi, 'ATENÇÃO');
+                                                        t.status = t.status.replace(/CR.*TICO/gi, 'CRÍTICO');
+                                                    }
+                                                    if (t.action && typeof t.action === 'string') {
+                                                        t.action = t.action.replace(/Treino Pr.*tico/gi, 'Treino Prático');
+                                                        t.action = t.action.replace(/Manter Revis.*o/gi, 'Manter Revisão');
+                                                        t.action = t.action.replace(/Revis.*o Te.*rica \+ Quest.*es/gi, 'Revisão Teórica + Questões');
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    // -----------------------------------------
+
                     if (!data.contests) {
                         setAppState({ contests: { 'default': data }, activeId: 'default' });
                     } else {
