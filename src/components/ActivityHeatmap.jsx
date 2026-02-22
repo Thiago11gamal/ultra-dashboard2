@@ -35,10 +35,11 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             currentWeek.push(null);
         }
 
+        const today = format(new Date(), 'yyyy-MM-dd');
+
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const minutes = studyMap[dateKey] || 0;
-            const today = format(new Date(), 'yyyy-MM-dd');
 
             currentWeek.push({
                 date: day,

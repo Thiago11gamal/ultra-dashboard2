@@ -75,7 +75,7 @@ const PerformancePanel = ({ stats, color }) => {
                         {(() => {
                             const sliced = history.slice(-10);
                             return sliced.map((h, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center group relative">
+                                <div key={h.date || `hist-${i}`} className="flex-1 flex flex-col items-center group relative">
                                     <div
                                         className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
                                         style={{

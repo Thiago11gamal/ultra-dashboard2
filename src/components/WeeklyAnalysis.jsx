@@ -98,7 +98,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             );
 
             if (existingLogIndex >= 0) {
-                targetGroup.logs[existingLogIndex].minutes += log.minutes;
+                // Create new object instead of mutating in-place
+                targetGroup.logs[existingLogIndex] = {
+                    ...targetGroup.logs[existingLogIndex],
+                    minutes: targetGroup.logs[existingLogIndex].minutes + log.minutes
+                };
             } else {
                 targetGroup.logs.push({
                     ...log,
@@ -208,8 +212,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
                             {/* Categories List */}
                             <div className="p-2 space-y-2 bg-black/20">
-                                {dayGroup.categories.map((cat, idx) => (
-                                    <div key={idx} className="relative group overflow-hidden rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
+                                {dayGroup.categories.map((cat) => (
+                                    <div key={cat.id} className="relative group overflow-hidden rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
                                         <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: cat.color }}></div>
 
                                         {/* Category Summary Row */}
@@ -238,7 +242,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         {/* Task Details (Always Visible but subtle) */}
                                         <div className="px-5 pb-3 pt-0 space-y-1">
                                             {cat.logs.map((log, logIdx) => (
-                                                <div key={logIdx} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
+                                                <div key={log.taskId || `log-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
                                                     <div className="flex items-center gap-2 truncate pr-4">
                                                         <Zap size={10} className="text-slate-600" />
                                                         <span className="truncate" title={log.taskTitle}>{log.taskTitle}</span>
