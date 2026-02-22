@@ -39,9 +39,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(categories[0]?.id);
 
-    // Filter active categories
-    const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
-    const focusCategory = activeCategories.find(c => c.id === focusSubjectId) || activeCategories[0];
+    // BUG FIX (1): Memoize activeCategories so useMemo deps below stay stable
+    // Without this, a new array is created every render, causing infinite recalculation.
+    const activeCategories = useMemo(
+        () => categories.filter(c => c.simuladoStats?.history?.length > 0),
+        [categories]
+    );
+
+    // BUG FIX (5): Reset focusSubjectId when activeCategories changes and selected is gone
+    const focusCategory = useMemo(() => {
+        const found = activeCategories.find(c => c.id === focusSubjectId);
+        return found || activeCategories[0] || null;
+    }, [activeCategories, focusSubjectId]);
 
     // Build timeline data exactly like the mock, but with REAL engine calls
     const timeline = useMemo(() => {
@@ -81,15 +90,22 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 if (historyToDate.length === 0) return;
 
                 const last = historyToDate[historyToDate.length - 1];
-                const stats = computeCategoryStats(historyToDate, 100); // 100 is just nominal weight
+
+                // BUG FIX (2): computeCategoryStats expects items with a `score` field,
+                // but history items only have `correct` and `total`. Normalize here.
+                const historyWithScore = historyToDate.map(h => ({
+                    ...h,
+                    score: h.total > 0 ? (h.correct / h.total) * 100 : 0
+                }));
+                const stats = computeCategoryStats(historyWithScore, 100);
 
                 dataByDate[date][`raw_correct_${cat.name}`] = last.correct;
                 dataByDate[date][`raw_total_${cat.name}`] = last.total;
-                dataByDate[date][`raw_${cat.name}`] = (last.correct / last.total) * 100;
+                dataByDate[date][`raw_${cat.name}`] = last.total > 0 ? (last.correct / last.total) * 100 : 0;
 
                 // Bayesian and Stats (Engine provides these)
-                dataByDate[date][`bay_${cat.name}`] = calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0); // 0 days projected = current bayes!
-                dataByDate[date][`stats_${cat.name}`] = stats.mean;
+                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
+                dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
             });
         });
 
@@ -137,7 +153,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     }, [focusCategory, targetScore]);
 
     const compareData = useMemo(() => {
-        if (activeEngine !== "compare") return timeline;
+        // BUG FIX (4): compareData was returning raw `timeline` when engine !== compare,
+        // but chartData = compareData when engine === compare and = timeline otherwise.
+        // The early return here was harmless but confusing; the real guard is in chartData.
         if (!focusCategory) return timeline;
 
         const pts = timeline.map((d) => ({
@@ -209,6 +227,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
         const recentVolume = lastPoint[`raw_total_${focusCategory.name}`];
+
+        // BUG FIX (3): raw or bayesian can be undefined if focusCategory has no data
+        // at the last timeline point (another category's date). Guard against crash.
+        if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
 
         if (recentVolume > 40 && raw < bayesian - 10) {
             return `⚠️ Alerta de Burnout: Estudante, você fez ${recentVolume} questões esta semana, mas a sua nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo fortemente uma pausa!`;
@@ -398,10 +420,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             dataKey={`${engine.prefix}${cat.name}`}
                                             name={cat.name}
                                             stroke={cat.color}
-                                            strokeWidth={isFocused ? 3.5 : 1}
-                                            strokeOpacity={isFocused ? 1 : 0.2}
-                                            dot={isFocused ? { r: 3, fill: cat.color, strokeWidth: 0 } : false}
-                                            activeDot={isFocused ? { r: 6, strokeWidth: 2, stroke: "#0f172a" } : false}
+                                            strokeWidth={isFocused ? 3.5 : 2}
+                                            strokeOpacity={isFocused ? 1 : 0.75}
+                                            dot={{ r: isFocused ? 5 : 4, fill: cat.color, stroke: "#0f172a", strokeWidth: 1.5 }}
+                                            activeDot={{ r: isFocused ? 8 : 7, strokeWidth: 2, stroke: "#0f172a" }}
                                             connectNulls
                                         />
                                     );
