@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 
-export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, collapsed, setCollapsed, user, isMobile }) {
+export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
     // Note: We are keeping the component name 'Sidebar' to avoid breaking imports in App.jsx,
     // but functionally this is now a TopBar.
 
@@ -109,7 +109,11 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
                                         key={item.id}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setActiveTab(item.id);
+                                            if (item.id === 'help' && onOpenHelp) {
+                                                onOpenHelp();
+                                            } else {
+                                                setActiveTab(item.id);
+                                            }
                                             // Auto-collapse on selection (Mobile only)
                                             if (isMobile) {
                                                 setCollapsed(true);

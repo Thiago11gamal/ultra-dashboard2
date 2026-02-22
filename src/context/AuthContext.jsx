@@ -16,11 +16,12 @@ export function AuthProvider({ children }) {
 
     function signup(email, password, name) {
         return createUserWithEmailAndPassword(auth, email, password)
-            .then((userCredential) => {
+            .then(async (userCredential) => {
                 // Update profile with name immediately after signup
-                return updateProfile(userCredential.user, {
+                await updateProfile(userCredential.user, {
                     displayName: name
                 });
+                return userCredential.user;
             });
     }
 
