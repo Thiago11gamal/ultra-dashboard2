@@ -430,12 +430,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-lg">
-                <div className="flex flex-wrap items-center justify-between mb-6 gap-3">
-                    <h2 className="text-lg font-bold flex items-center gap-2 shrink-0">
+                {/* Título + seletor empilhados */}
+                <div className="mb-5">
+                    <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
                         <span className="text-indigo-400">1.</span> Linha do Tempo (Desempenho Geral)
                     </h2>
-
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/70 p-2 rounded-xl border border-slate-800 overflow-x-auto custom-scrollbar">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/70 p-2 rounded-xl border border-slate-800 w-full overflow-x-auto custom-scrollbar">
                         <span className="text-[10px] text-slate-400 uppercase font-bold pl-1 mr-1 whitespace-nowrap">Focar em:</span>
                         {activeCategories.map((cat) => (
                             <button
