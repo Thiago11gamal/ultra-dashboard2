@@ -77,22 +77,25 @@ export default function Simulados() {
                 }
             });
 
+            // DEFINITIVE FIX: Instead of matching back-and-forth between rawRows and prev.simuladoRows
+            // (which fails if onRowsChange was never called before Gerar Plano), we do a direct upsert:
+            // 1. Keep all non-today rows untouched.
+            // 2. Merge rawRows (the source of truth) into today's slot, stamping them as validated.
             const today = new Date().toDateString();
-            // BUG FIX: Instead of trying to match rawRows back to stored rows via fragile
-            // string/number comparisons, mark all today's rows that have subject+topic as validated.
-            // rawRows are the rows the user actually analyzed — stamp them all as validated.
-            const processedKeys = new Set(
-                rawRows
-                    .filter(r => r.subject && r.topic)
-                    .map(r => `${(r.subject || '').trim()}|${(r.topic || '').trim()}`)
+            const nonTodayRows = (prev.simuladoRows || []).filter(
+                r => !r.createdAt || new Date(r.createdAt).toDateString() !== today
             );
-            const validatedRows = (prev.simuladoRows || []).map(row => {
-                if (row.createdAt && new Date(row.createdAt).toDateString() === today) {
-                    const key = `${(row.subject || '').trim()}|${(row.topic || '').trim()}`;
-                    if (processedKeys.has(key)) return { ...row, validated: true };
-                }
-                return row;
-            });
+            const now = Date.now();
+            const validatedRows = [
+                ...nonTodayRows,
+                ...rawRows
+                    .filter(r => r.subject && r.topic)
+                    .map(r => ({
+                        ...r,
+                        createdAt: r.createdAt || now,
+                        validated: true
+                    }))
+            ];
 
             showToast('Simulado Processado! +500 XP 📈', 'success');
             return applyGamification({ ...prev, categories: newCategories, simuladoRows: validatedRows }, 500);
