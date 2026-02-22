@@ -1,47 +1,50 @@
 import React from 'react';
 
-// StatCard moved outside of PersonalRanking to avoid recreation on each render
-const StatCard = ({ title, item, color, icon, metric, label, isNegative = false, subtitle }) => (
-    <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-500 hover:scale-[1.02] border ${isNegative ? 'bg-red-950/40 border-red-500/20 hover:border-red-500/40' : 'bg-slate-900/80 border-white/10 hover:border-white/20'}`}>
+const StatCard = ({ title, item, color, icon, metric, label, isNegative = false, isMVP = false, subtitle }) => (
+    <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-500 hover:scale-[1.02] border ${isMVP ? 'bg-gradient-to-br from-yellow-900/40 to-emerald-950/40 border-yellow-500/40 hover:border-yellow-400/60 shadow-[0_0_20px_rgba(234,179,8,0.15)] hover:shadow-[0_0_30px_rgba(234,179,8,0.25)]' :
+        isNegative ? 'bg-red-950/40 border-red-500/20 hover:border-red-500/40' :
+            'bg-slate-900/80 border-white/10 hover:border-white/20'
+        }`}>
 
-        {/* Background Glow - Reduced Opacity */}
-        <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${color} opacity-10 blur-[60px] group-hover:opacity-30 transition-opacity`} />
+        {/* Background Glow */}
+        <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${color} ${isMVP ? 'opacity-30 blur-[50px] group-hover:opacity-50' : 'opacity-10 blur-[60px] group-hover:opacity-30'} transition-all duration-700`} />
+        {isMVP && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-tr from-yellow-500/10 to-emerald-500/10 blur-3xl rounded-full pointer-events-none animate-pulse" />}
 
         {/* Watermark Icon */}
-        <div className={`absolute -bottom-4 -right-4 text-8xl opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-10 transition-all duration-500 rotate-12 group-hover:rotate-0`}>
+        <div className={`absolute -bottom-4 -right-4 text-8xl opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-10 transition-all duration-700 rotate-12 group-hover:rotate-0 group-hover:scale-110`}>
             {icon}
         </div>
 
         <div className="relative z-10">
-            <h3 className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 opacity-70">
+            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 ${isMVP ? 'text-yellow-500/90' : 'text-slate-500 opacity-70'}`}>
                 {icon} {title}
             </h3>
 
             {item ? (
                 <div>
                     <div className="flex items-center gap-3 mb-4">
-                        <span className="text-2xl filter drop-shadow-sm opacity-80">{item.icon}</span>
+                        <span className="text-3xl filter drop-shadow-lg opacity-90 group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
                         <div>
-                            <div className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${color}`}>
+                            <div className={`text-xl font-black bg-clip-text text-transparent bg-gradient-to-r ${color} drop-shadow-sm`}>
                                 {item.name}
                             </div>
-                            <div className="text-[10px] text-slate-600 font-mono mt-0.5">
+                            <div className="text-[10px] text-slate-500 font-mono mt-0.5 tracking-wide">
                                 {subtitle || 'Disciplina'}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-baseline gap-2">
-                        <span className={`text-5xl font-black tracking-tight ${isNegative ? 'text-red-400/90' : 'text-slate-200'}`}>
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <span className={`text-5xl font-black tracking-tighter ${isMVP ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-md' : isNegative ? 'text-red-400/90' : 'text-slate-200'}`}>
                             {metric}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{label}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isMVP ? 'text-yellow-600' : 'text-slate-500'}`}>{label}</span>
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center h-24 text-slate-700">
-                    <span className="text-2xl mb-2 opacity-20">∅</span>
-                    <span className="text-xs italic">Sem dados</span>
+                <div className="flex flex-col items-center justify-center h-[104px] text-slate-700">
+                    <span className="text-3xl mb-2 opacity-20">∅</span>
+                    <span className="text-xs italic font-medium tracking-wide">Sem dados suficientes</span>
                 </div>
             )}
         </div>
@@ -95,6 +98,7 @@ function PersonalRanking({ categories = [] }) {
                     metric={strongest?.balance > 0 ? `+${strongest.balance}` : strongest?.balance || 0}
                     label="Saldo Liq."
                     subtitle="Sua melhor performance"
+                    isMVP={true}
                 />
 
                 {/* Maior Volume */}
