@@ -1,26 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, Eraser, StickyNote } from 'lucide-react';
 
 
 export default function QuickNotes({ notes = '', onSave }) {
     const [text, setText] = useState(notes);
     const [isFocused, setIsFocused] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const prevNotesRef = useRef(notes);
 
     useEffect(() => {
-        // Only update local text if notes prop changes from outside
-        // and it's different from current text (avoids loops)
-        if (notes !== text) {
+        // Only sync from prop when the PROP itself changed (not local edits)
+        if (notes !== prevNotesRef.current) {
+            prevNotesRef.current = notes;
             setText(notes);
+            setIsDirty(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [notes]);
 
     const handleChange = (e) => {
         setText(e.target.value);
+        setIsDirty(true);
     };
 
     const handleSave = () => {
         if (onSave) onSave(text);
+        setIsDirty(false);
     };
 
     return (
@@ -35,7 +39,7 @@ export default function QuickNotes({ notes = '', onSave }) {
                 </div>
                 <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                     <button
-                        onClick={() => setText('')}
+                        onClick={() => { setText(''); setIsDirty(true); }}
                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                         title="Limpar"
                     >
@@ -73,7 +77,9 @@ export default function QuickNotes({ notes = '', onSave }) {
             {/* Status Footer */}
             <div className="px-4 py-2 bg-black/40 text-[10px] text-slate-500 flex justify-between">
                 <span>{text.length} caracteres</span>
-                <span className={isFocused ? "text-yellow-500" : ""}>{isFocused ? "Digitando..." : "Salvo"}</span>
+                <span className={isFocused ? "text-yellow-500" : isDirty ? "text-orange-400" : "text-emerald-500"}>
+                    {isFocused ? "Digitando..." : isDirty ? "Não salvo" : "Salvo"}
+                </span>
             </div>
         </div>
     );

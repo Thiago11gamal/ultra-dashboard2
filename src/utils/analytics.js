@@ -271,9 +271,10 @@ export const detectProcrastination = (categories, studyLogs) => {
         if (cat.tasks.length > 0) {
             const categoryLogs = studyLogs.filter(log => log.categoryId === cat.id);
             if (categoryLogs.length > 0) {
-                const lastLog = categoryLogs.sort((a, b) =>
-                    new Date(b.date) - new Date(a.date)
-                )[0];
+                // Find the most recent log without mutating via sort
+                const lastLog = categoryLogs.reduce((latest, log) =>
+                    new Date(log.date) > new Date(latest.date) ? log : latest
+                );
                 const daysSinceLastStudy = (now - new Date(lastLog.date)) / (1000 * 60 * 60 * 24);
 
                 if (daysSinceLastStudy > 5) {
