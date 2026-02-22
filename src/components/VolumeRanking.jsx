@@ -24,6 +24,8 @@ const VolumeRanking = ({ categories = [] }) => {
     }, [categories]);
 
     const maxVolume = sorted[0]?.totalVolume || 1;
+    const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
+    const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
 
     // Helper for medals
     const getRankIcon = (index) => {
@@ -54,7 +56,13 @@ const VolumeRanking = ({ categories = [] }) => {
                 <h3 className="text-lg font-bold flex items-center gap-2 mb-1 text-slate-200">
                     📊 Volume de Questões
                 </h3>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Quem mais produziu</p>
+                {sorted.length > 0 && totalVolumeOverall > 0 ? (
+                    <p className="text-[11px] text-slate-400 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                        <strong className="text-purple-400">{sorted[0].name}</strong> lidera com <strong className="text-white">{Math.round(leaderPercentage)}%</strong> de todo o seu volume de simulados ({sorted[0].totalVolume} de {totalVolumeOverall}).
+                    </p>
+                ) : (
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Quem mais produziu</p>
+                )}
             </div>
 
             <motion.div
@@ -82,12 +90,15 @@ const VolumeRanking = ({ categories = [] }) => {
                             {/* Icon & Name */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200' : 'text-slate-500'}`}>
+                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200 block max-w-[200px]' : 'text-slate-500 block max-w-[200px]'}`} title={item.name}>
                                         {item.name}
                                     </span>
-                                    <span className={`text-xs font-bold font-mono ${isTop3 ? 'text-purple-300' : 'text-slate-600'}`}>
-                                        {volume}
-                                    </span>
+                                    <div className="flex flex-col items-end">
+                                        <span className={`text-sm font-bold font-mono leading-none ${isTop3 ? 'text-purple-300' : 'text-slate-500'}`}>
+                                            {volume}
+                                        </span>
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider mt-0.5">questões</span>
+                                    </div>
                                 </div>
 
                                 {/* Progress Bar */}
