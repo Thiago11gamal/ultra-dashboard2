@@ -79,7 +79,7 @@ const StatsCards = ({ data }) => {
                         <Trophy size={20} className="text-purple-400" />
                     </div>
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Nível {user.level}
+                        Nível {progress.level}
                     </span>
                 </div>
                 <div className="text-3xl font-black text-white mb-2">
@@ -97,7 +97,7 @@ const StatsCards = ({ data }) => {
                         />
                     </div>
                     <div className="text-xs text-purple-400 font-bold">
-                        {progress.percentage}% até Nível {user.level + 1}
+                        {progress.percentage}% até Nível {progress.level + 1}
                     </div>
                 </div>
             </div>

@@ -21,8 +21,7 @@ export const uploadDataToCloud = async (data, userId) => {
         return true;
     } catch (e) {
         console.error("Error uploading data: ", e);
-        alert("❌ Erro ao subir backup para nuvem. Verifique sua conexão e tente novamente.");
-        throw e;
+        throw e; // Let caller handle UI feedback (Header.jsx shows alert)
     }
 };
 
@@ -37,12 +36,10 @@ export const downloadDataFromCloud = async (userId) => {
             return docSnap.data();
         } else {
             console.warn("No backup found!");
-            alert("⚠️ Nenhum backup encontrado na nuvem para este usuário.");
-            return null;
+            return null; // Let caller handle UI feedback
         }
     } catch (e) {
         console.error("Error downloading data: ", e);
-        alert("❌ Erro ao baixar backup. Verifique sua conexão.");
-        throw e;
+        throw e; // Let caller handle UI feedback (Header.jsx shows alert)
     }
 };

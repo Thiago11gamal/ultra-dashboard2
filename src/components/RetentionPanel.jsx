@@ -260,8 +260,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {needsReview.slice(0, 6).map((task, idx) => (
-                                <span key={idx} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${task.retention.border} ${task.retention.color} bg-black/30`}>
+                            {needsReview.slice(0, 6).map((task) => (
+                                <span key={task.id || task.title} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${task.retention.border} ${task.retention.color} bg-black/30`}>
                                     {task.categoryIcon} {task.title || task.text || 'Sem nome'} ({task.retention.val}%)
                                 </span>
                             ))}
@@ -295,7 +295,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             const hasTasks = cat.tasksWithRetention.length > 0;
 
                             return (
-                                <div key={idx} className="rounded-xl overflow-hidden border border-white/10">
+                                <div key={cat.id} className="rounded-xl overflow-hidden border border-white/10">
                                     {/* Category Header */}
                                     <div
                                         className={`group p-4 cursor-pointer transition-all duration-300 hover:bg-white/5
@@ -371,7 +371,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                             <div className="p-3 space-y-2">
                                                 {cat.tasksWithRetention.map((task, tIdx) => (
                                                     <div
-                                                        key={tIdx}
+                                                        key={task.id}
                                                         className={`flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 cursor-pointer
                                                             ${task.retention.val < 40 ? 'bg-red-900/10' : task.retention.val < 60 ? 'bg-yellow-900/5' : 'bg-white/5'}`}
                                                         onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}

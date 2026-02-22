@@ -81,6 +81,8 @@ export default function Header({
             const data = await downloadDataFromCloud(currentUser.uid);
             if (data && onCloudRestore) {
                 onCloudRestore(data);
+            } else if (!data) {
+                alert('⚠️ Nenhum backup encontrado na nuvem para este usuário.');
             }
         } catch (error) {
             alert('Erro ao baixar backup: ' + error.message);
@@ -198,8 +200,8 @@ export default function Header({
                                     <div
                                         key={id}
                                         className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
-                                                ? 'bg-purple-500/20 border border-purple-500/30'
-                                                : 'hover:bg-white/5'
+                                            ? 'bg-purple-500/20 border border-purple-500/30'
+                                            : 'hover:bg-white/5'
                                             }`}
                                     >
                                         <button

@@ -77,9 +77,7 @@ function App() {
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    // Auto-dismiss is handled by the Toast component itself (4s timer)
   }, []);
 
   // Gamification Hook
@@ -552,9 +550,24 @@ function App() {
     setData(prev => {
       const session = prev.studySessions?.find(s => s.id === sessionId);
       if (!session) return prev;
+
+      // Also remove corresponding studyLog and deduct minutes from category
+      const updatedCategories = prev.categories.map(c => {
+        if (c.id !== session.categoryId) return c;
+        return { ...c, totalMinutes: Math.max(0, (c.totalMinutes || 0) - (session.duration || 0)) };
+      });
+
       return {
         ...prev,
         studySessions: prev.studySessions.filter(s => s.id !== sessionId),
+        studyLogs: (prev.studyLogs || []).filter(l => {
+          // Match by categoryId + approximate time (same ISO string)
+          if (l.categoryId !== session.categoryId) return true;
+          if (l.taskId !== session.taskId) return true;
+          if (l.date !== session.startTime) return true;
+          return false;
+        }),
+        categories: updatedCategories,
       };
     });
     showToast('Sessão excluída.', 'success');
