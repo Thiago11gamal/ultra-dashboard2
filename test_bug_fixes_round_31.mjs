@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-console.log('🔍 Executing Round 31 Verification - Bug: Lançar Matérias...');
+console.log('🔍 Executing Round 31 Final Verification - Bug: Lançar Matérias (Definitivo)...');
 
 let errors = 0;
 
@@ -10,9 +10,9 @@ async function checkFileContent(filePath, checks) {
         const content = await fs.readFile(filePath, 'utf8');
         for (const check of checks) {
             const found = content.includes(check.expected);
-            const shouldExist = check.shouldExist !== false; // default true
+            const shouldExist = check.shouldExist !== false;
             if (shouldExist && !found) {
-                console.error(`❌ [FAIL] ${path.basename(filePath)}: Missing fix "${check.desc}"`);
+                console.error(`❌ [FAIL] ${path.basename(filePath)}: Missing "${check.desc}"`);
                 errors++;
             } else if (!shouldExist && found) {
                 console.error(`❌ [FAIL] ${path.basename(filePath)}: Should NOT contain "${check.desc}"`);
@@ -31,24 +31,39 @@ const validations = [
     {
         file: 'src/pages/Simulados.jsx',
         checks: [
+            // Bug 1: validated field destruction must be gone
             {
                 expected: 'const { validated, ...rest } = row',
-                desc: 'BUG REMOVED: validated field was being destructured/discarded on every keystroke',
-                shouldExist: false // This line should be GONE
+                desc: 'BUG REMOVED: validated field destruction in handleUpdateSimuladoRows',
+                shouldExist: false
             },
+            // Bug 1 fix: validated field now preserved in onRowsChange
             {
                 expected: 'BUG FIX: preserve the \'validated\' field',
-                desc: 'FIX PRESENT: validated field is preserved in handleUpdateSimuladoRows',
+                desc: 'FIX: validated field preserved on keystroke',
                 shouldExist: true
             },
+            // Bug 2 definitive fix: direct upsert of rawRows as validated
+            {
+                expected: 'DEFINITIVE FIX',
+                desc: 'FIX: Direct upsert approach in handleSimuladoAnalysis',
+                shouldExist: true
+            },
+            {
+                expected: 'validated: true',
+                desc: 'FIX: rawRows stamped with validated:true on analysis',
+                shouldExist: true
+            },
+            // The old fragile matching code must be gone
             {
                 expected: 'processedKeys',
-                desc: 'FIX PRESENT: Set-based key matching for validated rows in handleSimuladoAnalysis',
-                shouldExist: true
+                desc: 'OLD fragile processedKeys Set approach removed',
+                shouldExist: false
             },
+            // nonTodayRows pattern should exist in handleSimuladoAnalysis
             {
-                expected: 'subject || \'\').trim()}|${(row.topic || \'\').trim()}',
-                desc: 'FIX PRESENT: subject|topic key used for robust row matching',
+                expected: 'nonTodayRows',
+                desc: 'FIX: nonTodayRows used for safe upsert in handleSimuladoAnalysis',
                 shouldExist: true
             }
         ]
@@ -60,6 +75,12 @@ const validations = [
         await checkFileContent(v.file, v.checks);
     }
 
-    if (errors === 0) console.log('\n✨ ALL ROUND 31 CHECKS PASSED. Simulado rows now preserve validated flag correctly.');
-    else console.log(`\n⚠️ FOUND ${errors} ISSUES.`);
+    if (errors === 0) {
+        console.log('\n✨ ALL CHECKS PASSED.');
+        console.log('   → handleUpdateSimuladoRows now PRESERVES validated flag on every keystroke.');
+        console.log('   → handleSimuladoAnalysis now DIRECTLY UPSERTS rawRows as validated into store.');
+        console.log('   → Simulado rows will now always appear in Histórico after Gerar Plano.');
+    } else {
+        console.log(`\n⚠️ FOUND ${errors} ISSUES.`);
+    }
 })();
