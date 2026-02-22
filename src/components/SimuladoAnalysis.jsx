@@ -206,7 +206,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         status = 'BOM';
                         action = 'Refinar Detalhes';
                     } else if (pct <= 40) {
-                        status = 'CRÃTICO';
+                        status = 'CRÍTICO';
                         action = 'Revisão Teórica + Questões';
                     }
 
