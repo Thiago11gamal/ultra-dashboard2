@@ -70,7 +70,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const resetScores = () => {
-        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matÃ©rias?')) {
+        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matérias?')) {
             const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
             setRows(newRows);
         }
@@ -147,11 +147,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setRows(validatedRows);
 
                 if (invalidSubject && invalidTopic) {
-                    setError(`MatÃ©ria '${invalidSubject}' e Assunto '${invalidTopic}' nÃ£o encontrados.`);
+                    setError(`Matéria '${invalidSubject}' e Assunto '${invalidTopic}' não encontrados.`);
                 } else if (invalidSubject) {
-                    setError(`A matÃ©ria '${invalidSubject}' nÃ£o existe no Dashboard.`);
+                    setError(`A matéria '${invalidSubject}' não existe no Dashboard.`);
                 } else if (invalidTopic) {
-                    setError(`O assunto '${invalidTopic}' nÃ£o existe na matÃ©ria '${targetSubject}'.`);
+                    setError(`O assunto '${invalidTopic}' não existe na matéria '${targetSubject}'.`);
                 }
 
                 setAnalysisData(null);
@@ -162,7 +162,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const validRows = rows.filter(r => r.subject && r.topic);
 
         if (validRows.length === 0) {
-            setError("Preencha pelo menos uma linha com MatÃ©ria e Assunto.");
+            setError("Preencha pelo menos uma linha com Matéria e Assunto.");
             return;
         }
 
@@ -232,7 +232,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     let overview = "";
                     if (discPct >= 80) overview = `Excelente (${discPct}%). Continue assim!`;
-                    else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lÃ¡.`;
+                    else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lá.`;
                     else if (discPct <= 50) overview = `Baixo (${discPct}%). Foque na base.`;
                     else overview = `Mediano (${discPct}%). Pode evoluir.`;
 
@@ -253,9 +253,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
 
                 let generalInsight = "";
-                if (globalPct >= 80) generalInsight = `Resultado IncrÃ­vel! ${globalPct}%. Caminho certo.`;
+                if (globalPct >= 80) generalInsight = `Resultado Incrível! ${globalPct}%. Caminho certo.`;
                 else if (globalPct >= 60) generalInsight = `Bom trabalho! ${globalPct}%. Ajuste os detalhes.`;
-                else generalInsight = `Sinal de Alerta. ${globalPct}%. Reavalie a estratÃ©gia.`;
+                else generalInsight = `Sinal de Alerta. ${globalPct}%. Reavalie a estratégia.`;
 
                 const data = {
                     disciplines,
