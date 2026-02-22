@@ -14,10 +14,27 @@ import {
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const total = data.total !== undefined ? data.total : data.value;
+        const completed = data.completed || 0;
+        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
         return (
-            <div className="glass p-3 text-sm">
-                <p className="font-semibold">{label || (payload[0] && payload[0].name)}</p>
-                <p className="text-purple-400">{payload[0] && payload[0].value} tarefas</p>
+            <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-md text-sm min-w-[180px]">
+                <p className="font-bold text-white mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color || '#a855f7' }} />
+                    {label || data.name}
+                </p>
+                <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Total:</span>
+                        <span className="font-mono text-slate-200">{total} tarefas</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Concluído:</span>
+                        <span className="font-mono text-purple-400 font-bold">{completed} <span className="text-slate-500 text-[10px] ml-1">({pct}%)</span></span>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -32,6 +49,7 @@ export default function Charts({ data, compact = false }) {
     const pieData = categories.map(cat => ({
         name: cat.name,
         value: cat.tasks.length,
+        total: cat.tasks.length,
         completed: cat.tasks.filter(t => t.completed).length,
         color: cat.color,
     }));
@@ -121,12 +139,12 @@ export default function Charts({ data, compact = false }) {
                 <h3 className="text-lg font-bold mb-4">Progresso por Matéria</h3>
                 <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={barData} barCategoryGap="20%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                        <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 12 }} />
-                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="rgba(255,255,255,0.1)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11, fontWeight: 600 }} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val)} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                        <Bar dataKey="total" fill="rgba(255,255,255,0.05)" radius={[6, 6, 0, 0]} barSize={24} />
+                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={24} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
