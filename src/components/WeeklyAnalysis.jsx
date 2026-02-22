@@ -7,7 +7,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         if (!studyLogs || studyLogs.length === 0) return { groups: [], stats: null };
 
         // 1. Calculate Stats
-        const totalMinutes = studyLogs.reduce((acc, log) => acc + log.minutes, 0);
+        // BUG FIX: log.minutes might be undefined/null → guard with || 0 to avoid NaN
+        const totalMinutes = studyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
         const totalSessions = studyLogs.length;
 
         // Find top category
@@ -113,7 +114,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 });
             }
 
-            targetGroup.totalMinutes += log.minutes;
+            targetGroup.totalMinutes += (log.minutes || 0); // BUG FIX: guard undefined minutes
         });
 
         // Convert Objects to Arrays for rendering
@@ -170,7 +171,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             {/* Timeline Content */}
             <div className="relative pl-12 space-y-12 before:content-[''] before:absolute before:left-8 before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup, index) => (
-                    <div key={dayGroup.label + index} className="relative z-10">
+                    <div key={dayGroup.dateObj.toISOString()} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[54px] top-0 flex flex-col items-center w-14">
                             <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shadow-xl border-4 ${dayGroup.isToday

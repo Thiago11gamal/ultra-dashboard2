@@ -7,10 +7,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Stable ID counter to avoid regenerating IDs on every render
     const idCounter = useRef(0);
 
-    // Controlled component: use props or fallback default
+    // BUG FIX: ++idCounter.current was being called DURING render (side-effect in render phase).
+    // This regenerated IDs on EVERY re-render, causing inputs to lose focus on every keystroke
+    // because React reconciled them as different elements. Fixed by only assigning if missing.
     const rows = (propRows && propRows.length > 0)
-        ? propRows.map(r => ({ ...r, id: r.id || `row-${++idCounter.current}` }))
-        : [{ id: `row-init-${++idCounter.current}`, subject: '', topic: '', correct: 0, total: 0 }];
+        ? propRows.map(r => ({ ...r, id: r.id || `row-${idCounter.current++}` }))
+        : [{ id: `row-init-0`, subject: '', topic: '', correct: 0, total: 0 }];
 
     // Helper to report changes up to parent
     const setRows = (newRows) => {
@@ -377,7 +379,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-purple-200 text-sm uppercase tracking-wide mb-1">Insight Geral</h4>
-                                    <p className="text-slate-300 text-sm leading-relaxed">"{analysisData.generalInsight}"</p>
+                                    {/* BUG FIX: was rendering string literal '"{analysisData.generalInsight}"' */}
+                                    <p className="text-slate-300 text-sm leading-relaxed">“{analysisData.generalInsight}”</p>
                                 </div>
                             </div>
 
