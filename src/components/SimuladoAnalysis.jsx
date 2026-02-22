@@ -322,7 +322,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     {/* Colunas header */}
                     <div className="grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1">
-                        {['MatÃ©ria', 'Assunto', 'âœ“', 'Total', ''].map((h, i) => (
+                        {['Matéria', 'Assunto', '✓', 'Total', ''].map((h, i) => (
                             <span key={i} className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center first:text-left">{h}</span>
                         ))}
                     </div>
@@ -456,8 +456,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                         </div>
                                                         <span className={`text-[10px] font-black w-8 text-right ${cfg.text}`}>{pct}%</span>
                                                     </div>
-                                                    {/* AÃ§Ã£o */}
-                                                    <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">â†’ {topic.action}</p>
+                                                    {/* Ação */}
+                                                    <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">→ {topic.action}</p>
                                                 </div>
                                             );
                                         })}
