@@ -39,8 +39,10 @@ export default function Sidebar({ activeTab, setActiveTab, onExport, onImport, c
         { id: 'history', label: 'Histórico', icon: History },
         { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
         { id: 'notes', label: 'Notas', icon: FileText },
-        { id: 'help', label: 'Ajuda', icon: HelpCircle },
-        { id: 'settings', label: 'Configurações', icon: Settings },
+        // BUG FIX (1): 'help' uses onOpenHelp callback and does NOT navigate to any tab.
+        // BUG FIX (2): 'settings' removed — there is no 'settings' tab in App.jsx.
+        //              Clicking it set activeTab='settings' which rendered nothing, causing a blank screen.
+        { id: 'help', label: 'Ajuda', icon: HelpCircle, action: 'openHelp' },
     ];
 
     return (

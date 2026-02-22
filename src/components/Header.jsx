@@ -6,13 +6,19 @@ import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync'
 import { useAuth } from '../context/useAuth';
 
 
-// Single shared clock component to avoid two independent setInterval timers running simultaneously
-const DateDisplay = () => {
+// BUG FIX (1): Merged into a single shared hook with ONE setInterval.
+// Previously DateDisplay and TimeDisplay had two independent setInterval(1000) running simultaneously.
+const useClock = () => {
     const [time, setTime] = useState(new Date());
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+    return time;
+};
+
+const DateDisplay = () => {
+    const time = useClock();
     return (
         <p className="text-slate-400 mt-2 pl-2">
             {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
@@ -21,11 +27,7 @@ const DateDisplay = () => {
 };
 
 const TimeDisplay = () => {
-    const [time, setTime] = useState(new Date());
-    useEffect(() => {
-        const timer = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
+    const time = useClock();
     return (
         <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
             {format(time, 'HH:mm:ss')}
@@ -43,7 +45,9 @@ export default function Header({
     onDeleteContest,
     onUndo,
     onCloudRestore,
-    currentData
+    currentData,
+    // BUG FIX (2): Need full appState to backup ALL contests, not just the active one.
+    appState
 }) {
     const { logout, currentUser } = useAuth();
 
@@ -61,8 +65,11 @@ export default function Header({
         if (!window.confirm('Subir backup para a nuvem?')) return;
         setIsSyncing(true);
         try {
-            await uploadDataToCloud(currentData, currentUser.uid);
-            alert('Backup salvo na nuvem com sucesso! ☁️');
+            // BUG FIX (2): Was passing `currentData` (only 1 contest).
+            // Must pass `appState` which contains ALL contests + activeId.
+            const dataToBackup = appState || currentData;
+            await uploadDataToCloud(dataToBackup, currentUser.uid);
+            alert('Backup salvo na nuvem com sucesso! \u2601\uFE0F');
         } catch (error) {
             alert('Erro ao salvar backup: ' + error.message);
         } finally {
@@ -111,9 +118,10 @@ export default function Header({
         setLocalName(user.name);
     }, [user.name]);
 
+    // BUG FIX (3): Guard against onUpdateName being undefined or localName being empty
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (localName !== user.name) {
+            if (localName !== user.name && localName && onUpdateName) {
                 onUpdateName(localName);
             }
         }, 500); // 500ms debounce
