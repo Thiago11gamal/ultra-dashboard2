@@ -1,3 +1,5 @@
+import { getSafeScore } from '../utils/scoreHelper';
+
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
     return arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -97,8 +99,8 @@ export function calculateTrend(scores) {
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
 
-    // Garante números
-    const scores = history.map(h => Number(h.score) || 0);
+    // Garante extração estatística segura através do Helper Universal
+    const scores = history.map(h => getSafeScore(h));
 
     const m = mean(scores);
 

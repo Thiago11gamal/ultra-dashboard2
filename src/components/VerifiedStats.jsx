@@ -154,7 +154,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
 
                     categories.forEach(cat => {
                         if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length >= 2) {
-                            const scores = cat.simuladoStats.history.slice(-5).map(h => h.score);
+                            const scores = cat.simuladoStats.history.slice(-5).map(h => getSafeScore(h));
                             const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
                             const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
                             totalSD += Math.sqrt(variance);
@@ -264,7 +264,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                const scores = sortedHistory.slice(-5).map(h => h.score);
+                const scores = sortedHistory.slice(-5).map(h => getSafeScore(h));
 
                 const analysis = analyzeProgressState(scores, {
                     window_size: Math.min(5, scores.length),
