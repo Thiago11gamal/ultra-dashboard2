@@ -48,7 +48,7 @@ const StatCard = ({ title, item, color, icon, metric, label, isNegative = false,
     </div>
 );
 
-function PersonalRanking({ categories }) {
+function PersonalRanking({ categories = [] }) {
     // Helper to calculate percentages and stats from Simulado Data
     const categoryStats = categories.map(cat => {
         const stats = cat.simuladoStats || { history: [] };

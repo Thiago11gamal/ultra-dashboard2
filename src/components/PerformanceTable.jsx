@@ -10,13 +10,13 @@ const PerformanceTable = ({ categories = [] }) => {
         const historyA = statsA.history || [];
         const historyB = statsB.history || [];
 
-        const totalQA = historyA.reduce((acc, h) => acc + h.total, 0);
-        const correctA = historyA.reduce((acc, h) => acc + h.correct, 0);
+        const totalQA = historyA.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
+        const correctA = historyA.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
         const wrongA = totalQA - correctA;
         const balanceA = correctA - wrongA;
 
-        const totalQB = historyB.reduce((acc, h) => acc + h.total, 0);
-        const correctB = historyB.reduce((acc, h) => acc + h.correct, 0);
+        const totalQB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
+        const correctB = historyB.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
         const wrongB = totalQB - correctB;
         const balanceB = correctB - wrongB;
 
@@ -43,8 +43,8 @@ const PerformanceTable = ({ categories = [] }) => {
                             const stats = category.simuladoStats || { history: [], trend: 'stable' };
                             const history = stats.history || [];
 
-                            const totalQuestions = history.reduce((acc, h) => acc + h.total, 0);
-                            const totalCorrect = history.reduce((acc, h) => acc + h.correct, 0);
+                            const totalQuestions = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
+                            const totalCorrect = history.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
                             const totalWrong = totalQuestions - totalCorrect;
                             const netBalance = totalCorrect - totalWrong;
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;

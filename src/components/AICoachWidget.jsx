@@ -88,10 +88,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 </div>
 
                                 <div className="flex flex-col items-start md:items-end gap-4">
-                                    {(suggestion.urgency?.recommendation || urgency.recommendation) && (
+                                    {suggestion.urgency?.recommendation && (
                                         <div className="text-right max-w-md">
                                             <p className="text-xl text-amber-100/90 font-medium leading-relaxed drop-shadow-md italic">
-                                                {suggestion.urgency?.recommendation}
+                                                {suggestion.urgency.recommendation}
                                             </p>
                                         </div>
                                     )}

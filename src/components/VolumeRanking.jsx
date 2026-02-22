@@ -15,7 +15,7 @@ const VolumeRanking = ({ categories = [] }) => {
         });
 
         // Sort by volume descending, then by name ascending for stability
-        return stats.sort((a, b) => {
+        return stats.slice().sort((a, b) => {
             if (b.totalVolume !== a.totalVolume) {
                 return b.totalVolume - a.totalVolume;
             }

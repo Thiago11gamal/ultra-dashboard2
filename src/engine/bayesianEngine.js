@@ -5,10 +5,10 @@ export function updatePosteriorNormal({
     sampleVariance,
     n
 }) {
-    if (n < 2 || sampleVariance === 0 || priorVariance === 0) {
+    if (n < 2 || sampleVariance <= 0) {
         return {
             mean: priorMean,
-            variance: priorVariance || 0 // Ensure not null/NaN
+            variance: priorVariance  // Return exactly as-is (|| 0 was wrong: it would coerce a 0-variance prior to 0)
         };
     }
 

@@ -70,6 +70,16 @@ export default function Charts({ data, compact = false }) {
 
     return (
         <div className={`grid grid-cols-1 ${compact ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6`}>
+            {/* SVG Gradient Defs - always rendered so the gradient is available */}
+            <svg width="0" height="0" className="hidden">
+                <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" />
+                        <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                </defs>
+            </svg>
+
             {!compact && (
                 <>
                     {/* Pie Chart - Category Distribution */}
@@ -103,31 +113,23 @@ export default function Charts({ data, compact = false }) {
                             ))}
                         </div>
                     </div>
-
-                    {/* Bar Chart - Progress per Category */}
-                    <div className="glass p-6">
-                        <h3 className="text-lg font-bold mb-4">Progresso por Matéria</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={barData} barCategoryGap="20%">
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                                <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 12 }} />
-                                <YAxis stroke="#64748b" tick={{ fontSize: 12 }} />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Bar dataKey="total" fill="rgba(255,255,255,0.1)" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="completed" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
-                                <defs>
-                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#a855f7" />
-                                        <stop offset="100%" stopColor="#3b82f6" />
-                                    </linearGradient>
-                                </defs>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
                 </>
             )}
 
-
+            {/* Bar Chart - Progress per Category (shown in both modes) */}
+            <div className="glass p-6">
+                <h3 className="text-lg font-bold mb-4">Progresso por Matéria</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={barData} barCategoryGap="20%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="rgba(255,255,255,0.1)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
         </div>
     );
 }
