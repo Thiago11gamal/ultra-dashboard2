@@ -6,6 +6,7 @@ import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync'
 import { useAuth } from '../context/useAuth';
 
 
+// Single shared clock component to avoid two independent setInterval timers running simultaneously
 const DateDisplay = () => {
     const [time, setTime] = useState(new Date());
     useEffect(() => {
@@ -197,8 +198,8 @@ export default function Header({
                                     <div
                                         key={id}
                                         className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
-                                            ? 'bg-purple-500/20 border border-purple-500/30'
-                                            : 'hover:bg-white/5'
+                                                ? 'bg-purple-500/20 border border-purple-500/30'
+                                                : 'hover:bg-white/5'
                                             }`}
                                     >
                                         <button

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
@@ -17,12 +17,20 @@ const colors = {
 export default function Toast({ toast, onClose }) {
     if (!toast) return null;
 
+    // Auto-dismiss after 4 seconds
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        const timer = setTimeout(onClose, 4000);
+        return () => clearTimeout(timer);
+    }, [toast.id, onClose]);
+
     const Icon = icons[toast.type] || icons.info;
     const colorClass = colors[toast.type] || colors.info;
 
     return (
         <AnimatePresence>
             <motion.div
+                key={toast.id}
                 layout
                 initial={{ opacity: 0, x: 50, scale: 0.9 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
