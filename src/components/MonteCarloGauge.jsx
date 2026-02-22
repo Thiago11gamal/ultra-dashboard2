@@ -479,11 +479,17 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 const weight = debouncedWeights[cat.name] ?? 0;
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
-                        if (h.score && h.date) {
+                        // BUG FIX: data format has `correct` and `total`, not `score`.
+                        // The old check `h.score` filtered out ALL points since h.score is undefined.
+                        // Calculate score from correct/total, or use h.score if it happens to exist.
+                        const score = h.score != null
+                            ? Number(h.score)
+                            : (h.total > 0 ? (h.correct / h.total) * 100 : null);
+                        if (score != null && !isNaN(score) && h.date) {
                             allHistoryPoints.push({
-                                date: new Date(h.date).toISOString().split('T')[0], // Normalize date
-                                score: Number(h.score),
-                                weight: weight
+                                date: new Date(h.date).toISOString().split('T')[0],
+                                score,
+                                weight
                             });
                         }
                     });
@@ -712,7 +718,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 </div>
                 <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
                     <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Média</span>
-                    <span className="text-sm font-black text-blue-400">{simulationResult.mean}%</span>
+                    <span className="text-sm font-black text-blue-400">{parseFloat(simulationResult.mean).toFixed(1)}%</span>
                 </div>
                 <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
                     <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Consistência</span>

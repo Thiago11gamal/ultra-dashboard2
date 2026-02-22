@@ -366,6 +366,7 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                                 </div>
                                                 <div>
                                                     <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
+                                                    {/* BUG FIX: was rendering the string literal '"{globalInsight}"' */}
                                                     <p className="text-sm text-white font-medium">"{globalInsight}"</p>
                                                 </div>
                                             </div>
