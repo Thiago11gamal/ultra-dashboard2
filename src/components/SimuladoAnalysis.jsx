@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
+    // Stable ID counter to avoid regenerating IDs on every render
+    const idCounter = useRef(0);
+
     // Controlled component: use props or fallback default
     const rows = (propRows && propRows.length > 0)
-        ? propRows.map(r => ({ ...r, id: r.id || `row-${Date.now()}-${Math.random()}` }))
-        : [{ id: `row-${Date.now()}`, subject: '', topic: '', correct: 0, total: 0 }];
+        ? propRows.map(r => ({ ...r, id: r.id || `row-${++idCounter.current}` }))
+        : [{ id: `row-init-${++idCounter.current}`, subject: '', topic: '', correct: 0, total: 0 }];
 
     // Helper to report changes up to parent
     const setRows = (newRows) => {

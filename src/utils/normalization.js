@@ -9,7 +9,7 @@ export const normalize = (str) => {
     if (typeof str !== 'string') return '';
     return str.toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove accents
-        .replace(/noções de\s+/i, "") // Remove common prefix
+        .replace(/nocoes de\s+/g, "") // Remove common prefix (post-accent-removal form)
         .replace(/[^\w\s]/gi, '') // Remove special chars for safer matching
         .trim();
 };
