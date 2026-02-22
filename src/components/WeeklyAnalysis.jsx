@@ -3,7 +3,7 @@ import { BookOpen, Zap, Activity } from 'lucide-react';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
-    const { groups } = useMemo(() => {
+    const { groups, stats } = useMemo(() => {
         if (!studyLogs || studyLogs.length === 0) return { groups: [], stats: null };
 
         // 1. Calculate Stats
