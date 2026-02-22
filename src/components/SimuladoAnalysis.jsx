@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
@@ -292,7 +292,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             Modo Offline
                         </span>
                     </div>
-                    <p className="text-slate-400 text-sm">Identifica fraquezas e gera um plano de revisÃ£o personalizado.</p>
+                    <p className="text-slate-400 text-sm">Identifica fraquezas e gera um plano de revisão personalizado.</p>
                 </div>
             </header>
 
@@ -338,7 +338,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                     <input type="text" value={row.subject}
                                         onChange={(e) => updateRow(index, 'subject', e.target.value)}
                                         className="bg-transparent outline-none text-sm text-slate-200 placeholder:text-slate-600 w-full min-w-0"
-                                        placeholder="MatÃ©ria" />
+                                        placeholder="Matéria" />
                                     <input type="text" value={row.topic}
                                         onChange={(e) => updateRow(index, 'topic', e.target.value)}
                                         className="bg-transparent outline-none text-sm text-slate-300 placeholder:text-slate-600 w-full min-w-0"
@@ -369,8 +369,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30'}`}>
                             {loading
-                                ? <><span className="animate-spin text-base">âŒ›</span> Analisando...</>
-                                : <><Play size={16} /> Gerar Plano de RevisÃ£o</>
+                                ? <><span className="animate-spin text-base">⌛</span> Analisando...</>
+                                : <><Play size={16} /> Gerar Plano de Revisão</>
                             }
                         </button>
                     </div>
@@ -381,7 +381,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     <div className="flex items-center gap-2 mb-5">
                         <CheckCircle2 size={16} className="text-green-400" />
-                        <h3 className="text-base font-bold text-slate-100">RelatÃ³rio de Performance</h3>
+                        <h3 className="text-base font-bold text-slate-100">Relatório de Performance</h3>
                     </div>
 
                     {error && (
@@ -395,7 +395,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         <div className="flex-1 flex flex-col items-center justify-center text-slate-600 min-h-[380px] border-2 border-dashed border-slate-800 rounded-2xl gap-4">
                             <BrainCircuit size={52} className="opacity-30" />
                             <p className="max-w-xs text-center text-sm leading-relaxed">
-                                Preencha os dados ao lado e clique em <strong className="text-slate-400">Gerar Plano de RevisÃ£o</strong> para ver o relatÃ³rio aqui.
+                                Preencha os dados ao lado e clique em <strong className="text-slate-400">Gerar Plano de Revisão</strong> para ver o relatório aqui.
                             </p>
                         </div>
                     )}
