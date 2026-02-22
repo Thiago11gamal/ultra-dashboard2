@@ -418,7 +418,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             {analysisData.disciplines.map((disc, idx) => (
                                 <div key={idx} className="bg-slate-800/50 rounded-2xl border border-slate-700/60 overflow-hidden hover:border-slate-600 transition-colors">
 
-                                    {/* CabeÃ§alho da disciplina */}
+                                    {/* Cabeçalho da disciplina */}
                                     <div className="flex justify-between items-center px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
                                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
                                             <span className="w-1.5 h-5 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full inline-block shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
@@ -429,14 +429,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </span>
                                     </div>
 
-                                    {/* TÃ³picos */}
+                                    {/* Tópicos */}
                                     <div className="divide-y divide-slate-700/30">
                                         {disc.topics.map((topic, tIdx) => {
                                             const pct = topic.percentage || 0;
                                             const cfg =
                                                 pct >= 80 ? { label: 'Dominado', icon: 'ðŸ†', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
                                                     pct >= 60 ? { label: 'Bom', icon: 'ðŸ‘', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
-                                                        pct <= 40 ? { label: 'CrÃ­tico', icon: 'ðŸš¨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
+                                                        pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
                                                             { label: 'AtenÃ§Ã£o', icon: 'âš ï¸', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
                                             return (
                                                 <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
