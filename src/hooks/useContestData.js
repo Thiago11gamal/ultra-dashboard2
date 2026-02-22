@@ -17,7 +17,7 @@ export function useContestData(currentUser) {
         }
 
         setLoadingData(true);
-        setLoadingStatus("Sincronizando...");
+        setLoadingStatus("Sincronizando com a nuvem...");
 
         const docRef = doc(db, 'users_data', currentUser.uid);
         const startTime = Date.now();
@@ -31,10 +31,16 @@ export function useContestData(currentUser) {
                     } else {
                         setAppState(data);
                     }
+                    setLoadingStatus("Conectado");
                 } else {
+                    // New user - create initial document
                     const initial = { contests: { 'default': INITIAL_DATA }, activeId: 'default' };
-                    setDoc(docRef, initial).catch(console.error);
+                    setDoc(docRef, initial).catch(e => {
+                        console.error("[Firebase] Falha ao criar documento inicial:", e.code, e.message);
+                        setLoadingStatus(`Erro ao criar dados: ${e.code}`);
+                    });
                     setAppState(initial);
+                    setLoadingStatus("Bem-vindo! Dados inicializados.");
                 }
 
                 const elapsed = Date.now() - startTime;
@@ -45,8 +51,9 @@ export function useContestData(currentUser) {
                 }, remaining);
             },
             (error) => {
-                console.error("Error:", error);
-                setLoadingStatus("Erro na conexão.");
+                // BUG FIX: Log specifc Firebase error code and message for easier debugging
+                console.error("[Firebase] Erro no listener Firestore:", error.code, error.message);
+                setLoadingStatus(`Erro na conexão: ${error.code || error.message}`);
                 setLoadingData(false);
             }
         );
