@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 
 export default function Activity() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const [showResetModal, setShowResetModal] = useState(false);

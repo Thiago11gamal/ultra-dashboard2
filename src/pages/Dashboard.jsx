@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
 

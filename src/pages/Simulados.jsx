@@ -6,7 +6,7 @@ import { normalize, aliases } from '../utils/normalization';
 import { useGamification } from '../hooks/useGamification';
 
 export default function Simulados() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const { applyGamification } = useGamification(showToast);

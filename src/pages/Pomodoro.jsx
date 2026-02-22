@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 
 export default function Pomodoro() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const { updatePomodoroSettings, handleUpdateStudyTime } = useAppStore();
 

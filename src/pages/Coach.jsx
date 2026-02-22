@@ -5,7 +5,7 @@ import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 
 export default function Coach() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const [coachLoading, setCoachLoading] = useState(false);

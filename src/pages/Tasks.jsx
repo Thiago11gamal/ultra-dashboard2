@@ -7,7 +7,7 @@ import { RotateCcw } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
 export default function Tasks() {
-    const categories = useAppStore(state => state.data.categories || []);
+    const categories = useAppStore(state => state.appState.contests[state.appState.activeId].categories || []);
     const { resetSimuladoStats } = useAppStore();
     const showToast = useToast();
 

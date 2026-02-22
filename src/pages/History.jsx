@@ -3,7 +3,7 @@ import StudyHistory from '../components/StudyHistory';
 import { useAppStore } from '../store/useAppStore';
 
 export default function History() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const { deleteSession, deleteSimulado } = useAppStore();
 
     return (

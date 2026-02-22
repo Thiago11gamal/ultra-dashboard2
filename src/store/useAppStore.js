@@ -7,10 +7,11 @@ import { XP_CONFIG, getTaskXP } from '../utils/gamification';
 // Helper to handle gamification within the store
 // This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
 const processGamification = (state, xpGained) => {
-    if (!state.data.user) return;
+    const activeData = state.appState.contests[state.appState.activeId];
+    if (!activeData || !activeData.user) return;
 
-    let currentXP = state.data.user.xp || 0;
-    let currentLevel = state.data.user.level || 1;
+    let currentXP = activeData.user.xp || 0;
+    let currentLevel = activeData.user.level || 1;
     let newXP = currentXP + xpGained;
     let leveledUp = false;
 
@@ -26,8 +27,8 @@ const processGamification = (state, xpGained) => {
         }
     }
 
-    state.data.user.xp = newXP;
-    state.data.user.level = currentLevel;
+    activeData.user.xp = newXP;
+    activeData.user.level = currentLevel;
 
     // We target the active contest implicitly via immer draft logic injected below
     return leveledUp ? currentLevel : null;
@@ -42,12 +43,6 @@ export const useAppStore = create(
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
                 history: []
-            },
-
-            // Computed getter for current active data
-            get data() {
-                const state = get();
-                return state.appState.contests[state.appState.activeId] || INITIAL_DATA;
             },
 
             // Actions

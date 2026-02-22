@@ -5,7 +5,7 @@ import Charts from '../components/Charts';
 import { useAppStore } from '../store/useAppStore';
 
 export default function Stats() {
-    const data = useAppStore(state => state.data);
+    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const updateWeights = useAppStore(state => state.updateWeights);
     const [filter, setFilter] = useState('all');
 

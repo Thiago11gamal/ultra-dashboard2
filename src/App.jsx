@@ -33,7 +33,7 @@ import './components/Loading.css';
 
 function MainLayout() {
   const { currentUser } = useAuth();
-  const data = useAppStore(state => state.data);
+  const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   const setAppState = useAppStore(state => state.setAppState);
   const {

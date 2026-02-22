@@ -3,8 +3,9 @@ import EvolutionChart from '../components/EvolutionChart';
 import { useAppStore } from '../store/useAppStore';
 
 export default function Evolution() {
-    const categories = useAppStore(state => state.data.categories || []);
-    const user = useAppStore(state => state.data.user);
+    const categories = useAppStore(state => state.appState.contests[state.appState.activeId].categories || []);
+    const user = useAppStore(state => state.appState.contests[state.appState.activeId].user);
+    const filter = 'all'; // Default
 
     return (
         <div className="animate-fade-in">

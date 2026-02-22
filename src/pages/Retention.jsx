@@ -4,7 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function Retention() {
-    const categories = useAppStore(state => state.data.categories || []);
+    const categories = useAppStore(state => state.appState.contests[state.appState.activeId].categories || []);
     const navigate = useNavigate();
 
     const handleSelectCategory = (cat) => {
