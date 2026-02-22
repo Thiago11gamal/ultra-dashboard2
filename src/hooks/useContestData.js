@@ -69,7 +69,7 @@ export function useContestData(currentUser) {
                     contestId: currentContestId,
                     data: JSON.parse(JSON.stringify(currentData))
                 }];
-                if (newHistory.length > 30) newHistory.shift();
+                if (newHistory.length > 30) newHistory = newHistory.slice(-30);
             }
 
             return {
@@ -142,11 +142,16 @@ export function useContestData(currentUser) {
         if (currentUser) {
             checkAndResetDay();
             const onFocus = () => setTimeout(checkAndResetDay, 1000);
+            const onVisibilityChange = () => {
+                if (document.visibilityState === 'visible') {
+                    setTimeout(checkAndResetDay, 1000);
+                }
+            };
             window.addEventListener('focus', onFocus);
-            document.addEventListener('visibilitychange', onFocus);
+            document.addEventListener('visibilitychange', onVisibilityChange);
             return () => {
                 window.removeEventListener('focus', onFocus);
-                document.removeEventListener('visibilitychange', onFocus);
+                document.removeEventListener('visibilitychange', onVisibilityChange);
             };
         }
     }, [setData, currentUser]);

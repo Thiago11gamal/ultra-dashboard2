@@ -67,16 +67,17 @@ function PersonalRanking({ categories = [] }) {
         };
     });
 
-    // Sort for rankings
-    const sortedByBalance = [...categoryStats].sort((a, b) => b.balance - a.balance);
-    const sortedByVolume = [...categoryStats].sort((a, b) => b.total - a.total);
-    const sortedByErrors = [...categoryStats].sort((a, b) => b.wrong - a.wrong);
+    // Sort for rankings — only include categories with actual data
+    const withData = categoryStats.filter(c => c.total > 0);
+    const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance);
+    const sortedByVolume = [...withData].sort((a, b) => b.total - a.total);
+    const sortedByErrors = [...withData].sort((a, b) => b.wrong - a.wrong);
 
-    // Identify winners/losers
-    const strongest = sortedByBalance[0];
-    const weakest = sortedByBalance[sortedByBalance.length - 1];
-    const mostProductive = sortedByVolume[0];
-    const mostBehind = sortedByErrors[0];
+    // Identify winners/losers — avoid showing same item for both strongest/weakest
+    const strongest = sortedByBalance[0] || null;
+    const weakest = sortedByBalance.length > 1 ? sortedByBalance[sortedByBalance.length - 1] : null;
+    const mostProductive = sortedByVolume[0] || null;
+    const mostBehind = sortedByErrors[0]?.wrong > 0 ? sortedByErrors[0] : null;
 
     return (
         <div className="w-full">

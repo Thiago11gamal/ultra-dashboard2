@@ -5,15 +5,17 @@ export default function LevelUpToast({ level, title, onClose }) {
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
+        let innerTimer;
         const showTimer = setTimeout(() => setVisible(true), 10);
         // Auto-close after 5 seconds if not interactive
         const timer = setTimeout(() => {
             setVisible(false);
-            setTimeout(onClose, 500); // Wait for exit animation
+            innerTimer = setTimeout(onClose, 500); // Wait for exit animation
         }, 6000);
         return () => {
             clearTimeout(timer);
             clearTimeout(showTimer);
+            clearTimeout(innerTimer);
         };
     }, [onClose]);
 

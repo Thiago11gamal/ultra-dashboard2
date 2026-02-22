@@ -4,7 +4,7 @@ import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-reac
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 export default function TopicPerformance({ categories = [] }) {
-    const [selectedCategoryId, setSelectedCategoryId] = useState(categories.length > 0 ? categories[0].id : '');
+    const [selectedCategoryId, setSelectedCategoryId] = useState(() => categories[0]?.id || '');
 
     // Aggregate Data Logic
     const aggregatedData = useMemo(() => {

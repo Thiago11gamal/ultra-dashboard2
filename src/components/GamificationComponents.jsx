@@ -46,7 +46,10 @@ export const AchievementsGrid = ({ unlockedIds = [] }) => {
 
             <div className="flex flex-wrap gap-2 justify-center">
                 {ACHIEVEMENTS.map(achievement => {
-                    const unlocked = unlockedIds.includes(achievement.id);
+                    const unlocked = unlockedIds.some(u => {
+                        const uId = typeof u === 'string' ? u : u?.id;
+                        return uId === achievement.id;
+                    });
                     return (
                         <div
                             key={achievement.id}
