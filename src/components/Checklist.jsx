@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion';
+import PromptModal from './PromptModal';
 
 const priorityColors = {
     high: { bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
@@ -183,6 +184,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
         }
     };
     const [isOpen, setIsOpen] = useState(true);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     const tasks = category.tasks || [];
     const allTasks = category.originalTasks || tasks; // Use original/all tasks for progress bar
@@ -290,10 +292,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     {/* Add Task Button */}
                     <div className="p-4 pt-0">
                         <button
-                            onClick={() => {
-                                const title = prompt('Nome do novo assunto:');
-                                if (title) onAddTask(category.id, title);
-                            }}
+                            onClick={() => setIsTaskModalOpen(true)}
                             className="w-full py-2 rounded-xl border border-dashed border-orange-500/30 bg-orange-900/20 text-orange-300 hover:bg-orange-800/40 hover:text-orange-100 hover:border-orange-500/50 transition-all flex items-center justify-center gap-2 group"
                         >
                             <Plus size={18} className="group-hover:scale-110 transition-transform" />
@@ -302,11 +301,20 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     </div>
                 </div>
             )}
+            <PromptModal
+                isOpen={isTaskModalOpen}
+                onClose={() => setIsTaskModalOpen(false)}
+                onConfirm={(title) => onAddTask(category.id, title)}
+                title="Novo Assunto"
+                placeholder="Nome do novo assunto..."
+            />
         </div >
     );
 };
 
 export default function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
+    const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+
     if (typeof onPlayContext !== 'function') {
         console.error('Checklist: onPlayContext prop is MISSING or not a function');
     }
@@ -377,10 +385,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             {onAddCategory && (
                 <div className="mt-6">
                     <button
-                        onClick={() => {
-                            const name = prompt('Nome da nova disciplina:');
-                            if (name) onAddCategory(name);
-                        }}
+                        onClick={() => setIsCatModalOpen(true)}
                         className="w-full py-4 rounded-xl border-2 border-dashed border-yellow-200/20 bg-yellow-200/5 text-yellow-200 hover:text-yellow-100 hover:bg-yellow-200/10 hover:border-yellow-200/40 transition-all flex items-center justify-center gap-3 group"
                     >
                         <span className="p-2 rounded-lg bg-yellow-200/10 group-hover:bg-yellow-200/20 text-2xl transition-colors">📚</span>
@@ -388,6 +393,14 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                     </button>
                 </div>
             )}
+
+            <PromptModal
+                isOpen={isCatModalOpen}
+                onClose={() => setIsCatModalOpen(false)}
+                onConfirm={(name) => onAddCategory(name)}
+                title="Nova Disciplina"
+                placeholder="Nome da nova disciplina..."
+            />
         </div>
     );
 }
