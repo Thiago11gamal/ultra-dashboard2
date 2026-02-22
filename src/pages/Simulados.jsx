@@ -53,12 +53,12 @@ export default function Simulados() {
                         totalC = subjectRows.reduce((acc, r) => acc + (parseInt(r.correct) || 0), 0);
                     }
 
-                    const score = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+                    const score = totalQ > 0 ? (totalC / totalQ) * 100 : 0;
                     const newHistory = [...(currentStats.history || []), { date: new Date().toISOString(), score, total: totalQ, correct: totalC, topics: validTopics }];
 
                     const grandTotalQ = newHistory.reduce((acc, h) => acc + h.total, 0);
                     const grandTotalC = newHistory.reduce((acc, h) => acc + h.correct, 0);
-                    const newAverage = grandTotalQ > 0 ? Math.round((grandTotalC / grandTotalQ) * 100) : 0;
+                    const newAverage = grandTotalQ > 0 ? (grandTotalC / grandTotalQ) * 100 : 0;
 
                     let trend = 'stable';
                     if (newHistory.length >= 2) {

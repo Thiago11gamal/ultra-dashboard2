@@ -15,7 +15,7 @@ export const INITIAL_DATA = {
         name: "Estudante",
         avatar: "👤",
         startDate: getLocalYMD(), // Local Date
-        goalDate: getLocalYMD(),  // Local Date (0 days default)
+        goalDate: null,  // Null default (no exam date set)
         xp: 0,
         level: 10, // Starts at Level 10, goes down to 1
         achievements: [] // Unlocked achievement IDs

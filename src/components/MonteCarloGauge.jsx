@@ -7,6 +7,7 @@ import {
     calculateWeightedProjectedMean,
     computePooledSD
 } from '../engine';
+import { getSafeScore } from '../utils/scoreHelper';
 
 // Internal Component for the Gaussian Chart with Tooltip State
 function GaussianChart({ mean, sd, low95, high95, targetScore, currentMean }) {
@@ -479,12 +480,8 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 const weight = debouncedWeights[cat.name] ?? 0;
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
-                        // BUG FIX: data format has `correct` and `total`, not `score`.
-                        // The old check `h.score` filtered out ALL points since h.score is undefined.
-                        // Calculate score from correct/total, or use h.score if it happens to exist.
-                        const score = h.score != null
-                            ? Number(h.score)
-                            : (h.total > 0 ? (h.correct / h.total) * 100 : null);
+                        // Utiliza o helper compartilhado transparente para abstrair falhas passadas.
+                        const score = getSafeScore(h);
                         if (score != null && !isNaN(score) && h.date) {
                             allHistoryPoints.push({
                                 date: new Date(h.date).toISOString().split('T')[0],

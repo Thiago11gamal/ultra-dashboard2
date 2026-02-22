@@ -3,36 +3,14 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
+import { mulberry32, randomNormal } from './random';
+
 // -----------------------------
 // Helper: Ensure history is sorted by date
 // -----------------------------
 function getSortedHistory(history) {
     if (!history) return [];
     return [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
-}
-
-// -----------------------------
-// Seeded RNG (Linear Congruential Generator)
-// -----------------------------
-function createSeededRandom(seed = 123456) {
-    let value = seed % 2147483647;
-    if (value <= 0) value += 2147483646;
-
-    return function () {
-        value = value * 16807 % 2147483647;
-        return (value - 1) / 2147483646;
-    };
-}
-
-// -----------------------------
-// Random normal com seed
-// -----------------------------
-function randomNormal(rng) {
-    let u = rng();
-    while (u <= 0) u = rng(); // Proteção contra Math.log(0) -> -Infinity
-    const v = rng();
-    return Math.sqrt(-2.0 * Math.log(u)) *
-        Math.cos(2.0 * Math.PI * v);
 }
 
 // -----------------------------
@@ -263,7 +241,7 @@ export function monteCarloSimulation(
 
     // Seed fixa baseada no histórico (determinismo visual)
     const seed = history.length * 1000 + Math.floor(currentScore * 10);
-    const rng = createSeededRandom(seed);
+    const rng = mulberry32(seed);
 
     let success = 0;
     let sumResults = 0;
@@ -324,16 +302,16 @@ export function monteCarloSimulation(
 // -----------------------------
 /**
  * Calcula EMA com K (Alpha) dinâmico baseado na quantidade de dados.
- * - Poucos dados (Início): K mais alto (0.12) -> Reage rápido
- * - Muitos dados (Veterano): K mais baixo (0.07) -> Mais estável
+ * - Poucos dados (Início): K mais alto (0.25) -> Reage rápido
+ * - Muitos dados (Veterano): K mais baixo (0.12) -> Mais estável, mas sem ancorar demais o Monte Carlo
  */
 export function calculateDynamicEMA(currentScore, previousEMA, dataCount) {
-    let K = 0.07; // Padrão (Veterano)
+    let K = 0.12; // Padrão (Veterano)
 
     if (dataCount < 5) {
-        K = 0.12; // Start frio (reage rápido)
+        K = 0.25; // Start frio (reage super rápido às primeiras notas)
     } else if (dataCount < 10) {
-        K = 0.09; // Intermediário
+        K = 0.18; // Intermediário
     }
 
     // EMA Formula: Price(t) * k + EMA(y) * (1 – k)

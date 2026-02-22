@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
+import { getSafeScore } from '../utils/scoreHelper';
 
 const InfoTooltip = ({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -35,10 +36,11 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
                 cat.simuladoStats.history.forEach(h => {
-                    if (h.date && h.score !== undefined) {
+                    const safeScore = getSafeScore(h);
+                    if (h.date && safeScore >= 0) {
                         allHistory.push({
                             date: new Date(h.date).getTime(),
-                            score: h.score,
+                            score: safeScore,
                             totalQuestions: h.total || 0
                         });
                         totalQuestionsGlobal += (h.total || 0);
@@ -353,8 +355,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 animate-fade-in-down">
             {/* Card 1: Machine Learning & Base Prediction (25%) */}
             <div className={`col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-all duration-500 shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
-                    stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
-                        'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
+                stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
+                    'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
                 }`}>
 
                 {/* AI / ML Animated Glow Background */}
@@ -376,8 +378,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 {/* Main Verdict with Dynamic Glow */}
                 <div className="text-center my-4 relative z-10">
                     <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
-                            stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
-                                'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                        stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
+                            'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
                         }`}>
                         {stats.prediction}
                     </h2>
@@ -413,8 +415,8 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 {/* Animated Loading Sparkline at the bottom */}
                 <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
                     <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
-                            stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
-                                'bg-blue-500'
+                        stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
+                            'bg-blue-500'
                         }`} style={{ animation: 'moveRight 3s linear infinite' }} />
                 </div>
 

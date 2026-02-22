@@ -1,4 +1,6 @@
 // ==================== CONSTANTES ====================
+import { calculateTrend } from '../engine/stats';
+
 const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
     RECENCY_MAX: 30,
@@ -10,29 +12,6 @@ const DEFAULT_CONFIG = {
 };
 
 // ==================== FUNÇÕES AUXILIARES ====================
-
-// Calcula tendência via regressão linear simples
-function calculateTrend(scores) {
-    if (!scores || scores.length < 3) return 0;
-
-    // MELHORIA: Usa apenas os últimos 10 simulados para a tendência ser mais atual
-    const recentScores = scores.slice(-10);
-    const n = recentScores.length;
-
-    const x = recentScores.map((_, i) => i);
-    const y = recentScores;
-
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-
-    const denom = n * sumX2 - sumX * sumX;
-    if (denom === 0) return 0;
-
-    const slope = (n * sumXY - sumX * sumY) / denom;
-    return slope * 10; // Escalar para facilitar interpretação
-}
 
 // Calcula desvio padrão
 function calculateStandardDeviation(scores) {
@@ -71,7 +50,7 @@ function getSRSBoost(daysSince, cfg) {
 
 // Crunch Multiplier ESCALONADO (Reta Final)
 function getCrunchMultiplier(daysToExam) {
-    if (!daysToExam || daysToExam > 60) return 1.0;
+    if (daysToExam === undefined || daysToExam === null || daysToExam > 60) return 1.0;
     if (daysToExam < 0) return 1.0; // Exam passed, no crunch
     if (daysToExam <= 3) return 2.5;
     if (daysToExam <= 7) return 2.0;
