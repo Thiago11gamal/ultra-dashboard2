@@ -88,7 +88,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                     // Expanded State: Full Menu
                     <div className="flex items-center gap-3">
                         {/* Brand Logo */}
-                        <div className="flex items-center gap-2 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+                        <Link to="/" className="flex items-center gap-2 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isMobile) setCollapsed(true); }}>
                             <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
                                 <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
                                 <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
@@ -96,7 +96,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                 <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
                             </svg>
                             <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO THI</span>
-                        </div>
+                        </Link>
 
                         {/* Navigation Items */}
                         <div className="flex items-center gap-2">
