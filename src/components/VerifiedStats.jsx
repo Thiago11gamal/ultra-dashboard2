@@ -399,13 +399,13 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
                         <div className="flex items-center gap-1.5">
-                            {hasEnoughData ? (
+                            {stats.hasEnoughData ? (
                                 <>
-                                    {trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                                    {trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                                    {trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                                    {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
+                                    {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+                                    {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
                                     <span className="text-xs font-black text-slate-200 uppercase">
-                                        {trend === 'up' ? 'Alta' : trend === 'down' ? 'Baixa' : 'Estável'}
+                                        {stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}
                                     </span>
                                 </>
                             ) : (
