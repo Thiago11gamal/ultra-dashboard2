@@ -3,7 +3,7 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
-import { mulberry32, randomNormal } from './random';
+import { mulberry32, randomNormal } from './random.js';
 
 // -----------------------------
 // Helper: Ensure history is sorted by date
@@ -110,14 +110,16 @@ export function projectScore(history, projectDays = 60) {
 
     const slope = calculateSlope(sortedHistory);
 
-    // Bugfix: Inject EMA (Bayesian Shrinkage) as the anchor point instead of Raw Score
-    let currentScore = sortedHistory[sortedHistory.length - 1].score;
+    const lastRawScore = sortedHistory[sortedHistory.length - 1].score;
+    let currentScore = lastRawScore;
+
     if (sortedHistory.length > 2) {
         let ema = sortedHistory[0].score;
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
         }
-        currentScore = ema;
+        // Consistent blended baseline: 70% raw, 30% EMA
+        currentScore = (lastRawScore * 0.7) + (ema * 0.3);
     }
 
     // Relaxed damping: 45 instead of 30, allows more linear projection for longer
@@ -203,17 +205,19 @@ export function monteCarloSimulation(
         volatility: 0
     };
 
-    // Fix: Baseline uses EMA instead of isolated raw score.
-    let baselineScore = sortedHistory[sortedHistory.length - 1].score;
+    // Fix: Baseline uses a more responsive EMA to avoid anchoring too far behind real progress.
+    const currentScore = sortedHistory[sortedHistory.length - 1].score;
+    let baselineScore = currentScore;
+
     if (sortedHistory.length > 2) {
         let ema = sortedHistory[0].score;
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
         }
-        baselineScore = ema;
+        // Blending EMA with current score for better immediate responsiveness
+        // 70% current, 30% EMA for a balanced starting point
+        baselineScore = (currentScore * 0.7) + (ema * 0.3);
     }
-
-    const currentScore = sortedHistory[sortedHistory.length - 1].score; // Used for returning UI only
 
     // 1. Calcular Tendência (Drift)
     const drift = calculateSlope(sortedHistory);
@@ -306,12 +310,12 @@ export function monteCarloSimulation(
  * - Muitos dados (Veterano): K mais baixo (0.12) -> Mais estável, mas sem ancorar demais o Monte Carlo
  */
 export function calculateDynamicEMA(currentScore, previousEMA, dataCount) {
-    let K = 0.12; // Padrão (Veterano)
+    let K = 0.30; // Padrão (Veterano) - Increased from 0.12
 
     if (dataCount < 5) {
-        K = 0.25; // Start frio (reage super rápido às primeiras notas)
-    } else if (dataCount < 10) {
-        K = 0.18; // Intermediário
+        K = 0.60; // Start frio (reage muito rápido) - Increased from 0.25
+    } else if (dataCount < 15) {
+        K = 0.45; // Intermediário - Increased from 0.18
     }
 
     // EMA Formula: Price(t) * k + EMA(y) * (1 – k)

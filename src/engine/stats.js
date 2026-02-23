@@ -1,4 +1,4 @@
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore } from '../utils/scoreHelper.js';
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
