@@ -63,8 +63,10 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
         });
 
         // Map to UI-compatible format
-        const trend = globalAnalysis.trend_slope > 0.01 ? 'up' :
-            globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable';
+        const hasEnoughData = allScores.length >= 3;
+        const trend = !hasEnoughData ? 'insufficient' :
+            (globalAnalysis.trend_slope > 0.01 ? 'up' :
+                globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable');
         const trendValue = globalAnalysis.trend_slope;
         const progressState = globalAnalysis.state; // eslint-disable-line no-unused-vars
         const progressLabel = globalAnalysis.label; // eslint-disable-line no-unused-vars
@@ -348,7 +350,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
             };
         }
 
-        return { trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
+        return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
     }, [categories, targetScore]);
 
     return (
@@ -397,10 +399,18 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
                         <div className="flex items-center gap-1.5">
-                            {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                            {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                            {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
-                            <span className="text-xs font-black text-slate-200 uppercase">{stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}</span>
+                            {hasEnoughData ? (
+                                <>
+                                    {trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
+                                    {trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+                                    {trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                                    <span className="text-xs font-black text-slate-200 uppercase">
+                                        {trend === 'up' ? 'Alta' : trend === 'down' ? 'Baixa' : 'Estável'}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -453,12 +463,16 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 <div className="grid grid-cols-2 gap-2 w-full mb-3">
                     <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                        <span className={`text-sm font-black ${stats.consistency.color}`}>±{stats.consistency.sd}%</span>
+                        <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
+                            {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
+                        </span>
                     </div>
                     <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
                         <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                            {['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' : ['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'}
+                            {stats.consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+                                (['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' :
+                                    (['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                         </span>
                     </div>
                 </div>
