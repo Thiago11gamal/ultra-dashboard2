@@ -28,10 +28,27 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
 
         if (!nextTask) return null;
 
+        // Compute task display info
+        const fullText = nextTask.title || nextTask.text || "Estudo";
+        const parts = fullText.split(':');
+        const hasDetails = parts.length > 1;
+        let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
+
+        let topicPart = "";
+        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
+        if (topicMatch) {
+            topicPart = topicMatch[1];
+            actionPart = topicMatch[2].trim();
+        }
+
         return {
             category: suggestedCategory,
             task: nextTask,
-            urgency: suggestedCategory.urgency
+            urgency: suggestedCategory.urgency,
+            display: {
+                assunto: topicPart || (actionPart.length > 40 ? actionPart.substring(0, 37) + '...' : actionPart),
+                meta: topicPart ? actionPart : "Revisão e exercícios"
+            }
         };
     }, [categories, simulados]);
 
@@ -49,27 +66,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
         );
     }
 
-    const { category, task, urgency } = suggestion;
-
-    // Pre-compute task display info (extracted from IIFE anti-pattern)
-    const taskDisplay = useMemo(() => {
-        const fullText = task.title || task.text || "Estudo";
-        const parts = fullText.split(':');
-        const hasDetails = parts.length > 1;
-        let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
-
-        let topicPart = "";
-        const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
-        if (topicMatch) {
-            topicPart = topicMatch[1];
-            actionPart = topicMatch[2].trim();
-        }
-
-        return {
-            displayAssunto: topicPart || (actionPart.length > 40 ? actionPart.substring(0, 37) + '...' : actionPart),
-            displayMeta: topicPart ? actionPart : "Revisão e exercícios"
-        };
-    }, [task]);
+    const { category, task, urgency, display } = suggestion;
 
     // Determine urgency styling
     let urgencyStyle = {
@@ -155,15 +152,15 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                         <div className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
                             <span className="text-[9px] font-black text-amber-300 uppercase tracking-tighter">Assunto</span>
                         </div>
-                        <h3 className="text-white font-bold text-sm leading-tight truncate px-1" title={taskDisplay.displayAssunto}>
-                            {taskDisplay.displayAssunto}
+                        <h3 className="text-white font-bold text-sm leading-tight truncate px-1" title={display.assunto}>
+                            {display.assunto}
                         </h3>
                     </div>
 
                     <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
                         <span className="flex items-center gap-1">
                             <Clock size={10} />
-                            {taskDisplay.displayMeta} • {urgency?.details?.daysSinceLastStudy ?? 0}d
+                            {display.meta} • {urgency?.details?.daysSinceLastStudy ?? 0}d
                         </span>
                     </div>
                 </div>
