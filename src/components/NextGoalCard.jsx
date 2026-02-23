@@ -3,7 +3,6 @@ import { Target, Play, Clock } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 
 export default function NextGoalCard({ categories = [], simulados = [], onStartStudying }) {
-
     // Get the most urgent category using AI Coach logic
     const suggestion = useMemo(() => {
         const suggestedCategory = getSuggestedFocus(categories, simulados);
