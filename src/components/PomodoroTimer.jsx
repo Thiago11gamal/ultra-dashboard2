@@ -287,13 +287,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 const expectedTimeLeft = initialTimeLeft - (totalElapsed * speed);
 
                 // Update state
-                setTimeLeft(() => {
-                    if (expectedTimeLeft <= 0) {
-                        clearInterval(interval);
-                        return 0;
-                    }
-                    return expectedTimeLeft;
-                });
+                if (expectedTimeLeft <= 0) {
+                    clearInterval(interval);
+                    setTimeLeft(0);
+                } else {
+                    setTimeLeft(expectedTimeLeft);
+                }
             }, 100 / speed); // Smoother tick rate (100ms)
         }
         return () => clearInterval(interval);

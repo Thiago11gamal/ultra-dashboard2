@@ -21,6 +21,9 @@ export function AuthProvider({ children }) {
                 await updateProfile(userCredential.user, {
                     displayName: name
                 });
+                // onAuthStateChanged fires before updateProfile resolves,
+                // so we manually sync the updated user into state here.
+                setCurrentUser({ ...userCredential.user });
                 return userCredential.user;
             });
     }

@@ -30,5 +30,5 @@ export function useCloudSync(currentUser, appState, showToast) {
         // Aumentamos o debounce para 25 segundos para evitar excesso de escrita
         const timer = setTimeout(syncToCloud, 25000);
         return () => clearTimeout(timer);
-    }, [appState, currentUser, showToast]);
+    }, [appState, currentUser]);
 }
