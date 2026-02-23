@@ -317,7 +317,27 @@ export const useAppStore = create(
         })),
         {
             name: 'ultra-dashboard-storage',
+            version: 1, // Add versioning for future migrations
             partialize: (state) => ({ appState: state.appState }),
+            // CRITICAL FIX: Custom merge to prevent HMR (Hot Reload) from wiping data
+            merge: (persistedState, currentState) => {
+                if (!persistedState || !persistedState.appState) {
+                    return currentState;
+                }
+
+                // Deep merge or simply take the persisted state if it looks valid
+                // This prevents Vite from evaluating the module again and overwriting with INITIAL_DATA
+                return {
+                    ...currentState,
+                    appState: {
+                        ...currentState.appState,
+                        ...persistedState.appState,
+                        contests: persistedState.appState.contests || currentState.appState.contests,
+                        activeId: persistedState.appState.activeId || currentState.appState.activeId,
+                        history: persistedState.appState.history || currentState.appState.history
+                    }
+                };
+            }
         }
     )
 );
