@@ -34,20 +34,15 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
-        console.log("AuthContext: useEffect mounted, setting up onAuthStateChanged");
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            console.log("AuthContext: onAuthStateChanged fired, user:", user?.email || "null");
             setCurrentUser(user);
             setLoading(false);
         }, (error) => {
-            console.error("AuthContext: Auth Error", error);
+            console.error("Auth Error", error);
             setLoading(false);
         });
 
-        return () => {
-            console.log("AuthContext: useEffect unmounted");
-            unsubscribe();
-        }
+        return unsubscribe;
     }, []);
 
     const value = {

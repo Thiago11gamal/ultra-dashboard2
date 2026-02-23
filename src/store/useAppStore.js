@@ -1,3 +1,7 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+import { INITIAL_DATA } from '../data/initialData';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 import { generateId } from '../utils/idGenerator';
 

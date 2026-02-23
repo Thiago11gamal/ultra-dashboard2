@@ -28,25 +28,15 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-console.log("Firebase: initializing app");
 const app = initializeApp(firebaseConfig);
 
-console.log("Firebase: initializeFirestore settings");
 // Initialize Firestore with settings to avoid connection issues
-try {
-    const db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager()
-        })
-    });
-    console.log("Firebase: initializeFirestore success");
-    var externalDb = db;
-} catch (e) {
-    console.error("Firebase: initializeFirestore error", e);
-}
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    })
+});
 
-console.log("Firebase: getAuth");
 const auth = getAuth(app);
-console.log("Firebase: getAuth success");
 
-export { externalDb as db, auth };
+export { db, auth };
