@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDocFromServer } from "firebase/firestore";
 
 // Constants
 const BACKUP_COLLECTION = "backups";
@@ -29,7 +29,7 @@ export const downloadDataFromCloud = async (userId) => {
     try {
         const docId = userId || 'anonymous';
         const docRef = doc(db, BACKUP_COLLECTION, docId);
-        const docSnap = await getDoc(docRef);
+        const docSnap = await getDocFromServer(docRef);
 
         if (docSnap.exists()) {
 
