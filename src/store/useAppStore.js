@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 import { INITIAL_DATA } from '../data/initialData';
-import { XP_CONFIG, getTaskXP } from '../utils/gamification';
+import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 
 // Helper to handle gamification within the store
 // This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
@@ -15,16 +15,10 @@ const processGamification = (state, xpGained) => {
     let newXP = currentXP + xpGained;
     let leveledUp = false;
 
-    // Calculate level up
-    while (true) {
-        const nextLevelXP = 100 * Math.pow(1.5, currentLevel - 1);
-        if (newXP >= nextLevelXP) {
-            newXP -= nextLevelXP;
-            currentLevel += 1;
-            leveledUp = true;
-        } else {
-            break;
-        }
+    // Calculate level up using centralized logic
+    const newLevel = calculateLevel(newXP);
+    if (newLevel > currentLevel) {
+        leveledUp = true;
     }
 
     activeData.user.xp = newXP;
@@ -47,11 +41,21 @@ export const useAppStore = create(
 
             // Actions
             setAppState: (newStateObj) => set((state) => {
+                // Record snapshot for undo
+                const snapshot = { ...state.appState.contests[state.appState.activeId] };
+                state.appState.history.push({ data: snapshot, contestId: state.appState.activeId });
+                if (state.appState.history.length > 50) state.appState.history.shift();
+
                 // Allows overwrite of appState entirely (used in imports)
                 state.appState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
             }),
 
             setData: (newDataCallback) => set((state) => {
+                // Record snapshot for undo
+                const snapshot = { ...state.appState.contests[state.appState.activeId] };
+                state.appState.history.push({ data: snapshot, contestId: state.appState.activeId });
+                if (state.appState.history.length > 50) state.appState.history.shift();
+
                 // Allows updating only the active contest data
                 const currentData = state.appState.contests[state.appState.activeId];
                 const updatedData = typeof newDataCallback === 'function' ? newDataCallback(currentData) : newDataCallback;
@@ -81,22 +85,11 @@ export const useAppStore = create(
 
                 // Apply XP directly
                 if (xpChange !== 0 && activeData.user) {
-                    // Gamification logic
-                    let currentXP = activeData.user.xp || 0;
-                    let currentLevel = activeData.user.level || 1;
-                    let newXP = currentXP + xpChange;
-
-                    while (true) {
-                        const nextLevelXP = 100 * Math.pow(1.5, currentLevel - 1);
-                        if (newXP >= nextLevelXP) {
-                            newXP -= nextLevelXP;
-                            currentLevel += 1;
-                        } else {
-                            break;
-                        }
-                    }
+                    const currentXP = activeData.user.xp || 0;
+                    const newXP = currentXP + xpChange;
+                    // Gamification logic using centralized formula
                     activeData.user.xp = newXP;
-                    activeData.user.level = currentLevel;
+                    activeData.user.level = calculateLevel(newXP);
                 }
             }),
 
@@ -164,8 +157,9 @@ export const useAppStore = create(
                 if (!activeData.studyLogs) activeData.studyLogs = [];
                 if (!activeData.studySessions) activeData.studySessions = [];
 
-                activeData.studyLogs.push({ id: `log-${Date.now()}`, date: now, categoryId, taskId, minutes });
-                activeData.studySessions.push({ id: Date.now(), startTime: now, duration: minutes, categoryId, taskId });
+                const logId = `log-${Date.now()}`;
+                activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
+                activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
 
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
@@ -184,21 +178,11 @@ export const useAppStore = create(
                 const totalXP = baseXP + bonusXP;
 
                 if (activeData.user) {
-                    let currentXP = activeData.user.xp || 0;
-                    let currentLevel = activeData.user.level || 1;
-                    let newXP = currentXP + totalXP;
-
-                    while (true) {
-                        const nextLevelXP = 100 * Math.pow(1.5, currentLevel - 1);
-                        if (newXP >= nextLevelXP) {
-                            newXP -= nextLevelXP;
-                            currentLevel += 1;
-                        } else {
-                            break;
-                        }
-                    }
+                    const currentXP = activeData.user.xp || 0;
+                    const newXP = currentXP + totalXP;
+                    // XP logic using centralized formula
                     activeData.user.xp = newXP;
-                    activeData.user.level = currentLevel;
+                    activeData.user.level = calculateLevel(newXP);
                 }
             }),
 
@@ -218,14 +202,9 @@ export const useAppStore = create(
                 // Remove session
                 activeData.studySessions.splice(sessionIndex, 1);
 
-                // Remove log
+                // Remove log by fixed ID
                 if (activeData.studyLogs) {
-                    activeData.studyLogs = activeData.studyLogs.filter(l => {
-                        if (l.categoryId !== session.categoryId) return true;
-                        if (l.taskId !== session.taskId) return true;
-                        if (l.date !== session.startTime) return true;
-                        return false;
-                    });
+                    activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
                 }
             }),
 
