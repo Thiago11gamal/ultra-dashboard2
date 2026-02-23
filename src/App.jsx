@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -9,16 +9,18 @@ import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
 
 import Dashboard from './pages/Dashboard';
-import Pomodoro from './pages/Pomodoro';
-import Tasks from './pages/Tasks';
-import Simulados from './pages/Simulados';
-import Stats from './pages/Stats';
-import Evolution from './pages/Evolution';
-import Coach from './pages/Coach';
-import History from './pages/History';
-import Activity from './pages/Activity';
-import Retention from './pages/Retention';
-import Notes from './pages/Notes';
+
+// Páginas pesadas com carregamento diferido (Lazy Loading)
+const Pomodoro = lazy(() => import('./pages/Pomodoro'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Simulados = lazy(() => import('./pages/Simulados'));
+const Stats = lazy(() => import('./pages/Stats'));
+const Evolution = lazy(() => import('./pages/Evolution'));
+const Coach = lazy(() => import('./pages/Coach'));
+const History = lazy(() => import('./pages/History'));
+const Activity = lazy(() => import('./pages/Activity'));
+const Retention = lazy(() => import('./pages/Retention'));
+const Notes = lazy(() => import('./pages/Notes'));
 
 import { useAuth } from './context/useAuth';
 import { useAppStore } from './store/useAppStore';
@@ -183,20 +185,26 @@ function MainLayout() {
           appState={appState}
         />
 
-        {/* Router Outlet Substitute via Native Route Matching Below */}
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/pomodoro" element={<Pomodoro />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/simulados" element={<Simulados />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/evolution" element={<Evolution />} />
-          <Route path="/coach" element={<Coach />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/heatmap" element={<Activity />} />
-          <Route path="/retention" element={<Retention />} />
-          <Route path="/notes" element={<Notes />} />
-        </Routes>
+        {/* Router Outlet com carregamento otimizado */}
+        <Suspense fallback={
+          <div className="flex items-center justify-center p-20 text-purple-400">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+          </div>
+        }>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/pomodoro" element={<Pomodoro />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/simulados" element={<Simulados />} />
+            <Route path="/stats" element={<Stats />} />
+            <Route path="/evolution" element={<Evolution />} />
+            <Route path="/coach" element={<Coach />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/heatmap" element={<Activity />} />
+            <Route path="/retention" element={<Retention />} />
+            <Route path="/notes" element={<Notes />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Global Modals & Toasts */}

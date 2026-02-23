@@ -23,3 +23,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary and Debug files
+eslint_*.txt
+build_*.txt
+*.log
+test_*.mjs
+repro_*.mjs
+repro_*.js
+repro_output.txt
+debug_*.mjs
+lint_output.txt
+verify_institutional.js
+test_projection.js
+test_new_projection.js
+test_fairness_engine*.mjs
+package-lock.html
