@@ -120,7 +120,7 @@ const VolumeRanking = ({ categories = [] }) => {
                 })}
 
                 {sorted.length === 0 && (
-                    <div className="text-center text-slate-600 py-10">
+                    <div className="text-center text-slate-400 py-10">
                         <span className="text-2xl block mb-2 opacity-30">💤</span>
                         <span className="text-xs">Sem dados</span>
                     </div>

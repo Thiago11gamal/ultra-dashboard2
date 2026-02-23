@@ -546,15 +546,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 style={{
                     backgroundImage: 'url(/wood-texture.png)',
                     backgroundSize: 'cover',
-                    backgroundPosition: 'center'
+                    backgroundPosition: 'center',
+                    boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
                 }}
-                animate={showWarning ? {
-                    x: [-2, 2, -2, 2, 0],
-                    rotate: [-0.5, 0.5, -0.5, 0.5, 0]
-                } : {}}
-                transition={showWarning ? { duration: 0.2, repeat: Infinity } : {}}
+                animate={showWarning ? { x: [-10, 10, -10, 10, 0] } : {}}
+                transition={{ duration: 0.4 }}
                 whileDrag={{ scale: 1.01 }}
-                className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-8 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
+                className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
                     ${!isLayoutLocked ? 'ring-2 ring-stone-600' : ''}
                     ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
             >
@@ -706,7 +704,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
                 }}
-                className={`w-full px-8 sm:px-12 pt-8 pb-10 rounded-2xl relative overflow-hidden border border-white/20
+                className={`w-full px-8 sm:px-12 pt-6 pb-8 rounded-2xl relative overflow-hidden border border-white/20
                     ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
                 <div className="flex items-center justify-between mb-4">
@@ -833,6 +831,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         );
                     })}
                 </div>
+
+                {/* Spacer to guarantee padding is applied correctly despite absolute calculations or outer clipping */}
+                <div className="h-6 w-full"></div>
 
             </motion.div>
         </motion.div >

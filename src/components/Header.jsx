@@ -20,7 +20,7 @@ const useClock = () => {
 const DateDisplay = () => {
     const time = useClock();
     return (
-        <p className="text-slate-400 mt-2 pl-2">
+        <p className="text-slate-400 pl-2">
             {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
     );
@@ -129,22 +129,24 @@ export default function Header({
     }, [localName, user.name, onUpdateName]);
 
     return (
-        <header className="flex items-center justify-between mb-8 mt-20 z-50 relative">
+        <header className="flex items-center justify-between mb-8 mt-4 md:mt-8 z-50 relative">
             {/* Left: Editable Contest Name */}
-            <div className="w-1/2">
+            <div className="w-1/2 relative">
                 <div className="relative group">
                     <input
                         type="text"
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
                         placeholder="Digite o nome do concurso..."
-                        className="w-full bg-transparent text-5xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
+                        className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                     />
                     <div className="absolute -top-4 left-2 text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         Foco Principal ✏️
                     </div>
                 </div>
-                <DateDisplay />
+                <div className="absolute top-full left-0 mt-1">
+                    <DateDisplay />
+                </div>
             </div>
 
             {/* Right: Actions */}
