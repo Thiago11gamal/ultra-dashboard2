@@ -102,6 +102,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 const newTime = prev - elapsedSeconds;
                                 return newTime > 0 ? newTime : 0;
                             });
+                            // FIX Bug 12: force effect to restart and pick up new timeLeft as initialTimeLeft
+                            setIsRunning(false);
+                            setTimeout(() => setIsRunning(true), 0);
                         }, 0);
                     }
                 } else {
@@ -224,10 +227,28 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 isRunning: false
             }));
             setIsRunning(false); // Pause here so they can manually start the break
+
+            // Sound & Notification
+            if (safeSettings.soundEnabled) {
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+                    audio.play().catch(() => { });
+                } catch { }
+            }
+            sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
         } else {
             // Break finished
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
+
+            // Sound & Notification
+            if (safeSettings.soundEnabled) {
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+                    audio.play().catch(() => { });
+                } catch { }
+            }
+            sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
 
             // Check for Task Completion NOW (after the break)
             if (sessions >= targetCycles) {
@@ -247,24 +268,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 timeLeft: workTime,
                 isRunning: false
             }));
-        }
-
-        setIsRunning(false);
-
-        // Sound & Notification
-        if (safeSettings.soundEnabled) {
-            try {
-                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                audio.play().catch(() => { });
-            } catch {
-                // Silent fail for audio playback
-            }
-        }
-
-        if (mode === 'work') {
-            sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
-        } else {
-            sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 

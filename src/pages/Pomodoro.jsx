@@ -7,7 +7,7 @@ import { useToast } from '../hooks/useToast';
 export default function Pomodoro() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
-    const { updatePomodoroSettings, handleUpdateStudyTime } = useAppStore();
+    const { updatePomodoroSettings, handleUpdateStudyTime, toggleTask } = useAppStore();
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -42,7 +42,7 @@ export default function Pomodoro() {
                 showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
             }
         }
-    }, [location.state]);
+    }, [location.state, data.categories, setData, showToast]);
 
     const handleExit = () => {
         // Clear studying status
@@ -63,13 +63,12 @@ export default function Pomodoro() {
     const handleFullCycleComplete = () => {
         // Automatically check task as completed
         if (activeSubject) {
-            setData(prev => ({
-                ...prev,
-                categories: prev.categories.map(cat => cat.id === activeSubject.categoryId ? {
-                    ...cat,
-                    tasks: cat.tasks.map(t => t.id === activeSubject.taskId ? { ...t, completed: true, status: 'completed' } : t)
-                } : cat)
-            }));
+            const cat = data.categories?.find(c => c.id === activeSubject.categoryId);
+            const tsk = cat?.tasks?.find(t => t.id === activeSubject.taskId);
+
+            if (tsk && !tsk.completed) {
+                toggleTask(activeSubject.categoryId, activeSubject.taskId);
+            }
             showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
         }
         handleExit();

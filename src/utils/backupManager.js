@@ -11,8 +11,8 @@ export const parseImportedData = (content, currentAppState) => {
 
         // Strategy 2: Single Contest Data (Old Format or Partial Export)
         if (imported.user || imported.categories) {
-            if (!imported.user && !imported.categories) {
-                throw new Error("Formato inválido: Faltam dados de usuário ou categorias.");
+            if (!imported.categories) {
+                throw new Error("Formato inválido: Faltam categorias obrigatórias para inicializar o ambiente.");
             }
 
             // Build a new appState wrapping this contest

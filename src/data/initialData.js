@@ -17,7 +17,7 @@ export const INITIAL_DATA = {
         startDate: getLocalYMD(), // Local Date
         goalDate: null,  // Null default (no exam date set)
         xp: 0,
-        level: 10, // Starts at Level 10, goes down to 1
+        level: 1, // Fix: start at level 1 (calculateLevel(0) = 1)
         achievements: [] // Unlocked achievement IDs
     },
 
@@ -126,5 +126,9 @@ export const exportData = (state) => {
 
     a.download = `ultra-dashboard-backup-${dateStr}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+
+    // Fix: Delay URL revocation so the browser has time to start the download
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 100);
 };

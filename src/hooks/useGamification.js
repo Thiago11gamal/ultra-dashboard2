@@ -1,8 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getLevelFromXP } from '../utils/gamification';
 
 export const useGamification = () => {
     const [levelUpData, setLevelUpData] = useState(null);
+
+    useEffect(() => {
+        const handleLevelUp = (e) => {
+            setLevelUpData(e.detail);
+        };
+        window.addEventListener('level-up', handleLevelUp);
+        return () => window.removeEventListener('level-up', handleLevelUp);
+    }, []);
 
     const applyGamification = useCallback((currentData, xpAmount) => {
         const oldXp = currentData.user.xp || 0;
@@ -13,11 +21,15 @@ export const useGamification = () => {
         const oldLevel = getLevelFromXP(oldXp);
 
         if (newLevel > oldLevel) {
-            setLevelUpData({
-                level: newLevel,
-                title: `Nível ${newLevel} Desbloqueado!`,
-                xpGained: newXp - oldXp
-            });
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('level-up', {
+                    detail: {
+                        level: newLevel,
+                        title: `Nível ${newLevel} Desbloqueado!`,
+                        xpGained: newXp - oldXp
+                    }
+                }));
+            }
         }
 
         return {

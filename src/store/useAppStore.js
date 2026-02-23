@@ -13,7 +13,7 @@ const processGamification = (state, xpGained) => {
 
     let currentXP = activeData.user.xp || 0;
     let currentLevel = activeData.user.level || 1;
-    let newXP = currentXP + xpGained;
+    let newXP = Math.max(0, currentXP + xpGained);
 
     // Calculate level up using centralized logic
     const newLevel = calculateLevel(newXP);
@@ -21,6 +21,16 @@ const processGamification = (state, xpGained) => {
 
     activeData.user.xp = newXP;
     activeData.user.level = newLevel; // Fixed: was using currentLevel
+
+    if (leveledUp && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('level-up', {
+            detail: {
+                level: newLevel,
+                title: `Nível ${newLevel} Desbloqueado!`,
+                xpGained: newXP - currentXP
+            }
+        }));
+    }
 
     return leveledUp ? newLevel : null;
 };
