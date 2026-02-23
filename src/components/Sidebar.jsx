@@ -43,7 +43,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
     ];
 
     return (
-        <div className="fixed top-4 left-1/2 z-[100] flex flex-col items-start">
+        <div className="fixed top-6 left-1/2 z-[100] flex flex-col items-start">
             {/* Main Bar Container */}
             <div
                 className={`

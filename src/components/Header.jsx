@@ -129,9 +129,9 @@ export default function Header({
     }, [localName, user.name, onUpdateName]);
 
     return (
-        <header className="flex items-center justify-between mb-8 mt-4 md:mt-8 z-50 relative">
+        <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
             {/* Left: Editable Contest Name */}
-            <div className="w-1/2 relative">
+            <div className="w-1/2 flex flex-col">
                 <div className="relative group">
                     <input
                         type="text"
@@ -144,7 +144,7 @@ export default function Header({
                         Foco Principal ✏️
                     </div>
                 </div>
-                <div className="absolute top-full left-0 mt-1">
+                <div className="mt-1">
                     <DateDisplay />
                 </div>
             </div>

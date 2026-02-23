@@ -168,7 +168,7 @@ function MainLayout() {
         onOpenHelp={() => setShowHelpGuide(true)}
       />
 
-      <main className="px-6 lg:px-8 pt-20 pb-16 transition-all duration-300 w-full overflow-x-hidden">
+      <main className="px-6 lg:px-8 pt-28 pb-16 transition-all duration-300 w-full overflow-x-hidden">
         <Header
           user={data.user}
           settings={data.settings}
