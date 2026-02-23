@@ -30,12 +30,19 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with settings to avoid connection issues
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
-});
+// Initialize Firestore with persistent cache, falling back to default if unsupported
+// (e.g. Safari private mode, test environments, or missing env config)
+let db;
+try {
+    db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        })
+    });
+} catch (e) {
+    console.warn('Persistent Firestore cache unavailable, falling back to default:', e.message);
+    db = getFirestore(app);
+}
 
 const auth = getAuth(app);
 

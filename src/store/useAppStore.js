@@ -38,7 +38,13 @@ export const useAppStore = create(
 
             // Actions
             setAppState: (newStateObj) => set((state) => {
-                // Record snapshot for undo (before overwrite)
+                // Resolve the next state first before touching history
+                const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+
+                // Safety check: ensure nextState has required structure before committing
+                if (!nextState || !nextState.contests || !nextState.activeId) return;
+
+                // Only record snapshot for undo after we know the update is valid
                 const snapshot = JSON.parse(JSON.stringify(state.appState.contests));
                 const activeId = state.appState.activeId;
 
@@ -49,16 +55,10 @@ export const useAppStore = create(
 
                 if (state.appState.history.length > 50) state.appState.history.shift();
 
-                // If newStateObj is a full state replacement (e.g. from import), we might want to clear history or handle it carefully
-                const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
-
-                // Safety check: ensure nextState has required structure
-                if (nextState && nextState.contests && nextState.activeId) {
-                    state.appState.contests = nextState.contests;
-                    state.appState.activeId = nextState.activeId;
-                    // Note: we preserve the history stack unless the import explicitly provides a new one
-                    if (nextState.history) state.appState.history = nextState.history;
-                }
+                state.appState.contests = nextState.contests;
+                state.appState.activeId = nextState.activeId;
+                // Preserve history stack unless the import explicitly provides a new one
+                if (nextState.history) state.appState.history = nextState.history;
             }),
 
             setData: (newDataCallback) => set((state) => {
