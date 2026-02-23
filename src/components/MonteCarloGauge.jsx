@@ -7,6 +7,7 @@ import {
     calculateWeightedProjectedMean,
     computePooledSD
 } from '../engine';
+import { useAppStore } from '../store/useAppStore';
 import { getSafeScore } from '../utils/scoreHelper';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
@@ -16,33 +17,12 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     const [equalWeightsMode, setEqualWeightsMode] = useState(true);
     const [simulateToday, setSimulateToday] = useState(false);
 
+    const weights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
+    const setWeights = useAppStore(state => state.setMonteCarloWeights);
+
     const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
+
     const catCount = activeCategories.length;
-
-    const [weights, setWeights] = useState(() => {
-        const saved = localStorage.getItem('monte_carlo_weights');
-        return saved ? JSON.parse(saved) : {};
-    });
-
-    useEffect(() => {
-        localStorage.setItem('monte_carlo_weights', JSON.stringify(weights));
-    }, [weights]);
-
-    useEffect(() => {
-        if (categories.length > 0) {
-            setWeights(prev => {
-                let hasChanges = false;
-                const nextWeights = { ...prev };
-                categories.forEach(cat => {
-                    if (cat.weight !== undefined && cat.weight !== prev[cat.name]) {
-                        nextWeights[cat.name] = cat.weight;
-                        hasChanges = true;
-                    }
-                });
-                return hasChanges ? nextWeights : prev;
-            });
-        }
-    }, [categories]);
 
     const projectDays = useMemo(() => {
         if (simulateToday) return 0;
@@ -91,19 +71,17 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
     const updateWeight = useCallback((catName, value) => {
         if (equalWeightsMode) return;
-        setWeights(prev => {
-            const newValue = Math.max(0, Math.min(100, parseInt(value) || 0));
-            let otherTotal = 0;
-            for (const cat of activeCategories) {
-                if (cat.name !== catName) otherTotal += prev[cat.name] || 0;
-            }
-            const maxAllowed = Math.max(0, 100 - otherTotal);
-            const finalValue = Math.min(newValue, maxAllowed);
-            const updatedWeights = { ...prev, [catName]: finalValue };
-            if (onWeightsChange) onWeightsChange(updatedWeights);
-            return updatedWeights;
-        });
-    }, [equalWeightsMode, activeCategories, onWeightsChange]);
+        const newValue = Math.max(0, Math.min(100, parseInt(value) || 0));
+        let otherTotal = 0;
+        for (const cat of activeCategories) {
+            if (cat.name !== catName) otherTotal += weights[cat.name] || 0;
+        }
+        const maxAllowed = Math.max(0, 100 - otherTotal);
+        const finalValue = Math.min(newValue, maxAllowed);
+        const updatedWeights = { ...weights, [catName]: finalValue };
+        setWeights(updatedWeights);
+        if (onWeightsChange) onWeightsChange(updatedWeights);
+    }, [equalWeightsMode, activeCategories, weights, setWeights, onWeightsChange]);
 
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) return getEqualWeights();

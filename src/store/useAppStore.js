@@ -1,31 +1,24 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import { persist } from 'zustand/middleware';
-import { INITIAL_DATA } from '../data/initialData';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
+import { generateId } from '../utils/idGenerator';
 
 // Helper to handle gamification within the store
 // This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
 const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
-    if (!activeData || !activeData.user) return;
+    if (!activeData || !activeData.user || xpGained === 0) return null;
 
     let currentXP = activeData.user.xp || 0;
     let currentLevel = activeData.user.level || 1;
     let newXP = currentXP + xpGained;
-    let leveledUp = false;
 
     // Calculate level up using centralized logic
     const newLevel = calculateLevel(newXP);
-    if (newLevel > currentLevel) {
-        leveledUp = true;
-    }
+    const leveledUp = newLevel > currentLevel;
 
     activeData.user.xp = newXP;
-    activeData.user.level = currentLevel;
+    activeData.user.level = newLevel; // Fixed: was using currentLevel
 
-    // We target the active contest implicitly via immer draft logic injected below
-    return leveledUp ? currentLevel : null;
+    return leveledUp ? newLevel : null;
 };
 
 // Create the Zustand store with Immer for easy deep mutations
@@ -41,13 +34,27 @@ export const useAppStore = create(
 
             // Actions
             setAppState: (newStateObj) => set((state) => {
-                // Record snapshot for undo
-                const snapshot = { ...state.appState.contests[state.appState.activeId] };
-                state.appState.history.push({ data: snapshot, contestId: state.appState.activeId });
+                // Record snapshot for undo (before overwrite)
+                const snapshot = JSON.parse(JSON.stringify(state.appState.contests));
+                const activeId = state.appState.activeId;
+
+                state.appState.history.push({
+                    contests: snapshot,
+                    activeId: activeId
+                });
+
                 if (state.appState.history.length > 50) state.appState.history.shift();
 
-                // Allows overwrite of appState entirely (used in imports)
-                state.appState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+                // If newStateObj is a full state replacement (e.g. from import), we might want to clear history or handle it carefully
+                const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+
+                // Safety check: ensure nextState has required structure
+                if (nextState && nextState.contests && nextState.activeId) {
+                    state.appState.contests = nextState.contests;
+                    state.appState.activeId = nextState.activeId;
+                    // Note: we preserve the history stack unless the import explicitly provides a new one
+                    if (nextState.history) state.appState.history = nextState.history;
+                }
             }),
 
             setData: (newDataCallback) => set((state) => {
@@ -83,14 +90,8 @@ export const useAppStore = create(
                 task.completedAt = completed ? new Date().toISOString() : null;
                 if (completed) task.lastStudiedAt = new Date().toISOString();
 
-                // Apply XP directly
-                if (xpChange !== 0 && activeData.user) {
-                    const currentXP = activeData.user.xp || 0;
-                    const newXP = currentXP + xpChange;
-                    // Gamification logic using centralized formula
-                    activeData.user.xp = newXP;
-                    activeData.user.level = calculateLevel(newXP);
-                }
+                // Apply XP using unified helper
+                processGamification(state, xpChange);
             }),
 
             addTask: (categoryId, title) => set((state) => {
@@ -99,7 +100,7 @@ export const useAppStore = create(
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
                     category.tasks.push({
-                        id: `task-${Date.now()}`,
+                        id: generateId('task'),
                         title,
                         completed: false,
                         priority: 'medium'
@@ -132,7 +133,7 @@ export const useAppStore = create(
                 if (!name || typeof name !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories.push({
-                    id: `cat-${Date.now()}`,
+                    id: generateId('cat'),
                     name,
                     color: '#3b82f6',
                     icon: '📚',
@@ -157,7 +158,7 @@ export const useAppStore = create(
                 if (!activeData.studyLogs) activeData.studyLogs = [];
                 if (!activeData.studySessions) activeData.studySessions = [];
 
-                const logId = `log-${Date.now()}`;
+                const logId = generateId('log');
                 activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
                 activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
 
@@ -172,18 +173,10 @@ export const useAppStore = create(
                     }
                 }
 
-                // XP logic (base + bonus)
+                // XP logic using unified helper
                 const baseXP = XP_CONFIG.pomodoro.base; // 100
                 const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0; // +100
-                const totalXP = baseXP + bonusXP;
-
-                if (activeData.user) {
-                    const currentXP = activeData.user.xp || 0;
-                    const newXP = currentXP + totalXP;
-                    // XP logic using centralized formula
-                    activeData.user.xp = newXP;
-                    activeData.user.level = calculateLevel(newXP);
-                }
+                processGamification(state, baseXP + bonusXP);
             }),
 
             deleteSession: (sessionId) => set((state) => {
@@ -209,6 +202,21 @@ export const useAppStore = create(
             }),
 
             // 4. Simulados Configs
+            setMonteCarloWeights: (weights) => set((state) => {
+                const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
+                activeData.mcWeights = weights;
+
+                // Sync with categories for backward compatibility and other displays
+                if (activeData.categories) {
+                    activeData.categories.forEach(cat => {
+                        if (weights[cat.name] !== undefined) {
+                            cat.weight = weights[cat.name];
+                        }
+                    });
+                }
+            }),
+
             updateWeights: (weights) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData.categories) return;
@@ -218,6 +226,8 @@ export const useAppStore = create(
                         cat.weight = weights[cat.name];
                     }
                 });
+                // Also update mcWeights
+                activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
             }),
 
             resetSimuladoStats: () => set((state) => {
@@ -266,7 +276,7 @@ export const useAppStore = create(
             }),
 
             createNewContest: () => set((state) => {
-                const newId = `contest-${Date.now()}`;
+                const newId = generateId('contest');
                 const newContestData = {
                     ...INITIAL_DATA,
                     user: { ...INITIAL_DATA.user, name: 'Novo Concurso' },
