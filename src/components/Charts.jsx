@@ -12,6 +12,8 @@ import {
     Cell,
 } from 'recharts';
 
+import { CHART_COLORS } from '../utils/chartConfig';
+
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
@@ -20,9 +22,9 @@ const CustomTooltip = ({ active, payload, label }) => {
         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         return (
-            <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-md text-sm min-w-[180px]">
+            <div className="bg-slate-900/95 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-md text-sm min-w-[180px]">
                 <p className="font-bold text-white mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color || '#a855f7' }} />
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color || CHART_COLORS.primary }} />
                     {label || data.name}
                 </p>
                 <div className="space-y-1.5">
