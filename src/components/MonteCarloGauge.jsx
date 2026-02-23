@@ -17,10 +17,13 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     const [equalWeightsMode, setEqualWeightsMode] = useState(true);
     const [simulateToday, setSimulateToday] = useState(false);
 
-    const weights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
+    const activeId = useAppStore(state => state.appState.activeId);
+    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
 
-    const activeCategories = categories.filter(c => c.simuladoStats?.history?.length > 0);
+    const activeCategories = useMemo(() =>
+        categories.filter(c => c.simuladoStats?.history?.length > 0),
+        [categories]);
 
     const catCount = activeCategories.length;
 
@@ -62,12 +65,12 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
     }, [catCount, activeCategories]);
 
     useEffect(() => {
-        if (catCount > 0 && Object.keys(weights).length === 0) {
+        if (catCount > 0 && (!weights || Object.keys(weights).length === 0)) {
             const initialWeights = getEqualWeights();
             setWeights(initialWeights);
             if (onWeightsChange) onWeightsChange(initialWeights);
         }
-    }, [catCount, weights, getEqualWeights, onWeightsChange]);
+    }, [catCount, weights, getEqualWeights, setWeights, onWeightsChange]);
 
     const updateWeight = useCallback((catName, value) => {
         if (equalWeightsMode) return;
@@ -85,6 +88,8 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) return getEqualWeights();
+        if (!weights) return getEqualWeights();
+
         const activeCatNames = new Set(activeCategories.map(c => c.name));
         const filteredWeights = {};
         let hasValidWeights = false;
