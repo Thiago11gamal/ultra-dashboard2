@@ -193,8 +193,8 @@ export function monteCarloSimulation(
 ) {
     const sortedHistory = getSortedHistory(history);
 
-    // Safety check
-    if (!sortedHistory || sortedHistory.length < 2) return {
+    // Safety check - allow at least 1 point for a flat projection
+    if (!sortedHistory || sortedHistory.length < 1) return {
         probability: 0,
         mean: "0.0",
         sd: "0.0",
@@ -220,10 +220,10 @@ export function monteCarloSimulation(
     }
 
     // 1. Calcular Tendência (Drift)
-    const drift = calculateSlope(sortedHistory);
+    const drift = sortedHistory.length > 1 ? calculateSlope(sortedHistory) : 0;
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO
-    const residuals = sortedHistory.map((h, i) => {
+    const residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
         const prev = sortedHistory[i - 1].score;
         const actualChange = h.score - prev;
@@ -235,7 +235,7 @@ export function monteCarloSimulation(
         const expectedChange = drift * daysBetween;
         // Resíduo diário = (Diferença Efetiva - Diferença Esperada) / sqrt(dias)
         return (actualChange - expectedChange) / Math.sqrt(daysBetween);
-    }).slice(1);
+    }).slice(1) : [];
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
     const useBootstrap = residuals.length >= 5;
