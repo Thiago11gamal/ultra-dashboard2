@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component {
                         </button>
                         <button
                             onClick={() => {
-                                const data = localStorage.getItem('ultra-dashboard-data');
+                                const data = localStorage.getItem('ultra-dashboard-storage');
                                 if (data) {
                                     navigator.clipboard.writeText(data).then(() => alert('Dados copiados para a área de transferência! Salve em um arquivo de texto.'));
                                 } else {
@@ -74,7 +74,7 @@ class ErrorBoundary extends React.Component {
                         <button
                             onClick={() => {
                                 if (window.confirm('ATENÇÃO: Isso apagará seus dados locais para recuperar o app. Certifique-se de ter copiado o backup acima se possível.\n\nContinuar?')) {
-                                    localStorage.removeItem('ultra-dashboard-data');
+                                    localStorage.removeItem('ultra-dashboard-storage');
                                     window.location.reload();
                                 }
                             }}

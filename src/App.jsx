@@ -216,8 +216,7 @@ function MainLayout() {
         {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto">
             <Toast
-              message={toast.message}
-              type={toast.type}
+              toast={toast}
               onClose={() => setToasts(current => current.filter(t => t.id !== toast.id))}
             />
           </div>

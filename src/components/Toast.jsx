@@ -15,14 +15,14 @@ const colors = {
 };
 
 export default function Toast({ toast, onClose }) {
-    if (!toast) return null;
-
     // Auto-dismiss after 4 seconds
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
+        if (!toast) return;
         const timer = setTimeout(onClose, 4000);
         return () => clearTimeout(timer);
-    }, [toast.id, onClose]);
+    }, [toast?.id, onClose]);
+
+    if (!toast) return null;
 
     const Icon = icons[toast.type] || icons.info;
     const colorClass = colors[toast.type] || colors.info;
