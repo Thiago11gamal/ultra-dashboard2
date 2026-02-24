@@ -162,6 +162,9 @@ export const useAppStore = create(
                 if (activeData.studyLogs) {
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.categoryId !== id);
                 }
+                if (activeData.studySessions) {
+                    activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
+                }
             }),
 
             // 3. Pomodoro & Sessions
@@ -291,9 +294,10 @@ export const useAppStore = create(
 
             createNewContest: () => set((state) => {
                 const newId = generateId('contest');
+                const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
                 const newContestData = {
-                    ...INITIAL_DATA,
-                    user: { ...INITIAL_DATA.user, name: 'Novo Concurso' },
+                    ...initialClone,
+                    user: { ...initialClone.user, name: 'Novo Concurso' },
                     simuladoRows: [],
                     simulados: [],
                     categories: []
@@ -307,7 +311,7 @@ export const useAppStore = create(
 
                 const remainingIds = Object.keys(state.appState.contests);
                 if (remainingIds.length === 0) {
-                    state.appState.contests['default'] = INITIAL_DATA;
+                    state.appState.contests['default'] = JSON.parse(JSON.stringify(INITIAL_DATA));
                     state.appState.activeId = 'default';
                 } else if (contestId === state.appState.activeId) {
                     state.appState.activeId = remainingIds[0];

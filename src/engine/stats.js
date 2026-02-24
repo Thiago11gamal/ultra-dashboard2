@@ -70,6 +70,9 @@ export function calculateTrend(scores) {
         rss += Math.pow(y[i] - pred, 2);
     }
 
+    // Prevents division by zero or negative denominators for small samples
+    if (n <= 2) return 0;
+
     const sigma2 = rss / (n - 2); // Variância dos resíduos
     const seSlope = Math.sqrt(sigma2 / den); // Erro padrão do slope
 

@@ -52,9 +52,9 @@ export const getXPProgress = (xpInput) => {
 
     return {
         level,
-        current: xp - currentLevelXP,
-        needed: range,
-        percentage: range > 0 ? Math.min(100, Math.max(0, Math.round(((xp - currentLevelXP) / range) * 100))) : 0,
+        current: Math.max(0, xp - currentLevelXP),
+        needed: Math.max(0, range),
+        percentage: range > 0 ? Math.round(Math.max(0, Math.min(100, ((xp - currentLevelXP) / range) * 100))) : 0,
         // Backwards compatibility if needed by StatsCards
         total: xp,
     };

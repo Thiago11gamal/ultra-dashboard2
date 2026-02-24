@@ -96,7 +96,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let totalWeight = 0;
 
                 dataset.forEach(s => {
-                    const sScore = (s.correct / s.total) * 100;
+                    const total = s.total || 0;
+                    const correct = s.correct || 0;
+                    const sScore = total > 0 ? (correct / total) * 100 : 0;
+
                     const simDate = normalizeDate(s.date);
                     const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
 
