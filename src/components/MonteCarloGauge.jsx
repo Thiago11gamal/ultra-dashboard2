@@ -154,11 +154,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 const weight = debouncedWeights[cat.name] ?? 0;
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
-                        const score = getSafeScore(h);
                         if (score != null && !isNaN(score) && h.date) {
                             allHistoryPoints.push({
                                 date: new Date(h.date).toISOString().split('T')[0],
                                 score,
+                                category: cat.name,
                                 weight
                             });
                         }
@@ -169,17 +169,38 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
         if (allHistoryPoints.length < 5) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
 
-        const pointsByDate = {};
+        // Sort chronologically
+        allHistoryPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Track cumulative knowledge state per category
+        const categoryState = {};
+        const pointsByDate = {}; // End-of-day cumulative global score
+
         allHistoryPoints.forEach(p => {
-            if (!pointsByDate[p.date]) pointsByDate[p.date] = { sumScore: 0, sumWeight: 0 };
-            pointsByDate[p.date].sumScore += p.score * p.weight;
-            pointsByDate[p.date].sumWeight += p.weight;
+            // Update the latest known score for this specific subject
+            categoryState[p.category] = { score: p.score, weight: p.weight };
+
+            // Calculate the global weighted average of ALL subjects studied so far
+            let totalScore = 0;
+            let totalWeight = 0;
+
+            Object.values(categoryState).forEach(state => {
+                totalScore += state.score * state.weight;
+                totalWeight += state.weight;
+            });
+
+            if (totalWeight > 0) {
+                // Overwrites within the same day are fine, keeps the End-of-Day state
+                pointsByDate[p.date] = totalScore / totalWeight;
+            }
         });
 
-        const globalHistory = Object.keys(pointsByDate).map(date => ({
-            date: date,
-            score: pointsByDate[date].sumScore / pointsByDate[date].sumWeight
-        })).sort((a, b) => new Date(a.date) - new Date(b.date));
+        const globalHistory = Object.keys(pointsByDate)
+            .sort((a, b) => new Date(a) - new Date(b))
+            .map(date => ({
+                date: date,
+                score: pointsByDate[date]
+            }));
 
         if (globalHistory.length < 1) return { status: 'waiting', missing: 'days', days: globalHistory.length };
 
