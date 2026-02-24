@@ -14,6 +14,22 @@ class ErrorBoundary extends React.Component {
     componentDidCatch(error, errorInfo) {
         // You can also log the error to an error reporting service
         console.error("Uncaught error:", error, errorInfo);
+
+        // Auto-recover from Vite chunk loading errors caused by new deployments
+        if (
+            error.message &&
+            (error.message.includes('Failed to fetch dynamically imported module') ||
+                error.message.includes('Importing a module script failed'))
+        ) {
+            // Prevent infinite reload loops 
+            const hasReloaded = sessionStorage.getItem('chunk_force_reload');
+            if (!hasReloaded) {
+                sessionStorage.setItem('chunk_force_reload', 'true');
+                window.location.reload();
+                return;
+            }
+        }
+
         this.setState({ errorInfo });
     }
 
