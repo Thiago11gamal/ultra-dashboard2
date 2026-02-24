@@ -145,10 +145,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }
 
-        const validRows = rows.filter(r => r.subject && r.topic);
+        const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total) > 0);
 
         if (validRows.length === 0) {
-            setError("Preencha pelo menos uma linha com Matéria e Assunto.");
+            setError("Preencha a quantidade de questões feitas em pelo menos um assunto.");
             return;
         }
 
