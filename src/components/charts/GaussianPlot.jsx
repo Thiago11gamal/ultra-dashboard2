@@ -57,8 +57,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         if (areaPoints.length > 0) {
-            const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
             const firstX = areaPoints[0].split(',')[0];
+            const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
+            // To create a filled shape under the curve, we must draw straight down from the last point 
+            // to the bottom baseline (y=100), then draw straight back to the x of the first point, 
+            // and close the path.
             areaPoints.push(`${lastX},100`);
             areaPoints.push(`${firstX},100`);
         }

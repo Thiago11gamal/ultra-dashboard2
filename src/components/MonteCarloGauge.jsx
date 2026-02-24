@@ -268,17 +268,19 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl"><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
-                        <path
-                            d="M 10 65 A 60 60 0 0 1 130 65"
-                            fill="none"
-                            stroke={gradientColor}
-                            strokeWidth="12"
-                            strokeLinecap="round"
-                            pathLength="100"
-                            strokeDasharray="100 100"
-                            strokeDashoffset={prob === 0 ? 100 : 100 - prob}
-                            style={{ transition: 'stroke-dashoffset 1.5s ease-out, stroke 0.5s ease-out' }}
-                        />
+                        {prob > 0 && (
+                            <path
+                                d="M 10 65 A 60 60 0 0 1 130 65"
+                                fill="none"
+                                stroke={gradientColor}
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                pathLength="100"
+                                strokeDasharray="100 100"
+                                strokeDashoffset={prob === 0 ? 100 : 100 - prob}
+                                style={{ transition: 'stroke-dashoffset 1.5s ease-out, stroke 0.5s ease-out' }}
+                            />
+                        )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
                 </div>
