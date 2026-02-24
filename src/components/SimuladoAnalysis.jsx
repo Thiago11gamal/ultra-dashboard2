@@ -226,7 +226,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         name: d.name,
                         overview,
                         topics: d.topics,
-                        percentage: discPct // Add percentage for sorting
+                        percentage: discPct,
+                        totalCorrect: d.totalCorrect,
+                        totalQuestions: d.totalQuestions
                     };
                 });
 
@@ -392,55 +394,77 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             </div>
 
                             {/* Cards por disciplina */}
-                            {analysisData.disciplines.map((disc, idx) => (
-                                <div key={idx} className="bg-slate-800/50 rounded-2xl border border-slate-700/60 overflow-hidden hover:border-slate-600 transition-colors">
+                            {analysisData.disciplines.map((disc, idx) => {
+                                const discPct = disc.percentage || 0;
+                                const discCfg =
+                                    discPct >= 80 ? { from: 'from-green-500/20', border: 'border-green-500/30', text: 'text-green-400', bar: 'bg-green-500' } :
+                                        discPct >= 60 ? { from: 'from-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', bar: 'bg-blue-500' } :
+                                            discPct <= 40 ? { from: 'from-red-500/20', border: 'border-red-500/30', text: 'text-red-400', bar: 'bg-red-500' } :
+                                                { from: 'from-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', bar: 'bg-yellow-500' };
 
-                                    {/* Cabeçalho da disciplina */}
-                                    <div className="flex justify-between items-center px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
-                                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                            <span className="w-1.5 h-5 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full inline-block shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-                                            {disc.name}
-                                        </h3>
-                                        <span className="text-[10px] text-slate-400 italic bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700/50 max-w-[45%] truncate">
-                                            {disc.overview}
-                                        </span>
-                                    </div>
+                                return (
+                                    <div key={idx} className={`bg-slate-800/50 rounded-2xl border ${discCfg.border} overflow-hidden shadow-lg mb-2`}>
 
-                                    {/* Tópicos */}
-                                    <div className="divide-y divide-slate-700/30">
-                                        {disc.topics.map((topic, tIdx) => {
-                                            const pct = topic.percentage || 0;
-                                            const cfg =
-                                                pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
-                                                    pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
-                                                        pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
-                                                            { label: 'Atenção', icon: '⚠️', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
-                                            return (
-                                                <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
-                                                    <div className="flex items-center justify-between gap-3 mb-1.5">
-                                                        <span className={`text-sm font-medium truncate flex-1 ${cfg.text}`}>{topic.name}</span>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <span className="text-[10px] font-mono text-slate-500">{topic.correct}/{topic.total}</span>
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${cfg.badge}`}>
-                                                                {cfg.icon} {cfg.label}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    {/* Barra de progresso */}
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                                                            <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
-                                                        </div>
-                                                        <span className={`text-[10px] font-black w-8 text-right ${cfg.text}`}>{pct}%</span>
-                                                    </div>
-                                                    {/* Ação */}
-                                                    <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">→ {topic.action}</p>
+                                        {/* Cabeçalho da disciplina */}
+                                        <div className={`relative px-5 py-4 bg-gradient-to-r ${discCfg.from} to-transparent border-b border-slate-700/50`}>
+                                            <div className="flex justify-between items-end mb-2 relative z-10">
+                                                <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-md tracking-tight uppercase">
+                                                    {disc.name}
+                                                </h3>
+                                                <div className="text-right">
+                                                    <span className={`text-2xl font-black ${discCfg.text} drop-shadow-sm`}>{discPct}%</span>
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                            <div className="flex justify-between items-center mb-3 relative z-10">
+                                                <span className="text-[11px] text-slate-300 font-bold uppercase tracking-wider bg-black/30 px-2 py-1 rounded-md backdrop-blur-sm border border-white/5">
+                                                    {disc.overview}
+                                                </span>
+                                                <span className="text-[11px] text-slate-400 font-mono font-bold">
+                                                    {disc.totalCorrect}/{disc.totalQuestions} acertos
+                                                </span>
+                                            </div>
+                                            {/* Barra geral da matéria */}
+                                            <div className="w-full h-2 bg-slate-900/80 rounded-full overflow-hidden relative z-10 border border-black/20">
+                                                <div className={`h-full rounded-full ${discCfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.1)] transition-all duration-1000`} style={{ width: `${discPct}%` }} />
+                                            </div>
+                                        </div>
+
+                                        {/* Tópicos */}
+                                        <div className="divide-y divide-slate-700/30">
+                                            {disc.topics.map((topic, tIdx) => {
+                                                const pct = topic.percentage || 0;
+                                                const cfg =
+                                                    pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
+                                                        pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
+                                                            pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
+                                                                { label: 'Atenção', icon: '⚠️', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
+                                                return (
+                                                    <div key={tIdx} className="px-4 py-3 hover:bg-slate-700/20 transition-colors">
+                                                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                            <span className={`text-sm font-medium truncate flex-1 ${cfg.text}`}>{topic.name}</span>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <span className="text-[10px] font-mono text-slate-500">{topic.correct}/{topic.total}</span>
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${cfg.badge}`}>
+                                                                    {cfg.icon} {cfg.label}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        {/* Barra de progresso */}
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                                                                <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                            <span className={`text-[10px] font-black w-8 text-right ${cfg.text}`}>{pct}%</span>
+                                                        </div>
+                                                        {/* Ação */}
+                                                        <p className="text-[11px] text-slate-400 mt-1.5 leading-snug italic">→ {topic.action}</p>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
