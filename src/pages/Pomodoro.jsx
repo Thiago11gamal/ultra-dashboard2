@@ -25,6 +25,7 @@ export default function Pomodoro() {
             const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
             if (cat && tsk) {
                 // Initialize session state
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setActiveSubject({
                     categoryId: cat.id,
                     taskId: tsk.id,

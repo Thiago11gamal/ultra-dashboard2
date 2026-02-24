@@ -1,16 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PromptModal({ isOpen, onClose, onConfirm, title, placeholder, initialValue = "" }) {
     const [inputValue, setInputValue] = useState(initialValue);
     const inputRef = useRef(null);
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+
+    if (isOpen && !prevIsOpen) {
+        setPrevIsOpen(isOpen);
+        setInputValue(initialValue);
+    } else if (!isOpen && prevIsOpen) {
+        setPrevIsOpen(isOpen);
+    }
 
     useEffect(() => {
         if (isOpen) {
-            setInputValue(initialValue);
             setTimeout(() => inputRef.current?.focus(), 100);
         }
-    }, [isOpen, initialValue]);
+    }, [isOpen]);
 
     const handleSubmit = (e) => {
         e.preventDefault();

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 
 
 // Update component signature to accept onExit and defaultTargetCycles
@@ -123,8 +122,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         localStorage.removeItem('pomodoroState');
                     }
                 }
+                // eslint-disable-next-line no-unused-vars
             } catch (err) {
-                console.error("Resume logic error", err);
+                console.error("Resume logic error");
             }
         }
     }, [activeSubject, safeSettings]); // Added dependencies
@@ -233,7 +233,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 try {
                     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                     audio.play().catch(() => { });
-                } catch { }
+                } catch (_e) {
+                    // Silent catch (e.g. browser blocks auto-play without gesture)
+                }
             }
             sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
         } else {
@@ -246,7 +248,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 try {
                     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                     audio.play().catch(() => { });
-                } catch { }
+                } catch (_e) {
+                    // Silent catch (e.g. browser blocks auto-play without gesture)
+                }
             }
             sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
 
@@ -299,7 +303,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             }, 100 / speed); // Smoother tick rate (100ms)
         }
         return () => clearInterval(interval);
-    }, [isRunning, speed]); // If isRunning toggles, we reset start time. If speed changes, reset.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRunning, speed]); // We intentionally do not include timeLeft to prevent interval reset on every tick
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)

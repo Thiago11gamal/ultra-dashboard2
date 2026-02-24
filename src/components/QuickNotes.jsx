@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Save, Eraser, StickyNote } from 'lucide-react';
 
 
@@ -6,16 +6,14 @@ export default function QuickNotes({ notes = '', onSave }) {
     const [text, setText] = useState(notes);
     const [isFocused, setIsFocused] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
-    const prevNotesRef = useRef(notes);
+    const [prevNotes, setPrevNotes] = useState(notes);
 
-    useEffect(() => {
-        // Only sync from prop when the PROP itself changed (not local edits)
-        if (notes !== prevNotesRef.current) {
-            prevNotesRef.current = notes;
-            setText(notes);
-            setIsDirty(false);
-        }
-    }, [notes]);
+    // Only sync from prop when the PROP itself changed (not local edits)
+    if (notes !== prevNotes) {
+        setPrevNotes(notes);
+        setText(notes);
+        setIsDirty(false);
+    }
 
     const handleChange = (e) => {
         setText(e.target.value);
