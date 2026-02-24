@@ -154,10 +154,11 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 const weight = debouncedWeights[cat.name] ?? 0;
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
-                        if (score != null && !isNaN(score) && h.date) {
+                        const currentScore = h.score; // extraímos para uma constante para manter legibilidade e evitar crashes
+                        if (currentScore != null && !isNaN(currentScore) && h.date) {
                             allHistoryPoints.push({
                                 date: new Date(h.date).toISOString().split('T')[0],
-                                score,
+                                score: currentScore,
                                 category: cat.name,
                                 weight
                             });
