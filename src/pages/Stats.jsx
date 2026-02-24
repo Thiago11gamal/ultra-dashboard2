@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import VerifiedStats from '../components/VerifiedStats';
 import WeeklyAnalysis from '../components/WeeklyAnalysis';
 import Charts from '../components/Charts';

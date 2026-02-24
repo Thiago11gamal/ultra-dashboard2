@@ -324,8 +324,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     {/* Linhas de entrada */}
                     <div className="space-y-1.5 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
                         {rows.map((row, index) => {
-                            const pct = row.total > 0 ? Math.round((row.correct / row.total) * 100) : null;
-                            const pctColor = pct == null ? 'bg-slate-700' : pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-blue-500' : pct <= 40 ? 'bg-red-500' : 'bg-yellow-500';
                             return (
                                 <div key={row.id || index}
                                     className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">

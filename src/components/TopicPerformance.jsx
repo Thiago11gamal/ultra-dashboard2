@@ -112,7 +112,7 @@ export default function TopicPerformance({ categories = [] }) {
                 className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3"
             >
                 {aggregatedData.length > 0 ? (
-                    aggregatedData.map((topic, index) => {
+                    aggregatedData.map((topic) => {
                         // Badge Logic
                         let badgeColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
                         let icon = <AlertCircle size={12} />;

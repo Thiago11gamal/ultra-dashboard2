@@ -308,7 +308,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             <p className="text-xs mt-1">Adicione matérias no Dashboard para começar</p>
                         </div>
                     ) : (
-                        retentionData.map((cat, idx) => {
+                        retentionData.map((cat) => {
                             const isExpanded = expandedCategories[cat.id];
                             const hasTasks = cat.tasksWithRetention.length > 0;
 
@@ -387,7 +387,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                     {isExpanded && hasTasks && (
                                         <div className="bg-slate-900/50 border-t border-white/5">
                                             <div className="p-3 space-y-2">
-                                                {cat.tasksWithRetention.map((task, tIdx) => (
+                                                {cat.tasksWithRetention.map((task) => (
                                                     <div
                                                         key={task.id}
                                                         className={`flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 cursor-pointer

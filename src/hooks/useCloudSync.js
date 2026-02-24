@@ -3,7 +3,7 @@ import { db } from '../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 // Hook que observa automaticamente o AppStore e envia os dados pro Firebase Firestore
-export function useCloudSync(currentUser, appState, showToast) {
+export function useCloudSync(currentUser, appState) {
     const lastSyncedRef = useRef(null);
 
     useEffect(() => {

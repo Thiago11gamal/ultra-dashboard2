@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 
 export function useToast() {
     // Note: To implement a truly global toast without Context, 

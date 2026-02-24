@@ -4,7 +4,7 @@ import { computeCategoryStats, calculateWeightedProjectedMean } from '../engine'
 /**
  * Hook for processing and memoizing chart data
  */
-export function useChartData(categories = [], targetScore = 75) {
+export function useChartData(categories = []) {
     // 1. Memoize active categories (those with history)
     const activeCategories = useMemo(
         () => categories.filter(c => c.simuladoStats?.history?.length > 0),
@@ -28,7 +28,7 @@ export function useChartData(categories = [], targetScore = 75) {
         const dataByDate = {};
 
         dates.forEach((date, i) => {
-            const [year, month, day] = date.split("-");
+            const [_year, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
                 displayDate: `${day}/${month}`,

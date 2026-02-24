@@ -38,7 +38,7 @@ const processGamification = (state, xpGained) => {
 // Create the Zustand store with Immer for easy deep mutations
 export const useAppStore = create(
     persist(
-        immer((set, get) => ({
+        immer((set) => ({
             // State
             appState: {
                 contests: { 'default': INITIAL_DATA },

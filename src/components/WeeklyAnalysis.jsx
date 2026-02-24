@@ -188,7 +188,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             {/* Timeline Content */}
             <div className="relative pl-12 space-y-12 before:content-[''] before:absolute before:left-8 before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {groups.map((dayGroup, index) => (
+                {groups.map((dayGroup) => (
                     <div key={dayGroup.dateObj.toISOString()} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[54px] top-0 flex flex-col items-center w-14">

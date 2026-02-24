@@ -133,7 +133,7 @@ export const analyzeSubjectBalance = (categories) => {
     };
 };
 
-export const analyzeEfficiency = (categories, studyLogs) => {
+export const analyzeEfficiency = (categories) => {
     const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
     const totalTasks = categories.reduce((sum, c) => sum + c.tasks.length, 0);
     const completedTasks = categories.reduce((sum, c) =>
@@ -352,7 +352,7 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 export const getCompleteReport = (data) => {
     const streak = calculateStudyStreak(data.studyLogs || []);
     const balance = analyzeSubjectBalance(data.categories);
-    const efficiency = analyzeEfficiency(data.categories, data.studyLogs || []);
+    const efficiency = analyzeEfficiency(data.categories);
     const procrastination = detectProcrastination(data.categories, data.studyLogs || []);
     const goals = calculateDailyPomodoroGoal(data.categories, data.user);
 
