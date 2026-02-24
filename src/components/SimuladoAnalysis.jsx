@@ -329,11 +329,13 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                     className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
                                     <input type="text" value={row.subject}
                                         onChange={(e) => updateRow(index, 'subject', e.target.value)}
-                                        className="bg-transparent outline-none text-sm text-slate-200 placeholder:text-slate-600 w-full min-w-0"
+                                        disabled={row.isAuto}
+                                        className={`bg-transparent outline-none text-sm w-full min-w-0 ${row.isAuto ? 'text-slate-400 cursor-not-allowed' : 'text-slate-200 placeholder:text-slate-600'}`}
                                         placeholder="Matéria" />
                                     <input type="text" value={row.topic}
                                         onChange={(e) => updateRow(index, 'topic', e.target.value)}
-                                        className="bg-transparent outline-none text-sm text-slate-300 placeholder:text-slate-600 w-full min-w-0"
+                                        disabled={row.isAuto}
+                                        className={`bg-transparent outline-none text-sm w-full min-w-0 ${row.isAuto ? 'text-slate-400 cursor-not-allowed' : 'text-slate-300 placeholder:text-slate-600'}`}
                                         placeholder="Assunto" />
                                     <input type="number" min="0" value={row.correct}
                                         onChange={(e) => updateRow(index, 'correct', e.target.value)}
@@ -341,10 +343,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                     <input type="number" min="0" value={row.total}
                                         onChange={(e) => updateRow(index, 'total', e.target.value)}
                                         className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                    <button onClick={() => removeRow(index)}
-                                        className="text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                        <Trash2 size={12} />
-                                    </button>
+                                    {!row.isAuto && (
+                                        <button onClick={() => removeRow(index)}
+                                            className="text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                            <Trash2 size={12} />
+                                        </button>
+                                    )}
                                 </div>
                             );
                         })}
