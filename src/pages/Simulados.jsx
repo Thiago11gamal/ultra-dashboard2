@@ -18,14 +18,11 @@ export default function Simulados() {
     // 1. Build the auto-synced rows combined with saved data
     const displayRows = [];
     const savedAutoRows = {};
-    const manualRows = [];
 
     rawTodayRows.forEach(r => {
         if (r.isAuto) {
             const key = `${normalize(r.subject)}-${normalize(r.topic)}`;
             savedAutoRows[key] = r;
-        } else {
-            manualRows.push(r);
         }
     });
 
@@ -57,12 +54,7 @@ export default function Simulados() {
         });
     });
 
-    // Add manual rows
-    displayRows.push(...manualRows);
-
-    if (displayRows.length === 0) {
-        displayRows.push({ id: `row-init-0`, subject: '', topic: '', correct: 0, total: 0 });
-    }
+    // manual rows are no longer supported
 
     const handleUpdateSimuladoRows = (updatedTodayRows) => {
         const today = new Date().toDateString();
@@ -73,10 +65,7 @@ export default function Simulados() {
             // 2. Filter out untouched auto-generated rows to save space
             const validRowsToSave = updatedTodayRows.filter(r => {
                 const hasScore = parseInt(r.total) > 0 || parseInt(r.correct) > 0;
-                if (r.isAuto) {
-                    return hasScore;
-                }
-                return true; // Keep manual rows while typing
+                return r.isAuto && hasScore;
             }).map(row => ({
                 ...row,
                 createdAt: row.createdAt || Date.now()

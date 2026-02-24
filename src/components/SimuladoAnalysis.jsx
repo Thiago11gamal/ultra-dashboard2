@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
-import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
     // Stable ID counter to avoid regenerating IDs on every render
@@ -12,7 +12,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // because React reconciled them as different elements. Fixed by only assigning if missing.
     const rows = (propRows && propRows.length > 0)
         ? propRows.map(r => ({ ...r, id: r.id || `row-${idCounter.current++}` }))
-        : [{ id: `row-init-0`, subject: '', topic: '', correct: 0, total: 0 }];
+        : [];
 
     // Helper to report changes up to parent
     const setRows = (newRows) => {
@@ -59,15 +59,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         setRows(newRows);
     };
 
-    const addRow = () => {
-        setRows([...rows, { id: `row-${Date.now()}-${Math.random()}`, subject: '', topic: '', correct: 0, total: 0 }]);
-    };
 
-    const removeRow = (index) => {
-        if (rows.length > 1) {
-            setRows(rows.filter((_, i) => i !== index));
-        }
-    };
 
     const resetScores = () => {
         if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matérias?')) {
@@ -307,10 +299,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                 className="text-[11px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
                                 Zerar
                             </button>
-                            <button onClick={() => { if (window.confirm('Limpar tudo?')) setRows([{ subject: '', topic: '', correct: 0, total: 0 }]); }}
-                                className="text-[11px] text-slate-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-400/10 border border-transparent hover:border-red-400/20">
-                                Limpar
-                            </button>
                         </div>
                     </div>
 
@@ -323,19 +311,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     {/* Linhas de entrada */}
                     <div className="space-y-1.5 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
-                        {rows.map((row, index) => {
+                        {rows.length === 0 ? (
+                            <div className="text-center py-6 text-slate-500 text-sm italic border border-slate-800 border-dashed rounded-xl">
+                                Nenhuma matéria/assunto cadastrado no Dashboard.
+                            </div>
+                        ) : rows.map((row, index) => {
                             return (
                                 <div key={row.id || index}
                                     className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
                                     <input type="text" value={row.subject}
-                                        onChange={(e) => updateRow(index, 'subject', e.target.value)}
-                                        disabled={row.isAuto}
-                                        className={`bg-transparent outline-none text-sm w-full min-w-0 ${row.isAuto ? 'text-slate-400 cursor-not-allowed' : 'text-slate-200 placeholder:text-slate-600'}`}
+                                        disabled={true}
+                                        className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
                                         placeholder="Matéria" />
                                     <input type="text" value={row.topic}
-                                        onChange={(e) => updateRow(index, 'topic', e.target.value)}
-                                        disabled={row.isAuto}
-                                        className={`bg-transparent outline-none text-sm w-full min-w-0 ${row.isAuto ? 'text-slate-400 cursor-not-allowed' : 'text-slate-300 placeholder:text-slate-600'}`}
+                                        disabled={true}
+                                        className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
                                         placeholder="Assunto" />
                                     <input type="number" min="0" value={row.correct}
                                         onChange={(e) => updateRow(index, 'correct', e.target.value)}
@@ -343,12 +333,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                     <input type="number" min="0" value={row.total}
                                         onChange={(e) => updateRow(index, 'total', e.target.value)}
                                         className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                    {!row.isAuto && (
-                                        <button onClick={() => removeRow(index)}
-                                            className="text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                            <Trash2 size={12} />
-                                        </button>
-                                    )}
+                                    <div className="w-[12px]"></div>
                                 </div>
                             );
                         })}
@@ -356,10 +341,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                     {/* BotÃµes de aÃ§Ã£o */}
                     <div className="flex gap-2 pt-1 border-t border-slate-800 mt-auto">
-                        <button onClick={addRow}
-                            className="px-3 py-2.5 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600 transition-all">
-                            <Plus size={16} />
-                        </button>
                         <button onClick={handleAnalyze} disabled={loading}
                             className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 py-2.5 text-sm transition-all ${loading
                                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
