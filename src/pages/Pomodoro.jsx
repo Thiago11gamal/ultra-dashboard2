@@ -38,10 +38,16 @@ export default function Pomodoro() {
                 if (tsk.status !== 'studying') {
                     setData(prev => ({
                         ...prev,
-                        categories: prev.categories.map(c => c.id === cat.id ? {
+                        categories: prev.categories.map(c => ({
                             ...c,
-                            tasks: c.tasks.map(t => t.id === tsk.id ? { ...t, status: 'studying' } : t)
-                        } : c)
+                            tasks: c.tasks.map(t => {
+                                // Se for a tarefa que acabou de abrir, marca 'studying'
+                                if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
+                                // Senão, remove o status 'studying' de TODAS as outras
+                                if (t.status === 'studying') return { ...t, status: undefined };
+                                return t;
+                            })
+                        }))
                     }));
                     showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
                 }
