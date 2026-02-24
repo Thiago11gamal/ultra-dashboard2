@@ -103,18 +103,18 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </linearGradient>
                 </defs>
 
-                <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" />
-                <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" />
-                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" />
+                <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
+                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
 
                 {isCurrentVisible && (
-                    <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="1,2" className="opacity-40" />
+                    <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-40" vectorEffect="non-scaling-stroke" />
                 )}
 
-                <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3,3" className="opacity-80" />
+                <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
 
                 {isTargetVisible && (
-                    <line x1={Math.min(100, Math.max(0, targetPos))} y1="100" x2={Math.min(100, Math.max(0, targetPos))} y2="0" stroke="#ef4444" strokeWidth="1.5" />
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                 )}
             </svg>
 

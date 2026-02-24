@@ -132,9 +132,8 @@ export function projectScore(history, projectDays = 60) {
     return Math.max(0, Math.min(100, projected));
 }
 
-// 📉 Volatilidade baseada em MSSD (Robust to Trend Shifts)
 function calculateVolatility(history) {
-    if (!history || history.length < 3) return 5; // Default safe volatility
+    if (!history || history.length < 3) return 1.5; // Default safe volatility
 
     // Ensure sorted history
     const sorted = getSortedHistory(history);
@@ -165,7 +164,7 @@ function calculateVolatility(history) {
         sumWeights += weight;
     }
 
-    if (sumWeights === 0) return 5;
+    if (sumWeights === 0) return 1.5;
 
     // MSSD formula: variance = (1/2) * average(diff^2)
     const mssdVariance = (sumSw / sumWeights) / 2;
