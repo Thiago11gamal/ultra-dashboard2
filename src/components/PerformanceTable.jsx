@@ -95,9 +95,9 @@ const PerformanceTable = ({ categories = [] }) => {
 
                                     <td className="p-4 text-center">
                                         <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-black font-mono tracking-wider shadow-sm ${percentCorrect >= 80 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                                percentCorrect >= 60 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                                                    percentCorrect > 0 ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
-                                                        'bg-slate-800 text-slate-500 border border-white/5'
+                                            percentCorrect >= 60 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                                percentCorrect > 0 ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
+                                                    'bg-slate-800 text-slate-500 border border-white/5'
                                             }`}>
                                             {percentCorrect}%
                                         </span>
@@ -114,7 +114,7 @@ const PerformanceTable = ({ categories = [] }) => {
 
                         {sortedCategories.length === 0 && (
                             <tr>
-                                <td colSpan="7" className="p-8 text-center text-slate-500">
+                                <td colSpan="5" className="p-8 text-center text-slate-500">
                                     Nenhuma disciplina cadastrada.
                                 </td>
                             </tr>

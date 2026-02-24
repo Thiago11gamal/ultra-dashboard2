@@ -97,27 +97,8 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
     // Check if we have sufficient data
     const hasSimuladoData = urgency?.details?.hasData;
 
-    // If no simulado data, show generic "no data" state
-    if (!hasSimuladoData) {
-        return (
-            <div className="relative overflow-hidden rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-900/20 to-purple-900/20 backdrop-blur-sm transition-all duration-300 group">
-                <div className="absolute -top-10 -right-10 w-20 h-20 bg-violet-500/10 rounded-full blur-[40px]" />
-                <div className="relative z-10 p-4 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-violet-500/20">
-                        📊
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-bold text-sm mb-1">
-                            Aguardando Dados de Performance
-                        </h3>
-                        <p className="text-xs text-slate-400">
-                            Faça simulados para obter sugestões personalizadas de estudo
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // Block removed: The 'Aguardando Dados' message used to hide actionable tasks for new users.
+    // We now proceed to render the task suggestion regardless of simulado data.
 
     return (
         <div className={`relative overflow-hidden rounded-xl border ${urgencyStyle.border} bg-gradient-to-r ${urgencyStyle.gradient} backdrop-blur-sm transition-all duration-300 group`}>
@@ -143,7 +124,9 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                             {category.name}
                         </span>
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ml-auto ${urgencyStyle.badge}`}>
-                            {urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal'}
+                            {hasSimuladoData
+                                ? (urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal')
+                                : '🌱 Inicial'}
                         </span>
                     </div>
 
