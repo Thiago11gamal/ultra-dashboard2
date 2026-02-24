@@ -18,6 +18,9 @@ export default function Pomodoro() {
 
     useEffect(() => {
         if (location.state?.categoryId && location.state?.taskId) {
+            // Blindagem contra Loop Infinito: Se a tarefa já foi ativada na sessão, ignora os próximos renders
+            if (activeSubject?.taskId === location.state.taskId) return;
+
             const cat = data.categories?.find(c => c.id === location.state.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
             if (cat && tsk) {
@@ -31,18 +34,20 @@ export default function Pomodoro() {
                     sessionInstanceId: Date.now()
                 });
 
-                // Update task status in store (optional visual feedback)
-                setData(prev => ({
-                    ...prev,
-                    categories: prev.categories.map(c => c.id === cat.id ? {
-                        ...c,
-                        tasks: c.tasks.map(t => t.id === tsk.id ? { ...t, status: 'studying' } : t)
-                    } : c)
-                }));
-                showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+                // Update task status in store (optional visual feedback), only if necessary
+                if (tsk.status !== 'studying') {
+                    setData(prev => ({
+                        ...prev,
+                        categories: prev.categories.map(c => c.id === cat.id ? {
+                            ...c,
+                            tasks: c.tasks.map(t => t.id === tsk.id ? { ...t, status: 'studying' } : t)
+                        } : c)
+                    }));
+                    showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+                }
             }
         }
-    }, [location.state, data.categories, setData, showToast]);
+    }, [location.state, data.categories, setData, showToast, activeSubject?.taskId]);
 
     const handleExit = () => {
         // Clear studying status
