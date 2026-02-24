@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
+import PriorityProgress from '../components/PriorityProgress';
 import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,7 @@ export default function Dashboard() {
         <div className="space-y-6 animate-fade-in">
             <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
             <NextGoalCard categories={data.categories} simulados={data.simulados} onStartStudying={handleStartStudying} />
+            <PriorityProgress categories={data.categories} />
             <div className="mt-4">
                 <Checklist
                     categories={data.categories}
