@@ -167,7 +167,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             }
         });
 
-        if (allHistoryPoints.length < 5) return null;
+        if (allHistoryPoints.length < 5) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
 
         const pointsByDate = {};
         allHistoryPoints.forEach(p => {
@@ -181,12 +181,16 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
             score: pointsByDate[date].sumScore / pointsByDate[date].sumWeight
         })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        if (globalHistory.length < 2) return null;
+        if (globalHistory.length < 2) return { status: 'waiting', missing: 'days', days: globalHistory.length };
 
-        return monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
+        const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
+        return { status: 'ready', data: simResult };
     }, [categories, debouncedWeights, projectDays, debouncedTarget]);
 
-    if (!simulationData) {
+    if (!simulationData || simulationData.status === 'waiting') {
+        const waitingSubtext = simulationData?.missing === 'days'
+            ? "Você precisa de simulados em pelo menos 2 dias diferentes para calcularmos uma tendência de evolução."
+            : "Faça pelo menos 5 simulados para a IA traçar a sua curva de aprovação.";
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/20">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Gauge size={80} /></div>
@@ -206,7 +210,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
                 </div>
                 <div className="text-center w-full mt-2">
                     <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
-                    <p className="text-[9px] text-slate-600 leading-tight">Faça pelo menos 5 simulados para ativar a previsão</p>
+                    <p className="text-[9px] text-slate-600 leading-tight px-4">{waitingSubtext}</p>
                 </div>
                 <div className="mt-2 w-full pt-2 border-t border-white/5 flex justify-center gap-4 opacity-50 hover:opacity-100 transition-opacity">
                     <button onClick={() => setShowConfig(true)} className="flex flex-col items-center gap-1 group/btn" title="Configurar Pesos">
@@ -220,7 +224,7 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
         );
     }
 
-    const { probability, mean, sd, ci95Low, ci95High, currentMean } = simulationData;
+    const { probability, mean, sd, ci95Low, ci95High, currentMean } = simulationData.data;
     const prob = parseFloat(probability);
 
     const getGradientColor = (percentage) => {
