@@ -87,7 +87,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         }));
 
         if (mcProjection) {
-            const [year, month, day] = mcProjection.date.split("-");
+            const [, month, day] = mcProjection.date.split("-");
             pts.push({
                 date: mcProjection.date,
                 displayDate: `${day}/${month} (Futuro)`,
