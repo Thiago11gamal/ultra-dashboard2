@@ -5,7 +5,6 @@ import { getXPProgress } from '../utils/gamification';
 
 const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
-    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     // Memoized Analytics
     const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
     const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
@@ -164,49 +163,42 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 {/* Vertical Divider */}
                 <div className="w-[1px] h-12 bg-white/10 z-10 mx-2"></div>
 
-                {/* Right Side: Date Picker */}
+                {/* Right Side: Date Picker (Clean Proxy Pattern) */}
                 <div
-                    className="flex-1 flex flex-col items-center justify-center z-10 w-1/2 pr-2 cursor-pointer group/rightside"
-                    onClick={(e) => {
+                    className="flex-1 flex flex-col items-center justify-center z-10 w-1/2 pr-2 relative group/rightside cursor-pointer"
+                    onMouseDown={(e) => {
+                        // Prevent default to avoid focus issues that close the native picker prematurely
                         e.preventDefault();
-                        if (dateInputRef.current) {
-                            if (isDatePickerOpen) {
-                                dateInputRef.current.blur();
-                                setIsDatePickerOpen(false);
-                            } else {
-                                try {
-                                    dateInputRef.current.showPicker();
-                                    setIsDatePickerOpen(true);
-                                } catch (err) {
-                                    dateInputRef.current.focus();
-                                    setIsDatePickerOpen(true);
-                                }
-                            }
+                        try {
+                            dateInputRef.current?.showPicker();
+                        } catch (err) {
+                            dateInputRef.current?.focus();
                         }
                     }}
                 >
-                    <div className="flex flex-col items-center gap-1.5 mb-2 pl-3 pointer-events-none">
+                    {/* Visual elements */}
+                    <div className="flex flex-col items-center gap-1.5 mb-2 pl-3 pointer-events-none z-10">
                         <div className="p-1.5 bg-red-500/10 rounded-xl group-hover/rightside:bg-red-500/20 transition-all duration-300">
                             <Calendar size={16} className="text-red-400 group-hover/rightside:scale-110 transition-transform" />
                         </div>
                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center group-hover/rightside:text-slate-400 transition-colors">Data</span>
                     </div>
 
-                    <div className="relative group/input flex justify-center w-full">
-                        <input
-                            ref={dateInputRef}
-                            type="date"
-                            value={user.goalDate ? user.goalDate.split('T')[0] : ''}
-                            onChange={(e) => {
-                                onUpdateGoalDate(e.target.value);
-                                setIsDatePickerOpen(false);
-                                if (dateInputRef.current) dateInputRef.current.blur();
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-[120px] bg-slate-900/50 border border-white/10 rounded-lg py-1.5 text-slate-200 text-sm font-bold focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all cursor-pointer group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center relative z-20 appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden pl-3"
-                            style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-                        />
+                    <div className="relative group/input flex justify-center w-full pointer-events-none z-10">
+                        <div className="w-[120px] bg-slate-900/50 border border-white/10 rounded-lg py-1.5 text-slate-200 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center">
+                            {user.goalDate ? new Date(user.goalDate).toLocaleDateString('pt-BR') : 'DD/MM/AAAA'}
+                        </div>
                     </div>
+
+                    {/* Hidden Native Input - Just holds data and handles the picker reference */}
+                    <input
+                        ref={dateInputRef}
+                        type="date"
+                        tabIndex="-1"
+                        value={user.goalDate ? user.goalDate.split('T')[0] : ''}
+                        onChange={(e) => onUpdateGoalDate(e.target.value)}
+                        className="opacity-0 pointer-events-none absolute inset-0 w-0 h-0"
+                    />
                 </div>
             </div>
         </div>
