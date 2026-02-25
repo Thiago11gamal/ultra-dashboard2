@@ -98,18 +98,20 @@ export default function Pomodoro() {
     };
 
     return (
-        <PomodoroTimer
-            settings={data.settings}
-            onUpdateSettings={updatePomodoroSettings}
-            activeSubject={activeSubject}
-            categories={data.categories || []}
-            onStartStudying={() => { }} // Disabled here since we use router state now
-            onUpdateStudyTime={handleUpdateStudyTime}
-            onExit={handleExit}
-            onSessionComplete={handleSessionComplete}
-            onFullCycleComplete={handleFullCycleComplete}
-            defaultTargetCycles={1}
-            key={activeSubject?.sessionInstanceId || 'idle'}
-        />
+        <div className="h-[calc(100vh-180px)] overflow-hidden flex flex-col justify-center">
+            <PomodoroTimer
+                settings={data.settings}
+                onUpdateSettings={updatePomodoroSettings}
+                activeSubject={activeSubject}
+                categories={data.categories || []}
+                onStartStudying={() => { }} // Disabled here since we use router state now
+                onUpdateStudyTime={handleUpdateStudyTime}
+                onExit={handleExit}
+                onSessionComplete={handleSessionComplete}
+                onFullCycleComplete={handleFullCycleComplete}
+                defaultTargetCycles={1}
+                key={activeSubject?.sessionInstanceId || 'idle'}
+            />
+        </div>
     );
 }

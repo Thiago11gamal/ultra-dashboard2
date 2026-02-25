@@ -1,4 +1,3 @@
-```javascript
 import React, { useMemo, useRef, useState } from 'react';
 import { Activity, TrendingUp, BarChart2, Trophy, Calendar } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
@@ -117,7 +116,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-                            style={{ width: `${ progress.percentage }% ` }}
+                            style={{ width: `${progress.percentage}% ` }}
                         />
                     </div>
                     <div className="text-xs text-purple-400 font-bold">
@@ -139,14 +138,14 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     {daysRemaining !== null ? (
                         <div className="flex flex-col items-center pl-2">
                             <div className="flex items-baseline gap-1.5 justify-center">
-                                <span className={`text - 4xl font - black ${ daysRemaining < 0 ? 'text-slate-500' : daysRemaining <= 15 ? 'text-red-400' : 'text-white' } `}>
+                                <span className={`text-4xl font-black ${daysRemaining < 0 ? 'text-slate-500' : daysRemaining <= 15 ? 'text-red-400' : 'text-white'}`}>
                                     {Math.abs(daysRemaining)}
                                 </span>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     {Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'}
                                 </span>
                             </div>
-                            <div className={`text - [10px] font - bold mt - 0.5 text - center uppercase tracking - widest ${ daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400' } `}>
+                            <div className={`text-[10px] font-bold mt-0.5 text-center uppercase tracking-widest ${daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400'}`}>
                                 {daysRemaining < 0
                                     ? "Já passou"
                                     : daysRemaining === 0
@@ -203,7 +202,6 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 setIsDatePickerOpen(false);
                                 if (dateInputRef.current) dateInputRef.current.blur();
                             }}
-                            onBlur={() => setIsDatePickerOpen(false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-[120px] bg-slate-900/50 border border-white/10 rounded-lg py-1.5 text-slate-200 text-sm font-bold focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all cursor-pointer group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center relative z-20 appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-clear-button]:hidden [&::-webkit-inner-spin-button]:hidden pl-3"
                             style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}

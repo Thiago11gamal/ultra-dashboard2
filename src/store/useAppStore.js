@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { INITIAL_DATA } from '../data/initialData';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
@@ -63,7 +63,7 @@ export const useAppStore = create(
                     activeId: activeId
                 });
 
-                if (state.appState.history.length > 50) state.appState.history.shift();
+                if (state.appState.history.length > 10) state.appState.history.shift();
 
                 state.appState.contests = nextState.contests;
                 state.appState.activeId = nextState.activeId;
@@ -75,7 +75,7 @@ export const useAppStore = create(
                 // Record snapshot for undo
                 const snapshot = { ...state.appState.contests[state.appState.activeId] };
                 state.appState.history.push({ data: snapshot, contestId: state.appState.activeId });
-                if (state.appState.history.length > 50) state.appState.history.shift();
+                if (state.appState.history.length > 10) state.appState.history.shift();
 
                 // Allows updating only the active contest data
                 const currentData = state.appState.contests[state.appState.activeId];
@@ -322,6 +322,32 @@ export const useAppStore = create(
         {
             name: 'ultra-dashboard-storage',
             version: 1, // Add versioning for future migrations
+            storage: createJSONStorage(() => ({
+                getItem: (name) => localStorage.getItem(name),
+                setItem: (name, value) => {
+                    try {
+                        localStorage.setItem(name, value);
+                    } catch (e) {
+                        // Error code 22 is usually QuotaExceededError
+                        if (e.name === 'QuotaExceededError' || e.code === 22) {
+                            console.warn('LocalStorage limit reached! Attempting to save without history...');
+                            try {
+                                const state = JSON.parse(value);
+                                if (state.state?.appState) {
+                                    // Wipe history to save the actual data
+                                    state.state.appState.history = [];
+                                    localStorage.setItem(name, JSON.stringify(state));
+                                }
+                            } catch (error) {
+                                console.error('Auto-pruning failed:', error);
+                            }
+                        } else {
+                            throw e;
+                        }
+                    }
+                },
+                removeItem: (name) => localStorage.removeItem(name)
+            })),
             partialize: (state) => ({ appState: state.appState }),
             // CRITICAL FIX: Custom merge to prevent HMR (Hot Reload) from wiping data
             merge: (persistedState, currentState) => {
