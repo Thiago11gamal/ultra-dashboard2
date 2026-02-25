@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { Activity, TrendingUp, BarChart2, Trophy } from 'lucide-react';
+import { Activity, TrendingUp, BarChart2, Trophy, Calendar } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 
-const StatsCards = ({ data }) => {
+const StatsCards = ({ data, onUpdateGoalDate }) => {
     // Memoized Analytics
     const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
     const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
@@ -15,7 +15,7 @@ const StatsCards = ({ data }) => {
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 animate-fade-in-down">
             {/* Streak */}
             <div className="bg-[#151720] border border-white/5 rounded-2xl p-6 hover:border-orange-500/30 transition-colors group shadow-lg">
                 <div className="flex items-center gap-3 mb-3">
@@ -99,6 +99,26 @@ const StatsCards = ({ data }) => {
                     <div className="text-xs text-purple-400 font-bold">
                         {progress.percentage}% até Nível {progress.level + 1}
                     </div>
+                </div>
+            </div>
+
+            {/* Data da Prova */}
+            <div className="bg-[#151720] border border-white/5 rounded-2xl p-6 hover:border-red-500/30 transition-colors group shadow-lg flex flex-col justify-between">
+                <div>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition-colors">
+                            <Calendar size={20} className="text-red-400" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Data da Prova</span>
+                    </div>
+                </div>
+                <div className="mt-2">
+                    <input
+                        type="date"
+                        value={user.goalDate ? user.goalDate.split('T')[0] : ''}
+                        onChange={(e) => onUpdateGoalDate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700/50 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500/50 transition-colors cursor-pointer"
+                    />
                 </div>
             </div>
         </div>
