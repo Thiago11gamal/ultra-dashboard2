@@ -97,6 +97,14 @@ export default function Charts({ data, compact = false }) {
                         <stop offset="0%" stopColor="#a855f7" />
                         <stop offset="100%" stopColor="#3b82f6" />
                     </linearGradient>
+                    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feOffset dx="0" dy="2" result="offsetBlur" />
+                        <feMerge>
+                            <feMergeNode in="offsetBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
                 </defs>
             </svg>
 
@@ -146,7 +154,7 @@ export default function Charts({ data, compact = false }) {
                         <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val)} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                         <Bar dataKey="total" fill="rgba(255,255,255,0.05)" radius={[6, 6, 0, 0]} barSize={24} />
-                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={24} />
+                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={24} style={{ filter: 'url(#barShadow)' }} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

@@ -155,13 +155,13 @@ export default function TopicPerformance({ categories = [] }) {
 
                                 <div className="flex items-center gap-4">
                                     {/* Progress Bar Container */}
-                                    <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden">
+                                    <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden relative shadow-inner">
                                         <motion.div
                                             initial={{ width: 0 }}
                                             animate={{ width: `${topic.percentage}%` }}
                                             transition={{ duration: 0.8, delay: 0.3 }}
-                                            className={`h-full rounded-full transition-all duration-500 ${topic.percentage >= 80 ? 'bg-green-500' :
-                                                topic.percentage <= 40 ? 'bg-red-500' : 'bg-yellow-500'
+                                            className={`h-full rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(255,255,255,0.15)] ${topic.percentage >= 80 ? 'bg-green-500 shadow-green-500/30' :
+                                                topic.percentage <= 40 ? 'bg-red-500 shadow-red-500/30' : 'bg-yellow-500 shadow-yellow-500/30'
                                                 }`}
                                         />
                                     </div>

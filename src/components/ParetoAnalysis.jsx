@@ -119,7 +119,7 @@ export default function ParetoAnalysis({ categories = [] }) {
                                 {/* Impact Background Bar */}
                                 <div className="absolute left-0 bottom-0 h-1 bg-red-900/30 w-full" />
                                 <div
-                                    className={`absolute left-0 bottom-0 h-1 transition-all duration-1000 ease-out flex shadow-[0_0_10px_rgba(239,68,68,0.5)] ${idx === 0 ? 'bg-red-500' : 'bg-red-500/50'}`}
+                                    className={`absolute left-0 bottom-0 h-1 transition-all duration-1000 ease-out flex shadow-[0_0_15px_rgba(239,68,68,0.6)] ${idx === 0 ? 'bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)]' : 'bg-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.4)]'}`}
                                     style={{ width: `${impactPercent}%` }}
                                 />
 

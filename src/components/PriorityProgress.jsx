@@ -50,10 +50,15 @@ export default function PriorityProgress({ categories = [] }) {
                                 {completed}/{total}
                             </span>
                         </div>
-                        <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                        <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner relative">
                             <div
-                                className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.1)]`}
-                                style={{ width: `${pct}%` }}
+                                className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(255,255,255,0.2)]`}
+                                style={{
+                                    width: `${pct}%`,
+                                    boxShadow: p === 'high' ? '0 0 15px rgba(239, 68, 68, 0.4)' :
+                                        p === 'medium' ? '0 0 15px rgba(234, 179, 8, 0.4)' :
+                                            '0 0 15px rgba(34, 197, 94, 0.4)'
+                                }}
                             />
                         </div>
                     </div>

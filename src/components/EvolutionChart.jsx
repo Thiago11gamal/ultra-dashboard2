@@ -150,7 +150,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             .sort((a, b) => b.value - a.value)
             .slice(0, 5)
             .map((item, index) => {
-                const colors = ["#ef4444", "#fb923c", "#facc15", "#a78bfa", "#94a3b8"];
+                const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#fbbf24"];
                 return {
                     ...item,
                     fill: colors[index % colors.length]
@@ -191,10 +191,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
         if (totalErrors === 0) return [];
 
-        return categoryErrors.map(item => ({
-            ...item,
-            percentage: Math.round((item.value / totalErrors) * 100)
-        }));
+        return categoryErrors.map((item, index) => {
+            const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#fbbf24"];
+            return {
+                ...item,
+                color: colors[index % colors.length],
+                percentage: Math.round((item.value / totalErrors) * 100)
+            };
+        });
     }, [activeCategories]);
 
     const getInsightText = () => {
@@ -233,6 +237,38 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     return (
         <div className="space-y-8 animate-fade-in">
+            {/* Global SVG Filters for Premium Effects */}
+            <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
+                <defs>
+                    <filter id="lineShadow" height="200%">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                        <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.5" />
+                        </feComponentTransfer>
+                        <feMerge>
+                            <feMergeNode />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feOffset dx="0" dy="2" result="offsetBlur" />
+                        <feMerge>
+                            <feMergeNode in="offsetBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#818cf8" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#818cf8" stopOpacity={0.05} />
+                    </linearGradient>
+                </defs>
+            </svg>
             {/* 1. MÉTRICAS GLOBAIS */}
             <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 shadow-lg transition-all hover:bg-indigo-950/30 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)]">
                 <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">📈 Esforço Acumulado (Total Histórico)</h2>
@@ -283,7 +319,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-lg">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-lg shadow-black/40">
                 <div className="mb-5">
                     <h2 className="text-lg font-bold flex items-center gap-2 mb-3"><span className="text-indigo-400">1.</span> Linha do Tempo (Desempenho Geral)</h2>
                     <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/70 p-2 rounded-xl border border-slate-800 w-full overflow-x-auto custom-scrollbar">
@@ -310,7 +346,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     {activeCategories.map((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
                                         return (
-                                            <Line key={cat.id} type={engine.style} dataKey={engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`} name={cat.name} stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2} strokeOpacity={isFocused ? 1 : 0.75} dot={{ r: isFocused ? 5 : 4, fill: cat.color, stroke: "#0f172a", strokeWidth: 1.5 }} activeDot={{ r: isFocused ? 8 : 7, strokeWidth: 2, stroke: "#0f172a" }} connectNulls />
+                                            <Line key={cat.id} type={engine.style} dataKey={engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`} name={cat.name} stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2} strokeOpacity={isFocused ? 1 : 0.75} dot={{ r: isFocused ? 5 : 4, fill: cat.color, stroke: "#0f172a", strokeWidth: 1.5 }} activeDot={{ r: isFocused ? 8 : 7, strokeWidth: 2, stroke: "#0f172a" }} connectNulls style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }} />
                                         );
                                     })}
                                 </LineChart>
@@ -322,12 +358,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={true} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="#818cf835" stroke="none" />
+                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" />
                                     <Area type="monotone" dataKey="Cenário Ruim" fill="#0f172a" stroke="none" />
                                     <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
                                     <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
-                                    <Line type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3.5} dot={{ r: 2 }} connectNulls />
-                                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5} strokeDasharray="6 6" dot={{ r: 5, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} connectNulls />
+                                    <Line type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3.5} dot={{ r: 2 }} connectNulls style={{ filter: 'url(#lineShadow)' }} />
+                                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5} strokeDasharray="6 6" dot={{ r: 5, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} connectNulls strokeOpacity={0.8} style={{ filter: 'url(#lineShadow)' }} />
                                 </ComposedChart>
                             )}
                         </ResponsiveContainer>
@@ -356,7 +392,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                     <Radar name="Meta Desejada" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" fill="none" />
-                                    <Radar name="O Teu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.3} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                    <Radar name="O Teu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.3} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
                                     <Tooltip formatter={(value) => [`${value}%`]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
                                 </RadarChart>
                             </ResponsiveContainer>
@@ -374,7 +410,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} formatter={(value) => <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{value}</span>} />
                                     <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#475569" stroke="#64748b" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={14} activeBar={{ fill: '#64748b', stroke: '#cbd5e1', strokeWidth: 1 }} fillOpacity={0.4} legendType="square" />
-                                    <Line yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusCategory?.color} strokeWidth={3} dot={{ r: 3 }} />
+                                    <Line yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusCategory?.color} strokeWidth={3} dot={{ r: 3 }} style={{ filter: 'url(#lineShadow)' }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
@@ -391,7 +427,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={100} />
                                             <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Vazamento']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }}>
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
                                                 {pointLeakageData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
@@ -419,7 +455,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={110} />
                                             <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Assunto']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }}>
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
                                                 {subtopicsData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.fill} />
                                                 ))}

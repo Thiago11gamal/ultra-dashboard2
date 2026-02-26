@@ -104,11 +104,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <stop offset="0%" stopColor="rgba(34, 197, 94, 0.6)" />
                         <stop offset="100%" stopColor="rgba(34, 197, 94, 0.1)" />
                     </linearGradient>
+                    <filter id="glowPlot" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
-                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlot)' }} />
 
                 {isCurrentVisible && (
                     <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-40" vectorEffect="non-scaling-stroke" />

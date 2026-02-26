@@ -102,14 +102,14 @@ const VolumeRanking = ({ categories = [] }) => {
                                 </div>
 
                                 {/* Progress Bar */}
-                                <div className="w-full bg-slate-800/50 h-1 rounded-full overflow-hidden">
+                                <div className="w-full bg-slate-800/50 h-1.5 rounded-full overflow-hidden relative shadow-inner">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${Math.max(percentage, 2)}%` }}
                                         transition={{ duration: 1, delay: 0.2 }}
-                                        className={`h-full rounded-full ${index === 0 ? 'bg-yellow-500/80' :
-                                            index === 1 ? 'bg-slate-400/80' :
-                                                index === 2 ? 'bg-orange-500/80' :
+                                        className={`h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(255,255,255,0.1)] ${index === 0 ? 'bg-yellow-500/80 shadow-yellow-500/20' :
+                                            index === 1 ? 'bg-slate-400/80 shadow-slate-400/20' :
+                                                index === 2 ? 'bg-orange-500/80 shadow-orange-500/20' :
                                                     'bg-slate-700'
                                             }`}
                                     />
