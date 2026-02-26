@@ -387,9 +387,9 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                     {isExpanded && hasTasks && (
                                         <div className="bg-slate-900/50 border-t border-white/5">
                                             <div className="p-3 space-y-2">
-                                                {cat.tasksWithRetention.map((task) => (
+                                                {cat.tasksWithRetention.map((task, index) => (
                                                     <div
-                                                        key={task.id}
+                                                        key={task.id || `${task.title}-${index}`}
                                                         className={`flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 cursor-pointer
                                                             ${task.retention.val < 40 ? 'bg-red-900/10' : task.retention.val < 60 ? 'bg-yellow-900/5' : 'bg-white/5'}`}
                                                         onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}

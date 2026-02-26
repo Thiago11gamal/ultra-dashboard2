@@ -201,7 +201,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 recentStudyDays++;
             }
 
-            return acc + (log.minutes || 0);
+            return acc + (Number(log.minutes) || 0);
         }, 0);
 
         const totalHours = totalMinutes / 60;

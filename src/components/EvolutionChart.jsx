@@ -3,7 +3,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    PieChart, Pie, Cell, BarChart, Bar
+    PieChart, Pie, Cell, BarChart, Bar, LabelList
 } from "recharts";
 import { monteCarloSimulation } from "../engine";
 import { useChartData } from "../hooks/useChartData";
@@ -99,7 +99,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         if (!timeline || timeline.length === 0) return [];
         const lastPoint = timeline[timeline.length - 1];
         return activeCategories.map(cat => ({
-            subject: cat.name.split(' ')[0],
+            subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15),
             nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0),
             meta: targetScore,
         }));
@@ -117,30 +117,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const subtopicsData = useMemo(() => {
         if (!focusCategory) return [];
         const topicMap = {};
-        (focusCategory.simuladoStats?.history || []).forEach(h => {
-            (h.topics || []).forEach(t => {
-                if (!topicMap[t.name]) topicMap[t.name] = { correct: 0, total: 0 };
-                topicMap[t.name].correct += parseInt(t.correct, 10) || 0;
-                topicMap[t.name].total += parseInt(t.total, 10) || 0;
-            });
-        });
 
-        return Object.entries(topicMap).map(([name, data]) => ({
-            name: name,
-            value: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0
-        })).sort((a, b) => b.value - a.value).slice(0, 5);
-    }, [focusCategory]);
-
-    const pointLeakageData = useMemo(() => {
-        if (!focusCategory) return [];
-        const topicMap = {};
-        let totalErrors = 0;
-
-        // Determinar o início e o fim da semana atual (Segunda a Domingo)
         const now = new Date();
         const startOfWeek = new Date(now);
         const day = startOfWeek.getDay();
-        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Ajuste para segunda-feira ser o dia 1
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
         startOfWeek.setDate(diff);
         startOfWeek.setHours(0, 0, 0, 0);
 
@@ -148,7 +129,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
 
-        // Filtrar o histórico para trazer apenas os treinos da semana atual
         const thisWeekHistory = (focusCategory.simuladoStats?.history || []).filter(h => {
             const date = new Date(h.date);
             return date >= startOfWeek && date <= endOfWeek;
@@ -159,33 +139,68 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 if (!topicMap[t.name]) topicMap[t.name] = { errors: 0 };
                 const correct = parseInt(t.correct, 10) || 0;
                 const total = parseInt(t.total, 10) || 0;
-                const errors = Math.max(0, total - correct);
-
-                topicMap[t.name].errors += errors;
-                totalErrors += errors;
+                topicMap[t.name].errors += Math.max(0, total - correct);
             });
         });
 
-        if (totalErrors === 0) return [];
-
-        const sorted = Object.entries(topicMap)
+        return Object.entries(topicMap)
             .map(([name, data]) => ({ name, value: data.errors }))
             .filter(item => item.value > 0)
-            .sort((a, b) => b.value - a.value);
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5)
+            .map((item, index) => {
+                const colors = ["#ef4444", "#fb923c", "#facc15", "#a78bfa", "#94a3b8"];
+                return {
+                    ...item,
+                    fill: colors[index % colors.length]
+                };
+            });
+    }, [focusCategory]);
 
-        const top = sorted.slice(0, 4);
-        const others = sorted.slice(4).reduce((sum, item) => sum + item.value, 0);
-        if (others > 0) {
-            top.push({ name: "Outros Tópicos", value: others });
-        }
+    const pointLeakageData = useMemo(() => {
+        if (!activeCategories || !activeCategories.length) return [];
+        let totalErrors = 0;
 
-        const colors = ["#ef4444", "#fb923c", "#facc15", "#a78bfa", "#94a3b8"];
-        return top.map((item, index) => ({
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        const day = startOfWeek.getDay();
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const categoryErrors = activeCategories.map(cat => {
+            const thisWeekHistory = (cat.simuladoStats?.history || []).filter(h => {
+                const date = new Date(h.date);
+                return date >= startOfWeek && date <= endOfWeek;
+            });
+
+            let errors = 0;
+            thisWeekHistory.forEach(h => {
+                const correct = parseInt(h.correct, 10) || 0;
+                const total = parseInt(h.total, 10) || 0;
+                errors += Math.max(0, total - correct);
+            });
+
+            totalErrors += errors;
+
+            return {
+                name: cat.name,
+                value: errors,
+                color: cat.color || "#94a3b8"
+            };
+        }).filter(item => item.value > 0).sort((a, b) => b.value - a.value);
+
+        if (totalErrors === 0) return [];
+
+        return categoryErrors.map(item => ({
             ...item,
-            color: colors[index % colors.length],
             percentage: Math.round((item.value / totalErrors) * 100)
         }));
-    }, [focusCategory]);
+    }, [activeCategories]);
 
     const getInsightText = () => {
         if (activeEngine !== "compare") return "Selecione a aba 'Raio-X Diagnóstico' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
@@ -224,20 +239,20 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     return (
         <div className="space-y-8 animate-fade-in">
             {/* 1. MÉTRICAS GLOBAIS */}
-            <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 transition-all hover:bg-indigo-950/30 hover:border-indigo-500/40">
+            <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 shadow-lg transition-all hover:bg-indigo-950/30 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)]">
                 <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">📈 Esforço Acumulado (Total Histórico)</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex flex-col">
                         <span className="text-4xl font-black text-slate-100">{globalMetrics.totalQuestions.toLocaleString()}</span>
-                        <span className="text-xs text-slate-500 mt-1">Questões Resolvidas</span>
+                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-slate-400">📚</span> Questões Resolvidas</span>
                     </div>
                     <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
                         <span className="text-4xl font-black text-green-400">{globalMetrics.totalCorrect.toLocaleString()}</span>
-                        <span className="text-xs text-slate-500 mt-1">Acertos Conquistados</span>
+                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-green-500/70">🎯</span> Acertos Conquistados</span>
                     </div>
                     <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
                         <span className="text-4xl font-black text-indigo-300">{globalMetrics.globalAccuracy.toFixed(1)}%</span>
-                        <span className="text-xs text-slate-500 mt-1">Precisão Global (Média Bruta)</span>
+                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-indigo-400/70">⚡</span> Precisão Global (Média Bruta)</span>
                     </div>
                 </div>
             </div>
@@ -295,7 +310,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip content={<ChartTooltip chartData={chartData} isCompare={false} />} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={false} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
                                     {activeCategories.map((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
@@ -310,7 +325,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip content={<ChartTooltip chartData={chartData} isCompare={true} />} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={true} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
                                     <Area type="monotone" dataKey="Cenário Ótimo" fill="#818cf815" stroke="none" />
                                     <Area type="monotone" dataKey="Cenário Ruim" fill="#0f172a" stroke="none" />
@@ -326,8 +341,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* 5. AVALIAÇÃO DO BOT */}
-            <div className="bg-gradient-to-br from-slate-900 to-indigo-950/40 border border-indigo-500/20 rounded-2xl p-6 shadow-lg relative overflow-hidden transition-all duration-300">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🤖</div>
+            <div className="bg-gradient-to-br from-slate-900 to-indigo-950/40 border border-indigo-500/20 rounded-2xl p-6 shadow-lg relative overflow-hidden transition-all duration-500 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] group">
+                <div className="absolute -top-4 -right-4 p-4 opacity-10 text-7xl group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">🤖</div>
                 <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-indigo-300">A Minha Leitura dos Dados</h2>
                 <p className="text-slate-300 leading-relaxed text-sm md:text-base relative z-10">{getInsightText()}</p>
             </div>
@@ -343,11 +358,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                                     <PolarGrid stroke="#334155" />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                     <Radar name="Meta Desejada" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" fill="none" />
-                                    <Radar name="O Teu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.3} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
+                                    <Radar name="O Teu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.3} activeDot={{ r: 4, strokeWidth: 0 }} />
+                                    <Tooltip formatter={(value) => [`${value}%`]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
                                 </RadarChart>
                             </ResponsiveContainer>
                         </div>
@@ -360,10 +375,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                                     <XAxis dataKey="date" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#475569" tick={false} axisLine={false} tickLine={false} />
-                                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
-                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#1e293b" radius={[4, 4, 0, 0]} barSize={14} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#475569" tick={false} axisLine={false} tickLine={false} domain={[0, dataMax => dataMax * 2]} />
+                                    <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} formatter={(value) => <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{value}</span>} />
+                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#475569" stroke="#64748b" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={14} activeBar={{ fill: '#64748b', stroke: '#cbd5e1', strokeWidth: 1 }} legendType="square" />
                                     <Line yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusCategory?.color} strokeWidth={3} dot={{ r: 3 }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
@@ -371,20 +386,21 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
                         <div className="w-full h-full flex flex-col">
-                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Quantidade absoluta de erros por assunto nesta semana">🩸 Vazamento de Pontos (Semana) 🎯</h3>
-                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Os assuntos onde você perdeu mais pontos absolutos nos últimos 7 dias. Foque a revisão neles primeiro.</p>
+                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Todas as matérias rankeadas por erros na semana">🩸 Vazamento de Pontos (Semana)</h3>
+                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Disciplinas com maior quantidade de erros absolutos nos últimos 7 dias.</p>
                             <div className="flex-1 w-full min-h-[220px]">
                                 {pointLeakageData && pointLeakageData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: 35, bottom: 0 }}>
+                                        <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
                                             <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={100} />
-                                            <Tooltip formatter={(value, name, props) => [`${value} erros identificados`, name]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22}>
+                                            <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Vazamento']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }}>
                                                 {pointLeakageData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
+                                                <LabelList dataKey="value" position="right" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} offset={10} />
                                             </Bar>
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -396,25 +412,28 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             </div>
                         </div>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg hover:border-slate-700 transition-colors">
-                        <h3 className="text-base font-bold text-slate-200 mb-1">📏 Subtópicos 🎯</h3>
-                        <div className="h-[250px]">
-                            {subtopicsData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 20, left: 35, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                                        <XAxis type="number" domain={[0, 100]} stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={110} />
-                                        <Tooltip formatter={(value) => [`${value}%`, 'Acerto']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-                                        <ReferenceLine x={targetScore} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.3} />
-                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22}>
-                                            {subtopicsData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.value < 50 ? '#ef4444' : entry.value < targetScore ? '#fbbf24' : '#22c55e'} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (<div className="h-full flex items-center justify-center text-slate-500 text-sm">Nenhum subtópico detalhado ainda.</div>)}
+                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
+                        <div className="w-full h-full flex flex-col">
+                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Assuntos com mais erros absolutos nesta semana">📏 Assuntos Críticos (Semana) 🎯</h3>
+                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Os tópicos da matéria focada que você mais errou nesta semana.</p>
+                            <div className="flex-1 w-full min-h-[220px]">
+                                {subtopicsData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                                            <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={110} />
+                                            <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Assunto']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }}>
+                                                {subtopicsData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                ))}
+                                                <LabelList dataKey="value" position="right" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} offset={10} />
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (<div className="h-full flex items-center justify-center text-slate-500 text-sm italic text-center px-4">Nenhum erro registrado ou nenhum simulado feito nesta semana! 🎉</div>)}
+                            </div>
                         </div>
                     </div>
                 </div>

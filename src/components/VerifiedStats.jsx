@@ -354,147 +354,174 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
     }, [categories, targetScore]);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 animate-fade-in-down">
-            {/* Card 1: Machine Learning & Base Prediction (25%) */}
-            <div className={`col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-all duration-500 shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
-                stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
-                    'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
-                }`}>
-
-                {/* AI / ML Animated Glow Background */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-2xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
-
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2 relative z-10">
-                    <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
-                            <Target size={16} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                            Previsão IA
-                            {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Main Verdict with Dynamic Glow */}
-                <div className="text-center my-4 relative z-10">
-                    <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
-                        stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
-                            'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
-                        }`}>
-                        {stats.prediction}
-                    </h2>
-                </div>
-
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
-                    <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
-                        <div className="flex items-baseline gap-0.5">
-                            <span className="text-sm font-black text-slate-200">{stats.targetScore || 90}</span>
-                            <span className="text-[9px] text-slate-500 font-bold">%</span>
-                        </div>
-                    </div>
-                    <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
-                        <div className="flex items-center gap-1.5">
-                            {stats.hasEnoughData ? (
-                                <>
-                                    {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                                    {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                                    {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
-                                    <span className="text-xs font-black text-slate-200 uppercase">
-                                        {stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}
-                                    </span>
-                                </>
-                            ) : (
-                                <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Message */}
-                <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
-                    <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
-                        {stats.predictionSubtext}
-                    </p>
-                </div>
-
-                {/* Animated Loading Sparkline at the bottom */}
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
-                    <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
-                        stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
-                            'bg-blue-500'
-                        }`} style={{ animation: 'moveRight 3s linear infinite' }} />
-                </div>
-
-                <style dangerouslySetInnerHTML={{
-                    __html: `
-                    @keyframes moveRight {
-                        0% { transform: translateX(-100%); }
-                        100% { transform: translateX(300%); }
-                    }
-                `}} />
+        <div className="flex flex-col gap-4 animate-fade-in-down">
+            {/* Top Row: Monte Carlo Side-by-Side (50% each) - Ultra Indigo Depth */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-indigo-500/[0.06] p-4 rounded-[3.5rem] border-2 border-indigo-500/20 shadow-[inset_0_0_60px_rgba(99,102,241,0.05)]">
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    onTargetChange={setTargetScore}
+                    onWeightsChange={onUpdateWeights}
+                    forcedMode="today"
+                    forcedTitle="Status Atual"
+                />
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    onTargetChange={setTargetScore}
+                    onWeightsChange={onUpdateWeights}
+                    forcedMode="future"
+                    forcedTitle="Projeção Futura"
+                />
             </div>
 
-            {/* Card 2: Consistency (Standard Deviation) (25%) */}
-            <div className={`col-span-1 glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${stats.consistency.bgBorder}`}>
+            {/* Bottom Row: AI Forecast and Consistency Metrics - Ultra Blue Depth */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-blue-500/[0.06] p-4 rounded-[3.5rem] border-2 border-blue-500/20 shadow-[inset_0_0_60px_rgba(59,130,246,0.05)] h-full">
+                {/* Card 1: Machine Learning & Base Prediction */}
+                <div className={`glass p-6 rounded-[2.5rem] relative flex flex-col justify-between border-2 bg-gradient-to-br from-slate-900 via-slate-900 to-black group/mcard hover:scale-[1.01] transition-all duration-700 shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.1)]' :
+                        stats.predictionStatus === 'warning' ? 'border-yellow-500/60 shadow-[0_0_40px_rgba(234,179,8,0.1)]' :
+                            'border-blue-500/60 shadow-[0_0_40px_rgba(59,130,246,0.1)]'
+                    }`}>
 
-                {/* Header */}
-                <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
-                            <Activity size={16} className={stats.consistency.color} />
+                    {/* AI / ML Animated Glow Background */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-4 relative z-10">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                                <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em] flex items-center gap-2">
+                                Previsão Estratégica
+                                {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.8)]" />}
+                            </span>
                         </div>
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
+                    </div>
+
+                    {/* Main Verdict with Dynamic Glow */}
+                    <div className="text-center my-4 relative z-10">
+                        <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
+                            stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
+                                'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                            }`}>
+                            {stats.prediction}
+                        </h2>
+                    </div>
+
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
+                        <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
+                            <div className="flex items-baseline gap-0.5">
+                                <span className="text-sm font-black text-slate-200">{stats.targetScore || 90}</span>
+                                <span className="text-[9px] text-slate-500 font-bold">%</span>
+                            </div>
+                        </div>
+                        <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
+                            <div className="flex items-center gap-1.5">
+                                {stats.hasEnoughData ? (
+                                    <>
+                                        {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
+                                        {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+                                        {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                                        <span className="text-xs font-black text-slate-200 uppercase">
+                                            {stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Message */}
+                    <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
+                        <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
+                            {stats.predictionSubtext}
+                        </p>
+                    </div>
+
+                    {/* Animated Loading Sparkline at the bottom */}
+                    <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
+                        <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
+                            stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
+                                'bg-blue-500'
+                            }`} style={{ animation: 'moveRight 3s linear infinite' }} />
+                    </div>
+
+                    <style dangerouslySetInnerHTML={{
+                        __html: `
+                        @keyframes moveRight {
+                            0% { transform: translateX(-100%); }
+                            100% { transform: translateX(300%); }
+                        }
+                    `}} />
+                </div>
+
+                {/* Card 2: Consistency (Standard Deviation) */}
+                <div className={`glass p-5 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-all duration-500 shadow-2xl overflow-hidden ${stats.consistency.bgBorder.replace('/30', '')} shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:shadow-glow-dynamic`}>
+
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-4 relative z-10">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
+                                <Activity size={18} className={stats.consistency.color} />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">Padrão de Consistência</span>
+                        </div>
+                    </div>
+
+                    {/* Main Verdict */}
+                    <div className="text-center my-4 relative z-10">
+                        <h2 className={`text-xl md:text-2xl font-black leading-tight ${stats.consistency.color} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]`}>
+                            {stats.consistency.status}
+                        </h2>
+                    </div>
+
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-2 w-full mb-3">
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
+                            <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
+                                {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
+                            </span>
+                        </div>
+                        <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
+                            <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+                                {stats.consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+                                    (['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' :
+                                        (['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'))}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Footer Message */}
+                    <div className="mt-auto pt-2 border-t border-white/10">
+                        <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                            {stats.consistency.message}
+                        </p>
                     </div>
                 </div>
-
-                {/* Main Verdict */}
-                <div className="text-center my-2">
-                    <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
-                        {stats.consistency.status}
-                    </h2>
-                </div>
-
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-2 gap-2 w-full mb-3">
-                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                        <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
-                            {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
-                        </span>
-                    </div>
-                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
-                        <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                            {stats.consistency.status === 'Dados Insuficientes' ? 'Pendente' :
-                                (['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' :
-                                    (['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'))}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Footer Message */}
-                <div className="mt-auto pt-2 border-t border-white/10">
-                    <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
-                        {stats.consistency.message}
-                    </p>
-                </div>
-            </div>
-
-            {/* Card 3: Monte Carlo (50%) */}
-            <div className="col-span-1 md:col-span-2 h-full">
-                <MonteCarloGauge categories={categories} goalDate={user?.goalDate} targetScore={targetScore} onTargetChange={setTargetScore} onWeightsChange={onUpdateWeights} />
             </div>
 
             {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
-                <div className="flex items-center gap-2 mb-4 text-slate-400">
-                    <Activity size={16} />
-                    <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
+            <div className="glass col-span-1 lg:col-span-4 p-8 mt-6 bg-gradient-to-b from-slate-900/50 to-black/80 border-t border-white/5 rounded-[2rem] shadow-inner">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3 text-slate-400">
+                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                            <Activity size={18} className="text-blue-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-200">Análise por Matéria</h3>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Diagnóstico de estabilidade individual</p>
+                        </div>
+                    </div>
                 </div>
 
                 {stats.categoryBreakdown.length > 0 ? (

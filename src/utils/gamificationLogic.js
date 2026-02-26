@@ -155,7 +155,7 @@ export const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
             sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
         currentStreak: calculateStreak(data.studyLogs || []).current,
         totalQuestions: data.categories?.reduce((sum, cat) =>
-            sum + (cat.simuladoStats?.history?.reduce((h, entry) => h + (entry.total || 0), 0) || 0), 0) || 0,
+            sum + (cat.simuladoStats?.history?.reduce((h, entry) => h + (Number(entry.total) || 0), 0) || 0), 0) || 0,
         hasPerfectScore: data.categories?.some(cat =>
             cat.simuladoStats?.history?.some(h => h.score === 100 || (h.correct === h.total && h.total > 0))) || false,
         hasRobotConsistency: data.categories?.some(cat => {

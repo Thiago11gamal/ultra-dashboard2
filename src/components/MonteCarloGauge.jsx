@@ -12,7 +12,15 @@ import { getSafeScore } from '../utils/scoreHelper';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 
-export default function MonteCarloGauge({ categories = [], goalDate, targetScore, onTargetChange, onWeightsChange }) {
+export default function MonteCarloGauge({
+    categories = [],
+    goalDate,
+    targetScore,
+    onTargetChange,
+    onWeightsChange,
+    forcedMode = null, // 'today' or 'future'
+    forcedTitle = null
+}) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true);
     const [simulateToday, setSimulateToday] = useState(false);
@@ -27,8 +35,10 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
     const catCount = activeCategories.length;
 
+    const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
+
     const projectDays = useMemo(() => {
-        if (simulateToday) return 0;
+        if (effectiveSimulateToday) return 0;
         if (!goalDate) return 30;
         const now = new Date();
         now.setHours(0, 0, 0, 0);
@@ -264,18 +274,39 @@ export default function MonteCarloGauge({ categories = [], goalDate, targetScore
 
     const gradientColor = getGradientColor(prob);
     let baseMessage = prob > 80 ? "Aprovação Matematicamente Certa" : prob > 50 ? "Na Zona de Briga" : prob > 25 ? "Precisa Melhorar" : "Aprovação Improvável";
-    const message = baseMessage + (simulateToday ? " Hoje" : "");
+    const message = baseMessage + (effectiveSimulateToday ? " Hoje" : "");
 
     return (
-        <div className="glass p-3 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-colors shadow-2xl overflow-hidden w-full max-w-full">
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monte Carlo</span>
+        <div className={`glass p-5 rounded-[2.5rem] relative flex flex-col border-2 transition-all duration-700 shadow-2xl overflow-hidden w-full max-w-full group/card hover:scale-[1.01] ${forcedMode === 'today'
+                ? 'border-emerald-500/60 bg-gradient-to-br from-emerald-500/[0.08] via-transparent to-transparent shadow-[0_0_40px_rgba(16,185,129,0.15)]'
+                : forcedMode === 'future'
+                    ? 'border-cyan-500/60 bg-gradient-to-br from-cyan-500/[0.08] via-transparent to-transparent shadow-[0_0_40px_rgba(6,182,212,0.15)]'
+                    : 'border-blue-500 bg-slate-900/40 shadow-xl'
+            }`}>
+            {/* Ultra-Intense Background Glows */}
+            <div className={`absolute -top-20 -right-20 w-64 h-64 blur-[100px] rounded-full pointer-events-none transition-opacity duration-1000 group-hover/card:opacity-40 opacity-20 ${forcedMode === 'today' ? 'bg-emerald-500' : 'bg-cyan-500'
+                }`} />
+
+            <div className="flex justify-between items-center mb-4 relative z-10">
+                <div className="flex items-center gap-3">
+                    {forcedMode && (
+                        <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border-2 shadow-lg animate-pulse ${forcedMode === 'today'
+                                ? 'bg-emerald-400 border-white text-black shadow-emerald-500/50'
+                                : 'bg-cyan-400 border-white text-black shadow-cyan-500/50'
+                            }`}>
+                            {forcedMode === 'today' ? 'Status Atual' : 'Projeção'}
+                        </div>
+                    )}
+                    <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-white/10 flex items-center justify-center shadow-xl group-hover/card:border-white/20 transition-colors">
+                        <Gauge size={20} className={forcedMode === 'today' ? 'text-emerald-400' : 'text-cyan-400'} />
+                    </div>
+                    <span className="text-sm font-black text-white uppercase tracking-[0.25em] drop-shadow-md">{forcedTitle || 'Monte Carlo'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}>Projeção: {simulateToday ? 'Hoje' : 'Futura'}</button>
-                    {!simulateToday && mean === currentMean && projectDays > 0 && (
+                    {!forcedMode && (
+                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}>Projeção: {simulateToday ? 'Hoje' : 'Futura'}</button>
+                    )}
+                    {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">
                             <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help"><span className="text-[10px] font-bold text-yellow-500">?</span></div>
                             <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity text-[9px] text-slate-300 leading-tight"><span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.</div>

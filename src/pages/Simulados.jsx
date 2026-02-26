@@ -110,8 +110,8 @@ export default function Simulados() {
                         const score = (totalC / totalQ) * 100;
                         const newHistory = [...(currentStats.history || []), { date: new Date().toISOString(), score, total: totalQ, correct: totalC, topics: validTopics }];
 
-                        const grandTotalQ = newHistory.reduce((acc, h) => acc + h.total, 0);
-                        const grandTotalC = newHistory.reduce((acc, h) => acc + h.correct, 0);
+                        const grandTotalQ = newHistory.reduce((acc, h) => acc + Number(h.total || 0), 0);
+                        const grandTotalC = newHistory.reduce((acc, h) => acc + Number(h.correct || 0), 0);
                         const newAverage = grandTotalQ > 0 ? (grandTotalC / grandTotalQ) * 100 : 0;
 
                         let trend = 'stable';

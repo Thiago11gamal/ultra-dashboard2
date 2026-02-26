@@ -56,8 +56,8 @@ function PersonalRanking({ categories = [] }) {
     const categoryStats = categories.map(cat => {
         const stats = cat.simuladoStats || { history: [] };
         const history = stats.history || [];
-        const total = history.reduce((acc, h) => acc + h.total, 0);
-        const correct = history.reduce((acc, h) => acc + h.correct, 0);
+        const total = history.reduce((acc, h) => acc + Number(h.total || 0), 0);
+        const correct = history.reduce((acc, h) => acc + Number(h.correct || 0), 0);
         const wrong = total - correct;
         const balance = correct - wrong;
 

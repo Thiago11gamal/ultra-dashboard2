@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard,
     CheckSquare,
@@ -21,6 +22,27 @@ import { Link, useLocation } from 'react-router-dom';
 
 export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
     const location = useLocation();
+    const [isVisible, setIsVisible] = useState(true);
+
+    useEffect(() => {
+        let lastScrollY = window.scrollY;
+
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+
+            // Oculta ao rolar para baixo, mostra ao rolar para cima
+            if (currentScrollY > 50 && currentScrollY > lastScrollY) {
+                setIsVisible(false);
+            } else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
+                setIsVisible(true);
+            }
+
+            lastScrollY = currentScrollY;
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     // Gamification Stats
     const currentXP = user?.xp || 0;
@@ -43,7 +65,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
     ];
 
     return (
-        <div className="fixed top-6 left-1/2 z-[100] flex flex-col items-start">
+        <div className={`fixed left-1/2 z-[100] flex flex-col items-start transition-all duration-500 ${isVisible ? 'top-6 opacity-100' : '-top-32 opacity-0 pointer-events-none'}`}>
             {/* Main Bar Container */}
             <div
                 className={`
