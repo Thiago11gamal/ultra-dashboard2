@@ -355,34 +355,13 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
-            {/* Top Row: Monte Carlo Side-by-Side (50% each) - Ultra Indigo Depth */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-indigo-500/[0.06] p-4 rounded-[3.5rem] border-2 border-indigo-500/20 shadow-[inset_0_0_60px_rgba(99,102,241,0.05)]">
-                <MonteCarloGauge
-                    categories={categories}
-                    goalDate={user?.goalDate}
-                    targetScore={targetScore}
-                    onTargetChange={setTargetScore}
-                    onWeightsChange={onUpdateWeights}
-                    forcedMode="today"
-                    forcedTitle="Status Atual"
-                />
-                <MonteCarloGauge
-                    categories={categories}
-                    goalDate={user?.goalDate}
-                    targetScore={targetScore}
-                    onTargetChange={setTargetScore}
-                    onWeightsChange={onUpdateWeights}
-                    forcedMode="future"
-                    forcedTitle="Projeção Futura"
-                />
-            </div>
 
-            {/* Bottom Row: AI Forecast and Consistency Metrics - Ultra Blue Depth */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-blue-500/[0.06] p-4 rounded-[3.5rem] border-2 border-blue-500/20 shadow-[inset_0_0_60px_rgba(59,130,246,0.05)] h-full">
+            {/* Top Row: AI Forecast and Consistency Metrics */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Card 1: Machine Learning & Base Prediction */}
-                <div className={`glass p-6 rounded-[2.5rem] relative flex flex-col justify-between border-2 bg-gradient-to-br from-slate-900 via-slate-900 to-black group/mcard hover:scale-[1.01] transition-all duration-700 shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500/60 shadow-[0_0_40px_rgba(34,197,94,0.1)]' :
-                        stats.predictionStatus === 'warning' ? 'border-yellow-500/60 shadow-[0_0_40px_rgba(234,179,8,0.1)]' :
-                            'border-blue-500/60 shadow-[0_0_40px_rgba(59,130,246,0.1)]'
+                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
+                    stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
+                        'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
                     }`}>
 
                     {/* AI / ML Animated Glow Background */}
@@ -394,9 +373,9 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                             <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
                                 <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
                             </div>
-                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em] flex items-center gap-2">
-                                Previsão Estratégica
-                                {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.8)]" />}
+                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                                Previsão IA
+                                {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
                             </span>
                         </div>
                     </div>
@@ -464,7 +443,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 </div>
 
                 {/* Card 2: Consistency (Standard Deviation) */}
-                <div className={`glass p-5 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-all duration-500 shadow-2xl overflow-hidden ${stats.consistency.bgBorder.replace('/30', '')} shadow-[0_0_20px_rgba(0,0,0,0.3)] hover:shadow-glow-dynamic`}>
+                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${stats.consistency.bgBorder}`}>
 
                     {/* Header */}
                     <div className="flex justify-between items-start mb-4 relative z-10">
@@ -472,13 +451,13 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                             <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
                                 <Activity size={18} className={stats.consistency.color} />
                             </div>
-                            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">Padrão de Consistência</span>
+                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
                         </div>
                     </div>
 
                     {/* Main Verdict */}
                     <div className="text-center my-4 relative z-10">
-                        <h2 className={`text-xl md:text-2xl font-black leading-tight ${stats.consistency.color} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]`}>
+                        <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
                             {stats.consistency.status}
                         </h2>
                     </div>
@@ -510,18 +489,33 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 </div>
             </div>
 
+            {/* Bottom Row: Monte Carlo Side-by-Side (50% each) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    onTargetChange={setTargetScore}
+                    onWeightsChange={onUpdateWeights}
+                    forcedMode="today"
+                    forcedTitle="Status Atual"
+                />
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    onTargetChange={setTargetScore}
+                    onWeightsChange={onUpdateWeights}
+                    forcedMode="future"
+                    forcedTitle="Projeção Futura"
+                />
+            </div>
+
             {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass col-span-1 lg:col-span-4 p-8 mt-6 bg-gradient-to-b from-slate-900/50 to-black/80 border-t border-white/5 rounded-[2rem] shadow-inner">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3 text-slate-400">
-                        <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                            <Activity size={18} className="text-blue-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-200">Análise por Matéria</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Diagnóstico de estabilidade individual</p>
-                        </div>
-                    </div>
+            <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
+                <div className="flex items-center gap-2 mb-4 text-slate-400">
+                    <Activity size={16} />
+                    <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
                 </div>
 
                 {stats.categoryBreakdown.length > 0 ? (
