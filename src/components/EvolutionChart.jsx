@@ -52,11 +52,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
         const globalHistory = hist.map(h => ({
             date: new Date(h.date).toISOString().split('T')[0],
-            score: (h.correct / h.total) * 100,
+            score: h.total > 0 ? (h.correct / h.total) * 100 : 0,
             weight: 100
         }));
 
-        const result = monteCarloSimulation(globalHistory, targetScore, 7, 500);
+        const result = monteCarloSimulation(globalHistory, targetScore, 7, 2000); // 2000 simulations
         if (!result) return null;
 
         const lastDate = new Date(hist[hist.length - 1].date);
@@ -119,22 +119,16 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const topicMap = {};
 
         const now = new Date();
-        const startOfWeek = new Date(now);
-        const day = startOfWeek.getDay();
-        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-        startOfWeek.setDate(diff);
-        startOfWeek.setHours(0, 0, 0, 0);
+        const rollingLimit = new Date(now);
+        rollingLimit.setDate(now.getDate() - 7);
+        rollingLimit.setHours(0, 0, 0, 0);
 
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
-
-        const thisWeekHistory = (focusCategory.simuladoStats?.history || []).filter(h => {
+        const recentHistory = (focusCategory.simuladoStats?.history || []).filter(h => {
             const date = new Date(h.date);
-            return date >= startOfWeek && date <= endOfWeek;
+            return date >= rollingLimit;
         });
 
-        thisWeekHistory.forEach(h => {
+        recentHistory.forEach(h => {
             (h.topics || []).forEach(t => {
                 if (!topicMap[t.name]) topicMap[t.name] = { errors: 0 };
                 const correct = parseInt(t.correct, 10) || 0;
@@ -162,24 +156,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         let totalErrors = 0;
 
         const now = new Date();
-        const startOfWeek = new Date(now);
-        const day = startOfWeek.getDay();
-        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-        startOfWeek.setDate(diff);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
+        const rollingLimit = new Date(now);
+        rollingLimit.setDate(now.getDate() - 7);
+        rollingLimit.setHours(0, 0, 0, 0);
 
         const categoryErrors = activeCategories.map(cat => {
-            const thisWeekHistory = (cat.simuladoStats?.history || []).filter(h => {
+            const recentHistory = (cat.simuladoStats?.history || []).filter(h => {
                 const date = new Date(h.date);
-                return date >= startOfWeek && date <= endOfWeek;
+                return date >= rollingLimit;
             });
 
             let errors = 0;
-            thisWeekHistory.forEach(h => {
+            recentHistory.forEach(h => {
                 const correct = parseInt(h.correct, 10) || 0;
                 const total = parseInt(h.total, 10) || 0;
                 errors += Math.max(0, total - correct);
@@ -378,7 +366,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <YAxis yAxisId="right" orientation="right" stroke="#475569" tick={false} axisLine={false} tickLine={false} domain={[0, dataMax => dataMax * 2]} />
                                     <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} formatter={(value) => <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{value}</span>} />
-                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#475569" stroke="#64748b" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={14} activeBar={{ fill: '#64748b', stroke: '#cbd5e1', strokeWidth: 1 }} legendType="square" />
+                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#475569" stroke="#64748b" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={14} activeBar={{ fill: '#64748b', stroke: '#cbd5e1', strokeWidth: 1 }} fillOpacity={0.4} legendType="square" />
                                     <Line yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusCategory?.color} strokeWidth={3} dot={{ r: 3 }} />
                                 </ComposedChart>
                             </ResponsiveContainer>

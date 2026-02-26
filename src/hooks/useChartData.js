@@ -122,8 +122,8 @@ export function useChartData(categories = []) {
                 totalCorrect += (h.correct || 0);
             });
         });
-        const globalAccuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
-        return { totalQuestions, totalCorrect, globalAccuracy };
+        const globalAccuracy = (totalQuestions > 0 && !isNaN(totalCorrect)) ? (totalCorrect / totalQuestions) * 100 : 0;
+        return { totalQuestions: totalQuestions || 0, totalCorrect: totalCorrect || 0, globalAccuracy };
     }, [activeCategories]);
 
     return {
