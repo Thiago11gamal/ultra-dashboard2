@@ -7,7 +7,7 @@ import { computeCategoryStats, calculateWeightedProjectedMean } from '../engine'
 export function useChartData(categories = []) {
     // 1. Memoize active categories (those with history)
     const activeCategories = useMemo(
-        () => categories.filter(c => c.simuladoStats?.history?.length > 0),
+        () => categories,
         [categories]
     );
 
