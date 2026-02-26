@@ -19,7 +19,8 @@ export default function MonteCarloGauge({
     onTargetChange,
     onWeightsChange,
     forcedMode = null, // 'today' or 'future'
-    forcedTitle = null
+    forcedTitle = null,
+    showSettings = true
 }) {
     const [showConfig, setShowConfig] = useState(false);
     const [equalWeightsMode, setEqualWeightsMode] = useState(true);
@@ -298,7 +299,11 @@ export default function MonteCarloGauge({
                             <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity text-[9px] text-slate-300 leading-tight"><span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.</div>
                         </div>
                     )}
-                    <button onClick={() => setShowConfig(true)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white"><Settings2 size={14} /></button>
+                    {showSettings && (
+                        <button onClick={() => setShowConfig(true)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white">
+                            <Settings2 size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 

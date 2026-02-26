@@ -508,6 +508,7 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                     onWeightsChange={onUpdateWeights}
                     forcedMode="future"
                     forcedTitle="Projeção Futura"
+                    showSettings={false}
                 />
             </div>
 
