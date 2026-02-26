@@ -370,32 +370,31 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
-                        <div className="w-full"><h3 className="text-base font-bold text-slate-200 mb-1" title="Quantidade absoluta de erros por assunto nesta semana">🍩 Vazamento de Pontos (Nesta Semana) 🎯</h3></div>
-                        <div className="h-[220px] w-full mt-2">
-                            {pointLeakageData && pointLeakageData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={pointLeakageData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                                            {pointLeakageData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value, name, props) => [`${value} erros (${props.payload.percentage}%)`, name]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (<div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">Nenhum erro registrado ou nenhum simulado feito <span className="text-indigo-400 font-bold mt-1">nesta semana</span>! 🎉</div>)}
-                        </div>
-                        {pointLeakageData && pointLeakageData.length > 0 && (
-                            <div className="w-full grid grid-cols-2 gap-3 mt-4">
-                                {pointLeakageData.map(err => (
-                                    <div key={err.name} className="flex flex-col text-[10px]">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: err.color }}></div>
-                                            <span className="text-slate-300 font-bold truncate" title={err.name}>{err.name}</span>
-                                        </div>
-                                        <span className="text-slate-500 font-mono pl-4">{err.value} erros ({err.percentage}%)</span>
+                        <div className="w-full h-full flex flex-col">
+                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Quantidade absoluta de erros por assunto nesta semana">🩸 Vazamento de Pontos (Semana) 🎯</h3>
+                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Os assuntos onde você perdeu mais pontos absolutos nos últimos 7 dias. Foque a revisão neles primeiro.</p>
+                            <div className="flex-1 w-full min-h-[220px]">
+                                {pointLeakageData && pointLeakageData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: 35, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                                            <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={100} />
+                                            <Tooltip formatter={(value, name, props) => [`${value} erros identificados`, name]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22}>
+                                                {pointLeakageData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                        Nenhum erro registrado ou nenhum simulado feito <span className="text-indigo-400 font-bold mt-1">nesta semana</span>! 🎉
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg hover:border-slate-700 transition-colors">
                         <h3 className="text-base font-bold text-slate-200 mb-1">📏 Subtópicos 🎯</h3>
