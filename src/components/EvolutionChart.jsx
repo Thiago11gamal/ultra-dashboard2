@@ -80,7 +80,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             "Média Histórica": d[`stats_${focusCategory.name}`],
         }));
 
-        if (mcProjection) {
+        if (mcProjection && pts.length > 0) {
+            // Conectar a nuvem ao último ponto real para que o Recharts consiga desenhar a área
+            const lastIdx = pts.length - 1;
+            const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
+
+            pts[lastIdx]["Cenário Ruim"] = currentLevel;
+            pts[lastIdx]["Cenário Ótimo"] = currentLevel;
+
             const [, month, day] = mcProjection.date.split("-");
             pts.push({
                 date: mcProjection.date,
@@ -315,7 +322,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={true} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="#818cf815" stroke="none" />
+                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="#818cf835" stroke="none" />
                                     <Area type="monotone" dataKey="Cenário Ruim" fill="#0f172a" stroke="none" />
                                     <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
                                     <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
