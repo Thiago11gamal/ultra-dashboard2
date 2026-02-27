@@ -8,8 +8,7 @@ export const MonteCarloConfig = ({
 }) => {
     if (!show) return null;
 
-    const catsToShow = activeCategories && activeCategories.length > 0 ? activeCategories : categories;
-    const manualTotal = catsToShow.reduce((acc, cat) => acc + Math.max(0, parseInt(weights?.[cat.name], 10) || 0), 0);
+    const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.name], 10) || 1), 0);
 
     return (
         <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
