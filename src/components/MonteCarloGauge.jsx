@@ -8,7 +8,6 @@ import {
     computePooledSD
 } from '../engine';
 import { useAppStore } from '../store/useAppStore';
-import { getSafeScore } from '../utils/scoreHelper';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 
@@ -57,7 +56,7 @@ export default function MonteCarloGauge({
         const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 30;
-    }, [goalDate, simulateToday]);
+    }, [goalDate, effectiveSimulateToday]);
 
     const getEqualWeights = useCallback(() => {
         if (catCount === 0) return {};

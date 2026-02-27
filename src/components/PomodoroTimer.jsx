@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 // Update component signature to accept onExit and defaultTargetCycles
 export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
@@ -232,7 +233,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 try {
                     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                     audio.play().catch(() => { });
-                } catch (_e) {
+                } catch {
                     // Silent catch (e.g. browser blocks auto-play without gesture)
                 }
             }
@@ -247,7 +248,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 try {
                     const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
                     audio.play().catch(() => { });
-                } catch (_e) {
+                } catch {
                     // Silent catch (e.g. browser blocks auto-play without gesture)
                 }
             }

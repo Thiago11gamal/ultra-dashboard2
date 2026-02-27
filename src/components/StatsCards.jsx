@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Activity, TrendingUp, BarChart2, Trophy, Calendar } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
@@ -171,7 +171,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         e.preventDefault();
                         try {
                             dateInputRef.current?.showPicker();
-                        } catch (err) {
+                        } catch {
                             dateInputRef.current?.focus();
                         }
                     }}

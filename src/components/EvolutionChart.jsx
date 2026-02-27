@@ -110,7 +110,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0),
             meta: targetScore,
         }));
-    }, [timeline, activeCategories, targetScore]);
+    }, [timeline, categories, targetScore]);
 
     const volumeData = useMemo(() => {
         if (!focusCategory) return [];

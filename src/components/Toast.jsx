@@ -20,7 +20,7 @@ export default function Toast({ toast, onClose }) {
         if (!toast) return;
         const timer = setTimeout(onClose, 4000);
         return () => clearTimeout(timer);
-    }, [toast?.id, onClose]);
+    }, [toast, onClose]);
 
     if (!toast) return null;
 
