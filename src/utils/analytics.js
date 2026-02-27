@@ -133,7 +133,7 @@ export const analyzeSubjectBalance = (categories) => {
     };
 };
 
-export const analyzeEfficiency = (categories) => {
+export const analyzeEfficiency = (categories, studyLogs = []) => {
     const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
     const totalTasks = categories.reduce((sum, c) => sum + c.tasks.length, 0);
     const completedTasks = categories.reduce((sum, c) =>

@@ -146,18 +146,16 @@ export default function Simulados() {
                     }))
             ];
 
-            showToast('Simulado Processado! +500 XP 📈', 'success');
-
-            // First update the data
-            setData(prev => ({
+            return {
                 ...prev,
                 categories: newCategories,
                 simuladoRows: validatedRows
-            }));
-
-            // Then award XP via store action (which handles events cleanly)
-            useAppStore.getState().awardExperience(500);
+            };
         });
+
+        showToast('Simulado Processado! +500 XP 📈', 'success');
+        // Then award XP via store action (which handles events cleanly)
+        useAppStore.getState().awardExperience(500);
     };
 
     return (
