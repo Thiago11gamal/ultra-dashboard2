@@ -388,16 +388,29 @@ export const useAppStore = create(
                     return currentState;
                 }
 
-                // Deep merge or simply take the persisted state if it looks valid
-                // This prevents Vite from evaluating the module again and overwriting with INITIAL_DATA
+                const persisted = persistedState.appState;
+                const current = currentState.appState;
+
+                // Helper to check if object has meaningful content
+                const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
+
+                const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
+                let activeId = persisted.activeId || current.activeId;
+
+                // Safety: If activeId doesn't exist in contests, fall back to first available or default
+                if (!contests[activeId]) {
+                    activeId = Object.keys(contests)[0] || 'default';
+                }
+
                 return {
                     ...currentState,
                     appState: {
-                        ...currentState.appState,
-                        ...persistedState.appState,
-                        contests: persistedState.appState.contests || currentState.appState.contests,
-                        activeId: persistedState.appState.activeId || currentState.appState.activeId,
-                        history: persistedState.appState.history || currentState.appState.history
+                        ...current,
+                        ...persisted,
+                        contests,
+                        activeId,
+                        history: persisted.history || current.history,
+                        mcEqualWeights: persisted.mcEqualWeights !== undefined ? persisted.mcEqualWeights : current.mcEqualWeights
                     }
                 };
             }

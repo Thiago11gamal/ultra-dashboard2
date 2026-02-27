@@ -144,6 +144,16 @@ function MainLayout() {
   const activeContestId = appState?.activeId || 'default';
   const contests = appState?.contests || {};
 
+  // Safety: If store is loaded but active contest is missing, try to recover
+  if (currentUser && !data && Object.keys(contests).length > 0) {
+    const firstAvailableId = Object.keys(contests)[0];
+    if (firstAvailableId && firstAvailableId !== activeContestId) {
+      console.warn("Store inconsistency detected. Attempting to recover activeId...");
+      switchContest(firstAvailableId);
+      return <div className="loading-screen">Recuperando Sessão...</div>;
+    }
+  }
+
   if (!currentUser) return <Login />;
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 

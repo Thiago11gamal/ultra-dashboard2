@@ -60,14 +60,14 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         // Sync with global user object only if different to prevent infinite cycles
-        if (user?.targetProbability !== targetScore) {
+        if (user && user.targetProbability !== targetScore) {
             setUserData(data => {
                 if (data.user) {
                     data.user.targetProbability = targetScore;
                 }
             });
         }
-    }, [targetScore, setUserData, user?.targetProbability]);
+    }, [targetScore, setUserData, user?.targetProbability, !!user]);
 
     const stats = useMemo(() => {
         let allHistory = [];
