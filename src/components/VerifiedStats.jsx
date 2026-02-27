@@ -20,9 +20,10 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('monte_carlo_target');
-            return saved ? parseInt(saved) : 70;
+            if (saved) return parseInt(saved);
         }
-        return 70;
+        const userTarget = parseFloat(user?.targetProbability);
+        return !isNaN(userTarget) ? userTarget : 70;
     });
     const [showConfig, setShowConfig] = React.useState(false);
 

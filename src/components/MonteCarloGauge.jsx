@@ -138,7 +138,7 @@ export default function MonteCarloGauge({
             }
         });
 
-        if (categoryStats.length === 0 || categoryStats.reduce((acc, c) => acc + c.n, 0) < 5 || totalWeight === 0) return null;
+        if (categoryStats.length === 0 || totalWeight === 0) return null;
 
         const currentWeightedMean = calculateCurrentWeightedMean(categoryStats, totalWeight);
         const weightedMean = calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays);
@@ -340,16 +340,20 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="w-full flex flex-wrap justify-center gap-1.5">
-                {statsData?.categoryStats?.slice(0, 8).map((cat) => (
-                    <div key={cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
-                        {cat.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
-                        {cat.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
-                        {cat.trend === 'stable' && <Minus size={10} className="text-slate-500" />}
-                        <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
-                    </div>
-                ))}
-                {(statsData?.categoryStats?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{statsData.categoryStats.length - 8}</span>}
+            <div className="w-full flex flex-wrap justify-center gap-1.5 min-h-[24px]">
+                {activeCategories?.slice(0, 8).map((cat) => {
+                    const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
+                    return (
+                        <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                            {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
+                            {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                            {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
+                            <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
+                        </div>
+                    );
+                })}
+                {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
+                {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
             </div>
         </div>
     );
