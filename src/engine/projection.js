@@ -289,11 +289,11 @@ export function monteCarloSimulation(
 
     return {
         probability: (success / safeSimulations) * 100,
-        mean: projectedMean.toFixed(1),
-        sd: projectedSD.toFixed(1),
-        ci95Low: Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1),
-        ci95High: Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1),
-        currentMean: currentScore.toFixed(1),
+        mean: Number(projectedMean.toFixed(1)),
+        sd: Number(projectedSD.toFixed(1)),
+        ci95Low: Number(Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1)),
+        ci95High: Number(Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)),
+        currentMean: Number(currentScore.toFixed(1)),
         drift,
         volatility,
         method: useBootstrap ? "bootstrap" : "normal"

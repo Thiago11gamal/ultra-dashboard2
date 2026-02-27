@@ -192,17 +192,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let recentStudyDays = 0; // Days studied in the last 7 days
         const todayBound = normalizeDate(new Date());
 
+        const minutesByDay = {};
+
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => {
             const logDate = normalizeDate(log.date);
             const daysSinceLog = Math.max(0, Math.floor((todayBound - logDate) / (1000 * 60 * 60 * 24)));
 
-            // Check study density for burnout metric
-            if (daysSinceLog <= 7 && (log.minutes || 0) > 30) {
-                recentStudyDays++;
+            // Aggregate minutes per day for the burnout metric
+            if (daysSinceLog <= 7) {
+                const dateKey = logDate.getTime();
+                minutesByDay[dateKey] = (minutesByDay[dateKey] || 0) + (Number(log.minutes) || 0);
             }
 
             return acc + (Number(log.minutes) || 0);
         }, 0);
+
+        // Calculate how many distinct days had > 30 mins of study
+        recentStudyDays = Object.values(minutesByDay).filter(mins => mins > 30).length;
 
         const totalHours = totalMinutes / 60;
 

@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { INITIAL_DATA } from '../data/initialData';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
+import { checkAndUnlockAchievements } from '../utils/gamificationLogic';
 import { generateId } from '../utils/idGenerator';
 
 // Helper to handle gamification within the store
@@ -19,8 +20,20 @@ const processGamification = (state, xpGained) => {
     const newLevel = calculateLevel(newXP);
     const leveledUp = newLevel > currentLevel;
 
+    // --- ACHIEVEMENT SYSTEM ACTIVATION ---
+    const currentAchievements = activeData.user.achievements || [];
+    const { newlyUnlocked, xpGained: achievementXp } = checkAndUnlockAchievements(activeData, currentAchievements);
+
+    if (newlyUnlocked.length > 0) {
+        newXP += achievementXp;
+        activeData.user.achievements = [...currentAchievements, ...newlyUnlocked];
+        // After potential achievement XP, recalculate level
+        activeData.user.level = calculateLevel(newXP);
+    } else {
+        activeData.user.level = newLevel;
+    }
+
     activeData.user.xp = newXP;
-    activeData.user.level = newLevel; // Fixed: was using currentLevel
 
     if (leveledUp && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('level-up', {

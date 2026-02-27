@@ -90,7 +90,7 @@ const VolumeRanking = ({ categories = [] }) => {
                             {/* Icon & Name */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200 block max-w-[200px]' : 'text-slate-500 block max-w-[200px]'}`} title={item.name}>
+                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200 block max-w-[150px] md:max-w-[250px]' : 'text-slate-500 block max-w-[150px] md:max-w-[250px]'}`} title={item.name}>
                                         {item.name}
                                     </span>
                                     <div className="flex flex-col items-end">

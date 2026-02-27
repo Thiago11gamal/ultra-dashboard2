@@ -48,21 +48,27 @@ export default function Charts({ data, compact = false }) {
     const categories = data?.categories || [];
 
     // Pie chart data - tasks per category
-    const pieData = categories.map(cat => ({
-        name: cat.name,
-        value: cat.tasks.length,
-        total: cat.tasks.length,
-        completed: cat.tasks.filter(t => t.completed).length,
-        color: cat.color,
-    }));
+    const pieData = categories.map(cat => {
+        const tasks = cat.tasks || [];
+        return {
+            name: cat.name,
+            value: tasks.length,
+            total: tasks.length,
+            completed: tasks.filter(t => t.completed).length,
+            color: cat.color,
+        };
+    });
 
     // Bar chart data - completed vs total per category
-    const barData = categories.map(cat => ({
-        name: cat.name.split(' ')[0], // Shortened name
-        total: cat.tasks.length,
-        completed: cat.tasks.filter(t => t.completed).length,
-        color: cat.color,
-    }));
+    const barData = categories.map(cat => {
+        const tasks = cat.tasks || [];
+        return {
+            name: cat.name?.split(' ')[0] || 'Unlabeled', // Shortened name
+            total: tasks.length,
+            completed: tasks.filter(t => t.completed).length,
+            color: cat.color,
+        };
+    });
 
     // Simulated weekly progress data (Unused)
     // const weeklyData = [ ... ];
