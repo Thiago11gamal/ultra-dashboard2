@@ -11,16 +11,16 @@ import LevelUpToast from './components/LevelUpToast';
 import Dashboard from './pages/Dashboard';
 
 // Páginas pesadas com carregamento diferido (Lazy Loading)
-const Pomodoro = lazy(() => import('./pages/Pomodoro'));
-const Tasks = lazy(() => import('./pages/Tasks'));
-const Simulados = lazy(() => import('./pages/Simulados'));
-const Stats = lazy(() => import('./pages/Stats'));
-const Evolution = lazy(() => import('./pages/Evolution'));
-const Coach = lazy(() => import('./pages/Coach'));
-const History = lazy(() => import('./pages/History'));
-const Activity = lazy(() => import('./pages/Activity'));
-const Retention = lazy(() => import('./pages/Retention'));
-const Notes = lazy(() => import('./pages/Notes'));
+const Pomodoro = lazyWithRetry(() => import('./pages/Pomodoro'));
+const Tasks = lazyWithRetry(() => import('./pages/Tasks'));
+const Simulados = lazyWithRetry(() => import('./pages/Simulados'));
+const Stats = lazyWithRetry(() => import('./pages/Stats'));
+const Evolution = lazyWithRetry(() => import('./pages/Evolution'));
+const Coach = lazyWithRetry(() => import('./pages/Coach'));
+const History = lazyWithRetry(() => import('./pages/History'));
+const Activity = lazyWithRetry(() => import('./pages/Activity'));
+const Retention = lazyWithRetry(() => import('./pages/Retention'));
+const Notes = lazyWithRetry(() => import('./pages/Notes'));
 
 import { useAuth } from './context/useAuth';
 import { useAppStore } from './store/useAppStore';
@@ -30,6 +30,7 @@ import { useToast } from './hooks/useToast';
 import useMobileDetect from './hooks/useMobileDetect';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
+import { lazyWithRetry } from './utils/lazyRetry';
 
 import './components/Loading.css';
 
