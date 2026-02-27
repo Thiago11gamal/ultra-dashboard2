@@ -593,15 +593,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     )}
 
                     {/* Mode Toggles - Soft Tabs */}
-                    <div className="flex items-center gap-1 mb-8 bg-[#1c1917] p-2 rounded-full border border-stone-800">
+                    <div className={`flex items-center gap-1 mb-8 bg-[#1c1917] p-2 rounded-full border border-stone-800 ${!activeSubject ? 'opacity-50 pointer-events-none' : ''}`}>
                         <button
                             onClick={() => { setMode('work'); setTimeLeft(safeSettings.pomodoroWork * 60); setIsRunning(false); }}
+                            disabled={!activeSubject}
                             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'work' ? 'bg-[#292524] text-emerald-400 shadow-sm border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
                         >
                             Foco
                         </button>
                         <button
                             onClick={() => { setMode('break'); setTimeLeft(safeSettings.pomodoroBreak * 60); setIsRunning(false); }}
+                            disabled={!activeSubject}
                             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'break' ? 'bg-[#292524] text-emerald-400 border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
                         >
                             Pausa
@@ -643,12 +645,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     </div>
 
                     {/* Controls - Compact Buttons */}
-                    <div className="flex items-center gap-4 z-10">
+                    <div className={`flex items-center gap-4 z-10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                         {/* RESET */}
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={reset}
+                            disabled={!activeSubject}
                             className="w-12 h-12 rounded-xl bg-[#292524] border border-stone-700 text-stone-200 hover:bg-[#44403c] flex items-center justify-center transition-colors duration-300"
                             title="Reiniciar Timer"
                         >
@@ -666,6 +669,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 }
                                 setIsRunning(!isRunning);
                             }}
+                            disabled={!activeSubject}
                             className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
                         >
                             {isRunning
@@ -678,6 +682,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={skip}
+                            disabled={!activeSubject}
                             className="w-12 h-12 rounded-xl bg-[#292524] border border-stone-700 text-stone-200 hover:bg-[#44403c] flex items-center justify-center transition-colors duration-300"
                             title="Pular Etapa"
                         >
@@ -686,15 +691,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     </div>
 
                     {/* Speed Toggle */}
-                    <div className="absolute top-24 right-6 flex flex-col gap-2">
+                    <div className={`absolute top-24 right-6 flex flex-col gap-2 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                         <button
                             onClick={() => setSpeed(speed === 10 ? 1 : 10)}
+                            disabled={!activeSubject}
                             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
                         >
                             10x
                         </button>
                         <button
                             onClick={() => setSpeed(speed === 100 ? 1 : 100)}
+                            disabled={!activeSubject}
                             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
                         >
                             100x
@@ -726,10 +733,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-4 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setTargetCycles(prev => Math.max(1, prev - 1))}
+                                disabled={!activeSubject}
                                 className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-bold uppercase transition-colors"
                                 title="Remover Ciclo"
                             >
@@ -737,6 +745,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </button>
                             <button
                                 onClick={() => setTargetCycles(prev => prev + 1)}
+                                disabled={!activeSubject}
                                 className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase transition-colors"
                                 title="Adicionar Ciclo"
                             >
