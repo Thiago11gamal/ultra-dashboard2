@@ -39,6 +39,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const { activeCategories, timeline, heatmapData, globalMetrics } = useChartData(categories, targetScore);
     const [focusSubjectId, setFocusSubjectId] = useState(activeCategories[0]?.id);
+    const [showOnlyFocus, setShowOnlyFocus] = useState(false);
+    const [timeWindow, setTimeWindow] = useState("all");
 
     const focusCategory = useMemo(() => {
         const found = categories.find(c => c.id === focusSubjectId);
@@ -104,6 +106,39 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     }, [timeline, focusCategory, mcProjection]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
+
+    const filteredChartData = useMemo(() => {
+        if (timeWindow === "all") return chartData;
+        const days = Number.parseInt(timeWindow, 10);
+        if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
+
+        const getDateMs = (item) => {
+            if (!item?.date) return Number.NaN;
+            const ms = new Date(item.date).getTime();
+            return Number.isNaN(ms) ? Number.NaN : ms;
+        };
+
+        const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
+        if (!lastValid) return chartData;
+
+        const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
+        return chartData.filter(d => {
+            const ms = getDateMs(d);
+            return Number.isFinite(ms) && ms >= limit;
+        });
+    }, [chartData, timeWindow]);
+
+    const focusSnapshot = useMemo(() => {
+        if (!focusCategory || !timeline.length) return null;
+        const last = timeline[timeline.length - 1];
+        const prev = timeline.length > 1 ? timeline[timeline.length - 2] : null;
+        const currentBay = last[`bay_${focusCategory.name}`] || 0;
+        const currentRaw = last[`raw_${focusCategory.name}`] || 0;
+        const previousBay = prev ? (prev[`bay_${focusCategory.name}`] || 0) : currentBay;
+        const delta = currentBay - previousBay;
+
+        return { currentBay, currentRaw, delta };
+    }, [focusCategory, timeline]);
 
     const radarData = useMemo(() => {
         if (!timeline || timeline.length === 0) return [];
@@ -351,6 +386,27 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border whitespace-nowrap ${focusSubjectId === cat.id ? 'shadow-sm transform scale-105' : 'border-transparent text-slate-500 hover:text-slate-300 opacity-60 hover:opacity-100'}`} style={{ backgroundColor: focusSubjectId === cat.id ? `${cat.color}15` : 'transparent', borderColor: focusSubjectId === cat.id ? `${cat.color}50` : 'transparent', color: focusSubjectId === cat.id ? cat.color : undefined }}>{cat.name}</button>
                         ))}
                     </div>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300">
+                            <span>🔎</span>
+                            <span>Visualização</span>
+                            <button onClick={() => setShowOnlyFocus(!showOnlyFocus)} className={`ml-auto px-2 py-1 rounded-md border ${showOnlyFocus ? 'border-indigo-500 text-indigo-300 bg-indigo-500/10' : 'border-slate-700 text-slate-400'}`}>{showOnlyFocus ? 'Só foco' : 'Todas'}</button>
+                        </div>
+                        <div className="flex items-center gap-1 bg-slate-950/50 border border-slate-800 rounded-lg px-2 py-2 text-xs">
+                            {[
+                                { label: '30d', value: '30' },
+                                { label: '90d', value: '90' },
+                                { label: 'Tudo', value: 'all' }
+                            ].map((w) => (
+                                <button key={w.value} onClick={() => setTimeWindow(w.value)} className={`px-2 py-1 rounded-md border ${timeWindow === w.value ? 'border-indigo-500 text-indigo-300 bg-indigo-500/10' : 'border-slate-700 text-slate-400'}`}>{w.label}</button>
+                            ))}
+                        </div>
+                        <div className="bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 flex items-center gap-2">
+                            <span>🎯</span>
+                            <span className="truncate">{focusCategory?.name}</span>
+                            {focusSnapshot && <span className={`ml-auto font-bold ${focusSnapshot.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>{focusSnapshot.currentBay.toFixed(1)}% ({focusSnapshot.delta >= 0 ? '+' : ''}{focusSnapshot.delta.toFixed(1)})</span>}
+                        </div>
+                    </div>
                 </div>
 
                 {activeEngine === "raw_weekly" ? (
@@ -359,14 +415,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-[450px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <LineChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
+                                <LineChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={false} />} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                    {categories.map((cat) => {
+                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
                                         return (
                                             <Line key={cat.id} type={engine.style} dataKey={engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`} name={cat.name} stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2} strokeOpacity={isFocused ? 1 : 0.75} dot={{ r: isFocused ? 5 : 4, fill: cat.color, stroke: "#0f172a", strokeWidth: 1.5 }} activeDot={{ r: isFocused ? 8 : 7, strokeWidth: 2, stroke: "#0f172a" }} connectNulls style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }} />
@@ -374,12 +430,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     })}
                                 </LineChart>
                             ) : (
-                                <ComposedChart data={compareData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={chartData} isCompare={true} />} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={filteredChartData} isCompare={true} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
                                     <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" />
                                     <Area type="monotone" dataKey="Cenário Ruim" fill="#0f172a" stroke="none" />
