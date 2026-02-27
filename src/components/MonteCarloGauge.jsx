@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2 } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import {
     computeCategoryStats,
     monteCarloSimulation,
@@ -9,7 +9,6 @@ import {
 } from '../engine';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
-import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { getSafeScore } from '../utils/scoreHelper';
 
 
@@ -33,10 +32,8 @@ export default function MonteCarloGauge({
     onTargetChange,
     onWeightsChange,
     forcedMode = null, // 'today' or 'future'
-    forcedTitle = null,
-    showSettings = true
+    forcedTitle = null
 }) {
-    const [showConfig, setShowConfig] = useState(false);
     const [simulateToday, setSimulateToday] = useState(false);
 
     const activeId = useAppStore(state => state.appState.activeId);
@@ -250,7 +247,12 @@ export default function MonteCarloGauge({
         );
     }
 
-    const { probability, mean, sd, ci95Low, ci95High, currentMean } = simulationData.data;
+    const probability = simulationData.data.probability;
+    const mean = simulationData.data.mean;
+    const sd = simulationData.data.sd;
+    const ci95Low = simulationData.data.ci95Low;
+    const ci95High = simulationData.data.ci95High;
+    const currentMean = simulationData.data.currentMean;
     const prob = parseFloat(probability);
 
     const getGradientColor = (percentage) => {
@@ -292,11 +294,6 @@ export default function MonteCarloGauge({
                             <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity text-[9px] text-slate-300 leading-tight"><span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.</div>
                         </div>
                     )}
-                    {showSettings && (
-                        <button onClick={() => setShowConfig(true)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-500 border border-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white">
-                            <Settings2 size={14} />
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -305,19 +302,17 @@ export default function MonteCarloGauge({
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl"><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
-                        {prob >= 1 && (
-                            <path
-                                d="M 10 65 A 60 60 0 0 1 130 65"
-                                fill="none"
-                                stroke={gradientColor}
-                                strokeWidth="12"
-                                strokeLinecap="round"
-                                pathLength="100"
-                                strokeDasharray={`${prob} 100`}
-                                strokeDashoffset={0}
-                                style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
-                            />
-                        )}
+                        <path
+                            d="M 10 65 A 60 60 0 0 1 130 65"
+                            fill="none"
+                            stroke={gradientColor}
+                            strokeWidth="12"
+                            strokeLinecap="round"
+                            pathLength="100"
+                            strokeDasharray={`${prob} 100`}
+                            strokeDashoffset={0}
+                            style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
+                        />
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
                 </div>
@@ -364,8 +359,6 @@ export default function MonteCarloGauge({
                 ))}
                 {(statsData?.categoryStats?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{statsData.categoryStats.length - 8}</span>}
             </div>
-
-            <MonteCarloConfig show={showConfig} onClose={setShowConfig} targetScore={targetScore} setTargetScore={onTargetChange} equalWeightsMode={equalWeightsMode} setEqualWeightsMode={setEqualWeightsMode} getEqualWeights={getEqualWeights} setWeights={setWeights} weights={weights} updateWeight={updateWeight} activeCategories={activeCategories} categories={categories} onWeightsChange={onWeightsChange} />
         </div>
     );
 }

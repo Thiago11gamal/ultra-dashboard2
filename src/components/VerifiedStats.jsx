@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2 } from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
+import { MonteCarloConfig } from './charts/MonteCarloConfig';
+import { useAppStore } from '../store/useAppStore';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 
@@ -22,6 +23,31 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
         }
         return 70;
     });
+    const [showConfig, setShowConfig] = React.useState(false);
+
+    const activeId = useAppStore(state => state.appState.activeId);
+    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
+    const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
+    const setWeights = useAppStore(state => state.setMonteCarloWeights);
+    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+
+    const getEqualWeights = React.useCallback(() => {
+        if (categories.length === 0) return {};
+        const newWeights = {};
+        categories.forEach(cat => {
+            newWeights[cat.name] = 1;
+        });
+        return newWeights;
+    }, [categories]);
+
+    const updateWeight = React.useCallback((catName, value) => {
+        const numeric = parseInt(value, 10);
+        const sanitize = isNaN(numeric) ? 0 : Math.max(0, Math.min(999, numeric));
+        const updatedWeights = { ...weights, [catName]: sanitize };
+        setWeights(updatedWeights);
+        if (onUpdateWeights) onUpdateWeights(updatedWeights);
+    }, [weights, setWeights, onUpdateWeights]);
+
 
     // Save to LocalStorage whenever it changes
     React.useEffect(() => {
@@ -490,27 +516,63 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
             </div>
 
             {/* Bottom Row: Monte Carlo Side-by-Side (50% each) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <MonteCarloGauge
-                    categories={categories}
-                    goalDate={user?.goalDate}
-                    targetScore={targetScore}
-                    onTargetChange={setTargetScore}
-                    onWeightsChange={onUpdateWeights}
-                    forcedMode="today"
-                    forcedTitle="Status Atual"
-                />
-                <MonteCarloGauge
-                    categories={categories}
-                    goalDate={user?.goalDate}
-                    targetScore={targetScore}
-                    onTargetChange={setTargetScore}
-                    onWeightsChange={onUpdateWeights}
-                    forcedMode="future"
-                    forcedTitle="Projeção Futura"
-                    showSettings={false}
-                />
+            <div className="mt-8 mb-4">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                            <Activity size={20} className="text-blue-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-white">Simulação de Monte Carlo</h2>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Análise de Probabilidade de Aprovação</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowConfig(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
+                    >
+                        <Settings2 size={16} />
+                        Configurar Pesos e Meta
+                    </button>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <MonteCarloGauge
+                        categories={categories}
+                        goalDate={user?.goalDate}
+                        targetScore={targetScore}
+                        onTargetChange={setTargetScore}
+                        onWeightsChange={onUpdateWeights}
+                        forcedMode="today"
+                        forcedTitle="Status Atual"
+                        showSettings={false}
+                    />
+                    <MonteCarloGauge
+                        categories={categories}
+                        goalDate={user?.goalDate}
+                        targetScore={targetScore}
+                        onTargetChange={setTargetScore}
+                        onWeightsChange={onUpdateWeights}
+                        forcedMode="future"
+                        forcedTitle="Projeção Futura"
+                        showSettings={false}
+                    />
+                </div>
             </div>
+
+            <MonteCarloConfig
+                show={showConfig}
+                onClose={setShowConfig}
+                targetScore={targetScore}
+                setTargetScore={setTargetScore}
+                equalWeightsMode={equalWeightsMode}
+                setEqualWeightsMode={setEqualWeightsMode}
+                getEqualWeights={getEqualWeights}
+                setWeights={setWeights}
+                weights={weights}
+                updateWeight={updateWeight}
+                categories={categories}
+                onWeightsChange={onUpdateWeights}
+            />
 
             {/* Subject Consistency Breakdown - Full Width */}
             <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
