@@ -35,7 +35,7 @@ export default function Simulados() {
         if (tasks.length === 0) {
             // Handle subjects without tasks (like ETI) by adding a "Geral" row
             const subjNorm = normalize(cat.name);
-            const topicNorm = normalize('Geral');
+            const topicNorm = normalize('nenhum');
             const key = `${subjNorm}-${topicNorm}`;
 
             if (savedAutoRows[key]) {
@@ -44,7 +44,7 @@ export default function Simulados() {
                 displayRows.push({
                     id: `auto-${cat.id}-fallback-${autoIdCounter++}`,
                     subject: cat.name,
-                    topic: 'Geral',
+                    topic: 'nenhum',
                     correct: 0,
                     total: 0,
                     isAuto: true
