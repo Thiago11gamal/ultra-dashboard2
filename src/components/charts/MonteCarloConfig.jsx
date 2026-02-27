@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings2, Check, Minus, Plus } from 'lucide-react';
+import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,

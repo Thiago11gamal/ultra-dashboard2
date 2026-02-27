@@ -15,7 +15,7 @@ const InfoTooltip = ({ text }) => (
     </div>
 );
 
-export default function VerifiedStats({ categories = [], user, onUpdateWeights }) {
+export default function VerifiedStats({ categories = [], user }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
@@ -47,14 +47,21 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
         const sanitize = isNaN(numeric) ? 0 : Math.max(0, Math.min(999, numeric));
         const updatedWeights = { ...weights, [catName]: sanitize };
         setWeights(updatedWeights);
-        if (onUpdateWeights) onUpdateWeights(updatedWeights);
-    }, [weights, setWeights, onUpdateWeights]);
+    }, [weights, setWeights]);
 
 
-    // Save to LocalStorage whenever it changes
+    // Save to LocalStorage and Store whenever it changes
+    const setUserData = useAppStore(state => state.setData);
+
     React.useEffect(() => {
         localStorage.setItem('monte_carlo_target', targetScore.toString());
-    }, [targetScore]);
+        // Sync with global user object for other components
+        setUserData(data => {
+            if (data.user) {
+                data.user.targetProbability = targetScore;
+            }
+        });
+    }, [targetScore, setUserData]);
 
     const stats = useMemo(() => {
         let allHistory = [];
@@ -542,21 +549,15 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetChange={setTargetScore}
-                        onWeightsChange={onUpdateWeights}
                         forcedMode="today"
                         forcedTitle="Status Atual"
-                        showSettings={false}
                     />
                     <MonteCarloGauge
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
-                        onTargetChange={setTargetScore}
-                        onWeightsChange={onUpdateWeights}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
-                        showSettings={false}
                     />
                 </div>
             </div>
@@ -573,7 +574,6 @@ export default function VerifiedStats({ categories = [], user, onUpdateWeights }
                 weights={weights}
                 updateWeight={updateWeight}
                 categories={categories}
-                onWeightsChange={onUpdateWeights}
             />
 
             {/* Subject Consistency Breakdown - Full Width */}

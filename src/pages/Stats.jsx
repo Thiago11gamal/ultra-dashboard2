@@ -12,7 +12,6 @@ export default function Stats() {
             <VerifiedStats
                 categories={data.categories || []}
                 user={data.user}
-                onUpdateWeights={updateWeights}
             />
             <WeeklyAnalysis
                 studyLogs={data.studyLogs || []}

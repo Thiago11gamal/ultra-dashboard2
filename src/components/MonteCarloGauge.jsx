@@ -29,8 +29,6 @@ export default function MonteCarloGauge({
     categories = [],
     goalDate,
     targetScore,
-    onTargetChange,
-    onWeightsChange,
     forcedMode = null, // 'today' or 'future'
     forcedTitle = null
 }) {
@@ -85,16 +83,14 @@ export default function MonteCarloGauge({
         if (catCount > 0 && (!weights || Object.keys(weights).length === 0)) {
             const initialWeights = getEqualWeights();
             setWeights(initialWeights);
-            if (onWeightsChange) onWeightsChange(initialWeights);
         }
-    }, [catCount, weights, getEqualWeights, setWeights, onWeightsChange]);
+    }, [catCount, weights, getEqualWeights, setWeights]);
 
     const updateWeight = useCallback((catName, value) => {
         if (equalWeightsMode || !weights) return;
         const updatedWeights = { ...weights, [catName]: sanitizeWeightUnit(value) };
         setWeights(updatedWeights);
-        if (onWeightsChange) onWeightsChange(updatedWeights);
-    }, [equalWeightsMode, weights, setWeights, onWeightsChange]);
+    }, [equalWeightsMode, weights, setWeights]);
 
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) return getEqualWeights();
