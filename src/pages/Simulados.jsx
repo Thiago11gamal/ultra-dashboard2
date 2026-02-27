@@ -28,30 +28,52 @@ export default function Simulados() {
 
     let autoIdCounter = 0;
 
-    // Auto-populate from categories
+    // Auto-populate from categories (PERFECT MIRROR)
     (data.categories || []).forEach(cat => {
-        (cat.tasks || []).forEach(task => {
+        const tasks = cat.tasks || [];
+
+        if (tasks.length === 0) {
+            // Handle subjects without tasks (like ETI) by adding a "Geral" row
             const subjNorm = normalize(cat.name);
-            const title = String(task.title || task.text || '').trim();
-            const topicNorm = normalize(title);
-
-            if (!title) return; // Skip empty tasks
-
+            const topicNorm = normalize('Geral');
             const key = `${subjNorm}-${topicNorm}`;
 
             if (savedAutoRows[key]) {
                 displayRows.push(savedAutoRows[key]);
             } else {
                 displayRows.push({
-                    id: `auto-${cat.id}-${task.id}-${autoIdCounter++}`,
+                    id: `auto-${cat.id}-fallback-${autoIdCounter++}`,
                     subject: cat.name,
-                    topic: title,
+                    topic: 'Geral',
                     correct: 0,
                     total: 0,
                     isAuto: true
                 });
             }
-        });
+        } else {
+            tasks.forEach(task => {
+                const subjNorm = normalize(cat.name);
+                const title = String(task.title || task.text || '').trim();
+                const topicNorm = normalize(title);
+
+                if (!title) return;
+
+                const key = `${subjNorm}-${topicNorm}`;
+
+                if (savedAutoRows[key]) {
+                    displayRows.push(savedAutoRows[key]);
+                } else {
+                    displayRows.push({
+                        id: `auto-${cat.id}-${task.id}-${autoIdCounter++}`,
+                        subject: cat.name,
+                        topic: title,
+                        correct: 0,
+                        total: 0,
+                        isAuto: true
+                    });
+                }
+            });
+        }
     });
 
     // manual rows are no longer supported

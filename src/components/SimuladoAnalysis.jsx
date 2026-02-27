@@ -313,7 +313,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     </div>
 
                     {/* Linhas de entrada */}
-                    <div className="space-y-1.5 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+                    <div className="space-y-1.5 pr-1">
                         {rows.length === 0 ? (
                             <div className="text-center py-6 text-slate-500 text-sm italic border border-slate-800 border-dashed rounded-xl">
                                 Nenhuma matéria/assunto cadastrado no Dashboard.
@@ -389,7 +389,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     )}
 
                     {analysisData && (
-                        <div className="space-y-5 overflow-y-auto custom-scrollbar pr-1 flex-1">
+                        <div className="space-y-5 pr-1 flex-1">
 
                             {/* Insight geral */}
                             <div className="p-4 bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border border-purple-500/25 rounded-2xl flex gap-3 items-start">
