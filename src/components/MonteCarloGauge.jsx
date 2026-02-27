@@ -231,6 +231,23 @@ export default function MonteCarloGauge({
                     <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
                     <p className="text-[9px] text-slate-600 leading-tight px-4">{waitingSubtext}</p>
                 </div>
+
+                {/* Subject list visible even in waiting state */}
+                <div className="w-full flex flex-wrap justify-center gap-1.5 mt-6 pt-4 border-t border-white/5">
+                    {activeCategories?.slice(0, 8).map((cat) => {
+                        const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
+                        return (
+                            <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
+                                <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
+                            </div>
+                        );
+                    })}
+                    {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
+                    {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
+                </div>
             </div>
         );
     }
