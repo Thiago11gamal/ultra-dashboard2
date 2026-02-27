@@ -140,9 +140,10 @@ function MainLayout() {
       <MobilePocketMode
         user={data.user}
         data={data}
-        activeSubject={null}
+        activeSubject={activeSubject}
         actions={{
           updatePomodoroSettings,
+          trackPomodoroComplete,
           finishStudying: () => { },
           startStudying: () => { },
           handleUpdateStudyTime,

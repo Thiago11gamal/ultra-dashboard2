@@ -110,7 +110,7 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                     {format(currentMonth, 'MMM yyyy', { locale: ptBR })}
                 </span>
                 <button
-                    onClick={() => setMonthOffset(m => m + 1)}
+                    onClick={() => setMonthOffset(m => Math.min(0, m + 1))}
                     disabled={monthOffset >= 0}
                     className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
