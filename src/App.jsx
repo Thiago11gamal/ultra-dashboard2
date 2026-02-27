@@ -69,6 +69,11 @@ function MainLayout() {
     return () => window.removeEventListener('show-toast', handleToastEvent);
   }, []);
 
+  useEffect(() => {
+    sessionStorage.removeItem('chunk_force_reload');
+  }, []);
+
+
   const showToast = useToast();
   const { levelUpData, closeLevelUpToast } = useGamification(showToast);
 

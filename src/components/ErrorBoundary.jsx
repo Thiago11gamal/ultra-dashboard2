@@ -6,6 +6,12 @@ class ErrorBoundary extends React.Component {
         this.state = { hasError: false, error: null, errorInfo: null };
     }
 
+    forceHardReload = () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("v", Date.now().toString());
+        window.location.replace(url.toString());
+    };
+
     static getDerivedStateFromError(error) {
         // Update state so the next render will show the fallback UI.
         return { hasError: true, error };
@@ -25,7 +31,7 @@ class ErrorBoundary extends React.Component {
             const hasReloaded = sessionStorage.getItem('chunk_force_reload');
             if (!hasReloaded) {
                 sessionStorage.setItem('chunk_force_reload', 'true');
-                window.location.reload();
+                this.forceHardReload();
                 return;
             }
         }
@@ -49,7 +55,7 @@ class ErrorBoundary extends React.Component {
                     </div>
                     <div className="flex gap-4 mt-8">
                         <button
-                            onClick={() => window.location.reload()}
+                            onClick={this.forceHardReload}
                             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
                         >
                             Tentar Recarregar Página
@@ -70,12 +76,12 @@ class ErrorBoundary extends React.Component {
                     </div>
 
                     <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-2xl text-center">
-                        <p className="text-xs text-slate-500 mb-4">Se recarregar não funcionar, seus dados locais podem estar corrompidos.</p>
+                        <p className="text-xs text-slate-500 mb-4">Se recarregar não funcionar, pode ser cache de versão antiga do app (chunk desatualizado).</p>
                         <button
                             onClick={() => {
                                 if (window.confirm('ATENÇÃO: Isso apagará seus dados locais para recuperar o app. Certifique-se de ter copiado o backup acima se possível.\n\nContinuar?')) {
                                     localStorage.removeItem('ultra-dashboard-storage');
-                                    window.location.reload();
+                                    this.forceHardReload();
                                 }
                             }}
                             className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
