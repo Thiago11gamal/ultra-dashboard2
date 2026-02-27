@@ -318,25 +318,33 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                 Nenhuma matéria/assunto cadastrado no Dashboard.
                             </div>
                         ) : rows.map((row, index) => {
+                            const showDivider = index > 0 && rows[index - 1].subject !== row.subject;
                             return (
-                                <div key={row.id || index}
-                                    className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
-                                    <input type="text" value={row.subject}
-                                        disabled={true}
-                                        className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
-                                        placeholder="Matéria" />
-                                    <input type="text" value={row.topic}
-                                        disabled={true}
-                                        className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
-                                        placeholder="Assunto" />
-                                    <input type="number" min="0" value={row.correct}
-                                        onChange={(e) => updateRow(index, 'correct', e.target.value)}
-                                        className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                    <input type="number" min="0" value={row.total}
-                                        onChange={(e) => updateRow(index, 'total', e.target.value)}
-                                        className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                    <div className="w-[12px]"></div>
-                                </div>
+                                <React.Fragment key={row.id || index}>
+                                    {showDivider && (
+                                        <div className="pt-2 pb-1">
+                                            <div className="h-px bg-yellow-500/30 w-full" />
+                                        </div>
+                                    )}
+                                    <div
+                                        className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                        <input type="text" value={row.subject}
+                                            disabled={true}
+                                            className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
+                                            placeholder="Matéria" />
+                                        <input type="text" value={row.topic}
+                                            disabled={true}
+                                            className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
+                                            placeholder="Assunto" />
+                                        <input type="number" min="0" value={row.correct}
+                                            onChange={(e) => updateRow(index, 'correct', e.target.value)}
+                                            className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                        <input type="number" min="0" value={row.total}
+                                            onChange={(e) => updateRow(index, 'total', e.target.value)}
+                                            className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                        <div className="w-[12px]"></div>
+                                    </div>
+                                </React.Fragment>
                             );
                         })}
                     </div>
