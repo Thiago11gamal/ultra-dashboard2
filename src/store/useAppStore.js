@@ -16,10 +16,6 @@ const processGamification = (state, xpGained) => {
     let currentLevel = activeData.user.level || 1;
     let newXP = Math.max(0, currentXP + xpGained);
 
-    // Calculate level up using centralized logic
-    const newLevel = calculateLevel(newXP);
-    const leveledUp = newLevel > currentLevel;
-
     // --- ACHIEVEMENT SYSTEM ACTIVATION ---
     const currentAchievements = activeData.user.achievements || [];
     const { newlyUnlocked, xpGained: achievementXp } = checkAndUnlockAchievements(activeData, currentAchievements);
@@ -27,25 +23,29 @@ const processGamification = (state, xpGained) => {
     if (newlyUnlocked.length > 0) {
         newXP += achievementXp;
         activeData.user.achievements = [...currentAchievements, ...newlyUnlocked];
-        // After potential achievement XP, recalculate level
-        activeData.user.level = calculateLevel(newXP);
-    } else {
-        activeData.user.level = newLevel;
     }
+
+    // Recalculate level and check if user leveled up after all XP (base + achievements)
+    const finalLevel = calculateLevel(newXP);
+    const leveledUp = finalLevel > currentLevel;
 
     activeData.user.xp = newXP;
+    activeData.user.level = finalLevel;
 
     if (leveledUp && typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('level-up', {
-            detail: {
-                level: newLevel,
-                title: `Nível ${newLevel} Desbloqueado!`,
-                xpGained: newXP - currentXP
-            }
-        }));
+        // Use a timeout or microtask to ensure the event is dispatched AFTER the store update is commit
+        setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('level-up', {
+                detail: {
+                    level: finalLevel,
+                    title: `Nível ${finalLevel} Desbloqueado!`,
+                    xpGained: newXP - currentXP
+                }
+            }));
+        }, 0);
     }
 
-    return leveledUp ? newLevel : null;
+    return leveledUp ? finalLevel : null;
 };
 
 // Create the Zustand store with Immer for easy deep mutations
@@ -135,6 +135,10 @@ export const useAppStore = create(
                 }
             }),
 
+            awardExperience: (xpAmount) => set((state) => {
+                processGamification(state, xpAmount);
+            }),
+
             deleteTask: (categoryId, taskId) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
@@ -212,7 +216,7 @@ export const useAppStore = create(
             deleteSession: (sessionId) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
-                if (sessionIndex === -1 || sessionIndex === undefined) return;
+                if (sessionIndex === -1 || sessionIndex === undefined) return false;
 
                 const session = activeData.studySessions[sessionIndex];
 

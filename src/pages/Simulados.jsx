@@ -147,7 +147,16 @@ export default function Simulados() {
             ];
 
             showToast('Simulado Processado! +500 XP 📈', 'success');
-            return applyGamification({ ...prev, categories: newCategories, simuladoRows: validatedRows }, 500);
+
+            // First update the data
+            setData(prev => ({
+                ...prev,
+                categories: newCategories,
+                simuladoRows: validatedRows
+            }));
+
+            // Then award XP via store action (which handles events cleanly)
+            useAppStore.getState().awardExperience(500);
         });
     };
 

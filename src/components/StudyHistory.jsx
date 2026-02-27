@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
 
 // Format minutes to hours:minutes
 const formatDuration = (minutes) => {
@@ -16,6 +17,7 @@ const getDayName = (date) => {
 };
 
 const StudyHistory = React.memo(function StudyHistory({ studySessions = [], categories = [], simuladoRows = [], onDeleteSession, onDeleteSimulado }) {
+    const showToast = useToast();
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
@@ -195,8 +197,13 @@ const StudyHistory = React.memo(function StudyHistory({ studySessions = [], cate
                                         {onDeleteSession && (
                                             <button
                                                 onClick={() => {
-                                                    if (window.confirm('Tem certeza que deseja excluir esta sessão? Todo o tempo será removido do histórico.')) {
-                                                        onDeleteSession(session.id);
+                                                    if (window.confirm('Excluir esta sessão de estudo? O tempo será subtraído da categoria.')) {
+                                                        const result = onDeleteSession(session.id);
+                                                        if (result !== false) {
+                                                            showToast('Sessão excluída.', 'info');
+                                                        } else {
+                                                            showToast('Erro ao excluir sessão.', 'error');
+                                                        }
                                                     }
                                                 }}
                                                 className="p-1.5 rounded-md bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"

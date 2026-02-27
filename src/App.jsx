@@ -82,12 +82,23 @@ function MainLayout() {
       const newHistory = [...prev.history];
       const snapshot = newHistory.pop();
       const targetId = snapshot.contestId || prev.activeId;
-      const snapshotData = snapshot.data || snapshot;
+
+      if (snapshot.contests) {
+        // Full app state restore
+        return {
+          ...prev,
+          contests: snapshot.contests,
+          activeId: snapshot.activeId,
+          history: newHistory
+        };
+      }
+
+      // Single contest restore
       return {
         ...prev,
         activeId: targetId,
         history: newHistory,
-        contests: { ...prev.contests, [targetId]: snapshotData }
+        contests: { ...prev.contests, [targetId]: snapshot.data || snapshot }
       };
     });
     showToast('Ação desfeita! ↩️', 'info');

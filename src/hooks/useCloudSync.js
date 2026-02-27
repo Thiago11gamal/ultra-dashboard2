@@ -3,7 +3,7 @@ import { db } from '../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 // Hook que observa automaticamente o AppStore e envia os dados pro Firebase Firestore
-export function useCloudSync(currentUser, appState) {
+export function useCloudSync(currentUser, appState, showToast) {
     const lastSyncedRef = useRef(null);
 
     useEffect(() => {
@@ -23,7 +23,10 @@ export function useCloudSync(currentUser, appState) {
                 // console.log("Cloud Auto-save complete");
             } catch (e) {
                 console.error("Cloud Auto-save failed:", e);
-                // Não mostramos toast em erros de rede temporários para não irritar o utilizador
+                // Notifica erro crítico se houver toast disponível
+                if (showToast && e.code !== 'unavailable') {
+                    showToast('Falha na sincronização em nuvem. Verifique sua conexão.', 'warning');
+                }
             }
         };
 
