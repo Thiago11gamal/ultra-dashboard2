@@ -4,13 +4,27 @@
 // ==========================================
 
 import { mulberry32, randomNormal } from './random.js';
+import { getSafeScore } from '../utils/scoreHelper.js';
 
 // -----------------------------
 // Helper: Ensure history is sorted by date
 // -----------------------------
 function getSortedHistory(history) {
     if (!history) return [];
-    return [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return [...history]
+        .map((h) => {
+            const time = new Date(h?.date).getTime();
+            const score = getSafeScore(h);
+            if (!Number.isFinite(time) || !Number.isFinite(score)) return null;
+            return {
+                ...h,
+                date: new Date(time).toISOString().split('T')[0],
+                score: Math.max(0, Math.min(100, score))
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
 // -----------------------------

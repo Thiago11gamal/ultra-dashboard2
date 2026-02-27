@@ -10,6 +10,21 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
+import { getSafeScore } from '../utils/scoreHelper';
+
+
+const getDateKey = (rawDate) => {
+    if (!rawDate) return null;
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+};
+
+const sanitizeWeightUnit = (value) => {
+    const numeric = Number.parseInt(value, 10);
+    if (Number.isNaN(numeric)) return 0;
+    return Math.max(0, Math.min(999, numeric));
+};
 
 export default function MonteCarloGauge({
     categories = [],
@@ -62,16 +77,9 @@ export default function MonteCarloGauge({
 
     const getEqualWeights = useCallback(() => {
         if (catCount === 0) return {};
-        const equalWeight = Math.floor(100 / catCount);
         const newWeights = {};
-        let total = 0;
-        activeCategories.forEach((cat, idx) => {
-            if (idx === catCount - 1) {
-                newWeights[cat.name] = 100 - total;
-            } else {
-                newWeights[cat.name] = equalWeight;
-                total += equalWeight;
-            }
+        activeCategories.forEach((cat) => {
+            newWeights[cat.name] = 1;
         });
         return newWeights;
     }, [catCount, activeCategories]);
@@ -86,17 +94,10 @@ export default function MonteCarloGauge({
 
     const updateWeight = useCallback((catName, value) => {
         if (equalWeightsMode || !weights) return;
-        const newValue = Math.max(0, Math.min(100, parseInt(value) || 0));
-        let otherTotal = 0;
-        for (const cat of activeCategories) {
-            if (cat.name !== catName) otherTotal += weights[cat.name] || 0;
-        }
-        const maxAllowed = Math.max(0, 100 - otherTotal);
-        const finalValue = Math.min(newValue, maxAllowed);
-        const updatedWeights = { ...weights, [catName]: finalValue };
+        const updatedWeights = { ...weights, [catName]: sanitizeWeightUnit(value) };
         setWeights(updatedWeights);
         if (onWeightsChange) onWeightsChange(updatedWeights);
-    }, [equalWeightsMode, activeCategories, weights, setWeights, onWeightsChange]);
+    }, [equalWeightsMode, weights, setWeights, onWeightsChange]);
 
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) return getEqualWeights();
@@ -107,8 +108,8 @@ export default function MonteCarloGauge({
         let hasValidWeights = false;
 
         for (const catName of activeCatNames) {
-            if (weights[catName] !== undefined && weights[catName] > 0) {
-                filteredWeights[catName] = weights[catName];
+            if (weights[catName] !== undefined && sanitizeWeightUnit(weights[catName]) > 0) {
+                filteredWeights[catName] = sanitizeWeightUnit(weights[catName]);
                 hasValidWeights = true;
             }
         }
@@ -141,7 +142,7 @@ export default function MonteCarloGauge({
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const weight = debouncedWeights[cat.name] ?? 0;
+                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
                 const stats = computeCategoryStats(history, weight);
                 if (stats) {
                     if (weight > 0) totalWeight += weight;
@@ -163,13 +164,14 @@ export default function MonteCarloGauge({
         let allHistoryPoints = [];
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                const weight = debouncedWeights[cat.name] ?? 0;
+                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
-                        const currentScore = h.score; // extraímos para uma constante para manter legibilidade e evitar crashes
-                        if (currentScore != null && !isNaN(currentScore) && h.date) {
+                        const currentScore = getSafeScore(h);
+                        const dateKey = getDateKey(h.date);
+                        if (dateKey && Number.isFinite(currentScore)) {
                             allHistoryPoints.push({
-                                date: new Date(h.date).toISOString().split('T')[0],
+                                date: dateKey,
                                 score: currentScore,
                                 category: cat.name,
                                 weight
@@ -180,7 +182,7 @@ export default function MonteCarloGauge({
             }
         });
 
-        if (allHistoryPoints.length < 5) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
+        if (allHistoryPoints.length < 3) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
 
         // Sort chronologically
         allHistoryPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -215,7 +217,7 @@ export default function MonteCarloGauge({
                 score: pointsByDate[date]
             }));
 
-        if (globalHistory.length < 1) return { status: 'waiting', missing: 'days', days: globalHistory.length };
+        if (globalHistory.length < 2) return { status: 'waiting', missing: 'days', days: globalHistory.length };
 
         const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
         return { status: 'ready', data: simResult };
@@ -224,7 +226,7 @@ export default function MonteCarloGauge({
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
             ? "Você precisa de simulados em pelo menos 2 dias diferentes para calcularmos uma tendência de evolução."
-            : "Faça pelo menos 5 simulados para a IA traçar a sua curva de aprovação.";
+            : "Faça pelo menos 3 simulados válidos para a IA traçar a sua curva de aprovação.";
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/20">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Gauge size={80} /></div>

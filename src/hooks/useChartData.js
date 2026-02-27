@@ -1,6 +1,13 @@
 import { useMemo } from 'react';
 import { computeCategoryStats, calculateWeightedProjectedMean } from '../engine';
 
+const getDateKey = (rawDate) => {
+    if (!rawDate) return null;
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+};
+
 /**
  * Hook for processing and memoizing chart data
  */
@@ -18,9 +25,8 @@ export function useChartData(categories = []) {
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
-                if (h.date) {
-                    allDatesSet.add(new Date(h.date).toISOString().split('T')[0]);
-                }
+                const dateKey = getDateKey(h.date);
+                if (dateKey) allDatesSet.add(dateKey);
             });
         });
 
@@ -41,11 +47,14 @@ export function useChartData(categories = []) {
             if (!history.length) return;
 
             dates.forEach(date => {
-                const historyToDate = history.filter(h => new Date(h.date).toISOString().split('T')[0] <= date);
+                const historyToDate = history.filter(h => {
+                    const dateKey = getDateKey(h.date);
+                    return dateKey && dateKey <= date;
+                });
                 if (historyToDate.length === 0) return;
 
                 const last = historyToDate[historyToDate.length - 1];
-                const exactlyOnDate = history.filter(h => new Date(h.date).toISOString().split('T')[0] === date);
+                const exactlyOnDate = history.filter(h => getDateKey(h.date) === date);
 
                 const historyWithScore = historyToDate.map(h => ({
                     ...h,
@@ -72,7 +81,8 @@ export function useChartData(categories = []) {
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
-                if (h.date) allDatesSet.add(new Date(h.date).toISOString().split('T')[0]);
+                const dateKey = getDateKey(h.date);
+                if (dateKey) allDatesSet.add(dateKey);
             });
         });
 
@@ -91,8 +101,8 @@ export function useChartData(categories = []) {
         const rows = activeCategories.map(cat => {
             const dayMap = {};
             (cat.simuladoStats?.history || []).forEach(h => {
-                if (!h.date) return;
-                const key = new Date(h.date).toISOString().split('T')[0];
+                const key = getDateKey(h.date);
+                if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
                 dayMap[key].correct += (h.correct || 0);
                 dayMap[key].total += (h.total || 0);

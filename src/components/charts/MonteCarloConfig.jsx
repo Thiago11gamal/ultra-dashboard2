@@ -9,6 +9,7 @@ export const MonteCarloConfig = ({
     if (!show) return null;
 
     const catsToShow = activeCategories && activeCategories.length > 0 ? activeCategories : categories;
+    const manualTotal = catsToShow.reduce((acc, cat) => acc + Math.max(0, parseInt(weights?.[cat.name], 10) || 0), 0);
 
     return (
         <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
@@ -60,7 +61,7 @@ export const MonteCarloConfig = ({
                     className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                 >
                     <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />
-                    Manual
+                    Manual (Peso 1, 2, 3...)
                 </button>
             </div>
 
@@ -72,26 +73,32 @@ export const MonteCarloConfig = ({
                     </div>
                 ) : (
                     catsToShow.map(cat => {
-                        const weight = weights ? (parseInt(weights[cat.name]) || 0) : 0;
+                        const weight = weights ? (parseInt(weights[cat.name], 10) || 0) : 0;
+                        const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
                         return (
                             <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>{cat.icon || '📚'}</div>
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-white mb-1.5">{cat.name}</p>
                                     <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full transition-all" style={{ width: `${weight}%`, backgroundColor: cat.color }} />
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color }} />
                                     </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">Participação: {normalizedShare}%</p>
                                 </div>
                                 <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-white/10">
-                                    <button onClick={() => updateWeight(cat.name, weight - 5)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Minus size={14} /></button>
-                                    <span className="w-9 text-center text-sm font-bold text-white">{weight}%</span>
-                                    <button onClick={() => updateWeight(cat.name, weight + 5)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Plus size={14} /></button>
+                                    <button onClick={() => updateWeight(cat.name, weight - 1)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Minus size={14} /></button>
+                                    <span className="w-16 text-center text-sm font-bold text-white">Peso {weight}</span>
+                                    <button onClick={() => updateWeight(cat.name, weight + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"><Plus size={14} /></button>
                                 </div>
                             </div>
                         );
                     })
                 )}
             </div>
+
+            {!equalWeightsMode && (
+                <p className="text-[10px] text-slate-400 mt-3">No modo manual, você define pesos relativos (1, 2, 3...). O sistema converte automaticamente para percentual.</p>
+            )}
         </div>
     );
 };
