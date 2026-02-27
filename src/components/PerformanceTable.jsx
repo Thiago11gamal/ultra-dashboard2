@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
 
 const PerformanceTable = ({ categories = [] }) => {
     // Sort by Net Balance (Saldo) descending
@@ -17,27 +17,29 @@ const PerformanceTable = ({ categories = [] }) => {
 
         const totalQB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
         const correctB = historyB.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
-        const wrongB = totalQB - correctB;
-        const balanceB = correctB - wrongB;
+        const totalB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
+        const balanceB = correctB - (totalB - correctB);
 
         return balanceB - balanceA;
     });
 
     return (
-        <div className="w-full rounded-xl border border-white/10 bg-slate-900/50 glass p-6">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-white/5 uppercase text-[10px] font-bold text-slate-400 tracking-wider">
+        <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl">
+            <div className="overflow-x-auto overflow-y-hidden">
+                <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
+                    <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5">
                         <tr>
-                            <th className="p-4 pl-10 rounded-tl-xl text-left">Disciplina</th>
-                            <th className="p-4 text-left w-1/3">Desempenho (Acertos x Erros)</th>
-                            <th className="p-4 text-center">Saldo Líquido</th>
-                            <th className="p-4 text-center">Taxa de Acerto</th>
-                            <th className="p-4 text-center rounded-tr-xl">Tendência</th>
+                            <th className="p-5 pl-8 w-16 text-center">#</th>
+                            <th className="p-5 w-72 md:w-80 border-r border-white/5">Disciplina</th>
+                            <th className="p-5 text-center w-28 md:w-32"><div className="flex items-center justify-center gap-2"><Hash size={12} className="text-slate-600" /> Volume</div></th>
+                            <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
+                            <th className="p-5 text-center w-32 md:w-36 border-l border-white/5"><div className="flex items-center justify-center gap-2"><Wallet size={12} className="text-slate-600" /> Saldo</div></th>
+                            <th className="p-5 text-center w-24 md:w-28">Taxa</th>
+                            <th className="p-5 text-center w-24 md:w-28 lg:w-32 rounded-tr-xl border-l border-white/5">Tendência</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 text-xs">
-                        {sortedCategories.map((category) => {
+                    <tbody className="divide-y divide-white/[0.03] text-xs">
+                        {sortedCategories.map((category, index) => {
                             const stats = category.simuladoStats || { history: [], trend: 'stable' };
                             const history = stats.history || [];
 
@@ -47,65 +49,99 @@ const PerformanceTable = ({ categories = [] }) => {
                             const netBalance = totalCorrect - totalWrong;
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-                            let trendIcon = <Minus size={14} className="text-slate-500" />;
-                            if (stats.trend === 'up') trendIcon = <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />;
-                            if (stats.trend === 'down') trendIcon = <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />;
+                            const isTopThree = index < 3 && totalQuestions > 0;
+                            const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
+
+                            let trendIcon = <Minus size={16} className="text-slate-600 opacity-50" />;
+                            if (stats.trend === 'up') trendIcon = <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />;
+                            if (stats.trend === 'down') trendIcon = <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />;
 
                             return (
-                                <tr key={category.id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="p-4 pl-10">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">{category.icon || '📚'}</span>
-                                            <span className="font-bold text-sm tracking-wide" style={{ color: category.color }}>{category.name}</span>
+                                <tr key={category.id} className="group hover:bg-white/[0.02] transition-all duration-300">
+                                    {/* Ranking */}
+                                    <td className="p-5 pl-8 text-center">
+                                        <div className={`flex items-center justify-center font-black ${rankColor}`}>
+                                            {isTopThree ? <Trophy size={16} className="mr-1 drop-shadow-[0_0_5px_rgba(234,179,8,0.3)]" /> : null}
+                                            {index + 1}º
                                         </div>
                                     </td>
 
-                                    <td className="p-4 text-left w-1/3">
-                                        <div className="flex flex-col gap-1.5 w-full max-w-sm">
-                                            <div className="flex justify-between text-[10px] font-mono tracking-tight">
-                                                <span className="text-green-400 font-bold">{totalCorrect} acertos</span>
-                                                <span className="text-slate-500">{totalQuestions} total</span>
-                                                <span className="text-red-400 font-bold">{totalWrong} erros</span>
+                                    {/* Disciplina */}
+                                    <td className="p-5 border-r border-white/5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-900/50 flex items-center justify-center border border-white/5 group-hover:border-white/10 group-hover:scale-110 transition-all duration-500 shadow-inner">
+                                                <span className="text-xl">{category.icon || '📚'}</span>
                                             </div>
-                                            {/* Stacked Bar Flow */}
-                                            <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden flex shadow-inner group-hover:h-2 transition-all duration-300">
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-bold text-sm truncate uppercase tracking-tight" style={{ color: category.color }}>
+                                                    {category.name}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {Math.floor(category.totalMinutes / 60)} Scholar</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Volume */}
+                                    <td className="p-5 text-center">
+                                        <div className="flex flex-col items-center">
+                                            <span className="font-mono text-sm font-black text-slate-300">{totalQuestions}</span>
+                                            <span className="text-[8px] text-slate-500 uppercase tracking-widest font-black opacity-60">Questões</span>
+                                        </div>
+                                    </td>
+
+                                    {/* Desempenho Bar */}
+                                    <td className="p-5">
+                                        <div className="flex flex-col gap-2 px-2">
+                                            <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                 <div
-                                                    className="h-full bg-green-500 hover:bg-green-400 transition-colors shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                                                    className="h-full bg-gradient-to-r from-green-600 to-green-400 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
                                                     style={{ width: `${percentCorrect}%` }}
-                                                    title={`${percentCorrect}% Acertos`}
                                                 />
                                                 <div
-                                                    className="h-full bg-red-500 hover:bg-red-400 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                                                    className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80"
                                                     style={{ width: `${totalQuestions > 0 ? 100 - percentCorrect : 0}%` }}
-                                                    title={`${100 - percentCorrect}% Erros`}
                                                 />
+                                            </div>
+                                            <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
+                                                <span className="text-green-500">{totalCorrect} AC</span>
+                                                <span className="text-red-500">{totalWrong} ER</span>
                                             </div>
                                         </div>
                                     </td>
 
-                                    <td className="p-4 text-center">
-                                        <div className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg border font-black font-mono shadow-sm ${netBalance > 0 ? 'bg-green-500/10 border-green-500/30 text-green-400' :
-                                            netBalance < 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' :
-                                                'bg-slate-500/10 border-slate-500/30 text-slate-400'
+                                    {/* Saldo Badge */}
+                                    <td className="p-5 text-center border-l border-white/5">
+                                        <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-black font-mono shadow-xl transition-all duration-500 group-hover:scale-110 ${netBalance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-green-500/5' :
+                                                netBalance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-red-500/5' :
+                                                    'bg-slate-800/50 border-white/5 text-slate-500'
                                             }`}>
-                                            <Wallet size={12} className="opacity-80" />
-                                            {netBalance > 0 ? `+${netBalance}` : netBalance}
+                                            <span className="text-[11px]">{netBalance > 0 ? '+' : ''}{netBalance}</span>
+                                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${netBalance > 0 ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : netBalance < 0 ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]' : 'bg-slate-600'}`} />
                                         </div>
                                     </td>
 
-                                    <td className="p-4 text-center">
-                                        <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-black font-mono tracking-wider shadow-sm ${percentCorrect >= 80 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                            percentCorrect >= 60 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                                                percentCorrect > 0 ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
-                                                    'bg-slate-800 text-slate-500 border border-white/5'
+                                    {/* Taxa Badge */}
+                                    <td className="p-5 text-center">
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 scale-110' :
+                                                percentCorrect >= 60 ? 'text-yellow-400' :
+                                                    percentCorrect > 0 ? 'text-red-500' :
+                                                        'text-slate-500'
                                             }`}>
-                                            {percentCorrect}%
-                                        </span>
+                                            <span className="text-sm tracking-tight">{percentCorrect}%</span>
+                                            {percentCorrect >= 80 && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}
+                                        </div>
                                     </td>
 
-                                    <td className="p-4 text-center">
-                                        <div className="flex justify-center p-2 rounded-lg bg-black/30 w-10 h-10 mx-auto items-center border border-white/5 group-hover:border-white/10 transition-colors">
-                                            {trendIcon}
+                                    {/* Tendência Icon Box */}
+                                    <td className="p-5 text-center border-l border-white/5">
+                                        <div className="flex justify-center">
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden">
+                                                <div className="z-10 relative">{trendIcon}</div>
+                                                {stats.trend !== 'stable' && (
+                                                    <div className={`absolute inset-0 blur-lg transition-opacity duration-700 opacity-0 group-hover:opacity-30 ${stats.trend === 'up' ? 'bg-green-500' : 'bg-red-500'
+                                                        }`} />
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -114,13 +150,32 @@ const PerformanceTable = ({ categories = [] }) => {
 
                         {sortedCategories.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="p-8 text-center text-slate-500">
-                                    Nenhuma disciplina cadastrada.
+                                <td colSpan="7" className="p-20 text-center">
+                                    <div className="flex flex-col items-center gap-4 opacity-30">
+                                        <Target size={48} className="text-slate-500" />
+                                        <span className="text-sm font-bold uppercase tracking-widest">Nenhuma disciplina carregada</span>
+                                    </div>
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Footer Stats Summary */}
+            <div className="bg-slate-950/60 p-5 border-t border-white/5 flex items-center justify-center gap-12 text-[10px] uppercase font-black tracking-[0.15em] text-slate-500">
+                <div className="flex items-center gap-2.5 group cursor-help">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] group-hover:scale-125 transition-transform" />
+                    <span className="group-hover:text-green-400 transition-colors">Dominante</span>
+                </div>
+                <div className="flex items-center gap-2.5 group cursor-help">
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.6)] group-hover:scale-125 transition-transform" />
+                    <span className="group-hover:text-yellow-400 transition-colors">Em Evolução</span>
+                </div>
+                <div className="flex items-center gap-2.5 group cursor-help">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)] group-hover:scale-125 transition-transform" />
+                    <span className="group-hover:text-red-400 transition-colors">Crítico</span>
+                </div>
             </div>
         </div>
     );

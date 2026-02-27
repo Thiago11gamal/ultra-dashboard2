@@ -1,11 +1,8 @@
-
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Medal } from 'lucide-react';
-
+import { motion } from 'framer-motion';
+import { Medal, Hash, BarChart3, TrendingUp, Target } from 'lucide-react';
 
 const VolumeRanking = ({ categories = [] }) => {
-    // Calculate volume stats and sort - Memoized for performance
     const sorted = useMemo(() => {
         const stats = categories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
@@ -14,7 +11,6 @@ const VolumeRanking = ({ categories = [] }) => {
             return { ...cat, totalVolume: total };
         });
 
-        // Sort by volume descending, then by name ascending for stability
         return stats.slice().sort((a, b) => {
             if (b.totalVolume !== a.totalVolume) {
                 return b.totalVolume - a.totalVolume;
@@ -27,91 +23,102 @@ const VolumeRanking = ({ categories = [] }) => {
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
 
-    // Helper for medals
-    const getRankIcon = (index) => {
-        if (index === 0) return <Medal size={24} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)] fill-yellow-400/20" />;
-        if (index === 1) return <Medal size={24} className="text-slate-300 drop-shadow-[0_0_5px_rgba(203,213,225,0.5)] fill-slate-300/20" />;
-        if (index === 2) return <Medal size={24} className="text-orange-400 drop-shadow-[0_0_5px_rgba(251,146,60,0.5)] fill-orange-400/20" />;
-        return <span className="text-slate-500 font-mono text-xs w-6 text-center font-bold">#{index + 1}</span>;
+    const getRankStyles = (index) => {
+        if (index === 0) return { icon: <Medal size={20} className="text-yellow-400 fill-yellow-400/20" />, color: 'text-yellow-400', barCol: 'bg-yellow-500', glow: 'shadow-yellow-500/20' };
+        if (index === 1) return { icon: <Medal size={20} className="text-slate-300 fill-slate-300/20" />, color: 'text-slate-300', barCol: 'bg-slate-400', glow: 'shadow-slate-400/20' };
+        if (index === 2) return { icon: <Medal size={20} className="text-amber-600 fill-amber-600/20" />, color: 'text-amber-600', barCol: 'bg-amber-600', glow: 'shadow-amber-600/20' };
+        return { icon: <span className="text-[10px] font-black text-slate-600 font-mono">#{index + 1}</span>, color: 'text-slate-500', barCol: 'bg-slate-700', glow: 'shadow-transparent' };
     };
 
     const container = {
         hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
+        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
     };
 
     const itemVariant = {
-        hidden: { opacity: 0, x: -20 },
+        hidden: { opacity: 0, x: 20 },
         show: { opacity: 1, x: 0 }
     };
 
     return (
-        <div className="glass p-0 rounded-2xl h-full flex flex-col bg-slate-900/80 border border-white/10 overflow-hidden">
-            <div className="p-6 pb-2">
-                <h3 className="text-lg font-bold flex items-center gap-2 mb-1 text-slate-200">
-                    📊 Volume de Questões
-                </h3>
+        <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl h-full flex flex-col overflow-hidden shadow-2xl">
+            {/* Header Section */}
+            <div className="p-6 border-b border-white/5">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+                        <BarChart3 size={14} className="text-purple-500" />
+                        Volume de Treino
+                    </h3>
+                    <div className="px-2 py-1 bg-purple-500/10 rounded-md border border-purple-500/20">
+                        <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">{totalVolumeOverall} Total</span>
+                    </div>
+                </div>
+
                 {sorted.length > 0 && totalVolumeOverall > 0 ? (
-                    <p className="text-[11px] text-slate-400 mt-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                        <strong className="text-purple-400">{sorted[0].name}</strong> lidera com <strong className="text-white">{Math.round(leaderPercentage)}%</strong> de todo o seu volume de simulados ({sorted[0].totalVolume} de {totalVolumeOverall}).
-                    </p>
+                    <div className="bg-black/30 rounded-xl p-3 border border-white/[0.03]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
+                                <TrendingUp size={16} className="text-yellow-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
+                                    Líder de Produção
+                                </span>
+                                <span className="text-xs font-black text-white truncate">
+                                    {sorted[0].name} <span className="text-yellow-500 ml-1">({Math.round(leaderPercentage)}%)</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Quem mais produziu</p>
+                    <div className="text-center py-4 border border-dashed border-white/5 rounded-xl">
+                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Aguardando dados</span>
+                    </div>
                 )}
             </div>
 
+            {/* List Section */}
             <motion.div
                 variants={container}
                 initial="hidden"
                 animate="show"
-                className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar"
+                className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar"
             >
                 {sorted.map((item, index) => {
-                    const volume = item.totalVolume;
-                    const percentage = maxVolume > 0 ? (volume / maxVolume) * 100 : 0;
-                    const isTop3 = index < 3;
+                    const styles = getRankStyles(index);
+                    const percentage = maxVolume > 0 ? (item.totalVolume / maxVolume) * 100 : 0;
 
                     return (
                         <motion.div
                             key={item.id}
                             variants={itemVariant}
-                            className={`group flex items-center gap-4 p-3 rounded-xl transition-all hover:bg-white/5 ${isTop3 ? 'bg-white/[0.02] border border-white/5' : ''}`}
+                            className={`group flex items-center gap-4 p-3 rounded-xl transition-all duration-300 hover:bg-white/[0.03] ${index < 3 ? 'bg-white/[0.02]' : ''}`}
                         >
-                            {/* Rank */}
-                            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isTop3 ? 'bg-black/20' : ''}`}>
-                                {getRankIcon(index)}
+                            {/* Rank Icon */}
+                            <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
+                                {styles.icon}
                             </div>
 
-                            {/* Icon & Name */}
+                            {/* Info & Bar */}
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <span className={`text-sm font-medium truncate ${isTop3 ? 'text-slate-200 block max-w-[150px] md:max-w-[250px]' : 'text-slate-500 block max-w-[150px] md:max-w-[250px]'}`} title={item.name}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className={`text-[11px] font-bold truncate tracking-tight uppercase ${index < 3 ? 'text-slate-200' : 'text-slate-500'}`} style={index < 3 ? {} : { color: item.color }}>
                                         {item.name}
                                     </span>
-                                    <div className="flex flex-col items-end">
-                                        <span className={`text-sm font-bold font-mono leading-none ${isTop3 ? 'text-purple-300' : 'text-slate-500'}`}>
-                                            {volume}
+                                    <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
+                                        <Hash size={10} className="text-slate-600" />
+                                        <span className={`text-[10px] font-black font-mono ${styles.color}`}>
+                                            {item.totalVolume}
                                         </span>
-                                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider mt-0.5">questões</span>
                                     </div>
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div className="w-full bg-slate-800/50 h-1.5 rounded-full overflow-hidden relative shadow-inner">
+                                <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/[0.02]">
                                     <motion.div
                                         initial={{ width: 0 }}
-                                        animate={{ width: `${Math.max(percentage, 2)}%` }}
-                                        transition={{ duration: 1, delay: 0.2 }}
-                                        className={`h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(255,255,255,0.1)] ${index === 0 ? 'bg-yellow-500/80 shadow-yellow-500/20' :
-                                            index === 1 ? 'bg-slate-400/80 shadow-slate-400/20' :
-                                                index === 2 ? 'bg-orange-500/80 shadow-orange-500/20' :
-                                                    'bg-slate-700'
-                                            }`}
+                                        animate={{ width: `${Math.max(percentage, 3)}%` }}
+                                        transition={{ duration: 1.5, ease: "easeOut" }}
+                                        className={`h-full rounded-full transition-all duration-1000 ${styles.barCol} shadow-[0_0_15px_rgba(0,0,0,0.5)] ${styles.glow}`}
                                     />
                                 </div>
                             </div>
@@ -120,9 +127,9 @@ const VolumeRanking = ({ categories = [] }) => {
                 })}
 
                 {sorted.length === 0 && (
-                    <div className="text-center text-slate-400 py-10">
-                        <span className="text-2xl block mb-2 opacity-30">💤</span>
-                        <span className="text-xs">Sem dados</span>
+                    <div className="py-20 flex flex-col items-center justify-center opacity-20">
+                        <Target size={32} />
+                        <span className="text-[8px] font-black uppercase tracking-widest mt-2">No Data</span>
                     </div>
                 )}
             </motion.div>
@@ -131,3 +138,4 @@ const VolumeRanking = ({ categories = [] }) => {
 };
 
 export default React.memo(VolumeRanking);
+

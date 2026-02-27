@@ -1,82 +1,116 @@
 import React from 'react';
+import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
 
-const StatCard = ({ title, item, color, icon, metric, label, isNegative = false, isMVP = false, subtitle }) => (
-    <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-500 hover:scale-[1.02] border ${isMVP ? 'bg-gradient-to-br from-yellow-900/40 to-emerald-950/40 border-yellow-500/40 hover:border-yellow-400/60 shadow-[0_0_20px_rgba(234,179,8,0.15)] hover:shadow-[0_0_30px_rgba(234,179,8,0.25)]' :
-        isNegative ? 'bg-red-950/40 border-red-500/20 hover:border-red-500/40' :
-            'bg-slate-900/80 border-white/10 hover:border-white/20'
-        }`}>
+const StatCard = ({ title, item, color, icon: Icon, metric, label, isNegative = false, isMVP = false, subtitle }) => {
+    return (
+        <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-yellow-500/30 hover:border-yellow-400/60 shadow-[0_0_40px_rgba(234,179,8,0.1)] hover:shadow-[0_0_60px_rgba(234,179,8,0.2)]' :
+                isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
+                    'bg-slate-900/60 border-white/5 hover:border-white/20'
+            }`}>
+            {/* Background Glows */}
+            <div className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br transition-all duration-700 blur-[80px] ${isMVP ? 'from-yellow-400/20 to-orange-500/20 opacity-40 group-hover:opacity-60 group-hover:scale-125' :
+                    isNegative ? 'from-red-500/10 to-rose-600/10 opacity-20' :
+                        'from-blue-500/10 to-cyan-500/10 opacity-20'
+                }`} />
 
-        {/* Background Glow */}
-        <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${color} ${isMVP ? 'opacity-30 blur-[50px] group-hover:opacity-50' : 'opacity-10 blur-[60px] group-hover:opacity-30'} transition-all duration-700`} />
-        {isMVP && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-tr from-yellow-500/10 to-emerald-500/10 blur-3xl rounded-full pointer-events-none animate-pulse" />}
+            {/* Decorative Elements for MVP */}
+            {isMVP && (
+                <>
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity duration-700">
+                        <TrendingUp size={80} className="rotate-12" />
+                    </div>
+                </>
+            )}
 
-        {/* Watermark Icon */}
-        <div className={`absolute -bottom-4 -right-4 text-8xl opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-10 transition-all duration-700 rotate-12 group-hover:rotate-0 group-hover:scale-110`}>
-            {icon}
-        </div>
+            <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isMVP ? 'text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]' :
+                            isNegative ? 'text-red-400/80' :
+                                'text-slate-500'
+                        }`}>
+                        <div className={`p-1.5 rounded-lg ${isMVP ? 'bg-yellow-500/10' : 'bg-slate-800/50'}`}>
+                            <Icon size={14} />
+                        </div>
+                        {title}
+                    </h3>
 
-        <div className="relative z-10">
-            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 ${isMVP ? 'text-yellow-500/90' : 'text-slate-500 opacity-70'}`}>
-                {icon} {title}
-            </h3>
+                    {isMVP && (
+                        <div className="flex gap-1">
+                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse" />
+                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse delay-75" />
+                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse delay-150" />
+                        </div>
+                    )}
+                </div>
 
-            {item ? (
-                <div>
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="text-3xl filter drop-shadow-lg opacity-90 group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
-                        <div>
-                            <div className={`text-xl font-black bg-clip-text text-transparent bg-gradient-to-r ${color} drop-shadow-sm`}>
-                                {item.name}
+                {item ? (
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-4 mb-5">
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 shadow-2xl relative ${isMVP ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-slate-800/80 border border-white/5'
+                                }`}>
+                                {item.icon || '📚'}
+                                {isMVP && <Crown size={16} className="absolute -top-2 -right-2 text-yellow-500 drop-shadow-lg" />}
                             </div>
-                            <div className="text-[10px] text-slate-500 font-mono mt-0.5 tracking-wide">
-                                {subtitle || 'Disciplina'}
+                            <div className="flex flex-col min-w-0">
+                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-yellow-400' : 'text-slate-100'
+                                    }`} style={!isMVP ? { color: item.color } : {}}>
+                                    {item.name}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                                    {subtitle}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-end gap-3 px-1">
+                            <div className="flex flex-col">
+                                <span className={`text-5xl font-black tracking-tighter leading-none ${isMVP ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]' :
+                                        isNegative ? 'text-red-500 shadow-red-500/20' :
+                                            'text-white'
+                                    }`}>
+                                    {metric}
+                                </span>
+                            </div>
+                            <div className="flex flex-col pb-1">
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${isMVP ? 'text-yellow-600' : 'text-slate-500'
+                                    }`}>
+                                    {label}
+                                </span>
+                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-yellow-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
+                                    } opacity-30`} />
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <span className={`text-5xl font-black tracking-tighter ${isMVP ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-md' : isNegative ? 'text-red-400/90' : 'text-slate-200'}`}>
-                            {metric}
-                        </span>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isMVP ? 'text-yellow-600' : 'text-slate-500'}`}>{label}</span>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-[120px] bg-slate-950/20 rounded-xl border border-dashed border-white/5">
+                        <Target size={24} className="text-slate-800 mb-2" />
+                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Aguardando dados</span>
                     </div>
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-[104px] text-slate-700">
-                    <span className="text-3xl mb-2 opacity-20">∅</span>
-                    <span className="text-xs italic font-medium tracking-wide">Sem dados suficientes</span>
-                </div>
-            )}
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 function PersonalRanking({ categories = [] }) {
-    // Helper to calculate percentages and stats from Simulado Data
-    const categoryStats = categories.map(cat => {
-        const stats = cat.simuladoStats || { history: [] };
-        const history = stats.history || [];
-        const total = history.reduce((acc, h) => acc + Number(h.total || 0), 0);
-        const correct = history.reduce((acc, h) => acc + Number(h.correct || 0), 0);
-        const wrong = total - correct;
-        const balance = correct - wrong;
+    const categoryStats = React.useMemo(() => {
+        return categories.map(cat => {
+            const stats = cat.simuladoStats || { history: [] };
+            const history = stats.history || [];
+            const total = history.reduce((acc, h) => acc + Number(h.total || 0), 0);
+            const correct = history.reduce((acc, h) => acc + Number(h.correct || 0), 0);
+            const wrong = total - correct;
+            const balance = correct - wrong;
 
-        return {
-            ...cat,
-            total,
-            correct,
-            wrong,
-            balance
-        };
-    });
+            return { ...cat, total, correct, wrong, balance };
+        });
+    }, [categories]);
 
-    // Sort for rankings — only include categories with actual data
     const withData = categoryStats.filter(c => c.total > 0);
     const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance);
     const sortedByVolume = [...withData].sort((a, b) => b.total - a.total);
     const sortedByErrors = [...withData].sort((a, b) => b.wrong - a.wrong);
 
-    // Identify winners/losers — avoid showing same item for both strongest/weakest
     const strongest = sortedByBalance[0] || null;
     const weakest = sortedByBalance.length > 1 ? sortedByBalance[sortedByBalance.length - 1] : null;
     const mostProductive = sortedByVolume[0] || null;
@@ -84,56 +118,61 @@ function PersonalRanking({ categories = [] }) {
 
     return (
         <div className="w-full">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 neon-text">
-                🏆 Ranking Pessoal
-            </h2>
+            <div className="flex items-center justify-between mb-10">
+                <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                        <Trophy size={20} />
+                    </div>
+                    Ranking <span className="text-slate-500">Master</span>
+                </h2>
+                <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-900/50 rounded-full border border-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    Live Analytics
+                </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Disciplina Mais Forte */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <StatCard
-                    title="MVP (Mais Forte)"
+                    title="MVP Dominante"
                     item={strongest}
-                    color="from-green-400 to-emerald-600"
-                    icon="👑"
+                    color="from-yellow-400 to-orange-500"
+                    icon={Crown}
                     metric={strongest?.balance > 0 ? `+${strongest.balance}` : strongest?.balance || 0}
-                    label="Saldo Liq."
-                    subtitle="Sua melhor performance"
+                    label="Saldo Líquido"
+                    subtitle="Maior Eficiência"
                     isMVP={true}
                 />
 
-                {/* Maior Volume */}
                 <StatCard
-                    title="Máquina de Estudo"
+                    title="Estudioso (Volume)"
                     item={mostProductive}
-                    color="from-blue-400 to-cyan-600"
-                    icon="🚀"
+                    color="from-blue-400 to-indigo-600"
+                    icon={Zap}
                     metric={mostProductive?.total || 0}
                     label="Questões"
-                    subtitle="Onde você mais treinou"
+                    subtitle="Maior Produção"
                 />
 
-                {/* Disciplina Mais Fraca */}
                 <StatCard
-                    title="Ponto Fraco"
+                    title="Alerta de Risco"
                     item={weakest}
                     color="from-red-400 to-rose-600"
-                    icon="💀"
+                    icon={ShieldAlert}
                     metric={weakest?.balance > 0 ? `+${weakest.balance}` : weakest?.balance || 0}
-                    label="Saldo Liq."
+                    label="Saldo Líquido"
                     isNegative
-                    subtitle="Precisa de atenção urgente"
+                    subtitle="Foco em Melhoria"
                 />
 
-                {/* Mais Erros */}
                 <StatCard
-                    title="Zona de Perigo"
+                    title="Vazamento de Pontos"
                     item={mostBehind}
                     color="from-orange-400 to-amber-600"
-                    icon="⚠️"
+                    icon={Skull}
                     metric={mostBehind?.wrong || 0}
-                    label="Erros"
+                    label="Erros Acumulados"
                     isNegative
-                    subtitle="Maior volume de erros"
+                    subtitle="Análise Reversa"
                 />
             </div>
         </div>
@@ -141,3 +180,4 @@ function PersonalRanking({ categories = [] }) {
 }
 
 export default React.memo(PersonalRanking);
+

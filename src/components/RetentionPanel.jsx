@@ -180,80 +180,89 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
     }, [retentionData]);
 
     return (
-        <div className="w-full space-y-6 animate-fade-in-down">
+        <div className="w-full space-y-8 pt-4 pb-12 animate-fade-in-down">
             {/* Header */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-5 px-1">
                 <div className="relative">
-                    <div className="absolute inset-0 bg-purple-500/30 rounded-xl blur-lg"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 rounded-xl border border-purple-500/30">
-                        <BrainCircuit size={28} className="text-purple-400" />
+                    <div className="absolute inset-0 bg-purple-500/30 rounded-2xl blur-xl"></div>
+                    <div className="relative p-3.5 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 rounded-2xl border border-purple-500/30">
+                        <BrainCircuit size={32} className="text-purple-400" />
                     </div>
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-black bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-transparent uppercase tracking-tight">
                         Painel de Retenção
                     </h2>
-                    <p className="text-slate-500 text-xs">Baseado na Curva de Esquecimento de Ebbinghaus</p>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-0.5 opacity-80">
+                        Baseado na Curva de Esquecimento de Ebbinghaus
+                    </p>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Average Retention */}
-                <div className="glass p-4 border-l-4 border-purple-500 relative overflow-hidden group hover:border-purple-400 transition-colors">
-                    <BrainCircuit size={80} className="absolute -right-4 -bottom-4 text-purple-500/10 group-hover:text-purple-500/20 transition-colors" />
+                <div className="glass p-6 border-l-4 border-purple-500 relative overflow-hidden group hover:border-purple-400 transition-all duration-500 min-h-[150px] flex flex-col justify-between">
+                    <BrainCircuit size={70} className="absolute -right-6 -bottom-6 text-purple-500/10 group-hover:text-purple-500/20 transition-all duration-700" />
                     <div className="relative z-10">
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <BrainCircuit size={14} />
+                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
+                            <BrainCircuit size={12} className="text-purple-500" />
                             Média Geral
                         </div>
-                        <div className="text-3xl font-black text-white mb-2">{stats.avgRetention}%</div>
+                        <div className="text-4xl font-black text-white mb-2 tracking-tighter">{stats.avgRetention}%</div>
+                    </div>
 
+                    <div className="relative z-10">
                         {/* Progress Bar */}
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
-                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${stats.avgRetention}%` }} />
+                        <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden mb-2 border border-white/5">
+                            <div className="h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.4)]" style={{ width: `${stats.avgRetention}%` }} />
                         </div>
-
-                        <div className="text-xs text-slate-500">{stats.totalTasks} assuntos</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{stats.totalTasks} assuntos</div>
                     </div>
                 </div>
 
                 {/* Critical */}
-                <div className="glass p-4 border-l-4 border-red-500 relative overflow-hidden group hover:border-red-400 transition-colors">
-                    <AlertTriangle size={80} className="absolute -right-4 -bottom-4 text-red-500/10 group-hover:text-red-500/20 transition-colors" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <AlertTriangle size={14} />
+                <div className="glass p-6 border-l-4 border-red-500 relative overflow-hidden group hover:border-red-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                    <AlertTriangle size={70} className="absolute -right-6 -bottom-6 text-red-500/10 group-hover:text-red-500/20 transition-all duration-700" />
+                    <div className="relative z-10 mb-auto">
+                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
+                            <AlertTriangle size={12} className="text-red-500" />
                             Críticos
                         </div>
-                        <div className="text-3xl font-black text-red-400">{stats.critical}</div>
-                        <div className="text-xs text-slate-500 mt-1">precisam revisão</div>
+                        <div className="text-4xl font-black text-red-400 tracking-tighter drop-shadow-[0_0_10px_rgba(239,68,68,0.2)]">{stats.critical}</div>
+                    </div>
+                    <div className="relative z-10 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        precisam de revisão
                     </div>
                 </div>
 
                 {/* Warning */}
-                <div className="glass p-4 border-l-4 border-yellow-500 relative overflow-hidden group hover:border-yellow-400 transition-colors">
-                    <TrendingDown size={80} className="absolute -right-4 -bottom-4 text-yellow-500/10 group-hover:text-yellow-500/20 transition-colors" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <TrendingDown size={14} />
+                <div className="glass p-6 border-l-4 border-yellow-500 relative overflow-hidden group hover:border-yellow-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                    <TrendingDown size={70} className="absolute -right-6 -bottom-6 text-yellow-500/10 group-hover:text-yellow-500/20 transition-all duration-700" />
+                    <div className="relative z-10 mb-auto">
+                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
+                            <TrendingDown size={12} className="text-yellow-500" />
                             Atenção
                         </div>
-                        <div className="text-3xl font-black text-yellow-400">{stats.warning}</div>
-                        <div className="text-xs text-slate-500 mt-1">em declínio</div>
+                        <div className="text-4xl font-black text-yellow-500 tracking-tighter drop-shadow-[0_0_10px_rgba(234,179,8,0.2)]">{stats.warning}</div>
+                    </div>
+                    <div className="relative z-10 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        em declínio
                     </div>
                 </div>
 
                 {/* Healthy */}
-                <div className="glass p-4 border-l-4 border-emerald-500 relative overflow-hidden group hover:border-emerald-400 transition-colors">
-                    <CheckCircle2 size={80} className="absolute -right-4 -bottom-4 text-emerald-500/10 group-hover:text-emerald-500/20 transition-colors" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                            <CheckCircle2 size={14} />
+                <div className="glass p-6 border-l-4 border-emerald-500 relative overflow-hidden group hover:border-emerald-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                    <CheckCircle2 size={70} className="absolute -right-6 -bottom-6 text-emerald-500/10 group-hover:text-emerald-500/20 transition-all duration-700" />
+                    <div className="relative z-10 mb-auto">
+                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
+                            <CheckCircle2 size={12} className="text-emerald-500" />
                             Saudáveis
                         </div>
-                        <div className="text-3xl font-black text-emerald-400">{stats.healthy}</div>
-                        <div className="text-xs text-slate-500 mt-1">ótimo</div>
+                        <div className="text-4xl font-black text-emerald-400 tracking-tighter drop-shadow-[0_0_10px_rgba(52,211,153,0.2)]">{stats.healthy}</div>
+                    </div>
+                    <div className="relative z-10 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        excelente
                     </div>
                 </div>
             </div>
