@@ -122,7 +122,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     }, [timeline, focusCategory]);
 
     const subtopicsData = useMemo(() => {
-        if (!focusCategory) return [];
+        if (!categories || !categories.length) return [];
         const topicMap = {};
 
         const now = new Date();
@@ -130,41 +130,53 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
 
-        const recentHistory = (focusCategory.simuladoStats?.history || []).filter(h => {
-            const date = new Date(h.date);
-            return date >= rollingLimit;
-        });
+        // 1. Iterate over ALL categories to accumulate topics and errors
+        categories.forEach(cat => {
+            // Pre-initialize with ALL tasks from this category to guarantee 100% visibility
+            if (cat.tasks) {
+                cat.tasks.forEach(t => {
+                    const title = String(t.title || t.text || '').trim();
+                    const key = title.toLowerCase();
+                    if (title && !topicMap[key]) {
+                        topicMap[key] = { name: title, errors: 0 };
+                    }
+                });
+            }
 
-        recentHistory.forEach(h => {
-            (h.topics || []).forEach(t => {
-                if (!topicMap[t.name]) topicMap[t.name] = { errors: 0 };
-                const correct = parseInt(t.correct, 10) || 0;
-                const total = parseInt(t.total, 10) || 0;
-                topicMap[t.name].errors += Math.max(0, total - correct);
+            const recentHistory = (cat.simuladoStats?.history || []).filter(h => {
+                const date = new Date(h.date);
+                return date >= rollingLimit;
+            });
+
+            // Accumulate errors from history
+            recentHistory.forEach(h => {
+                (h.topics || []).forEach(t => {
+                    const historyTopicName = String(t.name || '').trim();
+                    const key = historyTopicName.toLowerCase();
+
+                    if (!topicMap[key]) {
+                        topicMap[key] = { name: historyTopicName, errors: 0 };
+                    }
+
+                    const correct = parseInt(t.correct, 10) || 0;
+                    const total = parseInt(t.total, 10) || 0;
+                    topicMap[key].errors += Math.max(0, total - correct);
+                });
             });
         });
 
-        // Garantir que TODOS os assuntos cadastrados na matéria apareçam, mesmo com 0 erros
-        if (focusCategory.tasks) {
-            focusCategory.tasks.forEach(t => {
-                const topicName = String(t.title || t.text || '').trim();
-                if (topicName && !topicMap[topicName]) {
-                    topicMap[topicName] = { errors: 0 };
-                }
-            });
-        }
-
-        return Object.entries(topicMap)
-            .map(([name, data]) => ({ name, value: data.errors }))
+        return Object.values(topicMap)
+            .map(data => ({ name: data.name, value: data.errors }))
             .sort((a, b) => b.value - a.value)
-            .map((item, index) => {
-                const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#fbbf24"];
+            .map((item, index, arr) => {
+                const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
+                const colorIdx = Math.min(colors.length - 1, Math.floor((index / Math.max(1, arr.length - 1)) * (colors.length - 1)));
                 return {
                     ...item,
-                    fill: colors[index % colors.length]
+                    fill: colors[colorIdx]
                 };
             });
-    }, [focusCategory]);
+    }, [categories]);
 
     const pointLeakageData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -175,6 +187,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
 
+        // Map over ALL categories from the prop to ensure collective visibility
         const categoryErrors = categories.map(cat => {
             const recentHistory = (cat.simuladoStats?.history || []).filter(h => {
                 const date = new Date(h.date);
@@ -197,11 +210,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             };
         }).sort((a, b) => b.value - a.value);
 
-        return categoryErrors.map((item, index) => {
-            const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#fbbf24"];
+        return categoryErrors.map((item, index, arr) => {
+            const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
+            const colorIdx = Math.min(colors.length - 1, Math.floor((index / Math.max(1, arr.length - 1)) * (colors.length - 1)));
             return {
                 ...item,
-                color: colors[index % colors.length],
+                color: colors[colorIdx],
                 percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0
             };
         });
@@ -423,17 +437,17 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
                         <div className="w-full h-full flex flex-col">
-                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Todas as matérias rankeadas por erros na semana">🩸 Matérias Críticas (Semana)</h3>
-                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Disciplinas com maior quantidade de erros absolutos nos últimos 7 dias.</p>
+                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Todas as matérias rankeadas por erros na semana">🩸 Matérias Críticas ({pointLeakageData.length})</h3>
+                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Disciplinas com maior quantidade de erros absolutos nos últimos 7 dias. (Mostrando todas as {categories.length} cadastradas)</p>
                             <div className="flex-1 w-full min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden custom-scrollbar pr-2">
                                 {pointLeakageData && pointLeakageData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={Math.max(300, pointLeakageData.length * 40)}>
+                                    <ResponsiveContainer width="100%" height={Math.max(300, pointLeakageData.length * 45)}>
                                         <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
                                             <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={100} />
                                             <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Matéria Crítica']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} minPointSize={5} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
                                                 {pointLeakageData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
@@ -451,17 +465,17 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
                         <div className="w-full h-full flex flex-col">
-                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Assuntos com mais erros absolutos nesta semana">📏 Assuntos Críticos (Semana) 🎯</h3>
-                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Os tópicos da matéria focada que você mais errou nesta semana.</p>
+                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Assuntos com mais erros absolutos nesta semana">📏 Assuntos Críticos ({subtopicsData.length}) 🎯</h3>
+                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Tópicos de TODAS as matérias agrupados. (Exibindo todos os assuntos cadastrados).</p>
                             <div className="flex-1 w-full min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden custom-scrollbar pr-2">
                                 {subtopicsData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={Math.max(300, subtopicsData.length * 40)}>
+                                    <ResponsiveContainer width="100%" height={Math.max(300, subtopicsData.length * 45)}>
                                         <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
                                             <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={110} />
                                             <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Assunto']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} minPointSize={5} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
                                                 {subtopicsData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.fill} />
                                                 ))}
