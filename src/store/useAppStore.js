@@ -238,6 +238,9 @@ export const useAppStore = create(
 
             // 4. Simulados Configs
             setMonteCarloWeights: (weights) => set((state) => {
+                const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
+
                 activeData.mcWeights = weights;
 
                 // Sync with categories for backward compatibility and other displays
