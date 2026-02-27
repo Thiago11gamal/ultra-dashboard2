@@ -86,15 +86,26 @@ export const useAppStore = create(
             }),
 
             setData: (newDataCallback) => set((state) => {
+                const contestId = state.appState.activeId;
+                const currentData = state.appState.contests[contestId];
+                if (!currentData) return;
+
                 // Record snapshot for undo
-                const snapshot = { ...state.appState.contests[state.appState.activeId] };
-                state.appState.history.push({ data: snapshot, contestId: state.appState.activeId });
+                const snapshot = JSON.parse(JSON.stringify(currentData));
+                state.appState.history.push({ data: snapshot, contestId });
                 if (state.appState.history.length > 10) state.appState.history.shift();
 
                 // Allows updating only the active contest data
-                const currentData = state.appState.contests[state.appState.activeId];
-                const updatedData = typeof newDataCallback === 'function' ? newDataCallback(currentData) : newDataCallback;
-                state.appState.contests[state.appState.activeId] = updatedData;
+                if (typeof newDataCallback === 'function') {
+                    const result = newDataCallback(currentData);
+                    // If the callback returns a new object, use it. 
+                    // If it returns nothing (undefined), we assume it mutated the 'currentData' proxy (Immer).
+                    if (result !== undefined) {
+                        state.appState.contests[contestId] = result;
+                    }
+                } else {
+                    state.appState.contests[contestId] = newDataCallback;
+                }
             }),
 
             // === Data Mutations (Immer makes this super clean) ===

@@ -54,14 +54,20 @@ export default function VerifiedStats({ categories = [], user }) {
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        localStorage.setItem('monte_carlo_target', targetScore.toString());
-        // Sync with global user object for other components
-        setUserData(data => {
-            if (data.user) {
-                data.user.targetProbability = targetScore;
-            }
-        });
-    }, [targetScore, setUserData]);
+        const lastSaved = localStorage.getItem('monte_carlo_target');
+        if (lastSaved !== targetScore.toString()) {
+            localStorage.setItem('monte_carlo_target', targetScore.toString());
+        }
+
+        // Sync with global user object only if different to prevent infinite cycles
+        if (user?.targetProbability !== targetScore) {
+            setUserData(data => {
+                if (data.user) {
+                    data.user.targetProbability = targetScore;
+                }
+            });
+        }
+    }, [targetScore, setUserData, user?.targetProbability]);
 
     const stats = useMemo(() => {
         let allHistory = [];
