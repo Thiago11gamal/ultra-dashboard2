@@ -11,3 +11,5 @@ export * from './variance.js';
 export * from './random.js';
 // Explicitly re-exporting ensure to avoid tree-shaking issues
 export { computeCategoryStats } from './stats.js';
+
+export * from './monteCarlo.js';
