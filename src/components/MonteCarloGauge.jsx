@@ -76,13 +76,13 @@ export default function MonteCarloGauge({
     }, [goalDate, effectiveSimulateToday]);
 
     const getEqualWeights = useCallback(() => {
-        if (catCount === 0) return {};
+        if (categories.length === 0) return {};
         const newWeights = {};
-        activeCategories.forEach((cat) => {
-            newWeights[cat.name] = 1;
+        categories.forEach(cat => {
+            newWeights[cat.name] = 1; // Default to Peso 1
         });
         return newWeights;
-    }, [catCount, activeCategories]);
+    }, [categories]);
 
     useEffect(() => {
         if (catCount > 0 && (!weights || Object.keys(weights).length === 0)) {
@@ -103,24 +103,14 @@ export default function MonteCarloGauge({
         if (equalWeightsMode) return getEqualWeights();
         if (!weights) return getEqualWeights();
 
-        const activeCatNames = new Set(activeCategories.map(c => c.name));
-        const filteredWeights = {};
-        let hasValidWeights = false;
-
-        for (const catName of activeCatNames) {
-            if (weights[catName] !== undefined && sanitizeWeightUnit(weights[catName]) > 0) {
-                filteredWeights[catName] = sanitizeWeightUnit(weights[catName]);
-                hasValidWeights = true;
-            }
-        }
-        if (hasValidWeights) {
-            for (const catName of activeCatNames) {
-                if (filteredWeights[catName] === undefined) filteredWeights[catName] = 0;
-            }
-            return filteredWeights;
-        }
-        return getEqualWeights();
-    }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
+        const weightsMap = {};
+        categories.forEach(cat => {
+            // Default to 1 (Peso 1) if weight is missing or 0
+            const w = sanitizeWeightUnit(weights[cat.name]);
+            weightsMap[cat.name] = w > 0 ? w : 1;
+        });
+        return weightsMap;
+    }, [equalWeightsMode, weights, categories, getEqualWeights]);
 
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
     const [debouncedWeights, setDebouncedWeights] = useState(effectiveWeights);
