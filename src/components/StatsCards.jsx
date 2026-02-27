@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Activity, TrendingUp, BarChart2, Trophy, Calendar } from 'lucide-react';
+import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 
@@ -153,9 +153,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center opacity-50 pl-2">
-                            <div className="text-3xl font-black text-slate-600 text-center">--</div>
-                            <div className="text-[9px] font-bold text-slate-500 mt-1 text-center uppercase tracking-widest leading-tight">Defina<br />sua meta</div>
+                        <div className="flex flex-col items-center justify-center pl-2">
+                            <div className="text-red-500 animate-bounce mb-1">
+                                <AlertCircle size={24} />
+                            </div>
+                            <div className="text-[9px] font-black text-red-400 text-center uppercase tracking-widest leading-tight">
+                                DEFINIR<br />META
+                            </div>
                         </div>
                     )}
                 </div>
@@ -185,8 +189,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     </div>
 
                     <div className="relative group/input flex justify-center w-full pointer-events-none z-10">
-                        <div className="w-[120px] bg-slate-900/50 border border-white/10 rounded-lg py-1.5 text-slate-200 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center">
-                            {user.goalDate ? new Date(user.goalDate).toLocaleDateString('pt-BR') : 'DD/MM/AAAA'}
+                        <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center ${!user.goalDate ? 'border-red-500/50 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'border-white/10 text-slate-200'}`}>
+                            {user.goalDate ? new Date(user.goalDate).toLocaleDateString('pt-BR') : 'ESCOLHER'}
                         </div>
                     </div>
 
