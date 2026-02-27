@@ -519,7 +519,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="w-full h-full flex flex-col">
                             <h3 className="text-base font-bold text-slate-200 mb-1" title="Todas as matérias rankeadas por erros na semana">🩸 Matérias Críticas ({pointLeakageData.length})</h3>
                             <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Disciplinas com maior quantidade de erros absolutos nos últimos 7 dias. (Mostrando todas as {categories.length} cadastradas)</p>
-                            <div className="flex-1 w-full min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden custom-scrollbar pr-2">
+                            <div className="flex-1 w-full min-h-[300px] pr-2">
                                 {pointLeakageData && pointLeakageData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height={Math.max(300, pointLeakageData.length * 45)}>
                                         <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
@@ -547,7 +547,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="w-full h-full flex flex-col">
                             <h3 className="text-base font-bold text-slate-200 mb-1" title="Assuntos com mais erros absolutos nesta semana">📏 Assuntos Críticos ({subtopicsData.length}) 🎯</h3>
                             <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Tópicos de TODAS as matérias agrupados. (Exibindo todos os assuntos cadastrados).</p>
-                            <div className="flex-1 w-full min-h-[300px] max-h-[500px] overflow-y-auto overflow-x-hidden custom-scrollbar pr-2">
+                            <div className="flex-1 w-full min-h-[300px] pr-2">
                                 {subtopicsData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height={Math.max(300, subtopicsData.length * 45)}>
                                         <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
