@@ -4,7 +4,9 @@ import { CHART_COLORS } from '../../utils/chartConfig';
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [] }) => {
     if (!active || !payload?.length) return null;
 
-    const currentData = chartData.find(d => d.displayDate === label);
+    const payloadData = payload?.[0]?.payload;
+    const fallbackData = [...chartData].reverse().find(d => d.displayDate === label) || chartData.find(d => d.displayDate === label);
+    const currentData = payloadData || fallbackData;
 
     return (
         <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-md">

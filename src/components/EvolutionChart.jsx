@@ -135,7 +135,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             return Number.isNaN(ms) ? Number.NaN : ms;
         };
 
-        const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
+        const reversedData = [...chartData].reverse();
+        const lastRealPoint = reversedData.find(d => Number.isFinite(getDateMs(d)) && d["Futuro Provável"] == null);
+        const lastValid = lastRealPoint || reversedData.find(d => Number.isFinite(getDateMs(d)));
         if (!lastValid) return chartData;
 
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
