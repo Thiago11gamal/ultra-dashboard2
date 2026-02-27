@@ -207,23 +207,34 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 {/* Clickable area for accordion toggle */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center gap-4 flex-1 cursor-pointer"
+                    className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
                 >
-                    <span className="text-2xl">{category.icon || '📚'}</span>
-                    <div className="text-left">
-                        <div className="flex items-center">
-                            <h3 className="font-bold text-lg w-80 truncate" style={{ color: category.color }}>
+                    <span className="text-2xl flex-shrink-0">{category.icon || '📚'}</span>
+                    <div className="text-left w-64 md:w-80 flex-shrink-0 mr-4">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-lg truncate" style={{ color: category.color }}>
                                 {category.name || 'Sem Nome'}
                             </h3>
                             {category.totalMinutes > 0 && (
-                                <span className="text-yellow-400 text-sm font-bold whitespace-nowrap">
-                                    {Math.floor(category.totalMinutes / 60)}h {category.totalMinutes % 60}min
+                                <span className="text-yellow-400/80 text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1.5 rounded-sm">
+                                    {Math.floor(category.totalMinutes / 60)}h{category.totalMinutes % 60}m
                                 </span>
                             )}
                         </div>
-                        <p className="text-sm text-slate-400">
+                        <p className="text-xs text-slate-500 font-medium">
                             {completedCount} de {allTasks.length} concluídas
                         </p>
+                    </div>
+
+                    {/* Aligned Trend Column */}
+                    <div className="hidden sm:flex flex-col items-center justify-center w-20 flex-shrink-0 border-l border-white/5 pl-4">
+                        {(() => {
+                            const trend = category.simuladoStats?.trend;
+                            if (trend === 'up') return <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]" />;
+                            if (trend === 'down') return <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)]" />;
+                            return <Minus size={18} className="text-slate-600" />;
+                        })()}
+                        <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500 mt-1">Tendência</span>
                     </div>
                 </div>
 
