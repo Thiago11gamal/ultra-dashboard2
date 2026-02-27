@@ -267,54 +267,65 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 </div>
             </div>
 
-            {/* Priority Alert */}
+            {/* Priority Alert Box */}
             {needsReview.length > 0 && (
-                <div className="relative rounded-xl overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-900/40 via-orange-900/30 to-yellow-900/20"></div>
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-red-500/10 via-transparent to-transparent"></div>
-                    <div className="relative p-5 border border-red-500/30 rounded-xl">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 bg-red-500/20 rounded-lg">
-                                <Zap size={20} className="text-red-400" />
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-950/60 via-slate-900/40 to-orange-950/40"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(239,68,68,0.15),transparent_50%)] transition-opacity duration-700 group-hover:opacity-60"></div>
+                    <div className="relative p-7 border border-red-500/20 rounded-2xl">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 shadow-inner">
+                                    <Zap size={24} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-red-400 uppercase tracking-[0.1em]">
+                                        Revisão Necessária
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                                        {needsReview.length} {needsReview.length > 1 ? 'tópicos' : 'tópico'} com retenção abaixo de 60%
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-red-300 uppercase tracking-wider">
-                                    ⚠️ Revisão Necessária
-                                </h3>
-                                <p className="text-xs text-slate-400">
-                                    {needsReview.length} assunto{needsReview.length > 1 ? 's' : ''} com retenção abaixo de 60%
-                                </p>
+
+                            <div className="flex flex-wrap gap-2 md:justify-end max-w-xl">
+                                {needsReview.slice(0, 5).map((task) => (
+                                    <div key={task.id || task.title} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}>
+                                        <span className="opacity-70">{task.categoryIcon}</span>
+                                        <span className="uppercase tracking-tight truncate max-w-[120px]">{task.title || task.text || 'Sem nome'}</span>
+                                        <span className="ml-1 bg-white/5 px-1.5 py-0.5 rounded-md">{task.retention.val}%</span>
+                                    </div>
+                                ))}
+                                {needsReview.length > 5 && (
+                                    <div className="px-3 py-1.5 rounded-xl text-[10px] font-black text-slate-500 bg-slate-950/60 border border-white/5 uppercase tracking-widest">
+                                        +{needsReview.length - 5} mais
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {needsReview.slice(0, 6).map((task) => (
-                                <span key={task.id || task.title} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${task.retention.border} ${task.retention.color} bg-black/30`}>
-                                    {task.categoryIcon} {task.title || task.text || 'Sem nome'} ({task.retention.val}%)
-                                </span>
-                            ))}
-                            {needsReview.length > 6 && (
-                                <span className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-slate-800/50 border border-slate-700">
-                                    +{needsReview.length - 6} mais
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
             )}
 
             {/* Categories List with Expandable Topics */}
-            <div className="glass p-5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                    <Calendar size={14} />
-                    Matérias e Assuntos ({stats.totalCategories} matérias, {stats.totalTasks} assuntos)
-                </h3>
+            <div className="bg-slate-950/40 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                <div className="p-7 border-b border-white/5 bg-slate-900/30">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
+                        <div className="p-1.5 rounded-lg bg-slate-800 text-slate-400">
+                            <Calendar size={14} />
+                        </div>
+                        Matérias & Tópicos de Estudo
+                        <span className="ml-auto text-[10px] lowercase font-medium opacity-60">
+                            ({stats.totalCategories} matérias, {stats.totalTasks} assuntos)
+                        </span>
+                    </h3>
+                </div>
 
-                <div className="space-y-3">
+                <div className="divide-y divide-white/[0.03]">
                     {retentionData.length === 0 ? (
-                        <div className="text-center py-8 text-slate-500">
-                            <BrainCircuit size={40} className="mx-auto mb-3 opacity-30" />
-                            <p>Nenhuma matéria encontrada</p>
-                            <p className="text-xs mt-1">Adicione matérias no Dashboard para começar</p>
+                        <div className="flex flex-col items-center justify-center p-20 opacity-20">
+                            <BrainCircuit size={48} className="text-slate-500 mb-4" />
+                            <span className="text-sm font-black uppercase tracking-widest">Nenhuma matéria encontrada</span>
                         </div>
                     ) : (
                         retentionData.map((cat) => {
@@ -322,119 +333,120 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             const hasTasks = cat.tasksWithRetention.length > 0;
 
                             return (
-                                <div key={cat.id} className="rounded-xl overflow-hidden border border-white/10">
+                                <div key={cat.id} className="transition-all duration-500">
                                     {/* Category Header */}
                                     <div
-                                        className={`group p-4 cursor-pointer transition-all duration-300 hover:bg-white/5
+                                        className={`group p-6 cursor-pointer transition-all duration-500 hover:bg-white/[0.02]
                                             ${cat.retention.val < 40
-                                                ? 'bg-gradient-to-r from-red-900/20 to-transparent'
+                                                ? 'bg-gradient-to-r from-red-500/[0.03] to-transparent'
                                                 : cat.retention.val < 60
-                                                    ? 'bg-gradient-to-r from-yellow-900/10 to-transparent'
-                                                    : 'bg-white/5'
+                                                    ? 'bg-gradient-to-r from-yellow-500/[0.02] to-transparent'
+                                                    : ''
                                             }`}
                                         onClick={() => hasTasks && toggleExpand(cat.id)}
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-6">
                                             {/* Icon */}
                                             <div
-                                                className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
-                                                style={{ backgroundColor: `${cat.color}20`, borderColor: `${cat.color}40`, borderWidth: 1 }}
+                                                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 transition-transform duration-500 group-hover:scale-110 shadow-lg border border-white/5"
+                                                style={{ backgroundColor: `${cat.color}15`, borderColor: `${cat.color}30` }}
                                             >
                                                 {cat.icon}
                                             </div>
 
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-bold text-white truncate">{cat.name}</h4>
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cat.retention.bg}/20 ${cat.retention.color}`}>
-                                                        {cat.retention.label}
+                                                <div className="flex items-center gap-3 mb-1.5">
+                                                    <h4 className="text-base font-black text-white uppercase tracking-tight truncate">{cat.name}</h4>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${cat.retention.bg}/10 ${cat.retention.color} border ${cat.retention.border}`}>
+                                                        {cat.retention.label === 'Urgente!' ? 'Crítico' : cat.retention.label}
                                                     </span>
                                                     {cat.criticalTasks > 0 && (
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">
-                                                            {cat.criticalTasks} crítico{cat.criticalTasks > 1 ? 's' : ''}
+                                                        <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-red-500/10 text-red-500 border border-red-500/20 shadow-sm uppercase tracking-tighter">
+                                                            {cat.criticalTasks} {cat.criticalTasks > 1 ? 'críticos' : 'crítico'}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <BookOpen size={10} />
+                                                <div className="flex items-center gap-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-80">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <BookOpen size={12} className="text-slate-600" />
                                                         {cat.tasksWithRetention.length} assuntos
                                                     </span>
-                                                    <span>•</span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock size={10} />
-                                                        {cat.timeAgo}
+                                                    <span className="text-slate-800">•</span>
+                                                    <span className="flex items-center gap-1.5 focus:text-slate-300 transition-colors">
+                                                        <Clock size={12} className="text-slate-600" />
+                                                        {cat.timeAgo === 'Nunca' ? 'Inédito' : cat.timeAgo}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            {/* Retention Ring */}
-                                            <RetentionRing
-                                                value={cat.retention.val}
-                                                color={cat.retention.color}
-                                            />
-
-                                            {/* Expand Arrow */}
-                                            {hasTasks && (
-                                                <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                    <ChevronDown size={20} className="text-slate-500" />
+                                            {/* Retention Ring Container */}
+                                            <div className="flex items-center gap-6">
+                                                <div className="hidden sm:block">
+                                                    <RetentionRing
+                                                        value={cat.retention.val}
+                                                        color={cat.retention.color}
+                                                    />
                                                 </div>
-                                            )}
+
+                                                {/* Expand Arrow */}
+                                                {hasTasks && (
+                                                    <div className={`p-2 rounded-xl bg-slate-900 border border-white/5 transition-all duration-500 ${isExpanded ? 'rotate-180 bg-slate-800 border-white/10' : ''}`}>
+                                                        <ChevronDown size={18} className="text-slate-500" />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        {/* Progress Bar */}
-                                        <div className="mt-3 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                        {/* Progress Bar Mini */}
+                                        <div className="mt-5 h-1.5 bg-slate-950/50 rounded-full overflow-hidden border border-white/5">
                                             <div
-                                                className={`h-full rounded-full transition-all duration-500 ${cat.retention.bg}`}
+                                                className={`h-full rounded-full transition-all duration-1000 ${cat.retention.bg} shadow-[0_0_8px_rgba(0,0,0,0.3)]`}
                                                 style={{ width: `${cat.retention.val}%` }}
                                             ></div>
                                         </div>
                                     </div>
 
-                                    {/* Expanded Topics */}
+                                    {/* Expanded Topics Container */}
                                     {isExpanded && hasTasks && (
-                                        <div className="bg-slate-900/50 border-t border-white/5">
-                                            <div className="p-3 space-y-2">
+                                        <div className="bg-black/20 border-t border-white/5 animate-fade-in-down">
+                                            <div className="p-4 space-y-2">
                                                 {cat.tasksWithRetention.map((task, index) => (
                                                     <div
                                                         key={task.id || `${task.title}-${index}`}
-                                                        className={`flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-white/5 cursor-pointer
-                                                            ${task.retention.val < 40 ? 'bg-red-900/10' : task.retention.val < 60 ? 'bg-yellow-900/5' : 'bg-white/5'}`}
+                                                        className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/[0.03] group/item border border-transparent hover:border-white/5
+                                                            ${task.retention.val < 40 ? 'bg-red-500/[0.03]' : task.retention.val < 60 ? 'bg-yellow-500/[0.02]' : ''}`}
                                                         onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
                                                     >
-                                                        {/* Task Icon */}
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${task.retention.bg}/20 ${task.retention.color}`}>
-                                                            📖
+                                                        {/* Task Icon Circle */}
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shrink-0 transition-transform group-hover/item:scale-110 shadow-lg ${task.retention.bg}/10 ${task.retention.color} border ${task.retention.border}`}>
+                                                            <BookOpen size={16} />
                                                         </div>
 
                                                         {/* Task Info */}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium text-white truncate">{task.title || task.text || 'Sem nome'}</p>
-                                                            {task.timeAgo !== 'Nunca' && (
-                                                                <p className="text-[10px] text-slate-500">{task.timeAgo}</p>
-                                                            )}
+                                                            <p className="text-sm font-black text-slate-200 uppercase tracking-tight truncate">{task.title || task.text || 'Sem nome'}</p>
+                                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                                                                {task.timeAgo === 'Nunca' ? 'Aguardando estudo' : `Última revisão: ${task.timeAgo}`}
+                                                            </p>
                                                         </div>
 
-                                                        {/* Status Badge */}
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${task.retention.bg}/20 ${task.retention.color}`}>
-                                                            {task.retention.label}
-                                                        </span>
+                                                        {/* Percentage & Bar */}
+                                                        <div className="flex items-center gap-6">
+                                                            <div className="hidden md:block">
+                                                                <RetentionBar value={task.retention.val} color={task.retention.color} bg={task.retention.bg} />
+                                                            </div>
+                                                            <span className={`text-sm font-black font-mono ${task.retention.color} w-10 text-right`}>
+                                                                {task.retention.val}%
+                                                            </span>
+                                                        </div>
 
-                                                        {/* Retention Bar */}
-                                                        <RetentionBar value={task.retention.val} color={task.retention.color} bg={task.retention.bg} />
-
-                                                        {/* Percentage */}
-                                                        <span className={`text-sm font-bold ${task.retention.color} w-12 text-right`}>
-                                                            {task.retention.val}%
-                                                        </span>
-
-                                                        {/* Play Button */}
+                                                        {/* Play Button - Action */}
                                                         <button
-                                                            className="w-8 h-8 rounded-full bg-white/5 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 flex items-center justify-center transition-all group/play ml-2"
-                                                            title="Revisar Agora"
+                                                            className="w-10 h-10 rounded-xl bg-slate-950 border border-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 flex items-center justify-center transition-all shadow-xl group/play hover:border-emerald-500/30"
+                                                            title="Iniciar Revisão"
                                                         >
-                                                            <Play size={14} className="fill-current opacity-50 group-hover/play:opacity-100" />
+                                                            <Play size={14} className="fill-current opacity-40 group-hover/play:opacity-100" />
                                                         </button>
                                                     </div>
                                                 ))}
@@ -449,8 +461,13 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             </div>
 
             {/* Footer Tip */}
-            <div className="text-center text-xs text-slate-500 py-2">
-                💡 <span className="text-slate-400">Dica:</span> Clique nas matérias para ver os assuntos. Revise itens com retenção abaixo de 60%
+            <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 text-center flex items-center justify-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20 text-yellow-500">
+                    <Zap size={14} className="animate-pulse" />
+                </div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                    Dica: <span className="text-slate-300">Clique em uma matéria para expandir os tópicos. Priorize revisões abaixo de 60%.</span>
+                </p>
             </div>
         </div>
     );
