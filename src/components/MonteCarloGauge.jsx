@@ -217,7 +217,7 @@ export default function MonteCarloGauge({
                 score: pointsByDate[date]
             }));
 
-        if (globalHistory.length < 1) return { status: 'waiting', missing: 'days', days: globalHistory.length };
+        if (globalHistory.length < 2) return { status: 'waiting', missing: 'days', days: globalHistory.length };
 
         const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
         return { status: 'ready', data: simResult };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -9,8 +9,17 @@ import { monteCarloSimulation } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
+import { getSafeScore } from "../utils/scoreHelper";
 
 // ── CONFIGURAÇÕES DA INTERFACE ─────────────────────────
+
+const getDateKey = (rawDate) => {
+    if (!rawDate) return null;
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+};
+
 const ENGINES = [
     {
         id: "raw", label: "📊 Realidade Bruta", color: "#fb923c", prefix: "raw_", style: "linear",
@@ -42,6 +51,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
 
+    useEffect(() => {
+        if (!categories.length) return;
+        if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
+            setFocusSubjectId(categories[0].id);
+        }
+    }, [categories, focusSubjectId]);
+
     const focusCategory = useMemo(() => {
         const found = categories.find(c => c.id === focusSubjectId);
         return found || categories[0] || null;
@@ -49,19 +65,25 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     const mcProjection = useMemo(() => {
         if (!focusCategory?.simuladoStats?.history) return null;
-        const hist = [...focusCategory.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        const hist = [...focusCategory.simuladoStats.history]
+            .map(h => {
+                const dateKey = getDateKey(h.date);
+                const score = getSafeScore(h);
+                if (!dateKey || !Number.isFinite(score)) return null;
+                return { date: dateKey, score };
+            })
+            .filter(Boolean)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
         if (hist.length < 5) return null;
 
-        const globalHistory = hist.map(h => ({
-            date: new Date(h.date).toISOString().split('T')[0],
-            score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0),
-            weight: 100
-        }));
-
-        const result = monteCarloSimulation(globalHistory, targetScore, 7, 2000); // 2000 simulations
+        const result = monteCarloSimulation(hist, targetScore, 7, 2000); // 2000 simulations
         if (!result) return null;
 
         const lastDate = new Date(hist[hist.length - 1].date);
+        if (Number.isNaN(lastDate.getTime())) return null;
+
         const nextDate = new Date(lastDate);
         nextDate.setDate(nextDate.getDate() + 7);
 
@@ -133,11 +155,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const last = timeline[timeline.length - 1];
         const prev = timeline.length > 1 ? timeline[timeline.length - 2] : null;
         const currentBay = last[`bay_${focusCategory.name}`] || 0;
-        const currentRaw = last[`raw_${focusCategory.name}`] || 0;
         const previousBay = prev ? (prev[`bay_${focusCategory.name}`] || 0) : currentBay;
         const delta = currentBay - previousBay;
 
-        return { currentBay, currentRaw, delta };
+        return { currentBay, delta };
     }, [focusCategory, timeline]);
 
     const radarData = useMemo(() => {
