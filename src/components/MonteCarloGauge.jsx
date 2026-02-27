@@ -210,7 +210,7 @@ export default function MonteCarloGauge({
                 score: pointsByDate[date]
             }));
 
-        if (globalHistory.length < 2) return { status: 'waiting', missing: 'days', days: globalHistory.length };
+        if (globalHistory.length < 3) return { status: 'waiting', missing: 'days', days: globalHistory.length };
 
         const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
         return { status: 'ready', data: simResult };
@@ -218,8 +218,8 @@ export default function MonteCarloGauge({
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
-            ? "Você precisa de simulados em pelo menos 2 dias diferentes para calcularmos uma tendência de evolução."
-            : "Faça pelo menos 5 simulados válidos para a IA traçar a sua curva de aprovação.";
+            ? "Você precisa lançar simulados em pelo menos 3 dias diferentes para a IA identificar o seu ritmo de evolução."
+            : "Continue fazendo simulados! Precisamos de pelo menos 5 notas registradas no total para traçar sua curva de aprovação.";
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/20">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Gauge size={80} /></div>

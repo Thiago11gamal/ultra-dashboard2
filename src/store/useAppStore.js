@@ -288,16 +288,21 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateStr) => set((state) => {
-                const targetDate = new Date(dateStr).toDateString();
+                const targetDate = new Date(dateStr).toISOString().split('T')[0];
                 const activeData = state.appState.contests[state.appState.activeId];
 
+                const matchesDate = (raw) => {
+                    try { return new Date(raw).toISOString().split('T')[0] === targetDate; }
+                    catch { return false; }
+                };
+
                 if (activeData.simuladoRows) {
-                    activeData.simuladoRows = activeData.simuladoRows.filter(r => !r.createdAt || new Date(r.createdAt).toDateString() !== targetDate);
+                    activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
                 }
 
                 activeData.categories.forEach(c => {
                     if (c.simuladoStats?.history) {
-                        c.simuladoStats.history = c.simuladoStats.history.filter(h => new Date(h.date).toDateString() !== targetDate);
+                        c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
                     }
                 });
             }),
@@ -343,7 +348,10 @@ export const useAppStore = create(
                 delete state.appState.contests[contestId];
 
                 const remainingIds = Object.keys(state.appState.contests);
-                if (remainingIds.length === 0) {
+                // Count distinct days
+                const distinctDays = new Set(allHistory.map(h => new Date(h.date).toDateString())).size;
+
+                if (distinctDays >= 3) {
                     state.appState.contests['default'] = JSON.parse(JSON.stringify(INITIAL_DATA));
                     state.appState.activeId = 'default';
                 } else if (contestId === state.appState.activeId) {
