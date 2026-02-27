@@ -152,7 +152,7 @@ function calculateVolatility(history) {
         const time0 = new Date(h0.date).getTime();
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
-        const daysBetween = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        const daysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);

@@ -16,7 +16,11 @@ const getDateKey = (rawDate) => {
     if (!rawDate) return null;
     const date = new Date(rawDate);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toISOString().split('T')[0];
+    // Use local date to avoid timezone off-by-one errors (late night simulados)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const sanitizeWeightUnit = (value) => {
@@ -145,51 +149,57 @@ export default function MonteCarloGauge({
 
     const simulationData = useMemo(() => {
         let allHistoryPoints = [];
+        const categoryBaselines = {};
+
+        // 1. Collect data and calculate average per category to use as stable baseline
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
                 if (weight > 0) {
+                    const scores = [];
                     cat.simuladoStats.history.forEach(h => {
-                        const currentScore = getSafeScore(h);
-                        const dateKey = getDateKey(h.date);
-                        if (dateKey && Number.isFinite(currentScore)) {
-                            allHistoryPoints.push({
-                                date: dateKey,
-                                score: currentScore,
-                                category: cat.name,
-                                weight
-                            });
+                        const s = getSafeScore(h);
+                        const dk = getDateKey(h.date);
+                        if (dk && Number.isFinite(s)) {
+                            allHistoryPoints.push({ date: dk, score: s, category: cat.name, weight });
+                            scores.push(s);
                         }
                     });
+                    // Use the first known score as the baseline (entry level)
+                    // This prevents "Phantom Trend" when a subject is added later in time
+                    if (scores.length > 0) {
+                        categoryBaselines[cat.name] = { score: scores[0], weight };
+                    }
                 }
             }
         });
 
         if (allHistoryPoints.length < 5) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
 
-        // Sort chronologically
+        // 2. Sort all points chronologically
         allHistoryPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // Track cumulative knowledge state per category
-        const categoryState = {};
-        const pointsByDate = {}; // End-of-day cumulative global score
+        const pointsByDate = {};
+        // categoryState starts with baselines for EVERY participating category
+        const categoryState = { ...categoryBaselines };
 
         allHistoryPoints.forEach(p => {
-            // Update the latest known score for this specific subject
-            categoryState[p.category] = { score: p.score, weight: p.weight };
+            // Update the state for the specific subject that was measured
+            categoryState[p.category].score = p.score;
 
-            // Calculate the global weighted average of ALL subjects studied so far
-            let totalScore = 0;
+            // Calculate the total weighted average for this date
+            // because categoryState includes baselines for ALL subjects, 
+            // the totalWeight remains constant across the entire timeline
+            let totalWeightedScore = 0;
             let totalWeight = 0;
 
             Object.values(categoryState).forEach(state => {
-                totalScore += state.score * state.weight;
+                totalWeightedScore += state.score * state.weight;
                 totalWeight += state.weight;
             });
 
             if (totalWeight > 0) {
-                // Overwrites within the same day are fine, keeps the End-of-Day state
-                pointsByDate[p.date] = totalScore / totalWeight;
+                pointsByDate[p.date] = totalWeightedScore / totalWeight;
             }
         });
 
