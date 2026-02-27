@@ -45,15 +45,17 @@ export function useChartData(categories = []) {
                 if (historyToDate.length === 0) return;
 
                 const last = historyToDate[historyToDate.length - 1];
+                const exactlyOnDate = history.filter(h => new Date(h.date).toISOString().split('T')[0] === date);
+
                 const historyWithScore = historyToDate.map(h => ({
                     ...h,
-                    score: h.total > 0 ? (h.correct / h.total) * 100 : 0
+                    score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0)
                 }));
                 const stats = computeCategoryStats(historyWithScore, 100);
 
-                dataByDate[date][`raw_correct_${cat.name}`] = last.correct;
-                dataByDate[date][`raw_total_${cat.name}`] = last.total;
-                dataByDate[date][`raw_${cat.name}`] = last.total > 0 ? (last.correct / last.total) * 100 : 0;
+                dataByDate[date][`raw_correct_${cat.name}`] = exactlyOnDate.length > 0 ? exactlyOnDate.reduce((acc, h) => acc + (h.correct || 0), 0) : 0;
+                dataByDate[date][`raw_total_${cat.name}`] = exactlyOnDate.length > 0 ? exactlyOnDate.reduce((acc, h) => acc + (h.total || 0), 0) : 0;
+                dataByDate[date][`raw_${cat.name}`] = last.score != null ? last.score : (last.total > 0 ? (last.correct / last.total) * 100 : 0);
                 dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
             });

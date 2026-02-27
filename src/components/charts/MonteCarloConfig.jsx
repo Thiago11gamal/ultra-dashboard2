@@ -72,7 +72,7 @@ export const MonteCarloConfig = ({
                     </div>
                 ) : (
                     catsToShow.map(cat => {
-                        const weight = parseInt(weights[cat.name]) || 0;
+                        const weight = weights ? (parseInt(weights[cat.name]) || 0) : 0;
                         return (
                             <div key={cat.id} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color}20`, border: `1px solid ${cat.color}30` }}>{cat.icon || '📚'}</div>

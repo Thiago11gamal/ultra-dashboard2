@@ -52,7 +52,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
         const globalHistory = hist.map(h => ({
             date: new Date(h.date).toISOString().split('T')[0],
-            score: h.total > 0 ? (h.correct / h.total) * 100 : 0,
+            score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0),
             weight: 100
         }));
 
@@ -85,8 +85,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
 
-            pts[lastIdx]["Cenário Ruim"] = currentLevel;
-            pts[lastIdx]["Cenário Ótimo"] = currentLevel;
+            pts[lastIdx] = {
+                ...pts[lastIdx],
+                "Cenário Ruim": currentLevel,
+                "Cenário Ótimo": currentLevel
+            };
 
             const [, month, day] = mcProjection.date.split("-");
             pts.push({

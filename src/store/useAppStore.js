@@ -56,7 +56,8 @@ export const useAppStore = create(
             appState: {
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
-                history: []
+                history: [],
+                mcEqualWeights: true
             },
 
             // Actions
