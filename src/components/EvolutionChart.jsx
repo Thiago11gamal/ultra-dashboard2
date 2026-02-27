@@ -147,6 +147,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
     }, [chartData, timeWindow]);
 
+    const hasFilteredData = filteredChartData.length > 0;
+
     const focusSnapshot = useMemo(() => {
         if (!focusCategory || !timeline.length) return null;
         const last = timeline[timeline.length - 1];
@@ -429,7 +431,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
+                ) : !hasFilteredData ? (
+                    <div className="h-[220px] w-full flex flex-col items-center justify-center border border-dashed border-slate-700 rounded-xl bg-slate-950/40 text-center px-4">
+                        <p className="text-sm text-slate-300 font-semibold mb-1">Sem pontos no período selecionado</p>
+                        <p className="text-xs text-slate-500 mb-3">Ajuste a janela temporal para exibir mais histórico.</p>
+                        <button onClick={() => setTimeWindow('all')} className="px-3 py-1.5 rounded-md border border-indigo-500/50 text-indigo-300 bg-indigo-500/10 text-xs">Mostrar período completo</button>
+                    </div>
                 ) : (
+                    <>
+                    <div className="mb-3 flex items-center gap-2 text-[11px] text-slate-400">
+                        <span className="px-2 py-1 rounded-md bg-slate-950/60 border border-slate-800">Pontos exibidos: <strong className="text-slate-200">{filteredChartData.length}</strong></span>
+                        <span className="px-2 py-1 rounded-md bg-slate-950/60 border border-slate-800">Janela: <strong className="text-slate-200">{timeWindow === 'all' ? 'Completa' : `${timeWindow} dias`}</strong></span>
+                    </div>
                     <div className="h-[450px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
@@ -465,6 +478,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             )}
                         </ResponsiveContainer>
                     </div>
+                    </>
                 )}
             </div>
 

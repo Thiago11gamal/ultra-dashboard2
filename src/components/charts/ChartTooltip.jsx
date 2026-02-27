@@ -1,5 +1,4 @@
 import React from 'react';
-import { CHART_COLORS } from '../../utils/chartConfig';
 
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [] }) => {
     if (!active || !payload?.length) return null;
@@ -7,6 +6,11 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const payloadData = payload?.[0]?.payload;
     const fallbackData = [...chartData].reverse().find(d => d.displayDate === label) || chartData.find(d => d.displayDate === label);
     const currentData = payloadData || fallbackData;
+
+    const formatPct = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+    };
 
     return (
         <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-md">
@@ -27,7 +31,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {p.name}
                                 </span>
                                 <span style={{ color: p.color }} className="font-bold">
-                                    {Number(p.value).toFixed(1)}%
+                                    {formatPct(p.value)}
                                 </span>
                             </div>
                         );
@@ -52,19 +56,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal ? rawVal.toFixed(1) : 0}%
+                                        {formatPct(rawVal)}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Histórica</span>
                                     <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal ? statsVal.toFixed(1) : 0}%
+                                        {formatPct(statsVal)}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal ? bayVal.toFixed(1) : 0}%
+                                        {formatPct(bayVal)}
                                     </span>
                                 </div>
                             </div>
