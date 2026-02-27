@@ -125,11 +125,14 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Data da Prova */}
-            <div className="bg-[#151720] border border-white/5 rounded-2xl p-6 hover:border-red-500/30 transition-colors group shadow-lg flex items-center justify-between relative overflow-hidden h-full">
+            <div className={`bg-[#151720] border rounded-2xl p-6 transition-all duration-500 flex items-center justify-between relative overflow-hidden h-full group shadow-2xl ${!user.goalDate
+                ? 'animate-glow-red'
+                : 'border-white/5 hover:border-red-500/30'
+                }`}>
                 {/* Background glows */}
-                <div className="absolute -top-10 -right-10 w-24 h-24 bg-red-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
-                {daysRemaining !== null && daysRemaining <= 15 && daysRemaining >= 0 && (
-                    <div className="absolute inset-0 bg-red-500/[0.02] pointer-events-none" />
+                <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full blur-[40px] transition-transform duration-700 pointer-events-none ${!user.goalDate ? 'bg-red-500/30 scale-150' : 'bg-red-500/10 group-hover:scale-150'}`} />
+                {(!user.goalDate || (daysRemaining !== null && daysRemaining <= 15 && daysRemaining >= 0)) && (
+                    <div className="absolute inset-0 bg-red-500/[0.04] pointer-events-none" />
                 )}
 
                 {/* Left Side: Days Remaining */}
@@ -155,10 +158,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     ) : (
                         <div className="flex flex-col items-center justify-center pl-2">
                             <div className="text-red-500 animate-bounce mb-1">
-                                <AlertCircle size={24} />
+                                <AlertCircle size={32} strokeWidth={3} />
                             </div>
-                            <div className="text-[9px] font-black text-red-400 text-center uppercase tracking-widest leading-tight">
-                                DEFINIR<br />META
+                            <div className="text-[10px] font-black text-red-100 bg-red-600 px-2 py-0.5 rounded-sm text-center uppercase tracking-tighter leading-tight shadow-lg shadow-red-500/50">
+                                URGENTE
                             </div>
                         </div>
                     )}
@@ -182,10 +185,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 >
                     {/* Visual elements */}
                     <div className="flex flex-col items-center gap-1.5 mb-2 pl-3 pointer-events-none z-10">
-                        <div className="p-1.5 bg-red-500/10 rounded-xl group-hover/rightside:bg-red-500/20 transition-all duration-300">
-                            <Calendar size={16} className="text-red-400 group-hover/rightside:scale-110 transition-transform" />
+                        <div className={`p-1.5 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
+                            <Calendar size={16} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
                         </div>
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center group-hover/rightside:text-slate-400 transition-colors">Data</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest text-center transition-colors ${!user.goalDate ? 'text-red-400 animate-pulse' : 'text-slate-500 group-hover/rightside:text-slate-400'}`}>Data</span>
                     </div>
 
                     <div className="relative group/input flex justify-center w-full pointer-events-none z-10">
