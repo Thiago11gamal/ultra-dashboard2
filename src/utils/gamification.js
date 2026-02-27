@@ -66,7 +66,9 @@ export const calculateProgress = (xp) => {
 
 export const getTaskXP = (task, completed) => {
     const baseXP = XP_CONFIG.task[task.priority] || XP_CONFIG.task.medium;
-    return completed ? baseXP : -XP_CONFIG.penalty;
+    // Fix Infinite XP Exploit: previously unchecking gave a small penalty instead of deducting the full points
+    // This allowed users to check/uncheck for infinite XP. It must deduct the same amount that was given.
+    return completed ? baseXP : -baseXP;
 };
 
 // Calculate Title based on Level

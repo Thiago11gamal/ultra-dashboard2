@@ -113,10 +113,13 @@ export default function Header({
 
     // Local state for debounce
     const [localName, setLocalName] = useState(user.name);
+    const [isFocused, setIsFocused] = useState(false);
 
     useEffect(() => {
-        setLocalName(user.name);
-    }, [user.name]);
+        if (!isFocused) {
+            setLocalName(user.name);
+        }
+    }, [user.name, isFocused]);
 
     // BUG FIX (3): Guard against onUpdateName being undefined or localName being empty
     useEffect(() => {
@@ -137,6 +140,8 @@ export default function Header({
                         type="text"
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
                         placeholder="Digite o nome do concurso..."
                         className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                     />
