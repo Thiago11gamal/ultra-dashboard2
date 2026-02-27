@@ -158,7 +158,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
         setLoading(true);
         setError(null);
-        setAnalysisData(null);
+        // We no longer clear analysisData immediately to prevent "flickering"
+        // It will be overwritten once the 800ms delay finishes.
 
         // Simulate processing time for UX
         setTimeout(() => {
@@ -266,7 +267,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     return (
-        <div className="w-full mx-auto space-y-6 animate-fade-in-down pb-20">
+        <div className="w-full mx-auto space-y-6 animate-fade-in pb-20">
 
             {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <header className="flex items-center gap-4">
