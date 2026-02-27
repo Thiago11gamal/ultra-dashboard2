@@ -235,14 +235,6 @@ export default function MonteCarloGauge({
                     <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
                     <p className="text-[9px] text-slate-600 leading-tight px-4">{waitingSubtext}</p>
                 </div>
-                <div className="mt-2 w-full pt-2 border-t border-white/5 flex justify-center gap-4 opacity-50 hover:opacity-100 transition-opacity">
-                    <button onClick={() => setShowConfig(true)} className="flex flex-col items-center gap-1 group/btn" title="Configurar Pesos">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800/50 border border-white/5 flex items-center justify-center group-hover/btn:bg-slate-700/50 group-hover/btn:border-white/10 transition-all">
-                            <Settings2 size={16} className="text-slate-600 group-hover/btn:text-slate-400" />
-                        </div>
-                    </button>
-                </div>
-                <MonteCarloConfig show={showConfig} onClose={setShowConfig} targetScore={targetScore} setTargetScore={onTargetChange} equalWeightsMode={equalWeightsMode} setEqualWeightsMode={setEqualWeightsMode} getEqualWeights={getEqualWeights} setWeights={setWeights} weights={weights} updateWeight={updateWeight} activeCategories={activeCategories} categories={categories} onWeightsChange={onWeightsChange} />
             </div>
         );
     }
