@@ -348,10 +348,7 @@ export const useAppStore = create(
                 delete state.appState.contests[contestId];
 
                 const remainingIds = Object.keys(state.appState.contests);
-                // Count distinct days
-                const distinctDays = new Set(allHistory.map(h => new Date(h.date).toDateString())).size;
-
-                if (distinctDays >= 3) {
+                if (remainingIds.length === 0) {
                     state.appState.contests['default'] = JSON.parse(JSON.stringify(INITIAL_DATA));
                     state.appState.activeId = 'default';
                 } else if (contestId === state.appState.activeId) {

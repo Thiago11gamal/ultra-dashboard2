@@ -121,7 +121,10 @@ export default function VerifiedStats({ categories = [], user }) {
         const userTarget = targetScore;
         let calculatedTarget = userTarget;
 
-        if (allHistory.length >= 3) {
+        // Count distinct days for robust prediction (prevents jumping the gun with 1 day/multiple subjects)
+        const distinctDays = new Set(allHistory.map(h => new Date(h.date).toLocaleDateString('en-CA'))).size;
+
+        if (distinctDays >= 3) {
             // Get recent average (last 5 for better stability)
             const recentHistory = allHistory.slice(-5);
             const currentAvg = recentHistory.reduce((a, b) => a + b.score, 0) / recentHistory.length;
@@ -240,7 +243,7 @@ export default function VerifiedStats({ categories = [], user }) {
             // Legacy logic removed. Antigravity Engine handles all scenarios.
 
         } else {
-            predictionSubtext = `Faltam ${3 - allHistory.length} simulados para prever.`;
+            predictionSubtext = `Faltam ${3 - distinctDays} dias de simulados para prever.`;
         }
 
         // 3. Confidence Interval (Sample Size)
