@@ -405,19 +405,25 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             {/* Cards por disciplina */}
                             {analysisData.disciplines.map((disc, idx) => {
                                 const discPct = disc.percentage || 0;
+                                const category = categories.find(c => c.name === disc.name);
+                                const subjectColor = category?.color || '#3b82f6';
+
                                 const discCfg =
-                                    discPct >= 80 ? { from: 'from-green-500/20', border: 'border-green-500/30', text: 'text-green-400', bar: 'bg-green-500' } :
-                                        discPct >= 60 ? { from: 'from-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', bar: 'bg-blue-500' } :
-                                            discPct <= 40 ? { from: 'from-red-500/20', border: 'border-red-500/30', text: 'text-red-400', bar: 'bg-red-500' } :
-                                                { from: 'from-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', bar: 'bg-yellow-500' };
+                                    discPct >= 80 ? { from: 'from-green-500/20', border: 'border-green-500/30', text: 'text-green-400' } :
+                                        discPct >= 60 ? { from: 'from-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400' } :
+                                            discPct <= 40 ? { from: 'from-red-500/20', border: 'border-red-500/30', text: 'text-red-400' } :
+                                                { from: 'from-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400' };
 
                                 return (
-                                    <div key={idx} className={`bg-slate-800/50 rounded-2xl border ${discCfg.border} overflow-hidden shadow-lg mb-2`}>
+                                    <div key={idx} className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden shadow-lg mb-4">
 
                                         {/* Cabeçalho da disciplina */}
                                         <div className={`relative px-5 py-4 bg-gradient-to-r ${discCfg.from} to-transparent border-b border-slate-700/50`}>
                                             <div className="flex justify-between items-end mb-2 relative z-10">
                                                 <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-md tracking-tight uppercase">
+                                                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base" style={{ backgroundColor: `${subjectColor}40`, color: subjectColor, border: `1px solid ${subjectColor}60` }}>
+                                                        {disc.name[0]}
+                                                    </span>
                                                     {disc.name}
                                                 </h3>
                                                 <div className="text-right">
@@ -432,9 +438,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                     {disc.totalCorrect}/{disc.totalQuestions} acertos
                                                 </span>
                                             </div>
-                                            {/* Barra geral da matéria */}
-                                            <div className="w-full h-2 bg-slate-900/80 rounded-full overflow-hidden relative z-10 border border-black/20">
-                                                <div className={`h-full rounded-full ${discCfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.1)] transition-all duration-1000`} style={{ width: `${discPct}%` }} />
+                                            {/* Barra geral da matéria - Agora usando a cor da matéria do Dashboard */}
+                                            <div className="w-full h-2.5 bg-slate-950/80 rounded-full overflow-hidden relative z-10 border border-white/5">
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                                                    style={{
+                                                        width: `${discPct}%`,
+                                                        backgroundColor: subjectColor,
+                                                        boxShadow: `0 0 10px ${subjectColor}40`
+                                                    }}
+                                                />
                                             </div>
                                         </div>
 
