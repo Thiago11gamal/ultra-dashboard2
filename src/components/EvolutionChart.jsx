@@ -337,27 +337,40 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 </div>
 
                 {/* Controls row */}
-                <div className="flex flex-wrap gap-2 items-center mb-5">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Focar em:</span>
-                    {categories.map((cat) => (
-                        <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${focusSubjectId === cat.id ? 'scale-105 shadow-md' : 'border-transparent text-slate-500 hover:text-slate-300 opacity-50 hover:opacity-90'}`}
-                            style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}12`, borderColor: `${cat.color}50`, color: cat.color, boxShadow: `0 0 12px ${cat.color}22` } : {}}>
-                            {cat.icon} {cat.name}
-                        </button>
-                    ))}
-                    <div className="ml-auto flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
+                {/* Row 1: focus selector */}
+                <div className="mb-3">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-2 pl-0.5">Focar em</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {categories.map((cat) => (
+                            <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
+                                style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}55`, color: cat.color, boxShadow: `0 0 10px ${cat.color}20` } : {}}>
+                                <span>{cat.icon}</span>
+                                <span>{cat.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Row 2: view controls */}
+                <div className="flex items-center justify-between gap-3 mb-5">
+                    {/* Time window */}
+                    <div className="flex items-center gap-0.5 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1">
+                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button key={w.value} onClick={() => setTimeWindow(w.value)}
-                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all border ${timeWindow === w.value ? 'border-indigo-600 text-indigo-300 bg-indigo-600/15' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
                             </button>
                         ))}
-                        <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                            className={`ml-2 px-2.5 py-1 rounded-md text-xs font-bold border transition-all ${showOnlyFocus ? 'border-amber-500/60 text-amber-300 bg-amber-500/10' : 'border-slate-700 text-slate-500 hover:text-slate-300'}`}>
-                            {showOnlyFocus ? '🔍 Só foco' : '👁 Todas'}
-                        </button>
                     </div>
+
+                    {/* Visibility toggle */}
+                    <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                        <span>{showOnlyFocus ? '🔍' : '👁'}</span>
+                        <span>{showOnlyFocus ? 'Só foco' : 'Todas'}</span>
+                    </button>
                 </div>
 
                 {/* ── CHART AREA ── */}
