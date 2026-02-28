@@ -3,7 +3,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    PieChart, Pie, Cell, BarChart, Bar, LabelList
+    BarChart, Bar, LabelList, Cell
 } from "recharts";
 import { monteCarloSimulation } from "../engine";
 import { useChartData } from "../hooks/useChartData";
@@ -11,8 +11,7 @@ import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getSafeScore } from "../utils/scoreHelper";
 
-// ── CONFIGURAÇÕES DA INTERFACE ─────────────────────────
-
+// ── HELPERS ──────────────────────────────────────────────
 const getDateKey = (rawDate) => {
     if (!rawDate) return null;
     const date = new Date(rawDate);
@@ -22,27 +21,86 @@ const getDateKey = (rawDate) => {
 
 const ENGINES = [
     {
-        id: "raw", label: "📊 Realidade Bruta", color: "#fb923c", prefix: "raw_", style: "linear",
+        id: "raw", label: "Realidade Bruta", emoji: "📊", color: "#fb923c", prefix: "raw_", style: "linear",
         explain: { titulo: "A sua montanha-russa de resultados", simples: "Sem filtros. Apenas a porcentagem exata de acertos. Excelente para detectar anomalias.", dica: "Picos isolados não definem sua aprovação. O importante é a tendência geral." },
     },
     {
-        id: "raw_weekly", label: "📅 Realidade Semanal", color: "#f472b6", prefix: null, style: "linear",
-        explain: { titulo: "Sua evolução semana a semana", simples: "Agrupa todos os simulados por semana. Cada barra mostra a sua taxa de acerto bruta naquela semana.", dica: "Ideal para ver se você está melhorando ao longo das semanas, sem ruído diário." },
+        id: "raw_weekly", label: "Mapa de Calor", emoji: "📅", color: "#f472b6", prefix: null, style: "linear",
+        explain: { titulo: "Sua evolução semana a semana", simples: "Visualize cada simulado como uma célula colorida. Verde = acima da meta. Vermelho = abaixo.", dica: "Ideal para ver se você está melhorando ao longo das semanas, sem ruído diário." },
     },
     {
-        id: "bayesian", label: "🧠 Nível Bayesiano", color: "#34d399", prefix: "bay_", style: "monotone",
+        id: "bayesian", label: "Nível Bayesiano", emoji: "🧠", color: "#34d399", prefix: "bay_", style: "monotone",
         explain: { titulo: "A sua sabedoria consolidada", simples: "O algoritmo não se deixa enganar por dias ruins ou sorte. Ele calcula seu nível real.", dica: "Use esta visão para decidir se já pode avançar de matéria." },
     },
     {
-        id: "stats", label: "📐 Média Histórica", color: "#818cf8", prefix: "stats_", style: "basis",
+        id: "stats", label: "Média Histórica", emoji: "📐", color: "#818cf8", prefix: "stats_", style: "basis",
         explain: { titulo: "O peso do seu histórico", simples: "A média de todas as questões já feitas. Serve como uma âncora.", dica: "A média histórica demora a refletir melhorias recentes. Foque no nível Bayesiano." },
     },
     {
-        id: "compare", label: "⚡ Raio-X Diagnóstico", color: "#a78bfa", prefix: null, style: "monotone",
+        id: "compare", label: "Raio-X + Monte Carlo", emoji: "⚡", color: "#a78bfa", prefix: null, style: "monotone",
         explain: { titulo: "Passado, Presente e Futuro", simples: "A visão mais avançada. Sobrepõe o que fez, seu nível real e projeta o futuro com Monte Carlo.", dica: "Use o seletor 'Focar em' para mergulhar nos detalhes da matéria." },
     },
 ];
 
+// ── TOOLTIP CUSTOMIZADO ────────────────────────────────────
+const CustomTooltipStyle = {
+    backgroundColor: '#0a0f1e',
+    border: '1px solid rgba(99,102,241,0.25)',
+    borderRadius: '12px',
+    padding: '10px 14px',
+    fontSize: '12px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+};
+
+// ── CARD KPI ─────────────────────────────────────────────
+function KpiCard({ value, label, color, icon, sub }) {
+    return (
+        <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800/60 bg-slate-900/60 p-5 overflow-hidden group hover:border-slate-700 transition-all duration-300 hover:shadow-lg"
+            style={{ '--glow': color }}>
+            {/* Glow blob */}
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none"
+                style={{ backgroundColor: color }} />
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">{icon}</span>
+                {sub != null && (
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sub >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                        {sub >= 0 ? `+${sub.toFixed(1)}` : sub.toFixed(1)}
+                    </span>
+                )}
+            </div>
+            <div>
+                <p className="text-3xl font-black tracking-tight" style={{ color }}>{value}</p>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">{label}</p>
+            </div>
+        </div>
+    );
+}
+
+// ── DISCIPLINA CARD ───────────────────────────────────────
+function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
+    const pct = Math.min(100, level || 0);
+    const ok = pct >= target;
+    const mid = pct >= target * 0.75;
+    const statusColor = ok ? '#22c55e' : mid ? '#eab308' : '#ef4444';
+    return (
+        <button onClick={onClick}
+            className={`relative text-left w-full rounded-xl border p-3 transition-all duration-300 overflow-hidden group ${isFocused ? 'border-opacity-60 shadow-lg scale-[1.02]' : 'border-slate-800/70 hover:border-slate-700 hover:scale-[1.01]'}`}
+            style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
+            {/* Progress bar at bottom */}
+            <div className="absolute bottom-0 left-0 h-0.5 rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
+            <div className="flex items-center justify-between mb-1.5">
+                <span className="text-base">{cat.icon}</span>
+                <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_6px_var(--dot-glow)]"
+                    style={{ backgroundColor: statusColor, '--dot-glow': statusColor }} />
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate leading-tight">{cat.name}</p>
+            <p className="text-lg font-black mt-0.5" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
+                {pct.toFixed(1)}%
+            </p>
+        </button>
+    );
+}
 
 export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
@@ -63,86 +121,37 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return found || categories[0] || null;
     }, [categories, focusSubjectId]);
 
-    // Fix 4: Monte Carlo is now async (useEffect + useState) so it doesn't block the main thread
-    // Previously useMemo ran 2000×30-day simulations synchronously, freezing the UI for ~200ms.
+    // Fix 4: Monte Carlo assíncrono
     const [mcProjection, setMcProjection] = useState(null);
-
     useEffect(() => {
-        if (!focusCategory?.simuladoStats?.history) {
-            setMcProjection(null);
-            return;
-        }
-
+        if (!focusCategory?.simuladoStats?.history) { setMcProjection(null); return; }
         const hist = [...focusCategory.simuladoStats.history]
-            .map(h => {
-                const dateKey = getDateKey(h.date);
-                const score = getSafeScore(h);
-                if (!dateKey || !Number.isFinite(score)) return null;
-                return { date: dateKey, score };
-            })
-            .filter(Boolean)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        if (hist.length < 5) {
-            setMcProjection(null);
-            return;
-        }
-
-        // Run after current paint cycle so the UI remains responsive
+            .map(h => { const dateKey = getDateKey(h.date); const score = getSafeScore(h); if (!dateKey || !Number.isFinite(score)) return null; return { date: dateKey, score }; })
+            .filter(Boolean).sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (hist.length < 5) { setMcProjection(null); return; }
         let cancelled = false;
         const timer = setTimeout(() => {
             if (cancelled) return;
             const result = monteCarloSimulation(hist, targetScore, 30, 2000);
             if (!result || cancelled) return;
-
             const lastDate = new Date(hist[hist.length - 1].date);
             if (Number.isNaN(lastDate.getTime())) return;
-
             const nextDate = new Date(lastDate);
             nextDate.setDate(nextDate.getDate() + 30);
-
-            setMcProjection({
-                date: nextDate.toISOString().split("T")[0],
-                mc_p50: parseFloat(result.mean),
-                mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)]
-            });
+            setMcProjection({ date: nextDate.toISOString().split("T")[0], mc_p50: parseFloat(result.mean), mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)] });
         }, 0);
-
-        return () => {
-            cancelled = true;
-            clearTimeout(timer);
-        };
+        return () => { cancelled = true; clearTimeout(timer); };
     }, [focusCategory?.id, targetScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
-
-        const pts = timeline.map((d) => ({
-            ...d,
-            "Nota Bruta": d[`raw_${focusCategory.name}`],
-            "Nível Bayesiano": d[`bay_${focusCategory.name}`],
-            "Média Histórica": d[`stats_${focusCategory.name}`],
-        }));
-
+        const pts = timeline.map((d) => ({ ...d, "Nota Bruta": d[`raw_${focusCategory.name}`], "Nível Bayesiano": d[`bay_${focusCategory.name}`], "Média Histórica": d[`stats_${focusCategory.name}`] }));
         if (mcProjection && pts.length > 0) {
-            // Conectar a nuvem ao último ponto real para que o Recharts consiga desenhar a área
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
-
-            pts[lastIdx] = {
-                ...pts[lastIdx],
-                "Cenário Ruim": currentLevel,
-                "Cenário Ótimo": currentLevel
-            };
-
+            pts[lastIdx] = { ...pts[lastIdx], "Cenário Ruim": currentLevel, "Cenário Ótimo": currentLevel };
             const [, month, day] = mcProjection.date.split("-");
-            pts.push({
-                date: mcProjection.date,
-                displayDate: `${day}/${month} (Futuro)`,
-                "Futuro Provável": mcProjection.mc_p50,
-                "Cenário Ruim": mcProjection.mc_band[0],
-                "Cenário Ótimo": mcProjection.mc_band[1],
-            });
+            pts.push({ date: mcProjection.date, displayDate: `${day}/${month} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Ruim": mcProjection.mc_band[0], "Cenário Ótimo": mcProjection.mc_band[1] });
         }
         return pts;
     }, [timeline, focusCategory, mcProjection]);
@@ -153,21 +162,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         if (timeWindow === "all") return chartData;
         const days = Number.parseInt(timeWindow, 10);
         if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
-
-        const getDateMs = (item) => {
-            if (!item?.date) return Number.NaN;
-            const ms = new Date(item.date).getTime();
-            return Number.isNaN(ms) ? Number.NaN : ms;
-        };
-
+        const getDateMs = (item) => { if (!item?.date) return Number.NaN; const ms = new Date(item.date).getTime(); return Number.isNaN(ms) ? Number.NaN : ms; };
         const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
         if (!lastValid) return chartData;
-
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
-        return chartData.filter(d => {
-            const ms = getDateMs(d);
-            return Number.isFinite(ms) && ms >= limit;
-        });
+        return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
     }, [chartData, timeWindow]);
 
     const focusSnapshot = useMemo(() => {
@@ -176,314 +175,259 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const prev = timeline.length > 1 ? timeline[timeline.length - 2] : null;
         const currentBay = last[`bay_${focusCategory.name}`] || 0;
         const previousBay = prev ? (prev[`bay_${focusCategory.name}`] || 0) : currentBay;
-        const delta = currentBay - previousBay;
-
-        return { currentBay, delta };
+        return { currentBay, delta: currentBay - previousBay };
     }, [focusCategory, timeline]);
 
     const radarData = useMemo(() => {
         if (!timeline || timeline.length === 0) return [];
         const lastPoint = timeline[timeline.length - 1];
-        return categories.map(cat => ({
-            subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15),
-            nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0),
-            meta: targetScore,
-        }));
+        return categories.map(cat => ({ subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15), nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0), meta: targetScore }));
     }, [timeline, categories, targetScore]);
 
     const volumeData = useMemo(() => {
         if (!focusCategory) return [];
-        return timeline.map(d => ({
-            date: d.displayDate,
-            volume: d[`raw_total_${focusCategory.name}`] || 0,
-            rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0)
-        }));
+        return timeline.map(d => ({ date: d.displayDate, volume: d[`raw_total_${focusCategory.name}`] || 0, rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0) }));
     }, [timeline, focusCategory]);
 
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
         const topicMap = {};
-
         const now = new Date();
         const rollingLimit = new Date(now);
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
-
-        // 1. Iterate over ALL categories to accumulate topics and errors
         categories.forEach(cat => {
-            // Pre-initialize with ALL tasks from this category to guarantee 100% visibility
-            if (cat.tasks) {
-                cat.tasks.forEach(t => {
-                    const title = String(t.title || t.text || '').trim();
-                    const key = title.toLowerCase();
-                    if (title && !topicMap[key]) {
-                        topicMap[key] = { name: title, errors: 0 };
-                    }
-                });
-            }
-
-            const recentHistory = (cat.simuladoStats?.history || []).filter(h => {
-                const date = new Date(h.date);
-                return date >= rollingLimit;
-            });
-
-            // Accumulate errors from history
-            recentHistory.forEach(h => {
-                (h.topics || []).forEach(t => {
-                    const historyTopicName = String(t.name || '').trim();
-                    const key = historyTopicName.toLowerCase();
-
-                    if (!topicMap[key]) {
-                        topicMap[key] = { name: historyTopicName, errors: 0 };
-                    }
-
-                    const correct = parseInt(t.correct, 10) || 0;
-                    const total = parseInt(t.total, 10) || 0;
-                    topicMap[key].errors += Math.max(0, total - correct);
-                });
+            if (cat.tasks) { cat.tasks.forEach(t => { const title = String(t.title || t.text || '').trim(); const key = title.toLowerCase(); if (title && !topicMap[key]) topicMap[key] = { name: title, errors: 0 }; }); }
+            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
+                (h.topics || []).forEach(t => { const n = String(t.name || '').trim(); const key = n.toLowerCase(); if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 }; topicMap[key].errors += Math.max(0, (parseInt(t.total, 10) || 0) - (parseInt(t.correct, 10) || 0)); });
             });
         });
-
-        return Object.values(topicMap)
-            .map(data => ({ name: data.name, value: data.errors }))
+        const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
+        return Object.values(topicMap).map(d => ({ name: d.name, value: d.errors }))
             .sort((a, b) => b.value - a.value)
-            .map((item, index, arr) => {
-                const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-                const colorIdx = Math.min(colors.length - 1, Math.floor((index / Math.max(1, arr.length - 1)) * (colors.length - 1)));
-                return {
-                    ...item,
-                    fill: colors[colorIdx]
-                };
-            });
+            .map((item, i, arr) => ({ ...item, fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))] }));
     }, [categories]);
 
     const pointLeakageData = useMemo(() => {
         if (!categories || !categories.length) return [];
-        let totalErrors = 0;
-
         const now = new Date();
         const rollingLimit = new Date(now);
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
-
-        // Map over ALL categories from the prop to ensure collective visibility
-        const categoryErrors = categories.map(cat => {
-            const recentHistory = (cat.simuladoStats?.history || []).filter(h => {
-                const date = new Date(h.date);
-                return date >= rollingLimit;
-            });
-
+        let totalErrors = 0;
+        const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
+        const data = categories.map(cat => {
             let errors = 0;
-            recentHistory.forEach(h => {
-                const correct = parseInt(h.correct, 10) || 0;
-                const total = parseInt(h.total, 10) || 0;
-                errors += Math.max(0, total - correct);
-            });
-
+            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => { errors += Math.max(0, (parseInt(h.total, 10) || 0) - (parseInt(h.correct, 10) || 0)); });
             totalErrors += errors;
-
-            return {
-                name: cat.name,
-                value: errors,
-                color: cat.color || "#94a3b8"
-            };
+            return { name: cat.name, value: errors };
         }).sort((a, b) => b.value - a.value);
-
-        return categoryErrors.map((item, index, arr) => {
-            const colors = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-            const colorIdx = Math.min(colors.length - 1, Math.floor((index / Math.max(1, arr.length - 1)) * (colors.length - 1)));
-            return {
-                ...item,
-                color: colors[colorIdx],
-                percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0
-            };
-        });
+        return data.map((item, i, arr) => ({ ...item, color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))], percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0 }));
     }, [categories]);
 
     const getInsightText = () => {
-        if (activeEngine !== "compare") return "Selecione a aba 'Raio-X Diagnóstico' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
+        if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
-
         const lastPoint = timeline[timeline.length - 1];
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
         const recentVolume = lastPoint[`raw_total_${focusCategory.name}`];
-
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
-
-        if (recentVolume > 40 && raw < bayesian - 10) {
-            return `⚠️ Alerta de Burnout: Estudante, você fez ${recentVolume} questões esta semana, mas a sua nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo fortemente uma pausa!`;
-        }
-        if (raw > bayesian + 8) {
-            return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;
-        } else if (raw < bayesian - 8) {
-            return `⚠️ Mantenha a calma. A nota da semana foi ${raw.toFixed(1)}%, mas a estatística me garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
-        } else {
-            return `✅ Estabilidade de Mestre! O seu nível medido (${raw.toFixed(1)}%) crava com o seu domínio real (${bayesian.toFixed(1)}%). É esse o ritmo de aprovação.`;
-        }
+        if (recentVolume > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolume} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
+        if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;
+        if (raw < bayesian - 8) return `⚠️ Mantenha a calma. A nota da semana foi ${raw.toFixed(1)}%, mas a estatística garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
+        return `✅ Estabilidade de Mestre! O seu nível medido (${raw.toFixed(1)}%) crava com o seu domínio real (${bayesian.toFixed(1)}%). É esse o ritmo de aprovação.`;
     };
 
     const engine = ENGINES.find((e) => e.id === activeEngine);
 
     if (categories.length === 0) {
         return (
-            <div className="glass p-8 text-center rounded-3xl animate-fade-in-down border-l-4 border-slate-700">
+            <div className="glass p-12 text-center rounded-3xl animate-fade-in-down border border-slate-800">
+                <div className="text-6xl mb-4">📊</div>
                 <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">Gráficos de Evolução</h2>
                 <p className="text-slate-400">Realize simulados para desbloquear a sua Máquina do Tempo Estatística.</p>
             </div>
         );
     }
 
+    // Grid-template gradients for SVG defs
+    const focusColor = focusCategory?.color || "#818cf8";
+
     return (
-        <div className="space-y-8 animate-fade-in">
-            {/* Global SVG Filters for Premium Effects */}
+        <div className="space-y-6 animate-fade-in">
+            {/* Global SVG Defs */}
             <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
                 <defs>
                     <filter id="lineShadow" height="200%">
-                        <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-                        <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
-                        <feComponentTransfer>
-                            <feFuncA type="linear" slope="0.5" />
-                        </feComponentTransfer>
-                        <feMerge>
-                            <feMergeNode />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
+                        <feOffset in="blur" dx="0" dy="3" result="offsetBlur" />
+                        <feComponentTransfer><feFuncA type="linear" slope="0.55" /></feComponentTransfer>
+                        <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="4" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
                     <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="3" result="blur" />
                         <feOffset dx="0" dy="2" result="offsetBlur" />
-                        <feMerge>
-                            <feMergeNode in="offsetBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3.5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        <feMerge><feMergeNode in="offsetBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
                     </filter>
                     <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#818cf8" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#818cf8" stopOpacity={0.05} />
+                        <stop offset="0%" stopColor="#818cf8" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#818cf8" stopOpacity={0.03} />
+                    </linearGradient>
+                    <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                    </linearGradient>
+                    <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={focusColor} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={focusColor} stopOpacity={0.01} />
                     </linearGradient>
                 </defs>
             </svg>
-            {/* 1. MÉTRICAS GLOBAIS */}
-            <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-6 shadow-lg transition-all hover:bg-indigo-950/30 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)]">
-                <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4">📈 Esforço Acumulado (Total Histórico)</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex flex-col">
-                        <span className="text-4xl font-black text-slate-100">{globalMetrics.totalQuestions.toLocaleString()}</span>
-                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-slate-400">📚</span> Questões Resolvidas</span>
-                    </div>
-                    <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-                        <span className="text-4xl font-black text-green-400">{globalMetrics.totalCorrect.toLocaleString()}</span>
-                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-green-500/70">🎯</span> Acertos Conquistados</span>
-                    </div>
-                    <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-                        <span className="text-4xl font-black text-indigo-300">{globalMetrics.globalAccuracy.toFixed(1)}%</span>
-                        <span className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><span className="text-indigo-400/70">⚡</span> Precisão Global (Média Bruta)</span>
-                    </div>
+
+            {/* ── 1. KPI CARDS ───────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões Resolvidas" color="#818cf8" icon="📚" />
+                <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos Conquistados" color="#34d399" icon="🎯" />
+                <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global (Bruta)" color="#fb923c" icon="⚡"
+                    sub={focusSnapshot?.delta} />
+            </div>
+
+            {/* ── 2. DISCIPLINA CARDS ───────────────────────────── */}
+            <div>
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3 pl-1">Nível Bayesiano por Disciplina • clique para focar</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {categories.map(cat => {
+                        const level = timeline.length > 0 ? timeline[timeline.length - 1][`bay_${cat.name}`] : 0;
+                        return <DisciplinaCard key={cat.id} cat={cat} level={level} target={targetScore} isFocused={focusSubjectId === cat.id} onClick={() => setFocusSubjectId(cat.id)} />;
+                    })}
                 </div>
             </div>
 
-            {/* 2. NÍVEL ATUAL POR DISCIPLINA */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {categories.map(cat => {
-                    const currentLevel = timeline.length > 0 ? timeline[timeline.length - 1][`bay_${cat.name}`] : 0;
-                    return (
-                        <div key={cat.id} className="bg-slate-900/40 border border-slate-800/80 p-3 rounded-xl hover:border-slate-600 transition-colors">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-lg">{cat.icon}</span>
-                                <div className={`w-2 h-2 rounded-full ${currentLevel >= targetScore ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : currentLevel >= 55 ? 'bg-yellow-500 shadow-[0_0_8px_#eab308]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
-                            </div>
-                            <h3 className="text-slate-400 text-[10px] uppercase tracking-wider font-bold truncate" title={cat.name}>{cat.name}</h3>
-                            <p className="text-xl font-bold text-slate-100">{currentLevel ? currentLevel.toFixed(1) : 0}%</p>
-                        </div>
-                    );
-                })}
-            </div>
+            {/* ── 3. ENGINE TABS ────────────────────────────────── */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur p-5 shadow-xl">
+                {/* Tab bar */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                    {ENGINES.map((eng) => {
+                        const active = activeEngine === eng.id;
+                        return (
+                            <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
+                                className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
+                                style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
+                                <span className="text-base">{eng.emoji}</span>
+                                <span>{eng.label}</span>
+                                {active && <span className="w-1.5 h-1.5 rounded-full ml-1 animate-pulse" style={{ backgroundColor: eng.color }} />}
+                            </button>
+                        );
+                    })}
+                </div>
 
-            {/* 3. LENTE DO GRÁFICO (Controlos) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-lg">
-                <div className="flex flex-wrap gap-2 md:gap-4 mb-4">
-                    {ENGINES.map((eng) => (
-                        <button key={eng.id} onClick={() => setActiveEngine(eng.id)} className={`px-4 py-3 rounded-xl text-xs md:text-sm font-semibold transition-all duration-300 flex-1 min-w-[140px] ${activeEngine === eng.id ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-300'} border`}>{eng.label}</button>
+                {/* Engine description strip */}
+                <div className="rounded-xl border border-slate-800/60 bg-slate-950/50 p-4 mb-5 relative overflow-hidden">
+                    <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-3xl opacity-15 pointer-events-none transition-colors duration-500" style={{ backgroundColor: engine.color }} />
+                    <p className="font-bold text-sm mb-1 transition-colors duration-300" style={{ color: engine.color }}>
+                        {engine.emoji} {engine.explain.titulo}
+                    </p>
+                    <p className="text-slate-400 text-xs leading-relaxed">{engine.explain.simples}</p>
+                    <p className="text-slate-500 text-xs mt-1.5 italic">💡 {engine.explain.dica}</p>
+                </div>
+
+                {/* Controls row */}
+                <div className="flex flex-wrap gap-2 items-center mb-5">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Focar em:</span>
+                    {categories.map((cat) => (
+                        <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${focusSubjectId === cat.id ? 'scale-105 shadow-md' : 'border-transparent text-slate-500 hover:text-slate-300 opacity-50 hover:opacity-90'}`}
+                            style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}12`, borderColor: `${cat.color}50`, color: cat.color, boxShadow: `0 0 12px ${cat.color}22` } : {}}>
+                            {cat.icon} {cat.name}
+                        </button>
                     ))}
-                </div>
-                <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4 relative overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none transition-colors duration-500" style={{ backgroundColor: engine.color }} />
-                    <h3 className="text-sm font-bold mb-1 flex items-center gap-2 transition-colors duration-500" style={{ color: engine.color }}>{engine.explain.titulo}</h3>
-                    <p className="text-slate-300 text-sm mb-3">{engine.explain.simples}</p>
-                </div>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-lg shadow-black/40">
-                <div className="mb-5">
-                    <h2 className="text-lg font-bold flex items-center gap-2 mb-3"><span className="text-indigo-400">1.</span> Linha do Tempo (Desempenho Geral)</h2>
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/70 p-2 rounded-xl border border-slate-800 w-full overflow-x-auto custom-scrollbar">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold pl-1 mr-1 whitespace-nowrap">Focar em:</span>
-                        {categories.map((cat) => (
-                            <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border whitespace-nowrap ${focusSubjectId === cat.id ? 'shadow-sm transform scale-105' : 'border-transparent text-slate-500 hover:text-slate-300 opacity-60 hover:opacity-100'}`} style={{ backgroundColor: focusSubjectId === cat.id ? `${cat.color}15` : 'transparent', borderColor: focusSubjectId === cat.id ? `${cat.color}50` : 'transparent', color: focusSubjectId === cat.id ? cat.color : undefined }}>{cat.name}</button>
+                    <div className="ml-auto flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
+                        {[{ label: '30d', value: '30' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
+                            <button key={w.value} onClick={() => setTimeWindow(w.value)}
+                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all border ${timeWindow === w.value ? 'border-indigo-600 text-indigo-300 bg-indigo-600/15' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                                {w.label}
+                            </button>
                         ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div className="flex items-center gap-2 bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300">
-                            <span>🔎</span>
-                            <span>Visualização</span>
-                            <button onClick={() => setShowOnlyFocus(!showOnlyFocus)} className={`ml-auto px-2 py-1 rounded-md border ${showOnlyFocus ? 'border-indigo-500 text-indigo-300 bg-indigo-500/10' : 'border-slate-700 text-slate-400'}`}>{showOnlyFocus ? 'Só foco' : 'Todas'}</button>
-                        </div>
-                        <div className="flex items-center gap-1 bg-slate-950/50 border border-slate-800 rounded-lg px-2 py-2 text-xs">
-                            {[
-                                { label: '30d', value: '30' },
-                                { label: '90d', value: '90' },
-                                { label: 'Tudo', value: 'all' }
-                            ].map((w) => (
-                                <button key={w.value} onClick={() => setTimeWindow(w.value)} className={`px-2 py-1 rounded-md border ${timeWindow === w.value ? 'border-indigo-500 text-indigo-300 bg-indigo-500/10' : 'border-slate-700 text-slate-400'}`}>{w.label}</button>
-                            ))}
-                        </div>
-                        <div className="bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 flex items-center gap-2">
-                            <span>🎯</span>
-                            <span className="truncate">{focusCategory?.name}</span>
-                            {focusSnapshot && <span className={`ml-auto font-bold ${focusSnapshot.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>{focusSnapshot.currentBay.toFixed(1)}% ({focusSnapshot.delta >= 0 ? '+' : ''}{focusSnapshot.delta.toFixed(1)})</span>}
-                        </div>
+                        <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                            className={`ml-2 px-2.5 py-1 rounded-md text-xs font-bold border transition-all ${showOnlyFocus ? 'border-amber-500/60 text-amber-300 bg-amber-500/10' : 'border-slate-700 text-slate-500 hover:text-slate-300'}`}>
+                            {showOnlyFocus ? '🔍 Só foco' : '👁 Todas'}
+                        </button>
                     </div>
                 </div>
 
+                {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : (
-                    <div className="h-[450px] w-full">
+                    <div className="h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <LineChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
-                                    <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
-                                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
+                                    <defs>
+                                        {categories.map(cat => (
+                                            <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
+                                                <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
+                                            </linearGradient>
+                                        ))}
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
+                                    <XAxis dataKey="displayDate" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} dy={8} axisLine={false} tickLine={false} minTickGap={22} />
+                                    <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#475569' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
+                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
+                                    <Legend wrapperStyle={{ paddingTop: '16px', fontSize: '11px' }} />
                                     {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
-                                        return (
-                                            <Line key={cat.id} type={engine.style} dataKey={engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`} name={cat.name} stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2} strokeOpacity={isFocused ? 1 : 0.75} dot={{ r: isFocused ? 5 : 4, fill: cat.color, stroke: "#0f172a", strokeWidth: 1.5 }} activeDot={{ r: isFocused ? 8 : 7, strokeWidth: 2, stroke: "#0f172a" }} connectNulls style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }} />
-                                        );
+                                        const dataKey = engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+                                        return [
+                                            isFocused && (
+                                                <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} stroke="none"
+                                                    fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
+                                            ),
+                                            <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
+                                                stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
+                                                strokeOpacity={isFocused ? 1 : 0.5}
+                                                dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : false}
+                                                activeDot={{ r: isFocused ? 7 : 5, strokeWidth: 2, stroke: '#0a0f1e' }}
+                                                connectNulls
+                                                style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
+                                            />
+                                        ];
                                     })}
-                                </LineChart>
+                                </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#475569" tick={{ fontSize: 10 }} dy={10} axisLine={false} tickLine={false} minTickGap={20} />
-                                    <YAxis stroke="#475569" tick={{ fontSize: 11 }} dx={-5} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: `Meta (${targetScore}%)`, fill: "#22c55e", fontSize: 10, position: "insideBottomLeft" }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} content={<ChartTooltip chartData={filteredChartData} isCompare={true} />} />
-                                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" />
-                                    <Area type="monotone" dataKey="Cenário Ruim" fill="#0f172a" stroke="none" />
-                                    <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-                                    <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
-                                    <Line type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3.5} dot={{ r: 2 }} connectNulls style={{ filter: 'url(#lineShadow)' }} />
-                                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5} strokeDasharray="6 6" dot={{ r: 5, fill: "#a78bfa", stroke: "#0f172a", strokeWidth: 2 }} connectNulls strokeOpacity={0.8} style={{ filter: 'url(#lineShadow)' }} />
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
+                                    <XAxis dataKey="displayDate" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} dy={8} axisLine={false} tickLine={false} minTickGap={22} />
+                                    <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#475569' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
+                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        content={<ChartTooltip chartData={filteredChartData} isCompare={true} />} />
+                                    <Legend wrapperStyle={{ paddingTop: '16px', fontSize: '11px' }} />
+                                    {/* MC Band */}
+                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" legendType="none" />
+                                    <Area type="monotone" dataKey="Cenário Ruim" fill="#0a0f1e" stroke="none" legendType="none" />
+                                    {/* Lines */}
+                                    <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
+                                        fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
+                                        activeDot={{ r: 6, strokeWidth: 2 }} connectNulls style={{ filter: 'url(#lineShadow)' }} />
+                                    <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
+                                        dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls strokeOpacity={0.85} />
+                                    <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
+                                        strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} />
+                                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5}
+                                        strokeDasharray="7 5"
+                                        dot={{ r: 6, fill: '#a78bfa', stroke: '#0a0f1e', strokeWidth: 2 }}
+                                        connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} />
                                 </ComposedChart>
                             )}
                         </ResponsiveContainer>
@@ -491,100 +435,114 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 )}
             </div>
 
-            {/* 5. AVALIAÇÃO DO BOT */}
-            <div className="bg-gradient-to-br from-slate-900 to-indigo-950/40 border border-indigo-500/20 rounded-2xl p-6 shadow-lg relative overflow-hidden transition-all duration-500 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] group">
-                <div className="absolute -top-4 -right-4 p-4 opacity-10 text-7xl group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">🤖</div>
-                <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-indigo-300">A Minha Leitura dos Dados</h2>
-                <p className="text-slate-300 leading-relaxed text-sm md:text-base relative z-10">{getInsightText()}</p>
+            {/* ── 4. AI INSIGHT ─────────────────────────────────── */}
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 p-5 shadow-lg group hover:shadow-[0_0_30px_rgba(99,102,241,0.12)] transition-all duration-500">
+                <div className="absolute -top-6 -right-6 text-8xl opacity-[0.06] group-hover:opacity-[0.1] group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 select-none pointer-events-none">🤖</div>
+                <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-2">Análise do sistema</p>
+                <p className="text-slate-300 leading-relaxed text-sm relative z-10">{getInsightText()}</p>
             </div>
 
-            {/* 6. GALERIA DE GRÁFICOS AVANÇADOS REUNIDOS! */}
-            <div className="mt-16 pt-8 border-t border-slate-800/80">
-                <h2 className="text-2xl font-extrabold text-slate-100 mb-2 flex items-center gap-3"><span className="text-indigo-400">🔍</span> Galeria de Análises Detalhadas</h2>
-                <p className="text-sm text-slate-400 mb-6">Todos os modelos estatísticos ativos. Os gráficos com o ícone 🎯 respondem à disciplina focada: <strong style={{ color: focusCategory?.color }}>{focusCategory?.name}</strong>.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg hover:border-slate-700 transition-colors">
-                        <h3 className="text-base font-bold text-slate-200 mb-1">🕸️ Raio-X do Equilíbrio Geral</h3>
+            {/* ── 5. GALERIA AVANÇADA ──────────────────────────── */}
+            <div className="pt-4">
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                    <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Galeria de Análises Detalhadas</h2>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Radar */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg hover:border-slate-700 transition-all group">
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Equilíbrio Geral</p>
+                        <h3 className="text-base font-bold text-slate-200 mb-4">🕸️ Raio-X das Disciplinas</h3>
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                                    <PolarGrid stroke="#334155" />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                                <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
+                                    <PolarGrid stroke="#1e293b" />
+                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                    <Radar name="Meta Desejada" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" fill="none" />
-                                    <Radar name="O Teu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.3} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
-                                    <Tooltip formatter={(value) => [`${value}%`]} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} fill="none" />
+                                    <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
+                                    <Tooltip formatter={(v) => [`${v}%`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
                                 </RadarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg hover:border-slate-700 transition-colors">
-                        <h3 className="text-base font-bold text-slate-200 mb-1">📊 Volume vs Rendimento 🎯</h3>
+
+                    {/* Volume vs Rendimento */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg hover:border-slate-700 transition-all group">
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Disciplina em foco 🎯</p>
+                        <h3 className="text-base font-bold text-slate-200 mb-4">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={volumeData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                    <XAxis dataKey="date" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={20} />
-                                    <YAxis yAxisId="left" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#475569" tick={false} axisLine={false} tickLine={false} domain={[0, dataMax => dataMax * 2]} />
-                                    <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} formatter={(value) => <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{value}</span>} />
-                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill="#475569" stroke="#64748b" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={14} activeBar={{ fill: '#64748b', stroke: '#cbd5e1', strokeWidth: 1 }} fillOpacity={0.4} legendType="square" />
-                                    <Line yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusCategory?.color} strokeWidth={3} dot={{ r: 3 }} style={{ filter: 'url(#lineShadow)' }} />
+                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
+                                    <XAxis dataKey="date" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} minTickGap={20} />
+                                    <YAxis yAxisId="left" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#334155" tick={false} axisLine={false} tickLine={false} domain={[0, dataMax => dataMax * 2.5]} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
+                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill={`${focusColor}22`} stroke={`${focusColor}55`} strokeWidth={1} radius={[4, 4, 0, 0]} barSize={12} />
+                                    <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)" dot={{ r: 3, fill: focusColor, stroke: '#0a0f1e', strokeWidth: 1.5 }} style={{ filter: 'url(#lineShadow)' }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
-                        <div className="w-full h-full flex flex-col">
-                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Todas as matérias rankeadas por erros na semana">🩸 Matérias Críticas ({pointLeakageData.length})</h3>
-                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Disciplinas com maior quantidade de erros absolutos nos últimos 7 dias. (Mostrando todas as {categories.length} cadastradas)</p>
-                            <div className="flex-1 w-full min-h-[300px] pr-2">
-                                {pointLeakageData && pointLeakageData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={Math.max(300, pointLeakageData.length * 45)}>
-                                        <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                                            <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                            <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={100} />
-                                            <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Matéria Crítica']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} minPointSize={5} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
-                                                {pointLeakageData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                                <LabelList dataKey="value" position="right" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} offset={10} />
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                        Nenhum erro registrado ou nenhum simulado feito <span className="text-indigo-400 font-bold mt-1">nesta semana</span>! 🎉
-                                    </div>
-                                )}
-                            </div>
+
+                    {/* Matérias Críticas */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg hover:border-slate-700 transition-all">
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
+                        <h3 className="text-base font-bold text-slate-200 mb-1">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
+                        <p className="text-[10px] text-slate-500 mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
+                        <div className="min-h-[260px]">
+                            {pointLeakageData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={Math.max(260, pointLeakageData.length * 44)}>
+                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 30, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
+                                        <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={95} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                            {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                    <span className="text-4xl mb-3">🎉</span>
+                                    Nenhum erro registrado esta semana!
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col items-center hover:border-slate-700 transition-colors">
-                        <div className="w-full h-full flex flex-col">
-                            <h3 className="text-base font-bold text-slate-200 mb-1" title="Assuntos com mais erros absolutos nesta semana">📏 Assuntos Críticos ({subtopicsData.length}) 🎯</h3>
-                            <p className="text-[10px] text-slate-500 mb-4 h-[28px]">Tópicos de TODAS as matérias agrupados. (Exibindo todos os assuntos cadastrados).</p>
-                            <div className="flex-1 w-full min-h-[300px] pr-2">
-                                {subtopicsData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={Math.max(300, subtopicsData.length * 45)}>
-                                        <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 45, left: 35, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                                            <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                            <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={false} tickLine={false} width={110} />
-                                            <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} formatter={(value) => [`${value} erros`, 'Assunto']} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} minPointSize={5} activeBar={{ stroke: '#f8fafc', strokeWidth: 2, filter: 'brightness(1.1)' }} style={{ filter: 'url(#barShadow)' }}>
-                                                {subtopicsData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                                <LabelList dataKey="value" position="right" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} offset={10} />
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                ) : (<div className="h-full flex items-center justify-center text-slate-500 text-sm italic text-center px-4">Nenhum erro registrado ou nenhum simulado feito nesta semana! 🎉</div>)}
-                            </div>
+
+                    {/* Assuntos Críticos */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg hover:border-slate-700 transition-all">
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana · todos os assuntos</p>
+                        <h3 className="text-base font-bold text-slate-200 mb-1">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
+                        <p className="text-[10px] text-slate-500 mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
+                        <div className="min-h-[260px]">
+                            {subtopicsData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={Math.max(260, subtopicsData.length * 44)}>
+                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 30, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
+                                        <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={110} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                            {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                    <span className="text-4xl mb-3">🎉</span>
+                                    Nenhum erro registrado esta semana!
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
