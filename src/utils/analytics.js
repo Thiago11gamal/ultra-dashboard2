@@ -1,24 +1,30 @@
+// Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
+const toISODay = (date) => {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return null;
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+};
 
 export const calculateStudyStreak = (studyLogs) => {
     if (!studyLogs || studyLogs.length === 0) {
         return { current: 0, longest: 0, isActive: false };
     }
 
-    // Agrupar por dia único
+    // Agrupar por dia único usando YYYY-MM-DD local
     const daySet = new Set(
-        studyLogs.map(log => new Date(log.date).toDateString())
+        studyLogs.map(log => toISODay(log.date)).filter(Boolean)
     );
     const uniqueDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)
     );
 
-    const todayObj = new Date();
-    const today = todayObj.toDateString();
+    const today = toISODay(new Date());
     const yesterdayObj = new Date();
-    yesterdayObj.setDate(todayObj.getDate() - 1);
-    const yesterday = yesterdayObj.toDateString();
+    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+    const yesterday = toISODay(yesterdayObj);
 
-    // LET'S USE A ROBUST LOGIC instead of copying potential bug.
     // 1. Determine start date (Today or Yesterday)
     let streak = 0;
     const hasToday = uniqueDays.includes(today);
@@ -27,13 +33,12 @@ export const calculateStudyStreak = (studyLogs) => {
     if (!hasToday && !hasYesterday) return { current: 0, longest: calculateLongest(uniqueDays), isActive: false };
 
     // Calculate current streak
-    // We need to find consecutive days going back from Today (or Yesterday if Today missing)
     let dateCursor = new Date();
     if (!hasToday) dateCursor.setDate(dateCursor.getDate() - 1); // Start from yesterday
 
     // Now count backwards
-    for (let i = 0; i < uniqueDays.length; i++) {
-        const dString = dateCursor.toDateString();
+    for (let i = 0; i < 365; i++) { // Max safety cap
+        const dString = toISODay(dateCursor);
         if (uniqueDays.includes(dString)) {
             streak++;
             dateCursor.setDate(dateCursor.getDate() - 1);
@@ -297,7 +302,7 @@ export const detectProcrastination = (categories, studyLogs) => {
         });
 
         const uniqueDays = new Set(last7Days.map(log =>
-            new Date(log.date).toDateString()
+            toISODay(log.date)
         )).size;
 
         if (uniqueDays < 3) {

@@ -90,21 +90,35 @@ export default function VerifiedStats({ categories = [], user }) {
             }
         });
 
-        // Sort by date (Robust against string dates)
-        allHistory = allHistory.filter(h => !isNaN(h.date));
-        allHistory.sort((a, b) => a.date - b.date);
+        // 0. Aggregate by Day (Fix Bug 1: Mixed subjects as independent points biased the OLS)
+        const dailyMap = {};
+        allHistory.forEach(h => {
+            const dateStr = new Date(h.date).toISOString().split('T')[0];
+            if (!dailyMap[dateStr]) {
+                dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
+            }
+            // Weight by volume to favor "representative" days
+            const weight = Math.max(1, h.totalQuestions || 1);
+            dailyMap[dateStr].scoreSum += (h.score * weight);
+            dailyMap[dateStr].weightSum += weight;
+        });
+
+        const dailyHistory = Object.values(dailyMap)
+            .map(d => ({ date: d.date, score: d.scoreSum / d.weightSum }))
+            .sort((a, b) => a.date - b.date);
 
         // 1. Progress State Analysis (using ProgressStateEngine)
-        const allScores = allHistory.map(h => h.score);
-        const globalAnalysis = analyzeProgressState(allScores, {
-            window_size: Math.min(5, allScores.length),
+        // Run on global daily average for consistent trend
+        const dailyScores = dailyHistory.map(h => h.score);
+        const globalAnalysis = analyzeProgressState(dailyScores, {
+            window_size: Math.min(5, dailyScores.length),
             stagnation_threshold: 0.5,
             low_level_limit: 60,
             high_level_limit: targetScore
         });
 
         // Map to UI-compatible format
-        const hasEnoughData = allScores.length >= 3;
+        const hasEnoughData = dailyScores.length >= 3;
         const trend = !hasEnoughData ? 'insufficient' :
             (globalAnalysis.trend_slope > 0.01 ? 'up' :
                 globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable');
@@ -121,12 +135,11 @@ export default function VerifiedStats({ categories = [], user }) {
         const userTarget = targetScore;
         let calculatedTarget = userTarget;
 
-        // Count distinct days for robust prediction (prevents jumping the gun with 1 day/multiple subjects)
-        const distinctDays = new Set(allHistory.map(h => new Date(h.date).toLocaleDateString('en-CA'))).size;
+        const distinctDays = dailyHistory.length;
 
         if (distinctDays >= 3) {
             // Get recent average (last 5 for better stability)
-            const recentHistory = allHistory.slice(-5);
+            const recentHistory = dailyHistory.slice(-5);
             const currentAvg = recentHistory.reduce((a, b) => a + b.score, 0) / recentHistory.length;
 
             // Determine Target dynamically IF user is already above their target
@@ -134,10 +147,10 @@ export default function VerifiedStats({ categories = [], user }) {
                 calculatedTarget = 100;
             }
 
-            // Simple Linear Regression
-            const startTime = new Date(allHistory[0].date).getTime();
-            const dataPoints = allHistory.map(h => ({
-                x: (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24), // Days
+            // Simple Linear Regression on dailyHistory
+            const startTime = dailyHistory[0].date;
+            const dataPoints = dailyHistory.map(h => ({
+                x: (h.date - startTime) / (1000 * 60 * 60 * 24), // Days
                 y: h.score
             }));
 
@@ -153,19 +166,14 @@ export default function VerifiedStats({ categories = [], user }) {
             if (denom !== 0) {
                 slope = (n * sumXY - sumX * sumY) / denom;
                 // Limit slope to realistic values (-2.0% to +2.0% per day)
-                // This prevents unrealistic "runaway" predictions, but must be high enough to catch real improvement.
                 slope = Math.max(-2.0, Math.min(2.0, slope));
             } else {
-                // All points on same day or insufficient variance
                 slope = 0;
             }
 
             // ANTIGRAVITY PREDICTION ENGINE 🚀
-            // 1. Inputs
             const currentScore = currentAvg;
             const target = calculatedTarget;
-
-            // 2. Distance Calculation
             const distance = target - currentScore;
 
             if (distance <= 0 || currentScore >= target) {
@@ -173,65 +181,50 @@ export default function VerifiedStats({ categories = [], user }) {
                 predictionSubtext = "Rumo aos 100%!";
                 predictionStatus = "excellence";
             } else {
-                // 3. Base Speed Calculation (Weekly Moving Average)
                 const weeklyBaseSpeed = slope * 7;
 
                 if (weeklyBaseSpeed <= 0.01) {
-                    // Speed too low or negative
                     prediction = "Estagnado/Queda";
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
                     predictionStatus = "warning";
                 } else {
-
-                    // 4. Difficulty Factor (The higher you are, the harder it gets)
                     let difficultyFactor = 1.0;
                     if (currentScore >= 80) difficultyFactor = 0.6;
                     else if (currentScore >= 70) difficultyFactor = 0.8;
 
-                    // 5. Efficiency (Quality)
-                    // Approximated by Consistency (1 - Normalized SD). 
-                    // Use Average SD across categories to measure true consistency,
-                    // avoiding penalizing students with varied strengths (e.g. Math 90, Hist 40 is consistent!).
-                    let quality = 0.8; // Default good
+                    let quality = 0.8;
+                    const dailyScoresList = dailyHistory.map(h => h.score);
+                    const dailyMean = dailyScoresList.reduce((a, b) => a + b, 0) / dailyScoresList.length;
+                    const dailyVar = dailyScoresList.reduce((a, b) => a + Math.pow(b - dailyMean, 2), 0) / (dailyScoresList.length - 1 || 1);
+                    const dailySD = Math.sqrt(dailyVar);
 
-                    // Calculate Average SD of active categories (Last 5 exams per category)
-                    let totalSD = 0;
-                    let countSD = 0;
+                    quality = Math.max(0.5, 1 - (dailySD / 40));
 
-                    categories.forEach(cat => {
-                        if (cat.simuladoStats && cat.simuladoStats.history && cat.simuladoStats.history.length >= 2) {
-                            const scores = cat.simuladoStats.history.slice(-5).map(h => getSafeScore(h));
-                            const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-                            const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
-                            totalSD += Math.sqrt(variance);
-                            countSD++;
-                        }
-                    });
-
-                    const avgSD = countSD > 0 ? totalSD / countSD : 20; // Default fallback if no data
-                    quality = Math.max(0.5, 1 - (avgSD / 40)); // Normalize: SD=0 -> 1.0, SD=20 -> 0.5
-
-                    // Final Adjusted Speed (Points per Week)
                     const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
-
-                    // 6. Estimated Time
                     const weeksEstimated = distance / adjustedSpeed;
                     const daysEstimated = weeksEstimated * 7;
 
-                    // 7. Interval Projection
                     if (daysEstimated > 365 * 2) {
                         prediction = "Longo Prazo";
                         predictionSubtext = `Continue firme. O caminho é longo.`;
                     } else {
                         const nowTime = new Date().getTime();
 
-                        const daysMin = daysEstimated * 0.8;
-                        const daysMax = daysEstimated * 1.2;
+                        // FIX Bug 2: Margin calculated via error propagation
+                        // σ_days = σ_scores / pointsPerDay
+                        const pointsPerDay = adjustedSpeed / 7;
+                        const sdDays = dailySD / (pointsPerDay || 0.1);
+
+                        // Limit margin to 50% of total time to avoid explosive intervals
+                        const sigmaLimit = daysEstimated * 0.5;
+                        const margin = Math.min(sdDays, sigmaLimit);
+
+                        const daysMin = Math.max(1, daysEstimated - margin);
+                        const daysMax = daysEstimated + margin;
 
                         const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
                         const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
 
-                        // Format output
                         const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
                         prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
@@ -240,398 +233,401 @@ export default function VerifiedStats({ categories = [], user }) {
                     }
                 }
             }
-            // Legacy logic removed. Antigravity Engine handles all scenarios.
-
         } else {
             predictionSubtext = `Faltam ${3 - distinctDays} dias de simulados para prever.`;
         }
+        // Legacy logic removed. Antigravity Engine handles all scenarios.
+
+    } else {
+        predictionSubtext = `Faltam ${3 - distinctDays} dias de simulados para prever.`;
+    }
 
         // 3. Confidence Interval (Sample Size)
         // Heuristic: < 50 questions = Low, 50-200 = Medium, > 200 = High
         // Fallback: If total questions is 0 (missing data), use N of exams.
         const nExams = allHistory.length;
 
-        let confidenceData = {
-            level: 'BAIXA',
-            color: 'text-red-400',
-            bgBorder: 'border-red-500',
-            icon: <AlertTriangle size={20} />,
-            message: "Amostra muito pequena."
+    let confidenceData = {
+        level: 'BAIXA',
+        color: 'text-red-400',
+        bgBorder: 'border-red-500',
+        icon: <AlertTriangle size={20} />,
+        message: "Amostra muito pequena."
+    };
+
+    if (totalQuestionsGlobal > 200 || nExams > 20) {
+        confidenceData = {
+            level: 'ALTA',
+            color: 'text-green-400',
+            bgBorder: 'border-green-500',
+            icon: <ShieldCheck size={20} />,
+            message: "Dados estatisticamente relevantes."
         };
-
-        if (totalQuestionsGlobal > 200 || nExams > 20) {
-            confidenceData = {
-                level: 'ALTA',
-                color: 'text-green-400',
-                bgBorder: 'border-green-500',
-                icon: <ShieldCheck size={20} />,
-                message: "Dados estatisticamente relevantes."
-            };
-        } else if (totalQuestionsGlobal > 50 || nExams > 5) {
-            confidenceData = {
-                level: 'MÉDIA',
-                color: 'text-yellow-400',
-                bgBorder: 'border-yellow-500',
-                icon: <HelpCircle size={20} />,
-                message: "Margem de erro diminuindo."
-            };
-        }
-
-        // 4. Progress State Analysis per Category (using ProgressStateEngine)
-        let consistency = {
-            status: 'Dados Insuficientes',
-            color: 'text-slate-400',
-            bgBorder: 'border-slate-500',
-            icon: <Minus size={20} />,
-            message: "Mínimo 2 simulados em cada matéria.",
-            delta: 0,
-            sd: 0
+    } else if (totalQuestionsGlobal > 50 || nExams > 5) {
+        confidenceData = {
+            level: 'MÉDIA',
+            color: 'text-yellow-400',
+            bgBorder: 'border-yellow-500',
+            icon: <HelpCircle size={20} />,
+            message: "Margem de erro diminuindo."
         };
+    }
 
-        const categoryBreakdown = [];
-        const categoryAnalyses = [];
+    // 4. Progress State Analysis per Category (using ProgressStateEngine)
+    let consistency = {
+        status: 'Dados Insuficientes',
+        color: 'text-slate-400',
+        bgBorder: 'border-slate-500',
+        icon: <Minus size={20} />,
+        message: "Mínimo 2 simulados em cada matéria.",
+        delta: 0,
+        sd: 0
+    };
 
-        // State to UI mapping
-        const stateMap = {
-            mastery: { status: 'DOMÍNIO', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
-            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
-            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-yellow-400', bgBorder: 'border-yellow-500/30', icon: <AlertCircle size={20} /> },
-            stagnation_positive: { status: 'EXCELENTE', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
-            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
-            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
-            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30', icon: <Activity size={20} /> },
-            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
-        };
+    const categoryBreakdown = [];
+    const categoryAnalyses = [];
 
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history?.length >= 2) {
-                // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
-                const sortedHistory = [...cat.simuladoStats.history]
-                    .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    // State to UI mapping
+    const stateMap = {
+        mastery: { status: 'DOMÍNIO', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
+        stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
+        stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-yellow-400', bgBorder: 'border-yellow-500/30', icon: <AlertCircle size={20} /> },
+        stagnation_positive: { status: 'EXCELENTE', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
+        progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
+        regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
+        unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30', icon: <Activity size={20} /> },
+        insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
+    };
 
-                const scores = sortedHistory.slice(-5).map(h => getSafeScore(h));
+    categories.forEach(cat => {
+        if (cat.simuladoStats?.history?.length >= 2) {
+            // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
+            const sortedHistory = [...cat.simuladoStats.history]
+                .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                const analysis = analyzeProgressState(scores, {
-                    window_size: Math.min(5, scores.length),
-                    stagnation_threshold: 0.5,
-                    low_level_limit: 60,
-                    high_level_limit: 75
-                });
+            const scores = sortedHistory.slice(-5).map(h => getSafeScore(h));
 
-                categoryAnalyses.push(analysis);
+            const analysis = analyzeProgressState(scores, {
+                window_size: Math.min(5, scores.length),
+                stagnation_threshold: 0.5,
+                low_level_limit: 60,
+                high_level_limit: 75
+            });
 
-                const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
-                const sd = Math.sqrt(analysis.variance);
+            categoryAnalyses.push(analysis);
 
-                // --- TOPIC VARIATION ANALYSIS ---
-                const topicMap = {}; // { "TopicName": [score1, score2, ...] }
-                cat.simuladoStats.history.forEach(h => {
-                    if (h.topics) {
-                        h.topics.forEach(t => {
-                            const total = parseInt(t.total) || 0;
-                            const correct = parseInt(t.correct) || 0;
-                            if (total > 0) {
-                                const topicScore = (correct / total) * 100;
-                                if (!topicMap[t.name]) topicMap[t.name] = [];
-                                topicMap[t.name].push(topicScore);
-                            }
-                        });
-                    }
-                });
+            const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
+            const sd = Math.sqrt(analysis.variance);
 
-                const unstableTopics = [];
-                Object.entries(topicMap).forEach(([tName, tScores]) => {
-                    if (tScores.length >= 2) {
-                        const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
-                        const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
-                        const tSD = Math.sqrt(tVar);
-                        if (tSD > 10) {
-                            unstableTopics.push({ name: tName, sd: tSD });
+            // --- TOPIC VARIATION ANALYSIS ---
+            const topicMap = {}; // { "TopicName": [score1, score2, ...] }
+            cat.simuladoStats.history.forEach(h => {
+                if (h.topics) {
+                    h.topics.forEach(t => {
+                        const total = parseInt(t.total) || 0;
+                        const correct = parseInt(t.correct) || 0;
+                        if (total > 0) {
+                            const topicScore = (correct / total) * 100;
+                            if (!topicMap[t.name]) topicMap[t.name] = [];
+                            topicMap[t.name].push(topicScore);
                         }
+                    });
+                }
+            });
+
+            const unstableTopics = [];
+            Object.entries(topicMap).forEach(([tName, tScores]) => {
+                if (tScores.length >= 2) {
+                    const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
+                    const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
+                    const tSD = Math.sqrt(tVar);
+                    if (tSD > 10) {
+                        unstableTopics.push({ name: tName, sd: tSD });
                     }
-                });
+                }
+            });
 
-                unstableTopics.sort((a, b) => b.sd - a.sd);
-                const villains = unstableTopics.slice(0, 3);
+            unstableTopics.sort((a, b) => b.sd - a.sd);
+            const villains = unstableTopics.slice(0, 3);
 
-                categoryBreakdown.push({
-                    name: cat.name,
-                    status: uiState.status,
-                    color: uiState.color,
-                    bgBorder: uiState.bgBorder,
-                    delta: analysis.delta,
-                    sd: sd.toFixed(1),
-                    rawSd: sd,
-                    message: analysis.label,
-                    state: analysis.state,
-                    villains: villains
-                });
-            }
-        });
-
-        // Sort: Worst states first (regression > stagnation_negative > unstable > others)
-        const statePriority = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5 };
-        categoryBreakdown.sort((a, b) => (statePriority[a.state] || 6) - (statePriority[b.state] || 6));
-
-        // Consolidate for Global Card
-        if (categoryAnalyses.length > 0) {
-            const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
-            const avgSD = categoryAnalyses.reduce((a, b) => a + Math.sqrt(b.variance), 0) / categoryAnalyses.length;
-
-            // Use worst category state for global status
-            const worstCategory = categoryBreakdown[0];
-            const uiState = stateMap[worstCategory.state] || stateMap.insufficient_data;
-
-            consistency = {
+            categoryBreakdown.push({
+                name: cat.name,
                 status: uiState.status,
                 color: uiState.color,
                 bgBorder: uiState.bgBorder,
-                icon: uiState.icon,
-                message: worstCategory.message,
-                delta: avgDelta.toFixed(1),
-                sd: avgSD.toFixed(1)
-            };
+                delta: analysis.delta,
+                sd: sd.toFixed(1),
+                rawSd: sd,
+                message: analysis.label,
+                state: analysis.state,
+                villains: villains
+            });
         }
+    });
 
-        return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
-    }, [categories, targetScore]);
+    // Sort: Worst states first (regression > stagnation_negative > unstable > others)
+    const statePriority = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5 };
+    categoryBreakdown.sort((a, b) => (statePriority[a.state] || 6) - (statePriority[b.state] || 6));
 
-    return (
-        <div className="flex flex-col gap-4 animate-fade-in-down">
+    // Consolidate for Global Card
+    if (categoryAnalyses.length > 0) {
+        const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
+        const avgSD = categoryAnalyses.reduce((a, b) => a + Math.sqrt(b.variance), 0) / categoryAnalyses.length;
 
-            {/* Top Row: AI Forecast and Consistency Metrics */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Card 1: Machine Learning & Base Prediction */}
-                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
-                    stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
-                        'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
-                    }`}>
+        // Use worst category state for global status
+        const worstCategory = categoryBreakdown[0];
+        const uiState = stateMap[worstCategory.state] || stateMap.insufficient_data;
 
-                    {/* AI / ML Animated Glow Background */}
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+        consistency = {
+            status: uiState.status,
+            color: uiState.color,
+            bgBorder: uiState.bgBorder,
+            icon: uiState.icon,
+            message: worstCategory.message,
+            delta: avgDelta.toFixed(1),
+            sd: avgSD.toFixed(1)
+        };
+    }
 
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
-                                <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
-                            </div>
-                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                                Previsão IA
-                                {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
-                            </span>
+    return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
+}, [categories, targetScore]);
+
+return (
+    <div className="flex flex-col gap-4 animate-fade-in-down">
+
+        {/* Top Row: AI Forecast and Consistency Metrics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Card 1: Machine Learning & Base Prediction */}
+            <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
+                stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
+                    'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
+                }`}>
+
+                {/* AI / ML Animated Glow Background */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                            <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                            Previsão IA
+                            {stats.trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Main Verdict with Dynamic Glow */}
+                <div className="text-center my-4 relative z-10">
+                    <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
+                        stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
+                            'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                        }`}>
+                        {stats.prediction}
+                    </h2>
+                </div>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
+                    <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-sm font-black text-slate-200">{stats.targetScore || 90}</span>
+                            <span className="text-[9px] text-slate-500 font-bold">%</span>
                         </div>
                     </div>
-
-                    {/* Main Verdict with Dynamic Glow */}
-                    <div className="text-center my-4 relative z-10">
-                        <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
-                            stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
-                                'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
-                            }`}>
-                            {stats.prediction}
-                        </h2>
-                    </div>
-
-                    {/* Metrics Grid */}
-                    <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
-                        <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
-                            <div className="flex items-baseline gap-0.5">
-                                <span className="text-sm font-black text-slate-200">{stats.targetScore || 90}</span>
-                                <span className="text-[9px] text-slate-500 font-bold">%</span>
-                            </div>
-                        </div>
-                        <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
-                            <div className="flex items-center gap-1.5">
-                                {stats.hasEnoughData ? (
-                                    <>
-                                        {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                                        {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                                        {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
-                                        <span className="text-xs font-black text-slate-200 uppercase">
-                                            {stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}
-                                        </span>
-                                    </>
-                                ) : (
-                                    <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
-                                )}
-                            </div>
+                    <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
+                        <div className="flex items-center gap-1.5">
+                            {stats.hasEnoughData ? (
+                                <>
+                                    {stats.trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
+                                    {stats.trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+                                    {stats.trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                                    <span className="text-xs font-black text-slate-200 uppercase">
+                                        {stats.trend === 'up' ? 'Alta' : stats.trend === 'down' ? 'Baixa' : 'Estável'}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                            )}
                         </div>
                     </div>
+                </div>
 
-                    {/* Footer Message */}
-                    <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
-                        <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
-                            {stats.predictionSubtext}
-                        </p>
-                    </div>
+                {/* Footer Message */}
+                <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
+                    <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
+                        {stats.predictionSubtext}
+                    </p>
+                </div>
 
-                    {/* Animated Loading Sparkline at the bottom */}
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
-                        <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
-                            stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
-                                'bg-blue-500'
-                            }`} style={{ animation: 'moveRight 3s linear infinite' }} />
-                    </div>
+                {/* Animated Loading Sparkline at the bottom */}
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
+                    <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
+                        stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
+                            'bg-blue-500'
+                        }`} style={{ animation: 'moveRight 3s linear infinite' }} />
+                </div>
 
-                    <style dangerouslySetInnerHTML={{
-                        __html: `
+                <style dangerouslySetInnerHTML={{
+                    __html: `
                         @keyframes moveRight {
                             0% { transform: translateX(-100%); }
                             100% { transform: translateX(300%); }
                         }
                     `}} />
-                </div>
-
-                {/* Card 2: Consistency (Standard Deviation) */}
-                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${stats.consistency.bgBorder}`}>
-
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
-                                <Activity size={18} className={stats.consistency.color} />
-                            </div>
-                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
-                        </div>
-                    </div>
-
-                    {/* Main Verdict */}
-                    <div className="text-center my-4 relative z-10">
-                        <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
-                            {stats.consistency.status}
-                        </h2>
-                    </div>
-
-                    {/* Metrics Grid */}
-                    <div className="grid grid-cols-2 gap-2 w-full mb-3">
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                            <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
-                                {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
-                            </span>
-                        </div>
-                        <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
-                            <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                                {stats.consistency.status === 'Dados Insuficientes' ? 'Pendente' :
-                                    (['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' :
-                                        (['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'))}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Footer Message */}
-                    <div className="mt-auto pt-2 border-t border-white/10">
-                        <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
-                            {stats.consistency.message}
-                        </p>
-                    </div>
-                </div>
             </div>
 
-            {/* Bottom Row: Monte Carlo Side-by-Side (50% each) */}
-            <div className="mt-8 mb-4">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                            <Activity size={20} className="text-blue-400" />
+            {/* Card 2: Consistency (Standard Deviation) */}
+            <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${stats.consistency.bgBorder}`}>
+
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg border bg-opacity-20 ${stats.consistency.color.replace('text-', 'bg-')}/20 ${stats.consistency.bgBorder}`}>
+                            <Activity size={18} className={stats.consistency.color} />
                         </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white">Simulação de Monte Carlo</h2>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Análise de Probabilidade de Aprovação</p>
-                        </div>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
                     </div>
-                    <button
-                        onClick={() => setShowConfig(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
-                    >
-                        <Settings2 size={16} />
-                        Configurar Pesos e Meta
-                    </button>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <MonteCarloGauge
-                        categories={categories}
-                        goalDate={user?.goalDate}
-                        targetScore={targetScore}
-                        forcedMode="today"
-                        forcedTitle="Status Atual"
-                    />
-                    <MonteCarloGauge
-                        categories={categories}
-                        goalDate={user?.goalDate}
-                        targetScore={targetScore}
-                        forcedMode="future"
-                        forcedTitle="Projeção Futura"
-                    />
-                </div>
-            </div>
-
-            <MonteCarloConfig
-                show={showConfig}
-                onClose={setShowConfig}
-                targetScore={targetScore}
-                setTargetScore={setTargetScore}
-                equalWeightsMode={equalWeightsMode}
-                setEqualWeightsMode={setEqualWeightsMode}
-                getEqualWeights={getEqualWeights}
-                setWeights={setWeights}
-                weights={weights}
-                updateWeight={updateWeight}
-                categories={categories}
-            />
-
-            {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
-                <div className="flex items-center gap-2 mb-4 text-slate-400">
-                    <Activity size={16} />
-                    <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
                 </div>
 
-                {stats.categoryBreakdown.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stats.categoryBreakdown.map((cat) => (
-                            <div key={cat.name} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
-                                <div className="flex justify-between items-center w-full">
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-200">{cat.name}</div>
-                                        <div className={`text-xs font-bold ${cat.color}`}>{cat.status}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-400">Desvio</div>
-                                        <div className={`text-sm font-mono ${cat.color}`}>{cat.sd}</div>
-                                    </div>
-                                </div>
+                {/* Main Verdict */}
+                <div className="text-center my-4 relative z-10">
+                    <h2 className={`text-lg md:text-xl font-black leading-tight ${stats.consistency.color} drop-shadow-md`}>
+                        {stats.consistency.status}
+                    </h2>
+                </div>
 
-                                {/* Villains List */}
-                                {cat.villains && cat.villains.length > 0 && (
-                                    <div className="w-full mt-1 pt-2 border-t border-white/5">
-                                        <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                                            <AlertTriangle size={8} /> Maiores Oscilações
-                                        </div>
-                                        <div className="space-y-1">
-                                            {cat.villains.map((v) => (
-                                                <div key={v.name} className="flex justify-between items-center text-[10px]">
-                                                    <span className="text-slate-400 truncate max-w-[150px]">{v.name}</span>
-                                                    <span className="text-red-400/80 font-mono">±{v.sd.toFixed(0)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 w-full mb-3">
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
+                        <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
+                            {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
+                        </span>
                     </div>
-                ) : (
-                    <div className="text-center text-slate-500 py-4 text-sm">
-                        É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.
+                    <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
+                        <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+                            {stats.consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+                                (['EXCELENTE', 'EM EVOLUÇÃO'].includes(stats.consistency.status) ? 'Alta Estabilidade' :
+                                    (['EM QUEDA', 'INSTÁVEL'].includes(stats.consistency.status) ? 'Alta Variação' : 'Variação Média'))}
+                        </span>
                     </div>
-                )}
+                </div>
+
+                {/* Footer Message */}
+                <div className="mt-auto pt-2 border-t border-white/10">
+                    <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                        {stats.consistency.message}
+                    </p>
+                </div>
             </div>
         </div>
-    );
+
+        {/* Bottom Row: Monte Carlo Side-by-Side (50% each) */}
+        <div className="mt-8 mb-4">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                        <Activity size={20} className="text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Simulação de Monte Carlo</h2>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">Análise de Probabilidade de Aprovação</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setShowConfig(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
+                >
+                    <Settings2 size={16} />
+                    Configurar Pesos e Meta
+                </button>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    forcedMode="today"
+                    forcedTitle="Status Atual"
+                />
+                <MonteCarloGauge
+                    categories={categories}
+                    goalDate={user?.goalDate}
+                    targetScore={targetScore}
+                    forcedMode="future"
+                    forcedTitle="Projeção Futura"
+                />
+            </div>
+        </div>
+
+        <MonteCarloConfig
+            show={showConfig}
+            onClose={setShowConfig}
+            targetScore={targetScore}
+            setTargetScore={setTargetScore}
+            equalWeightsMode={equalWeightsMode}
+            setEqualWeightsMode={setEqualWeightsMode}
+            getEqualWeights={getEqualWeights}
+            setWeights={setWeights}
+            weights={weights}
+            updateWeight={updateWeight}
+            categories={categories}
+        />
+
+        {/* Subject Consistency Breakdown - Full Width */}
+        <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
+            <div className="flex items-center gap-2 mb-4 text-slate-400">
+                <Activity size={16} />
+                <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
+            </div>
+
+            {stats.categoryBreakdown.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {stats.categoryBreakdown.map((cat) => (
+                        <div key={cat.name} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
+                            <div className="flex justify-between items-center w-full">
+                                <div>
+                                    <div className="text-sm font-bold text-slate-200">{cat.name}</div>
+                                    <div className={`text-xs font-bold ${cat.color}`}>{cat.status}</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs text-slate-400">Desvio</div>
+                                    <div className={`text-sm font-mono ${cat.color}`}>{cat.sd}</div>
+                                </div>
+                            </div>
+
+                            {/* Villains List */}
+                            {cat.villains && cat.villains.length > 0 && (
+                                <div className="w-full mt-1 pt-2 border-t border-white/5">
+                                    <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                        <AlertTriangle size={8} /> Maiores Oscilações
+                                    </div>
+                                    <div className="space-y-1">
+                                        {cat.villains.map((v) => (
+                                            <div key={v.name} className="flex justify-between items-center text-[10px]">
+                                                <span className="text-slate-400 truncate max-w-[150px]">{v.name}</span>
+                                                <span className="text-red-400/80 font-mono">±{v.sd.toFixed(0)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center text-slate-500 py-4 text-sm">
+                    É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.
+                </div>
+            )}
+        </div>
+    </div>
+);
 }

@@ -7,15 +7,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const vizSd = Math.max(3, sd || 3);
         const meanVal = mean || 0;
         const targetVal = targetScore || 70;
-        const currentVal = currentMean || 0;
-
         let xMin = Math.max(0, meanVal - 3.5 * vizSd);
         let xMax = Math.min(100, meanVal + 3.5 * vizSd);
 
         xMin = Math.min(xMin, targetVal - 5);
         xMax = Math.max(xMax, targetVal + 5);
-        xMin = Math.min(xMin, currentVal - 5);
-        xMax = Math.max(xMax, currentVal + 5);
+
+        if (currentMean > 0) {
+            xMin = Math.min(xMin, currentMean - 5);
+            xMax = Math.max(xMax, currentMean + 5);
+        }
 
         xMin = Math.max(0, xMin);
         xMax = Math.min(100, xMax);
@@ -72,8 +73,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const targetPos = (targetScore - xMin) / range * 100;
     const isTargetVisible = targetPos >= 0 && targetPos <= 100;
-    const currentPos = (currentMean - xMin) / range * 100;
-    const isCurrentVisible = currentPos >= 0 && currentPos <= 100;
+    const currentPos = ((currentMean || 0) - xMin) / range * 100;
+    const isCurrentVisible = currentMean > 0 && currentPos >= 0 && currentPos <= 100;
 
     return (
         <div

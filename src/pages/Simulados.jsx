@@ -136,12 +136,34 @@ export default function Simulados() {
                         const grandTotalC = newHistory.reduce((acc, h) => acc + Number(h.correct || 0), 0);
                         const newAverage = grandTotalQ > 0 ? (grandTotalC / grandTotalQ) * 100 : 0;
 
-                        let trend = 'stable';
-                        if (newHistory.length >= 2) {
-                            const last = newHistory[newHistory.length - 1].score;
-                            const prevS = newHistory[newHistory.length - 2].score;
-                            trend = last > prevS ? 'up' : last < prevS ? 'down' : 'stable';
-                        }
+                        // FIX Bug 4: Robust Trend Detection using OLS Regression (Last 10 points)
+                        const calculateTrend = (history) => {
+                            if (!history || history.length < 3) return 'stable';
+                            const data = history.slice(-10).map((h, i) => ({ x: i, y: h.score }));
+                            const n = data.length;
+                            const sumX = data.reduce((a, b) => a + b.x, 0);
+                            const sumY = data.reduce((a, b) => a + b.y, 0);
+                            const sumXX = data.reduce((a, b) => a + (b.x * b.x), 0);
+                            const sumXY = data.reduce((a, b) => a + (b.x * b.y), 0);
+
+                            const denom = (n * sumXX - (sumX * sumX));
+                            if (denom === 0) return 'stable';
+                            const slope = (n * sumXY - (sumX * sumY)) / denom;
+
+                            // Simplified Significance Test (T-stat > 1.5 for basic relevance in study patterns)
+                            const intercept = (sumY - slope * sumX) / n;
+                            const ssRes = data.reduce((a, b) => a + Math.pow(b.y - (slope * b.x + intercept), 2), 0);
+                            const s2 = ssRes / (n - 2 || 1);
+                            const seSlope = Math.sqrt(s2 / denom);
+                            const tStat = Math.abs(slope / (seSlope || 0.001));
+
+                            if (tStat > 1.5 && Math.abs(slope) > 0.5) {
+                                return slope > 0 ? 'up' : 'down';
+                            }
+                            return 'stable';
+                        };
+
+                        const trend = calculateTrend(newHistory);
 
                         newCategories[catIndex] = {
                             ...category,

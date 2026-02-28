@@ -181,7 +181,10 @@ export default function MonteCarloGauge({
 
         const pointsByDate = {};
         // categoryState starts with baselines for EVERY participating category
-        const categoryState = { ...categoryBaselines };
+        // FIX Bug 5: Deep copy to prevent mutating the shared baseline objects
+        const categoryState = Object.fromEntries(
+            Object.entries(categoryBaselines).map(([k, v]) => [k, { ...v }])
+        );
 
         allHistoryPoints.forEach(p => {
             // Update the state for the specific subject that was measured

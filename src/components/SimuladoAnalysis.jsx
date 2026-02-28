@@ -220,8 +220,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     let overview = "";
                     if (discPct >= 80) overview = `Excelente (${discPct}%). Continue assim!`;
                     else if (discPct >= 60) overview = `Bom (${discPct}%). Quase lá.`;
-                    else if (discPct <= 50) overview = `Baixo (${discPct}%). Foque na base.`;
-                    else overview = `Mediano (${discPct}%). Pode evoluir.`;
+                    else if (discPct >= 41) overview = `Atenção (${discPct}%). Pode evoluir.`;
+                    else overview = `Crítico (${discPct}%). Foque na base.`;
 
                     return {
                         name: d.name,
