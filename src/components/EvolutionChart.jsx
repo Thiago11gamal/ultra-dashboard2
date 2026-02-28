@@ -63,8 +63,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return found || categories[0] || null;
     }, [categories, focusSubjectId]);
 
-    const mcProjection = useMemo(() => {
-        if (!focusCategory?.simuladoStats?.history) return null;
+    // Fix 4: Monte Carlo is now async (useEffect + useState) so it doesn't block the main thread
+    // Previously useMemo ran 2000×30-day simulations synchronously, freezing the UI for ~200ms.
+    const [mcProjection, setMcProjection] = useState(null);
+
+    useEffect(() => {
+        if (!focusCategory?.simuladoStats?.history) {
+            setMcProjection(null);
+            return;
+        }
 
         const hist = [...focusCategory.simuladoStats.history]
             .map(h => {
@@ -76,23 +83,36 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             .filter(Boolean)
             .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        if (hist.length < 5) return null;
+        if (hist.length < 5) {
+            setMcProjection(null);
+            return;
+        }
 
-        const result = monteCarloSimulation(hist, targetScore, 30, 2000); // 2000 simulations
-        if (!result) return null;
+        // Run after current paint cycle so the UI remains responsive
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            if (cancelled) return;
+            const result = monteCarloSimulation(hist, targetScore, 30, 2000);
+            if (!result || cancelled) return;
 
-        const lastDate = new Date(hist[hist.length - 1].date);
-        if (Number.isNaN(lastDate.getTime())) return null;
+            const lastDate = new Date(hist[hist.length - 1].date);
+            if (Number.isNaN(lastDate.getTime())) return;
 
-        const nextDate = new Date(lastDate);
-        nextDate.setDate(nextDate.getDate() + 30);
+            const nextDate = new Date(lastDate);
+            nextDate.setDate(nextDate.getDate() + 30);
 
-        return {
-            date: nextDate.toISOString().split("T")[0],
-            mc_p50: parseFloat(result.mean),
-            mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)]
+            setMcProjection({
+                date: nextDate.toISOString().split("T")[0],
+                mc_p50: parseFloat(result.mean),
+                mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)]
+            });
+        }, 0);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
         };
-    }, [focusCategory, targetScore]);
+    }, [focusCategory?.id, targetScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;

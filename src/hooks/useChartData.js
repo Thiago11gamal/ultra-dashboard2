@@ -8,6 +8,39 @@ const getDateKey = (rawDate) => {
     return date.toISOString().split('T')[0];
 };
 
+// Fix 2: O(n) helper — compute cumulative stats snapshot at each date position
+// instead of re-filtering the full array per date (O(n²) previously)
+function buildCumulativeStatsPerDate(history, sortedDates) {
+    const dateToStats = {};
+    // history must already be sorted by date
+    let accumulated = [];
+    let histIdx = 0;
+
+    for (const date of sortedDates) {
+        // Add all history entries that fall on or before this date
+        while (histIdx < history.length) {
+            const key = getDateKey(history[histIdx].date);
+            if (key && key <= date) {
+                const h = history[histIdx];
+                accumulated.push({
+                    ...h,
+                    score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0)
+                });
+                histIdx++;
+            } else {
+                break;
+            }
+        }
+        if (accumulated.length > 0) {
+            dateToStats[date] = {
+                stats: computeCategoryStats(accumulated, 100),
+                last: accumulated[accumulated.length - 1]
+            };
+        }
+    }
+    return dateToStats;
+}
+
 /**
  * Hook for processing and memoizing chart data
  */
@@ -42,29 +75,34 @@ export function useChartData(categories = []) {
             };
         });
 
+        // Fix 2: compute cumulative stats ONCE per category — O(D + N) instead of O(D × N)
         activeCategories.forEach(cat => {
             const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
             if (!history.length) return;
 
+            // Pre-build cumulative stats snapshots for all dates in one pass
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
+
+            // For raw_correct / raw_total: group exact-date entries once
+            const exactByDate = {};
+            history.forEach(h => {
+                const key = getDateKey(h.date);
+                if (!key) return;
+                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0 };
+                exactByDate[key].correct += (h.correct || 0);
+                exactByDate[key].total += (h.total || 0);
+            });
+
             dates.forEach(date => {
-                const historyToDate = history.filter(h => {
-                    const dateKey = getDateKey(h.date);
-                    return dateKey && dateKey <= date;
-                });
-                if (historyToDate.length === 0) return;
+                const snap = cumulativeByDate[date];
+                if (!snap) return;
 
-                const last = historyToDate[historyToDate.length - 1];
-                const exactlyOnDate = history.filter(h => getDateKey(h.date) === date);
+                const { stats, last } = snap;
+                const exact = exactByDate[date];
 
-                const historyWithScore = historyToDate.map(h => ({
-                    ...h,
-                    score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0)
-                }));
-                const stats = computeCategoryStats(historyWithScore, 100);
-
-                dataByDate[date][`raw_correct_${cat.name}`] = exactlyOnDate.length > 0 ? exactlyOnDate.reduce((acc, h) => acc + (h.correct || 0), 0) : 0;
-                dataByDate[date][`raw_total_${cat.name}`] = exactlyOnDate.length > 0 ? exactlyOnDate.reduce((acc, h) => acc + (h.total || 0), 0) : 0;
-                dataByDate[date][`raw_${cat.name}`] = last.score != null ? last.score : (last.total > 0 ? (last.correct / last.total) * 100 : 0);
+                dataByDate[date][`raw_correct_${cat.name}`] = exact ? exact.correct : 0;
+                dataByDate[date][`raw_total_${cat.name}`] = exact ? exact.total : 0;
+                dataByDate[date][`raw_${cat.name}`] = last.score;
                 dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
             });
@@ -73,7 +111,7 @@ export function useChartData(categories = []) {
         return dates.map(d => dataByDate[d]);
     }, [activeCategories]);
 
-    // 3. Generate Heatmap Data
+    // 3. Generate Heatmap Data — Fix 8: cap to last 60 unique days
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
 
@@ -86,7 +124,8 @@ export function useChartData(categories = []) {
             });
         });
 
-        const sortedDates = Array.from(allDatesSet).sort();
+        // Fix 8: only render last 60 days to prevent horizontal layout overflow
+        const sortedDates = Array.from(allDatesSet).sort().slice(-60);
         const dates = sortedDates.map(dateStr => {
             const d = new Date(`${dateStr}T12:00:00`);
             const [_y, m, day] = dateStr.split('-');
@@ -145,3 +184,4 @@ export function useChartData(categories = []) {
         globalMetrics
     };
 }
+

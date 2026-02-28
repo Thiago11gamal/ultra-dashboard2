@@ -249,14 +249,28 @@ export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
     const warnings = [];
 
+    // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
+    const logsByTaskId = {};
+    const logsByCategoryId = {};
+    (studyLogs || []).forEach(log => {
+        if (log.taskId) {
+            if (!logsByTaskId[log.taskId]) logsByTaskId[log.taskId] = [];
+            logsByTaskId[log.taskId].push(log);
+        }
+        if (log.categoryId) {
+            if (!logsByCategoryId[log.categoryId]) logsByCategoryId[log.categoryId] = [];
+            logsByCategoryId[log.categoryId].push(log);
+        }
+    });
+
     // 1. Tarefas de alta prioridade sem progresso recente
     categories.forEach(cat => {
         cat.tasks.forEach(task => {
             if (task.priority === 'high' && !task.completed) {
-                const recentLogs = studyLogs.filter(log => {
-                    const logDate = new Date(log.date);
-                    const daysDiff = (now - logDate) / (1000 * 60 * 60 * 24);
-                    return log.taskId === task.id && daysDiff <= 3;
+                const taskLogs = logsByTaskId[task.id] || [];
+                const recentLogs = taskLogs.filter(log => {
+                    const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
+                    return daysDiff <= 3;
                 });
 
                 if (recentLogs.length === 0) {
@@ -274,9 +288,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     // 2. Categoria sem atividade há mais de 5 dias
     categories.forEach(cat => {
         if (cat.tasks.length > 0) {
-            const categoryLogs = studyLogs.filter(log => log.categoryId === cat.id);
+            const categoryLogs = logsByCategoryId[cat.id] || [];
             if (categoryLogs.length > 0) {
-                // Find the most recent log without mutating via sort
                 const lastLog = categoryLogs.reduce((latest, log) =>
                     new Date(log.date) > new Date(latest.date) ? log : latest
                 );
@@ -295,8 +308,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     });
 
     // 3. Padrão de estudo irregular (< 3 dias na última semana)
-    if (studyLogs.length >= 7) {
-        const last7Days = studyLogs.filter(log => {
+    if ((studyLogs || []).length >= 7) {
+        const last7Days = (studyLogs || []).filter(log => {
             const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
             return daysDiff <= 7;
         });

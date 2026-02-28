@@ -174,6 +174,7 @@ export default function Simulados() {
             });
 
             // Persist the validated rows (only the ones filled out)
+            // Fix 5: Cap to 300 to prevent Firestore 1MB document limit overflow
             const today = new Date().toDateString();
             const nonTodayRows = (prev.simuladoRows || []).filter(
                 r => !r.createdAt || new Date(r.createdAt).toDateString() !== today
@@ -188,7 +189,7 @@ export default function Simulados() {
                         createdAt: r.createdAt || now,
                         validated: true
                     }))
-            ];
+            ].slice(-300); // keep most recent 300 rows
 
             return {
                 ...prev,

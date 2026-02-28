@@ -229,7 +229,10 @@ export function monteCarloSimulation(
 
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
-        const daysBetween = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        // Fix 6: Cap to 30 days — long hiatuses produce abnormally small residuals
+        // which underestimates volatility and narrows confidence intervals incorrectly.
+        const daysBetween = Math.min(30, rawDays);
 
         const expectedChange = drift * daysBetween;
         // Resíduo diário = (Diferença Efetiva - Diferença Esperada) / sqrt(dias)

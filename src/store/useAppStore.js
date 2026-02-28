@@ -6,6 +6,25 @@ import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 import { checkAndUnlockAchievements } from '../utils/gamificationLogic';
 import { generateId } from '../utils/idGenerator';
 
+// Scalability cap: prevents localStorage overflow after months of use
+const LOG_CAP = 1000;          // max studyLogs entries kept
+const SESSION_CAP = 1000;      // max studySessions entries kept
+
+// Helper: strip large append-only arrays from undo snapshots
+// studyLogs / studySessions / simuladoRows don't support undo and bloat RAM
+const stripForUndo = (contestsObj) => {
+    const stripped = {};
+    for (const [key, contest] of Object.entries(contestsObj)) {
+        stripped[key] = {
+            ...contest,
+            studyLogs: [],
+            studySessions: [],
+            simuladoRows: [],
+        };
+    }
+    return stripped;
+};
+
 // Helper to handle gamification within the store
 // This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
 const processGamification = (state, xpGained) => {
@@ -69,7 +88,8 @@ export const useAppStore = create(
                 if (!nextState || !nextState.contests || !nextState.activeId) return;
 
                 // Only record snapshot for undo after we know the update is valid
-                const snapshot = JSON.parse(JSON.stringify(state.appState.contests));
+                // Fix 7: strip append-only arrays to keep undo stack lean
+                const snapshot = JSON.parse(JSON.stringify(stripForUndo(state.appState.contests)));
                 const activeId = state.appState.activeId;
 
                 state.appState.history.push({
@@ -90,8 +110,9 @@ export const useAppStore = create(
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
 
-                // Record snapshot for undo
-                const snapshot = JSON.parse(JSON.stringify(currentData));
+                // Record snapshot for undo — Fix 7: exclude append-only arrays
+                const { studyLogs: _sl, studySessions: _ss, simuladoRows: _sr, ...coreData } = currentData;
+                const snapshot = JSON.parse(JSON.stringify(coreData));
                 state.appState.history.push({ data: snapshot, contestId });
                 if (state.appState.history.length > 10) state.appState.history.shift();
 
@@ -207,6 +228,14 @@ export const useAppStore = create(
                 const logId = generateId('log');
                 activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
                 activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
+
+                // Fix 1: cap arrays to prevent localStorage overflow
+                if (activeData.studyLogs.length > LOG_CAP) {
+                    activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
+                }
+                if (activeData.studySessions.length > SESSION_CAP) {
+                    activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
+                }
 
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
