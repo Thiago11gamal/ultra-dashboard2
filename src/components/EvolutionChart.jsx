@@ -384,14 +384,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
                                     <Legend wrapperStyle={{ paddingTop: '16px', fontSize: '11px' }} />
-                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
+                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
                                         const dataKey = engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
                                         return [
-                                            isFocused && (
+                                            isFocused ? (
                                                 <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} stroke="none"
                                                     fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
-                                            ),
+                                            ) : null,
                                             <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
                                                 stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
                                                 strokeOpacity={isFocused ? 1 : 0.5}
@@ -401,7 +401,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
                                             />
                                         ];
-                                    })}
+                                    }).filter(Boolean)}
+
                                 </ComposedChart>
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
