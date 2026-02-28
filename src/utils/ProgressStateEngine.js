@@ -24,8 +24,9 @@ export function analyzeProgressState(scores, config = {}) {
         trend_tolerance
     } = { ...DEFAULT_CONFIG, ...config };
 
-    // Safety: Window size must be at least 2 for variance calculation
-    const safeWindowSize = Math.max(2, window_size);
+    // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
+    // (With only 2 points, variance = one single squared difference — not representative)
+    const safeWindowSize = Math.max(3, window_size);
 
     // 3. Pre-condition check
     if (!scores || scores.length < safeWindowSize) {
