@@ -226,17 +226,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                         </p>
                     </div>
 
-                    {/* Aligned Trend Column */}
-                    <div className="hidden sm:flex flex-col items-center justify-center w-24 flex-shrink-0 border-l border-white/5">
-                        <div className="p-2 rounded-lg bg-black/30 w-10 h-10 flex items-center justify-center border border-white/5 group-hover:border-white/10 transition-colors">
-                            {(() => {
-                                const trend = category.simuladoStats?.trend;
-                                if (trend === 'up') return <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]" />;
-                                if (trend === 'down') return <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)]" />;
-                                return <Minus size={18} className="text-slate-600" />;
-                            })()}
-                        </div>
-                    </div>
+                    {/* Removed Trend Column per user request */}
                 </div>
 
                 {/* Delete Category Button - Now properly outside the clickable area */}
@@ -373,7 +363,6 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                 <div className="flex-1 flex items-center gap-4">
                     <div className="w-10 flex-shrink-0"></div> {/* Match Icon (24px) + Gap (16px) */}
                     <div className="w-64 md:w-80 lg:w-96 flex-shrink-0 mr-4">Disciplina</div>
-                    <div className="w-24 flex-shrink-0 flex items-center justify-center border-l border-transparent">Tendência</div>
                 </div>
                 <div className="w-12"></div> {/* Trash Placeholder */}
                 <div className="w-32 md:w-40 flex-shrink-0 text-right pr-9">Progresso</div>

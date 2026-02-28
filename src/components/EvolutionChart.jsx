@@ -78,14 +78,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
         if (hist.length < 5) return null;
 
-        const result = monteCarloSimulation(hist, targetScore, 7, 2000); // 2000 simulations
+        const result = monteCarloSimulation(hist, targetScore, 30, 2000); // 2000 simulations
         if (!result) return null;
 
         const lastDate = new Date(hist[hist.length - 1].date);
         if (Number.isNaN(lastDate.getTime())) return null;
 
         const nextDate = new Date(lastDate);
-        nextDate.setDate(nextDate.getDate() + 7);
+        nextDate.setDate(nextDate.getDate() + 30);
 
         return {
             date: nextDate.toISOString().split("T")[0],
