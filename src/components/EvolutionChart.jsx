@@ -72,7 +72,7 @@ function KpiCard({ value, label, color, icon, sub }) {
             </div>
             <div>
                 <p className="text-3xl font-black tracking-tight" style={{ color }}>{value}</p>
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">{label}</p>
+                <p className="text-[11px] text-slate-500 mt-1 pb-1 font-medium">{label}</p>
             </div>
         </div>
     );
