@@ -8,12 +8,16 @@ export default function QuickNotes({ notes = '', onSave }) {
     const [isDirty, setIsDirty] = useState(false);
     const [prevNotes, setPrevNotes] = useState(notes);
 
-    // Only sync from prop when the PROP itself changed (not local edits)
-    if (notes !== prevNotes) {
-        setPrevNotes(notes);
-        setText(notes);
-        setIsDirty(false);
-    }
+    // Bug fix: calling setState during render (the previous pattern with prevNotes) causes
+    // React warnings and extra re-renders. Use useEffect to sync when the prop changes externally,
+    // but only when the user is not actively editing (isDirty guard prevents overwriting local edits).
+    React.useEffect(() => {
+        if (!isDirty) {
+            setText(notes);
+        }
+        // We intentionally want this to run only when the notes prop changes from the parent.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notes]);
 
     const handleChange = (e) => {
         setText(e.target.value);

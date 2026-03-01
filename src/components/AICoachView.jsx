@@ -91,10 +91,10 @@ function AICoachCard({ task, idx }) {
                                     <Sparkles size={12} />
                                     Motivo da Escolha
                                 </span>
-                                {/* BUG FIX: was rendering the string literal '"{task.analysis.reason}"'
-                                    because the JSX expression was inside a string with quotes around it. */}
+                                {/* Bug fix: was rendering the STRING LITERAL "{task.analysis.reason}" on screen
+                                    because the curly braces were inside quotes. Fixed to use a real JSX expression. */}
                                 <p className="text-sm text-slate-100 leading-relaxed font-medium">
-                                    "{task.analysis.reason}"
+                                    {task.analysis.reason}
                                 </p>
                             </div>
 
