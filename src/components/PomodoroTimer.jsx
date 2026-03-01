@@ -273,13 +273,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const workTime = safeSettings.pomodoroWork * 60;
             setTimeLeft(workTime);
             setIsRunning(false);
-            // Explicitly sync to localStorage
-            localStorage.setItem('pomodoroState', JSON.stringify({
-                ...JSON.parse(localStorage.getItem('pomodoroState') || '{}'),
-                mode: 'work',
-                timeLeft: workTime,
-                isRunning: false
-            }));
+            // Bug fix: same race condition as work→break — wrap in try/catch, add savedAt
+            try {
+                const existing = JSON.parse(localStorage.getItem('pomodoroState') || '{}');
+                localStorage.setItem('pomodoroState', JSON.stringify({
+                    ...existing,
+                    mode: 'work',
+                    timeLeft: workTime,
+                    isRunning: false,
+                    savedAt: Date.now()
+                }));
+            } catch { /* ignore storage errors */ }
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
