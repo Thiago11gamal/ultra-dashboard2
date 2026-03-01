@@ -181,3 +181,20 @@ select::-ms-expand {
 .animate-glow-red {
   animation: glow-red 1.5s ease-in-out infinite;
 }
+
+/* 
+ * EXPERIMENTAL: Força todos os painéis e botões a terem bordas quadradas
+ * (Exceto rounded-full para evitar quebrar avatares e dots de gráficos)
+ */
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.glass,
+.glass-panel,
+[class*="rounded-"]:not([class*="rounded-full"]) {
+  border-radius: 0 !important;
+}

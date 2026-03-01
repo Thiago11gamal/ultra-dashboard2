@@ -60,21 +60,21 @@ export default function TopicPerformance({ categories = [] }) {
     return (
         <div className="glass p-6 h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <div className="p-2 bg-blue-500/20 rounded-lg shrink-0">
                         <BarChart2 size={20} className="text-blue-400" />
                     </div>
-                    <h3 className="text-lg font-bold">Rendimento por Assunto</h3>
+                    <h3 className="text-lg font-bold leading-none pt-1">Rendimento por Assunto</h3>
                 </div>
 
                 {/* Filter / Selector - Premium Style */}
-                <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl" />
+                <div className="relative group w-full sm:w-auto p-1">
+                    <div className="absolute inset-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl" />
                     <select
                         value={selectedCategoryId}
                         onChange={(e) => setSelectedCategoryId(e.target.value)}
-                        className="relative appearance-none bg-slate-900/90 border-2 border-white/20 rounded-xl px-5 py-3 pr-12 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all cursor-pointer min-w-[220px] shadow-lg shadow-black/20 hover:border-white/40 hover:bg-slate-800/90"
+                        className="relative w-full appearance-none bg-slate-900/90 border-2 border-slate-700/50 rounded-xl px-5 py-2.5 pr-12 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all cursor-pointer min-w-[220px] shadow-lg shadow-black/20 hover:border-slate-500/50 hover:bg-slate-800/90 leading-relaxed"
                         style={{
                             backgroundImage: 'linear-gradient(135deg, rgba(30,30,50,0.95) 0%, rgba(20,20,40,0.95) 100%)'
                         }}
@@ -141,14 +141,14 @@ export default function TopicPerformance({ categories = [] }) {
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span className="font-medium text-slate-200 truncate max-w-[140px]" title={topic.name}>{topic.name}</span>
                                         {/* Balance Badge */}
-                                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 mt-0.5 rounded border leading-none ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                                             topic.balance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                                                 'bg-slate-500/10 border-slate-500/20 text-slate-400'
                                             }`}>
                                             Saldo: {topic.balance > 0 ? '+' : ''}{topic.balance}
                                         </span>
                                     </div>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${badgeColor}`}>
+                                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full border flex items-center gap-1 leading-none ${badgeColor}`}>
                                         {icon} {label}
                                     </span>
                                 </div>
