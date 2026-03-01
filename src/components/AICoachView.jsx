@@ -35,20 +35,18 @@ function AICoachCard({ task, idx }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.08, ease: "easeOut" } }}
-            className="group relative flex flex-col p-6 rounded-sm bg-black/40 border border-white/5 hover:border-amber-500/50 hover:bg-black/60 transition-all duration-300 backdrop-blur-xl shadow-lg"
+            className="group relative flex flex-col p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
         >
             {/* Background Layer for Overflow Safety */}
-            <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
-                {/* No specific background artifacts yet, but established as a safe zone */}
-            </div>
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-500/10 to-transparent blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
             {/* Header: Subject Badge */}
             <div className="relative z-10 flex justify-between items-start mb-5">
-                <span className="inline-flex items-center px-3 py-2 rounded-sm bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white group-hover:border-amber-500/50 transition-all shadow-sm backdrop-blur-sm leading-[1.6]">
+                <span className="inline-flex items-center px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white group-hover:border-amber-500/50 transition-all shadow-sm backdrop-blur-sm leading-[1.6]">
                     {subjectPart}
                 </span>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
-                    <div className="p-1.5 rounded-sm bg-amber-600/80 text-white shadow-lg shadow-amber-500/20 backdrop-blur-md">
+                    <div className="p-1.5 rounded-xl bg-amber-600/80 text-white shadow-lg shadow-amber-500/20 backdrop-blur-md">
                         <Zap size={14} className="fill-white" />
                     </div>
                 </div>
@@ -90,7 +88,7 @@ function AICoachCard({ task, idx }) {
                         exit={{ opacity: 0, height: 0, marginTop: 0 }}
                         className="relative overflow-hidden"
                     >
-                        <div className="p-5 rounded-sm bg-slate-950/80 border border-white/10 space-y-4 shadow-inner backdrop-blur-md">
+                        <div className="p-5 rounded-2xl bg-slate-950/80 border border-white/10 space-y-4 shadow-inner backdrop-blur-md">
                             <div>
                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 mb-2">
                                     <Sparkles size={12} />
@@ -106,7 +104,7 @@ function AICoachCard({ task, idx }) {
                             {task.analysis.metrics && (
                                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
                                     {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                        <div key={key} className="bg-black/40 p-2 rounded-sm border border-white/5">
+                                        <div key={key} className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
                                             <span className="text-[9px] text-slate-400 block uppercase tracking-wider font-bold mb-0.5">{key}</span>
                                             <span className="text-xs font-mono text-white font-bold">{value}</span>
                                         </div>
@@ -134,7 +132,7 @@ export default function AICoachView({
             <div className="flex flex-col md:flex-row items-end justify-between gap-8 pt-6 border-b border-white/5 pb-8">
                 <div className="flex-1 md:text-left mb-6 md:mb-0">
                     <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
                         Análise de Performance e Metas
                     </p>
                 </div>

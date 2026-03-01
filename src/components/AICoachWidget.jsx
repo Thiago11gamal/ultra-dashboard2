@@ -72,11 +72,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 {/* Left Side: Title & Topic */}
                                 <div className="lg:col-span-7 flex flex-col items-start">
                                     <div className="flex flex-wrap items-center gap-3 mb-4">
-                                        <span className="px-3 py-1 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.15em] border border-amber-500/20">
+                                        <span className="px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.15em] border border-amber-500/20">
                                             {urgency.humanReadable?.Status || "Prioridade Crítica"}
                                         </span>
                                         {urgency.crunchMultiplier > 1 && (
-                                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-[0.15em] animate-pulse">
+                                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-[0.15em] animate-pulse">
                                                 <AlertCircle size={12} />
                                                 Reta Final x{urgency.crunchMultiplier}
                                             </span>
