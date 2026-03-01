@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { standardDeviation } from '../engine/stats';
+import { getSafeScore } from '../utils/scoreHelper';
 
 export default function ConsistencyAlert({ categories = [], onNavigate }) {
 
