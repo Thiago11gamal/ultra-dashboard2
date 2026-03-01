@@ -322,11 +322,11 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateStr) => set((state) => {
-                const targetDate = new Date(dateStr).toISOString().split('T')[0];
+                const targetDay = new Date(dateStr).toDateString();
                 const activeData = state.appState.contests[state.appState.activeId];
 
                 const matchesDate = (raw) => {
-                    try { return new Date(raw).toISOString().split('T')[0] === targetDate; }
+                    try { return new Date(raw).toDateString() === targetDay; }
                     catch { return false; }
                 };
 
