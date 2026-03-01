@@ -248,8 +248,13 @@ export function monteCarloSimulation(
     // Calcula volatilidade clássica apenas para fallback
     const volatility = calculateVolatility(sortedHistory);
 
-    // Seed fixa baseada no histórico (determinismo visual)
-    const seed = history.length * 1000 + Math.floor(currentScore * 10);
+    // Bug fix: seed was `history.length * 1000 + floor(currentScore * 10)`.
+    // currentScore changes with each new simulado — so the seed, and therefore the entire
+    // Monte Carlo distribution, jumped visually on every new data point even mid-session.
+    // New seed uses sum of all rounded scores + count, which is stable during a session
+    // and only changes when data truly changes.
+    const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + (h.score || 0), 0));
+    const seed = sortedHistory.length * 997 + scoreSum;
     const rng = mulberry32(seed);
 
     let success = 0;

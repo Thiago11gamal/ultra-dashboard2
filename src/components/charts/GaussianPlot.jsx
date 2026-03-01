@@ -4,9 +4,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const [hover, setHover] = useState(null);
 
     const { pathData, areaPathData, range, xMin } = useMemo(() => {
-        const vizSd = Math.max(3, sd || 3);
-        const meanVal = mean || 0;
-        const targetVal = targetScore || 70;
+        const vizSd = Math.max(3, sd ?? 3);
+        const meanVal = mean ?? 0;
+        const targetVal = targetScore ?? 70;
         let xMin = Math.max(0, meanVal - 3.5 * vizSd);
         let xMax = Math.min(100, meanVal + 3.5 * vizSd);
 
@@ -35,8 +35,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const path = `M ${points.join(' L ')}`;
 
         const areaPoints = [];
-        const l95 = low95 || 0;
-        const h95 = high95 || 100;
+        // Bug fix: use ?? so that low95=0 is kept (falsy || would replace 0 with 0 here but
+        // high95=0 would wrongly fall back to 100, hiding the CI band)
+        const l95 = low95 ?? 0;
+        const h95 = high95 ?? 100;
 
         if (l95 >= xMin && l95 <= xMin + range) {
             const yL = gaussian(l95);
@@ -96,16 +98,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </style>
 
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
+                {/* Bug fix: unique IDs to avoid collision with EvolutionChart's global SVG defs */}
                 <defs>
-                    <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="curveGradientGP" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(59, 130, 246, 0.5)" />
                         <stop offset="100%" stopColor="rgba(59, 130, 246, 0.0)" />
                     </linearGradient>
-                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="areaGradientGP" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(34, 197, 94, 0.6)" />
                         <stop offset="100%" stopColor="rgba(34, 197, 94, 0.1)" />
                     </linearGradient>
-                    <filter id="glowPlot" x="-20%" y="-20%" width="140%" height="140%">
+                    <filter id="glowPlotGP" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="1.5" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
@@ -113,7 +116,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
-                <path d={areaPathData} fill="url(#areaGradient)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlot)' }} />
+                <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} />
 
                 {isCurrentVisible && (
                     <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-40" vectorEffect="non-scaling-stroke" />
