@@ -82,7 +82,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore }) => {
                                         )}
 
                                         {cell && (
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover:flex flex-col items-start bg-slate-900 border border-slate-700 rounded-xl p-2.5 shadow-2xl whitespace-nowrap pointer-events-none text-left border-l-4" style={{ borderLeftColor: col.text }}>
+                                            <div className={`absolute bottom-full mb-2 z-50 hidden group-hover:flex flex-col items-start bg-slate-900 border border-slate-700 rounded-xl p-2.5 shadow-2xl whitespace-nowrap pointer-events-none text-left border-l-4 ${ci < 3 ? 'left-0' : ci > dates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
                                                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">{dates[ci].dayName}, {dates[ci].label}</span>
                                                 <span className="text-[11px] font-black" style={{ color: col.text }}>{cell.pct.toFixed(1)}%</span>
                                                 <span className="text-[9px] text-slate-500">{cell.correct} certos / {cell.total} questões</span>

@@ -57,12 +57,17 @@ const CustomTooltipStyle = {
 // ── CARD KPI ─────────────────────────────────────────────
 function KpiCard({ value, label, color, icon, sub }) {
     return (
-        <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800/60 bg-slate-900/60 p-5 overflow-hidden group hover:border-slate-700 transition-all duration-300 hover:shadow-lg"
+        <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800/60 bg-slate-900/60 p-5 group hover:border-slate-700 transition-all duration-300 hover:shadow-lg"
             style={{ '--glow': color }}>
-            {/* Glow blob */}
-            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none"
-                style={{ backgroundColor: color }} />
-            <div className="flex items-center justify-between mb-3">
+
+            {/* Background Layer for Overflow-Hidden elements */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                {/* Glow blob */}
+                <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity"
+                    style={{ backgroundColor: color }} />
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between mb-3">
                 <span className="text-2xl">{icon}</span>
                 {sub != null && (
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sub >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
@@ -70,9 +75,9 @@ function KpiCard({ value, label, color, icon, sub }) {
                     </span>
                 )}
             </div>
-            <div>
+            <div className="relative z-10">
                 <p className="text-3xl font-black tracking-tight" style={{ color }}>{value}</p>
-                <p className="text-[11px] text-slate-500 mt-1 pb-1 font-medium">{label}</p>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium leading-normal block py-0.5">{label}</p>
             </div>
         </div>
     );
@@ -86,20 +91,26 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
     const statusColor = ok ? '#22c55e' : mid ? '#eab308' : '#ef4444';
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-xl border p-3 transition-all duration-300 overflow-hidden group min-h-[80px] ${isFocused ? 'border-opacity-60 shadow-lg scale-[1.02]' : 'border-slate-800/70 hover:border-slate-700 hover:scale-[1.01]'}`}
+            className={`relative text-left w-full rounded-xl border p-4 transition-all duration-300 group min-h-[90px] ${isFocused ? 'border-opacity-60 shadow-[0_0_20px_rgba(0,0,0,0.4)]' : 'border-slate-800/70 hover:border-slate-700 hover:shadow-md'}`}
             style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
-            {/* Progress bar at bottom */}
-            <div className="absolute bottom-0 left-0 h-0.5 rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
-            <div className="flex items-center justify-between mb-1.5">
-                <span className="text-base">{cat.icon}</span>
+
+            {/* Background/Progress Layer */}
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                <div className="absolute bottom-0 left-0 h-0.5 transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between mb-2">
+                <span className="text-base leading-normal">{cat.icon}</span>
                 <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_6px_var(--dot-glow)]"
                     style={{ backgroundColor: statusColor, '--dot-glow': statusColor }} />
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide break-words leading-tight line-clamp-2">{cat.name}</p>
-            <p className="text-lg font-black mt-0.5" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
-                {pct.toFixed(1)}%
-            </p>
+            <div className="relative z-10">
+                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wide break-words leading-[1.6] pb-0.5">{cat.name}</p>
+                <p className="text-lg font-black leading-relaxed pt-0.5" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
+                    {pct.toFixed(1)}%
+                </p>
+            </div>
         </button>
     );
 }
@@ -314,9 +325,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 2. DISCIPLINA CARDS ───────────────────────────── */}
-            <div>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3 pl-1">Nível Bayesiano por Disciplina • clique para focar</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="relative z-10">
+                <p className="text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-4 mb-1 pl-1">
+                    Nível Bayesiano por Disciplina • clique para focar
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-visible">
                     {categories.map(cat => {
                         const level = timeline.length > 0 ? timeline[timeline.length - 1][`bay_${cat.name}`] : 0;
                         return <DisciplinaCard key={cat.id} cat={cat} level={level} target={targetScore} isFocused={focusSubjectId === cat.id} onClick={() => setFocusSubjectId(cat.id)} />;
@@ -325,7 +338,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 3. ENGINE TABS ────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur p-5 shadow-xl">
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-5 shadow-xl">
                 {/* Tab bar */}
                 <div className="flex flex-wrap gap-2 mb-5">
                     {ENGINES.map((eng) => {
@@ -408,7 +421,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
                                     <defs>
                                         {categories.map(cat => (
                                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -445,7 +458,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     }).filter(Boolean)}
                                 </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} dy={8} axisLine={false} tickLine={false} minTickGap={22} />
                                     <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#475569' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
@@ -517,7 +530,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <h3 className="text-base font-bold text-slate-200 mb-4">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
                                     <XAxis dataKey="date" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} domain={[0, 100]} />
@@ -539,10 +552,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="min-h-[260px]">
                             {pointLeakageData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, pointLeakageData.length * 44)}>
-                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 30, bottom: 0 }}>
+                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
                                         <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={95} />
+                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={130} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -567,10 +580,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="min-h-[260px]">
                             {subtopicsData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, subtopicsData.length * 44)}>
-                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 30, bottom: 0 }}>
+                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
                                         <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={110} />
+                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={150} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}

@@ -31,10 +31,14 @@ const PerformancePanel = ({ stats, color }) => {
     if (level === 'BAIXO') levelColor = "text-red-400 bg-red-500/10 border-red-500/20";
 
     return (
-        <div className="p-4 mx-4 mb-4 bg-gradient-to-r from-slate-900 to-slate-800/50 rounded-xl border border-white/10 shadow-inner relative overflow-hidden">
+        <div className="relative p-4 mx-4 mb-4 bg-gradient-to-r from-slate-900 to-slate-800/50 rounded-xl border border-white/10 shadow-inner group">
+            {/* Background Layer for Overflow Safety */}
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                {/* No specific background artifacts yet */}
+            </div>
 
             {/* Header */}
-            <div className="flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <div className="relative z-10 flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider leading-relaxed py-1">
                 <BarChart2 size={16} style={{ color }} />
                 <h3>Média de acerto (Simulados)</h3>
             </div>
@@ -216,7 +220,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                                 {category.name || 'Sem Nome'}
                             </h3>
                             {category.totalMinutes > 0 && (
-                                <span className="text-yellow-400/80 text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1.5 rounded-sm">
+                                <span className="text-yellow-400/80 text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1.5 py-0.5 rounded-sm leading-normal">
                                     {Math.floor(category.totalMinutes / 60)}h{category.totalMinutes % 60}m
                                 </span>
                             )}
@@ -359,7 +363,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             </div>
 
             {/* Precision Aligned Header Row */}
-            <div className="hidden sm:flex items-center justify-between px-5 py-2 mb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 opacity-70">
+            <div className="hidden sm:flex items-center justify-between px-5 py-3 mb-1 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 opacity-70 leading-normal">
                 <div className="flex-1 flex items-center gap-4">
                     <div className="w-10 flex-shrink-0"></div> {/* Match Icon (24px) + Gap (16px) */}
                     <div className="w-64 md:w-80 lg:w-96 flex-shrink-0 mr-4">Disciplina</div>

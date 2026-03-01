@@ -11,10 +11,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     return (
         <div className="relative group mb-8">
-            <div className="relative rounded-sm bg-slate-950/40 border border-white/10 p-8 shadow-2xl backdrop-blur-xl overflow-hidden">
-                {/* Subtle high-end gradient accent - Dark Yellow/Amber */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] rounded-full pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-600/10 blur-[60px] rounded-full pointer-events-none" />
+            <div className="relative rounded-sm bg-slate-950/40 border border-white/10 p-8 shadow-2xl backdrop-blur-xl">
+                {/* Background Layer (Safe for Overflow:Hidden) */}
+                <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
+                    {/* Subtle high-end gradient accent - Dark Yellow/Amber */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] rounded-full" />
+                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-600/10 blur-[60px] rounded-full" />
+                </div>
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
                     <div className="relative w-full md:w-1/2 flex items-center gap-6 p-6 rounded-sm bg-black/40 border border-white/10 shadow-inner backdrop-blur-md">
@@ -38,9 +41,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="group/btn relative px-8 py-4 rounded-sm bg-amber-500/10 text-amber-200 font-black text-sm hover:bg-amber-500/20 transition-all shadow-lg backdrop-blur-md border border-amber-500/20 hover:border-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 overflow-hidden"
+                        className="group/btn relative px-8 py-5 rounded-sm bg-amber-500/10 text-amber-200 font-black text-sm hover:bg-amber-500/20 transition-all shadow-lg backdrop-blur-md border border-amber-500/20 hover:border-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
                     >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-200/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
+                        <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-200/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
+                        </div>
                         {loading ? <Sparkles size={18} className="animate-spin text-amber-400" /> : <Zap size={18} className="fill-amber-400 text-amber-400" />}
                         <span className="relative z-10">{loading ? 'PROCESSANDO...' : 'GERAR META DO DIA'}</span>
                     </button>
@@ -58,19 +63,22 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="relative p-8 rounded-sm bg-white/5 border border-white/5 backdrop-blur-md overflow-hidden group/card hover:border-amber-500/30 hover:bg-amber-500/5 transition-colors duration-500">
-                            <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover/card:opacity-[0.07] transition-opacity duration-500">
-                                <Target size={200} className="text-white" />
+                        <div className="relative p-8 rounded-sm bg-white/5 border border-white/5 backdrop-blur-md group/card hover:border-amber-500/30 hover:bg-amber-500/5 transition-colors duration-500">
+                            {/* Background Overflow Layer */}
+                            <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
+                                <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover/card:opacity-[0.07] transition-opacity duration-500">
+                                    <Target size={200} className="text-white" />
+                                </div>
                             </div>
 
                             <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                                 <div>
                                     <div className="flex items-center gap-2 mb-3">
-                                        <span className="px-2 py-0.5 rounded-sm bg-amber-500/20 text-amber-200 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 backdrop-blur-sm">
+                                        <span className="px-2 py-1.5 rounded-sm bg-amber-500/20 text-amber-200 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 backdrop-blur-sm leading-normal">
                                             {urgency.humanReadable?.Status || "Prioridade Máxima"}
                                         </span>
                                     </div>
-                                    <h3 className="text-5xl font-black text-white mb-4 leading-tight tracking-tight drop-shadow-lg">
+                                    <h3 className="text-5xl font-black text-white mb-4 leading-[1.1] tracking-tight drop-shadow-lg py-1">
                                         {suggestion.name}
                                     </h3>
                                     <div className="flex flex-wrap items-center gap-3">

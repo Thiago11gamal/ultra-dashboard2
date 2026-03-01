@@ -37,9 +37,14 @@ function AICoachCard({ task, idx }) {
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.08, ease: "easeOut" } }}
             className="group relative flex flex-col p-6 rounded-sm bg-black/40 border border-white/5 hover:border-amber-500/50 hover:bg-black/60 transition-all duration-300 backdrop-blur-xl shadow-lg"
         >
+            {/* Background Layer for Overflow Safety */}
+            <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
+                {/* No specific background artifacts yet, but established as a safe zone */}
+            </div>
+
             {/* Header: Subject Badge */}
-            <div className="relative flex justify-between items-start mb-5">
-                <span className="inline-flex items-center px-3 py-1.5 rounded-sm bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white group-hover:border-amber-500/50 transition-all shadow-sm backdrop-blur-sm">
+            <div className="relative z-10 flex justify-between items-start mb-5">
+                <span className="inline-flex items-center px-3 py-2 rounded-sm bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white group-hover:border-amber-500/50 transition-all shadow-sm backdrop-blur-sm leading-[1.6]">
                     {subjectPart}
                 </span>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
@@ -50,7 +55,7 @@ function AICoachCard({ task, idx }) {
             </div>
 
             {/* Main Content */}
-            <div className="relative flex-1 mb-6">
+            <div className="relative z-10 flex-1 mb-6">
                 <h3 className="text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
                     {displayAssunto}
                 </h3>
@@ -62,12 +67,12 @@ function AICoachCard({ task, idx }) {
 
             {/* Footer / Analysis */}
             <div
-                className={`relative mt-auto pt-4 border-t border-white/10 flex items-center justify-between ${task.analysis ? 'cursor-pointer group/footer' : ''}`}
+                className={`relative z-10 mt-auto pt-4 border-t border-white/10 flex items-center justify-between ${task.analysis ? 'cursor-pointer group/footer' : ''}`}
                 onClick={() => task.analysis && setIsExpanded(!isExpanded)}
             >
                 {task.analysis ? (
                     <button
-                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover/footer:text-white transition-colors py-2"
+                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover/footer:text-white transition-colors py-3"
                     >
                         <BrainCircuit size={14} className="group-hover/footer:text-amber-400 transition-colors" />
                         <span>INSIGHT DO COACH</span>

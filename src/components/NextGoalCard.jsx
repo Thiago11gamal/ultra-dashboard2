@@ -103,9 +103,12 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
     // We now proceed to render the task suggestion regardless of simulado data.
 
     return (
-        <div className={`relative overflow-hidden rounded-xl border ${urgencyStyle.border} bg-gradient-to-r ${urgencyStyle.gradient} backdrop-blur-sm transition-all duration-300 group`}>
-            {/* Subtle animated glow */}
-            <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-500" />
+        <div className={`relative rounded-xl border ${urgencyStyle.border} bg-gradient-to-r ${urgencyStyle.gradient} backdrop-blur-sm transition-all duration-300 group`}>
+            {/* Background Layer for Overflow Safety */}
+            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                {/* Subtle animated glow */}
+                <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-500" />
+            </div>
 
             <div className="relative z-10 p-4 flex items-center gap-4">
                 {/* Left: Category Icon */}
@@ -119,13 +122,13 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 {/* Center: Task Info */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                        <div className="px-2 py-0.5 rounded bg-white/10 border border-white/20 shrink-0">
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Matéria</span>
+                        <div className="px-2 py-1.5 rounded bg-white/10 border border-white/20 shrink-0">
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter leading-normal">Matéria</span>
                         </div>
-                        <span className="text-xs font-bold text-white truncate">
+                        <span className="text-xs font-bold text-white truncate leading-relaxed">
                             {category.name}
                         </span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ml-auto ${urgencyStyle.badge}`}>
+                        <span className={`text-[9px] font-black uppercase px-2 py-1.5 rounded ml-auto leading-normal ${urgencyStyle.badge}`}>
                             {hasSimuladoData
                                 ? (urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal')
                                 : '🌱 Inicial'}
@@ -133,10 +136,10 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                     </div>
 
                     <div className="flex items-start gap-2">
-                        <div className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
-                            <span className="text-[9px] font-black text-amber-300 uppercase tracking-tighter">Assunto</span>
+                        <div className="px-2 py-1.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
+                            <span className="text-[9px] font-black text-amber-300 uppercase tracking-tighter leading-normal">Assunto</span>
                         </div>
-                        <h3 className="text-white font-bold text-sm leading-tight truncate px-1" title={display.assunto}>
+                        <h3 className="text-white font-bold text-sm leading-relaxed truncate px-1 py-0.5" title={display.assunto}>
                             {display.assunto}
                         </h3>
                     </div>
