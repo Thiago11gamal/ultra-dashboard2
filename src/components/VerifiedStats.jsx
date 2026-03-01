@@ -307,7 +307,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     window_size: Math.min(5, scores.length),
                     stagnation_threshold: 0.5,
                     low_level_limit: 60,
-                    high_level_limit: 75
+                    // Bug fix: was hardcoded to 75, ignoring the actual prop targetScore
+                    high_level_limit: targetScore
                 });
 
                 categoryAnalyses.push(analysis);
@@ -317,7 +318,9 @@ export default function VerifiedStats({ categories = [], user }) {
 
                 // --- TOPIC VARIATION ANALYSIS ---
                 const topicMap = {}; // { "TopicName": [score1, score2, ...] }
-                cat.simuladoStats.history.forEach(h => {
+                // Bug fix: iterate sortedHistory (chronological) not the raw unsorted history
+                // Using unsorted history scrambles topic scores across time, making SD unreliable
+                sortedHistory.forEach(h => {
                     if (h.topics) {
                         h.topics.forEach(t => {
                             const total = parseInt(t.total) || 0;
@@ -430,7 +433,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
                             <div className="flex items-baseline gap-0.5">
-                                <span className="text-sm font-black text-slate-200">{stats.targetScore || 90}</span>
+                                <span className="text-sm font-black text-slate-200">{stats.targetScore ?? 90}</span>
                                 <span className="text-[9px] text-slate-500 font-bold">%</span>
                             </div>
                         </div>
