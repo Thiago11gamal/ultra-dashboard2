@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, CheckSquare, LogOut } from 'lucide-react';
 import PomodoroTimer from './PomodoroTimer';
 import Checklist from './Checklist';
+import { getXPProgress } from '../utils/gamification';
 
 export default function MobilePocketMode({
     user,
@@ -12,8 +13,10 @@ export default function MobilePocketMode({
 }) {
     const [activeTab, setActiveTab] = useState('pomodoro'); // 'pomodoro' or 'tasks'
 
-    // Calculate Level Progress for Mini-Header
-    const levelProgress = (user.xp % 1000) / 10; // 0-100%
+    // Bug fix: was using hardcoded 1000 XP per level via `(user.xp % 1000) / 10`.
+    // The actual gamification system uses dynamic thresholds: Math.pow(level, 2) * 100.
+    // For a level-5 user, 1000 XP/level is wildly wrong — the threshold is actually 2500 XP.
+    const { percentage: levelProgress } = getXPProgress(user.xp || 0);
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 pb-20">
