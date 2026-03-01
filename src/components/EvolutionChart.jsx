@@ -154,7 +154,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             setMcProjection({ date: nextDate.toISOString().split("T")[0], mc_p50: parseFloat(result.mean), mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)] });
         }, 0);
         return () => { cancelled = true; clearTimeout(timer); };
-    }, [focusCategory?.id, targetScore]);
+    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
@@ -247,6 +247,16 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return data.map((item, i, arr) => ({ ...item, color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))], percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0 }));
     }, [categories]);
 
+    // Fix 5: Extract impure calculation (Date.now()) from render path into a memoized value
+    const recentVolumeAlert = useMemo(() => {
+        if (!focusCategory?.simuladoStats?.history) return 0;
+        const nowMs = Date.now();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return focusCategory.simuladoStats.history
+            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
+            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
+    }, [focusCategory?.simuladoStats?.history]);
+
     const getInsightText = () => {
         if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
@@ -254,13 +264,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
-        // Bug fix: recentVolume calculated from actual 7-day rolling window, not just last day's raw_total_
-        const now = Date.now();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        const recentVolume = (focusCategory.simuladoStats?.history || [])
-            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && now - d <= sevenDaysMs; })
-            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
-        if (recentVolume > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolume} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
+
+        if (recentVolumeAlert > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolumeAlert} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
         if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;
         if (raw < bayesian - 8) return `⚠️ Mantenha a calma. A nota da semana foi ${raw.toFixed(1)}%, mas a estatística garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
         return `✅ Estabilidade de Mestre! O seu nível medido (${raw.toFixed(1)}%) crava com o seu domínio real (${bayesian.toFixed(1)}%). É esse o ritmo de aprovação.`;

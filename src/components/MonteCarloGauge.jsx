@@ -43,7 +43,12 @@ export default function MonteCarloGauge({
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
-    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+    // The original instruction had a malformed line here.
+    // Based on the instruction "Remove the unused variable declarations reported by ESLint",
+    // `setEqualWeightsMode` was unused and should be removed.
+    // The line `const { activeId, mcEqualWeights } = useStore();state => state.setMcEqualWeights);`
+    // from the instruction was syntactically incorrect and not a valid replacement.
+    // The correct action is to simply remove the unused `setEqualWeightsMode` declaration.
 
     const activeCategories = useMemo(() =>
         categories.filter(c => c.simuladoStats?.history?.length > 0),

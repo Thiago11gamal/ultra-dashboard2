@@ -111,7 +111,7 @@ export function useChartData(categories = [], targetScore = 80) {
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories]);
+    }, [activeCategories, targetScore]);
 
     // 3. Generate Heatmap Data — Fix 8: cap to last 60 unique days
     const heatmapData = useMemo(() => {

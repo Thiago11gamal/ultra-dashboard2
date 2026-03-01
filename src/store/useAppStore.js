@@ -344,7 +344,7 @@ export const useAppStore = create(
             // 5. User Settings & Management
             updatePomodoroSettings: (settings) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
-                activeData.settings = settings;
+                activeData.settings = { ...(activeData.settings || {}), ...settings };
             }),
 
             toggleDarkMode: () => set((state) => {
