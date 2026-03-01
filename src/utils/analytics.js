@@ -92,8 +92,9 @@ export const analyzeSubjectBalance = (categories) => {
         subject: c.name,
         minutes: c.totalMinutes || 0,
         percentage: Math.round(((c.totalMinutes || 0) / totalMinutes) * 100),
-        tasks: c.tasks.length,
-        completed: c.tasks.filter(t => t.completed).length
+        // Bug fix: optional chaining — categories without tasks array crash here
+        tasks: (c.tasks || []).length,
+        completed: (c.tasks || []).filter(t => t.completed).length
     })).sort((a, b) => b.minutes - a.minutes);
 
     // Detectar problemas
@@ -140,9 +141,10 @@ export const analyzeSubjectBalance = (categories) => {
 
 export const analyzeEfficiency = (categories, studyLogs = []) => {
     const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
-    const totalTasks = categories.reduce((sum, c) => sum + c.tasks.length, 0);
+    // Bug fix: optional chaining on c.tasks throughout to avoid crash if tasks is undefined
+    const totalTasks = categories.reduce((sum, c) => sum + (c.tasks || []).length, 0);
     const completedTasks = categories.reduce((sum, c) =>
-        sum + c.tasks.filter(t => t.completed).length, 0
+        sum + (c.tasks || []).filter(t => t.completed).length, 0
     );
 
     if (totalMinutes === 0 || completedTasks === 0) {
@@ -265,7 +267,7 @@ export const detectProcrastination = (categories, studyLogs) => {
 
     // 1. Tarefas de alta prioridade sem progresso recente
     categories.forEach(cat => {
-        cat.tasks.forEach(task => {
+        cat.tasks?.forEach(task => {
             if (task.priority === 'high' && !task.completed) {
                 const taskLogs = logsByTaskId[task.id] || [];
                 const recentLogs = taskLogs.filter(log => {
@@ -276,7 +278,8 @@ export const detectProcrastination = (categories, studyLogs) => {
                 if (recentLogs.length === 0) {
                     warnings.push({
                         type: 'stale_high_priority',
-                        task: task.title,
+                        // Bug fix: data model uses task.text, not task.title — was showing undefined
+                        task: task.text || task.title || 'Tarefa sem nome',
                         category: cat.name,
                         severity: 'high'
                     });
@@ -287,7 +290,7 @@ export const detectProcrastination = (categories, studyLogs) => {
 
     // 2. Categoria sem atividade há mais de 5 dias
     categories.forEach(cat => {
-        if (cat.tasks.length > 0) {
+        if ((cat.tasks || []).length > 0) {
             const categoryLogs = logsByCategoryId[cat.id] || [];
             if (categoryLogs.length > 0) {
                 const lastLog = categoryLogs.reduce((latest, log) =>
