@@ -66,7 +66,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const logger = options.logger;
 
     // Use User Target Score (default 70 if missing)
-    const targetScore = options.targetScore || 70;
+    // Bug fix: use ?? not || so that targetScore=0 is preserved (edge case but valid)
+    const targetScore = options.targetScore ?? 70;
     const weight = category.weight !== undefined ? category.weight : 100;
 
     // Calculate days to exam
@@ -114,7 +115,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             };
 
             const todayBound = normalizeDate(new Date());
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < todayBound);
+            // Bug fix: pastSimulados should INCLUDE today's simulados
+            // Using strict < todayBound excluded results entered today, causing notaAnterior
+            // to be calculated without today's data while notaBruta included it — the diff
+            // was therefore always inflated on the day of data entry.
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) <= todayBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
@@ -601,7 +606,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // Weak Topic
         const highPriorityTask = cat.tasks?.find(t => !t.completed && t.priority === 'high');
 
-        if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.manualPriority > 0)) {
+        if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
             let taskTitle = "";
             let reasonStr = "";
             if (weakTopic.isUntested) {
