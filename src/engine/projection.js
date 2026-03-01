@@ -4,6 +4,7 @@
 // ==========================================
 
 import { mulberry32, randomNormal } from './random.js';
+import { getSafeScore } from '../utils/scoreHelper.js';
 
 // -----------------------------
 // Helper: Ensure history is sorted by date
@@ -33,7 +34,9 @@ function weightedRegression(history, lambda = 0.02) {
 
         return {
             x: -daysAgo,
-            y: h.score,
+            // Bug fix: h.score can be undefined when score is stored in other fields
+            // (percentage, or computed from correct/total). getSafeScore() normalizes all formats.
+            y: getSafeScore(h),
             w: weight
         };
     });

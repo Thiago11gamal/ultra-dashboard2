@@ -20,7 +20,9 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
             .sort((a, b) => {
                 const pA = (a.priority || 'medium').toLowerCase();
                 const pB = (b.priority || 'medium').toLowerCase();
-                return (priorityOrder[pA] || 1) - (priorityOrder[pB] || 1);
+                // Bug fix: priorityOrder['high'] === 0, so `|| 1` was coercing it to 1 (same as medium).
+                // Use `?? 1` (nullish coalescing) so only null/undefined get the fallback, not 0.
+                return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
             });
 
         const nextTask = sortedTasks[0];
