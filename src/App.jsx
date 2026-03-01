@@ -57,6 +57,7 @@ function MainLayout() {
   const [forceDesktopMode, setForceDesktopMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [mobileActiveSubject, setMobileActiveSubject] = useState(null);
 
   // Global Toasts State
   const [toasts, setToasts] = useState([]);
@@ -140,6 +141,67 @@ function MainLayout() {
     }
   }, [setAppState, showToast]);
 
+  const handleMobileStartStudying = useCallback((categoryId, taskId) => {
+    const activeData = appState?.contests?.[appState?.activeId];
+    if (!activeData || !activeData.categories) return;
+
+    const cat = activeData.categories.find(c => c.id === categoryId);
+    const tsk = cat?.tasks?.find(t => t.id === taskId);
+
+    if (cat && tsk) {
+      setMobileActiveSubject({
+        categoryId: cat.id,
+        taskId: tsk.id,
+        category: cat.name,
+        task: tsk.title,
+        priority: tsk.priority,
+        sessionInstanceId: Date.now()
+      });
+
+      // Update store to reflect the UI state
+      useAppStore.getState().setData(prev => {
+        if (!prev || !prev.categories) return prev;
+        return {
+          ...prev,
+          categories: prev.categories.map(c => ({
+            ...c,
+            tasks: c.tasks.map(t => {
+              if (t.id === taskId && c.id === categoryId) return { ...t, status: 'studying' };
+              if (t.status === 'studying') return { ...t, status: undefined };
+              return t;
+            })
+          }))
+        };
+      });
+      showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+    }
+  }, [appState, showToast]);
+
+  const handleMobileFinishStudying = useCallback(() => {
+    if (mobileActiveSubject) {
+      const activeData = appState?.contests?.[appState?.activeId];
+      const cat = activeData?.categories?.find(c => c.id === mobileActiveSubject.categoryId);
+      const tsk = cat?.tasks?.find(t => t.id === mobileActiveSubject.taskId);
+
+      if (tsk && !tsk.completed) {
+        useAppStore.getState().toggleTask(mobileActiveSubject.categoryId, mobileActiveSubject.taskId);
+      }
+      showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
+
+      useAppStore.getState().setData(prev => {
+        if (!prev || !prev.categories) return prev;
+        return {
+          ...prev,
+          categories: prev.categories.map(c => c.id === mobileActiveSubject.categoryId ? {
+            ...c,
+            tasks: c.tasks.map(t => t.id === mobileActiveSubject.taskId ? { ...t, status: undefined } : t)
+          } : c)
+        };
+      });
+    }
+    setMobileActiveSubject(null);
+  }, [mobileActiveSubject, appState, showToast]);
+
   // Derived States
   const activeContestId = appState?.activeId || 'default';
   const contests = appState?.contests || {};
@@ -163,11 +225,11 @@ function MainLayout() {
       <MobilePocketMode
         user={data.user}
         data={data}
-        activeSubject={null}
+        activeSubject={mobileActiveSubject}
         actions={{
           updatePomodoroSettings,
-          finishStudying: () => { },
-          startStudying: () => { },
+          finishStudying: handleMobileFinishStudying,
+          startStudying: handleMobileStartStudying,
           handleUpdateStudyTime,
           toggleTask,
           deleteTask,

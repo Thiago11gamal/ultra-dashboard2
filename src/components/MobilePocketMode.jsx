@@ -72,7 +72,10 @@ export default function MobilePocketMode({
                             onAddTask={actions.addTask}
                             onAddCategory={actions.addCategory}
                             onDeleteCategory={actions.deleteCategory}
-                            onPlayContext={actions.startStudying}
+                            onPlayContext={(catId, taskId) => {
+                                actions.startStudying(catId, taskId);
+                                setActiveTab('pomodoro');
+                            }}
                             onTogglePriority={actions.togglePriority}
                         />
                     </div>
