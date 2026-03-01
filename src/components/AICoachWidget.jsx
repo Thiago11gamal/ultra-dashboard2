@@ -10,121 +10,121 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const urgency = (suggestion && suggestion.urgency && suggestion.urgency.details) ? suggestion.urgency.details : { hasData: false };
 
     return (
-        <div className="relative group mb-8">
-            <div className="relative rounded-sm bg-slate-950/40 border border-white/10 p-8 shadow-2xl backdrop-blur-xl">
-                {/* Background Layer (Safe for Overflow:Hidden) */}
-                <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
-                    {/* Subtle high-end gradient accent - Dark Yellow/Amber */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] rounded-full" />
-                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-600/10 blur-[60px] rounded-full" />
-                </div>
+        <div className="relative group mb-10 w-full animate-fade-in-down">
+            {/* Outer Glow & Border Frame */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500/20 via-purple-500/10 to-amber-500/20 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
 
-                <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
-                    <div className="relative w-full md:w-1/2 flex items-center gap-6 p-6 rounded-sm bg-black/40 border border-white/10 shadow-inner backdrop-blur-md">
-                        <div className="absolute inset-0 bg-amber-500/5 blur-xl rounded-sm"></div>
-                        <BrainCircuit size={40} className="relative z-10 text-amber-300 shrink-0" />
+            <div className="relative rounded-xl bg-slate-950/80 border border-slate-800/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl overflow-hidden">
+                {/* Decorative Background Elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/5 blur-[100px] rounded-full pointer-events-none" />
+                <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-purple-600/5 blur-[80px] rounded-full pointer-events-none" />
 
-                        <div className="relative z-10">
-                            {/* Duplicate 'AI Coach' removed. Using the subtitle as the primary label. */}
-                            <h2 className="text-xl font-black text-white/90 tracking-[0.2em] uppercase">
-                                Análise em Tempo Real
-                            </h2>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="w-1.5 h-1.5 rounded-sm bg-amber-500 animate-pulse" />
-                                <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
+                {/* Header Section */}
+                <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8 pb-8 border-b border-white/5">
+                    {/* Title / Identity */}
+                    <div className="flex items-center gap-5">
+                        <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 flex items-center justify-center shrink-0 overflow-hidden group/icon">
+                            <div className="absolute inset-0 bg-amber-500/10 group-hover/icon:animate-pulse"></div>
+                            <BrainCircuit size={26} className="text-amber-400 relative z-10" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Activity size={12} className="text-amber-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-amber-500/90 uppercase tracking-[0.2em]">
                                     Inteligência Ativa
                                 </span>
                             </div>
+                            <h2 className="text-2xl font-black text-white tracking-tight">AI Coach <span className="text-slate-500 font-light">Analysis</span></h2>
                         </div>
                     </div>
 
+                    {/* Action Button */}
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="group/btn relative px-8 py-5 rounded-sm bg-amber-500/10 text-amber-200 font-black text-sm hover:bg-amber-500/20 transition-all shadow-lg backdrop-blur-md border border-amber-500/20 hover:border-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                        className="group/btn relative w-full xl:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-slate-950 font-black text-sm hover:from-amber-500 hover:to-amber-400 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden"
                     >
-                        <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-200/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer" />
-                        </div>
-                        {loading ? <Sparkles size={18} className="animate-spin text-amber-400" /> : <Zap size={18} className="fill-amber-400 text-amber-400" />}
-                        <span className="relative z-10">{loading ? 'PROCESSANDO...' : 'GERAR META DO DIA'}</span>
+                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                        {loading ? <Sparkles size={18} className="animate-spin text-slate-900" /> : <Zap size={18} className="text-slate-900 fill-slate-900" />}
+                        <span className="relative z-10 tracking-widest">{loading ? 'PROCESSANDO...' : 'RECALCULAR ROTAS'}</span>
                     </button>
                 </div>
 
+                {/* Content Section */}
                 {!urgency.hasData ? (
-                    <div className="p-8 rounded-sm bg-white/5 border border-white/5 flex items-center gap-6 backdrop-blur-md">
-                        <div className="p-4 rounded-full bg-slate-800/50 text-slate-400 ring-1 ring-white/10">
-                            <Activity size={32} />
+                    <div className="relative z-10 p-8 rounded-xl bg-slate-900/50 border border-slate-700/50 flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left">
+                        <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center ring-4 ring-slate-800/50">
+                            <Activity size={28} className="text-slate-400" />
                         </div>
                         <div>
-                            <h3 className="text-white font-bold text-lg mb-1">Aguardando Dados</h3>
-                            <p className="text-slate-400 text-sm">Realize simulados para ativar a inteligência neural.</p>
+                            <h3 className="text-xl font-bold text-white mb-2">Aguardando Dados</h3>
+                            <p className="text-slate-400">Complete simulados para que a inteligência artificial possa mapear seus pontos fracos e gerar metas otimizadas.</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        <div className="relative p-8 rounded-sm bg-white/5 border border-white/5 backdrop-blur-md group/card hover:border-amber-500/30 hover:bg-amber-500/5 transition-colors duration-500">
-                            {/* Background Overflow Layer */}
-                            <div className="absolute inset-0 rounded-sm overflow-hidden pointer-events-none">
-                                <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover/card:opacity-[0.07] transition-opacity duration-500">
-                                    <Target size={200} className="text-white" />
-                                </div>
-                            </div>
+                    <div className="relative z-10">
+                        {/* Main Analysis Card */}
+                        <div className="relative rounded-xl bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-amber-500/10 hover:border-amber-500/30 transition-all duration-300 p-6 md:p-10 shadow-xl overflow-hidden group/card">
+                            {/* Watermark Icon */}
+                            <Target size={240} className="absolute -right-10 -bottom-10 text-amber-500/5 rotate-12 group-hover/card:scale-110 transition-transform duration-700 pointer-events-none" />
 
-                            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="px-2 py-1.5 rounded-sm bg-amber-500/20 text-amber-200 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 backdrop-blur-sm leading-normal">
-                                            {urgency.humanReadable?.Status || "Prioridade Máxima"}
-                                        </span>
-                                    </div>
-                                    <h3 className="text-5xl font-black text-white mb-4 leading-[1.1] tracking-tight drop-shadow-lg py-1">
-                                        {suggestion.name}
-                                    </h3>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <span className="inline-flex items-center px-4 py-2 rounded-sm bg-white/5 border border-white/10 text-slate-300 text-xs font-bold uppercase tracking-wide backdrop-blur-md hover:bg-white/10 transition-colors">
-                                            <Target size={14} className="mr-2 text-amber-400" />
-                                            {topic ? topic.name : "Foco Geral"}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+                                {/* Left Side: Title & Topic */}
+                                <div className="lg:col-span-7 flex flex-col items-start">
+                                    <div className="flex flex-wrap items-center gap-3 mb-4">
+                                        <span className="px-3 py-1 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.15em] border border-amber-500/20">
+                                            {urgency.humanReadable?.Status || "Prioridade Crítica"}
                                         </span>
                                         {urgency.crunchMultiplier > 1 && (
-                                            <span className="inline-flex items-center px-4 py-2 rounded-sm bg-red-500/10 border border-red-500/20 text-red-200 text-xs font-bold uppercase tracking-wide backdrop-blur-md animate-pulse">
-                                                <Clock size={14} className="mr-2" />
+                                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-[0.15em] animate-pulse">
+                                                <AlertCircle size={12} />
                                                 Reta Final x{urgency.crunchMultiplier}
                                             </span>
                                         )}
                                     </div>
+
+                                    <h3 className="text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-slate-400 tracking-tight leading-[1.1] mb-6 drop-shadow-sm">
+                                        {suggestion.name}
+                                    </h3>
+
+                                    <div className="flex items-center gap-3 bg-black/30 px-5 py-3 rounded-xl border border-white/5 backdrop-blur-md">
+                                        <Target size={18} className="text-amber-500" />
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-0.5">Foco Direcionado no Assunto</span>
+                                            <span className="text-sm font-bold text-white">{topic ? topic.name : "Foco Geral"}</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col items-start md:items-end gap-4">
+                                {/* Right Side: Recommendation & Stats Toggle */}
+                                <div className="lg:col-span-5 flex flex-col lg:items-end w-full space-y-6">
                                     {suggestion.urgency?.recommendation && (
-                                        <div className="text-right max-w-md">
-                                            <p className="text-xl text-amber-100/90 font-medium leading-relaxed drop-shadow-md italic">
-                                                {suggestion.urgency.recommendation}
+                                        <div className="bg-amber-500/5 border-l-4 border-amber-500 p-5 rounded-r-xl w-full">
+                                            <p className="text-slate-300 font-medium leading-relaxed text-sm md:text-base">
+                                                "{suggestion.urgency.recommendation}"
                                             </p>
                                         </div>
                                     )}
 
                                     <button
                                         onClick={() => setShowWhy(!showWhy)}
-                                        className="group/metric flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-300 transition-colors uppercase tracking-widest mt-2 py-2 px-4 rounded-sm hover:bg-white/5 border border-white/5 backdrop-blur-sm"
+                                        className="w-full lg:w-auto flex items-center justify-center lg:justify-end gap-2 text-xs font-black text-amber-500/70 hover:text-amber-400 transition-colors uppercase tracking-[0.2em] py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 group/metric"
                                     >
-                                        VER ANÁLISE TÉCNICA
-                                        <ChevronRight size={14} className={`transition-transform duration-300 ${showWhy ? 'rotate-90' : 'group-hover/metric:translate-x-1'}`} />
+                                        <BrainCircuit size={16} />
+                                        Ver Matriz Neural
+                                        <ChevronRight size={16} className={`transition-transform duration-300 ${showWhy ? 'rotate-90' : 'group-hover/metric:translate-x-1'}`} />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
+                        {/* Neural Matrix Details (Stats) */}
                         {showWhy && (
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 animate-fade-in-down pt-2">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 animate-fade-in-down">
                                 {Object.entries(urgency.humanReadable || {}).map(([label, value]) => (
-                                    <div key={label} className="p-4 rounded-sm bg-white/5 border border-white/5 hover:bg-amber-500/10 hover:border-amber-500/20 transition-colors backdrop-blur-md group/stat">
-                                        <div className="flex items-center gap-2 mb-2 text-slate-500 group-hover/stat:text-amber-300 transition-colors">
-                                            <span className="text-[10px] uppercase font-bold tracking-widest">{label}</span>
-                                        </div>
-                                        <div className="text-lg font-mono font-bold text-white tracking-tight">
-                                            {value}
-                                        </div>
+                                    <div key={label} className="p-4 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/30 hover:bg-slate-800/80 transition-all duration-300 group/stat flex flex-col">
+                                        <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1 group-hover/stat:text-amber-500/70 transition-colors line-clamp-1">{label}</span>
+                                        <span className="text-xl font-black text-white tracking-tight mt-auto">{value}</span>
                                     </div>
                                 ))}
                             </div>
