@@ -7,11 +7,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Stable ID counter to avoid regenerating IDs on every render
     const idCounter = useRef(0);
 
-    // BUG FIX: ++idCounter.current was being called DURING render (side-effect in render phase).
-    // This regenerated IDs on EVERY re-render, causing inputs to lose focus on every keystroke
-    // because React reconciled them as different elements. Fixed by only assigning if missing.
+    // Bug fix: `r.id || row-${idCounter.current++}` still mutated idCounter.current
+    // during the render phase whenever r.id was falsy — causing React to see different
+    // keys on every render, making inputs lose focus on every keystroke.
+    // Using index as stable fallback avoids any mutation during render.
     const rows = (propRows && propRows.length > 0)
-        ? propRows.map(r => ({ ...r, id: r.id || `row-${idCounter.current++}` }))
+        ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
         : [];
 
     // Helper to report changes up to parent

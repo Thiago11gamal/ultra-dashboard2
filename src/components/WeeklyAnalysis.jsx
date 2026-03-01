@@ -15,7 +15,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const catCounts = {};
         studyLogs.forEach(log => {
             const catId = log.categoryId;
-            catCounts[catId] = (catCounts[catId] || 0) + log.minutes;
+            // Bug fix: guard log.minutes with || 0 to prevent NaN propagating into sort
+            catCounts[catId] = (catCounts[catId] || 0) + (log.minutes || 0);
         });
         const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
         const topCategory = categories.find(c => c.id === topCatId)?.name || '-';
@@ -88,8 +89,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             let taskTitle = '-';
             if (category && log.taskId) {
-                const task = category.tasks.find(t => t.id === log.taskId);
-                if (task) taskTitle = task.title;
+                const task = category.tasks?.find(t => t.id === log.taskId);
+                // Bug fix: data model stores task.text, not task.title
+                if (task) taskTitle = task.text || task.title || '-';
             }
 
             // Check if this task is already in the list for this day (Merge strategy)

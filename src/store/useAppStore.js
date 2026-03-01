@@ -161,7 +161,10 @@ export const useAppStore = create(
                 if (category) {
                     category.tasks.push({
                         id: generateId('task'),
-                        title,
+                        // Bug fix: coachLogic, analytics, and all task UI components read task.text,
+                        // but this was storing as task.title — new tasks were invisible to AI Coach
+                        text: title,
+                        title, // kept for backward compatibility with any legacy readers
                         completed: false,
                         priority: 'medium'
                     });
