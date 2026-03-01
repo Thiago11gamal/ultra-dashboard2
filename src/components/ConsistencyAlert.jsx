@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { getSafeScore } from '../utils/scoreHelper';
+import { standardDeviation } from '../engine/stats';
 
 export default function ConsistencyAlert({ categories = [], onNavigate }) {
 
@@ -16,8 +17,10 @@ export default function ConsistencyAlert({ categories = [], onNavigate }) {
 
             if (history.length < 2) return; // Need at least 2 data points
 
-            // Calculate scores from history
-            const scores = history.map(h => h.score);
+            // Bug fix: h.score is not a reliable field; data model stores scores
+            // in multiple formats. getSafeScore() normalizes across all formats,
+            // which is the same pattern used in engine/stats.js for all calculations.
+            const scores = history.map(h => getSafeScore(h));
 
             // Filter out invalid scores
             const validScores = scores.filter(s => typeof s === 'number' && !isNaN(s));
