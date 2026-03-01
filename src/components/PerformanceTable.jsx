@@ -17,8 +17,9 @@ const PerformanceTable = ({ categories = [] }) => {
 
         const totalQB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
         const correctB = historyB.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
-        const totalB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-        const balanceB = correctB - (totalB - correctB);
+        // Bug fix: removed redundant `totalB` that was a duplicate of totalQB above
+        const wrongB = totalQB - correctB;
+        const balanceB = correctB - wrongB;
 
         return balanceB - balanceA;
     });
@@ -112,8 +113,8 @@ const PerformanceTable = ({ categories = [] }) => {
                                     {/* Saldo Badge */}
                                     <td className="p-5 text-center border-l border-white/5">
                                         <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-black font-mono shadow-xl transition-all duration-500 group-hover:scale-110 ${netBalance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-green-500/5' :
-                                                netBalance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-red-500/5' :
-                                                    'bg-slate-800/50 border-white/5 text-slate-500'
+                                            netBalance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-red-500/5' :
+                                                'bg-slate-800/50 border-white/5 text-slate-500'
                                             }`}>
                                             <span className="text-[11px]">{netBalance > 0 ? '+' : ''}{netBalance}</span>
                                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${netBalance > 0 ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : netBalance < 0 ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]' : 'bg-slate-600'}`} />
@@ -123,9 +124,9 @@ const PerformanceTable = ({ categories = [] }) => {
                                     {/* Taxa Badge */}
                                     <td className="p-5 text-center">
                                         <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 scale-110' :
-                                                percentCorrect >= 60 ? 'text-yellow-400' :
-                                                    percentCorrect > 0 ? 'text-red-500' :
-                                                        'text-slate-500'
+                                            percentCorrect >= 60 ? 'text-yellow-400' :
+                                                percentCorrect > 0 ? 'text-red-500' :
+                                                    'text-slate-500'
                                             }`}>
                                             <span className="text-sm tracking-tight">{percentCorrect}%</span>
                                             {percentCorrect >= 80 && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}

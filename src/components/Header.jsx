@@ -6,8 +6,9 @@ import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync'
 import { useAuth } from '../context/useAuth';
 
 
-// BUG FIX (1): Merged into a single shared hook with ONE setInterval.
-// Previously DateDisplay and TimeDisplay had two independent setInterval(1000) running simultaneously.
+// BUG FIX: DateDisplay and TimeDisplay previously each called useClock() independently,
+// creating TWO separate setInterval(1000) timers that can drift and waste resources.
+// Fixed by accepting the shared `time` value as a prop instead of calling the hook twice.
 const useClock = () => {
     const [time, setTime] = useState(new Date());
     useEffect(() => {
@@ -17,23 +18,17 @@ const useClock = () => {
     return time;
 };
 
-const DateDisplay = () => {
-    const time = useClock();
-    return (
-        <p className="text-slate-400 pl-2">
-            {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-        </p>
-    );
-};
+const DateDisplay = ({ time }) => (
+    <p className="text-slate-400 pl-2">
+        {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+    </p>
+);
 
-const TimeDisplay = () => {
-    const time = useClock();
-    return (
-        <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
-            {format(time, 'HH:mm:ss')}
-        </div>
-    );
-};
+const TimeDisplay = ({ time }) => (
+    <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
+        {format(time, 'HH:mm:ss')}
+    </div>
+);
 
 export default function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
@@ -50,6 +45,8 @@ export default function Header({
     appState
 }) {
     const { logout, currentUser } = useAuth();
+    // Single clock instance — prevents the two sub-components from each running a setInterval
+    const clockTime = useClock();
 
 
     const [profileOpen, setProfileOpen] = useState(false);
@@ -150,7 +147,7 @@ export default function Header({
                     </div>
                 </div>
                 <div className="mt-1">
-                    <DateDisplay />
+                    <DateDisplay time={clockTime} />
                 </div>
             </div>
 
@@ -190,7 +187,7 @@ export default function Header({
                 </button>
 
                 {/* Live Clock */}
-                <TimeDisplay />
+                <TimeDisplay time={clockTime} />
 
 
 
