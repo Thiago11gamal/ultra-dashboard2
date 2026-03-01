@@ -466,7 +466,7 @@ const getWeakestTopic = (category, simulados = []) => {
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
-    const targetScore = options.targetScore || 70;
+    const targetScore = options.targetScore ?? 70;
 
     const ranked = categories.map(cat => ({
         ...cat,

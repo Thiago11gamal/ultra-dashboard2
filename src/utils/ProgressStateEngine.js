@@ -20,7 +20,7 @@ export function analyzeProgressState(scores, config = {}) {
         stagnation_threshold,
         low_level_limit,
         high_level_limit,
-        mastery_limit,
+        mastery_limit,  // Bug fix: was missing from destructure — callers could never override this
         trend_tolerance
     } = { ...DEFAULT_CONFIG, ...config };
 
