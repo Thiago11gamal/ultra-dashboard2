@@ -24,7 +24,9 @@ function calculateStandardDeviation(scores) {
 // Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
 const normalizeDate = (dateInput) => {
     if (!dateInput) return new Date(0);
-    const d = new Date(dateInput);
+    const d = typeof dateInput === 'string' && dateInput.length === 10
+        ? new Date(`${dateInput}T12:00:00`)
+        : new Date(dateInput);
     if (isNaN(d.getTime())) return new Date(0);
     d.setHours(0, 0, 0, 0);
     return d;
