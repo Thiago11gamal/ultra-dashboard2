@@ -1,11 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { normalize, aliases } from '../utils/normalization';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
-    // Stable ID counter to avoid regenerating IDs on every render
-    const idCounter = useRef(0);
+
 
     // Bug fix: `r.id || row-${idCounter.current++}` still mutated idCounter.current
     // during the render phase whenever r.id was falsy — causing React to see different
@@ -16,13 +15,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         : [];
 
     // Helper to report changes up to parent
+    const [analysisData, setAnalysisData] = useState(null);
+    const [error, setError] = useState(null);
+
     const setRows = (newRows) => {
         if (onRowsChange) onRowsChange(newRows);
     };
 
     const [loading, setLoading] = useState(false);
-    const [analysisData, setAnalysisData] = useState(null);
-    const [error, setError] = useState(null);
 
     const updateRow = (index, field, value) => {
         // 1. SanitizaÃ§Ã£o: Apenas nÃºmeros para campos numÃ©ricos

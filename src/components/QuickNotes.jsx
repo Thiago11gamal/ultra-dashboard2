@@ -6,7 +6,6 @@ export default function QuickNotes({ notes = '', onSave }) {
     const [text, setText] = useState(notes);
     const [isFocused, setIsFocused] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
-    const [prevNotes, setPrevNotes] = useState(notes);
 
     // Bug fix: calling setState during render (the previous pattern with prevNotes) causes
     // React warnings and extra re-renders. Use useEffect to sync when the prop changes externally,

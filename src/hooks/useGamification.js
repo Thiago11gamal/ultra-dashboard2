@@ -20,7 +20,6 @@ export const useGamification = (showToast) => { // Accept showToast
 
         // ✅ NIVELAMENTO PROGRESSIVO
         const newLevel = getLevelFromXP(newXp);
-        const oldLevel = getLevelFromXP(oldXp);
 
         // NOTE: Side effects (window.dispatchEvent) should ideally not be here 
         // if this is used inside state setters. We rely on the store's 

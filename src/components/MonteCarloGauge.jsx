@@ -95,12 +95,6 @@ export default function MonteCarloGauge({
         }
     }, [catCount, weights, getEqualWeights, setWeights]);
 
-    const updateWeight = useCallback((catName, value) => {
-        if (equalWeightsMode || !weights) return;
-        const updatedWeights = { ...weights, [catName]: sanitizeWeightUnit(value) };
-        setWeights(updatedWeights);
-    }, [equalWeightsMode, weights, setWeights]);
-
     const effectiveWeights = useMemo(() => {
         if (equalWeightsMode) return getEqualWeights();
         if (!weights) return getEqualWeights();

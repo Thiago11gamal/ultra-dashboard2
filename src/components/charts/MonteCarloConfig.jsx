@@ -4,7 +4,7 @@ import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
-    setWeights, weights, updateWeight, activeCategories, categories, onWeightsChange
+    setWeights, weights, updateWeight, categories, onWeightsChange
 }) => {
     if (!show) return null;
 

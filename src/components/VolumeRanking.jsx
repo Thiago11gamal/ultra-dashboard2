@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Medal, Hash, BarChart3, TrendingUp, Target } from 'lucide-react';
+import { Trophy, TrendingUp, Target, Award, Play } from 'lucide-react';
 
 const VolumeRanking = ({ categories = [] }) => {
     const sorted = useMemo(() => {

@@ -5,7 +5,6 @@ import { useAppStore } from '../store/useAppStore';
 
 export default function Stats() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const updateWeights = useAppStore(state => state.updateWeights);
 
     return (
         <div className="space-y-8 animate-fade-in">

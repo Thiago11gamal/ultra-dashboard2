@@ -139,7 +139,7 @@ export const analyzeSubjectBalance = (categories) => {
     };
 };
 
-export const analyzeEfficiency = (categories, studyLogs = []) => {
+export const analyzeEfficiency = (categories) => {
     const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
     // Bug fix: optional chaining on c.tasks throughout to avoid crash if tasks is undefined
     const totalTasks = categories.reduce((sum, c) => sum + (c.tasks || []).length, 0);
@@ -334,6 +334,45 @@ export const detectProcrastination = (categories, studyLogs) => {
         hasProcrastination: warnings.length > 0,
         warnings,
         score: Math.max(0, 100 - (warnings.length * 15))
+    };
+};
+
+export const calculatePomodoroStats = (stats) => {
+    const { studySessions = [], categories = [] } = stats || {};
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+
+    // Configurações baseadas no store config (podem ser passadas via param)
+    const DAILY_GOAL_MINUTES = 120; // Meta padrão: 2 horas
+
+    const todaySessions = studySessions.filter(s => s.startTime >= startOfDay);
+    const todayMinutes = todaySessions.reduce((total, s) => total + s.duration, 0);
+
+    // Calcular a série de dias (streak)
+    const logsObj = { studyLogs: studySessions.map(s => ({ date: s.startTime })) };
+    const streak = calculateStudyStreak(logsObj.studyLogs);
+
+    // Calcular progresso da meta
+    const progressPercentage = Math.min(100, Math.round((todayMinutes / DAILY_GOAL_MINUTES) * 100));
+
+    // Determinar matérias mais estudadas hoje
+    const todaySubjects = {};
+    todaySessions.forEach(session => {
+        const cat = categories.find(c => c.id === session.categoryId);
+        if (cat) {
+            todaySubjects[cat.name] = (todaySubjects[cat.name] || 0) + session.duration;
+        }
+    });
+
+    return {
+        todayMinutes,
+        todayPomodoros: todaySessions.length,
+        dailyGoalMinutes: DAILY_GOAL_MINUTES,
+        progressPercentage,
+        streak: streak.current,
+        totalSubjectsToday: Object.keys(todaySubjects).length,
+        topSubject: Object.entries(todaySubjects).sort((a, b) => b[1] - a[1])[0] || null
     };
 };
 

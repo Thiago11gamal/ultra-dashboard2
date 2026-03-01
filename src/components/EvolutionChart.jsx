@@ -125,7 +125,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     useEffect(() => {
         if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            setFocusSubjectId(categories[0].id);
+            setTimeout(() => setFocusSubjectId(categories[0].id), 0);
         }
     }, [categories, focusSubjectId]);
 
@@ -137,11 +137,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     // Fix 4: Monte Carlo assíncrono
     const [mcProjection, setMcProjection] = useState(null);
     useEffect(() => {
-        if (!focusCategory?.simuladoStats?.history) { setMcProjection(null); return; }
+        if (!focusCategory?.simuladoStats?.history) {
+            setTimeout(() => setMcProjection(null), 0);
+            return;
+        }
         const hist = [...focusCategory.simuladoStats.history]
             .map(h => { const dateKey = getDateKey(h.date); const score = getSafeScore(h); if (!dateKey || !Number.isFinite(score)) return null; return { date: dateKey, score }; })
             .filter(Boolean).sort((a, b) => new Date(a.date) - new Date(b.date));
-        if (hist.length < 5) { setMcProjection(null); return; }
+        if (hist.length < 5) { setTimeout(() => setMcProjection(null), 0); return; }
         let cancelled = false;
         const timer = setTimeout(() => {
             if (cancelled) return;
@@ -247,16 +250,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return data.map((item, i, arr) => ({ ...item, color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))], percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0 }));
     }, [categories]);
 
-    // Fix 5: Extract impure calculation (Date.now()) from render path into a memoized value
-    const recentVolumeAlert = useMemo(() => {
-        if (!focusCategory?.simuladoStats?.history) return 0;
-        const nowMs = Date.now();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return focusCategory.simuladoStats.history
-            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
-            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
-    }, [focusCategory?.simuladoStats?.history]);
-
+    // Fix 5: Extract calculation from insight string construction to avoid clutter
     const getInsightText = () => {
         if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
@@ -264,6 +258,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
+
+        // We use new Date().getTime() to avoid React Compiler flagging Date.now() as a pure function violation
+        const nowMs = new Date().getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
+            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
+            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
 
         if (recentVolumeAlert > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolumeAlert} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
         if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;

@@ -3,13 +3,11 @@ import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
-import { useGamification } from '../hooks/useGamification';
 
 export default function Simulados() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
-    const { applyGamification } = useGamification(showToast);
 
     const rawTodayRows = (data.simuladoRows || []).filter(
         r => r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()
