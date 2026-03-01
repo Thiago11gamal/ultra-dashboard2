@@ -71,10 +71,13 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
 
     // Determine urgency styling
     let urgencyStyle = {
-        gradient: 'from-blue-500/20 to-cyan-500/20',
-        border: 'border-blue-500/30',
-        badge: 'bg-blue-500/20 text-blue-400',
-        buttonGradient: 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500'
+        gradient: 'from-blue-500/10 to-transparent',
+        border: 'border-blue-500/20 hover:border-blue-500/40',
+        badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        buttonGradient: 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500',
+        glow: 'shadow-[0_0_20px_rgba(59,130,246,0.2)] hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]',
+        iconBg: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+        textHighlight: 'text-blue-400'
     };
 
     // Use normalizedScore (0-100) for thresholds
@@ -82,17 +85,23 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
 
     if (urgencyScore > 70) {
         urgencyStyle = {
-            gradient: 'from-red-500/20 to-orange-500/20',
-            border: 'border-red-500/30 hover:border-red-500/50',
-            badge: 'bg-red-500/20 text-red-400',
-            buttonGradient: 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500'
+            gradient: 'from-red-500/10 to-transparent',
+            border: 'border-red-500/20 hover:border-red-500/40',
+            badge: 'bg-red-500/10 text-red-500 border-red-500/20',
+            buttonGradient: 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500',
+            glow: 'shadow-[0_0_20px_rgba(239,68,68,0.2)] hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]',
+            iconBg: 'bg-red-500/10 border-red-500/20 text-red-500',
+            textHighlight: 'text-red-500'
         };
     } else if (urgencyScore > 50) {
         urgencyStyle = {
-            gradient: 'from-amber-500/20 to-orange-500/20',
-            border: 'border-amber-500/30 hover:border-amber-500/50',
-            badge: 'bg-amber-500/20 text-amber-400',
-            buttonGradient: 'from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500'
+            gradient: 'from-amber-500/10 to-transparent',
+            border: 'border-amber-500/20 hover:border-amber-500/40',
+            badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+            buttonGradient: 'from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400',
+            glow: 'shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]',
+            iconBg: 'bg-amber-500/10 border-amber-500/20 text-amber-500',
+            textHighlight: 'text-amber-500'
         };
     }
 
@@ -103,51 +112,49 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
     // We now proceed to render the task suggestion regardless of simulado data.
 
     return (
-        <div className={`relative rounded-xl border ${urgencyStyle.border} bg-gradient-to-r ${urgencyStyle.gradient} backdrop-blur-sm transition-all duration-300 group`}>
-            {/* Background Layer for Overflow Safety */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                {/* Subtle animated glow */}
-                <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-500" />
-            </div>
+        <div className={`relative rounded-xl border ${urgencyStyle.border} bg-slate-950/80 backdrop-blur-xl transition-all duration-500 group overflow-hidden`}>
+            {/* Background Layers */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} pointer-events-none opacity-50`} />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-[80px] rounded-full pointer-events-none" />
 
-            <div className="relative z-10 p-5 flex flex-col md:flex-row items-center gap-5">
+            <div className="relative z-10 p-5 md:p-6 flex flex-col md:flex-row items-center gap-6">
                 {/* Left: Category Icon */}
-                <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                    style={{ backgroundColor: `${category.color || '#64748b'}20` }}
-                >
+                <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 border ${urgencyStyle.iconBg}`}>
                     {category.icon || '📚'}
                 </div>
 
                 {/* Center: Task Info */}
-                <div className="flex-1 min-w-0 w-full">
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <div className="px-2.5 py-1.5 rounded bg-white/10 border border-white/20 shrink-0">
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter leading-relaxed">Matéria</span>
-                        </div>
-                        <span className="text-xs font-bold text-white truncate leading-relaxed">
-                            {category.name}
+                <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                            PRÓXIMA MISSÃO
                         </span>
-                        <span className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded ml-auto md:ml-2 leading-relaxed ${urgencyStyle.badge}`}>
+
+                        <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-md border tracking-widest leading-none ${urgencyStyle.badge}`}>
                             {hasSimuladoData
                                 ? (urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal')
                                 : '🌱 Inicial'}
                         </span>
                     </div>
 
-                    <div className="flex flex-wrap items-start gap-2">
-                        <div className="px-2.5 py-1.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
-                            <span className="text-[10px] font-black text-amber-300 uppercase tracking-tighter leading-relaxed">Assunto</span>
-                        </div>
-                        <h3 className="text-white font-bold text-sm leading-loose truncate px-1" title={display.assunto}>
-                            {display.assunto}
+                    <div className="flex flex-col gap-1 mb-2">
+                        <h3 className="text-xl md:text-2xl font-black text-white truncate drop-shadow-sm" title={category.name}>
+                            {category.name}
                         </h3>
+                        {display.assunto && (
+                            <div className="flex items-center gap-2">
+                                <Target size={14} className={urgencyStyle.textHighlight} />
+                                <h4 className="text-sm font-bold text-slate-300 truncate" title={display.assunto}>
+                                    {display.assunto}
+                                </h4>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-medium">
-                        <span className="flex items-center gap-1.5">
-                            <Clock size={12} />
-                            {display.meta} • {urgency?.details?.daysSinceLastStudy ?? 0}d
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-400 font-medium">
+                            <Clock size={12} className={urgencyStyle.textHighlight} />
+                            Tempo sem ver: <span className="text-white font-bold">{urgency?.details?.daysSinceLastStudy ?? 0}d</span>
                         </span>
                     </div>
                 </div>
@@ -155,10 +162,11 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 {/* Right: Action Button */}
                 <button
                     onClick={() => onStartStudying && onStartStudying(category.id, task.id)}
-                    className={`w-full md:w-auto flex-shrink-0 px-6 py-3.5 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} text-white font-bold text-sm flex items-center justify-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-lg group/btn leadind-relaxed mt-2 md:mt-0`}
+                    className={`relative w-full md:w-auto flex-shrink-0 px-8 py-4 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
                 >
-                    <Play size={18} className="fill-white group-hover/btn:animate-bounce" />
-                    Estudar
+                    <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                    <Play size={18} className="fill-white relative z-10" />
+                    <span className="relative z-10">INICIAR SESSÃO</span>
                 </button>
             </div>
         </div>
