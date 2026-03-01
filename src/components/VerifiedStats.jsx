@@ -20,7 +20,7 @@ export default function VerifiedStats({ categories = [], user }) {
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('monte_carlo_target');
-            if (saved) return parseInt(saved);
+            if (saved) { const parsed = parseInt(saved, 10); if (!isNaN(parsed)) return parsed; }
         }
         const userTarget = parseFloat(user?.targetProbability);
         return !isNaN(userTarget) ? userTarget : 70;
