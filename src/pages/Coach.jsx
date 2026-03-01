@@ -14,18 +14,18 @@ export default function Coach() {
         if (!data.categories) return null;
         return getSuggestedFocus(
             data.categories,
-            data.simulados || [],
+            data.simuladoRows || [],
             data.studyLogs || [],
             { user: data.user, targetScore: 70 }
         );
-    }, [data.categories, data.simulados, data.studyLogs, data.user]);
+    }, [data.categories, data.simuladoRows, data.studyLogs, data.user]);
 
     const handleGenerateGoals = () => {
         setCoachLoading(true);
         setTimeout(() => {
             const newTasks = generateDailyGoals(
                 data.categories,
-                data.simulados || [],
+                data.simuladoRows || [],
                 data.studyLogs || [],
                 { user: data.user, targetScore: 70 }
             );
