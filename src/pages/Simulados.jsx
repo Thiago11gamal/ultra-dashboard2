@@ -146,15 +146,17 @@ export default function Simulados() {
                             const sumXX = data.reduce((a, b) => a + (b.x * b.x), 0);
                             const sumXY = data.reduce((a, b) => a + (b.x * b.y), 0);
 
-                            const denom = (n * sumXX - (sumX * sumX));
-                            if (denom === 0) return 'stable';
-                            const slope = (n * sumXY - (sumX * sumY)) / denom;
+                            // Sxx_centered (not n·Sxx): correct denominator for OLS
+                            const Sxx = sumXX - (sumX * sumX) / n;
+                            if (Sxx === 0) return 'stable';
+                            const slope = (sumXY - (sumX * sumY) / n) / Sxx;
 
-                            // Simplified Significance Test (T-stat > 1.5 for basic relevance in study patterns)
                             const intercept = (sumY - slope * sumX) / n;
                             const ssRes = data.reduce((a, b) => a + Math.pow(b.y - (slope * b.x + intercept), 2), 0);
+                            // Math fix: seSlope = √(s2 / Sxx) — not √(s2 / n·Sxx)
+                            // Previous code used denom = n·Sxx, underestimating seSlope by √n
                             const s2 = ssRes / (n - 2 || 1);
-                            const seSlope = Math.sqrt(s2 / denom);
+                            const seSlope = Math.sqrt(s2 / Sxx);
                             const tStat = Math.abs(slope / (seSlope || 0.001));
 
                             if (tStat > 1.5 && Math.abs(slope) > 0.5) {

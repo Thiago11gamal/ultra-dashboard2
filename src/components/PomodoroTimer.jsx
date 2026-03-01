@@ -219,13 +219,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setMode('break');
             const breakTime = safeSettings.pomodoroBreak * 60;
             setTimeLeft(breakTime);
-            // Explicitly sync to localStorage for immediate state consistency
-            localStorage.setItem('pomodoroState', JSON.stringify({
-                ...JSON.parse(localStorage.getItem('pomodoroState') || '{}'),
-                mode: 'break',
-                timeLeft: breakTime,
-                isRunning: false
-            }));
+            // Bug fix: previously did JSON.parse(localStorage.getItem(...))||{} spread —
+            // if the throttled save effect fired concurrently, the stale data would overwrite
+            // the new mode/timeLeft with old work-session values on the next resume.
+            // Write only the fields that change at session transition; the throttled effect
+            // will save all other state on its next scheduled tick.
+            try {
+                const existing = JSON.parse(localStorage.getItem('pomodoroState') || '{}');
+                localStorage.setItem('pomodoroState', JSON.stringify({
+                    ...existing,
+                    mode: 'break',
+                    timeLeft: breakTime,
+                    isRunning: false,
+                    savedAt: Date.now()
+                }));
+            } catch { /* ignore storage errors */ }
             setIsRunning(false); // Pause here so they can manually start the break
 
             // Sound & Notification
