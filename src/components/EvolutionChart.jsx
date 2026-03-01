@@ -145,13 +145,17 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
-        const pts = timeline.map((d) => ({ ...d, "Nota Bruta": d[`raw_${focusCategory.name}`], "Nível Bayesiano": d[`bay_${focusCategory.name}`], "Média Histórica": d[`stats_${focusCategory.name}`] }));
+        // Bug fix 1: never mutate the memoized timeline array — map to new objects
+        let pts = timeline.map((d) => ({ ...d, "Nota Bruta": d[`raw_${focusCategory.name}`], "Nível Bayesiano": d[`bay_${focusCategory.name}`], "Média Histórica": d[`stats_${focusCategory.name}`] }));
         if (mcProjection && pts.length > 0) {
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
-            pts[lastIdx] = { ...pts[lastIdx], "Cenário Ruim": currentLevel, "Cenário Ótimo": currentLevel };
-            const [, month, day] = mcProjection.date.split("-");
-            pts.push({ date: mcProjection.date, displayDate: `${day}/${month} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Ruim": mcProjection.mc_band[0], "Cenário Ótimo": mcProjection.mc_band[1] });
+            // Immutable replacement of last element
+            pts = [
+                ...pts.slice(0, lastIdx),
+                { ...pts[lastIdx], "Cenário Ruim": currentLevel, "Cenário Ótimo": currentLevel },
+                { date: mcProjection.date, displayDate: `${mcProjection.date.split('-')[2]}/${mcProjection.date.split('-')[1]} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Ruim": mcProjection.mc_band[0], "Cenário Ótimo": mcProjection.mc_band[1] }
+            ];
         }
         return pts;
     }, [timeline, focusCategory, mcProjection]);
@@ -203,7 +207,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             });
         });
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        return Object.values(topicMap).map(d => ({ name: d.name, value: d.errors }))
+        // Bug fix 2: filter out zero-error entries — tasks with no errors are noise in the critical chart
+        return Object.values(topicMap)
+            .filter(d => d.errors > 0)
+            .map(d => ({ name: d.name, value: d.errors }))
             .sort((a, b) => b.value - a.value)
             .map((item, i, arr) => ({ ...item, fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))] }));
     }, [categories]);
@@ -216,12 +223,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         rollingLimit.setHours(0, 0, 0, 0);
         let totalErrors = 0;
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        const data = categories.map(cat => {
+        const rawData = categories.map(cat => {
             let errors = 0;
             (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => { errors += Math.max(0, (parseInt(h.total, 10) || 0) - (parseInt(h.correct, 10) || 0)); });
             totalErrors += errors;
             return { name: cat.name, value: errors };
-        }).sort((a, b) => b.value - a.value);
+        });
+        // Bug fix 3: exclude categories with 0 errors — they add misleading zero-bars and distort the color palette
+        const data = rawData.filter(d => d.value > 0).sort((a, b) => b.value - a.value);
         return data.map((item, i, arr) => ({ ...item, color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))], percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0 }));
     }, [categories]);
 

@@ -44,7 +44,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
 /**
  * Hook for processing and memoizing chart data
  */
-export function useChartData(categories = []) {
+export function useChartData(categories = [], targetScore = 80) {
     // 1. Memoize active categories (those with history)
     const activeCategories = useMemo(
         () => categories,
@@ -103,7 +103,7 @@ export function useChartData(categories = []) {
                 dataByDate[date][`raw_correct_${cat.name}`] = exact ? exact.correct : 0;
                 dataByDate[date][`raw_total_${cat.name}`] = exact ? exact.total : 0;
                 dataByDate[date][`raw_${cat.name}`] = last.score;
-                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
+                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], targetScore, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
             });
         });
