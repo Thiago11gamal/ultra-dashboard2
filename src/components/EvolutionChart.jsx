@@ -86,7 +86,7 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
     const statusColor = ok ? '#22c55e' : mid ? '#eab308' : '#ef4444';
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-xl border p-3 transition-all duration-300 overflow-hidden group ${isFocused ? 'border-opacity-60 shadow-lg scale-[1.02]' : 'border-slate-800/70 hover:border-slate-700 hover:scale-[1.01]'}`}
+            className={`relative text-left w-full rounded-xl border p-3 transition-all duration-300 overflow-hidden group min-h-[80px] ${isFocused ? 'border-opacity-60 shadow-lg scale-[1.02]' : 'border-slate-800/70 hover:border-slate-700 hover:scale-[1.01]'}`}
             style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
             {/* Progress bar at bottom */}
             <div className="absolute bottom-0 left-0 h-0.5 rounded-full transition-all duration-500"
@@ -96,7 +96,7 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
                 <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_6px_var(--dot-glow)]"
                     style={{ backgroundColor: statusColor, '--dot-glow': statusColor }} />
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate leading-tight">{cat.name}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide break-words leading-tight line-clamp-2">{cat.name}</p>
             <p className="text-lg font-black mt-0.5" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
                 {pct.toFixed(1)}%
             </p>
