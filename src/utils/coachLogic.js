@@ -243,7 +243,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (srsBoost > 0) rotationPenalty *= 0.1;
 
         // --- DYNAMIC RAW_MAX ---
-        const RAW_MAX_BASE = cfg.SCORE_MAX + cfg.RECENCY_MAX + cfg.INSTABILITY_MAX;
+        // Math fix: recencyComponent ceiling = RECENCY_MAX × crunchMultiplier (not fixed at RECENCY_MAX).
+        // Without this, categories during reta final all clip at 100 and are indistinguishable.
+        const effectiveRecencyMax = cfg.RECENCY_MAX * crunchMultiplier;
+        const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
         const RAW_MAX_ACTUAL = RAW_MAX_BASE +
             (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
             (srsBoost > 0 ? cfg.SRS_BOOST : 0);
