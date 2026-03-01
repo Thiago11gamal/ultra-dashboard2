@@ -12,22 +12,29 @@ export default function Coach() {
 
     const suggestedFocus = useMemo(() => {
         if (!data.categories) return null;
+
+        const storedTarget = localStorage.getItem('monte_carlo_target');
+        const targetScore = storedTarget ? parseInt(storedTarget, 10) : 80;
+
         return getSuggestedFocus(
             data.categories,
             data.simuladoRows || [],
             data.studyLogs || [],
-            { user: data.user, targetScore: 70 }
+            { user: data.user, targetScore }
         );
     }, [data.categories, data.simuladoRows, data.studyLogs, data.user]);
 
     const handleGenerateGoals = () => {
         setCoachLoading(true);
         setTimeout(() => {
+            const storedTarget = localStorage.getItem('monte_carlo_target');
+            const targetScore = storedTarget ? parseInt(storedTarget, 10) : 80;
+
             const newTasks = generateDailyGoals(
                 data.categories,
                 data.simuladoRows || [],
                 data.studyLogs || [],
-                { user: data.user, targetScore: 70 }
+                { user: data.user, targetScore }
             );
             if (newTasks.length) {
                 setData(prev => ({ ...prev, coachPlan: newTasks }));

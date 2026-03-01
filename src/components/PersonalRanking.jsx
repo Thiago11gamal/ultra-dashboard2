@@ -1,7 +1,7 @@
 import React from 'react';
 import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
 
-const StatCard = ({ title, item, metric, label, isNegative = false, isMVP = false, subtitle }) => {
+const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, isMVP = false, subtitle }) => {
     return (
         <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-yellow-500/30 hover:border-yellow-400/60 shadow-[0_0_40px_rgba(234,179,8,0.1)] hover:shadow-[0_0_60px_rgba(234,179,8,0.2)]' :
             isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
