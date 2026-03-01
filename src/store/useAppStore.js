@@ -260,7 +260,9 @@ export const useAppStore = create(
             deleteSession: (sessionId) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
-                if (sessionIndex === -1 || sessionIndex === undefined) return false;
+                // Bug fix: returning `false` inside an Immer producer tells Immer to REPLACE
+                // the entire store state with `false`, corrupting all data. Use plain `return` instead.
+                if (sessionIndex === -1 || sessionIndex === undefined) return;
 
                 const session = activeData.studySessions[sessionIndex];
 

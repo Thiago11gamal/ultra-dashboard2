@@ -67,7 +67,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 }
             });
         }
-    }, [targetScore, setUserData, user?.targetProbability, !!user]);
+    }, [targetScore, setUserData, user?.targetProbability, user?.id]);
 
     const stats = useMemo(() => {
         let allHistory = [];

@@ -4,13 +4,13 @@ import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from
 const StatCard = ({ title, item, color, icon: Icon, metric, label, isNegative = false, isMVP = false, subtitle }) => {
     return (
         <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-yellow-500/30 hover:border-yellow-400/60 shadow-[0_0_40px_rgba(234,179,8,0.1)] hover:shadow-[0_0_60px_rgba(234,179,8,0.2)]' :
-                isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
-                    'bg-slate-900/60 border-white/5 hover:border-white/20'
+            isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
+                'bg-slate-900/60 border-white/5 hover:border-white/20'
             }`}>
             {/* Background Glows */}
             <div className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br transition-all duration-700 blur-[80px] ${isMVP ? 'from-yellow-400/20 to-orange-500/20 opacity-40 group-hover:opacity-60 group-hover:scale-125' :
-                    isNegative ? 'from-red-500/10 to-rose-600/10 opacity-20' :
-                        'from-blue-500/10 to-cyan-500/10 opacity-20'
+                isNegative ? 'from-red-500/10 to-rose-600/10 opacity-20' :
+                    'from-blue-500/10 to-cyan-500/10 opacity-20'
                 }`} />
 
             {/* Decorative Elements for MVP */}
@@ -25,8 +25,8 @@ const StatCard = ({ title, item, color, icon: Icon, metric, label, isNegative = 
             <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isMVP ? 'text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]' :
-                            isNegative ? 'text-red-400/80' :
-                                'text-slate-500'
+                        isNegative ? 'text-red-400/80' :
+                            'text-slate-500'
                         }`}>
                         <div className={`p-1.5 rounded-lg ${isMVP ? 'bg-yellow-500/10' : 'bg-slate-800/50'}`}>
                             <Icon size={14} />
@@ -65,8 +65,8 @@ const StatCard = ({ title, item, color, icon: Icon, metric, label, isNegative = 
                         <div className="flex items-end gap-3 px-1">
                             <div className="flex flex-col">
                                 <span className={`text-5xl font-black tracking-tighter leading-none ${isMVP ? 'text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]' :
-                                        isNegative ? 'text-red-500 shadow-red-500/20' :
-                                            'text-white'
+                                    isNegative ? 'text-red-500 shadow-red-500/20' :
+                                        'text-white'
                                     }`}>
                                     {metric}
                                 </span>
@@ -137,7 +137,7 @@ function PersonalRanking({ categories = [] }) {
                     item={strongest}
                     color="from-yellow-400 to-orange-500"
                     icon={Crown}
-                    metric={strongest?.balance > 0 ? `+${strongest.balance}` : strongest?.balance || 0}
+                    metric={strongest ? (strongest.balance > 0 ? `+${strongest.balance}` : strongest.balance) : 0}
                     label="Saldo Líquido"
                     subtitle="Maior Eficiência"
                     isMVP={true}
@@ -158,7 +158,7 @@ function PersonalRanking({ categories = [] }) {
                     item={weakest}
                     color="from-red-400 to-rose-600"
                     icon={ShieldAlert}
-                    metric={weakest?.balance > 0 ? `+${weakest.balance}` : weakest?.balance || 0}
+                    metric={weakest ? (weakest.balance > 0 ? `+${weakest.balance}` : weakest.balance) : 0}
                     label="Saldo Líquido"
                     isNegative
                     subtitle="Foco em Melhoria"

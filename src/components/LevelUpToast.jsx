@@ -4,18 +4,23 @@ import { Sparkles, X } from 'lucide-react';
 export default function LevelUpToast({ level, title, onClose }) {
     const [visible, setVisible] = useState(false);
 
+    const timersRef = React.useRef([]);
     useEffect(() => {
-        let innerTimer;
-        const showTimer = setTimeout(() => setVisible(true), 10);
-        // Auto-close after 5 seconds if not interactive
-        const timer = setTimeout(() => {
+        // Bug fix: storing all timer IDs in a ref array ensures cleanup always
+        // clears every timer, even if onClose changes identity mid-flight.
+        const addTimer = (fn, delay) => {
+            const id = setTimeout(fn, delay);
+            timersRef.current.push(id);
+            return id;
+        };
+        addTimer(() => setVisible(true), 10);
+        addTimer(() => {
             setVisible(false);
-            innerTimer = setTimeout(onClose, 500); // Wait for exit animation
+            addTimer(onClose, 500); // Wait for exit animation
         }, 6000);
         return () => {
-            clearTimeout(timer);
-            clearTimeout(showTimer);
-            clearTimeout(innerTimer);
+            timersRef.current.forEach(clearTimeout);
+            timersRef.current = [];
         };
     }, [onClose]);
 

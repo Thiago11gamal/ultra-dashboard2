@@ -113,13 +113,13 @@ export function projectScore(history, projectDays = 60) {
 
     const slope = calculateSlope(sortedHistory);
 
-    const lastRawScore = sortedHistory[sortedHistory.length - 1].score;
+    const lastRawScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
     let currentScore = lastRawScore;
 
     if (sortedHistory.length > 2) {
-        let ema = sortedHistory[0].score;
+        let ema = getSafeScore(sortedHistory[0]);
         for (let i = 1; i < sortedHistory.length; i++) {
-            ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
+            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
         }
         // Consistent blended baseline: 70% raw, 30% EMA
         currentScore = (lastRawScore * 0.7) + (ema * 0.3);
@@ -150,7 +150,7 @@ function calculateVolatility(history) {
         const h0 = sorted[i - 1];
         const h1 = sorted[i];
 
-        const diff = h1.score - h0.score;
+        const diff = getSafeScore(h1) - getSafeScore(h0);
         const time1 = new Date(h1.date).getTime();
         const time0 = new Date(h0.date).getTime();
 
