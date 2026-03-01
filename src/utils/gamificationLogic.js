@@ -108,8 +108,14 @@ export const calculateStreak = (studyLogs = []) => {
 
     const dates = [...new Set(
         studyLogs
-            .filter(l => l.date && !isNaN(new Date(l.date).getTime())) // Validate date
-            .map(l => format(new Date(l.date), 'yyyy-MM-dd'))
+            .map(l => {
+                if (!l.date) return null;
+                const rawDate = typeof l.date === 'string' && l.date.length === 10
+                    ? new Date(`${l.date}T12:00:00`)
+                    : new Date(l.date);
+                return isNaN(rawDate.getTime()) ? null : format(rawDate, 'yyyy-MM-dd');
+            })
+            .filter(Boolean)
     )].sort().reverse();
 
     if (dates.length === 0) return { current: 0, best: 0 };

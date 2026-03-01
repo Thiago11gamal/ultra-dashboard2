@@ -1,6 +1,6 @@
 // Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
 const toISODay = (date) => {
-    const d = new Date(date);
+    const d = typeof date === 'string' && date.length === 10 ? new Date(`${date}T12:00:00`) : new Date(date);
     if (isNaN(d.getTime())) return null;
     return d.getFullYear() + '-' +
         String(d.getMonth() + 1).padStart(2, '0') + '-' +
