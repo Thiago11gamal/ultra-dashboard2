@@ -261,8 +261,16 @@ export function monteCarloSimulation(
     const rng = mulberry32(seed);
 
     let success = 0;
-    let sumResults = 0;
-    let sumSqResults = 0;
+    // Math fix 2: Welford's online algorithm for numerically stable variance
+    // Avoids catastrophic cancellation in (ΣX²/n − (ΣX/n)²) when mean is large
+    let welfordMean = 0;
+    let welfordM2 = 0;
+    let welfordCount = 0;
+
+    // Math fix 1: Collect all final scores for empirical CI percentiles
+    // ±1.96σ assumes a Gaussian distribution — but our distribution is truncated [0,100]
+    // and can be asymmetric near the score ceiling or floor. Empirical percentiles are exact.
+    const allFinalScores = new Array(safeSimulations);
 
     const safeSimulations = Math.max(1, simulations);
 
@@ -293,26 +301,40 @@ export function monteCarloSimulation(
 
         if (score >= targetScore) success++;
 
-        sumResults += score;
-        sumSqResults += score * score;
+        allFinalScores[s] = score;
+
+        // Welford online update
+        welfordCount++;
+        const delta = score - welfordMean;
+        welfordMean += delta / welfordCount;
+        const delta2 = score - welfordMean;
+        welfordM2 += delta * delta2;
     }
 
-    const projectedMean = sumResults / safeSimulations;
-    const projectedVariance = (sumSqResults / safeSimulations) - (projectedMean * projectedMean);
+    const projectedMean = welfordMean;
+    const projectedVariance = welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0;
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
+
+    // Empirical percentiles — sort then pick P2.5 and P97.5
+    allFinalScores.sort((a, b) => a - b);
+    const p025idx = Math.floor(safeSimulations * 0.025);
+    const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
+    const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
+    const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 
     return {
         probability: (success / safeSimulations) * 100,
         mean: Number(projectedMean.toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
-        ci95Low: Number(Math.max(0, projectedMean - 1.96 * projectedSD).toFixed(1)),
-        ci95High: Number(Math.min(100, projectedMean + 1.96 * projectedSD).toFixed(1)),
+        ci95Low,
+        ci95High,
         currentMean: Number(currentScore.toFixed(1)),
         drift,
         volatility,
         method: useBootstrap ? "bootstrap" : "normal"
     };
 }
+
 
 // -----------------------------
 // 🔥 Média Móvel Dinâmica (Melhoria 3)
