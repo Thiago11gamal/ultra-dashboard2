@@ -110,7 +110,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 <div className="absolute -top-10 -right-10 w-20 h-20 bg-purple-500/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-500" />
             </div>
 
-            <div className="relative z-10 p-4 flex items-center gap-4">
+            <div className="relative z-10 p-5 flex flex-col md:flex-row items-center gap-5">
                 {/* Left: Category Icon */}
                 <div
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
@@ -120,33 +120,33 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 </div>
 
                 {/* Center: Task Info */}
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="px-2 py-1.5 rounded bg-white/10 border border-white/20 shrink-0">
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter leading-normal">Matéria</span>
+                <div className="flex-1 min-w-0 w-full">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <div className="px-2.5 py-1.5 rounded bg-white/10 border border-white/20 shrink-0">
+                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter leading-relaxed">Matéria</span>
                         </div>
                         <span className="text-xs font-bold text-white truncate leading-relaxed">
                             {category.name}
                         </span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-1.5 rounded ml-auto leading-normal ${urgencyStyle.badge}`}>
+                        <span className={`text-[10px] font-black uppercase px-2.5 py-1.5 rounded ml-auto md:ml-2 leading-relaxed ${urgencyStyle.badge}`}>
                             {hasSimuladoData
                                 ? (urgencyScore > 70 ? '🔥 Urgente' : urgencyScore > 50 ? '⚡ Média' : '📋 Normal')
                                 : '🌱 Inicial'}
                         </span>
                     </div>
 
-                    <div className="flex items-start gap-2">
-                        <div className="px-2 py-1.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
-                            <span className="text-[9px] font-black text-amber-300 uppercase tracking-tighter leading-normal">Assunto</span>
+                    <div className="flex flex-wrap items-start gap-2">
+                        <div className="px-2.5 py-1.5 rounded bg-amber-500/20 border border-amber-500/30 shrink-0 mt-0.5">
+                            <span className="text-[10px] font-black text-amber-300 uppercase tracking-tighter leading-relaxed">Assunto</span>
                         </div>
-                        <h3 className="text-white font-bold text-sm leading-relaxed truncate px-1 py-0.5" title={display.assunto}>
+                        <h3 className="text-white font-bold text-sm leading-loose truncate px-1" title={display.assunto}>
                             {display.assunto}
                         </h3>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
-                        <span className="flex items-center gap-1">
-                            <Clock size={10} />
+                    <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-medium">
+                        <span className="flex items-center gap-1.5">
+                            <Clock size={12} />
                             {display.meta} • {urgency?.details?.daysSinceLastStudy ?? 0}d
                         </span>
                     </div>
@@ -155,9 +155,9 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 {/* Right: Action Button */}
                 <button
                     onClick={() => onStartStudying && onStartStudying(category.id, task.id)}
-                    className={`flex-shrink-0 px-5 py-3 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} text-white font-bold text-sm flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-lg group/btn`}
+                    className={`w-full md:w-auto flex-shrink-0 px-6 py-3.5 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} text-white font-bold text-sm flex items-center justify-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-lg group/btn leadind-relaxed mt-2 md:mt-0`}
                 >
-                    <Play size={16} className="fill-white group-hover/btn:animate-bounce" />
+                    <Play size={18} className="fill-white group-hover/btn:animate-bounce" />
                     Estudar
                 </button>
             </div>
