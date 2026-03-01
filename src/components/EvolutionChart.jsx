@@ -290,10 +290,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </svg>
 
             {/* ── 1. KPI CARDS ───────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões Resolvidas" color="#818cf8" icon="📚" />
-                <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos Conquistados" color="#34d399" icon="🎯" />
-                <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global (Bruta)" color="#fb923c" icon="⚡"
+            <div className="grid grid-cols-3 gap-3 min-w-0">
+                <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
+                <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
+                <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global" color="#fb923c" icon="⚡"
                     sub={focusSnapshot?.delta} />
             </div>
 
@@ -376,6 +376,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
+                ) : filteredChartData.length < 2 ? (
+                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30">
+                        <span className="text-5xl">🔥</span>
+                        <div className="text-center">
+                            <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
+                            <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">2 simulados</span> para desbloquear os gráficos de evolução.</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            O Mapa de Calor já funciona com 1 registro
+                        </div>
+                    </div>
                 ) : (
                     <div className="h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
