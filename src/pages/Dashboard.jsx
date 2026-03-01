@@ -25,7 +25,7 @@ export default function Dashboard() {
     return (
         <div className="space-y-6 animate-fade-in">
             <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
-            <NextGoalCard categories={data.categories} simulados={data.simulados} onStartStudying={handleStartStudying} />
+            <NextGoalCard categories={data.categories} simulados={data.simuladoRows || []} onStartStudying={handleStartStudying} />
             <PriorityProgress categories={data.categories} />
             <div className="mt-4">
                 <Checklist
