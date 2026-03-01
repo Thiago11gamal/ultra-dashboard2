@@ -29,18 +29,19 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         let finalValue = value;
 
         if (field === 'correct' || field === 'total') {
-            // Remove tudo que nÃ£o for dÃ­gito
-            const val = parseInt(String(value).replace(/\D/g, '')) || 0;
+            // Remove tudo que não for dígito
+            const rawString = String(value).replace(/\D/g, '');
+            const val = rawString === '' ? '' : parseInt(rawString, 10);
 
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index].total) || 0;
-                // Enforce: Correct cannot exceed Total (unless Total is 0 during typing, but result is clamped)
-                if (currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
+                // Enforce: Correct cannot exceed Total (unless Total is empty/0)
+                if (currentTotal > 0 && val !== '' && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index].correct) || 0;
                 // If Total is reduced below Correct, clamp Correct
-                if (val < currentCorrect) {
+                if (val !== '' && val < currentCorrect) {
                     const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
                     setRows(newRows);
                     return;
