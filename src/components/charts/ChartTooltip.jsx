@@ -50,19 +50,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal ? rawVal.toFixed(1) : 0}%
+                                        {rawVal != null ? rawVal.toFixed(1) : '—'}%
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Histórica</span>
                                     <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal ? statsVal.toFixed(1) : 0}%
+                                        {statsVal != null ? statsVal.toFixed(1) : '—'}%
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal ? bayVal.toFixed(1) : 0}%
+                                        {bayVal != null ? bayVal.toFixed(1) : '—'}%
                                     </span>
                                 </div>
                             </div>

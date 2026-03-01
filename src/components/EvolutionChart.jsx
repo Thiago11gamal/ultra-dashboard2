@@ -240,8 +240,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const lastPoint = timeline[timeline.length - 1];
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
-        const recentVolume = lastPoint[`raw_total_${focusCategory.name}`];
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
+        // Bug fix: recentVolume calculated from actual 7-day rolling window, not just last day's raw_total_
+        const now = Date.now();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const recentVolume = (focusCategory.simuladoStats?.history || [])
+            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && now - d <= sevenDaysMs; })
+            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
         if (recentVolume > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolume} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
         if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;
         if (raw < bayesian - 8) return `⚠️ Mantenha a calma. A nota da semana foi ${raw.toFixed(1)}%, mas a estatística garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
@@ -385,7 +390,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
-                ) : filteredChartData.length < 2 ? (
+                ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
@@ -436,7 +441,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             />
                                         ];
                                     }).filter(Boolean)}
-
                                 </ComposedChart>
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
