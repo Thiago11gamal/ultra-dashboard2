@@ -232,7 +232,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         // Bug fix 2: filter out zero-error entries — tasks with no errors are noise in the critical chart
         return Object.values(topicMap)
             .filter(d => d.errors > 0)
-            .map(d => ({ name: d.name, value: d.errors }))
+            .map(d => {
+                const isLong = d.name.length > 20;
+                return {
+                    name: isLong ? d.name.substring(0, 18) + '...' : d.name,
+                    fullName: d.name,
+                    value: d.errors
+                };
+            })
             .sort((a, b) => b.value - a.value)
             .map((item, i, arr) => ({ ...item, fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))] }));
     }, [categories]);
@@ -253,7 +260,16 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
         // Bug fix 3: exclude categories with 0 errors — they add misleading zero-bars and distort the color palette
         const data = rawData.filter(d => d.value > 0).sort((a, b) => b.value - a.value);
-        return data.map((item, i, arr) => ({ ...item, color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))], percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0 }));
+        return data.map((item, i, arr) => {
+            const isLong = item.name.length > 20;
+            return {
+                ...item,
+                fullName: item.name,
+                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
+                color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))],
+                percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0
+            };
+        });
     }, [categories]);
 
     // Fix 5: Extract calculation from insight string construction to avoid clutter
@@ -352,14 +368,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 3. ENGINE TABS ────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-5 shadow-xl">
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-5 shadow-xl w-full overflow-hidden">
                 {/* Tab bar */}
-                <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 text-nowrap">
+                <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full">
                     {ENGINES.map((eng) => {
                         const active = activeEngine === eng.id;
                         return (
                             <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
-                                className={`group flex items-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
+                                className={`shrink-0 w-max group flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
                                 style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
                                 <span className="text-base">{eng.emoji}</span>
                                 <span>{eng.label}</span>
@@ -381,12 +397,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                 {/* Controls row */}
                 {/* Row 1: focus selector */}
-                <div className="mb-4">
+                <div className="mb-4 w-full">
                     <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-2 pl-0.5">Focar em</p>
-                    <div className="flex overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap gap-1.5">
+                    <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap gap-1.5 w-full">
                         {categories.map((cat) => (
                             <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
-                                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`shrink-0 w-max flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
                                 style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}55`, color: cat.color, boxShadow: `0 0 10px ${cat.color}20` } : {}}>
                                 <span>{cat.icon}</span>
                                 <span>{cat.name}</span>
@@ -435,7 +451,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-[280px] sm:h-[360px] md:h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
                                         {categories.map(cat => (
                                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -445,10 +461,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         ))}
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={22} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 11, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
-                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
+                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
                                     <Legend wrapperStyle={{ paddingTop: '16px', fontSize: '11px' }} />
@@ -472,12 +488,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     }).filter(Boolean)}
                                 </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={22} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 11, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
-                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
+                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         content={<ChartTooltip chartData={filteredChartData} isCompare={true} />} />
                                     <Legend wrapperStyle={{ paddingTop: '16px', fontSize: '11px' }} />
@@ -525,13 +541,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <h3 className="text-base font-bold text-slate-200 mb-4">🕸️ Raio-X das Disciplinas</h3>
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
+                                <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
                                     <PolarGrid stroke="rgba(255,255,255,0.15)" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                     <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} fill="none" />
                                     <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
-                                    <Tooltip formatter={(v) => [`${v}%`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
                                 </RadarChart>
                             </ResponsiveContainer>
@@ -544,10 +560,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <h3 className="text-base font-bold text-slate-200 mb-4">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={20} />
-                                    <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
+                                    <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
+                                    <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
                                     <YAxis yAxisId="right" orientation="right" hide={true} />
                                     <Tooltip cursor={false} content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
@@ -634,11 +650,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="min-h-[260px]">
                             {pointLeakageData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, pointLeakageData.length * 44)}>
-                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
+                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 35, left: 10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={90} />
-                                        <Tooltip cursor={false} formatter={(v) => [`${v} erros`, 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={90} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                             <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
@@ -662,11 +678,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="min-h-[260px]">
                             {subtopicsData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, subtopicsData.length * 44)}>
-                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
+                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 35, left: 10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={110} />
-                                        <Tooltip cursor={false} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={100} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                                             <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
