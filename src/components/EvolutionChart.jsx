@@ -645,7 +645,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
                                         <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={150} />
-                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <Tooltip cursor={false} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                                             <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
