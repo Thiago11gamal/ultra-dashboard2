@@ -464,38 +464,36 @@ export const useAppStore = create(
             })),
             partialize: (state) => ({ appState: state.appState }),
             // CRITICAL FIX: Custom merge to prevent HMR (Hot Reload) from wiping data
-            merge: (persistedState, currentState) => {
-                if (!persistedState || !persistedState.appState) {
-                    return currentState;
-                }
+            const persisted = persistedState?.appState;
+            const current = currentState.appState;
 
-                const persisted = persistedState.appState;
-                const current = currentState.appState;
-
-                // Sync Safeguard: If the persisted state has a much older timestamp than "now", 
-                // but isn't 1970, we accept it.
-                // However, if the current code has NEW logic in initialData, we might want to merge.
+            // Sync Safeguard: If the persisted state is the default (1970 timestamp), 
+            // we prefer the clean initialData from the code to avoid "ghost" overrides.
+            const isDefaultState = persisted?.lastUpdated === "1970-01-01T00:00:00.000Z";
+            if(!persisted || isDefaultState) {
+    return currentState;
+}
 
                 const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
-                const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
-                let activeId = persisted.activeId || current.activeId;
+const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
+let activeId = persisted.activeId || current.activeId;
 
-                if (!contests[activeId]) {
-                    activeId = Object.keys(contests)[0] || 'default';
-                }
+if (!contests[activeId]) {
+    activeId = Object.keys(contests)[0] || 'default';
+}
 
-                return {
-                    ...currentState,
-                    appState: {
-                        ...current,
-                        ...persisted,
-                        contests,
-                        activeId,
-                        // Ensure we carry forward history and other metadata
-                        history: persisted.history || [],
-                        lastUpdated: persisted.lastUpdated || current.lastUpdated
-                    }
-                };
+return {
+    ...currentState,
+    appState: {
+        ...current,
+        ...persisted,
+        contests,
+        activeId,
+        // Ensure we carry forward history and other metadata
+        history: persisted.history || [],
+        lastUpdated: persisted.lastUpdated || current.lastUpdated
+    }
+};
             }
         }
     )
