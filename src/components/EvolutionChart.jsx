@@ -560,6 +560,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             const isLast = volumeData.length > 0 && payload.date === volumeData[volumeData.length - 1].date;
                                             return (
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
+                                                    <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} strokeDasharray="3 3" />
                                                     {isLast && (
                                                         <>
                                                             <circle cx={50} cy={cy} r={3.5} fill={focusColor} stroke="#ffffff" strokeWidth={1.5} />
