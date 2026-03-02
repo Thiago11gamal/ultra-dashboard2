@@ -329,11 +329,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </svg>
 
             {/* ── 1. KPI CARDS ───────────────────────────────────── */}
-            <div className="grid grid-cols-3 gap-3 min-w-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
                 <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
-                <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global" color="#fb923c" icon="⚡"
-                    sub={focusSnapshot?.delta} />
+                <div className="col-span-2 sm:col-span-1">
+                    <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global" color="#fb923c" icon="⚡"
+                        sub={focusSnapshot?.delta} />
+                </div>
             </div>
 
             {/* ── 2. DISCIPLINA CARDS ───────────────────────────── */}
@@ -350,14 +352,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 3. ENGINE TABS ────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-5 shadow-xl">
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-5 shadow-xl">
                 {/* Tab bar */}
-                <div className="flex flex-wrap gap-2 mb-5">
+                <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 text-nowrap">
                     {ENGINES.map((eng) => {
                         const active = activeEngine === eng.id;
                         return (
                             <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
-                                className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
+                                className={`group flex items-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
                                 style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
                                 <span className="text-base">{eng.emoji}</span>
                                 <span>{eng.label}</span>
@@ -379,12 +381,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                 {/* Controls row */}
                 {/* Row 1: focus selector */}
-                <div className="mb-3">
+                <div className="mb-4">
                     <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-2 pl-0.5">Focar em</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap gap-1.5">
                         {categories.map((cat) => (
                             <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
                                 style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}55`, color: cat.color, boxShadow: `0 0 10px ${cat.color}20` } : {}}>
                                 <span>{cat.icon}</span>
                                 <span>{cat.name}</span>
@@ -394,13 +396,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 </div>
 
                 {/* Row 2: view controls */}
-                <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
                     {/* Time window */}
-                    <div className="flex items-center gap-0.5 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1">
-                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2">Período</span>
+                    <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto">
+                        <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button key={w.value} onClick={() => setTimeWindow(w.value)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
+                                className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
                             </button>
                         ))}
@@ -408,7 +410,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                     {/* Visibility toggle */}
                     <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                        className={`shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
                         <span>{showOnlyFocus ? '🔍' : '👁'}</span>
                         <span>{showOnlyFocus ? 'Só foco' : 'Todas'}</span>
                     </button>
@@ -430,7 +432,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="h-[460px] w-full">
+                    <div className="h-[280px] sm:h-[360px] md:h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
@@ -635,7 +637,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={130} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={90} />
                                         <Tooltip cursor={false} formatter={(v) => [`${v} erros`, 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -663,7 +665,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={150} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={110} />
                                         <Tooltip cursor={false} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
