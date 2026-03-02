@@ -551,7 +551,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
 
                                     {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
-                                    <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={false} legendType="none" />
+                                    <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={{ r: 0, strokeWidth: 0, fill: 'transparent' }} legendType="none" />
 
                                     <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)"
                                         dot={(props) => {
