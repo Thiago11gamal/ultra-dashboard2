@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity, Sparkles, ChevronRight } from 'lucide-react';
+import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity, Sparkles, ChevronRight, AlertCircle } from 'lucide-react';
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
     const [showWhy, setShowWhy] = useState(false);
