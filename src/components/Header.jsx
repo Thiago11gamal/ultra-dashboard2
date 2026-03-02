@@ -83,19 +83,8 @@ export default function Header({
                         />
                     </div>
 
-                    {/* Cloud Status Indicator */}
+                    {/* Cloud Status Indicator (Badge removed per user request) */}
                     <div className="flex flex-col items-end gap-1">
-                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-medium transition-all duration-500 border ${cloudStatus.connected
-                            ? 'bg-green-500/10 border-green-500/20 text-green-400/70'
-                            : 'bg-slate-500/10 border-slate-500/20 text-slate-400/70'
-                            }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${cloudStatus.connected ? 'bg-green-400' : 'bg-slate-400'
-                                } ${cloudStatus.syncing ? 'animate-pulse scale-125' : ''}`} />
-                            <span className="uppercase tracking-wider">
-                                {cloudStatus.syncing ? 'Sincronizando...' : cloudStatus.connected ? 'Nuvem Ativa' : 'Offline'}
-                            </span>
-                        </div>
-
                         {/* Emergency Sync Button (Has Conflict) */}
                         {cloudStatus.hasConflict && (
                             <button
