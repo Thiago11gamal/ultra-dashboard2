@@ -50,7 +50,8 @@ function MainLayout() {
     togglePriority,
     switchContest,
     createNewContest,
-    deleteContest
+    deleteContest,
+    updateUserName
   } = useAppStore();
 
   const isMobile = useMobileDetect();
@@ -266,6 +267,7 @@ function MainLayout() {
           onDeleteContest={deleteContest}
           onUndo={handleUndo}
           onCloudRestore={handleCloudRestore}
+          onUpdateName={updateUserName}
           currentData={data}
           appState={appState}
         />
