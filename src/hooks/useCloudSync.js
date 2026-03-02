@@ -94,6 +94,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const shouldPullCloud = isBootSync || !localWasJustEdited;
 
             if (shouldPullCloud) {
+                console.log("DADO RECEBIDO DA NUVEM -> ATUALIZANDO ESTADO LOCAL");
                 console.warn(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
