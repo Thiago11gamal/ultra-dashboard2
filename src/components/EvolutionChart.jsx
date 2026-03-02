@@ -562,7 +562,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
                                                     {isLast && (
                                                         <>
-                                                            <circle cx={50} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
+                                                            <circle cx={50} cy={cy} r={3.5} fill={focusColor} stroke="#ffffff" strokeWidth={1.5} />
                                                             <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
                                                             <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
@@ -585,7 +585,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.4)" strokeWidth={1} strokeDasharray="3 3" />
                                                     {isLast && (
                                                         <>
-                                                            <circle cx={50} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
+                                                            <circle cx={50} cy={cy} r={3.5} fill={focusColor} stroke="#ffffff" strokeWidth={1.5} />
                                                             <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
                                                             <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
