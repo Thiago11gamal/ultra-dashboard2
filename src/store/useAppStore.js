@@ -155,6 +155,7 @@ export const useAppStore = create(
 
                 // Apply XP using unified helper
                 processGamification(state, xpChange);
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             addTask: (categoryId, title) => set((state) => {
@@ -172,10 +173,12 @@ export const useAppStore = create(
                         priority: 'medium'
                     });
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             awardExperience: (xpAmount) => set((state) => {
                 processGamification(state, xpAmount);
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             deleteTask: (categoryId, taskId) => set((state) => {
@@ -184,6 +187,7 @@ export const useAppStore = create(
                 if (category) {
                     category.tasks = category.tasks.filter(t => t.id !== taskId);
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             togglePriority: (categoryId, taskId) => set((state) => {
@@ -196,6 +200,7 @@ export const useAppStore = create(
                 if (task) {
                     task.priority = priorities[(priorities.indexOf(task.priority || 'medium') + 1) % 3];
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // 2. Categories
@@ -210,6 +215,7 @@ export const useAppStore = create(
                     tasks: [],
                     weight: 10
                 });
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             deleteCategory: (id) => set((state) => {
@@ -221,6 +227,7 @@ export const useAppStore = create(
                 if (activeData.studySessions) {
                     activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // 3. Pomodoro & Sessions
@@ -264,6 +271,7 @@ export const useAppStore = create(
                 if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
 
                 processGamification(state, baseXP + bonusXP);
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             deleteSession: (sessionId) => set((state) => {
@@ -288,6 +296,7 @@ export const useAppStore = create(
                 if (activeData.studyLogs) {
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // 4. Simulados Configs
@@ -304,10 +313,12 @@ export const useAppStore = create(
                         }
                     });
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             setMcEqualWeights: (val) => set((state) => {
                 state.appState.mcEqualWeights = val;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             updateWeights: (weights) => set((state) => {
@@ -321,6 +332,7 @@ export const useAppStore = create(
                 });
                 // Also update mcWeights
                 activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             resetSimuladoStats: () => set((state) => {
@@ -328,6 +340,7 @@ export const useAppStore = create(
                 activeData.categories.forEach(c => {
                     c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                 });
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             deleteSimulado: (dateStr) => set((state) => {
@@ -348,29 +361,34 @@ export const useAppStore = create(
                         c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
                     }
                 });
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // 5. User Settings & Management
             updatePomodoroSettings: (settings) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.settings = { ...(activeData.settings || {}), ...settings };
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             toggleDarkMode: () => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData.settings) activeData.settings = {};
                 activeData.settings.darkMode = !activeData.settings.darkMode;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             updateUserName: (name) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData.user) activeData.user = {};
                 activeData.user.name = name;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // 6. Contests Management
             switchContest: (contestId) => set((state) => {
                 state.appState.activeId = contestId;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             createNewContest: () => set((state) => {
@@ -385,6 +403,7 @@ export const useAppStore = create(
                 };
                 state.appState.contests[newId] = newContestData;
                 state.appState.activeId = newId;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             deleteContest: (contestId) => set((state) => {
@@ -397,6 +416,7 @@ export const useAppStore = create(
                 } else if (contestId === state.appState.activeId) {
                     state.appState.activeId = remainingIds[0];
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             })
 
         })),
