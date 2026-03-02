@@ -260,8 +260,8 @@ function MainLayout() {
         <Header
           user={data.user}
           settings={data.settings}
-          contests={contests}
-          activeContestId={activeContestId}
+          contests={appState.contests}
+          activeContestId={appState.activeId}
           onSwitchContest={switchContest}
           onCreateContest={createNewContest}
           onDeleteContest={deleteContest}
@@ -270,11 +270,11 @@ function MainLayout() {
           onUpdateName={updateUserName}
           currentData={data}
           appState={appState}
-          cloudStatus={{ 
-            connected: cloudConnected, 
+          cloudStatus={{
+            connected: cloudConnected,
             syncing: isCloudSyncing,
             hasConflict,
-            forcePull 
+            forcePull
           }}
         />
 

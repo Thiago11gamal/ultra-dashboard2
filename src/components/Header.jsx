@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, RotateCcw, CloudUpload, CloudDownload, Trash2, LogOut } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
 import { useAuth } from '../context/useAuth';
 
 const useClock = () => {
@@ -35,55 +34,12 @@ export default function Header({
     onCreateContest,
     onDeleteContest,
     onUndo,
-    onCloudRestore,
-    currentData,
-    appState,
     cloudStatus = { connected: false, syncing: false }
 }) {
-    const { logout, currentUser } = useAuth();
+    const { logout } = useAuth();
     const clockTime = useClock();
 
     const [profileOpen, setProfileOpen] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
-
-    const handleCloudBackup = async () => {
-        if (!currentUser) {
-            alert('Você precisa estar logado para salvar na nuvem!');
-            return;
-        }
-        if (!window.confirm('Subir backup para a nuvem?')) return;
-        setIsSyncing(true);
-        try {
-            const dataToBackup = appState || currentData;
-            await uploadDataToCloud(dataToBackup, currentUser.uid);
-            alert('Backup salvo na nuvem com sucesso! \u2601\uFE0F');
-        } catch (error) {
-            alert('Erro ao salvar backup: ' + error.message);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    const handleCloudDownload = async () => {
-        if (!currentUser) {
-            alert('Você precisa estar logado para baixar da nuvem!');
-            return;
-        }
-        if (!window.confirm('Restaurar backup da nuvem? Isso substituirá os dados atuais.')) return;
-        setIsSyncing(true);
-        try {
-            const data = await downloadDataFromCloud(currentUser.uid);
-            if (data && onCloudRestore) {
-                onCloudRestore(data);
-            } else if (!data) {
-                alert('⚠️ Nenhum backup encontrado na nuvem para este usuário.');
-            }
-        } catch (error) {
-            alert('Erro ao baixar backup: ' + error.message);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
@@ -96,10 +52,12 @@ export default function Header({
     };
 
     const [localName, setLocalName] = useState(user.name);
+    const [prevName, setPrevName] = useState(user.name);
 
-    useEffect(() => {
+    if (user.name !== prevName) {
         setLocalName(user.name);
-    }, [user.name]);
+        setPrevName(user.name);
+    }
 
     const handleNameBlur = () => {
         if (localName !== user.name && onUpdateName) {
@@ -128,8 +86,8 @@ export default function Header({
                     {/* Cloud Status Indicator */}
                     <div className="flex flex-col items-end gap-1">
                         <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-medium transition-all duration-500 border ${cloudStatus.connected
-                                ? 'bg-green-500/10 border-green-500/20 text-green-400/70'
-                                : 'bg-slate-500/10 border-slate-500/20 text-slate-400/70'
+                            ? 'bg-green-500/10 border-green-500/20 text-green-400/70'
+                            : 'bg-slate-500/10 border-slate-500/20 text-slate-400/70'
                             }`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${cloudStatus.connected ? 'bg-green-400' : 'bg-slate-400'
                                 } ${cloudStatus.syncing ? 'animate-pulse scale-125' : ''}`} />
@@ -165,25 +123,6 @@ export default function Header({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-4">
-                {/* Cloud Sync Buttons */}
-                <div className="flex items-center gap-2 mr-4 border-r border-white/10 pr-4">
-                    <button
-                        onClick={handleCloudBackup}
-                        disabled={isSyncing}
-                        className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-green-400 group relative"
-                        title="Salvar na Nuvem"
-                    >
-                        <CloudUpload size={20} className={isSyncing ? 'animate-bounce' : ''} />
-                    </button>
-                    <button
-                        onClick={handleCloudDownload}
-                        disabled={isSyncing}
-                        className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-blue-400 group relative"
-                        title="Restaurar da Nuvem"
-                    >
-                        <CloudDownload size={20} className={isSyncing ? 'animate-bounce' : ''} />
-                    </button>
-                </div>
 
                 {/* Undo Button */}
                 <button
