@@ -209,6 +209,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return timeline.map(d => ({ date: d.displayDate, volume: d[`raw_total_${focusCategory.name}`] || 0, rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0) }));
     }, [timeline, focusCategory]);
 
+    const maxVolume = useMemo(() => {
+        return Math.max(1, ...volumeData.map(d => d.volume));
+    }, [volumeData]);
+
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
         const topicMap = {};
@@ -540,11 +544,28 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                     <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, dataMax => Math.max(10, Math.ceil(dataMax * 1.5))]} />
+                                    <YAxis yAxisId="right" orientation="right" hide={true} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
-                                    <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill={`${focusColor}22`} stroke={`${focusColor}55`} strokeWidth={1} radius={[4, 4, 0, 0]} barSize={12} />
-                                    <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)" dot={{ r: 3, fill: focusColor, stroke: '#0a0f1e', strokeWidth: 1.5 }} style={{ filter: 'url(#lineShadow)' }} />
+
+                                    {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
+                                    <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={false} legendType="none" />
+
+                                    <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)"
+                                        dot={(props) => {
+                                            const { cx, cy, payload } = props;
+                                            if (typeof cx !== 'number' || typeof cy !== 'number') return null;
+                                            const r = 3 + ((payload.volume || 0) / maxVolume) * 12;
+                                            return <circle key={`${cx.toFixed(1)}-${cy.toFixed(1)}`} cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />;
+                                        }}
+                                        activeDot={(props) => {
+                                            const { cx, cy, payload } = props;
+                                            if (typeof cx !== 'number' || typeof cy !== 'number') return null;
+                                            const r = 3 + ((payload.volume || 0) / maxVolume) * 12 + 3;
+                                            return <circle key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`} cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />;
+                                        }}
+                                        style={{ filter: 'url(#lineShadow)' }}
+                                    />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
