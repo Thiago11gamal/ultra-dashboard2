@@ -547,11 +547,28 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
                                     <YAxis yAxisId="right" orientation="right" hide={true} />
-                                    <Tooltip cursor={false} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Tooltip cursor={false} content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-lg shadow-xl min-w-[140px]">
+                                                    <p className="font-bold text-slate-300 mb-2 border-b border-slate-700/50 pb-1">{data.displayDate}</p>
+                                                    <div className="flex flex-col gap-2 text-xs">
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <span style={{ color: focusColor }} className="font-semibold">% Acertos</span>
+                                                            <span style={{ color: focusColor }} className="font-bold">{data.rendimento}%</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center gap-4">
+                                                            <span className="text-slate-400 font-semibold">Qtd. Questões</span>
+                                                            <span className="text-slate-200 font-bold">{data.volume}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
-
-                                    {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
-                                    <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={{ r: 0, strokeWidth: 0, fill: 'transparent' }} legendType="none" />
 
                                     <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)"
                                         dot={(props) => {
