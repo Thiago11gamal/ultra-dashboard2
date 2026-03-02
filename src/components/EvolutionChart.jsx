@@ -548,14 +548,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
 
-                                    <ReferenceLine y={targetScore} yAxisId="left" stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
-                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
-
-                                    {volumeData.length > 0 && (
-                                        <ReferenceLine y={volumeData[volumeData.length - 1].rendimento} yAxisId="left" stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8}
-                                            label={{ value: `Atual: ${volumeData[volumeData.length - 1].rendimento}%`, fill: focusColor, fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft', dy: 14 }} />
-                                    )}
-
                                     {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
                                     <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={false} legendType="none" />
 
@@ -565,8 +557,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
                                             const vol = payload.volume || 0;
                                             const r = 9 + (vol / maxVolume) * 12;
+                                            const isLast = volumeData.length > 0 && payload.date === volumeData[volumeData.length - 1].date;
                                             return (
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
+                                                    {isLast && (
+                                                        <>
+                                                            <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
+                                                            <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
+                                                        </>
+                                                    )}
                                                     <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />
                                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(12, Math.max(8, r * 0.7))} fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0px 1px 2px rgba(0,0,0,0.8)' }}>
                                                         {vol}
@@ -579,8 +578,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
                                             const vol = payload.volume || 0;
                                             const r = 9 + (vol / maxVolume) * 12 + 3;
+                                            const isLast = volumeData.length > 0 && payload.date === volumeData[volumeData.length - 1].date;
                                             return (
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
+                                                    {isLast && (
+                                                        <>
+                                                            <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
+                                                            <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
+                                                        </>
+                                                    )}
                                                     <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />
                                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(13, Math.max(9, r * 0.7))} fontWeight="black" style={{ pointerEvents: 'none', textShadow: '0px 1px 3px rgba(0,0,0,0.9)' }}>
                                                         {vol}
