@@ -76,7 +76,7 @@ function MainLayout() {
   const { levelUpData, closeLevelUpToast } = useGamification(showToast);
 
   // Auto-save pipeline
-  useCloudSync(currentUser, appState, setAppState, showToast);
+  const { cloundConnected } = useCloudSync(currentUser, appState, setAppState, showToast);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
@@ -270,6 +270,7 @@ function MainLayout() {
           onUpdateName={updateUserName}
           currentData={data}
           appState={appState}
+          cloudConnected={cloundConnected}
         />
 
         {/* Router Outlet com carregamento otimizado */}

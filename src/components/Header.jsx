@@ -42,7 +42,8 @@ export default function Header({
     onCloudRestore,
     currentData,
     // BUG FIX (2): Need full appState to backup ALL contests, not just the active one.
-    appState
+    appState,
+    cloudConnected
 }) {
     const { logout, currentUser } = useAuth();
     // Single clock instance — prevents the two sub-components from each running a setInterval
@@ -216,7 +217,15 @@ export default function Header({
                     {profileOpen && (
                         <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
                             <div className="px-3 py-2 border-b border-white/10 mb-2 flex flex-col gap-1">
-                                <p className="text-xs text-slate-400 uppercase tracking-wider">Meus Painéis</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-slate-400 uppercase tracking-wider">Meus Painéis</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${cloudConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 animate-pulse'}`}></div>
+                                        <span className={`text-[10px] font-medium ${cloudConnected ? 'text-green-500' : 'text-red-500'}`}>
+                                            {cloudConnected ? 'Nuvem OK' : 'Sem Nuvem'}
+                                        </span>
+                                    </div>
+                                </div>
                                 {currentUser && (
                                     <p className="text-[10px] text-slate-500 font-mono truncate">
                                         ID: {currentUser.uid.slice(-6).toUpperCase()}

@@ -466,13 +466,14 @@ export const useAppStore = create(
                 const persisted = persistedState.appState;
                 const current = currentState.appState;
 
-                // Helper to check if object has meaningful content
-                const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
+                // Sync Safeguard: If the persisted state has a much older timestamp than "now", 
+                // but isn't 1970, we accept it.
+                // However, if the current code has NEW logic in initialData, we might want to merge.
 
+                const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
                 const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
                 let activeId = persisted.activeId || current.activeId;
 
-                // Safety: If activeId doesn't exist in contests, fall back to first available or default
                 if (!contests[activeId]) {
                     activeId = Object.keys(contests)[0] || 'default';
                 }
@@ -484,8 +485,9 @@ export const useAppStore = create(
                         ...persisted,
                         contests,
                         activeId,
-                        history: persisted.history || current.history,
-                        mcEqualWeights: persisted.mcEqualWeights !== undefined ? persisted.mcEqualWeights : current.mcEqualWeights
+                        // Ensure we carry forward history and other metadata
+                        history: persisted.history || [],
+                        lastUpdated: persisted.lastUpdated || current.lastUpdated
                     }
                 };
             }

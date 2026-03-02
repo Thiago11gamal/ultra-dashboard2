@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -6,6 +6,7 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
+    const [cloundConnected, setCloudConnected] = useState(false);
 
     // Use a ref for appState to keep the listener stable while accessing current data
     const appStateRef = useRef(appState);
@@ -29,6 +30,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         // Subscribe to real-time updates
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            setCloudConnected(true);
             if (!docSnap.exists()) {
                 hasInitialSyncRef.current = true;
                 return;
@@ -42,45 +44,51 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             // IGNORE if we just sent this exact change (Prevents feedback loops)
             const stateToCompare = stateStringForSync(cloudData);
             if (lastSyncedRef.current === stateToCompare) {
-                // Keep the timestamp in sync to avoid loops if cloud has same data but different TS
                 hasInitialSyncRef.current = true;
                 return;
             }
 
-            // TRIGGER Update conditions:
-            // 1. Cloud is significantly newer (> 500ms to avoid micro-jitter)
-            // 2. Local is the absolute default state (1970)
-            // 3. Structure mismatch: if cloud has more/different contests keys, take it!
-            const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
+            // LOGGING for debugging
+            console.log(`[Sync] Cloud: ${new Date(cloudTime).toLocaleTimeString()} | Local: ${new Date(localTime).toLocaleTimeString()}`);
 
+            // TRIGGER Update conditions:
+            // 1. Cloud is significantly newer
+            // 2. Local is initial state (1970)
+            // 3. Structural mismatch (diff number of contests)
+            const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
             const cloudContestCount = Object.keys(cloudData.contests || {}).length;
             const localContestCount = Object.keys(appStateRef.current?.contests || {}).length;
             const structureMismatch = cloudContestCount !== localContestCount;
 
-            if (cloudTime > localTime + 500 || isInitial || structureMismatch) {
-                // console.log("Incoming Sync: Syncing from Cloud...");
+            if (cloudTime > localTime + 1000 || isInitial || structureMismatch) {
+                console.log("[Sync] Update triggered! Syncing cloud data...");
 
                 const normalizedCloudData = {
                     ...cloudData,
-                    lastUpdated: cloudUpdated // Preserve the cloud's timestamp
+                    lastUpdated: cloudUpdated
                 };
 
                 setAppState(normalizedCloudData);
                 lastSyncedRef.current = stateToCompare;
 
-                // Show success toast only IF this wasn't the very FIRST sync of the session
                 if (hasInitialSyncRef.current && showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
+            } else if (cloudTime < localTime - 5000) {
+                console.log("[Sync] Rejected: Local is significantly NEWER than cloud.");
             }
 
             hasInitialSyncRef.current = true;
         }, (err) => {
-            console.error("Cloud listener error:", err);
+            console.error("[Sync] Cloud listener error:", err);
+            setCloudConnected(false);
             hasInitialSyncRef.current = true;
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            setCloudConnected(false);
+        };
     }, [currentUser?.uid, setAppState, showToast]);
 
     // Reset initial sync flag when user changes
@@ -99,10 +107,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const syncToCloud = async () => {
             try {
-                // Final safety check: if we already synced this state via listener during the debounce, stop.
                 if (lastSyncedRef.current === stateToCompare) return;
 
-                // Create full payload
                 const now = new Date().toISOString();
                 const stateToSave = {
                     ...appState,
@@ -111,17 +117,17 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     _lastBackup: now
                 };
 
+                console.log(`[Sync] Auto-saving to Cloud... (${new Date(now).toLocaleTimeString()})`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                lastSyncedRef.current = stateToCompare; // Registar sucesso
+                lastSyncedRef.current = stateToCompare;
             } catch (e) {
-                console.error("Cloud Auto-save failed:", e);
-                if (showToast && e.code !== 'unavailable') {
-                    showToast('Falha ao salvar na nuvem.', 'warning');
-                }
+                console.error("[Sync] Auto-save failed:", e);
             }
         };
 
-        const timer = setTimeout(syncToCloud, 8000); // 8s debounce for auto-save
+        const timer = setTimeout(syncToCloud, 10000);
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
+
+    return { cloundConnected };
 }
