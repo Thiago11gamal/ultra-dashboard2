@@ -193,3 +193,10 @@ select::-ms-expand {
 .custom-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Remove default focus outline from Recharts */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-responsive-container {
+  outline: none !important;
+}
