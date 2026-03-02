@@ -548,6 +548,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
 
+                                    <ReferenceLine y={targetScore} yAxisId="left" stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
+                                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
+
+                                    {volumeData.length > 0 && (
+                                        <ReferenceLine y={volumeData[volumeData.length - 1].rendimento} yAxisId="left" stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8}
+                                            label={{ value: `Atual: ${volumeData[volumeData.length - 1].rendimento}%`, fill: focusColor, fontSize: 10, fontWeight: 'bold', position: 'insideTopLeft', dy: 14 }} />
+                                    )}
+
                                     {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
                                     <Line yAxisId="right" dataKey="volume" name="Qtd. Questões" stroke="transparent" dot={false} activeDot={false} legendType="none" />
 
