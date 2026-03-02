@@ -57,7 +57,7 @@ const CustomTooltipStyle = {
 // ── CARD KPI ─────────────────────────────────────────────
 function KpiCard({ value, label, color, icon, sub }) {
     return (
-        <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800/60 bg-slate-900/60 p-4 sm:p-5 group hover:border-slate-700 transition-all duration-300 hover:shadow-lg"
+        <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800/60 bg-slate-900/60 p-3 sm:p-5 group hover:border-slate-700 transition-all duration-300 hover:shadow-lg"
             style={{ '--glow': color }}>
 
             {/* Background Layer for Overflow-Hidden elements */}
@@ -67,7 +67,7 @@ function KpiCard({ value, label, color, icon, sub }) {
                     style={{ backgroundColor: color }} />
             </div>
 
-            <div className="relative z-10 flex items-center justify-between mb-3">
+            <div className="relative z-10 flex items-center justify-between mb-2 sm:mb-3">
                 <span className="text-xl sm:text-2xl">{icon}</span>
                 {sub != null && (
                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${sub >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
@@ -76,8 +76,8 @@ function KpiCard({ value, label, color, icon, sub }) {
                 )}
             </div>
             <div className="relative z-10">
-                <p className="text-2xl sm:text-3xl font-black tracking-tight truncate break-words" style={{ color }}>{value}</p>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 sm:mt-1.5 font-medium leading-normal block">{label}</p>
+                <p className="text-xl sm:text-3xl font-black tracking-tight truncate break-words" style={{ color }}>{value}</p>
+                <p className="text-[9px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1.5 font-medium leading-normal block">{label}</p>
             </div>
         </div>
     );
@@ -91,23 +91,23 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
     const statusColor = ok ? '#22c55e' : mid ? '#eab308' : '#ef4444';
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-xl border p-3 sm:p-4 transition-all duration-300 group min-h-[90px] ${isFocused ? 'border-opacity-60 shadow-[0_0_20px_rgba(0,0,0,0.4)]' : 'border-slate-800/70 hover:border-slate-700 hover:shadow-md'}`}
+            className={`relative text-left w-full rounded-xl border p-2.5 sm:p-4 transition-all duration-300 group min-h-[76px] sm:min-h-[90px] ${isFocused ? 'border-opacity-60 shadow-[0_0_20px_rgba(0,0,0,0.4)]' : 'border-slate-800/70 hover:border-slate-700 hover:shadow-md'}`}
             style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
 
             {/* Background/Progress Layer */}
             <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                <div className="absolute bottom-0 left-0 h-0.5 transition-all duration-500"
+                <div className="absolute bottom-0 left-0 h-1 sm:h-0.5 transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
             </div>
 
-            <div className="relative z-10 flex items-center justify-between mb-2">
+            <div className="relative z-10 flex items-center justify-between mb-1 sm:mb-2">
                 <span className="text-sm sm:text-base leading-none">{cat.icon}</span>
                 <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_6px_var(--dot-glow)]"
                     style={{ backgroundColor: statusColor, '--dot-glow': statusColor }} />
             </div>
             <div className="relative z-10">
-                <p className="text-[10px] sm:text-[11px] text-slate-400 font-bold uppercase tracking-wide break-words leading-snug pb-1 line-clamp-2" title={cat.name}>{cat.name}</p>
-                <p className="text-base sm:text-lg font-black leading-none pt-1" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
+                <p className="text-[9px] sm:text-[11px] text-slate-400 font-bold uppercase tracking-wide break-words leading-[1.3] sm:leading-snug pb-0.5 sm:pb-1 line-clamp-2" title={cat.name}>{cat.name}</p>
+                <p className="text-sm sm:text-lg font-black leading-none pt-0.5 sm:pt-1" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
                     {pct.toFixed(1)}%
                 </p>
             </div>
@@ -368,14 +368,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 3. ENGINE TABS ────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-5 shadow-xl w-full min-w-0">
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0">
                 {/* Tab bar */}
-                <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full mobile-edge-fade">
+                <div className="flex overflow-x-auto pb-2 sm:pb-4 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full mobile-edge-fade">
                     {ENGINES.map((eng) => {
                         const active = activeEngine === eng.id;
                         return (
                             <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
-                                className={`shrink-0 w-max group flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
+                                className={`shrink-0 w-max group flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
                                 style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
                                 <span className="text-base">{eng.emoji}</span>
                                 <span>{eng.label}</span>
@@ -397,12 +397,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                 {/* Controls row */}
                 {/* Row 1: focus selector */}
-                <div className="mb-4 w-full">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-2 pl-0.5">Focar em</p>
-                    <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap gap-1.5 w-full mobile-edge-fade">
+                <div className="mb-3 sm:mb-4 w-full">
+                    <p className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-1.5 sm:mb-2 pl-0.5">Focar em</p>
+                    <div className="flex overflow-x-auto pb-2 sm:pb-4 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:pb-0 sm:flex-wrap gap-1.5 w-full mobile-edge-fade">
                         {categories.map((cat) => (
                             <button key={cat.id} onClick={() => setFocusSubjectId(cat.id)}
-                                className={`shrink-0 w-max flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`shrink-0 w-max flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 border ${focusSubjectId === cat.id ? 'scale-[1.04] shadow-md' : 'border-slate-800 text-slate-500 bg-slate-900/40 hover:text-slate-300 hover:border-slate-700'}`}
                                 style={focusSubjectId === cat.id ? { backgroundColor: `${cat.color}14`, borderColor: `${cat.color}55`, color: cat.color, boxShadow: `0 0 10px ${cat.color}20` } : {}}>
                                 <span>{cat.icon}</span>
                                 <span>{cat.name}</span>
@@ -534,12 +534,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     {/* Radar */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg hover:border-slate-700 transition-all group">
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Equilíbrio Geral</p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-4 truncate">🕸️ Raio-X das Disciplinas</h3>
-                        <div className="h-[280px]">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Equilíbrio Geral</p>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-2 sm:mb-4 truncate">🕸️ Raio-X das Disciplinas</h3>
+                        <div className="h-[240px] sm:h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
                                     <PolarGrid stroke="rgba(255,255,255,0.15)" />
@@ -555,10 +555,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
 
                     {/* Volume vs Rendimento */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Disciplina em foco 🎯</p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-4 truncate">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
-                        <div className="h-[280px] w-full">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Disciplina em foco 🎯</p>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-2 sm:mb-4 truncate">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
+                        <div className="h-[240px] sm:h-[280px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -20, bottom: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
@@ -643,19 +643,19 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
 
                     {/* Matérias Críticas */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
                         <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
-                        <p className="text-[10px] sm:text-xs text-slate-500 mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
-                        <div className="min-h-[260px] w-full">
+                        <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
+                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
                             {pointLeakageData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={Math.max(260, pointLeakageData.length * 44)}>
-                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 35, left: -10, bottom: 0 }}>
+                                <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
+                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                             <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
                                         </Bar>
@@ -671,19 +671,19 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     </div>
 
                     {/* Assuntos Críticos */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
                         <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
-                        <p className="text-[10px] sm:text-[11px] text-slate-500 mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
-                        <div className="min-h-[260px] w-full">
+                        <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
+                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
                             {subtopicsData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={Math.max(260, subtopicsData.length * 44)}>
-                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 35, left: -5, bottom: 0 }}>
+                                <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
+                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={95} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                                             <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
                                         </Bar>
