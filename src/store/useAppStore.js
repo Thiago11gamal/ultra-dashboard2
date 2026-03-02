@@ -76,7 +76,8 @@ export const useAppStore = create(
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
                 history: [],
-                mcEqualWeights: true
+                mcEqualWeights: true,
+                lastUpdated: new Date().toISOString()
             },
 
             // Actions
@@ -103,6 +104,7 @@ export const useAppStore = create(
                 state.appState.activeId = nextState.activeId;
                 // Preserve history stack unless the import explicitly provides a new one
                 if (nextState.history) state.appState.history = nextState.history;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             setData: (newDataCallback) => set((state) => {
@@ -127,6 +129,7 @@ export const useAppStore = create(
                 } else {
                     state.appState.contests[contestId] = newDataCallback;
                 }
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             // === Data Mutations (Immer makes this super clean) ===
