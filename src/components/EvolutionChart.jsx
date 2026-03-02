@@ -183,11 +183,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const days = Number.parseInt(timeWindow, 10);
         if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
         const getDateMs = (item) => { if (!item?.date) return Number.NaN; const ms = new Date(item.date).getTime(); return Number.isNaN(ms) ? Number.NaN : ms; };
-        const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
+        // Bug fix: use timeline instead of chartData, so Monte Carlo future dates don't skew the 30/90 days window
+        const lastValid = [...timeline].reverse().find(d => Number.isFinite(getDateMs(d)));
         if (!lastValid) return chartData;
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
         return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
-    }, [chartData, timeWindow]);
+    }, [chartData, timeWindow, timeline]);
 
     const focusSnapshot = useMemo(() => {
         if (!focusCategory || !timeline.length) return null;
@@ -206,7 +207,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     const volumeData = useMemo(() => {
         if (!focusCategory) return [];
-        return timeline.map(d => ({ date: d.displayDate, volume: d[`raw_total_${focusCategory.name}`] || 0, rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0) }));
+        // Keep the original Date for correct logic matching and sorting, while exposing displayDate for UI
+        return timeline.map(d => ({ originalDate: d.date, date: d.displayDate, volume: d[`raw_total_${focusCategory.name}`] || 0, rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0) }));
     }, [timeline, focusCategory]);
 
     const maxVolume = useMemo(() => {
@@ -557,7 +559,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
                                             const vol = payload.volume || 0;
                                             const r = 9 + (vol / maxVolume) * 12;
-                                            const isLast = volumeData.length > 0 && payload.date === volumeData[volumeData.length - 1].date;
+                                            const isLast = volumeData.length > 0 && payload.originalDate === volumeData[volumeData.length - 1].originalDate;
                                             return (
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
                                                     <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} strokeDasharray="3 3" />
@@ -580,7 +582,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
                                             const vol = payload.volume || 0;
                                             const r = 9 + (vol / maxVolume) * 12 + 3;
-                                            const isLast = volumeData.length > 0 && payload.date === volumeData[volumeData.length - 1].date;
+                                            const isLast = volumeData.length > 0 && payload.originalDate === volumeData[volumeData.length - 1].originalDate;
                                             return (
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
                                                     <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.4)" strokeWidth={1} strokeDasharray="3 3" />
