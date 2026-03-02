@@ -204,7 +204,7 @@ function MainLayout() {
 
   // Derived States
   const activeContestId = appState?.activeId || 'default';
-  const contests = appState?.contests || {};
+  const contests = React.useMemo(() => appState?.contests || {}, [appState?.contests]);
 
   // Safety: If store is loaded but active contest is missing, recover in an effect (not during render)
   useEffect(() => {

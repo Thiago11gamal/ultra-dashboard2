@@ -29,7 +29,7 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                             'text-slate-500'
                         }`}>
                         <div className={`p-1.5 rounded-lg ${isMVP ? 'bg-yellow-500/10' : 'bg-slate-800/50'}`}>
-                            <Icon size={14} />
+                            {Icon && <Icon size={14} />}
                         </div>
                         {title}
                     </h3>
