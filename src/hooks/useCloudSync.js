@@ -16,7 +16,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // Helper to normalize state for comparison (Ignores timestamps and undo history)
     const stateStringForSync = (state) => {
         if (!state) return '';
-        const { history: _h, _lastBackup: _lb, ...rest } = state;
+        // We exclude history and BOTH sync timestamps for comparison
+        const { history: _h, _lastBackup: _lb, lastUpdated: _lu, ...rest } = state;
         return JSON.stringify({ ...rest, history: [] });
     };
 
@@ -34,7 +35,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             const cloudData = docSnap.data();
-            const cloudTime = new Date(cloudData._lastBackup || cloudData.lastUpdated || 0).getTime();
+            const cloudUpdated = cloudData._lastBackup || cloudData.lastUpdated;
+            const cloudTime = new Date(cloudUpdated || 0).getTime();
             const localTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
 
             // IGNORE if we just sent this exact change (Prevents feedback loops)
@@ -45,13 +47,21 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             // TRIGGER Update: Cloud is strictly newer
-            if (cloudTime > localTime) {
+            // We give a 2-second buffer to handle minor clock drifts or network latency 
+            // and prevent "echo" loops where two devices update at almost same time
+            if (cloudTime > localTime + 2000) {
                 // console.log("Real-time Sync: Cloud is newer. Updating local store...");
-                setAppState(cloudData);
-                // Mark this version as "synced" locally
+
+                // IMPORTANT: Ensure the cloudData we pass to setAppState HAS a lastUpdated 
+                // that matches its cloudTime, so useAppStore doesn't generate a "now" timestamp
+                const normalizedCloudData = {
+                    ...cloudData,
+                    lastUpdated: cloudUpdated // Use the freshest timestamp available
+                };
+
+                setAppState(normalizedCloudData);
                 lastSyncedRef.current = stateToCompare;
 
-                // Show success toast only IF this wasn't the very FIRST sync of the session
                 if (hasInitialSyncRef.current && showToast) {
                     showToast('Dados atualizados (nuvem)! ☁️✨', 'success');
                 }
@@ -64,7 +74,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         });
 
         return () => unsubscribe();
-    }, [currentUser?.uid, setAppState, showToast]); // listener stays stable
+    }, [currentUser?.uid, setAppState, showToast]);
 
     // Reset initial sync flag when user changes
     useEffect(() => {
@@ -76,21 +86,23 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     useEffect(() => {
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
-        // Limpeza do histórico para economizar largura de banda
-        const stateToSave = {
-            ...appState,
-            history: [],
-            _lastBackup: new Date().toISOString()
-        };
-
-        const stateToCompare = stateStringForSync(stateToSave);
-
+        // Compare using normalized string
+        const stateToCompare = stateStringForSync(appState);
         if (lastSyncedRef.current === stateToCompare) return;
 
         const syncToCloud = async () => {
             try {
-                // Double check if we already have this state marked as synced (concurrency check)
+                // Final safety check: if we already synced this state via listener during the debounce, stop.
                 if (lastSyncedRef.current === stateToCompare) return;
+
+                // Create full payload
+                const now = new Date().toISOString();
+                const stateToSave = {
+                    ...appState,
+                    history: [],
+                    lastUpdated: now, // Sync both timestamps to be sure
+                    _lastBackup: now
+                };
 
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
                 lastSyncedRef.current = stateToCompare; // Registar sucesso
@@ -102,7 +114,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
-        const timer = setTimeout(syncToCloud, 12000); // 12s debounce
+        const timer = setTimeout(syncToCloud, 15000); // 15s debounce for extra safety
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
 }
