@@ -86,12 +86,30 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 return;
             }
 
-            // --- LOCKDOWN RULE: CLOUD WINS ON BOOT ---
+            // --- LOCKDOWN RULE: CLOUD WINS ON BOOT (WITH TIMESTAMP CHECK) ---
             const isBootSync = !hasInitialSyncRef.current;
 
             // --- CONFLICT RESOLUTION ---
             const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 8000;
-            const shouldPullCloud = isBootSync || !localWasJustEdited;
+
+            let shouldPullCloud = false;
+
+            if (isBootSync) {
+                const cloudUpdated = new Date(cloudData.lastUpdated || 0).getTime();
+                const localUpdated = new Date(appStateRef.current?.lastUpdated || 0).getTime();
+
+                // On boot, cloud wins unless local is strictly newer (e.g. user worked offline and just refreshed/reopened).
+                // Add 5-second tolerance for slight clock drifts.
+                if (cloudUpdated >= localUpdated - 5000) {
+                    shouldPullCloud = true;
+                } else {
+                    console.warn(`[Sync] RECUSANDO NUVEM NO BOOT! Local é mais recente (Trabalho Offline salvo). Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
+                    shouldPullCloud = false;
+                }
+            } else {
+                // If the app is already running, we accept cloud updates unless the user is actively typing/clicking.
+                shouldPullCloud = !localWasJustEdited;
+            }
 
             if (shouldPullCloud) {
                 console.log("DADO RECEBIDO DA NUVEM -> ATUALIZANDO ESTADO LOCAL");
@@ -104,7 +122,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                console.log("[Sync] Divergência detectada (Editando localmente agora).");
+                console.log("[Sync] Divergência detectada (Editando localmente / Local Mais Recente). Prioridade Local mantida.");
                 setHasConflict(true);
             }
 
