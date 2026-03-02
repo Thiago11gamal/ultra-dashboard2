@@ -562,6 +562,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
                                                     {isLast && (
                                                         <>
+                                                            <circle cx={0} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
                                                             <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
                                                             <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
@@ -583,6 +584,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
                                                     {isLast && (
                                                         <>
+                                                            <circle cx={0} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
                                                             <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
                                                             <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
