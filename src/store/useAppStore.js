@@ -108,6 +108,8 @@ export const useAppStore = create(
                 // IMPORTANT: Prioritize the timestamp from the incoming state (e.g. from cloud)
                 // only set to "now" if it's a completely new local update that forgot the timestamp
                 state.appState.lastUpdated = nextState.lastUpdated || new Date().toISOString();
+
+                console.log(`[Store] setAppState concluído. Contests: ${Object.keys(nextState.contests).length}, Active: ${nextState.activeId}`);
             }),
 
             setData: (newDataCallback) => set((state) => {
