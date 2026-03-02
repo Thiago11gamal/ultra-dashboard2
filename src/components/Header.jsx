@@ -37,7 +37,8 @@ export default function Header({
     onUndo,
     onCloudRestore,
     currentData,
-    appState
+    appState,
+    cloudStatus = { connected: false, syncing: false }
 }) {
     const { logout, currentUser } = useAuth();
     const clockTime = useClock();

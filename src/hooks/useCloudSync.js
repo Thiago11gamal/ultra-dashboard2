@@ -3,31 +3,38 @@ import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 /**
- * useCloudSync
- * Gerencia a comunicação em tempo real com o Firestore.
- * Versão Robusta: Prioriza a nuvem na inicialização e resolve o conflito de "falso novo" via localStorage.
+ * Normaliza um objeto para comparação determinística (ordena chaves recursivamente)
  */
+const sortObject = (obj) => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(sortObject);
+    return Object.keys(obj).sort().reduce((acc, key) => {
+        acc[key] = sortObject(obj[key]);
+        return acc;
+    }, {});
+};
+
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
-    const lastLocalMutationRef = useRef(0); // Rastreia se o usuário real mudou algo localmente
+    const lastLocalMutationRef = useRef(0);
     const [cloudConnected, setCloudConnected] = useState(false);
+    const [isInternalSyncing, setIsInternalSyncing] = useState(false);
 
-    // Mantém o appState atualizado em um Ref para acesso estável dentro do listener
     const appStateRef = useRef(appState);
     useEffect(() => {
         appStateRef.current = appState;
     }, [appState]);
 
-    // Função auxiliar para comparar estados ignorando metadados de sincronização e o histórico pesado
     const stateStringForSync = (state) => {
         if (!state) return '';
-        // Remove campos secundários que mudam sem afetar o conteúdo real
         const { history: _h, _lastBackup: _lb, lastUpdated: _lu, ...rest } = state;
-        return JSON.stringify({ ...rest, history: [] });
+        // Normalizamos e limpamos para comparar apenas dados puros
+        const normalized = sortObject({ ...rest, history: [] });
+        return JSON.stringify(normalized);
     };
 
-    // 1. RECEPTOR EM TEMPO REAL (onSnapshot)
+    // 1. RECEPTOR
     useEffect(() => {
         if (!currentUser?.uid || !setAppState) return;
 
@@ -42,52 +49,44 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             const cloudData = docSnap.data();
-            const cloudUpdated = cloudData.lastUpdated; // Prioriza o timestamp original da mutação
+            const cloudUpdated = cloudData.lastUpdated;
             const cloudTime = new Date(cloudUpdated || 0).getTime();
             const localTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
 
-            // Lógica de Comparação de Conteúdo
-            const stateToCompare = stateStringForSync(cloudData);
-            const contentsAreDifferent = lastSyncedRef.current !== stateToCompare;
+            const cloudStateString = stateStringForSync(cloudData);
+            const contentsAreDifferent = lastSyncedRef.current !== cloudStateString;
 
             if (!contentsAreDifferent) {
-                // Conteúdo idêntico ao que já temos ou que acabamos de enviar. Ignoramos para evitar loops.
                 hasInitialSyncRef.current = true;
                 return;
             }
 
-            // --- DECISÃO DE ATUALIZAÇÃO REFORÇADA ---
+            // DECISÃO DE ATUALIZAÇÃO AGRESSIVA
+            const isFirstUpdate = !hasInitialSyncRef.current;
+            const cloudMoreRecent = cloudTime > localTime + 1000;
 
-            // 1. Forçamos SE é a primeira vez que ouvimos a nuvem (Resolve: LocalStorage estagnado/antigo)
-            const isFirstSync = !hasInitialSyncRef.current;
-
-            // 2. Forçamos SE não houve nenhuma ação do usuário nesta sessão (Local "novo" é apenas lixo de hydration)
-            const noLocalActionYet = lastLocalMutationRef.current === 0;
-
-            // 3. Forçamos SE a nuvem é realmente mais nova
-            const cloudIsNewer = cloudTime > localTime + 1000;
-
-            // 4. Casos Especiais: Timestamp 1970 ou estrutura básica
+            // Se o conteúdo é diferente e não editamos nada nos últimos 15 segundos,
+            // confiamos na nuvem como a "Fonte da Verdade" (resolve drift e delay).
+            const idleLocalMutation = (Date.now() - lastLocalMutationRef.current) > 15000;
             const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
 
-            const shouldApplyCloud = cloudIsNewer || isInitial || isFirstSync || noLocalActionYet;
+            const shouldSync = isFirstUpdate || cloudMoreRecent || isInitial || (contentsAreDifferent && idleLocalMutation);
 
-            if (shouldApplyCloud) {
-                console.warn(`[Sync] Aplicando Nuvem: ${new Date(cloudTime).toLocaleTimeString()} | Motivo: ${isFirstSync ? 'Inicial' : noLocalActionYet ? 'Sem mutação local' : 'Nuvem mais nova'}`);
-
+            if (shouldSync) {
+                console.warn(`[Sync] Aplicando Cloud. Motivo: ${isFirstUpdate ? 'Inicial' : cloudMoreRecent ? 'Mais novo' : 'Idle/Verdade Global'}`);
                 setAppState(cloudData);
-                lastSyncedRef.current = stateToCompare;
+                lastSyncedRef.current = cloudStateString;
 
                 if (hasInitialSyncRef.current && showToast) {
-                    showToast('Sincronizado via Nuvem! ☁️✨', 'success');
+                    showToast('Atualizado via Nuvem! ☁️', 'success');
                 }
             } else {
-                console.warn(`[Sync] Conflito Detectado: Cloud (${new Date(cloudTime).toLocaleTimeString()}) < Local (${new Date(localTime).toLocaleTimeString()}). Mantendo local pois houve edição recente.`);
+                console.log("[Sync] Ignorando Cloud (Edição local em curso).");
             }
 
             hasInitialSyncRef.current = true;
         }, (err) => {
-            console.error("[Sync] Erro no listener cloud:", err);
+            console.error("[Sync] Erro no onSnapshot:", err);
             setCloudConnected(false);
             hasInitialSyncRef.current = true;
         });
@@ -98,49 +97,46 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
     }, [currentUser?.uid, setAppState, showToast]);
 
-    // Resetar flags quando o usuário muda
     useEffect(() => {
         hasInitialSyncRef.current = false;
         lastSyncedRef.current = null;
         lastLocalMutationRef.current = 0;
     }, [currentUser?.uid]);
 
-    // 2. EMISSOR AUTOMÁTICO (Auto-save)
+    // 2. EMISSOR
     useEffect(() => {
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
-        const stateToCompare = stateStringForSync(appState);
-        if (lastSyncedRef.current === stateToCompare) return;
+        const currentStateString = stateStringForSync(appState);
+        if (lastSyncedRef.current === currentStateString) return;
 
-        // Se o conteúdo mudou e não foi via receptor, é uma mutação local
+        // É uma mudança local real
         lastLocalMutationRef.current = Date.now();
 
         const syncToCloud = async () => {
             try {
-                if (lastSyncedRef.current === stateToCompare) return;
+                if (lastSyncedRef.current === currentStateString) return;
 
-                // CRITICAL: NÃO sobrescrevemos lastUpdated com "now" aqui. 
-                // Usamos o timestamp que a Store gerou no momento do clique/edição.
                 const stateToSave = {
                     ...appState,
                     history: [],
                     _lastBackup: new Date().toISOString()
                 };
 
-                console.log(`[Sync] Enviando para nuvem... TS: ${new Date(appState.lastUpdated).toLocaleTimeString()}`);
+                setIsInternalSyncing(true);
+                console.log(`[Sync] Salvando na Nuvem... Mutação: ${new Date(appState.lastUpdated).toLocaleTimeString()}`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                lastSyncedRef.current = stateToCompare;
+                lastSyncedRef.current = currentStateString;
             } catch (e) {
-                console.error("[Sync] Erro no auto-save:", e);
-                if (showToast && e.code !== 'unavailable') {
-                    showToast('Falha ao salvar na nuvem.', 'warning');
-                }
+                console.error("[Sync] Erro no Autosave:", e);
+            } finally {
+                setIsInternalSyncing(false);
             }
         };
 
-        const timer = setTimeout(syncToCloud, 3000); // 3 segundos para parecer mais "em tempo real"
+        const timer = setTimeout(syncToCloud, 3000);
         return () => clearTimeout(timer);
-    }, [appState, currentUser, showToast]);
+    }, [appState, currentUser]);
 
-    return { cloudConnected };
+    return { cloudConnected, isSyncing: isInternalSyncing };
 }
