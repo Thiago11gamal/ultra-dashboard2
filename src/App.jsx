@@ -76,7 +76,7 @@ function MainLayout() {
   const { levelUpData, closeLevelUpToast } = useGamification(showToast);
 
   // Auto-save pipeline
-  const { cloudConnected, isSyncing: isCloudSyncing } = useCloudSync(currentUser, appState, setAppState, showToast);
+  const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
