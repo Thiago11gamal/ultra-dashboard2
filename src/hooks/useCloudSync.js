@@ -18,6 +18,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
     const lastLocalMutationRef = useRef(0);
+    const latestCloudDataRef = useRef(null); // Guarda o último dado recebido da nuvem
     const [cloudConnected, setCloudConnected] = useState(false);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
     const [hasConflict, setHasConflict] = useState(false); // Flag de divergência detectada
@@ -45,10 +46,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             if (!docSnap.exists()) {
                 hasInitialSyncRef.current = true;
+                latestCloudDataRef.current = null;
                 return;
             }
 
             const cloudData = docSnap.data();
+            latestCloudDataRef.current = cloudData;
             const cloudStateString = stateStringForSync(cloudData);
             const contentsAreDifferent = lastSyncedRef.current !== cloudStateString;
 
@@ -148,19 +151,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     }, [appState, currentUser, showToast]);
 
     // Função de Manual Pull (Forçar Nuvem -> Local)
-    const forcePull = async () => {
-        if (!currentUser?.uid) return;
-        try {
-            setIsInternalSyncing(true);
-            // Poderíamos usar getDoc aqui, mas como o onSnapshot deve ter o dado mais recente já,
-            // vamos apenas facilitar o trigger. Na verdade, vamos forçar uma releitura ou apenas setAppState se já temos cloudData.
-            // Para ser simples e robusto: o onSnapshot JÁ ATUALIZOU hasConflict se fosse diferente.
-            // Mas não temos o 'cloudData' guardado fora do loop. 
-            // Vamos apenas deixar que o próximo snapshot ou a mudança de 'idle' resolva, 
-            // ou podemos adicionar um ref para 'latestCloudData'.
-            alert("Aguardando sincronização automática (ocorre em 5 segundos de inatividade)...");
-        } finally {
-            setIsInternalSyncing(false);
+    const forcePull = () => {
+        if (latestCloudDataRef.current && setAppState) {
+            setAppState(latestCloudDataRef.current);
+            lastSyncedRef.current = stateStringForSync(latestCloudDataRef.current);
+            setHasConflict(false);
+            if (showToast) showToast('Paridade forçada com sucesso! 💎', 'success');
         }
     };
 
