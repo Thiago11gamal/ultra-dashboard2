@@ -270,7 +270,12 @@ function MainLayout() {
           onUpdateName={updateUserName}
           currentData={data}
           appState={appState}
-          cloudStatus={{ connected: cloudConnected, syncing: isCloudSyncing }}
+          cloudStatus={{ 
+            connected: cloudConnected, 
+            syncing: isCloudSyncing,
+            hasConflict,
+            forcePull 
+          }}
         />
 
         {/* Router Outlet com carregamento otimizado */}
