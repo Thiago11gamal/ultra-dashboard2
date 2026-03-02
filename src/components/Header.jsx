@@ -5,9 +5,6 @@ import { ptBR } from 'date-fns/locale';
 import { uploadDataToCloud, downloadDataFromCloud } from '../services/cloudSync';
 import { useAuth } from '../context/useAuth';
 
-
-// BUG FIX: DateDisplay and TimeDisplay previously each called useClock() independently,
-// creating TWO separate setInterval(1000) timers that can drift and waste resources.
 const useClock = () => {
     const [time, setTime] = useState(new Date());
     useEffect(() => {
@@ -44,7 +41,6 @@ export default function Header({
 }) {
     const { logout, currentUser } = useAuth();
     const clockTime = useClock();
-
 
     const [profileOpen, setProfileOpen] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -113,7 +109,7 @@ export default function Header({
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
     return (
-        <header className="fixed top-0 right-0 left-0 h-24 glass-header border-b border-white/10 px-6 flex items-center justify-between z-40 transition-all duration-300">
+        <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
             {/* Left: Editable Contest Name */}
             <div className="w-1/2 flex flex-col">
                 <div className="relative group">
@@ -136,6 +132,7 @@ export default function Header({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-4">
+                {/* Cloud Sync Buttons */}
                 <div className="flex items-center gap-2 mr-4 border-r border-white/10 pr-4">
                     <button
                         onClick={handleCloudBackup}
@@ -155,6 +152,7 @@ export default function Header({
                     </button>
                 </div>
 
+                {/* Undo Button */}
                 <button
                     onClick={onUndo}
                     className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
@@ -166,8 +164,10 @@ export default function Header({
                     </span>
                 </button>
 
+                {/* Live Clock */}
                 <TimeDisplay time={clockTime} />
 
+                {/* Avatar / Profile Menu */}
                 <div className="relative">
                     <button
                         onClick={toggleProfile}
@@ -176,6 +176,7 @@ export default function Header({
                         {user.avatar}
                     </button>
 
+                    {/* Dropdown Menu */}
                     {profileOpen && (
                         <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
                             <div className="px-3 py-2 border-b border-white/10 mb-2">
@@ -243,6 +244,7 @@ export default function Header({
                 </div>
             </div>
 
+            {/* Backdrop for click outside */}
             {profileOpen && (
                 <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
             )}
