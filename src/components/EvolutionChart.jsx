@@ -455,7 +455,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         const dataKey = engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
                                         return [
                                             isFocused ? (
-                                                <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} stroke="none"
+                                                <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
                                                     fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
                                             ) : null,
                                             <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
