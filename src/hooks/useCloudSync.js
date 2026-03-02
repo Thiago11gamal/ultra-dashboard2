@@ -2,36 +2,44 @@ import { useEffect, useRef, useState } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-// Hook que observa automaticamente o AppStore e envia os dados pro Firebase Firestore
+/**
+ * useCloudSync
+ * Gerencia a comunicação em tempo real com o Firestore.
+ * Agora com logs agressivos para depuração remota e lógica de sincronização resiliente.
+ */
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
-    const [cloundConnected, setCloudConnected] = useState(false);
+    const [cloudConnected, setCloudConnected] = useState(false);
 
-    // Use a ref for appState to keep the listener stable while accessing current data
+    // Mantém o appState atualizado em um Ref para acesso estável dentro do listener
     const appStateRef = useRef(appState);
     useEffect(() => {
         appStateRef.current = appState;
     }, [appState]);
 
-    // Helper to normalize state for comparison (Ignores timestamps and undo history)
+    // Função auxiliar para comparar estados ignorando metadados de sincronização e o histórico pesado
     const stateStringForSync = (state) => {
         if (!state) return '';
-        // We exclude history and BOTH sync timestamps for comparison
         const { history: _h, _lastBackup: _lb, lastUpdated: _lu, ...rest } = state;
         return JSON.stringify({ ...rest, history: [] });
     };
 
-    // 1. Real-time Cloud Receiver (Listen for changes from other devices)
+    // 1. RECEPTOR EM TEMPO REAL (onSnapshot)
     useEffect(() => {
-        if (!currentUser?.uid || !setAppState) return;
+        if (!currentUser?.uid || !setAppState) {
+            console.log("[Sync] Monitoramento não iniciado: Usuário deslogado ou store indisponível.");
+            return;
+        }
 
+        console.log(`[Sync] Iniciando escuta para o usuário: ${currentUser.uid}`);
         const docRef = doc(db, 'backups', currentUser.uid);
 
-        // Subscribe to real-time updates
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             setCloudConnected(true);
+
             if (!docSnap.exists()) {
+                console.log("[Sync] Nenhum dado encontrado na nuvem para este ID.");
                 hasInitialSyncRef.current = true;
                 return;
             }
@@ -41,28 +49,28 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const cloudTime = new Date(cloudUpdated || 0).getTime();
             const localTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
 
-            // IGNORE if we just sent this exact change (Prevents feedback loops)
+            // Evitar loops: Se o dado recebido é estruturalmente IDÊNTICO ao que já temos
             const stateToCompare = stateStringForSync(cloudData);
             if (lastSyncedRef.current === stateToCompare) {
+                // console.log("[Sync] Dado da nuvem é idêntico ao carregado localmente. Ignorando.");
                 hasInitialSyncRef.current = true;
                 return;
             }
 
-            // LOGGING for debugging
-            console.log(`[Sync] Cloud: ${new Date(cloudTime).toLocaleTimeString()} | Local: ${new Date(localTime).toLocaleTimeString()}`);
-
-            // TRIGGER Update conditions:
-            // 1. Cloud is significantly newer
-            // 2. Local is initial state (1970)
-            // 3. Structural mismatch (diff number of contests)
+            // --- LÓGICA DE DECISÃO DE ATUALIZAÇÃO ---
             const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
-            const cloudContestCount = Object.keys(cloudData.contests || {}).length;
-            const localContestCount = Object.keys(appStateRef.current?.contests || {}).length;
-            const structureMismatch = cloudContestCount !== localContestCount;
 
+            const cloudContests = Object.keys(cloudData.contests || {}).sort().join(',');
+            const localContests = Object.keys(appStateRef.current?.contests || {}).sort().join(',');
+            const structureMismatch = cloudContests !== localContests;
+
+            console.log(`[Sync] Recebido via Nuvem. CloudSyncTS: ${new Date(cloudTime).toLocaleTimeString()} | LocalTS: ${new Date(localTime).toLocaleTimeString()}`);
+
+            // Prioridade para Nuvem se for mais nova, se o local for virgem, ou se a lista de concursos divergir
             if (cloudTime > localTime + 1000 || isInitial || structureMismatch) {
-                console.log("[Sync] Update triggered! Syncing cloud data...");
+                console.warn("[Sync] Aplicando dados da nuvem no Store local!");
 
+                // Garantimos que o timestamp local passará a ser exatamente o da nuvem para evitar conflitos futuros
                 const normalizedCloudData = {
                     ...cloudData,
                     lastUpdated: cloudUpdated
@@ -74,13 +82,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 if (hasInitialSyncRef.current && showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
-            } else if (cloudTime < localTime - 5000) {
-                console.log("[Sync] Rejected: Local is significantly NEWER than cloud.");
+            } else {
+                console.warn("[Sync] Dado da nuvem REJEITADO (Local parece ser mais novo ou idêntico).");
             }
 
             hasInitialSyncRef.current = true;
         }, (err) => {
-            console.error("[Sync] Cloud listener error:", err);
+            console.error("[Sync] Erro crítico no listener cloud:", err);
             setCloudConnected(false);
             hasInitialSyncRef.current = true;
         });
@@ -91,22 +99,22 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
     }, [currentUser?.uid, setAppState, showToast]);
 
-    // Reset initial sync flag when user changes
+    // Resetar flags quando o usuário muda (logout/login)
     useEffect(() => {
         hasInitialSyncRef.current = false;
         lastSyncedRef.current = null;
     }, [currentUser?.uid]);
 
-    // 2. Auto-save pipeline (Backup to Cloud)
+    // 2. EMISSOR AUTOMÁTICO (Auto-save)
     useEffect(() => {
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
-        // Compare using normalized string
         const stateToCompare = stateStringForSync(appState);
         if (lastSyncedRef.current === stateToCompare) return;
 
         const syncToCloud = async () => {
             try {
+                // Re-verificação para evitar corridas durante o debounce
                 if (lastSyncedRef.current === stateToCompare) return;
 
                 const now = new Date().toISOString();
@@ -117,17 +125,24 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     _lastBackup: now
                 };
 
-                console.log(`[Sync] Auto-saving to Cloud... (${new Date(now).toLocaleTimeString()})`);
+                console.log(`[Sync] Enviando atualização para nuvem... (${new Date(now).toLocaleTimeString()})`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+
+                // Registramos o que enviamos como o último estado sincronizado
                 lastSyncedRef.current = stateToCompare;
             } catch (e) {
-                console.error("[Sync] Auto-save failed:", e);
+                console.error("[Sync] Falha no auto-save nuvem:", e);
+                // Notificar usuário apenas se não for erro de conexão temporário
+                if (showToast && e.code !== 'unavailable') {
+                    showToast('Aviso: Falha ao salvar na nuvem.', 'warning');
+                }
             }
         };
 
-        const timer = setTimeout(syncToCloud, 10000);
+        // Debounce de 8 segundos para não sobrecarregar em escritas rápidas
+        const timer = setTimeout(syncToCloud, 8000);
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
 
-    return { cloundConnected };
+    return { cloudConnected };
 }
