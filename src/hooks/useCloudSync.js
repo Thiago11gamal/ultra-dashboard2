@@ -40,7 +40,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
 
         checkCloudOnBoot();
-    }, [currentUser?.uid, setAppState, showToast, appState]);
+    }, [currentUser, setAppState, showToast, appState]);
 
     // Reset initial sync flag when user changes
     useEffect(() => {
