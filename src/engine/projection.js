@@ -270,9 +270,8 @@ export function monteCarloSimulation(
     // Math fix 1: Collect all final scores for empirical CI percentiles
     // ±1.96σ assumes a Gaussian distribution — but our distribution is truncated [0,100]
     // and can be asymmetric near the score ceiling or floor. Empirical percentiles are exact.
-    const allFinalScores = new Array(safeSimulations);
-
     const safeSimulations = Math.max(1, simulations);
+    const allFinalScores = new Array(safeSimulations);
 
     // FIX: Simulate at least 1 day with 0 drift for 0-day projections 
     // to account for inherent test variance, avoiding locking the probability at 0% or 100%.
