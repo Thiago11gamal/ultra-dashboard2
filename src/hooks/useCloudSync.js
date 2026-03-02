@@ -1,45 +1,64 @@
 import { useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { downloadDataFromCloud } from '../services/cloudSync';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // Hook que observa automaticamente o AppStore e envia os dados pro Firebase Firestore
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
 
-    // 1. Initial Sync Control (Restore from Cloud if needed)
+    // Helper to normalize state for comparison (Ignores timestamps and undo history)
+    const stateStringForSync = (state) => {
+        if (!state) return '';
+        const { history: _h, _lastBackup: _lb, ...rest } = state;
+        return JSON.stringify({ ...rest, history: [] });
+    };
+
+    // 1. Real-time Cloud Receiver (Listen for changes from other devices)
     useEffect(() => {
-        if (!currentUser?.uid || !setAppState || hasInitialSyncRef.current) return;
+        if (!currentUser?.uid || !setAppState) return;
 
-        const checkCloudOnBoot = async () => {
-            if (hasInitialSyncRef.current) return;
-            hasInitialSyncRef.current = true;
+        const docRef = doc(db, 'backups', currentUser.uid);
 
-            try {
-                const cloudData = await downloadDataFromCloud(currentUser.uid);
-                if (!cloudData) return;
-
-                const cloudTime = new Date(cloudData._lastBackup || cloudData.lastUpdated || 0).getTime();
-                const localTime = new Date(appState?.lastUpdated || 0).getTime();
-
-                // Logical trigger: Cloud is NEWER. We removed 'isLocalEmpty' to prevent accidental reversions.
-                if (cloudTime > localTime) {
-                    setAppState(cloudData);
-                    // Mark as synced to avoid echoing back an immediately older version
-                    lastSyncedRef.current = JSON.stringify({ ...cloudData, history: [], _lastBackup: undefined });
-                    if (showToast) showToast('Dados sincronizados com a nuvem! ☁️', 'success');
-                } else {
-                    lastSyncedRef.current = JSON.stringify({ ...appState, history: [], _lastBackup: undefined });
-                }
-
-            } catch (err) {
-                console.error("Initial cloud fetch failed:", err);
+        // Subscribe to real-time updates
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (!docSnap.exists()) {
+                hasInitialSyncRef.current = true;
+                return;
             }
-        };
 
-        checkCloudOnBoot();
-    }, [currentUser, setAppState, showToast, appState]);
+            const cloudData = docSnap.data();
+            const cloudTime = new Date(cloudData._lastBackup || cloudData.lastUpdated || 0).getTime();
+            const localTime = new Date(appState?.lastUpdated || 0).getTime();
+
+            // IGNORE if we just sent this exact change (Prevents feedback loops)
+            const stateToCompare = stateStringForSync(cloudData);
+            if (lastSyncedRef.current === stateToCompare) {
+                hasInitialSyncRef.current = true;
+                return;
+            }
+
+            // TRIGGER Update: Cloud is strictly newer
+            if (cloudTime > localTime) {
+                // console.log("Real-time Sync: Cloud is newer. Updating local store...");
+                setAppState(cloudData);
+                // Mark this version as "synced" locally
+                lastSyncedRef.current = stateToCompare;
+
+                // Show success toast only IF this wasn't the very FIRST sync of the session
+                if (hasInitialSyncRef.current && showToast) {
+                    showToast('Dados atualizados (nuvem)! ☁️✨', 'success');
+                }
+            }
+
+            hasInitialSyncRef.current = true;
+        }, (err) => {
+            console.error("Cloud listener error:", err);
+            hasInitialSyncRef.current = true;
+        });
+
+        return () => unsubscribe();
+    }, [currentUser?.uid, setAppState, showToast, appState?.lastUpdated]);
 
     // Reset initial sync flag when user changes
     useEffect(() => {
@@ -52,23 +71,20 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
         // Limpeza do histórico para economizar largura de banda
-        // Adicionamos _lastBackup para controle de sincronização
         const stateToSave = {
             ...appState,
             history: [],
             _lastBackup: new Date().toISOString()
         };
 
-        // Comparamos apenas os dados reais (ignorando o timestamp do backup) para evitar loops
-        const stateToCompare = { ...stateToSave, _lastBackup: undefined };
-        const stateString = JSON.stringify(stateToCompare);
+        const stateToCompare = stateStringForSync(stateToSave);
 
-        if (lastSyncedRef.current === stateString) return;
+        if (lastSyncedRef.current === stateToCompare) return;
 
         const syncToCloud = async () => {
             try {
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                lastSyncedRef.current = stateString; // Registar sucesso
+                lastSyncedRef.current = stateToCompare; // Registar sucesso
             } catch (e) {
                 console.error("Cloud Auto-save failed:", e);
                 if (showToast && e.code !== 'unavailable') {
@@ -77,7 +93,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
-        const timer = setTimeout(syncToCloud, 25000);
+        const timer = setTimeout(syncToCloud, 12000); // 12s debounce
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
 }
