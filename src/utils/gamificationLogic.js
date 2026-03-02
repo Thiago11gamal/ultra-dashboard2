@@ -146,10 +146,15 @@ export const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
     // Helper to calculate SD from history
     const calculateSD = (history) => {
         if (!history || history.length < 3) return 999;
-        // Filter out entries with total of 0 to avoid division by zero
-        const validEntries = history.filter(h => h.total > 0);
+        const validEntries = history.filter(h => h.total > 0 || h.score != null);
         if (validEntries.length < 3) return 999;
-        const scores = validEntries.map(h => (h.correct / h.total) * 100);
+
+        // Use the universal score helper to be safe across data versions
+        const scores = validEntries.map(h => {
+            if (h.score != null) return Number(h.score);
+            return (h.correct / h.total) * 100;
+        });
+
         const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
         const variance = scores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (scores.length - 1);
         return Math.sqrt(variance);
@@ -168,9 +173,9 @@ export const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
             const sd = calculateSD(cat.simuladoStats?.history);
             return sd < 5;
         }) || false,
-        pomodorosCompleted: data.pomodorosCompleted || 0,
-        studiedEarly: data.studiedEarly || false,
-        studiedLate: data.studiedLate || false
+        pomodorosCompleted: data.studySessions?.length || 0,
+        studiedEarly: data.user?.studiedEarly || false,
+        studiedLate: data.user?.studiedLate || false
     };
 
     const newlyUnlocked = [];

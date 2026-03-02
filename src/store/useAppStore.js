@@ -254,6 +254,12 @@ export const useAppStore = create(
                 // XP logic using unified helper
                 const baseXP = XP_CONFIG.pomodoro.base; // 100
                 const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0; // +100
+
+                // Achievement tracking: Time of day
+                const startHour = new Date(now).getHours();
+                if (startHour < 7) activeData.user.studiedEarly = true;
+                if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
+
                 processGamification(state, baseXP + bonusXP);
             }),
 
