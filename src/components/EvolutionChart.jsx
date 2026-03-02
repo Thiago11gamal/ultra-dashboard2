@@ -562,9 +562,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
                                                     {isLast && (
                                                         <>
-                                                            <circle cx={0} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
-                                                            <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
-                                                            <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
+                                                            <circle cx={50} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
+                                                            <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
+                                                            <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
                                                     )}
                                                     <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />
@@ -584,9 +584,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
                                                     {isLast && (
                                                         <>
-                                                            <circle cx={0} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
-                                                            <line x1={0} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
-                                                            <text x={5} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
+                                                            <circle cx={50} cy={cy} r={3.5} fill="#0a0f1e" stroke={focusColor} strokeWidth={1.5} />
+                                                            <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
+                                                            <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
                                                         </>
                                                     )}
                                                     <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />
