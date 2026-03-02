@@ -113,7 +113,6 @@ export default function Header({
     }, [user.name]);
 
     const handleNameBlur = () => {
-        setIsFocused(false);
         if (localName !== user.name && onUpdateName) {
             onUpdateName(localName);
         }
@@ -129,7 +128,6 @@ export default function Header({
                     <input
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
                         onBlur={handleNameBlur}
                         placeholder="Digite o nome do concurso..."
                         className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
