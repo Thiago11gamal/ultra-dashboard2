@@ -104,7 +104,10 @@ export const useAppStore = create(
                 state.appState.activeId = nextState.activeId;
                 // Preserve history stack unless the import explicitly provides a new one
                 if (nextState.history) state.appState.history = nextState.history;
-                state.appState.lastUpdated = new Date().toISOString();
+
+                // IMPORTANT: Prioritize the timestamp from the incoming state (e.g. from cloud)
+                // only set to "now" if it's a completely new local update that forgot the timestamp
+                state.appState.lastUpdated = nextState.lastUpdated || new Date().toISOString();
             }),
 
             setData: (newDataCallback) => set((state) => {
@@ -129,7 +132,11 @@ export const useAppStore = create(
                 } else {
                     state.appState.contests[contestId] = newDataCallback;
                 }
-                state.appState.lastUpdated = new Date().toISOString();
+
+                // Prioritize input timestamp if this was a bulk update (like from a json import that uses setData)
+                // otherwise set to now.
+                state.appState.lastUpdated = (typeof newDataCallback === 'object' && newDataCallback?.lastUpdated)
+                    || new Date().toISOString();
             }),
 
             // === Data Mutations (Immer makes this super clean) ===

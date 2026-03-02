@@ -7,6 +7,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
 
+    // Use a ref for appState to keep the listener stable while accessing current data
+    const appStateRef = useRef(appState);
+    useEffect(() => {
+        appStateRef.current = appState;
+    }, [appState]);
+
     // Helper to normalize state for comparison (Ignores timestamps and undo history)
     const stateStringForSync = (state) => {
         if (!state) return '';
@@ -29,7 +35,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             const cloudData = docSnap.data();
             const cloudTime = new Date(cloudData._lastBackup || cloudData.lastUpdated || 0).getTime();
-            const localTime = new Date(appState?.lastUpdated || 0).getTime();
+            const localTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
 
             // IGNORE if we just sent this exact change (Prevents feedback loops)
             const stateToCompare = stateStringForSync(cloudData);
@@ -58,7 +64,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         });
 
         return () => unsubscribe();
-    }, [currentUser?.uid, setAppState, showToast, appState?.lastUpdated]);
+    }, [currentUser?.uid, setAppState, showToast]); // listener stays stable
 
     // Reset initial sync flag when user changes
     useEffect(() => {
@@ -83,6 +89,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const syncToCloud = async () => {
             try {
+                // Double check if we already have this state marked as synced (concurrency check)
+                if (lastSyncedRef.current === stateToCompare) return;
+
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
                 lastSyncedRef.current = stateToCompare; // Registar sucesso
             } catch (e) {
