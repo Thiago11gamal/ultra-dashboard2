@@ -436,9 +436,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </linearGradient>
                                         ))}
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} dy={8} axisLine={false} tickLine={false} minTickGap={22} />
-                                    <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#475569' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={22} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 11, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -465,9 +465,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                 </ComposedChart>
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 15, left: -10, bottom: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} dy={8} axisLine={false} tickLine={false} minTickGap={22} />
-                                    <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#475569' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={22} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 11, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={40} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -518,8 +518,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
-                                    <PolarGrid stroke="#1e293b" />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9 }} />
+                                    <PolarGrid stroke="rgba(255,255,255,0.15)" />
+                                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                     <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} fill="none" />
                                     <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
@@ -537,10 +537,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
-                                    <XAxis dataKey="date" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} minTickGap={20} />
-                                    <YAxis yAxisId="left" stroke="#334155" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#334155" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.max(10, Math.ceil(dataMax * 1.5))]} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                                    <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={20} />
+                                    <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, dataMax => Math.max(10, Math.ceil(dataMax * 1.5))]} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
                                     <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill={`${focusColor}22`} stroke={`${focusColor}55`} strokeWidth={1} radius={[4, 4, 0, 0]} barSize={12} />
@@ -559,13 +559,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             {pointLeakageData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, pointLeakageData.length * 44)}>
                                     <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
-                                        <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={130} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={130} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                            <LabelList dataKey="value" position="right" style={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -587,13 +587,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             {subtopicsData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(260, subtopicsData.length * 44)}>
                                     <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 50, left: 20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" horizontal={false} />
-                                        <XAxis type="number" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={150} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={150} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v} erros`, 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                            <LabelList dataKey="value" position="right" style={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
