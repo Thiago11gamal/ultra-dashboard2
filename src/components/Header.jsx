@@ -215,8 +215,13 @@ export default function Header({
                     {/* Dropdown Menu */}
                     {profileOpen && (
                         <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
-                            <div className="px-3 py-2 border-b border-white/10 mb-2">
-                                <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Meus Painéis</p>
+                            <div className="px-3 py-2 border-b border-white/10 mb-2 flex flex-col gap-1">
+                                <p className="text-xs text-slate-400 uppercase tracking-wider">Meus Painéis</p>
+                                {currentUser && (
+                                    <p className="text-[10px] text-slate-500 font-mono truncate">
+                                        ID: {currentUser.uid.slice(-6).toUpperCase()}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">

@@ -42,21 +42,27 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             // IGNORE if we just sent this exact change (Prevents feedback loops)
             const stateToCompare = stateStringForSync(cloudData);
             if (lastSyncedRef.current === stateToCompare) {
+                // Keep the timestamp in sync to avoid loops if cloud has same data but different TS
                 hasInitialSyncRef.current = true;
                 return;
             }
 
-            // TRIGGER Update: 
-            // 1. Cloud is strictly newer
-            // 2. Local is the default initial state (allow immediate override)
+            // TRIGGER Update conditions:
+            // 1. Cloud is significantly newer (> 500ms to avoid micro-jitter)
+            // 2. Local is the absolute default state (1970)
+            // 3. Structure mismatch: if cloud has more/different contests keys, take it!
             const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
 
-            if (cloudTime > localTime || isInitial) {
-                // console.log("Real-time Sync: Cloud is newer. Updating local store...");
+            const cloudContestCount = Object.keys(cloudData.contests || {}).length;
+            const localContestCount = Object.keys(appStateRef.current?.contests || {}).length;
+            const structureMismatch = cloudContestCount !== localContestCount;
+
+            if (cloudTime > localTime + 500 || isInitial || structureMismatch) {
+                // console.log("Incoming Sync: Syncing from Cloud...");
 
                 const normalizedCloudData = {
                     ...cloudData,
-                    lastUpdated: cloudUpdated // Use the freshest timestamp available
+                    lastUpdated: cloudUpdated // Preserve the cloud's timestamp
                 };
 
                 setAppState(normalizedCloudData);
@@ -64,7 +70,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
                 // Show success toast only IF this wasn't the very FIRST sync of the session
                 if (hasInitialSyncRef.current && showToast) {
-                    showToast('Dados atualizados (nuvem)! ☁️✨', 'success');
+                    showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             }
 
@@ -110,12 +116,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             } catch (e) {
                 console.error("Cloud Auto-save failed:", e);
                 if (showToast && e.code !== 'unavailable') {
-                    showToast('Falha na sincronização.', 'warning');
+                    showToast('Falha ao salvar na nuvem.', 'warning');
                 }
             }
         };
 
-        const timer = setTimeout(syncToCloud, 10000); // 10s debounce
+        const timer = setTimeout(syncToCloud, 8000); // 8s debounce for auto-save
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
 }
