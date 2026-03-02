@@ -147,11 +147,29 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 if (lastSyncedRef.current === currentStateString) return;
                 if (lastLocalMutationRef.current !== lastMutation) return;
 
-                const stateToSave = {
+                const safeguardContest = (contest) => {
+                    if (!contest) return contest;
+                    return {
+                        ...contest,
+                        studyLogs: (contest.studyLogs || []).slice(-200),
+                        studySessions: (contest.studySessions || []).slice(-200),
+                        simuladoRows: (contest.simuladoRows || []).slice(-200),
+                    };
+                };
+
+                const safeContests = appState.contests
+                    ? Object.fromEntries(Object.entries(appState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                    : appState.contests;
+
+                const rawStateToSave = {
                     ...appState,
+                    contests: safeContests,
                     history: [],
                     _lastBackup: new Date().toISOString()
                 };
+
+                // Firebase Firestore REJEITA keys com valores 'undefined'. O parse/stringify varre e remove tds silenciosamente.
+                const stateToSave = JSON.parse(JSON.stringify(rawStateToSave));
 
                 setIsInternalSyncing(true);
                 console.log(`[Sync] Enviando atualização MASTER para nuvem...`);
