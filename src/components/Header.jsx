@@ -113,15 +113,30 @@ export default function Header({
         <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
             {/* Left: Editable Contest Name */}
             <div className="w-1/2 flex flex-col">
-                <div className="relative group">
-                    <input
-                        type="text"
-                        value={localName}
-                        onChange={(e) => setLocalName(e.target.value)}
-                        onBlur={handleNameBlur}
-                        placeholder="Digite o nome do concurso..."
-                        className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
-                    />
+                <div className="relative group flex items-center gap-3">
+                    <div className="flex-1">
+                        <input
+                            type="text"
+                            value={localName}
+                            onChange={(e) => setLocalName(e.target.value)}
+                            onBlur={handleNameBlur}
+                            placeholder="Digite o nome do concurso..."
+                            className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
+                        />
+                    </div>
+
+                    {/* Cloud Status Indicator */}
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-medium transition-all duration-500 border ${cloudStatus.connected
+                            ? 'bg-green-500/10 border-green-500/20 text-green-400/70'
+                            : 'bg-slate-500/10 border-slate-500/20 text-slate-400/70'
+                        }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${cloudStatus.connected ? 'bg-green-400' : 'bg-slate-400'
+                            } ${cloudStatus.syncing ? 'animate-pulse scale-125' : ''}`} />
+                        <span className="uppercase tracking-wider">
+                            {cloudStatus.syncing ? 'Sincronizando...' : cloudStatus.connected ? 'Nuvem Ativa' : 'Offline'}
+                        </span>
+                    </div>
+
                     <div className="absolute -top-4 left-2 text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         Foco Principal ✏️
                     </div>
