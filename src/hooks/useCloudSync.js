@@ -42,14 +42,32 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const docRef = doc(db, 'backups', currentUser.uid);
 
+        // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
+        const safetyBootTimeout = setTimeout(() => {
+            if (!hasInitialSyncRef.current) {
+                console.warn("[Sync] Timeout de paridade atingido (V8). Liberando upload por inatividade do servidor.");
+                hasInitialSyncRef.current = true;
+            }
+        }, 5000);
+
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             setCloudConnected(true);
+            const isFromCache = docSnap.metadata.fromCache;
+            const exists = docSnap.exists();
 
-            const cloudData = docSnap.exists() ? docSnap.data() : null;
+            // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
+            // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
+            if (isFromCache && !exists && !hasInitialSyncRef.current) {
+                console.log("[Sync] Aguaradando resposta real do servidor...");
+                return;
+            }
+
+            clearTimeout(safetyBootTimeout);
+            const cloudData = exists ? docSnap.data() : null;
             latestCloudDataRef.current = cloudData;
 
             if (!cloudData) {
-                // Caso em que a nuvem está vazia, marcamos como "sincronizado" para permitir uploads
+                // Nuvem realmente vazia (confirmado pelo servidor ou cache confirmado)
                 if (!hasInitialSyncRef.current) {
                     lastSyncedRef.current = stateStringForSync(appStateRef.current);
                     hasInitialSyncRef.current = true;
@@ -71,12 +89,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             // --- LOCKDOWN RULE: CLOUD WINS ON BOOT ---
             const isBootSync = !hasInitialSyncRef.current;
 
-            // --- CONFLIT RESOLUTION ---
+            // --- CONFLICT RESOLUTION ---
             const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 8000;
             const shouldPullCloud = isBootSync || !localWasJustEdited;
 
             if (shouldPullCloud) {
-                console.warn(`[Sync] Aplicando NUVEM (Master). Motivo: ${isBootSync ? 'Boot/Paridade' : 'Divergência Idle'}`);
+                console.warn(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
@@ -85,19 +103,22 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                console.log("[Sync] Bloqueando Cloud temporariamente (Edição local ativa).");
+                console.log("[Sync] Divergência detectada (Editando localmente agora).");
                 setHasConflict(true);
             }
 
             hasInitialSyncRef.current = true;
         }, (err) => {
-            console.error("[Sync] Erro no listener cloud:", err);
+            console.error("[Sync] Erro no listener:", err);
             setCloudConnected(false);
+            // Se der erro (ex: offline), liberamos para evitar travar o usuário
+            hasInitialSyncRef.current = true;
         });
 
         return () => {
             unsubscribe();
             setCloudConnected(false);
+            clearTimeout(safetyBootTimeout);
         };
     }, [currentUser?.uid, setAppState, showToast]);
 
@@ -110,27 +131,20 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     // 2. EMISSOR (Auto-save) - Master Mode
     useEffect(() => {
-        // LOCKDOWN: Não envia NADA para a nuvem se ainda não ouvimos a nuvem pelo menos uma vez
-        // Isso evita "envenenamento" do cloud com dados locais obsoletos no startup
+        // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
         const currentStateString = stateStringForSync(appState);
-
-        // Se o que temos agora é o que acabamos de receber ou enviar, cancelamos
         if (lastSyncedRef.current === currentStateString) return;
 
-        // Se chegamos aqui, é uma mutação local legítima (o usuário mexeu)
-        // Registramos o timestamp da última mutação para bloquear o receptor
+        // Mutação local detectada
         const lastMutation = Date.now();
         lastLocalMutationRef.current = lastMutation;
         setHasConflict(false);
 
         const syncToCloud = async () => {
             try {
-                // Verificação dupla antes de mandar (debounce)
                 if (lastSyncedRef.current === currentStateString) return;
-
-                // Se o usuário continuou mexendo, este timer é cancelado/ignorado
                 if (lastLocalMutationRef.current !== lastMutation) return;
 
                 const stateToSave = {
@@ -140,13 +154,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 };
 
                 setIsInternalSyncing(true);
-                console.log(`[Sync] Enviando para nuvem... (Conteúdo Novo)`);
+                console.log(`[Sync] Enviando atualização MASTER para nuvem...`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
                 lastSyncedRef.current = currentStateString;
             } catch (e) {
                 console.error("[Sync] Erro no auto-save:", e);
                 if (showToast && e.code !== 'unavailable') {
-                    showToast('Falha ao salvar na nuvem.', 'warning');
+                    showToast('Falha crítica ao salvar.', 'warning');
                 }
             } finally {
                 setIsInternalSyncing(false);

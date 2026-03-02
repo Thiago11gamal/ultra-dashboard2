@@ -100,14 +100,18 @@ export const useAppStore = create(
 
                 if (state.appState.history.length > 10) state.appState.history.shift();
 
-                state.appState.contests = nextState.contests;
-                state.appState.activeId = nextState.activeId;
+                // RESTORE ALL FIELDS (including mcEqualWeights and future fields)
+                Object.keys(nextState).forEach(key => {
+                    if (key !== 'history') {
+                        state.appState[key] = nextState[key];
+                    }
+                });
+
                 // Preserve history stack unless the import explicitly provides a new one
                 if (nextState.history) state.appState.history = nextState.history;
 
                 // IMPORTANT: Prioritize the timestamp from the incoming state (e.g. from cloud)
-                // only set to "now" if it's a completely new local update that forgot the timestamp
-                state.appState.lastUpdated = nextState.lastUpdated || new Date().toISOString();
+                state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
 
                 console.log(`[Store] setAppState concluído. Contests: ${Object.keys(nextState.contests).length}, Active: ${nextState.activeId}`);
             }),
