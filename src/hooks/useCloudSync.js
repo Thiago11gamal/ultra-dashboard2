@@ -3,7 +3,7 @@ import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 /**
- * Normaliza um objeto para comparação determinística (ordena chaves recursivamente)
+ * Normaliza um objeto para comparação determinística
  */
 const sortObject = (obj) => {
     if (obj === null || typeof obj !== 'object') return obj;
@@ -18,16 +18,17 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const hasInitialSyncRef = useRef(false);
     const lastLocalMutationRef = useRef(0);
-    const latestCloudDataRef = useRef(null); // Guarda o último dado recebido da nuvem
+    const latestCloudDataRef = useRef(null);
     const [cloudConnected, setCloudConnected] = useState(false);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
-    const [hasConflict, setHasConflict] = useState(false); // Flag de divergência detectada
+    const [hasConflict, setHasConflict] = useState(false);
 
     const appStateRef = useRef(appState);
     useEffect(() => {
         appStateRef.current = appState;
     }, [appState]);
 
+    // Compara apenas o conteúdo real, ignorando timestamps e histórico
     const stateStringForSync = (state) => {
         if (!state) return '';
         const { history: _h, _lastBackup: _lb, lastUpdated: _lu, ...rest } = state;
@@ -35,7 +36,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         return JSON.stringify(normalized);
     };
 
-    // 1. RECEPTOR (onSnapshot)
+    // 1. RECEPTOR (onSnapshot) - Slave Mode
     useEffect(() => {
         if (!currentUser?.uid || !setAppState) return;
 
@@ -44,39 +45,38 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             setCloudConnected(true);
 
-            if (!docSnap.exists()) {
-                hasInitialSyncRef.current = true;
-                latestCloudDataRef.current = null;
+            const cloudData = docSnap.exists() ? docSnap.data() : null;
+            latestCloudDataRef.current = cloudData;
+
+            if (!cloudData) {
+                // Caso em que a nuvem está vazia, marcamos como "sincronizado" para permitir uploads
+                if (!hasInitialSyncRef.current) {
+                    lastSyncedRef.current = stateStringForSync(appStateRef.current);
+                    hasInitialSyncRef.current = true;
+                }
                 return;
             }
 
-            const cloudData = docSnap.data();
-            latestCloudDataRef.current = cloudData;
             const cloudStateString = stateStringForSync(cloudData);
-            const contentsAreDifferent = lastSyncedRef.current !== cloudStateString;
+            const currentStateString = stateStringForSync(appStateRef.current);
+            const contentsAreDifferent = currentStateString !== cloudStateString;
 
             if (!contentsAreDifferent) {
                 setHasConflict(false);
+                lastSyncedRef.current = cloudStateString;
                 hasInitialSyncRef.current = true;
                 return;
             }
 
-            // --- LÓGICA DE MESTRE (CLOUD-WINS) ---
+            // --- LOCKDOWN RULE: CLOUD WINS ON BOOT ---
+            const isBootSync = !hasInitialSyncRef.current;
 
-            const localTime = new Date(appStateRef.current?.lastUpdated || 0).getTime();
-            const cloudUpdated = cloudData.lastUpdated;
-            const cloudTime = new Date(cloudUpdated || 0).getTime();
+            // --- CONFLIT RESOLUTION ---
+            const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 8000;
+            const shouldPullCloud = isBootSync || !localWasJustEdited;
 
-            const isFirstUpdate = !hasInitialSyncRef.current;
-            const cloudSignificantNewer = cloudTime > localTime + 2000;
-            const idleMutation = (Date.now() - lastLocalMutationRef.current) > 5000; // 5 segundos sem digitar/clicar
-            const isInitial = appStateRef.current?.lastUpdated === "1970-01-01T00:00:00.000Z";
-
-            // Se for diferente e estivermos em um destes casos, puxamos a Nuvem.
-            const shouldSyncNow = isFirstUpdate || cloudSignificantNewer || isInitial || (contentsAreDifferent && idleMutation);
-
-            if (shouldSyncNow) {
-                console.warn(`[Sync] Mestre Nuvem Aplicado. Motivo: ${isFirstUpdate ? 'Inicial' : cloudSignificantNewer ? 'Nuvem Nova' : 'Idle/Paridade'}`);
+            if (shouldPullCloud) {
+                console.warn(`[Sync] Aplicando NUVEM (Master). Motivo: ${isBootSync ? 'Boot/Paridade' : 'Divergência Idle'}`);
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
@@ -85,8 +85,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                // Existe divergência mas estamos esperando o "Idle" para não atrapalhar o usuário.
-                console.log("[Sync] Divergência detectada, aguardando idle ou ação manual.");
+                console.log("[Sync] Bloqueando Cloud temporariamente (Edição local ativa).");
                 setHasConflict(true);
             }
 
@@ -94,7 +93,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         }, (err) => {
             console.error("[Sync] Erro no listener cloud:", err);
             setCloudConnected(false);
-            hasInitialSyncRef.current = true;
         });
 
         return () => {
@@ -103,7 +101,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
     }, [currentUser?.uid, setAppState, showToast]);
 
-    // Resetar flags quando o usuário muda
     useEffect(() => {
         hasInitialSyncRef.current = false;
         lastSyncedRef.current = null;
@@ -111,20 +108,30 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         setHasConflict(false);
     }, [currentUser?.uid]);
 
-    // 2. EMISSOR (Auto-save)
+    // 2. EMISSOR (Auto-save) - Master Mode
     useEffect(() => {
+        // LOCKDOWN: Não envia NADA para a nuvem se ainda não ouvimos a nuvem pelo menos uma vez
+        // Isso evita "envenenamento" do cloud com dados locais obsoletos no startup
         if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
 
         const currentStateString = stateStringForSync(appState);
+
+        // Se o que temos agora é o que acabamos de receber ou enviar, cancelamos
         if (lastSyncedRef.current === currentStateString) return;
 
-        // É uma mudança local real
-        lastLocalMutationRef.current = Date.now();
-        setHasConflict(false); // Zeramos o conflito pois assumimos que nossa vontade local é a nova verdade
+        // Se chegamos aqui, é uma mutação local legítima (o usuário mexeu)
+        // Registramos o timestamp da última mutação para bloquear o receptor
+        const lastMutation = Date.now();
+        lastLocalMutationRef.current = lastMutation;
+        setHasConflict(false);
 
         const syncToCloud = async () => {
             try {
+                // Verificação dupla antes de mandar (debounce)
                 if (lastSyncedRef.current === currentStateString) return;
+
+                // Se o usuário continuou mexendo, este timer é cancelado/ignorado
+                if (lastLocalMutationRef.current !== lastMutation) return;
 
                 const stateToSave = {
                     ...appState,
@@ -133,7 +140,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 };
 
                 setIsInternalSyncing(true);
-                console.log(`[Sync] Enviando para nuvem... TS: ${new Date(appState.lastUpdated).toLocaleTimeString()}`);
+                console.log(`[Sync] Enviando para nuvem... (Conteúdo Novo)`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
                 lastSyncedRef.current = currentStateString;
             } catch (e) {
@@ -150,7 +157,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         return () => clearTimeout(timer);
     }, [appState, currentUser, showToast]);
 
-    // Função de Manual Pull (Forçar Nuvem -> Local)
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {
             setAppState(latestCloudDataRef.current);
