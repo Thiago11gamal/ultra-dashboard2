@@ -555,14 +555,30 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         dot={(props) => {
                                             const { cx, cy, payload } = props;
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
-                                            const r = 3 + ((payload.volume || 0) / maxVolume) * 12;
-                                            return <circle key={`${cx.toFixed(1)}-${cy.toFixed(1)}`} cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />;
+                                            const vol = payload.volume || 0;
+                                            const r = 9 + (vol / maxVolume) * 12;
+                                            return (
+                                                <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
+                                                    <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />
+                                                    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(12, Math.max(8, r * 0.7))} fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0px 1px 2px rgba(0,0,0,0.8)' }}>
+                                                        {vol}
+                                                    </text>
+                                                </g>
+                                            );
                                         }}
                                         activeDot={(props) => {
                                             const { cx, cy, payload } = props;
                                             if (typeof cx !== 'number' || typeof cy !== 'number') return null;
-                                            const r = 3 + ((payload.volume || 0) / maxVolume) * 12 + 3;
-                                            return <circle key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`} cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />;
+                                            const vol = payload.volume || 0;
+                                            const r = 9 + (vol / maxVolume) * 12 + 3;
+                                            return (
+                                                <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
+                                                    <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />
+                                                    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(13, Math.max(9, r * 0.7))} fontWeight="black" style={{ pointerEvents: 'none', textShadow: '0px 1px 3px rgba(0,0,0,0.9)' }}>
+                                                        {vol}
+                                                    </text>
+                                                </g>
+                                            );
                                         }}
                                         style={{ filter: 'url(#lineShadow)' }}
                                     />
