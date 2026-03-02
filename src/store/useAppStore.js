@@ -77,7 +77,7 @@ export const useAppStore = create(
                 activeId: 'default',
                 history: [],
                 mcEqualWeights: true,
-                lastUpdated: new Date().toISOString()
+                lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
             // Actions
