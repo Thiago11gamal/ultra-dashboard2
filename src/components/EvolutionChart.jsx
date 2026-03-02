@@ -540,7 +540,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3a" vertical={false} />
                                     <XAxis dataKey="date" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#334155" tick={false} axisLine={false} tickLine={false} domain={[0, dataMax => dataMax * 2.5]} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="#334155" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.max(10, Math.ceil(dataMax * 1.5))]} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
                                     <Bar yAxisId="right" name="Qtd. Questões" dataKey="volume" fill={`${focusColor}22`} stroke={`${focusColor}55`} strokeWidth={1} radius={[4, 4, 0, 0]} barSize={12} />
