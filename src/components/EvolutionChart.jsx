@@ -412,13 +412,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 </div>
 
                 {/* Row 2: view controls */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5">
                     {/* Time window */}
                     <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto">
                         <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button key={w.value} onClick={() => setTimeWindow(w.value)}
-                                className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
+                                className={`shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
                             </button>
                         ))}
@@ -426,7 +426,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                     {/* Visibility toggle */}
                     <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                        className={`shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                        className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold border transition-all ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
                         <span>{showOnlyFocus ? '🔍' : '👁'}</span>
                         <span>{showOnlyFocus ? 'Só foco' : 'Todas'}</span>
                     </button>
@@ -448,7 +448,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="h-[280px] sm:h-[360px] md:h-[460px] w-full">
+                    <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 12 }}>
