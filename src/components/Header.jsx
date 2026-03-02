@@ -112,21 +112,33 @@ export default function Header({
     const [localName, setLocalName] = useState(user.name);
     const [isFocused, setIsFocused] = useState(false);
 
+    // Synchronize local name with store name only when not editing
     useEffect(() => {
         if (!isFocused) {
             setLocalName(user.name);
         }
     }, [user.name, isFocused]);
 
-    // BUG FIX (3): Guard against onUpdateName being undefined or localName being empty
+    // Handle name update with debounce
     useEffect(() => {
+        // Only trigger if focused (typing) or if it's a residual change after blur
+        if (!isFocused && localName === user.name) return;
+
         const timer = setTimeout(() => {
             if (localName !== user.name && localName && onUpdateName) {
                 onUpdateName(localName);
             }
-        }, 500); // 500ms debounce
+        }, 800); // Debounce while typing
         return () => clearTimeout(timer);
-    }, [localName, user.name, onUpdateName]);
+    }, [localName, user.name, onUpdateName, isFocused]);
+
+    const handleNameBlur = () => {
+        setIsFocused(false);
+        // Force immediate save on blur to prevent Effect 1 from reverting name
+        if (localName !== user.name && localName && onUpdateName) {
+            onUpdateName(localName);
+        }
+    };
 
     return (
         <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
@@ -138,7 +150,7 @@ export default function Header({
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
                         onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
+                        onBlur={handleNameBlur}
                         placeholder="Digite o nome do concurso..."
                         className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                     />
