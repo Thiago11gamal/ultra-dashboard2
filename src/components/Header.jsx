@@ -106,7 +106,6 @@ export default function Header({
         }
     };
 
-    const [isFocused, setIsFocused] = useState(false);
     const [localName, setLocalName] = useState(user.name);
 
     useEffect(() => {
