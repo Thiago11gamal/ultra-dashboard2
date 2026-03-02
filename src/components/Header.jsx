@@ -100,54 +100,33 @@ export default function Header({
         if (window.confirm("Deseja realmente sair?")) {
             try {
                 await logout();
-            } catch (error) {
-                console.error("Erro ao sair:", error);
+                // Store handles clearing or keeping local state as per configuration
+            } catch (err) {
+                console.error("Erro ao sair", err);
             }
         }
-    }
+    };
 
-
-    const toggleProfile = () => setProfileOpen(!profileOpen);
-
-    // Local state for debounce
     const [localName, setLocalName] = useState(user.name);
-    const [isFocused, setIsFocused] = useState(false);
 
-    // Synchronize local name with store name only when not editing
     useEffect(() => {
-        if (!isFocused) {
-            setLocalName(user.name);
-        }
-    }, [user.name, isFocused]);
-
-    // Handle name update with debounce
-    useEffect(() => {
-        // Only trigger if focused (typing) or if it's a residual change after blur
-        if (!isFocused && localName === user.name) return;
-
-        const timer = setTimeout(() => {
-            if (localName !== user.name && localName && onUpdateName) {
-                onUpdateName(localName);
-            }
-        }, 800); // Debounce while typing
-        return () => clearTimeout(timer);
-    }, [localName, user.name, onUpdateName, isFocused]);
+        setLocalName(user.name);
+    }, [user.name]);
 
     const handleNameBlur = () => {
-        setIsFocused(false);
-        // Force immediate save on blur to prevent Effect 1 from reverting name
-        if (localName !== user.name && localName && onUpdateName) {
+        if (localName !== user.name && onUpdateName) {
             onUpdateName(localName);
         }
     };
 
+    const toggleProfile = () => setProfileOpen(!profileOpen);
+
     return (
-        <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
-            {/* Left: Editable Contest Name */}
-            <div className="w-1/2 flex flex-col">
-                <div className="relative group">
+        <header className="fixed top-0 right-0 left-0 h-24 glass-header border-b border-white/10 px-6 flex items-center justify-between z-40 transition-all duration-300">
+            {/* Left: Branding & Search (Search not shown but space reserved) */}
+            <div className="flex flex-col">
+                <div className="flex items-center gap-3 group relative">
                     <input
-                        type="text"
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
                         onFocus={() => setIsFocused(true)}
@@ -177,134 +156,138 @@ export default function Header({
                     >
                         <CloudUpload size={20} className={isSyncing ? 'animate-bounce' : ''} />
                     </button>
-                    <CloudDownload size={20} className={isSyncing ? 'animate-bounce' : ''} />
-                </button>
-            </div>
+                    <button
+                        onClick={handleCloudDownload}
+                        disabled={isSyncing}
+                        className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-blue-400 group relative"
+                        title="Restaurar da Nuvem"
+                    >
+                        <CloudDownload size={20} className={isSyncing ? 'animate-bounce' : ''} />
+                    </button>
+                </div>
 
-            {/* Undo Button */}
-            <button
-                onClick={onUndo}
-                className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
-                title="Desfazer última ação"
-            >
-                <RotateCcw size={20} />
-                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-black/80 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    Desfazer
-                </span>
-            </button>
-
-            {/* Live Clock */}
-            <TimeDisplay time={clockTime} />
-
-
-
-            {/* Avatar / Profile Menu */}
-            <div className="relative">
+                {/* Undo Button */}
                 <button
-                    onClick={toggleProfile}
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-2xl hover:scale-105 transition-transform cursor-pointer"
+                    onClick={onUndo}
+                    className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
+                    title="Desfazer última ação"
                 >
-                    {user.avatar}
+                    <RotateCcw size={20} />
+                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-black/80 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Desfazer
+                    </span>
                 </button>
 
-                {/* Dropdown Menu */}
-                {profileOpen && (
-                    <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
-                        <div className="px-3 py-2 border-b border-white/10 mb-2 flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-slate-400 uppercase tracking-wider">Meus Painéis</p>
-                                <div className="flex items-center gap-1.5">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${cloudConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 animate-pulse'}`}></div>
-                                    <span className={`text-[10px] font-medium ${cloudConnected ? 'text-green-500' : 'text-red-500'}`}>
-                                        {cloudConnected ? 'Nuvem OK' : 'Sem Nuvem'}
-                                    </span>
-                                </div>
-                            </div>
-                            {currentUser && (
-                                <p className="text-[10px] text-slate-500 font-mono truncate">
-                                    ID: {currentUser.uid.slice(-6).toUpperCase()}
-                                </p>
-                            )}
-                        </div>
+                {/* Live Clock */}
+                <TimeDisplay time={clockTime} />
 
-                        <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
-                            {contests && Object.entries(contests).map(([id, contestData]) => (
-                                <div
-                                    key={id}
-                                    className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
-                                        ? 'bg-purple-500/20 border border-purple-500/30'
-                                        : 'hover:bg-white/5'
-                                        }`}
-                                >
-                                    <button
-                                        onClick={() => {
-                                            if (id !== activeContestId) onSwitchContest(id);
-                                            setProfileOpen(false);
-                                        }}
-                                        className={`flex-1 flex items-center gap-3 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
-                                    >
-                                        <LayoutDashboard size={16} className="shrink-0" />
-                                        <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
-                                    </button>
 
-                                    <div className="flex items-center gap-1 shrink-0">
-                                        {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
 
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteContest(id);
-                                            }}
-                                            className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
-                                            title="Excluir Painel"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                {/* Avatar / Profile Menu */}
+                <div className="relative">
+                    <button
+                        onClick={toggleProfile}
+                        className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-2xl hover:scale-105 transition-transform cursor-pointer"
+                    >
+                        {user.avatar}
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {profileOpen && (
+                        <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
+                            <div className="px-3 py-2 border-b border-white/10 mb-2 flex flex-col gap-1">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-slate-400 uppercase tracking-wider">Meus Painéis</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${cloudConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 animate-pulse'}`}></div>
+                                        <span className={`text-[10px] font-medium ${cloudConnected ? 'text-green-500' : 'text-red-500'}`}>
+                                            {cloudConnected ? 'Nuvem OK' : 'Sem Nuvem'}
+                                        </span>
                                     </div>
                                 </div>
-                            ))}
+                                {currentUser && (
+                                    <p className="text-[10px] text-slate-500 font-mono truncate">
+                                        ID: {currentUser.uid.slice(-6).toUpperCase()}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                {contests && Object.entries(contests).map(([id, contestData]) => (
+                                    <div
+                                        key={id}
+                                        className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
+                                            ? 'bg-purple-500/20 border border-purple-500/30'
+                                            : 'hover:bg-white/5'
+                                            }`}
+                                    >
+                                        <button
+                                            onClick={() => {
+                                                if (id !== activeContestId) onSwitchContest(id);
+                                                setProfileOpen(false);
+                                            }}
+                                            className={`flex-1 flex items-center gap-3 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
+                                        >
+                                            <LayoutDashboard size={16} className="shrink-0" />
+                                            <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
+                                        </button>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteContest(id);
+                                                }}
+                                                className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                                                title="Excluir Painel"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
+                                <button
+                                    onClick={() => {
+                                        onCreateContest();
+                                        setProfileOpen(false);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
+                                >
+                                    <Plus size={16} />
+                                    <span>Criar Novo Painel</span>
+                                </button>
+
+                                <button
+                                    onClick={handleCloudDownload}
+                                    disabled={isSyncing}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                >
+                                    <CloudDownload size={16} className={isSyncing ? 'animate-spin' : ''} />
+                                    <span>Baixar Atualizações Agora</span>
+                                </button>
+
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Sair da Conta</span>
+                                </button>
+                            </div>
                         </div>
-
-                        <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
-                            <button
-                                onClick={() => {
-                                    onCreateContest();
-                                    setProfileOpen(false);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
-                            >
-                                <Plus size={16} />
-                                <span>Criar Novo Painel</span>
-                            </button>
-
-                            <button
-                                onClick={handleCloudDownload}
-                                disabled={isSyncing}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-blue-400 hover:bg-blue-500/10 transition-colors"
-                            >
-                                <CloudDownload size={16} className={isSyncing ? 'animate-spin' : ''} />
-                                <span>Baixar Atualizações Agora</span>
-                            </button>
-
-                            <button
-                                onClick={handleLogout}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                            >
-                                <LogOut size={16} />
-                                <span>Sair da Conta</span>
-                            </button>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
 
-            {/* Backdrop for click outside */ }
-    {
-        profileOpen && (
-            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-        )
-    }
-        </header >
+            {/* Backdrop for click outside */}
+            {profileOpen && (
+                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+            )}
+        </header>
     );
 }
