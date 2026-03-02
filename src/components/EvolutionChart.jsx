@@ -545,7 +545,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={20} />
                                     <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} />
                                     <YAxis yAxisId="right" orientation="right" hide={true} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Tooltip cursor={false} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
 
                                     {/* Linha invisível apenas para forçar o volume a aparecer na legenda/tooltip principal */}
