@@ -123,7 +123,7 @@ const VolumeRanking = ({ categories = [] }) => {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden"></div>
+                                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden opacity-50"></div>
                                 )}
                             </div>
                         </motion.div>

@@ -109,7 +109,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden"></div>
+                                                <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden opacity-50"></div>
                                             )}
                                             <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
                                                 <span className="text-green-500">{totalCorrect} AC</span>
