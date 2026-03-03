@@ -320,9 +320,8 @@ export default function Header({
                         <div className="absolute -top-4 left-2 text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
                             Foco Principal ✏️
                         </div>
-                        <div style={{ marginTop: '1.25rem', paddingLeft: '0.2rem' }}>
-                            <DateDisplay time={clockTime} />
-                        </div>
+                    </div>
+                    <div className="mt-6">
                         <DateDisplay time={clockTime} />
                     </div>
                 </div>
