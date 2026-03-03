@@ -123,8 +123,6 @@ export default function VerifiedStats({ categories = [], user }) {
             (globalAnalysis.trend_slope > 0.01 ? 'up' :
                 globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable');
         const trendValue = globalAnalysis.trend_slope;
-        const progressState = globalAnalysis.state; // eslint-disable-line no-unused-vars
-        const progressLabel = globalAnalysis.label; // eslint-disable-line no-unused-vars
 
         // 2. Linear Regression & Contextual Prediction
         let prediction = "Calibrando...";
@@ -465,19 +463,11 @@ export default function VerifiedStats({ categories = [], user }) {
 
                     {/* Animated Loading Sparkline at the bottom */}
                     <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
-                        <div className={`h-full w-1/3 rounded-full opacity-70 animate-[pulse_2s_ease-in-out_infinite] ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
+                        <div className={`h-full w-1/3 rounded-full opacity-70 move-right-anim ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
                             stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
                                 'bg-blue-500'
-                            }`} style={{ animation: 'moveRight 3s linear infinite' }} />
+                            }`} />
                     </div>
-
-                    <style dangerouslySetInnerHTML={{
-                        __html: `
-                        @keyframes moveRight {
-                            0% { transform: translateX(-100%); }
-                            100% { transform: translateX(300%); }
-                        }
-                    `}} />
                 </div>
 
                 {/* Card 2: Consistency (Standard Deviation) */}
@@ -567,7 +557,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             <MonteCarloConfig
                 show={showConfig}
-                onClose={setShowConfig}
+                onClose={() => setShowConfig(false)}
                 targetScore={targetScore}
                 setTargetScore={setTargetScore}
                 equalWeightsMode={equalWeightsMode}

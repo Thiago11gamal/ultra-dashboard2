@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ArrowRight, ChevronDown, ChevronUp, BookOpen, RefreshCw, Play } from 'lucide-react';
+import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play } from 'lucide-react';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
 const calculateRetention = (lastStudiedAt) => {
@@ -8,7 +8,9 @@ const calculateRetention = (lastStudiedAt) => {
     const last = new Date(lastStudiedAt).getTime();
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
-    const val = Math.round(100 * Math.exp(-days / 3));
+    // BUG 6 FIX: Use S=7 days instead of 3 to better match spaced repetition retention
+    // With S=3, after 3 days retention drops to ~36% — too aggressive for studied content
+    const val = Math.round(100 * Math.exp(-days / 7));
 
     if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
@@ -443,6 +445,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                                                         {/* Play Button - Action */}
                                                         <button
+                                                            onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
                                                             className="w-10 h-10 rounded-xl bg-slate-950 border border-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 flex items-center justify-center transition-all shadow-xl group/play hover:border-emerald-500/30"
                                                             title="Iniciar Revisão"
                                                         >
