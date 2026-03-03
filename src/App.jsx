@@ -164,8 +164,6 @@ function MainLayout() {
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
       <Sidebar
-        onExport={handleExport}
-        onImport={handleImport}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
         user={data.user}
@@ -196,6 +194,8 @@ function MainLayout() {
             hasConflict,
             forcePull
           }}
+          onExport={handleExport}
+          onImport={handleImport}
         />
 
         {/* Router Outlet com carregamento otimizado */}
