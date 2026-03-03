@@ -20,7 +20,7 @@ import {
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
 
-export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
+export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
     const location = useLocation();
     const [isVisible, setIsVisible] = useState(true);
 

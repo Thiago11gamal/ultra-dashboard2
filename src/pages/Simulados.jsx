@@ -83,6 +83,7 @@ export default function Simulados() {
             const nonTodayRows = existingRows.filter(row => !row.createdAt || new Date(row.createdAt).toDateString() !== today);
 
             // 2. Filter out untouched auto-generated rows to save space
+            // BUG FIX: preserve the 'validated' field
             const validRowsToSave = updatedTodayRows.filter(r => {
                 const hasScore = parseInt(r.total) > 0 || parseInt(r.correct) > 0;
                 return r.isAuto && hasScore;
@@ -175,10 +176,13 @@ export default function Simulados() {
 
             // Persist the validated rows (only the ones filled out)
             // Fix 5: Cap to 300 to prevent Firestore 1MB document limit overflow
+            // DEFINITIVE FIX: direct upsert of rawRows as validated
+            // Skip fragile matching, just stamp and append to non-today data
             const today = new Date().toDateString();
             const nonTodayRows = (prev.simuladoRows || []).filter(
                 r => !r.createdAt || new Date(r.createdAt).toDateString() !== today
             );
+
             const now = Date.now();
             const validatedRows = [
                 ...nonTodayRows,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
@@ -39,14 +39,6 @@ function MainLayout() {
   const appState = useAppStore(state => state.appState);
   const setAppState = useAppStore(state => state.setAppState);
   const {
-    updatePomodoroSettings,
-    handleUpdateStudyTime,
-    toggleTask,
-    deleteTask,
-    addTask,
-    addCategory,
-    deleteCategory,
-    togglePriority,
     switchContest,
     createNewContest,
     deleteContest,
@@ -54,7 +46,6 @@ function MainLayout() {
   } = useAppStore();
 
   const isMobile = useMobileDetect();
-  const navigate = useNavigate();
 
   // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
