@@ -35,7 +35,7 @@ function AICoachCard({ task, idx }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.08, ease: "easeOut" } }}
-            className="group relative flex flex-col p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
+            className="group relative flex flex-col p-4 sm:p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
         >
             {/* Background Layer for Overflow Safety */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-500/10 to-transparent blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -54,7 +54,7 @@ function AICoachCard({ task, idx }) {
 
             {/* Main Content */}
             <div className="relative z-10 flex-1 mb-6">
-                <h3 className="text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
+                <h3 className="text-lg sm:text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
                     {displayAssunto}
                 </h3>
                 <p className="text-sm font-medium text-slate-400 group-hover:text-slate-200 leading-relaxed line-clamp-2 transition-colors">
@@ -127,26 +127,25 @@ export default function AICoachView({
     onClearHistory
 }) {
     return (
-        <div className="space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
-            {/* 1. Minimalist Premium Header */}
-            <div className="flex flex-col md:flex-row items-end justify-between gap-8 pt-6 border-b border-white/5 pb-8">
-                <div className="flex-1 md:text-left mb-6 md:mb-0">
-                    <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
+        <div className="space-y-6 sm:space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pt-2 sm:pt-6 border-b border-white/5 pb-4 sm:pb-8">
+                <div className="flex-1">
+                    <p className="text-slate-400 text-sm sm:text-lg font-medium flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
                         Análise de Performance e Metas
                     </p>
                 </div>
-
-                <div className="flex items-center gap-6">
-                    <div className="text-right hidden md:block">
+                <div className="flex items-center gap-4">
+                    <div className="text-right hidden sm:block">
                         <span className="block text-3xl font-black text-white">{coachPlan ? coachPlan.length : 0}</span>
                         <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>
                 </div>
             </div>
 
-            {/* 2. Main Layout Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+            {/* Main Layout Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-10">
                 {/* Left Column: Widget (4 cols) */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="sticky top-8 space-y-6">
