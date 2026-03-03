@@ -34,14 +34,14 @@ export default function PriorityProgress({ categories = [] }) {
     if (totalTasksGlobally === 0) return null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {priorities.map(p => {
                 const { total, completed } = stats[p];
                 const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                 const conf = priorityColors[p];
 
                 return (
-                    <div key={p} className={`p-4 rounded-xl border ${conf.border} ${conf.bg} backdrop-blur-sm flex flex-col justify-center gap-2 group hover:bg-white/5 transition-all`}>
+                    <div key={p} className={`p-3 sm:p-4 rounded-xl border ${conf.border} ${conf.bg} backdrop-blur-sm flex flex-col justify-center gap-2 group hover:bg-white/5 transition-all`}>
                         <div className="flex justify-between items-center px-1">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text}`}>
                                 Prioridade {conf.label}
