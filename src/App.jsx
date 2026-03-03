@@ -1,9 +1,8 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
-import MobilePocketMode from './components/MobilePocketMode';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
@@ -55,10 +54,11 @@ function MainLayout() {
   } = useAppStore();
 
   const isMobile = useMobileDetect();
-  const [forceDesktopMode, setForceDesktopMode] = useState(false);
+  const navigate = useNavigate();
+
+  // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
-  const [mobileActiveSubject, setMobileActiveSubject] = useState(null);
 
   // Global Toasts State
   const [toasts, setToasts] = useState([]);
@@ -220,29 +220,6 @@ function MainLayout() {
 
   if (!currentUser) return <Login />;
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
-
-  if (isMobile && !forceDesktopMode) {
-    return (
-      <MobilePocketMode
-        user={data.user}
-        data={data}
-        activeSubject={mobileActiveSubject}
-        actions={{
-          updatePomodoroSettings,
-          finishStudying: handleMobileFinishStudying,
-          startStudying: handleMobileStartStudying,
-          handleUpdateStudyTime,
-          toggleTask,
-          deleteTask,
-          addTask,
-          addCategory,
-          deleteCategory,
-          togglePriority
-        }}
-        onExitPocketMode={() => setForceDesktopMode(true)}
-      />
-    );
-  }
 
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
