@@ -129,7 +129,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
             {/* ─── DESKTOP PILL (unchanged) ─────────── */}
             <div
                 className={`
-                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50
+                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 md:-translate-x-1/2
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
                         : 'glass-panel w-auto px-3 py-3 rounded-2xl'}
