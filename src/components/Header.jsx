@@ -264,7 +264,7 @@ export default function Header({
             />
 
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
-            <header className="hidden md:flex items-center justify-between mb-4 z-50 relative">
+            <header className="hidden md:flex items-center justify-between z-50 relative">
                 {/* Left: Contest Name + Date */}
                 <div className="w-1/2 flex flex-col">
                     <div className="relative group flex items-center gap-3">
