@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight, Download, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../context/useAuth';
@@ -28,7 +28,7 @@ const TimeDisplay = ({ time }) => (
 /* ─────────────────────────────────────────────────────────
    Profile Side Drawer (mobile only)
 ───────────────────────────────────────────────────────── */
-function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout }) {
+function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport }) {
     return (
         <>
             {/* Backdrop */}
@@ -158,7 +158,9 @@ export default function Header({
     onCreateContest,
     onDeleteContest,
     onUndo,
-    cloudStatus = { connected: false, syncing: false }
+    cloudStatus = { connected: false, syncing: false },
+    onExport,
+    onImport
 }) {
     const { logout } = useAuth();
     const clockTime = useClock();
@@ -261,6 +263,8 @@ export default function Header({
                 onCreateContest={onCreateContest}
                 onDeleteContest={onDeleteContest}
                 onLogout={handleLogout}
+                onExport={onExport}
+                onImport={onImport}
             />
 
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
