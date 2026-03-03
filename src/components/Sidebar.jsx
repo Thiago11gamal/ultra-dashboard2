@@ -123,16 +123,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                     })}
                 </div>
 
-                {/* Export/Import - small */}
-                <div className="flex items-center gap-0.5 shrink-0 border-l border-white/10 pl-1.5 ml-0.5">
-                    <button onClick={onExport} className="p-1.5 text-slate-500 hover:text-green-400 transition-colors" title="Exportar">
-                        <Download size={15} />
-                    </button>
-                    <label className="cursor-pointer p-1.5 text-slate-500 hover:text-yellow-400 transition-colors" title="Importar">
-                        <Upload size={15} />
-                        <input type="file" accept=".json" onChange={onImport} className="hidden" />
-                    </label>
-                </div>
+                {/* Export/Import removed - relocated to Profile Drawer */}
             </div>  {/* end mobile bar */}
 
             {/* ─── DESKTOP PILL (unchanged) ─────────── */}
@@ -243,17 +234,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                         {/* Divider */}
                         <div className="shrink-0 w-px h-6 bg-white/10 mx-1 md:mx-2"></div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                            <button onClick={onExport} className="p-1.5 md:p-2 text-slate-400 hover:text-green-400 transition-colors" title="Exportar Backup">
-                                <Download size={18} />
-                            </button>
-                            <label className="cursor-pointer p-2 text-slate-400 hover:text-yellow-400 transition-colors" title="Importar Dados">
-                                <Upload size={18} />
-                                <input type="file" accept=".json" onChange={onImport} className="hidden" />
-                            </label>
-                        </div>
-
+                        {/* Spacer to push collapse button if needed, or just let it flex */}
                         {/* Collapse Button */}
                         <button
                             onClick={(e) => {
