@@ -272,26 +272,26 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         <div className="w-full mx-auto space-y-6 animate-fade-in pb-20">
 
             {/* â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <header className="flex items-center gap-4">
-                <div className="p-3 bg-purple-500/20 rounded-2xl border border-purple-500/30 shrink-0">
-                    <BrainCircuit size={32} className="text-purple-400" />
+            <header className="flex items-center gap-3">
+                <div className="p-2 sm:p-3 bg-purple-500/20 rounded-xl sm:rounded-2xl border border-purple-500/30 shrink-0">
+                    <BrainCircuit size={24} className="text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-2xl font-bold neon-text">IA Analyzer Pro</h2>
+                        <h2 className="text-lg sm:text-2xl font-bold neon-text">IA Analyzer Pro</h2>
                         <span className="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-300 border border-purple-500/20 font-bold uppercase tracking-wider">
-                            Modo Offline
+                            Offline
                         </span>
                     </div>
-                    <p className="text-slate-400 text-sm">Identifica fraquezas e gera um plano de revisão personalizado.</p>
+                    <p className="text-slate-400 text-xs sm:text-sm">Identifica fraquezas e gera um plano de revisão.</p>
                 </div>
             </header>
 
             {/* â”€â”€ GRID PRINCIPAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
                 {/* â•â•â•â• PAINEL ESQUERDO: Entrada de dados â•â•â•â• */}
-                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-lg">
+                <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col gap-3 sm:gap-4 shadow-lg">
 
                     {/* CabeÃ§alho do painel */}
                     <div className="flex items-center justify-between">
