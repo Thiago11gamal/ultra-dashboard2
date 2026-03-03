@@ -68,9 +68,9 @@ export default function Header({
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
     return (
-        <header className="flex items-center justify-between mb-8 mt-2 md:mt-4 z-50 relative">
+        <header className="flex flex-col-reverse md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 mt-2 md:mt-4 z-50 relative">
             {/* Left: Editable Contest Name */}
-            <div className="w-1/2 flex flex-col">
+            <div className="w-full md:w-1/2 flex flex-col">
                 <div className="relative group flex items-center gap-3">
                     <div className="flex-1">
                         <input
@@ -111,7 +111,7 @@ export default function Header({
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-end w-full md:w-auto gap-3 md:gap-4">
 
                 {/* Undo Button */}
                 <button

@@ -66,18 +66,17 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
 
     return (
         <div className={`fixed z-[100] transition-all duration-500 
-            ${isMobile
-                ? 'top-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-b border-white/10 px-2 py-2 shadow-2xl'
-                : 'left-1/2 -translate-x-1/2 flex flex-col items-start px-0 py-0 bg-transparent border-none shadow-none'} 
-            ${isVisible ? (isMobile ? 'translate-y-0 opacity-100' : 'top-6 opacity-100') : (isMobile ? '-translate-y-full opacity-0' : '-top-32 opacity-0')} pointer-events-auto`}>
+            top-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-b border-white/10 px-2 py-2 shadow-2xl
+            md:top-6 md:left-1/2 md:-translate-x-1/2 md:w-auto md:bg-transparent md:border-none md:shadow-none md:px-0 md:py-0
+            ${isVisible ? 'translate-y-0 opacity-100 md:top-6' : '-translate-y-full opacity-0 md:-top-32'} pointer-events-auto`}>
             {/* Main Bar Container */}
             <div
                 className={`
                     transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 mx-auto
-                    ${!isMobile && '-translate-x-1/2'}
+                    md:-translate-x-1/2
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
-                        : `glass-panel w-auto max-w-full px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center justify-between ${isMobile ? 'border-none bg-transparent shadow-none' : ''}`}
+                        : `glass-panel w-auto max-w-full px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center justify-between border-none bg-transparent shadow-none md:border-white/10 md:bg-slate-900/50 md:shadow-xl`}
                 `}
                 onClick={(e) => {
                     if (collapsed) {
@@ -115,7 +114,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                     // Expanded State: Full Menu
                     <div className="flex items-center gap-2 md:gap-3 w-full overflow-x-auto scrollbar-hide mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
-                        <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-3 md:pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isMobile) setCollapsed(true); }}>
+                        <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-3 md:pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
                             <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
                                 <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
                                 <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
@@ -149,7 +148,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (onOpenHelp) onOpenHelp();
-                                                if (isMobile) setCollapsed(true);
+                                                if (window.innerWidth < 768) setCollapsed(true);
                                             }}
                                             className={className}
                                             title={item.label}
