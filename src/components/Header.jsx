@@ -294,7 +294,7 @@ export default function Header({
             <header className="hidden md:flex items-center justify-between z-50 relative">
                 {/* Left: Contest Name + Date */}
                 <div className="w-1/2 flex flex-col">
-                    <div className="relative group flex items-center gap-3 mb-6">
+                    <div className="relative group flex items-center gap-3">
                         <div className="flex-1">
                             <input
                                 type="text"
@@ -321,7 +321,7 @@ export default function Header({
                             Foco Principal ✏️
                         </div>
                     </div>
-                    <div className="mt-1">
+                    <div className="pt-8">
                         <DateDisplay time={clockTime} />
                     </div>
                 </div>
