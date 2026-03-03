@@ -173,7 +173,11 @@ function MainLayout() {
         onOpenHelp={() => setShowHelpGuide(true)}
       />
 
-      <main className="px-3 sm:px-6 lg:px-8 pt-20 md:pt-28 pb-20 transition-all duration-300 w-full overflow-x-hidden">
+      <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-all duration-300 w-full overflow-x-hidden">
+        {/* Mobile spacer: pushes content below the fixed top nav bar */}
+        <div className="h-14 md:hidden" aria-hidden="true" />
+        {/* Desktop spacer */}
+        <div className="hidden md:block h-28" aria-hidden="true" />
         <Header
           user={data.user}
           settings={data.settings}
