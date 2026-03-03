@@ -117,9 +117,9 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
             <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} pointer-events-none opacity-50`} />
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-[80px] rounded-full pointer-events-none" />
 
-            <div className="relative z-10 p-3 sm:p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {/* Category Icon */}
-                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-2xl sm:text-3xl flex-shrink-0 border ${urgencyStyle.iconBg}`}>
+            <div className="relative z-10 p-5 md:p-6 flex flex-col md:flex-row items-center gap-6">
+                {/* Left: Category Icon */}
+                <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 border ${urgencyStyle.iconBg}`}>
                     {category.icon || '📚'}
                 </div>
 
@@ -138,7 +138,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                     </div>
 
                     <div className="flex flex-col gap-1 mb-2">
-                        <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white truncate drop-shadow-sm" title={category.name}>
+                        <h3 className="text-xl md:text-2xl font-black text-white truncate drop-shadow-sm" title={category.name}>
                             {category.name}
                         </h3>
                         {display.assunto && (
@@ -162,7 +162,7 @@ export default function NextGoalCard({ categories = [], simulados = [], onStartS
                 {/* Right: Action Button */}
                 <button
                     onClick={() => onStartStudying && onStartStudying(category.id, task.id)}
-                    className={`relative w-full sm:w-auto flex-shrink-0 px-5 sm:px-8 py-3 sm:py-4 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-black text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
+                    className={`relative w-full md:w-auto flex-shrink-0 px-8 py-4 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
                 >
                     <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
                     <Play size={18} className="fill-white relative z-10" />
