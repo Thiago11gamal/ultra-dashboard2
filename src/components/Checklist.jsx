@@ -162,10 +162,10 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                 {/* Priority Badge */}
                 <button
                     onClick={() => onTogglePriority(task.id)}
-                    className={`w-12 sm:w-16 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-xs font-semibold uppercase hover:opacity-80 transition-opacity text-center ${priority.bg} ${priority.text} ${priority.border} border`}
+                    className={`w-14 sm:w-20 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-xs font-semibold uppercase hover:opacity-80 transition-opacity text-center ${priority.bg} ${priority.text} ${priority.border} border`}
                     title="Clique para mudar a prioridade"
                 >
-                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Méd' : 'Bxa'}
+                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
                 </button>
 
                 {/* Delete Button - always visible on mobile */}
