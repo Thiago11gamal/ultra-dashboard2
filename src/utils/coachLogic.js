@@ -1,5 +1,6 @@
 // ==================== CONSTANTES ====================
 import { calculateTrend } from '../engine/stats';
+import { normalize } from './normalization';
 
 const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -82,7 +83,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     try {
         // 1. Calculate Weighted Average Score (Prioritize Recent Performance)
-        const relevantSimulados = simulados.filter(s => s.subject === category.name);
+        // BUG 6 FIX: use normalize() for case-insensitive matching to avoid missing simulados
+        // when category name has different casing (e.g. "Direito" vs "direito")
+        const catNormalized = normalize(category.name);
+        const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNormalized);
         relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
         let averageScore = 0;
@@ -383,6 +387,7 @@ const getWeakestTopic = (category, simulados = []) => {
                     total: 0,
                     correct: 0,
                     lastSeen: new Date(0),
+                    completed: false, // BUG 4 FIX: default to false to avoid undefined in sort
                     scores: []
                 };
             }
@@ -482,7 +487,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     const performDeepCheck = (category) => {
         const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
-        const categorySims = simulados.filter(s => s.subject === category.name);
+        // BUG 6 FIX: use normalize() for subject filtering in deep check
+        const catNormalized = normalize(category.name);
+        const categorySims = simulados.filter(s => normalize(s.subject) === catNormalized);
 
         const totalHours = categoryLogs.reduce((acc, l) => acc + (l.minutes || 0), 0) / 60;
         const totalQuestions = categorySims.reduce((acc, s) => acc + (s.total || 0), 0);
@@ -626,7 +633,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             }
 
             return {
-                id: `${cat.id}-weektopic-${weakTopic.name}-${new Date().toDateString()}`,
+                id: `${cat.id}-weaktopic-${weakTopic.name}-${new Date().toDateString()}`,
                 text: `${cat.name}: ${topicLabel}${taskTitle}`,
                 completed: false,
                 categoryId: cat.id,

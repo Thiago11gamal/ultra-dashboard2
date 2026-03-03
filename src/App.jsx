@@ -37,8 +37,9 @@ function MainLayout() {
   const { currentUser } = useAuth();
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
-  const setAppState = useAppStore(state => state.setAppState);
+  // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
   const {
+    setAppState,
     switchContest,
     createNewContest,
     deleteContest,

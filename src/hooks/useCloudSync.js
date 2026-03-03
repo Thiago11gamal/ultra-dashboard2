@@ -168,11 +168,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
                 const safeguardContest = (contest) => {
                     if (!contest) return contest;
+                    // BUG 5 FIX: align cloud cap with LOG_CAP (1000) to prevent silent data loss.
+                    // Previously capped at 200, causing 800 logs to be lost on cloud pull.
                     return {
                         ...contest,
-                        studyLogs: (contest.studyLogs || []).slice(-200),
-                        studySessions: (contest.studySessions || []).slice(-200),
-                        simuladoRows: (contest.simuladoRows || []).slice(-200),
+                        studyLogs: (contest.studyLogs || []).slice(-1000),
+                        studySessions: (contest.studySessions || []).slice(-1000),
+                        simuladoRows: (contest.simuladoRows || []).slice(-300),
                     };
                 };
 

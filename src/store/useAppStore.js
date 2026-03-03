@@ -25,6 +25,15 @@ const stripForUndo = (contestsObj) => {
     return stripped;
 };
 
+// BUG 3 FIX: recordHistory is now a pure function outside the store.
+// Previously called via get().recordHistory(state) which relies on Immer internal behavior
+// and can break silently on library updates. Now called directly with the Immer proxy.
+const recordHistory = (appState) => {
+    const snapshot = JSON.parse(JSON.stringify(stripForUndo(appState.contests)));
+    appState.history.push({ contests: snapshot, activeId: appState.activeId });
+    if (appState.history.length > 20) appState.history.shift();
+};
+
 // Helper to handle gamification within the store
 // This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
 const processGamification = (state, xpGained) => {
@@ -80,14 +89,6 @@ export const useAppStore = create(
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
-            // --- Inner Helpers (Internal use only inside set) ---
-            recordHistory: (state) => {
-                const snapshot = JSON.parse(JSON.stringify(stripForUndo(state.appState.contests)));
-                const activeId = state.appState.activeId;
-                state.appState.history.push({ contests: snapshot, activeId });
-                if (state.appState.history.length > 20) state.appState.history.shift();
-            },
-
             // Actions
             undo: () => set((state) => {
                 if (!state.appState.history || state.appState.history.length === 0) return;
@@ -135,13 +136,13 @@ export const useAppStore = create(
                 console.log(`[Store] setAppState concluído. Contests: ${Object.keys(nextState.contests).length}, Active: ${nextState.activeId}`);
             }),
 
-            setData: (newDataCallback) => set((state, get) => {
+            setData: (newDataCallback) => set((state) => {
                 const contestId = state.appState.activeId;
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
 
-                // Record history using centralized helper
-                get().recordHistory(state);
+                // Record history using standalone pure function
+                recordHistory(state.appState);
 
                 // Allows updating only the active contest data
                 if (typeof newDataCallback === 'function') {
@@ -160,8 +161,8 @@ export const useAppStore = create(
             // === Data Mutations (Immer makes this super clean) ===
 
             // 1. Gamification & Tasks
-            toggleTask: (categoryId, taskId) => set((state, get) => {
-                get().recordHistory(state);
+            toggleTask: (categoryId, taskId) => set((state) => {
+                recordHistory(state.appState);
                 let xpChange = 0;
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData || !activeData.categories) return;
@@ -184,8 +185,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            addTask: (categoryId, title) => set((state, get) => {
-                get().recordHistory(state);
+            addTask: (categoryId, title) => set((state) => {
+                recordHistory(state.appState);
                 if (!title || typeof title !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
@@ -206,8 +207,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteTask: (categoryId, taskId) => set((state, get) => {
-                get().recordHistory(state);
+            deleteTask: (categoryId, taskId) => set((state) => {
+                recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
@@ -230,8 +231,8 @@ export const useAppStore = create(
             }),
 
             // 2. Categories
-            addCategory: (name) => set((state, get) => {
-                get().recordHistory(state);
+            addCategory: (name) => set((state) => {
+                recordHistory(state.appState);
                 if (!name || typeof name !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories.push({
@@ -245,8 +246,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteCategory: (id) => set((state, get) => {
-                get().recordHistory(state);
+            deleteCategory: (id) => set((state) => {
+                recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
                 if (activeData.studyLogs) {
@@ -259,8 +260,8 @@ export const useAppStore = create(
             }),
 
             // 3. Pomodoro & Sessions
-            handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state, get) => {
-                get().recordHistory(state);
+            handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state) => {
+                recordHistory(state.appState);
                 const now = new Date().toISOString();
                 const activeData = state.appState.contests[state.appState.activeId];
 
@@ -303,8 +304,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteSession: (sessionId) => set((state, get) => {
-                get().recordHistory(state);
+            deleteSession: (sessionId) => set((state) => {
+                recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
                 // Bug fix: returning `false` inside an Immer producer tells Immer to REPLACE
@@ -373,8 +374,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteSimulado: (dateStr) => set((state, get) => {
-                get().recordHistory(state);
+            deleteSimulado: (dateStr) => set((state) => {
+                recordHistory(state.appState);
                 const targetDay = new Date(dateStr).toDateString();
                 const activeData = state.appState.contests[state.appState.activeId];
 
@@ -422,8 +423,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            createNewContest: () => set((state, get) => {
-                get().recordHistory(state);
+            createNewContest: () => set((state) => {
+                recordHistory(state.appState);
                 const newId = generateId('contest');
                 const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
                 const newContestData = {
@@ -438,8 +439,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteContest: (contestId) => set((state, get) => {
-                get().recordHistory(state);
+            deleteContest: (contestId) => set((state) => {
+                recordHistory(state.appState);
                 delete state.appState.contests[contestId];
 
                 const remainingIds = Object.keys(state.appState.contests);

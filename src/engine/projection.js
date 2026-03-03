@@ -211,13 +211,14 @@ export function monteCarloSimulation(
     };
 
     // Fix: Baseline uses a more responsive EMA to avoid anchoring too far behind real progress.
-    const currentScore = sortedHistory[sortedHistory.length - 1].score;
+    // BUG 1 FIX: use getSafeScore() to handle history entries without direct .score field
+    const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
     let baselineScore = currentScore;
 
     if (sortedHistory.length > 2) {
-        let ema = sortedHistory[0].score;
+        let ema = getSafeScore(sortedHistory[0]);
         for (let i = 1; i < sortedHistory.length; i++) {
-            ema = calculateDynamicEMA(sortedHistory[i].score, ema, i + 1);
+            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
         }
         // Blending EMA with current score for better immediate responsiveness
         // 70% current, 30% EMA for a balanced starting point
@@ -228,10 +229,11 @@ export function monteCarloSimulation(
     const drift = sortedHistory.length > 1 ? calculateSlope(sortedHistory) : 0;
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO
+    // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
     const residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
-        const prev = sortedHistory[i - 1].score;
-        const actualChange = h.score - prev;
+        const prev = getSafeScore(sortedHistory[i - 1]);
+        const actualChange = getSafeScore(h) - prev;
 
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();

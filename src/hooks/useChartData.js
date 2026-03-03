@@ -47,9 +47,10 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
  * Hook for processing and memoizing chart data
  */
 export function useChartData(categories = [], targetScore = 80) {
-    // 1. Memoize active categories (those with history)
+    // 1. Memoize active categories — BUG 7 FIX: filter to only cats with actual history
+    // The previous useMemo had no transformation, causing unnecessary re-renders in cascade.
     const activeCategories = useMemo(
-        () => categories,
+        () => categories.filter(c => c.simuladoStats?.history?.length > 0),
         [categories]
     );
 
