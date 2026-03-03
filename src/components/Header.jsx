@@ -79,7 +79,7 @@ export default function Header({
                             onChange={(e) => setLocalName(e.target.value)}
                             onBlur={handleNameBlur}
                             placeholder="Digite o nome do concurso..."
-                            className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
+                            className="w-full bg-transparent text-xl sm:text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                         />
                     </div>
 

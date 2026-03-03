@@ -98,7 +98,7 @@ export default function Pomodoro() {
     };
 
     return (
-        <div className="h-[calc(100vh-180px)] overflow-hidden flex flex-col justify-center">
+        <div className="min-h-[calc(100vh-180px)] flex flex-col justify-center py-4">
             <PomodoroTimer
                 settings={data.settings}
                 onUpdateSettings={updatePomodoroSettings}
