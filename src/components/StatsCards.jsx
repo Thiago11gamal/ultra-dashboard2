@@ -37,67 +37,63 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4 animate-fade-in-down">
             {/* Streak */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-2xl p-6 group hover:border-orange-500/30 transition-colors shadow-lg">
-                {/* Background Layer for Progress/Overflow elements */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                    {/* No specific glow here yet, but allows the progress bar container to breathe */}
-                </div>
+            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-orange-500/30 transition-colors shadow-lg">
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
-                            <Activity size={20} className="text-orange-400" />
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
+                            <Activity size={16} className="text-orange-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-relaxed">Sequência</span>
+                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Sequência</span>
                     </div>
-                    <div className="text-3xl font-black text-white mb-1">
+                    <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
                         {streak.current} {streak.current === 1 ? 'dia' : 'dias'}
                     </div>
-                    <div className="text-xs text-slate-500 leading-normal">
-                        Recorde: {streak.longest} {streak.longest === 1 ? 'dia' : 'dias'}
+                    <div className="text-[10px] sm:text-xs text-slate-500 leading-normal">
+                        Recorde: {streak.longest}d
                     </div>
                     {streak.isActive && (
-                        <div className="mt-2 flex items-center gap-1 text-orange-400">
+                        <div className="mt-1 sm:mt-2 flex items-center gap-1 text-orange-400">
                             <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></div>
-                            <span className="text-xs font-bold">ATIVA</span>
+                            <span className="text-[9px] sm:text-xs font-bold">ATIVA</span>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Eficiência */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-2xl p-6 group hover:border-green-500/30 transition-colors shadow-lg">
+            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-green-500/30 transition-colors shadow-lg">
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
-                            <TrendingUp size={20} className="text-green-400" />
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
+                            <TrendingUp size={16} className="text-green-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-relaxed">Eficiência</span>
+                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Eficiência</span>
                     </div>
-                    <div className="text-3xl font-black text-white mb-1">
+                    <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
                         {efficiency.score}%
                     </div>
-                    <div className="text-xs text-slate-500 capitalize leading-normal">
+                    <div className="text-[10px] sm:text-xs text-slate-500 capitalize leading-normal truncate">
                         {efficiency.efficiency?.replace(/_/g, ' ') || 'N/A'}
                     </div>
                 </div>
             </div>
 
             {/* Balanceamento */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-2xl p-6 group hover:border-blue-500/30 transition-colors shadow-lg">
+            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-blue-500/30 transition-colors shadow-lg">
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                            <BarChart2 size={20} className="text-blue-400" />
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                            <BarChart2 size={16} className="text-blue-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-relaxed">Equilíbrio</span>
+                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Equilíbrio</span>
                     </div>
-                    <div className="text-xl font-black text-white mb-1 capitalize truncate">
+                    <div className="text-base sm:text-xl font-black text-white mb-0.5 sm:mb-1 capitalize truncate">
                         {balance.status?.replace(/_/g, ' ') || 'N/A'}
                     </div>
                     {balance.distribution[0] && (
-                        <div className="text-xs text-slate-500 leading-normal">
+                        <div className="text-[10px] sm:text-xs text-slate-500 leading-normal truncate">
                             {balance.distribution[0].subject}: {balance.distribution[0].percentage}%
                         </div>
                     )}
@@ -105,44 +101,35 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* XP com barra de progresso */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-2xl p-6 group hover:border-purple-500/30 transition-colors shadow-lg">
-                {/* Background Layer for Progress/Overflow elements */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                    {/* No specific glow here yet, but allows the progress bar container to breathe */}
-                </div>
-
+            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-purple-500/30 transition-colors shadow-lg">
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
-                            <Trophy size={20} className="text-purple-400" />
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                            <Trophy size={16} className="text-purple-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-relaxed">
+                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-3xl font-black text-white mb-2">
+                    <div className="text-xl sm:text-3xl font-black text-white mb-1 sm:mb-2">
                         {user.xp} XP
                     </div>
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs text-slate-500">
-                            <span>{progress.current} XP</span>
-                            <span>{progress.needed} XP</span>
-                        </div>
+                    <div className="space-y-1">
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
-                                style={{ width: `${progress.percentage}% ` }}
+                                style={{ width: `${progress.percentage}%` }}
                             />
                         </div>
-                        <div className="text-xs text-purple-400 font-bold leading-normal">
-                            {progress.percentage}% até Nível {progress.level + 1}
+                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-normal">
+                            {progress.percentage}% → Nível {progress.level + 1}
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Data da Prova */}
-            <div className={`relative bg-[#151720] border rounded-2xl p-6 transition-all duration-500 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`col-span-2 md:col-span-1 relative bg-[#151720] border rounded-xl sm:rounded-2xl p-3 sm:p-6 transition-all duration-500 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'animate-glow-red'
                 : 'border-white/5 hover:border-red-500/30'
                 }`}>
