@@ -250,11 +250,15 @@ export default function Header({
                         )}
                     </div>
                 </div>
+            </div>{/* end desktop Actions */}
+        </div>{/* end desktop flex */ }
 
-                {/* Backdrop for click outside */}
-                {profileOpen && (
-                    <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-                )}
-        </header>
+    {/* Backdrop for click outside */ }
+    {
+        profileOpen && (
+            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+        )
+    }
+        </header >
     );
 }
