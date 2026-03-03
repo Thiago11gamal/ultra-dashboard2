@@ -93,7 +93,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                 </div>
 
                 {/* Nav Icons — scrollable */}
-                <div className="flex-1 flex items-center gap-0.5 overflow-x-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1">
+                <div className="flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1">
                     {menuItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = item.action ? false : location.pathname === item.path;
