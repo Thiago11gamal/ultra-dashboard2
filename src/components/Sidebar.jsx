@@ -168,9 +168,9 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                     </div>
                 ) : (
                     // Expanded State: Full Menu
-                    <div className="flex items-center gap-2 md:gap-3 w-full overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
+                    <div className="flex items-center gap-1.5 md:gap-2 w-full overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
-                        <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-3 md:pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
+                        <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
                             <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
                                 <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
                                 <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
@@ -181,7 +181,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                         </Link>
 
                         {/* Navigation Items */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 md:gap-1.5">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = item.action ? false : location.pathname === item.path;
@@ -192,7 +192,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                     </>
                                 );
 
-                                const className = `shrink-0 p-1.5 md:p-2 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
+                                const className = `shrink-0 p-1.5 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
                                     ? 'bg-purple-500/20 text-purple-300'
                                     : 'hover:bg-white/10 text-slate-400 hover:text-white'
                                     }`;
@@ -232,7 +232,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                         </div>
 
                         {/* Divider */}
-                        <div className="shrink-0 w-px h-6 bg-white/10 mx-1 md:mx-2"></div>
+                        <div className="shrink-0 w-px h-6 bg-white/10 mx-0.5"></div>
 
                         {/* Spacer to push collapse button if needed, or just let it flex */}
                         {/* Collapse Button */}
@@ -241,7 +241,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                 e.stopPropagation();
                                 setCollapsed(true);
                             }}
-                            className="shrink-0 ml-1 md:ml-2 p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                            className="shrink-0 p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                         >
                             <ChevronUp size={16} />
                         </button>
