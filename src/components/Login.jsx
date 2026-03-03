@@ -15,6 +15,15 @@ export default function Login() {
     const { login, signup } = useAuth();
     // const canvasRef = useRef(null);
 
+    // Bug Fix: track mount status to prevent React warnings when closing modal during analysis
+    const isMounted = React.useRef(true);
+
+    React.useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     // Starfield Animation
 
 
@@ -55,7 +64,9 @@ export default function Login() {
             else if (err.message) msg = err.message;
             setError(msg);
         } finally {
-            setLoading(false);
+            if (isMounted.current) {
+                setLoading(false);
+            }
         }
     }
 
