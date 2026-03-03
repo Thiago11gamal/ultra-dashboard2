@@ -160,7 +160,8 @@ export const useAppStore = create(
             // === Data Mutations (Immer makes this super clean) ===
 
             // 1. Gamification & Tasks
-            toggleTask: (categoryId, taskId) => set((state) => {
+            toggleTask: (categoryId, taskId) => set((state, get) => {
+                get().recordHistory(state);
                 let xpChange = 0;
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData || !activeData.categories) return;
@@ -183,17 +184,16 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            addTask: (categoryId, title) => set((state) => {
+            addTask: (categoryId, title) => set((state, get) => {
+                get().recordHistory(state);
                 if (!title || typeof title !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
                     category.tasks.push({
                         id: generateId('task'),
-                        // Bug fix: coachLogic, analytics, and all task UI components read task.text,
-                        // but this was storing as task.title — new tasks were invisible to AI Coach
                         text: title,
-                        title, // kept for backward compatibility with any legacy readers
+                        title,
                         completed: false,
                         priority: 'medium'
                     });
@@ -206,7 +206,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteTask: (categoryId, taskId) => set((state) => {
+            deleteTask: (categoryId, taskId) => set((state, get) => {
+                get().recordHistory(state);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
@@ -229,7 +230,8 @@ export const useAppStore = create(
             }),
 
             // 2. Categories
-            addCategory: (name) => set((state) => {
+            addCategory: (name) => set((state, get) => {
+                get().recordHistory(state);
                 if (!name || typeof name !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories.push({
@@ -243,7 +245,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteCategory: (id) => set((state) => {
+            deleteCategory: (id) => set((state, get) => {
+                get().recordHistory(state);
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
                 if (activeData.studyLogs) {
@@ -416,7 +419,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            createNewContest: () => set((state) => {
+            createNewContest: () => set((state, get) => {
+                get().recordHistory(state);
                 const newId = generateId('contest');
                 const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
                 const newContestData = {
