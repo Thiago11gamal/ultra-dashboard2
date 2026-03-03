@@ -100,7 +100,7 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            setAppState: (newStateObj) => set((state, get) => {
+            setAppState: (newStateObj) => set((state) => {
                 // Resolve the next state first before touching history
                 const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
 
