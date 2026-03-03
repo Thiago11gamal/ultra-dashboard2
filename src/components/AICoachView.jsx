@@ -127,9 +127,9 @@ export default function AICoachView({
     onClearHistory
 }) {
     return (
-        <div className="space-y-6 sm:space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto">
+        <div className="space-y-6 lg:space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto sm:px-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pt-2 sm:pt-6 border-b border-white/5 pb-4 sm:pb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pt-2 lg:pt-6 border-b border-white/5 pb-4 lg:pb-8">
                 <div className="flex-1">
                     <p className="text-slate-400 text-sm sm:text-lg font-medium flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
@@ -145,7 +145,7 @@ export default function AICoachView({
             </div>
 
             {/* Main Layout Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-10">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10">
                 {/* Left Column: Widget (4 cols) */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="sticky top-8 space-y-6">
