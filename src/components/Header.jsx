@@ -321,7 +321,7 @@ export default function Header({
                             Foco Principal ✏️
                         </div>
                     </div>
-                    <div className="mt-16">
+                    <div className="mt-24">
                         <DateDisplay time={clockTime} />
                     </div>
                 </div>
