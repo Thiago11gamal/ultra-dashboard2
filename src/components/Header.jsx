@@ -70,17 +70,19 @@ export default function Header({
     return (
         <header className="mb-4 md:mb-8 md:mt-4 z-50 relative">
 
-            {/* MOBILE: Date + Avatar row */}
+            {/* ── MOBILE: Date + Avatar row ── */}
             <div className="flex md:hidden items-center justify-between mb-3 px-0.5">
                 <p className="text-slate-500 text-[11px] pl-1">
                     {format(clockTime, "EEEE, d MMM", { locale: ptBR })}
                 </p>
                 <div className="flex items-center gap-2">
-                    {/* Undo */}
-                    <button onClick={onUndo} className="p-2 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white" title="Desfazer">
+                    <button
+                        onClick={onUndo}
+                        className="p-2 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+                        title="Desfazer"
+                    >
                         <RotateCcw size={16} />
                     </button>
-                    {/* Avatar */}
                     <div className="relative">
                         <button
                             onClick={toggleProfile}
@@ -95,23 +97,40 @@ export default function Header({
                                 </div>
                                 <div className="space-y-1 max-h-52 overflow-y-auto custom-scrollbar">
                                     {contests && Object.entries(contests).map(([id, contestData]) => (
-                                        <div key={id} className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId ? 'bg-purple-500/20 border border-purple-500/30' : 'hover:bg-white/5'}`}>
-                                            <button onClick={() => { if (id !== activeContestId) onSwitchContest(id); setProfileOpen(false); }} className={`flex-1 flex items-center gap-2 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}>
+                                        <div
+                                            key={id}
+                                            className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId ? 'bg-purple-500/20 border border-purple-500/30' : 'hover:bg-white/5'}`}
+                                        >
+                                            <button
+                                                onClick={() => { if (id !== activeContestId) onSwitchContest(id); setProfileOpen(false); }}
+                                                className={`flex-1 flex items-center gap-2 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
+                                            >
                                                 <LayoutDashboard size={14} className="shrink-0" />
                                                 <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
                                             </button>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-1"></div>}
-                                                <button onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }} className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={13} /></button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }}
+                                                    className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="border-t border-white/10 mt-2 pt-2 space-y-1">
-                                    <button onClick={() => { onCreateContest(); setProfileOpen(false); }} className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-slate-400 hover:bg-white/5 hover:text-white transition-colors text-sm">
-                                        <Plus size={14} /> Novo Painél
+                                    <button
+                                        onClick={() => { onCreateContest(); setProfileOpen(false); }}
+                                        className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-slate-400 hover:bg-white/5 hover:text-white transition-colors text-sm"
+                                    >
+                                        <Plus size={14} /> Novo Painel
                                     </button>
-                                    <button onClick={handleLogout} className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors text-sm">
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full px-3 py-2 rounded-lg flex items-center gap-2 text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors text-sm"
+                                    >
                                         <LogOut size={14} /> Sair
                                     </button>
                                 </div>
@@ -121,8 +140,8 @@ export default function Header({
                 </div>
             </div>
 
-            {/* MOBILE: Contest Name - big and clear */}
-            <div className="md:hidden px-0.5">
+            {/* ── MOBILE: Contest Name ── */}
+            <div className="md:hidden px-0.5 mb-2">
                 <div className="relative border-l-4 border-purple-500/60 pl-3">
                     <input
                         type="text"
@@ -133,16 +152,19 @@ export default function Header({
                         className="w-full bg-transparent text-2xl font-black neon-text placeholder:text-slate-600 focus:outline-none transition-all"
                     />
                     {cloudStatus.hasConflict && (
-                        <button onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }} className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase"
+                        >
                             <CloudDownload size={9} /> Par
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* DESKTOP: full layout unchanged */}
+            {/* ── DESKTOP layout ── */}
             <div className="hidden md:flex items-center justify-between mt-2">
-                {/* Left: Contest Name */}
+                {/* Left: Contest Name + Date */}
                 <div className="w-1/2 flex flex-col">
                     <div className="relative group flex items-center gap-3">
                         <div className="flex-1">
@@ -157,7 +179,11 @@ export default function Header({
                         </div>
                         <div className="flex flex-col items-end gap-1">
                             {cloudStatus.hasConflict && (
-                                <button onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase tracking-tighter hover:bg-yellow-500/30 transition-all" title="Forçar Paridade">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
+                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase tracking-tighter hover:bg-yellow-500/30 transition-all"
+                                    title="Forçar Paridade"
+                                >
                                     <CloudDownload size={10} />
                                     <span>Forçar Paridade</span>
                                 </button>
@@ -171,8 +197,21 @@ export default function Header({
                         <DateDisplay time={clockTime} />
                     </div>
                 </div>
+
                 {/* Right: Actions */}
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={onUndo}
+                        className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
+                        title="Desfazer última ação"
+                    >
+                        <RotateCcw size={20} />
+                        <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-black/80 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            Desfazer
+                        </span>
+                    </button>
+
+                    <TimeDisplay time={clockTime} />
 
                     {/* Avatar / Profile Menu */}
                     <div className="relative">
@@ -183,21 +222,16 @@ export default function Header({
                             {user.avatar}
                         </button>
 
-                        {/* Dropdown Menu */}
                         {profileOpen && (
                             <div className="absolute right-0 top-full mt-4 w-64 glass border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down">
                                 <div className="px-3 py-2 border-b border-white/10 mb-2">
                                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Meus Painéis</p>
                                 </div>
-
                                 <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
                                     {contests && Object.entries(contests).map(([id, contestData]) => (
                                         <div
                                             key={id}
-                                            className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId
-                                                ? 'bg-purple-500/20 border border-purple-500/30'
-                                                : 'hover:bg-white/5'
-                                                }`}
+                                            className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId ? 'bg-purple-500/20 border border-purple-500/30' : 'hover:bg-white/5'}`}
                                         >
                                             <button
                                                 onClick={() => {
@@ -209,7 +243,6 @@ export default function Header({
                                                 <LayoutDashboard size={16} className="shrink-0" />
                                                 <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
                                             </button>
-
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
                                                 <button
@@ -229,10 +262,7 @@ export default function Header({
 
                                 <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
                                     <button
-                                        onClick={() => {
-                                            onCreateContest();
-                                            setProfileOpen(false);
-                                        }}
+                                        onClick={() => { onCreateContest(); setProfileOpen(false); }}
                                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
                                     >
                                         <Plus size={16} />
@@ -250,15 +280,12 @@ export default function Header({
                         )}
                     </div>
                 </div>
-            </div>{/* end desktop Actions */}
-        </div>{/* end desktop flex */ }
+            </div>
 
-    {/* Backdrop for click outside */ }
-    {
-        profileOpen && (
-            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-        )
-    }
-        </header >
+            {/* Backdrop for click outside */}
+            {profileOpen && (
+                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+            )}
+        </header>
     );
 }
