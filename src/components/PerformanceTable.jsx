@@ -94,14 +94,18 @@ const PerformanceTable = ({ categories = [] }) => {
                                     <td className="p-5">
                                         <div className="flex flex-col gap-2 px-2">
                                             <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-green-600 to-green-400 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                                                    style={{ width: `${percentCorrect}%` }}
-                                                />
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80"
-                                                    style={{ width: `${totalQuestions > 0 ? 100 - percentCorrect : 0}%` }}
-                                                />
+                                                {percentCorrect > 0 && (
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                                                        style={{ width: `${percentCorrect}%` }}
+                                                    />
+                                                )}
+                                                {totalQuestions > 0 && percentCorrect < 100 && (
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80"
+                                                        style={{ width: `${100 - percentCorrect}%` }}
+                                                    />
+                                                )}
                                             </div>
                                             <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
                                                 <span className="text-green-500">{totalCorrect} AC</span>
