@@ -19,7 +19,6 @@ const VolumeRanking = ({ categories = [] }) => {
         });
     }, [categories]);
 
-    const maxVolume = sorted[0]?.totalVolume || 1;
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
 
@@ -86,7 +85,7 @@ const VolumeRanking = ({ categories = [] }) => {
             >
                 {sorted.map((item, index) => {
                     const styles = getRankStyles(index);
-                    const percentage = maxVolume > 0 ? (item.totalVolume / maxVolume) * 100 : 0;
+                    const percentage = totalVolumeOverall > 0 ? (item.totalVolume / totalVolumeOverall) * 100 : 0;
 
                     return (
                         <motion.div
@@ -105,12 +104,27 @@ const VolumeRanking = ({ categories = [] }) => {
                                     <span className={`text-[11px] font-bold truncate tracking-tight uppercase ${index < 3 ? 'text-slate-200' : 'text-slate-500'}`} style={index < 3 ? {} : { color: item.color }}>
                                         {item.name}
                                     </span>
-                                    <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
-                                        <Hash size={10} className="text-slate-600" />
-                                        <span className={`text-[10px] font-black font-mono ${styles.color}`}>
-                                            {item.totalVolume}
-                                        </span>
-                                    </div>
+                                    {item.totalVolume > 0 ? (
+                                        <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
+                                            <Hash size={10} className="text-slate-600" />
+                                            <span className={`text-[10px] font-black font-mono ${styles.color}`}>
+                                                {item.totalVolume}
+                                            </span>
+                                            <span className={`text-[9px] font-bold ${styles.color} opacity-70 ml-1`}>
+                                                {Math.round(percentage)}%
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
+                                            <Hash size={10} className="text-slate-600" />
+                                            <span className={`text-[10px] font-black font-mono ${styles.color}`}>
+                                                0
+                                            </span>
+                                            <span className={`text-[9px] font-bold ${styles.color} opacity-70 ml-1`}>
+                                                0%
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {item.totalVolume > 0 ? (
