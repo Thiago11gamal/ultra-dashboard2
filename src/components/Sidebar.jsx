@@ -132,7 +132,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                     hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
-                        : 'glass-panel w-auto px-4 py-3.5 rounded-2xl'}
+                        : 'glass-panel w-auto px-3 py-3 rounded-2xl'}
                 `}
                 onClick={(e) => {
                     if (collapsed) {
@@ -181,7 +181,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                         </Link>
 
                         {/* Navigation Items */}
-                        <div className="flex items-center gap-2 md:gap-3">
+                        <div className="flex items-center gap-1 md:gap-1.5">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = item.action ? false : location.pathname === item.path;
@@ -192,7 +192,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                     </>
                                 );
 
-                                const className = `shrink-0 p-2 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
+                                const className = `shrink-0 p-1.5 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
                                     ? 'bg-purple-500/20 text-purple-300'
                                     : 'hover:bg-white/10 text-slate-400 hover:text-white'
                                     }`;
@@ -232,7 +232,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                         </div>
 
                         {/* Divider */}
-                        <div className="shrink-0 w-px h-6 bg-white/10 mx-2"></div>
+                        <div className="shrink-0 w-px h-6 bg-white/10 mx-0.5"></div>
 
                         {/* Spacer to push collapse button if needed, or just let it flex */}
                         {/* Collapse Button */}
@@ -241,7 +241,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
                                 e.stopPropagation();
                                 setCollapsed(true);
                             }}
-                            className="shrink-0 p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                            className="shrink-0 p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                         >
                             <ChevronUp size={16} />
                         </button>
