@@ -113,16 +113,18 @@ const VolumeRanking = ({ categories = [] }) => {
                                     </div>
                                 </div>
 
-                                <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/[0.02]">
-                                    {percentage > 0 && (
+                                {item.totalVolume > 0 ? (
+                                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/[0.02]">
                                         <motion.div
                                             initial={{ width: 0 }}
                                             animate={{ width: `${percentage}%` }}
                                             transition={{ duration: 1.5, ease: "easeOut" }}
                                             className={`h-full rounded-full ${styles.barCol} shadow-[0_0_15px_rgba(0,0,0,0.5)] ${styles.glow}`}
                                         />
-                                    )}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden"></div>
+                                )}
                             </div>
                         </motion.div>
                     );
