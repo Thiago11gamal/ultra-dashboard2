@@ -80,8 +80,27 @@ export const useAppStore = create(
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
+            // --- Inner Helpers (Internal use only inside set) ---
+            recordHistory: (state) => {
+                const snapshot = JSON.parse(JSON.stringify(stripForUndo(state.appState.contests)));
+                const activeId = state.appState.activeId;
+                state.appState.history.push({ contests: snapshot, activeId });
+                if (state.appState.history.length > 20) state.appState.history.shift();
+            },
+
             // Actions
-            setAppState: (newStateObj) => set((state) => {
+            undo: () => set((state) => {
+                if (!state.appState.history || state.appState.history.length === 0) return;
+
+                const snapshot = state.appState.history.pop();
+                if (snapshot.contests) {
+                    state.appState.contests = snapshot.contests;
+                    state.appState.activeId = snapshot.activeId;
+                }
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            setAppState: (newStateObj) => set((state, get) => {
                 // Resolve the next state first before touching history
                 const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
 
@@ -116,22 +135,17 @@ export const useAppStore = create(
                 console.log(`[Store] setAppState concluído. Contests: ${Object.keys(nextState.contests).length}, Active: ${nextState.activeId}`);
             }),
 
-            setData: (newDataCallback) => set((state) => {
+            setData: (newDataCallback) => set((state, get) => {
                 const contestId = state.appState.activeId;
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
 
-                // Record snapshot for undo — Fix 7: exclude append-only arrays
-                const { studyLogs: _sl, studySessions: _ss, simuladoRows: _sr, ...coreData } = currentData;
-                const snapshot = JSON.parse(JSON.stringify(coreData));
-                state.appState.history.push({ data: snapshot, contestId });
-                if (state.appState.history.length > 10) state.appState.history.shift();
+                // Record history using centralized helper
+                get().recordHistory(state);
 
                 // Allows updating only the active contest data
                 if (typeof newDataCallback === 'function') {
                     const result = newDataCallback(currentData);
-                    // If the callback returns a new object, use it. 
-                    // If it returns nothing (undefined), we assume it mutated the 'currentData' proxy (Immer).
                     if (result !== undefined) {
                         state.appState.contests[contestId] = result;
                     }
@@ -139,8 +153,6 @@ export const useAppStore = create(
                     state.appState.contests[contestId] = newDataCallback;
                 }
 
-                // Prioritize input timestamp if this was a bulk update (like from a json import that uses setData)
-                // otherwise set to now.
                 state.appState.lastUpdated = (typeof newDataCallback === 'object' && newDataCallback?.lastUpdated)
                     || new Date().toISOString();
             }),
@@ -419,7 +431,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteContest: (contestId) => set((state) => {
+            deleteContest: (contestId) => set((state, get) => {
+                get().recordHistory(state);
                 delete state.appState.contests[contestId];
 
                 const remainingIds = Object.keys(state.appState.contests);
