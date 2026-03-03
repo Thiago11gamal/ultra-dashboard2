@@ -295,15 +295,17 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                         )}
                     </div>
                     {/* Add Task Button */}
-                    <div className="p-4 pt-0">
-                        <button
-                            onClick={() => setIsTaskModalOpen(true)}
-                            className="w-full py-2 rounded-xl border border-dashed border-orange-500/30 bg-orange-900/20 text-orange-300 hover:bg-orange-800/40 hover:text-orange-100 hover:border-orange-500/50 transition-all flex items-center justify-center gap-2 group"
-                        >
-                            <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                            <span>Adicionar Assunto</span>
-                        </button>
-                    </div>
+                    {filter === 'all' && (
+                        <div className="p-4 pt-0">
+                            <button
+                                onClick={() => setIsTaskModalOpen(true)}
+                                className="w-full py-2 rounded-xl border border-dashed border-orange-500/30 bg-orange-900/20 text-orange-300 hover:bg-orange-800/40 hover:text-orange-100 hover:border-orange-500/50 transition-all flex items-center justify-center gap-2 group"
+                            >
+                                <Plus size={18} className="group-hover:scale-110 transition-transform" />
+                                <span>Adicionar Assunto</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
             <PromptModal
@@ -397,7 +399,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             </div>
 
             {/* Add Category Button */}
-            {onAddCategory && (
+            {onAddCategory && filter === 'all' && (
                 <div className="mt-6">
                     <button
                         onClick={() => setIsCatModalOpen(true)}
