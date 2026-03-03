@@ -67,7 +67,7 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
     return (
         <div className={`fixed z-[100]
             top-0 left-0 w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 backdrop-blur-xl border-b border-white/8 shadow-[0_4px_32px_rgba(0,0,0,0.5)] px-3 py-0
-            md:w-auto md:bg-transparent md:border-none md:shadow-none md:px-0 md:py-0
+            md:top-6 md:left-1/2 md:-translate-x-1/2 md:w-auto md:bg-transparent md:backdrop-blur-none md:border-none md:shadow-none md:px-0 md:py-0
             ${isVisible
                 ? 'translate-y-0 opacity-100 transition-[transform,opacity] duration-150 ease-out md:top-6'
                 : '-translate-y-full opacity-0 transition-[transform,opacity] duration-100 ease-in md:-top-32'
