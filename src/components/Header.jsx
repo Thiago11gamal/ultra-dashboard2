@@ -293,7 +293,7 @@ export default function Header({
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
             <header className="hidden md:flex items-center justify-between z-50 relative">
                 {/* Left: Contest Name + Date */}
-                <div className="w-1/2 flex flex-col">
+                <div className="w-1/2 flex flex-col gap-16">
                     <div className="relative group flex items-center gap-3">
                         <div className="flex-1">
                             <input
@@ -321,9 +321,7 @@ export default function Header({
                             Foco Principal ✏️
                         </div>
                     </div>
-                    <div className="mt-12">
-                        <DateDisplay time={clockTime} />
-                    </div>
+                    <DateDisplay time={clockTime} />
                 </div>
 
                 {/* Right: Actions */}
