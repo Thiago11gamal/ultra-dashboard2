@@ -77,7 +77,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                                 <span className="font-bold text-sm truncate uppercase tracking-tight" style={{ color: category.color }}>
                                                     {category.name}
                                                 </span>
-                                                <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {Math.floor(category.totalMinutes / 60)} Scholar</span>
+                                                <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {Math.floor((category.totalMinutes || 0) / 60)} Scholar</span>
                                             </div>
                                         </div>
                                     </td>
