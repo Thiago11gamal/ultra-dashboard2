@@ -35,7 +35,7 @@ function AICoachCard({ task, idx }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.08, ease: "easeOut" } }}
-            className="group relative flex flex-col p-4 sm:p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
+            className="group relative flex flex-col p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
         >
             {/* Background Layer for Overflow Safety */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-500/10 to-transparent blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -54,7 +54,7 @@ function AICoachCard({ task, idx }) {
 
             {/* Main Content */}
             <div className="relative z-10 flex-1 mb-6">
-                <h3 className="text-lg sm:text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
+                <h3 className="text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
                     {displayAssunto}
                 </h3>
                 <p className="text-sm font-medium text-slate-400 group-hover:text-slate-200 leading-relaxed line-clamp-2 transition-colors">
@@ -79,27 +79,19 @@ function AICoachCard({ task, idx }) {
                 ) : <div />}
             </div>
 
-
             <AnimatePresence>
                 {isExpanded && task.analysis && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                        animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
-                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                        className="relative overflow-hidden"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
                     >
-                        <div className="p-5 rounded-2xl bg-slate-950/80 border border-white/10 space-y-4 shadow-inner backdrop-blur-md">
-                            <div>
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 mb-2">
-                                    <Sparkles size={12} />
-                                    Motivo da Escolha
-                                </span>
-                                {/* Bug fix: was rendering the STRING LITERAL "{task.analysis.reason}" on screen
-                                    because the curly braces were inside quotes. Fixed to use a real JSX expression. */}
-                                <p className="text-sm text-slate-100 leading-relaxed font-medium">
-                                    {task.analysis.reason}
-                                </p>
-                            </div>
+                        <div className="pt-4 space-y-3">
+                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                                {task.analysis.reason}
+                            </p>
 
                             {task.analysis.metrics && (
                                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
@@ -127,25 +119,26 @@ export default function AICoachView({
     onClearHistory
 }) {
     return (
-        <div className="space-y-6 lg:space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto sm:px-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pt-2 lg:pt-6 border-b border-white/5 pb-4 lg:pb-8">
-                <div className="flex-1">
-                    <p className="text-slate-400 text-sm sm:text-lg font-medium flex items-center gap-2">
+        <div className="space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
+            {/* 1. Minimalist Premium Header */}
+            <div className="flex flex-col md:flex-row items-end justify-between gap-8 pt-6 border-b border-white/5 pb-8">
+                <div className="flex-1 md:text-left mb-6 md:mb-0">
+                    <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
                         Análise de Performance e Metas
                     </p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
+
+                <div className="flex items-center gap-6">
+                    <div className="text-right hidden md:block">
                         <span className="block text-3xl font-black text-white">{coachPlan ? coachPlan.length : 0}</span>
                         <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>
                 </div>
             </div>
 
-            {/* Main Layout Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10">
+            {/* 2. Main Layout Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
                 {/* Left Column: Widget (4 cols) */}
                 <div className="xl:col-span-4 space-y-6">
                     <div className="sticky top-8 space-y-6">
@@ -177,36 +170,36 @@ export default function AICoachView({
                         <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             PLANO DE EXECUÇÃO
                         </h2>
-
-                        {coachPlan.length > 0 && (
+                        {coachPlan && coachPlan.length > 0 && (
                             <button
                                 onClick={onClearHistory}
-                                className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 transition-all text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-400"
+                                className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-red-400 uppercase tracking-widest transition-colors py-2 px-3 rounded-lg hover:bg-red-500/10"
                             >
-                                <Trash2 size={12} className="group-hover:scale-110 transition-transform" />
-                                LIMPAR
+                                <Trash2 size={12} />
+                                Limpar Plano
                             </button>
                         )}
                     </div>
 
-                    <AnimatePresence mode='popLayout'>
-                        {coachPlan.length === 0 ? (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex flex-col items-center justify-center py-32 text-center opacity-30"
-                            >
-                                <BrainCircuit size={64} className="text-slate-600 mb-6" />
-                                <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Sem plano ativo</p>
-                            </motion.div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-                                {(coachPlan || []).map((task, idx) => (
-                                    <AICoachCard key={task.id || idx} task={task} idx={idx} />
-                                ))}
+                    {(!coachPlan || coachPlan.length === 0) ? (
+                        <div className="flex flex-col items-center justify-center py-24 text-center space-y-6">
+                            <div className="relative">
+                                <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                    <Compass size={32} className="text-amber-500/50" />
+                                </div>
                             </div>
-                        )}
-                    </AnimatePresence>
+                            <div className="space-y-2">
+                                <p className="text-lg font-black text-slate-500">Plano Vazio</p>
+                                <p className="text-sm text-slate-600 max-w-xs">Clique em "Gerar" no painel esquerdo para criar um plano de execução personalizado.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {coachPlan.map((task, idx) => (
+                                <AICoachCard key={task.id || idx} task={task} idx={idx} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
