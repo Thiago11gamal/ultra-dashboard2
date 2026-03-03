@@ -14,7 +14,7 @@ const useClock = () => {
 };
 
 const DateDisplay = ({ time }) => (
-    <p className="text-slate-400 pl-2">
+    <p className="text-slate-300/80 pl-2 text-sm">
         {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
     </p>
 );
@@ -293,7 +293,7 @@ export default function Header({
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
             <header className="hidden md:flex items-center justify-between z-50 relative">
                 {/* Left: Contest Name + Date */}
-                <div className="w-1/2 flex flex-col gap-4">
+                <div className="w-1/2 flex flex-col gap-2">
                     <div className="relative group flex items-center gap-3">
                         <div className="flex-1">
                             <input

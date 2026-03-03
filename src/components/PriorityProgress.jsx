@@ -41,7 +41,7 @@ export default function PriorityProgress({ categories = [] }) {
                 const conf = priorityColors[p];
 
                 return (
-                    <div key={p} className={`p-4 rounded-xl border ${conf.border} ${conf.bg} backdrop-blur-sm flex flex-col justify-center gap-2 group hover:bg-white/5 transition-all`}>
+                    <div key={p} className={`p-4 py-5 rounded-xl border ${conf.border} ${conf.bg} backdrop-blur-sm flex flex-col justify-center gap-3 group hover:bg-white/5 transition-all`}>
                         <div className="flex justify-between items-center px-1">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text}`}>
                                 Prioridade {conf.label}
@@ -50,17 +50,23 @@ export default function PriorityProgress({ categories = [] }) {
                                 {completed}/{total}
                             </span>
                         </div>
-                        <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/5 shadow-inner relative">
-                            <div
-                                className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(255,255,255,0.2)]`}
-                                style={{
-                                    width: `${pct}%`,
-                                    boxShadow: p === 'high' ? '0 0 15px rgba(239, 68, 68, 0.4)' :
-                                        p === 'medium' ? '0 0 15px rgba(234, 179, 8, 0.4)' :
-                                            '0 0 15px rgba(34, 197, 94, 0.4)'
-                                }}
-                            />
+                        <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative">
+                            {pct > 0 ? (
+                                <div
+                                    className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
+                                    style={{
+                                        width: `${pct}%`,
+                                        boxShadow: p === 'high' ? '0 0 15px rgba(239, 68, 68, 0.4)' :
+                                            p === 'medium' ? '0 0 15px rgba(234, 179, 8, 0.4)' :
+                                                '0 0 15px rgba(34, 197, 94, 0.4)'
+                                    }}
+                                />
+                            ) : (
+                                /* Visual feedback when 0%: show a subtle dot at the start */
+                                <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
+                            )}
                         </div>
+                        <span className={`text-xs font-bold self-end ${conf.text}`}>{pct}%</span>
                     </div>
                 );
             })}
