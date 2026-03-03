@@ -18,6 +18,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [analysisData, setAnalysisData] = useState(null);
     const [error, setError] = useState(null);
 
+    // Bug Fix: track mount status for async operations
+    const isMounted = React.useRef(true);
+    React.useEffect(() => {
+        return () => { isMounted.current = false; };
+    }, []);
+
     const setRows = (newRows) => {
         if (onRowsChange) onRowsChange(newRows);
     };
@@ -165,6 +171,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
         // Simulate processing time for UX
         setTimeout(() => {
+            if (!isMounted.current) return;
             try {
                 // Local Analysis Logic
                 const disciplinesMap = {};
