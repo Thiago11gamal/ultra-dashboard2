@@ -113,67 +113,67 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className={`flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 transition-all group ${task.completed ? 'opacity-60' : ''}`}
+            className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 transition-all group ${task.completed ? 'opacity-60' : ''}`}
         >
             {/* Checkbox */}
             <input
                 type="checkbox"
                 checked={task.completed}
                 onChange={() => onToggle(task.id)}
-                className="flex-shrink-0"
+                className="flex-shrink-0 w-4 h-4"
             />
 
-            {/* Task Content - Takes remaining space */}
+            {/* Task Content */}
             <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-2">
-                    <p className={`font-medium truncate ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+                    <p className={`text-sm font-medium truncate ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
                         {task.title || task.text || "Tarefa sem nome"}
                     </p>
                     {task.status === 'studying' && (
-                        <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
+                        <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-xs font-bold uppercase bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
                             ⚡ Estudando
                         </span>
                     )}
                     {task.status === 'paused' && (
-                        <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 whitespace-nowrap flex-shrink-0">
+                        <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-xs font-bold uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 whitespace-nowrap flex-shrink-0">
                             ⏸️ Pausado
                         </span>
                     )}
                 </div>
                 {task.notes && (
-                    <p className="text-xs text-slate-500 truncate mt-1">{task.notes}</p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{task.notes}</p>
                 )}
             </div>
 
-            {/* Action Buttons - Fixed width container at right */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 {/* Play Button */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onTriggerPlay();
                     }}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-purple-500/20'}`}
+                    className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-purple-500/20'}`}
                     title={task.status === 'studying' ? "Estudando agora..." : "Estudar agora (Pomodoro)"}
                 >
-                    {task.status === 'studying' ? <BarChart2 size={18} className="animate-spin" /> : <Play size={18} className="group-hover/play:scale-125 group-hover/play:animate-bounce transition-transform" />}
+                    {task.status === 'studying' ? <BarChart2 size={16} className="animate-spin" /> : <Play size={16} className="group-hover/play:scale-125 transition-transform" />}
                 </button>
 
                 {/* Priority Badge */}
                 <button
                     onClick={() => onTogglePriority(task.id)}
-                    className={`w-16 py-1.5 rounded-lg text-xs font-semibold uppercase hover:opacity-80 transition-opacity text-center ${priority.bg} ${priority.text} ${priority.border} border`}
+                    className={`w-12 sm:w-16 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-xs font-semibold uppercase hover:opacity-80 transition-opacity text-center ${priority.bg} ${priority.text} ${priority.border} border`}
                     title="Clique para mudar a prioridade"
                 >
-                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
+                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Méd' : 'Bxa'}
                 </button>
 
-                {/* Delete Button */}
+                {/* Delete Button - always visible on mobile */}
                 <button
                     onClick={() => onDelete(task.id)}
-                    className="w-9 h-9 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all"
+                    className="w-8 h-8 flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all"
                 >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                 </button>
             </div>
         </motion.div>
@@ -206,68 +206,64 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
 
     return (
         <div className="glass relative group">
-            {/* Header - Using div instead of button to avoid button nesting */}
-            <div className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors">
+            {/* Header */}
+            <div className="w-full flex items-center gap-2 p-3 sm:p-5 hover:bg-white/5 transition-colors">
                 {/* Clickable area for accordion toggle */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
+                    className="flex items-center gap-2 sm:gap-4 flex-1 cursor-pointer min-w-0"
                 >
-                    <span className="text-2xl flex-shrink-0">{category.icon || '📚'}</span>
-                    <div className="text-left w-64 md:w-80 lg:w-96 flex-shrink-0 mr-4">
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-lg truncate" style={{ color: category.color }}>
+                    <span className="text-xl sm:text-2xl flex-shrink-0">{category.icon || '📚'}</span>
+                    <div className="text-left flex-1 min-w-0 mr-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-sm sm:text-lg truncate" style={{ color: category.color }}>
                                 {category.name || 'Sem Nome'}
                             </h3>
                             {category.totalMinutes > 0 && (
-                                <span className="text-yellow-400/80 text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1.5 py-0.5 rounded-sm leading-normal">
+                                <span className="text-yellow-400/80 text-[9px] sm:text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1 sm:px-1.5 py-0.5 rounded-sm leading-normal">
                                     {Math.floor(category.totalMinutes / 60)}h{category.totalMinutes % 60}m
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-slate-500 font-medium">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
                             {completedCount} de {allTasks.length} concluídas
                         </p>
                     </div>
-
-                    {/* Removed Trend Column per user request */}
                 </div>
 
-                {/* Delete Category Button - Now properly outside the clickable area */}
-                <div className="w-12 flex justify-center">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Tem certeza que deseja excluir a disciplina "${category.name}" e todas as suas tarefas?`)) {
-                                onDeleteCategory(category.id);
-                            }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400"
-                        title="Excluir Disciplina"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
+                {/* Delete Category Button */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Tem certeza que deseja excluir a disciplina "${category.name}" e todas as suas tarefas?`)) {
+                            onDeleteCategory(category.id);
+                        }
+                    }}
+                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 flex-shrink-0"
+                    title="Excluir Disciplina"
+                >
+                    <Trash2 size={15} />
+                </button>
 
                 {/* Right side: Progress + Toggle */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center justify-end gap-4 cursor-pointer w-32 md:w-40 flex-shrink-0"
+                    className="flex items-center justify-end gap-2 sm:gap-4 cursor-pointer flex-shrink-0"
                 >
                     {filter === 'all' && (
                         <>
-                            <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div className="w-14 sm:w-24 h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div
                                     className="h-full rounded-full transition-all duration-500"
                                     style={{ width: `${progress}%`, backgroundColor: category.color }}
                                 />
                             </div>
-                            <span className="text-sm font-mono" style={{ color: category.color }}>
+                            <span className="text-xs sm:text-sm font-mono flex-shrink-0" style={{ color: category.color }}>
                                 {progress}%
                             </span>
                         </>
                     )}
-                    {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </div>
             </div>
 
