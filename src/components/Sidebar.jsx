@@ -65,14 +65,19 @@ export default function Sidebar({ onExport, onImport, collapsed, setCollapsed, u
     ];
 
     return (
-        <div className={`fixed left-1/2 z-[100] flex flex-col items-start transition-all duration-500 ${isVisible ? 'top-6 opacity-100' : '-top-32 opacity-0 pointer-events-none'}`}>
+        <div className={`fixed z-[100] transition-all duration-500 
+            ${isMobile
+                ? 'top-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-b border-white/10 px-2 py-2 shadow-2xl'
+                : 'left-1/2 -translate-x-1/2 flex flex-col items-start px-0 py-0 bg-transparent border-none shadow-none'} 
+            ${isVisible ? (isMobile ? 'translate-y-0 opacity-100' : 'top-6 opacity-100') : (isMobile ? '-translate-y-full opacity-0' : '-top-32 opacity-0')} pointer-events-auto`}>
             {/* Main Bar Container */}
             <div
                 className={`
-                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 -translate-x-1/2
+                    transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50 mx-auto
+                    ${!isMobile && '-translate-x-1/2'}
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
-                        : 'glass-panel w-auto max-w-[95vw] md:max-w-none px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center justify-between'}
+                        : `glass-panel w-auto max-w-full px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center justify-between ${isMobile ? 'border-none bg-transparent shadow-none' : ''}`}
                 `}
                 onClick={(e) => {
                     if (collapsed) {
