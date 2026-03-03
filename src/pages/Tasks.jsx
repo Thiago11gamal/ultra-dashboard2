@@ -18,8 +18,8 @@ export default function Tasks() {
     };
 
     return (
-        <div className="space-y-10">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+        <div className="space-y-6 sm:space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <PersonalRanking categories={categories} />
                 </div>
@@ -28,8 +28,8 @@ export default function Tasks() {
                 </div>
             </div>
 
-            <div className="pb-8 border-t border-white/5 pt-24 mt-32">
-                <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
+            <div className="pb-8 border-t border-white/5 pt-8 mt-8">
+                <h2 className="text-lg sm:text-2xl font-bold mb-6 sm:mb-10 flex items-center gap-3">
                     📊 Quadro de Performance
                     <button
                         onClick={handleReset}
