@@ -259,7 +259,8 @@ export const useAppStore = create(
             }),
 
             // 3. Pomodoro & Sessions
-            handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state) => {
+            handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state, get) => {
+                get().recordHistory(state);
                 const now = new Date().toISOString();
                 const activeData = state.appState.contests[state.appState.activeId];
 
@@ -302,7 +303,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteSession: (sessionId) => set((state) => {
+            deleteSession: (sessionId) => set((state, get) => {
+                get().recordHistory(state);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
                 // Bug fix: returning `false` inside an Immer producer tells Immer to REPLACE
@@ -371,7 +373,8 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteSimulado: (dateStr) => set((state) => {
+            deleteSimulado: (dateStr) => set((state, get) => {
+                get().recordHistory(state);
                 const targetDay = new Date(dateStr).toDateString();
                 const activeData = state.appState.contests[state.appState.activeId];
 
