@@ -1,5 +1,5 @@
 // ==================== CONSTANTES ====================
-import { calculateTrend } from '../engine/stats';
+import { calculateTrend, standardDeviation as calculateStandardDeviation } from '../engine/stats';
 import { normalize } from './normalization';
 
 const DEFAULT_CONFIG = {
@@ -14,13 +14,8 @@ const DEFAULT_CONFIG = {
 
 // ==================== FUNÇÕES AUXILIARES ====================
 
-// Calcula desvio padrão
-function calculateStandardDeviation(scores) {
-    if (!scores || scores.length < 2) return 0;
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / (scores.length - 1);
-    return Math.sqrt(variance);
-}
+// Calcula desvio padrão — unificado com Bayesian Shrinkage via stats.js
+// (função local removida; agora usa import de calculateStandardDeviation acima)
 
 // Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
 const normalizeDate = (dateInput) => {
@@ -33,19 +28,10 @@ const normalizeDate = (dateInput) => {
     return d;
 };
 
-// Calcula dias desde uma data
-// eslint-disable-next-line no-unused-vars
-function getDaysSince(date) {
-    if (!date) return 999;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const diff = now - new Date(date);
-    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-}
-
 // Boost SRS baseado em dias
 function getSRSBoost(daysSince, cfg) {
     if (daysSince === 1) return { boost: cfg.SRS_BOOST, label: "Revisão de 24h" };
+    if (daysSince >= 3 && daysSince <= 4) return { boost: cfg.SRS_BOOST, label: "Revisão de 3 dias" };
     if (daysSince >= 7 && daysSince <= 8) return { boost: cfg.SRS_BOOST, label: "Revisão de 7 dias" };
     if (daysSince >= 30 && daysSince <= 32) return { boost: cfg.SRS_BOOST, label: "Revisão de 30 dias" };
     return { boost: 0, label: null };
@@ -386,7 +372,9 @@ const getWeakestTopic = (category, simulados = []) => {
     const topicMap = {};
 
     // Get count of category simulados for context
-    const categorySimuladoCount = simulados.filter(s => s.subject === category.name).length;
+    // Bug fix: use normalize() for case-insensitive match — same as calculateUrgency
+    const catNorm = normalize(category.name);
+    const categorySimuladoCount = simulados.filter(s => normalize(s.subject) === catNorm).length;
 
     // 1. Populate from History
     history.forEach(entry => {
@@ -527,7 +515,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const suggestedTasks = top3.map(cat => {
         const weakTopic = getWeakestTopic(cat, simulados);
         const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
-        const categorySims = simulados.filter(s => s.subject === cat.name);
+        const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
 
         // 0. SRS Trigger
         if (cat.urgency?.details?.srsLabel) {
@@ -582,7 +570,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (cat.urgency?.details?.hasData &&
             categorySims.length >= 3 &&
             cat.urgency.details.averageScore < targetScore &&
-            cat.urgency.details.standardDeviation < 5 &&
+            cat.urgency.details.standardDeviation < 10 &&
             cat.urgency.details.trend >= -1 && cat.urgency.details.trend <= 1) {
 
             return {

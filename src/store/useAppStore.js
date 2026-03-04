@@ -118,7 +118,7 @@ export const useAppStore = create(
                     activeId: activeId
                 });
 
-                if (state.appState.history.length > 10) state.appState.history.shift();
+                if (state.appState.history.length > 20) state.appState.history.shift();
 
                 // RESTORE ALL FIELDS (including mcEqualWeights and future fields)
                 Object.keys(nextState).forEach(key => {
@@ -133,7 +133,7 @@ export const useAppStore = create(
                 // IMPORTANT: Prioritize the timestamp from the incoming state (e.g. from cloud)
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
 
-                console.log(`[Store] setAppState concluído. Contests: ${Object.keys(nextState.contests).length}, Active: ${nextState.activeId}`);
+
             }),
 
             setData: (newDataCallback) => set((state) => {
@@ -218,6 +218,7 @@ export const useAppStore = create(
             }),
 
             togglePriority: (categoryId, taskId) => set((state) => {
+                recordHistory(state.appState);
                 const priorities = ['low', 'medium', 'high'];
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);

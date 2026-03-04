@@ -9,7 +9,6 @@ export const XP_CONFIG = {
         base: 100,              // XP por pomodoro completo
         bonusWithTask: 100      // Bônus se estava focado em uma tarefa
     },
-    penalty: 50,      // Penalidade menor ao desmarcar (era -150)
     streak: {
         daily: 25,      // XP por dia de estudo consecutivo
         weekly: 200     // Bônus ao completar 7 dias seguidos

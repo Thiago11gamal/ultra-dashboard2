@@ -184,7 +184,7 @@ export const analyzeEfficiency = (categories) => {
 
     // Análise de tarefas de alta prioridade
     const highPriorityTasks = categories.flatMap(c =>
-        c.tasks.filter(t => t.priority === 'high')
+        (c.tasks || []).filter(t => t.priority === 'high')
     );
     const highPriorityCompleted = highPriorityTasks.filter(t => t.completed).length;
     const highPriorityRate = highPriorityTasks.length > 0 ?
@@ -378,11 +378,11 @@ export const calculatePomodoroStats = (stats) => {
 
 export const calculateDailyPomodoroGoal = (categories, user) => {
     const pendingTasks = categories.reduce((sum, c) =>
-        sum + c.tasks.filter(t => !t.completed).length, 0
+        sum + (c.tasks || []).filter(t => !t.completed).length, 0
     );
 
     const highPriorityPending = categories.reduce((sum, c) =>
-        sum + c.tasks.filter(t => !t.completed && t.priority === 'high').length, 0
+        sum + (c.tasks || []).filter(t => !t.completed && t.priority === 'high').length, 0
     );
 
     // Fórmula: 2 pomodoros por alta prioridade + 1 por tarefa normal
@@ -390,7 +390,7 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 
     // Ajuste por nível (quanto maior, mais capacidade)
     // Fix: user.level might be undefined, fallback to 1
-    const lvl = user.level || 1;
+    const lvl = user?.level || 1;
     const levelMultiplier = 1 + (lvl * 0.05); // 5% por nível
     const adjustedGoal = Math.ceil(baseGoal * levelMultiplier);
 
