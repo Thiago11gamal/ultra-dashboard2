@@ -229,7 +229,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // F. SRS Boost
-        const { boost: srsBoost, label: srsLabel } = getSRSBoost(daysSinceLastStudy, cfg);
+        // BUG FIX: Only trigger Spaced Repetition (SRS) if the subject has actually been studied at least once.
+        const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
+        let srsBoost = 0;
+        let srsLabel = null;
+
+        if (hasData) {
+            const srsResult = getSRSBoost(daysSinceLastStudy, cfg);
+            srsBoost = srsResult.boost;
+            srsLabel = srsResult.label;
+        }
 
         // G. Rotation Penalty (ALTERADO: Lógica mais inteligente)
         let rotationPenalty = 0;
