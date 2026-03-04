@@ -426,7 +426,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                                 const discCfg =
                                     discPct >= 80 ? { from: 'from-green-500/20', border: 'border-green-500/30', text: 'text-green-400' } :
-                                        discPct >= 60 ? { from: 'from-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400' } :
+                                        discPct >= 60 ? { from: 'from-orange-500/20', border: 'border-orange-500/30', text: 'text-orange-400' } :
                                             discPct <= 40 ? { from: 'from-red-500/20', border: 'border-red-500/30', text: 'text-red-400' } :
                                                 { from: 'from-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400' };
 
@@ -473,7 +473,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                 const pct = topic.percentage || 0;
                                                 const cfg =
                                                     pct >= 80 ? { label: 'Dominado', icon: '🏆', bar: 'bg-green-500', badge: 'bg-green-500/10 text-green-400 border-green-500/20', text: 'text-green-100' } :
-                                                        pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-blue-500', badge: 'bg-blue-500/10  text-blue-400  border-blue-500/20', text: 'text-blue-100' } :
+                                                        pct >= 60 ? { label: 'Bom', icon: '👍', bar: 'bg-orange-500', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20', text: 'text-orange-100' } :
                                                             pct <= 40 ? { label: 'Crítico', icon: '🚨', bar: 'bg-red-500', badge: 'bg-red-500/10   text-red-400   border-red-500/20', text: 'text-red-100' } :
                                                                 { label: 'Atenção', icon: '⚠️', bar: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', text: 'text-yellow-100' };
                                                 return (
