@@ -571,44 +571,119 @@ export default function VerifiedStats({ categories = [], user }) {
 
             {/* Subject Consistency Breakdown - Full Width */}
             <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
-                <div className="flex items-center gap-2 mb-4 text-slate-400">
+                <div className="flex items-center gap-2 mb-6 text-slate-400">
                     <Activity size={16} />
                     <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
+                    {stats.categoryBreakdown.length > 0 && (
+                        <span className="ml-auto text-[9px] font-bold text-slate-600 uppercase tracking-wider">
+                            {stats.categoryBreakdown.length} matéria{stats.categoryBreakdown.length > 1 ? 's' : ''} analisada{stats.categoryBreakdown.length > 1 ? 's' : ''}
+                        </span>
+                    )}
                 </div>
 
                 {stats.categoryBreakdown.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stats.categoryBreakdown.map((cat) => (
-                            <div key={cat.name} className={`p-3 rounded-lg border bg-black/20 flex flex-col gap-2 ${cat.bgBorder}`}>
-                                <div className="flex justify-between items-center w-full">
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-200">{cat.name}</div>
-                                        <div className={`text-xs font-bold ${cat.color}`}>{cat.status}</div>
+                    <div className="flex flex-col gap-1">
+                        {/* Header Row */}
+                        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-1">
+                            <div className="col-span-3">Matéria</div>
+                            <div className="col-span-2 text-center">Status</div>
+                            <div className="col-span-4 text-center">Desvio Padrão (SD)</div>
+                            <div className="col-span-1 text-center">Δ</div>
+                            <div className="col-span-2 text-center">Vilões</div>
+                        </div>
+
+                        {/* Data Rows */}
+                        {stats.categoryBreakdown.map((cat, idx) => {
+                            const maxSd = Math.max(...stats.categoryBreakdown.map(c => c.rawSd || 0), 1);
+                            const barWidth = Math.min(100, ((cat.rawSd || 0) / maxSd) * 100);
+                            const deltaNum = parseFloat(cat.delta);
+                            const sdNum = parseFloat(cat.sd);
+
+                            // SD color based on value
+                            const sdBarColor = sdNum <= 5 ? 'bg-green-500' : sdNum <= 10 ? 'bg-blue-500' : sdNum <= 15 ? 'bg-yellow-500' : sdNum <= 25 ? 'bg-orange-500' : 'bg-red-500';
+                            const sdBarGlow = sdNum <= 5 ? 'shadow-green-500/30' : sdNum <= 10 ? 'shadow-blue-500/30' : sdNum <= 15 ? 'shadow-yellow-500/30' : sdNum <= 25 ? 'shadow-orange-500/30' : 'shadow-red-500/30';
+
+                            return (
+                                <div
+                                    key={cat.name}
+                                    className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}
+                                >
+                                    {/* Subject Name */}
+                                    <div className="col-span-3 flex items-center gap-2 min-w-0">
+                                        <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                                        <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-400">Desvio</div>
-                                        <div className={`text-sm font-mono ${cat.color}`}>{cat.sd}</div>
+
+                                    {/* Status Badge */}
+                                    <div className="col-span-2 flex justify-center">
+                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
+                                            {cat.status}
+                                        </span>
+                                    </div>
+
+                                    {/* SD Bar */}
+                                    <div className="col-span-4 flex items-center gap-2">
+                                        <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                                            <div
+                                                className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`}
+                                                style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }}
+                                            />
+                                            {/* Threshold markers */}
+                                            <div className="absolute top-0 h-full w-px bg-white/10" style={{ left: `${(10 / maxSd) * 100}%` }} title="SD=10" />
+                                            <div className="absolute top-0 h-full w-px bg-white/10" style={{ left: `${(20 / maxSd) * 100}%` }} title="SD=20" />
+                                        </div>
+                                        <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>
+                                            ±{cat.sd}
+                                        </span>
+                                    </div>
+
+                                    {/* Delta */}
+                                    <div className="col-span-1 flex justify-center items-center">
+                                        {deltaNum > 0 ? (
+                                            <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5">
+                                                <TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}
+                                            </span>
+                                        ) : deltaNum < 0 ? (
+                                            <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5">
+                                                <TrendingDown size={10} />{deltaNum.toFixed(0)}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-slate-600">—</span>
+                                        )}
+                                    </div>
+
+                                    {/* Villains (compact) */}
+                                    <div className="col-span-2 flex flex-col gap-0.5 min-w-0">
+                                        {cat.villains && cat.villains.length > 0 ? (
+                                            cat.villains.slice(0, 2).map((v) => (
+                                                <div key={v.name} className="flex items-center justify-between text-[9px] gap-1">
+                                                    <span className="text-slate-500 truncate">{v.name.length > 12 ? v.name.substring(0, 11) + '…' : v.name}</span>
+                                                    <span className="text-red-400/70 font-mono flex-shrink-0">±{v.sd.toFixed(0)}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <span className="text-[9px] text-slate-600 text-center">—</span>
+                                        )}
                                     </div>
                                 </div>
+                            );
+                        })}
 
-                                {/* Villains List */}
-                                {cat.villains && cat.villains.length > 0 && (
-                                    <div className="w-full mt-1 pt-2 border-t border-white/5">
-                                        <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                                            <AlertTriangle size={8} /> Maiores Oscilações
-                                        </div>
-                                        <div className="space-y-1">
-                                            {cat.villains.map((v) => (
-                                                <div key={v.name} className="flex justify-between items-center text-[10px]">
-                                                    <span className="text-slate-400 truncate max-w-[150px]">{v.name}</span>
-                                                    <span className="text-red-400/80 font-mono">±{v.sd.toFixed(0)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                        {/* Legend */}
+                        <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                            {[
+                                { color: 'bg-green-500', label: 'SD ≤ 5' },
+                                { color: 'bg-blue-500', label: 'SD ≤ 10' },
+                                { color: 'bg-yellow-500', label: 'SD ≤ 15' },
+                                { color: 'bg-orange-500', label: 'SD ≤ 25' },
+                                { color: 'bg-red-500', label: 'SD > 25' }
+                            ].map(l => (
+                                <div key={l.label} className="flex items-center gap-1.5">
+                                    <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
+                                    <span className="text-[9px] text-slate-500 font-medium">{l.label}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ) : (
                     <div className="text-center text-slate-500 py-4 text-sm">
