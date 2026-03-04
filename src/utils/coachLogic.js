@@ -71,7 +71,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     // Use User Target Score (default 70 if missing)
     // Bug fix: use ?? not || so that targetScore=0 is preserved (edge case but valid)
     const targetScore = options.targetScore ?? 70;
-    const weight = category.weight !== undefined ? category.weight : 100;
+    // weight is stored on 0-10 scale (Monte Carlo). Default 5 (medium) if undefined/0.
+    const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
+    // Normalize to 0-100 scale for internal formulas (same as before)
+    const weight = rawWeight * 10;
+    // Human-readable label for display (1=Baixa, 2=Média, 3=Alta)
+    const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
 
     // Calculate days to exam
     let daysToExam = null;
@@ -327,7 +332,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${trend.toFixed(1)}` : trend < -0.5 ? `↓ ${trend.toFixed(1)}` : "→ Estável",
                     "Instabilidade": `±${standardDeviation.toFixed(1)} pts`,
-                    "Peso da Matéria": `x${((weight ?? 0) / 100).toFixed(1)}`,
+                    "Peso da Matéria": weightLabel,
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
                 },
                 components: {
