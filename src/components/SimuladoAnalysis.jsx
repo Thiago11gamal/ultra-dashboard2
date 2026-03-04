@@ -365,10 +365,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 py-2.5 text-sm transition-all ${loading
                                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-500/30'}`}>
-                            {loading
-                                ? <><span className="animate-spin text-base">⌛</span> Analisando...</>
-                                : <><Play size={16} /> Gerar Plano de Revisão</>
-                            }
+                            {loading ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="animate-spin text-base">⌛</span>
+                                    <span>Analisando...</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Play size={16} />
+                                    <span>Gerar Plano de Revisão</span>
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>
