@@ -58,7 +58,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
             // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
             if (isFromCache && !exists && !hasInitialSyncRef.current) {
-                console.log("[Sync] Aguaradando resposta real do servidor...");
+                console.debug("[Sync] Aguardando resposta real do servidor...");
                 return;
             }
 
@@ -112,8 +112,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             if (shouldPullCloud) {
-                console.log("DADO RECEBIDO DA NUVEM -> ATUALIZANDO ESTADO LOCAL");
-                console.warn(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
+                console.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
+                console.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
@@ -122,7 +122,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                console.log("[Sync] Divergência detectada (Editando localmente / Local Mais Recente). Prioridade Local mantida.");
+                console.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
                 setHasConflict(true);
             }
 
@@ -193,7 +193,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const stateToSave = JSON.parse(JSON.stringify(rawStateToSave));
 
                 setIsInternalSyncing(true);
-                console.log(`[Sync] Enviando atualização MASTER para nuvem...`);
+                console.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
                 lastSyncedRef.current = currentStateString;
             } catch (e) {
