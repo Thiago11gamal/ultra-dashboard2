@@ -327,7 +327,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${trend.toFixed(1)}` : trend < -0.5 ? `↓ ${trend.toFixed(1)}` : "→ Estável",
                     "Instabilidade": `±${standardDeviation.toFixed(1)} pts`,
-                    "Peso da Matéria": `x${(weight / 100).toFixed(1)}`,
+                    "Peso da Matéria": `x${((weight ?? 0) / 100).toFixed(1)}`,
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
                 },
                 components: {
