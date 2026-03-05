@@ -129,7 +129,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [activeSubject, safeSettings]); // Added dependencies
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
-    const [speed, setSpeed] = useState(1);
+    const [speed] = useState(1); // Dev speed toggles removed in production
     const [showWarning, setShowWarning] = useState(false);
 
 
