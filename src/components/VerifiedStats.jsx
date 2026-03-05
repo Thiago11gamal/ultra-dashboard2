@@ -655,20 +655,25 @@ export default function VerifiedStats({ categories = [], user }) {
                                             )}
                                         </div>
 
-                                        {/* Villains (compact) */}
-                                        <div className="col-span-2 flex flex-col gap-0.5 min-w-0">
+                                        {/* Villains (Name centered with header, Numbers at the end) */}
+                                        <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
                                             {cat.villains && cat.villains.length > 0 ? (
                                                 cat.villains.slice(0, 2).map((v) => (
-                                                    <div key={v.name} className="flex items-center justify-between text-[9px] gap-1">
-                                                        <span className="text-slate-500 truncate">{v.name.length > 12 ? v.name.substring(0, 11) + '…' : v.name}</span>
-                                                        <span className="text-red-400/70 font-mono flex-shrink-0">±{v.sd.toFixed(0)}</span>
+                                                    <div key={v.name} className="relative flex items-center justify-center text-[11px] leading-tight min-h-[14px]">
+                                                        <span className="text-slate-400 truncate max-w-[70px] font-semibold text-center" title={v.name}>
+                                                            {v.name.length > 15 ? v.name.substring(0, 14) + '…' : v.name}
+                                                        </span>
+                                                        <span className="absolute right-0 text-red-400 font-mono font-black">
+                                                            ±{v.sd.toFixed(0)}
+                                                        </span>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <span className="text-[9px] text-slate-600 text-center">—</span>
+                                                <span className="text-[10px] text-slate-600 text-center">—</span>
                                             )}
                                         </div>
                                     </div>
+                                );
                             });
                         })()}
 
