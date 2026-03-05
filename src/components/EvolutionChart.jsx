@@ -292,7 +292,27 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
     }, [categories]);
 
-    // Fix 5: Extract calculation from insight string construction to avoid clutter
+    // Dados agregados por matéria: total questões + número de acertos (para gráfico de barras agrupadas)
+    const subjectAggData = useMemo(() => {
+        if (!categories || !categories.length || !timeline.length) return [];
+        return categories
+            .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+            .map(cat => {
+                let totalQ = 0;
+                let totalCorrect = 0;
+                timeline.forEach(d => {
+                    const q = d[`raw_total_${cat.name}`] || 0;
+                    const pct = d[`raw_${cat.name}`];
+                    totalQ += q;
+                    if (pct != null) totalCorrect += Math.round(q * pct / 100);
+                });
+                const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
+                return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
+            })
+            .filter(d => d.questoes > 0)
+            .sort((a, b) => b.questoes - a.questoes);
+    }, [categories, timeline, showOnlyFocus, focusSubjectId]);
+
     const getInsightText = () => {
         if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
@@ -560,440 +580,206 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
 
-                    {/* Volume vs Rendimento */}
+                    {/* Questões vs Acertos por Matéria */}
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
                         {/* Header */}
                         <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
                             <div className="min-w-0 flex-1">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Engenharia de Performance</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Questões Resolvidas vs Acertos</p>
                                 <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
-                                    📊 {showOnlyFocus ? `Volume vs Rendimento — ${focusCategory?.name}` : "Volume vs Rendimento — Todas as Matérias"}
+                                    📊 {showOnlyFocus ? `Desempenho — ${focusCategory?.name}` : "Desempenho por Matéria — Histórico Completo"}
                                 </h3>
                             </div>
-                            {/* Legend manual — Volume + Eficiência */}
+                            {/* Legenda manual */}
                             <div className="flex items-center gap-3 shrink-0 ml-3">
                                 <div className="flex items-center gap-1.5">
-                                    <span className="w-3 h-3 rounded-sm bg-indigo-500/70 inline-block"></span>
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Volume</span>
+                                    <span className="w-3 h-3 rounded-sm bg-indigo-500 inline-block"></span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Questões</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="w-3 h-0.5 bg-white/60 inline-block"></span>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Rendimento</span>
+                                    <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Acertos</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Chart */}
-                        <div className="h-[300px] sm:h-[340px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart
-                                    data={filteredChartData}
-                                    margin={{ top: 20, right: 50, left: 10, bottom: 20 }}
-                                    barCategoryGap="35%"
-                                >
-                                    <defs>
-                                        {/* Gradiente para cada categoria */}
-                                        {categories.map(cat => (
-                                            <linearGradient key={`grad_${cat.id}`} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor={cat.color} stopOpacity={0.85} />
-                                                <stop offset="100%" stopColor={cat.color} stopOpacity={0.35} />
+                        <div className="h-[320px] sm:h-[380px] w-full">
+                            {subjectAggData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={subjectAggData}
+                                        margin={{ top: 20, right: 20, left: 10, bottom: showOnlyFocus ? 20 : 60 }}
+                                        barCategoryGap="25%"
+                                        barGap={4}
+                                    >
+                                        <defs>
+                                            <linearGradient id="gradQuestoes" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.95} />
+                                                <stop offset="100%" stopColor="#4338ca" stopOpacity={0.75} />
                                             </linearGradient>
-                                        ))}
-                                    </defs>
+                                            <linearGradient id="gradAcertos" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                                                <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+                                            </linearGradient>
+                                        </defs>
 
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
 
-                                    <XAxis
-                                        dataKey="displayDate"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#64748b', fontSize: 11 }}
-                                        dy={10}
-                                        minTickGap={35}
-                                    />
-
-                                    {/* Eixo Esquerdo: Questões */}
-                                    <YAxis
-                                        yAxisId="left"
-                                        orientation="left"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#6366f1', fontSize: 11 }}
-                                        width={42}
-                                        allowDecimals={false}
-                                        label={{ value: 'Questões', angle: -90, position: 'insideLeft', fill: '#4f46e5', fontSize: 10, dx: -2 }}
-                                    />
-
-                                    {/* Eixo Direito: % de Acerto */}
-                                    <YAxis
-                                        yAxisId="right"
-                                        orientation="right"
-                                        domain={[0, 100]}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#10b981', fontSize: 11 }}
-                                        width={44}
-                                        tickFormatter={(v) => `${v}%`}
-                                        label={{ value: '% Acerto', angle: 90, position: 'insideRight', fill: '#059669', fontSize: 10, dx: 6 }}
-                                    />
-
-                                    <Tooltip
-                                        cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
-                                        content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
-                                                const d = payload[0].payload;
-                                                const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
-                                                return (
-                                                    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[210px]">
-                                                        <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1.5 text-xs text-center">{d.displayDate}</p>
-                                                        <div className="space-y-2">
-                                                            {catsToShow.map(cat => {
-                                                                const vol = d[`raw_total_${cat.name}`];
-                                                                const rend = d[`raw_${cat.name}`];
-                                                                if (!vol) return null;
-                                                                return (
-                                                                    <div key={cat.id} className="flex flex-col gap-0.5">
-                                                                        <span style={{ color: cat.color }} className="font-bold text-[10px] uppercase tracking-wider">{cat.name}</span>
-                                                                        <div className="flex justify-between text-[11px] gap-4">
-                                                                            <span className="text-slate-400">📚 <span className="text-slate-200 font-bold">{vol} q</span></span>
-                                                                            <span className="text-slate-400">🎯 <span style={{ color: cat.color }} className="font-bold">{rend?.toFixed(1)}%</span></span>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            }).filter(Boolean)}
-                                                            {d.global_total > 0 && !showOnlyFocus && (
-                                                                <div className="pt-2 border-t border-white/10 flex justify-between items-center">
-                                                                    <span className="text-[9px] font-black text-white uppercase">Média Global</span>
-                                                                    <span className="text-xs font-black text-white">{d.global_pct?.toFixed(1)}%</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        }}
-                                    />
-
-                                    {/* BARRAS — Volume (eixo esquerdo) */}
-                                    {categories
-                                        .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
-                                        .map((cat) => {
-                                            const isFocused = focusSubjectId === cat.id;
-                                            return (
-                                                <Bar
-                                                    key={`vol_${cat.id}`}
-                                                    yAxisId="left"
-                                                    name={cat.name}
-                                                    dataKey={`raw_total_${cat.name}`}
-                                                    fill={`url(#grad_${cat.id})`}
-                                                    fillOpacity={showOnlyFocus ? 0.9 : (isFocused ? 0.85 : 0.3)}
-                                                    radius={[5, 5, 0, 0]}
-                                                    isAnimationActive={false}
-                                                    barSize={showOnlyFocus ? 50 : undefined}
-                                                    legendType="none"
-                                                />
-                                            );
-                                        })
-                                    }
-
-                                    {/* LINHAS + PONTOS — Rendimento % (eixo direito) */}
-                                    {categories
-                                        .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
-                                        .map((cat) => {
-                                            const isFocused = focusSubjectId === cat.id;
-                                            const opacity = showOnlyFocus ? 1 : (isFocused ? 1 : 0.5);
-                                            return (
-                                                <Line
-                                                    key={`rend_${cat.id}`}
-                                                    yAxisId="right"
-                                                    name={`${cat.name} (%)`}
-                                                    dataKey={`raw_${cat.name}`}
-                                                    type="monotone"
-                                                    stroke={cat.color}
-                                                    strokeWidth={isFocused || showOnlyFocus ? 3 : 1.5}
-                                                    strokeOpacity={opacity}
-                                                    dot={{
-                                                        r: isFocused || showOnlyFocus ? 6 : 4,
-                                                        fill: cat.color,
-                                                        stroke: '#0f172a',
-                                                        strokeWidth: 2,
-                                                        opacity: opacity,
-                                                    }}
-                                                    activeDot={{ r: 8, strokeWidth: 2, stroke: '#ffffff' }}
-                                                    connectNulls={false}
-                                                    legendType="none"
-                                                    isAnimationActive={false}
-                                                />
-                                            );
-                                        })
-                                    }
-
-                                    {/* LINHA MÉDIA GLOBAL */}
-                                    {!showOnlyFocus && (
-                                        <Line
-                                            yAxisId="right"
-                                            name="Média Global"
-                                            type="monotone"
-                                            dataKey="global_pct"
-                                            stroke="#f8fafc"
-                                            strokeWidth={2.5}
-                                            strokeOpacity={0.8}
-                                            strokeDasharray="8 5"
-                                            dot={false}
-                                            activeDot={false}
-                                            legendType="none"
-                                            style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }}
-                                            isAnimationActive={false}
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#94a3b8', fontSize: 10 }}
+                                            dy={8}
+                                            angle={showOnlyFocus ? 0 : -35}
+                                            textAnchor={showOnlyFocus ? 'middle' : 'end'}
+                                            interval={0}
                                         />
-                                    )}
-                                </ComposedChart>
-                            </ResponsiveContainer>
+
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#64748b', fontSize: 10 }}
+                                            width={38}
+                                            allowDecimals={false}
+                                            label={{ value: 'Quantidade', angle: -90, position: 'insideLeft', fill: '#475569', fontSize: 10, dx: -2 }}
+                                        />
+
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const d = payload[0].payload;
+                                                    const rendPct = d.questoes > 0 ? ((d.acertos / d.questoes) * 100).toFixed(1) : '0.0';
+                                                    return (
+                                                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[180px]">
+                                                            <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex justify-between items-center gap-4">
+                                                                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                                        <span className="w-2 h-2 rounded-sm bg-indigo-400 inline-block"></span>
+                                                                        Questões
+                                                                    </span>
+                                                                    <span className="text-[11px] font-black text-indigo-300">{d.questoes}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center gap-4">
+                                                                    <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                                        <span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block"></span>
+                                                                        Acertos
+                                                                    </span>
+                                                                    <span className="text-[11px] font-black text-emerald-300">{d.acertos}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center gap-4 pt-1 border-t border-white/5">
+                                                                    <span className="text-[9px] text-slate-500 uppercase font-bold">Aproveitamento</span>
+                                                                    <span className="text-[11px] font-black text-white">{rendPct}%</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+
+                                        {/* BARRA: Questões Resolvidas */}
+                                        <Bar
+                                            dataKey="questoes"
+                                            name="Questões Resolvidas"
+                                            fill="url(#gradQuestoes)"
+                                            radius={[5, 5, 0, 0]}
+                                            isAnimationActive={false}
+                                        >
+                                            <LabelList dataKey="questoes" position="top" style={{ fill: '#818cf8', fontSize: 9, fontWeight: 'bold' }} />
+                                        </Bar>
+
+                                        {/* BARRA: Número de Acertos */}
+                                        <Bar
+                                            dataKey="acertos"
+                                            name="Número de Acertos"
+                                            fill="url(#gradAcertos)"
+                                            radius={[5, 5, 0, 0]}
+                                            isAnimationActive={false}
+                                        >
+                                            <LabelList dataKey="acertos" position="top" style={{ fill: '#34d399', fontSize: 9, fontWeight: 'bold' }} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                    <span className="text-4xl mb-3">📊</span>
+                                    Nenhum dado de estudo encontrado.
+                                </div>
+                            )}
                         </div>
 
                         {/* Dica */}
                         <div className="mt-3 px-3 py-2 bg-white/3 rounded-xl border border-dashed border-slate-800 text-center">
                             <p className="text-[10px] text-slate-500 italic">
-                                📌 Barra acima do ponto = está estudando mais do que acertando. Ponto acima da barra = eficiência está superando o volume.
+                                📌 Quanto mais a barra verde (acertos) se aproximar da barra roxa (questões), maior o seu aproveitamento na matéria.
                             </p>
                         </div>
                     </div>
 
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart
-                            data={filteredChartData}
-                            margin={{ top: 16, right: 55, left: 8, bottom: 12 }}
-                            barCategoryGap="30%"
-                            barGap={2}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis
-                                dataKey="displayDate"
-                                stroke="#94a3b8"
-                                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                                dy={4}
-                                axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-                                tickLine={false}
-                                minTickGap={35}
-                            />
-
-                            {/* Eixo Esquerdo: Volume de Questões */}
-                            <YAxis
-                                yAxisId="left"
-                                stroke="#475569"
-                                tick={{ fontSize: 9, fill: '#475569' }}
-                                axisLine={false}
-                                tickLine={false}
-                                width={40}
-                                allowDecimals={false}
-                            />
-
-                            {/* Eixo Direito: Rendimento % (0-100) */}
-                            <YAxis
-                                yAxisId="right"
-                                orientation="right"
-                                stroke="rgba(255,255,255,0.3)"
-                                tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.5)' }}
-                                axisLine={false}
-                                tickLine={false}
-                                domain={[0, 100]}
-                                width={38}
-                                tickFormatter={(v) => `${v}%`}
-                            />
-
-                            <Tooltip
-                                cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        const data = payload[0].payload;
-                                        const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
-                                        return (
-                                            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[210px]">
-                                                <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1.5 text-xs text-center">{data.displayDate}</p>
-                                                <div className="space-y-2.5">
-                                                    {catsToShow.map(cat => {
-                                                        const vol = data[`raw_total_${cat.name}`];
-                                                        const rend = data[`raw_${cat.name}`];
-                                                        if (vol == null || vol === 0) return null;
-                                                        return (
-                                                            <div key={cat.id} className="flex flex-col gap-1">
-                                                                <span style={{ color: cat.color }} className="font-bold text-[11px] uppercase tracking-wider">{cat.name}</span>
-                                                                <div className="flex justify-between items-center gap-3">
-                                                                    <div className="flex items-center gap-1">
-                                                                        <span className="text-[9px] text-slate-500 font-bold uppercase">Vol</span>
-                                                                        <span className="text-[10px] text-slate-200 font-black">{vol} q</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1">
-                                                                        <span className="text-[9px] text-slate-500 font-bold uppercase">Rend</span>
-                                                                        <span style={{ color: cat.color }} className="font-black text-[11px]">{rend?.toFixed(1)}%</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }).filter(Boolean)}
-                                                    {data.global_total > 0 && !showOnlyFocus && (
-                                                        <div className="pt-2 border-t border-white/10 flex justify-between items-center">
-                                                            <span className="text-[9px] font-black text-white uppercase tracking-wide">Média Global</span>
-                                                            <span className="text-[11px] font-black text-white">{data.global_pct?.toFixed(1)}%</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-
-                            {!showOnlyFocus && (
-                                <Legend
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: 16 }}
-                                    iconType="circle"
-                                    formatter={(value) => {
-                                        // Oculta itens de rendimento da legenda (são pontos), mostra só barras
-                                        if (String(value).startsWith('_rend_')) return null;
-                                        return value;
-                                    }}
-                                />
+                    {/* Matérias Críticas */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
+                        <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
+                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
+                            {pointLeakageData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
+                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                            {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                    <span className="text-4xl mb-3">🎉</span>
+                                    Nenhum erro registrado esta semana!
+                                </div>
                             )}
+                        </div>
+                    </div>
 
-                            {/* BARRAS — Volume de Questões (eixo esquerdo) */}
-                            {categories
-                                .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
-                                .map((cat) => {
-                                    const isFocused = focusSubjectId === cat.id;
-                                    return (
-                                        <Bar
-                                            key={`vol_${cat.id}`}
-                                            yAxisId="left"
-                                            name={cat.name}
-                                            dataKey={`raw_total_${cat.name}`}
-                                            fill={cat.color}
-                                            fillOpacity={showOnlyFocus ? 0.55 : (isFocused ? 0.65 : 0.18)}
-                                            stroke={isFocused ? cat.color : 'none'}
-                                            strokeWidth={1}
-                                            shape={<RoundedBar />}
-                                            isAnimationActive={false}
-                                            barSize={showOnlyFocus ? 50 : undefined}
-                                        />
-                                    );
-                                })
-                            }
-
-                            {/* PONTOS + LINHAS — Rendimento % (eixo direito) */}
-                            {categories
-                                .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
-                                .map((cat) => {
-                                    const isFocused = focusSubjectId === cat.id;
-                                    const opacity = showOnlyFocus ? 1 : (isFocused ? 0.95 : 0.45);
-                                    return (
-                                        <Line
-                                            key={`rend_${cat.id}`}
-                                            yAxisId="right"
-                                            name={`_rend_${cat.name}`}
-                                            dataKey={`raw_${cat.name}`}
-                                            type="monotone"
-                                            stroke={cat.color}
-                                            strokeWidth={1.5}
-                                            strokeOpacity={opacity * 0.7}
-                                            strokeDasharray="5 4"
-                                            dot={{
-                                                r: 5,
-                                                fill: cat.color,
-                                                stroke: '#0f172a',
-                                                strokeWidth: 2,
-                                                opacity: opacity,
-                                            }}
-                                            activeDot={{ r: 7, strokeWidth: 2, stroke: '#ffffff' }}
-                                            connectNulls={false}
-                                            legendType="none"
-                                            isAnimationActive={false}
-                                        />
-                                    );
-                                })
-                            }
-
-                            {/* LINHA MÉDIA GLOBAL (eixo direito) */}
-                            {!showOnlyFocus && (
-                                <Line
-                                    yAxisId="right"
-                                    name="Média Global"
-                                    type="monotone"
-                                    dataKey="global_pct"
-                                    stroke="#f8fafc"
-                                    strokeWidth={2.5}
-                                    strokeOpacity={0.85}
-                                    strokeDasharray="8 5"
-                                    dot={false}
-                                    activeDot={false}
-                                    legendType="none"
-                                    style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }}
-                                    isAnimationActive={false}
-                                />
+                    {/* Assuntos Críticos */}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
+                        <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
+                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
+                            {subtopicsData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
+                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                            {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                                    <span className="text-4xl mb-3">🎉</span>
+                                    Nenhum erro registrado esta semana!
+                                </div>
                             )}
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            {/* Matérias Críticas */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
-                <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
-                <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
-                <div className="min-h-[220px] sm:min-h-[260px] w-full">
-                    {pointLeakageData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
-                            <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
-                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
-                                    {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                    <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                            <span className="text-4xl mb-3">🎉</span>
-                            Nenhum erro registrado esta semana!
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
 
-            {/* Assuntos Críticos */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
-                <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
-                <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
-                <div className="min-h-[220px] sm:min-h-[260px] w-full">
-                    {subtopicsData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
-                            <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
-                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
-                                    {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                    <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                            <span className="text-4xl mb-3">🎉</span>
-                            Nenhum erro registrado esta semana!
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
-            </div >
-        </div >
     );
 }
+
