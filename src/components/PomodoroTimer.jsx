@@ -701,23 +701,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         </motion.button>
                     </div>
 
-                    {/* Speed Toggle */}
-                    <div className={`absolute top-24 right-6 flex flex-col gap-2 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                        <button
-                            onClick={() => setSpeed(speed === 10 ? 1 : 10)}
-                            disabled={!activeSubject}
-                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 10 ? 'bg-amber-100 text-amber-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                        >
-                            10x
-                        </button>
-                        <button
-                            onClick={() => setSpeed(speed === 100 ? 1 : 100)}
-                            disabled={!activeSubject}
-                            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors ${speed === 100 ? 'bg-rose-100 text-rose-600' : 'bg-[#292524] text-stone-400 hover:bg-[#44403c] border border-stone-700'}`}
-                        >
-                            100x
-                        </button>
-                    </div>
+                    {/* Dev Speed Toggle removed for Production */}
 
                 </div>
             </motion.div>
