@@ -103,12 +103,25 @@ export function useChartData(categories = [], targetScore = 80) {
                 const { stats, last } = snap;
                 const exact = exactByDate[date];
 
-                dataByDate[date][`raw_correct_${cat.name}`] = exact ? exact.correct : 0;
-                dataByDate[date][`raw_total_${cat.name}`] = exact ? exact.total : 0;
+                const correct = exact ? exact.correct : 0;
+                const total = exact ? exact.total : 0;
+
+                dataByDate[date][`raw_correct_${cat.name}`] = correct;
+                dataByDate[date][`raw_total_${cat.name}`] = total;
                 dataByDate[date][`raw_${cat.name}`] = last.score;
                 dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], targetScore, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
+
+                // Global Aggregation (Multi-subject totals for the date)
+                dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
+                dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
             });
+        });
+
+        // Compute global percentage for each point
+        dates.forEach(date => {
+            const d = dataByDate[date];
+            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0;
         });
 
         return dates.map(d => dataByDate[d]);

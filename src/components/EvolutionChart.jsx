@@ -3,7 +3,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    BarChart, Bar, LabelList, Cell
+    BarChart, Bar, LabelList, Cell, Customized, Rectangle
 } from "recharts";
 import { monteCarloSimulation } from "../engine";
 import { useChartData } from "../hooks/useChartData";
@@ -54,6 +54,110 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
+// ── COMPONENTE DE CONEXÃO CUSTOMIZADO ──────────────────────
+const ConnectionPath = (props) => {
+    const { formattedGraphicalItems, categories, showOnlyFocus, focusSubjectId, yAxisMap } = props;
+    if (!formattedGraphicalItems || !yAxisMap || !yAxisMap.right) return null;
+
+    const yAxisRight = yAxisMap.right;
+
+    // Filtramos os itens que representam o VOLUME das matérias
+    const volumeItems = formattedGraphicalItems.filter(item => {
+        const dk = item.props?.dataKey || item.dataKey;
+        return dk && String(dk).startsWith('raw_total_');
+    });
+
+    if (volumeItems.length === 0) return null;
+
+    return (
+        <g style={{ pointerEvents: 'none' }}>
+            {volumeItems.map((item, idx) => {
+                const dk = item.props?.dataKey || item.dataKey;
+                const catName = String(dk).replace('raw_total_', '');
+                const cat = categories.find(c => c.name === catName);
+                if (!cat) return null;
+
+                const isFocused = focusSubjectId === cat.id;
+                const graphicalData = item.props?.data || item.data || [];
+
+                // Os pontos de RENDIMENTO são calculados usando o valor RENDIMENTO do payload 
+                // mapeado na escala do eixo DIREITO
+                const points = graphicalData.map(p => {
+                    const rendValue = p.payload[`raw_${catName}`];
+                    if (p && typeof p.x === 'number' && typeof rendValue === 'number') {
+                        const yCoord = yAxisRight.scale(rendValue);
+                        return { x: p.x + (p.width / 2), y: yCoord };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                if (points.length < 2) return null;
+
+                const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+                return (
+                    <path
+                        key={`connect-rend-${cat.id || idx}`}
+                        d={pathD}
+                        fill="none"
+                        stroke={cat.color}
+                        strokeWidth={1.5}
+                        strokeOpacity={showOnlyFocus ? 0.7 : (isFocused ? 0.6 : 0.2)}
+                        strokeDasharray="4 3"
+                    />
+                );
+            })}
+        </g>
+    );
+};
+
+// ── COMPONENTE DE BARRA CUSTOMIZADO COM PONTO DE RENDIMENTO ──
+const CustomBarShape = (props) => {
+    const { fill, x, y, width, height, fillOpacity, stroke, strokeWidth, payload, dataKey, yAxisMap } = props;
+
+    if (height == null || y == null) return null;
+
+    // A barra em si representa VOLUME (eixo ESQUERDO)
+    const catName = String(dataKey).replace('raw_total_', '');
+    const rendValue = payload[`raw_${catName}`];
+
+    // O ponto representa RENDIMENTO (deve usar escala do eixo DIREITO)
+    let rendY = y;
+    if (yAxisMap && yAxisMap.right && typeof rendValue === 'number') {
+        rendY = yAxisMap.right.scale(rendValue);
+    }
+
+    const centerX = x + width / 2;
+
+    return (
+        <g>
+            <Rectangle
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                fill={fill}
+                fillOpacity={fillOpacity}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                radius={[4, 4, 0, 0]}
+            />
+            {/* Ponto de Rendimento - Independente da altura da barra de volume */}
+            {typeof rendValue === 'number' && (
+                <circle
+                    cx={centerX}
+                    cy={rendY}
+                    r={3.5}
+                    fill={fill}
+                    stroke="#ffffff"
+                    strokeWidth={1}
+                    opacity={1}
+                />
+            )}
+        </g>
+    );
+};
+
 // ── CARD KPI ─────────────────────────────────────────────
 function KpiCard({ value, label, color, icon, sub }) {
     return (
@@ -82,7 +186,6 @@ function KpiCard({ value, label, color, icon, sub }) {
         </div>
     );
 }
-
 // ── DISCIPLINA CARD ───────────────────────────────────────
 function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
     const pct = Math.min(100, level || 0);
@@ -91,23 +194,23 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
     const statusColor = ok ? '#22c55e' : mid ? '#eab308' : '#ef4444';
     return (
         <button onClick={onClick}
-            className={`relative text-left w-full rounded-xl border p-2.5 sm:p-4 transition-all duration-300 group min-h-[76px] sm:min-h-[90px] ${isFocused ? 'border-opacity-60 shadow-[0_0_20px_rgba(0,0,0,0.4)]' : 'border-slate-800/70 hover:border-slate-700 hover:shadow-md'}`}
+            className={`relative text-left w-full rounded-2xl border p-3 sm:p-5 transition-all duration-300 group min-h-[82px] sm:min-h-[100px] ${isFocused ? 'border-opacity-60 shadow-[0_0_20px_rgba(0,0,0,0.4)]' : 'border-slate-800/70 hover:border-slate-700 hover:shadow-md'}`}
             style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
 
             {/* Background/Progress Layer */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                 <div className="absolute bottom-0 left-0 h-1 sm:h-0.5 transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
             </div>
 
-            <div className="relative z-10 flex items-center justify-between mb-1 sm:mb-2">
-                <span className="text-sm sm:text-base leading-none">{cat.icon}</span>
-                <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_6px_var(--dot-glow)]"
+            <div className="relative z-10 flex items-center justify-between mb-1.5 sm:mb-3">
+                <span className="text-base sm:text-lg leading-none">{cat.icon}</span>
+                <div className="w-2 h-2 rounded-full shadow-[0_0_8px_var(--dot-glow)]"
                     style={{ backgroundColor: statusColor, '--dot-glow': statusColor }} />
             </div>
             <div className="relative z-10">
-                <p className="text-[9px] sm:text-[11px] text-slate-400 font-bold uppercase tracking-wide break-words leading-[1.3] sm:leading-snug pb-0.5 sm:pb-1 line-clamp-2" title={cat.name}>{cat.name}</p>
-                <p className="text-sm sm:text-lg font-black leading-none pt-0.5 sm:pt-1" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
+                <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wide break-words leading-[1.3] sm:leading-snug pb-0.5 sm:pb-1 line-clamp-2" title={cat.name}>{cat.name}</p>
+                <p className="text-base sm:text-xl font-black leading-none pt-0.5 sm:pt-1" style={{ color: isFocused ? cat.color : '#f1f5f9' }}>
                     {pct.toFixed(1)}%
                 </p>
             </div>
@@ -212,8 +315,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     }, [timeline, focusCategory]);
 
     const maxVolume = useMemo(() => {
-        return Math.max(1, ...volumeData.map(d => d.volume));
-    }, [volumeData]);
+        let max = 1;
+        filteredChartData.forEach(d => {
+            categories.forEach(cat => {
+                const vol = d[`raw_total_${cat.name}`] || 0;
+                if (vol > max) max = vol;
+            });
+        });
+        return max;
+    }, [filteredChartData, categories]);
 
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -542,87 +652,157 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                     {/* Volume vs Rendimento */}
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
-                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Disciplina em foco 🎯</p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-2 sm:mb-4 truncate">📊 Volume vs Rendimento — <span style={{ color: focusColor }}>{focusCategory?.name}</span></h3>
+                        <div className="flex items-center justify-between mb-2 sm:mb-4 min-w-0">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Engenharia de Performance</p>
+                                <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
+                                    📊 {showOnlyFocus ? `Volume vs Rendimento — ${focusCategory?.name}` : "Volume vs Rendimento — Todas as Matérias"}
+                                </h3>
+                            </div>
+                            {!showOnlyFocus && (
+                                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/10 shrink-0 ml-2">
+                                    <div className="w-2 h-0.5 bg-white opacity-50" />
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Média Global</span>
+                                </div>
+                            )}
+                        </div>
                         <div className="h-[240px] sm:h-[280px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={volumeData} margin={{ top: 5, right: 10, left: -20, bottom: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
-                                    <YAxis yAxisId="left" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} border={0} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} width={40} />
-                                    <YAxis yAxisId="right" orientation="right" hide={true} />
-                                    <Tooltip cursor={false} content={({ active, payload }) => {
+                                <ComposedChart data={filteredChartData} margin={{ top: 10, right: 10, left: 5, bottom: 10 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis
+                                        dataKey="displayDate"
+                                        stroke="#94a3b8"
+                                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                        dy={4}
+                                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                        tickLine={false}
+                                        minTickGap={35}
+                                    />
+
+                                    {/* Left Axis: Training Volume (Question count) */}
+                                    <YAxis
+                                        yAxisId="left"
+                                        stroke="#475569"
+                                        tick={{ fontSize: 10, fill: '#475569', fontWeight: 'bold' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={45}
+                                        allowDecimals={false}
+                                    />
+
+                                    {/* Right Axis: Performance % (Fixed 0-100) */}
+                                    <YAxis
+                                        yAxisId="right"
+                                        orientation="right"
+                                        stroke="#ffffff"
+                                        tick={{ fontSize: 10, fill: '#ffffff', fontWeight: 'black' }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        domain={[0, 100]}
+                                        width={50}
+                                    />
+
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
+                                            const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
                                             return (
-                                                <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-lg shadow-xl min-w-[140px]">
-                                                    <p className="font-bold text-slate-300 mb-2 border-b border-slate-700/50 pb-1">{data.displayDate}</p>
-                                                    <div className="flex flex-col gap-2 text-xs">
-                                                        <div className="flex justify-between items-center gap-4">
-                                                            <span style={{ color: focusColor }} className="font-semibold">% Acertos</span>
-                                                            <span style={{ color: focusColor }} className="font-bold">{data.rendimento}%</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center gap-4">
-                                                            <span className="text-slate-400 font-semibold">Qtd. Questões</span>
-                                                            <span className="text-slate-200 font-bold">{data.volume}</span>
-                                                        </div>
+                                                <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[200px]">
+                                                    <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1 text-xs text-center">{data.displayDate}</p>
+                                                    <div className="space-y-3">
+                                                        {catsToShow.map(cat => {
+                                                            const vol = data[`raw_total_${cat.name}`];
+                                                            const rend = data[`raw_${cat.name}`];
+                                                            if (vol == null || vol === 0) return null;
+                                                            return (
+                                                                <div key={cat.id} className="flex flex-col gap-1">
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span style={{ color: cat.color }} className="font-bold text-[11px] uppercase tracking-wider">{cat.name}</span>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className="text-[10px] text-slate-500 font-bold">🎯</span>
+                                                                            <span style={{ color: cat.color }} className="font-black text-xs">{rend?.toFixed(1)}%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center bg-white/5 px-2 py-0.5 rounded">
+                                                                        <span className="text-[9px] text-slate-400 font-bold">VOLUME</span>
+                                                                        <span className="text-[10px] text-slate-200 font-black">{vol} questões</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }).filter(Boolean)}
+
+                                                        {data.global_total > 0 && !showOnlyFocus && (
+                                                            <div className="pt-2 border-t border-white/10 mt-1">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest text-shadow-glow">Média Total</span>
+                                                                    <span className="text-xs font-black text-white">{data.global_pct.toFixed(1)}%</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-slate-400 font-bold">
+                                                                    <span className="text-[9px] uppercase">Volume Total</span>
+                                                                    <span className="text-[10px]">{data.global_total} questões</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
                                         }
                                         return null;
                                     }} />
-                                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: 10 }} />
 
-                                    <Area yAxisId="left" name="% Acertos" type="monotone" dataKey="rendimento" stroke={focusColor} strokeWidth={2.5} fill="url(#focusGradient)"
-                                        dot={(props) => {
-                                            const { cx, cy, payload } = props;
-                                            if (typeof cx !== 'number' || typeof cy !== 'number') return null;
-                                            const vol = payload.volume || 0;
-                                            const r = 9 + (vol / maxVolume) * 12;
-                                            const isLast = volumeData.length > 0 && payload.originalDate === volumeData[volumeData.length - 1].originalDate;
-                                            return (
-                                                <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}`}>
-                                                    <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} strokeDasharray="3 3" />
-                                                    {isLast && (
-                                                        <>
-                                                            <circle cx={50} cy={cy} r={3.5} fill={focusColor} stroke="#ffffff" strokeWidth={1.5} />
-                                                            <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
-                                                            <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
-                                                        </>
-                                                    )}
-                                                    <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#0a0f1e" strokeWidth={1.5} opacity={0.9} style={{ transition: 'all 0.3s ease' }} />
-                                                    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(12, Math.max(8, r * 0.7))} fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0px 1px 2px rgba(0,0,0,0.8)' }}>
-                                                        {vol}
-                                                    </text>
-                                                </g>
-                                            );
-                                        }}
-                                        activeDot={(props) => {
-                                            const { cx, cy, payload } = props;
-                                            if (typeof cx !== 'number' || typeof cy !== 'number') return null;
-                                            const vol = payload.volume || 0;
-                                            const r = 9 + (vol / maxVolume) * 12 + 3;
-                                            const isLast = volumeData.length > 0 && payload.originalDate === volumeData[volumeData.length - 1].originalDate;
-                                            return (
-                                                <g key={`${cx.toFixed(1)}-${cy.toFixed(1)}-active`}>
-                                                    <line x1={cx} y1={cy} x2={cx} y2={220} stroke="rgba(255, 255, 255, 0.4)" strokeWidth={1} strokeDasharray="3 3" />
-                                                    {isLast && (
-                                                        <>
-                                                            <circle cx={50} cy={cy} r={3.5} fill={focusColor} stroke="#ffffff" strokeWidth={1.5} />
-                                                            <line x1={50} y1={cy} x2={cx} y2={cy} stroke={focusColor} strokeDasharray="3 3" strokeOpacity={0.8} />
-                                                            <text x={55} y={cy - 8} fill={focusColor} fontSize={10} fontWeight="bold">Atual: {payload.rendimento}%</text>
-                                                        </>
-                                                    )}
-                                                    <circle cx={cx} cy={cy} r={r} fill={focusColor} stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#glow)', transition: 'all 0.3s ease' }} />
-                                                    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#ffffff" fontSize={Math.min(13, Math.max(9, r * 0.7))} fontWeight="black" style={{ pointerEvents: 'none', textShadow: '0px 1px 3px rgba(0,0,0,0.9)' }}>
-                                                        {vol}
-                                                    </text>
-                                                </g>
-                                            );
-                                        }}
-                                        style={{ filter: 'url(#lineShadow)' }}
+                                    {!showOnlyFocus && (
+                                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: 20 }} iconType="circle" />
+                                    )}
+
+                                    {/* Subject Bars (Training Volume) - Mapped to LEFT axis */}
+                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
+                                        const isFocused = focusSubjectId === cat.id;
+                                        const volKey = `raw_total_${cat.name}`;
+
+                                        return (
+                                            <Bar
+                                                key={`bar_${cat.id}`}
+                                                yAxisId="left"
+                                                name={cat.name}
+                                                dataKey={volKey}
+                                                fill={cat.color}
+                                                fillOpacity={showOnlyFocus ? 0.5 : (isFocused ? 0.6 : 0.15)}
+                                                stroke={isFocused ? "#ffffff" : "none"}
+                                                strokeWidth={1}
+                                                shape={<CustomBarShape />}
+                                                barSize={showOnlyFocus ? 45 : undefined}
+                                                isAnimationActive={false}
+                                            />
+                                        );
+                                    })}
+
+                                    {/* Connectivity Lines (Performance %) - Mapped to RIGHT axis via Customized */}
+                                    <Customized
+                                        component={ConnectionPath}
+                                        categories={categories}
+                                        showOnlyFocus={showOnlyFocus}
+                                        focusSubjectId={focusSubjectId}
                                     />
+
+                                    {/* Global Performance Line - Mapped to RIGHT axis */}
+                                    {!showOnlyFocus && (
+                                        <Line
+                                            yAxisId="right"
+                                            name="Média Global"
+                                            type="monotone"
+                                            dataKey="global_pct"
+                                            stroke="#f8fafc"
+                                            strokeWidth={3}
+                                            strokeOpacity={0.9}
+                                            strokeDasharray="8 6"
+                                            dot={false}
+                                            activeDot={false}
+                                            legendType="none"
+                                            style={{ filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }}
+                                            isAnimationActive={false}
+                                        />
+                                    )}
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
