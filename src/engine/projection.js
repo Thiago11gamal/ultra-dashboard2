@@ -258,7 +258,7 @@ export function monteCarloSimulation(
     // Monte Carlo distribution, jumped visually on every new data point even mid-session.
     // New seed uses sum of all rounded scores + count, which is stable during a session
     // and only changes when data truly changes.
-    const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + (h.score || 0), 0));
+    const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h), 0));
     const seed = sortedHistory.length * 997 + scoreSum;
     const rng = mulberry32(seed);
 

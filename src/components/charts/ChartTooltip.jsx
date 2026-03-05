@@ -19,13 +19,14 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
             <div className="space-y-3">
                 {payload.map((p, i) => {
                     if (isCompare) {
+                        const val = Number(p.value);
                         return (
                             <div key={i} className="flex justify-between items-center gap-4">
                                 <span style={{ color: p.color }} className="font-medium text-xs">
                                     {p.name}
                                 </span>
                                 <span style={{ color: p.color }} className="font-bold">
-                                    {Number(p.value).toFixed(1)}%
+                                    {Number.isFinite(val) ? `${val.toFixed(1)}%` : '—'}
                                 </span>
                             </div>
                         );
@@ -50,19 +51,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal != null ? rawVal.toFixed(1) : '—'}%
+                                        {rawVal != null && Number.isFinite(Number(rawVal)) ? Number(rawVal).toFixed(1) : '—'}%
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Histórica</span>
                                     <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal != null ? statsVal.toFixed(1) : '—'}%
+                                        {statsVal != null && Number.isFinite(Number(statsVal)) ? Number(statsVal).toFixed(1) : '—'}%
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal != null ? bayVal.toFixed(1) : '—'}%
+                                        {bayVal != null && Number.isFinite(Number(bayVal)) ? Number(bayVal).toFixed(1) : '—'}%
                                     </span>
                                 </div>
                             </div>

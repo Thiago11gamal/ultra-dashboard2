@@ -8,12 +8,15 @@ export function getSafeScore(historyRow) {
 
     // Se a prova já tiver um .score calculado e armazenado corretamente, nós o consumimos integralmente.
     if (historyRow.score != null) {
-        return Number(historyRow.score);
+        const s = Number(historyRow.score);
+        return Number.isFinite(s) ? s : 0;
     }
 
     // Fallback de retrocompatibilidade: provas antigas só tinham .correct e .total.
-    if (historyRow.total && historyRow.total > 0) {
-        return (historyRow.correct / historyRow.total) * 100;
+    const total = Number(historyRow.total) || 0;
+    const correct = Number(historyRow.correct) || 0;
+    if (total > 0) {
+        return (correct / total) * 100;
     }
 
     return 0; // Prevenção de NaN

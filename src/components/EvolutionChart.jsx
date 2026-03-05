@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+    Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    BarChart, Bar, LabelList, Cell, Customized, Rectangle
+    BarChart, Bar, LabelList, Cell
 } from "recharts";
 import { monteCarloSimulation } from "../engine";
 import { useChartData } from "../hooks/useChartData";
@@ -54,19 +54,7 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
-// Bar simples arredondada para volume
-const RoundedBar = (props) => {
-    const { fill, x, y, width, height, fillOpacity, stroke, strokeWidth } = props;
-    if (!height || height <= 0 || !y == null) return null;
-    return (
-        <Rectangle
-            x={x} y={y} width={width} height={height}
-            fill={fill} fillOpacity={fillOpacity}
-            stroke={stroke} strokeWidth={strokeWidth}
-            radius={[3, 3, 0, 0]}
-        />
-    );
-};
+
 
 // ── CARD KPI ─────────────────────────────────────────────
 function KpiCard({ value, label, color, icon, sub }) {
@@ -83,7 +71,7 @@ function KpiCard({ value, label, color, icon, sub }) {
 
             <div className="relative z-10 flex items-center justify-between mb-2 sm:mb-3">
                 <span className="text-xl sm:text-2xl">{icon}</span>
-                {sub != null && (
+                {sub != null && Number.isFinite(sub) && (
                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${sub >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                         {sub >= 0 ? `+${sub.toFixed(1)}` : sub.toFixed(1)}
                     </span>
@@ -131,7 +119,7 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
 export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const { activeCategories, timeline, heatmapData, globalMetrics } = useChartData(categories, targetScore);
-    const [focusSubjectId, setFocusSubjectId] = useState(activeCategories[0]?.id);
+    const [focusSubjectId, setFocusSubjectId] = useState(() => activeCategories[0]?.id ?? categories[0]?.id);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
 
@@ -161,13 +149,21 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         let cancelled = false;
         const timer = setTimeout(() => {
             if (cancelled) return;
-            const result = monteCarloSimulation(hist, targetScore, 30, 2000);
-            if (!result || cancelled) return;
-            const lastDate = new Date(hist[hist.length - 1].date);
-            if (Number.isNaN(lastDate.getTime())) return;
-            const nextDate = new Date(lastDate);
-            nextDate.setDate(nextDate.getDate() + 30);
-            setMcProjection({ date: nextDate.toISOString().split("T")[0], mc_p50: parseFloat(result.mean), mc_band: [parseFloat(result.ci95Low), parseFloat(result.ci95High)] });
+            try {
+                const result = monteCarloSimulation(hist, targetScore, 30, 2000);
+                if (!result || cancelled) return;
+                const lastDate = new Date(hist[hist.length - 1].date);
+                if (Number.isNaN(lastDate.getTime())) return;
+                const nextDate = new Date(lastDate);
+                nextDate.setDate(nextDate.getDate() + 30);
+                const p50 = parseFloat(result.mean);
+                const lo = parseFloat(result.ci95Low);
+                const hi = parseFloat(result.ci95High);
+                if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
+                setMcProjection({ date: nextDate.toISOString().split("T")[0], mc_p50: p50, mc_band: [lo, hi] });
+            } catch (err) {
+                console.warn('[EvolutionChart] Monte Carlo falhou:', err);
+            }
         }, 0);
         return () => { cancelled = true; clearTimeout(timer); };
     }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore]);
@@ -218,22 +214,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return categories.map(cat => ({ subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15), nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0), meta: targetScore }));
     }, [timeline, categories, targetScore]);
 
-    const volumeData = useMemo(() => {
-        if (!focusCategory) return [];
-        // Keep the original Date for correct logic matching and sorting, while exposing displayDate for UI
-        return timeline.map(d => ({ originalDate: d.date, date: d.displayDate, volume: d[`raw_total_${focusCategory.name}`] || 0, rendimento: Math.round(d[`raw_${focusCategory.name}`] || 0) }));
-    }, [timeline, focusCategory]);
-
-    const maxVolume = useMemo(() => {
-        let max = 1;
-        filteredChartData.forEach(d => {
-            categories.forEach(cat => {
-                const vol = d[`raw_total_${cat.name}`] || 0;
-                if (vol > max) max = vol;
-            });
-        });
-        return max;
-    }, [filteredChartData, categories]);
+    // volumeData and maxVolume removed — no longer used after chart refactor
 
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -302,9 +283,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 let totalCorrect = 0;
                 timeline.forEach(d => {
                     const q = d[`raw_total_${cat.name}`] || 0;
-                    const pct = d[`raw_${cat.name}`];
+                    const c = d[`raw_correct_${cat.name}`] || 0;
                     totalQ += q;
-                    if (pct != null) totalCorrect += Math.round(q * pct / 100);
+                    totalCorrect += c;
                 });
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
@@ -496,7 +477,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
-                                        const dataKey = engine.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+                                        const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
                                         return [
                                             isFocused ? (
                                                 <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"

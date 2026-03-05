@@ -26,7 +26,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                 const h = history[histIdx];
                 accumulated.push({
                     ...h,
-                    score: h.score != null ? h.score : (h.total > 0 ? (h.correct / h.total) * 100 : 0)
+                    score: h.score != null ? Number(h.score) : (Number(h.total) > 0 ? (Number(h.correct) / Number(h.total)) * 100 : 0)
                 });
                 histIdx++;
             } else {
@@ -189,8 +189,8 @@ export function useChartData(categories = [], targetScore = 80) {
                 totalCorrect += (h.correct || 0);
             });
         });
-        const globalAccuracy = (totalQuestions > 0 && !isNaN(totalCorrect)) ? (totalCorrect / totalQuestions) * 100 : 0;
-        return { totalQuestions: totalQuestions || 0, totalCorrect: totalCorrect || 0, globalAccuracy };
+        const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
+        return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
     }, [activeCategories]);
 
     return {
