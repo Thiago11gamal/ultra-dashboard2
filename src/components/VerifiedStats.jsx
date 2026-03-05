@@ -315,11 +315,10 @@ export default function VerifiedStats({ categories = [], user }) {
                 const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
                 const sd = Math.sqrt(analysis.variance);
 
-                // --- TOPIC VARIATION ANALYSIS ---
-                const topicMap = {}; // { "TopicName": [score1, score2, ...] }
-                // Bug fix: iterate sortedHistory (chronological) not the raw unsorted history
-                // Using unsorted history scrambles topic scores across time, making SD unreliable
-                sortedHistory.forEach(h => {
+                // --- TOPIC VARIATION ANALYSIS (Synchronized with recent window) ---
+                const topicMap = {};
+                const recentHistoryForTopics = sortedHistory.slice(-10); // Analyze recent stability
+                recentHistoryForTopics.forEach(h => {
                     if (h.topics) {
                         h.topics.forEach(t => {
                             const total = Number(t.total) || 0;
@@ -594,81 +593,84 @@ export default function VerifiedStats({ categories = [], user }) {
                         </div>
 
                         {/* Data Rows */}
-                        {stats.categoryBreakdown.map((cat, idx) => {
-                            const maxSd = Math.max(...stats.categoryBreakdown.map(c => c.rawSd || 0), 1);
-                            const barWidth = Math.min(100, ((cat.rawSd || 0) / maxSd) * 100);
-                            const deltaNum = parseFloat(cat.delta);
-                            const sdNum = parseFloat(cat.sd);
+                        {(() => {
+                            const maxSdVal = Math.max(25, ...stats.categoryBreakdown.map(c => c.rawSd || 0));
+                            return stats.categoryBreakdown.map((cat, idx) => {
+                                const sdNum = parseFloat(cat.sd);
+                                // Consistency Bar: 100% means 0 SD, 0% means SD >= maxSdVal
+                                const barWidth = Math.max(0, 100 - (sdNum / maxSdVal) * 100);
+                                const deltaNum = parseFloat(cat.delta);
 
-                            // SD color based on value
-                            const sdBarColor = sdNum <= 5 ? 'bg-green-500' : sdNum <= 10 ? 'bg-blue-500' : sdNum <= 15 ? 'bg-yellow-500' : sdNum <= 25 ? 'bg-orange-500' : 'bg-red-500';
-                            const sdBarGlow = sdNum <= 5 ? 'shadow-green-500/30' : sdNum <= 10 ? 'shadow-blue-500/30' : sdNum <= 15 ? 'shadow-yellow-500/30' : sdNum <= 25 ? 'shadow-orange-500/30' : 'shadow-red-500/30';
+                                // SD color based on value
+                                const sdBarColor = sdNum <= 5 ? 'bg-green-500' : sdNum <= 10 ? 'bg-blue-500' : sdNum <= 15 ? 'bg-yellow-500' : sdNum <= 25 ? 'bg-orange-500' : 'bg-red-500';
+                                const sdBarGlow = sdNum <= 5 ? 'shadow-green-500/30' : sdNum <= 10 ? 'shadow-blue-500/30' : sdNum <= 15 ? 'shadow-yellow-500/30' : sdNum <= 25 ? 'shadow-orange-500/30' : 'shadow-red-500/30';
 
-                            return (
-                                <div
-                                    key={cat.name}
-                                    className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}
-                                >
-                                    {/* Subject Name */}
-                                    <div className="col-span-3 flex items-center gap-2 min-w-0">
-                                        <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
-                                        <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
-                                    </div>
-
-                                    {/* Status Badge */}
-                                    <div className="col-span-2 flex justify-center">
-                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
-                                            {cat.status}
-                                        </span>
-                                    </div>
-
-                                    {/* SD Bar */}
-                                    <div className="col-span-4 flex items-center gap-2">
-                                        <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
-                                            <div
-                                                className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`}
-                                                style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }}
-                                            />
-                                            {/* Threshold markers */}
-                                            <div className="absolute top-0 h-full w-px bg-white/10" style={{ left: `${(10 / maxSd) * 100}%` }} title="SD=10" />
-                                            <div className="absolute top-0 h-full w-px bg-white/10" style={{ left: `${(20 / maxSd) * 100}%` }} title="SD=20" />
+                                return (
+                                    <div
+                                        key={cat.name}
+                                        className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}
+                                    >
+                                        {/* Subject Name */}
+                                        <div className="col-span-3 flex items-center gap-2 min-w-0">
+                                            <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                                            <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
                                         </div>
-                                        <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>
-                                            ±{cat.sd}
-                                        </span>
-                                    </div>
 
-                                    {/* Delta */}
-                                    <div className="col-span-1 flex justify-center items-center">
-                                        {deltaNum > 0 ? (
-                                            <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5">
-                                                <TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}
+                                        {/* Status Badge */}
+                                        <div className="col-span-2 flex justify-center">
+                                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
+                                                {cat.status}
                                             </span>
-                                        ) : deltaNum < 0 ? (
-                                            <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5">
-                                                <TrendingDown size={10} />{deltaNum.toFixed(0)}
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] font-bold text-slate-600">—</span>
-                                        )}
-                                    </div>
+                                        </div>
 
-                                    {/* Villains (compact) */}
-                                    <div className="col-span-2 flex flex-col gap-0.5 min-w-0">
-                                        {cat.villains && cat.villains.length > 0 ? (
-                                            cat.villains.slice(0, 2).map((v) => (
-                                                <div key={v.name} className="flex items-center justify-between text-[9px] gap-1">
-                                                    <span className="text-slate-500 truncate">{v.name.length > 12 ? v.name.substring(0, 11) + '…' : v.name}</span>
-                                                    <span className="text-red-400/70 font-mono flex-shrink-0">±{v.sd.toFixed(0)}</span>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <span className="text-[9px] text-slate-600 text-center">—</span>
-                                        )}
+                                        {/* SD Bar */}
+                                        <div className="col-span-4 flex items-center gap-2">
+                                            <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                                                <div
+                                                    className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`}
+                                                    style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }}
+                                                />
+                                                {/* Threshold markers (Stability centered) */}
+                                                {/* SD 5 (90% stability), SD 15 (40% stability) */}
+                                                <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
+                                                <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} title="SD=15" />
+                                            </div>
+                                            <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>
+                                                ±{cat.sd}
+                                            </span>
+                                        </div>
+
+                                        {/* Delta */}
+                                        <div className="col-span-1 flex justify-center items-center">
+                                            {deltaNum > 0 ? (
+                                                <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5">
+                                                    <TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}
+                                                </span>
+                                            ) : deltaNum < 0 ? (
+                                                <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5">
+                                                    <TrendingDown size={10} />{deltaNum.toFixed(0)}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-slate-600">—</span>
+                                            )}
+                                        </div>
+
+                                        {/* Villains (compact) */}
+                                        <div className="col-span-2 flex flex-col gap-0.5 min-w-0">
+                                            {cat.villains && cat.villains.length > 0 ? (
+                                                cat.villains.slice(0, 2).map((v) => (
+                                                    <div key={v.name} className="flex items-center justify-between text-[9px] gap-1">
+                                                        <span className="text-slate-500 truncate">{v.name.length > 12 ? v.name.substring(0, 11) + '…' : v.name}</span>
+                                                        <span className="text-red-400/70 font-mono flex-shrink-0">±{v.sd.toFixed(0)}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <span className="text-[9px] text-slate-600 text-center">—</span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                            });
+                        })()}
 
                         {/* Legend */}
                         <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
