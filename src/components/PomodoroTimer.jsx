@@ -129,7 +129,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [activeSubject, safeSettings]); // Added dependencies
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
-    const [speed] = useState(1); // Dev speed toggles removed in production
+    const [speed, setSpeed] = useState(1); // Dev speed toggles added back per user request
     const [showWarning, setShowWarning] = useState(false);
 
 
@@ -701,7 +701,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         </motion.button>
                     </div>
 
-                    {/* Dev Speed Toggle removed for Production */}
+                    {/* Dev Speed Toggle */}
+                    {activeSubject && (
+                        <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-[#1c1917] p-1.5 rounded-xl border border-stone-800 shadow-lg z-20">
+                            {[1, 10, 100].map(s => (
+                                <button
+                                    key={s}
+                                    onClick={() => setSpeed(s)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${speed === s
+                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                            : 'text-stone-500 hover:text-stone-300 hover:bg-[#292524]'
+                                        }`}
+                                >
+                                    {s}x
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                 </div>
             </motion.div>

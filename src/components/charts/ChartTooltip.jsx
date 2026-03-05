@@ -38,6 +38,8 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     const rawVal = currentData ? currentData[`raw_${subjName}`] : null;
                     const bayVal = currentData ? currentData[`bay_${subjName}`] : null;
                     const statsVal = currentData ? currentData[`stats_${subjName}`] : null;
+                    const trendVal = currentData ? currentData[`trend_${subjName}`] : null;
+                    const trendStatus = currentData ? currentData[`trend_status_${subjName}`] : 'stable';
 
                     return (
                         <div key={i} className="flex flex-col bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
@@ -47,7 +49,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {subjName}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="grid grid-cols-4 gap-2 text-center">
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
@@ -64,6 +66,12 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
                                         {bayVal != null && Number.isFinite(Number(bayVal)) ? Number(bayVal).toFixed(1) : '—'}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase">Tendência</span>
+                                    <span className={`text-xs font-mono font-bold ${trendStatus === 'up' ? 'text-green-400' : trendStatus === 'down' ? 'text-red-400' : 'text-slate-400'}`}>
+                                        {trendVal != null && Number.isFinite(Number(trendVal)) ? (trendVal > 0 ? `+${trendVal.toFixed(1)}` : trendVal.toFixed(1)) : '—'}
                                     </span>
                                 </div>
                             </div>

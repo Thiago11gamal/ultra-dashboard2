@@ -458,7 +458,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: 0, bottom: 12 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }}>
                                     <defs>
                                         {categories.map(cat => (
                                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -473,11 +473,50 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
+                                        content={() => null} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                                         const isFocused = focusSubjectId === cat.id;
                                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+
+                                        // Render a custom label at the end of the line
+                                        const renderCustomLabel = (props) => {
+                                            const { x, y, index, value } = props;
+                                            // Only render at the very last point of the line
+                                            if (index === filteredChartData.length - 1 && value != null) {
+                                                const trendVal = filteredChartData[index][`trend_${cat.name}`];
+                                                const trendStatus = filteredChartData[index][`trend_status_${cat.name}`];
+
+                                                let trendText = '';
+                                                let trendColor = '#94a3b8';
+                                                if (trendVal != null && Number.isFinite(Number(trendVal))) {
+                                                    if (trendStatus === 'up') {
+                                                        trendText = ` (+${trendVal.toFixed(1)})`;
+                                                        trendColor = '#4ade80';
+                                                    } else if (trendStatus === 'down') {
+                                                        trendText = ` (${trendVal.toFixed(1)})`;
+                                                        trendColor = '#f87171';
+                                                    } else {
+                                                        trendText = ` (—)`;
+                                                    }
+                                                }
+
+                                                return (
+                                                    <g>
+                                                        <text x={x + 8} y={y - 8} fill={cat.color} fontSize={11} fontWeight="bold">
+                                                            {Number(value).toFixed(1)}%
+                                                        </text>
+                                                        {trendText && (
+                                                            <text x={x + 8} y={y + 6} fill={trendColor} fontSize={9} fontWeight="bold">
+                                                                {trendText}
+                                                            </text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            }
+                                            return null;
+                                        };
+
                                         return [
                                             isFocused ? (
                                                 <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
@@ -486,23 +525,26 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
                                                 stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
                                                 strokeOpacity={isFocused ? 1 : 0.5}
-                                                dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : false}
-                                                activeDot={{ r: isFocused ? 7 : 5, strokeWidth: 2, stroke: '#0a0f1e' }}
+                                                dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : { r: 2, fill: cat.color, strokeWidth: 0 }}
+                                                activeDot={false}
                                                 connectNulls
                                                 style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
-                                            />
+                                                isAnimationActive={false}
+                                            >
+                                                <LabelList content={renderCustomLabel} />
+                                            </Line>
                                         ];
                                     }).filter(Boolean)}
                                 </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: 0, bottom: 20 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
                                     <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        content={<ChartTooltip chartData={filteredChartData} isCompare={true} />} />
+                                        content={() => null} />
                                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                                     {/* MC Band */}
                                     <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" legendType="none" />
@@ -510,15 +552,47 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     {/* Lines */}
                                     <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
                                         fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
-                                        activeDot={{ r: 6, strokeWidth: 2 }} connectNulls style={{ filter: 'url(#lineShadow)' }} />
+                                        activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
+                                        <LabelList content={(props) => {
+                                            const { x, y, index, value } = props;
+                                            if (value == null) return null;
+                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] != null ? i : acc, -1);
+                                            if (index !== lastIdx) return null;
+                                            return <text x={x + 8} y={y + 4} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                        }} />
+                                    </Area>
                                     <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
-                                        dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls strokeOpacity={0.85} />
+                                        dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
+                                        <LabelList content={(props) => {
+                                            const { x, y, index, value } = props;
+                                            if (value == null) return null;
+                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
+                                            if (index !== lastIdx) return null;
+                                            return <text x={x + 8} y={y + 4} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                        }} />
+                                    </Line>
                                     <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
-                                        strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} />
+                                        strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
+                                        <LabelList content={(props) => {
+                                            const { x, y, index, value } = props;
+                                            if (value == null) return null;
+                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] != null ? i : acc, -1);
+                                            if (index !== lastIdx) return null;
+                                            return <text x={x + 8} y={y + 4} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                        }} />
+                                    </Line>
                                     <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5}
                                         strokeDasharray="7 5"
                                         dot={{ r: 6, fill: '#a78bfa', stroke: '#0a0f1e', strokeWidth: 2 }}
-                                        connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} />
+                                        connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
+                                        <LabelList content={(props) => {
+                                            const { x, y, index, value } = props;
+                                            if (value == null) return null;
+                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
+                                            if (index !== lastIdx) return null;
+                                            return <text x={x + 8} y={y + 4} fill="#a78bfa" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                        }} />
+                                    </Line>
                                 </ComposedChart>
                             )}
                         </ResponsiveContainer>

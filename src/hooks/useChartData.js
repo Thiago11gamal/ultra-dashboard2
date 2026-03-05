@@ -111,6 +111,8 @@ export function useChartData(categories = [], targetScore = 80) {
                 dataByDate[date][`raw_${cat.name}`] = last.score;
                 dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], targetScore, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
+                dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
+                dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
 
                 // Global Aggregation (Multi-subject totals for the date)
                 dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
