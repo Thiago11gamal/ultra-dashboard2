@@ -458,7 +458,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             {activeEngine !== "compare" ? (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 12 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: 0, bottom: 12 }}>
                                     <defs>
                                         {categories.map(cat => (
                                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -495,7 +495,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     }).filter(Boolean)}
                                 </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: -25, bottom: 20 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 10, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
                                     <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={50} />
