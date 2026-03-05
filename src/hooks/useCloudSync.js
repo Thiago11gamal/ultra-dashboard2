@@ -90,16 +90,24 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const isBootSync = !hasInitialSyncRef.current;
 
             // --- CONFLICT RESOLUTION ---
-            const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 8000;
+            // Aumentando a janela de proteção local para 15 segundos.
+            // Se o usuário digitou qualquer coisa nos últimos 15s, a nuvem NÃO deve sobrescrever.
+            const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 15000;
 
             let shouldPullCloud = false;
 
             if (isBootSync) {
-                const cloudUpdated = new Date(cloudData.lastUpdated || 0).getTime();
-                const localUpdated = new Date(appStateRef.current?.lastUpdated || 0).getTime();
+                // Bug Fix: Não usar "0" como fallback se o Date falhar, use o tempo atual.
+                // Isso previne que a nuvem seja sempre rejeitada se faltar a prop `lastUpdated` no banco.
+                const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
+                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? 0 : cloudUpdatedRaw.getTime();
 
-                // On boot, cloud wins unless local is strictly newer (e.g. user worked offline and just refreshed/reopened).
-                // Add 5-second tolerance for slight clock drifts.
+                const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
+                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
+
+                // Regra Mestre de Boot: A nuvem vence ACESSOS em novos aparelhos,
+                // A MENOS que o local seja ESTRITAMENTE mais novo (cenário de Offline-Progress salvo).
+                // Adicionada tolerância estrita de 5s para clock-drifts de NTP.
                 if (cloudUpdated >= localUpdated - 5000) {
                     shouldPullCloud = true;
                 } else {
@@ -107,7 +115,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     shouldPullCloud = false;
                 }
             } else {
-                // If the app is already running, we accept cloud updates unless the user is actively typing/clicking.
+                // Se o App já está rolando (Hot Sync), a nuvem envia live-updates (Telas duplas).
+                // Aceitamos a nuvem SÓ SE o usuário não está digitando ativamente.
                 shouldPullCloud = !localWasJustEdited;
             }
 
