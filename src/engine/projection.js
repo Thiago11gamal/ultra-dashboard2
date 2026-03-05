@@ -6,12 +6,12 @@
 import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 
-// -----------------------------
-// Helper: Ensure history is sorted by date
-// -----------------------------
+// Helper: Ensure history is sorted by date and filter out invalid dates
 function getSortedHistory(history) {
     if (!history) return [];
-    return [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+    return [...history]
+        .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
 // -----------------------------
