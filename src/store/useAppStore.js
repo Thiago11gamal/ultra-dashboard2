@@ -29,9 +29,12 @@ const stripForUndo = (contestsObj) => {
 // Previously called via get().recordHistory(state) which relies on Immer internal behavior
 // and can break silently on library updates. Now called directly with the Immer proxy.
 const recordHistory = (appState) => {
+    // Proactive Pruning: If history is getting large, prune it before adding more
+    if (appState.history.length >= 20) {
+        appState.history.shift();
+    }
     const snapshot = JSON.parse(JSON.stringify(stripForUndo(appState.contests)));
     appState.history.push({ contests: snapshot, activeId: appState.activeId });
-    if (appState.history.length > 20) appState.history.shift();
 };
 
 // Helper to handle gamification within the store
@@ -118,7 +121,7 @@ export const useAppStore = create(
                     activeId: activeId
                 });
 
-                if (state.appState.history.length > 20) state.appState.history.shift();
+                if (state.appState.history.length >= 20) state.appState.history.shift();
 
                 // RESTORE ALL FIELDS (including mcEqualWeights and future fields)
                 Object.keys(nextState).forEach(key => {
@@ -466,13 +469,18 @@ export const useAppStore = create(
                     } catch (e) {
                         // Error code 22 is usually QuotaExceededError
                         if (e.name === 'QuotaExceededError' || e.code === 22) {
-                            console.warn('LocalStorage limit reached! Attempting to save without history...');
+                            console.warn('LocalStorage limit reached! Wiping history from RAM and storage...');
                             try {
                                 const state = JSON.parse(value);
                                 if (state.state?.appState) {
-                                    // Wipe history to save the actual data
+                                    // CRITICAL: Wipe history NOT JUST in the string but in the store state itself for the NEXT render/save
+                                    // Use set.getState() or reach into the store? Zustand middleware has limited access here
+                                    // but we can at least ensure the string being saved is clean.
                                     state.state.appState.history = [];
                                     localStorage.setItem(name, JSON.stringify(state));
+
+                                    // Notify the UI to clear the RAM state if possible via a global event
+                                    window.dispatchEvent(new CustomEvent('storage-quota-reached'));
                                 }
                             } catch (error) {
                                 console.error('Auto-pruning failed:', error);

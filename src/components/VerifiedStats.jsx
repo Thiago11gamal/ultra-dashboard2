@@ -20,7 +20,7 @@ export default function VerifiedStats({ categories = [], user }) {
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('monte_carlo_target');
-            if (saved) { const parsed = parseInt(saved, 10); if (!isNaN(parsed)) return parsed; }
+            if (saved) { const parsed = parseFloat(saved); if (!isNaN(parsed)) return parsed; }
         }
         const userTarget = parseFloat(user?.targetProbability);
         return !isNaN(userTarget) ? userTarget : 70;
@@ -60,7 +60,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         // Sync with global user object only if different to prevent infinite cycles
-        if (user && user.targetProbability !== targetScore) {
+        if (user && Number(user.targetProbability) !== targetScore) {
             setUserData(data => {
                 if (data.user) {
                     data.user.targetProbability = targetScore;
@@ -93,7 +93,8 @@ export default function VerifiedStats({ categories = [], user }) {
         // 0. Aggregate by Day (Fix Bug 1: Mixed subjects as independent points biased the OLS)
         const dailyMap = {};
         allHistory.forEach(h => {
-            const dateStr = new Date(h.date).toISOString().split('T')[0];
+            const d = new Date(h.date);
+            const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }
@@ -321,8 +322,8 @@ export default function VerifiedStats({ categories = [], user }) {
                 sortedHistory.forEach(h => {
                     if (h.topics) {
                         h.topics.forEach(t => {
-                            const total = parseInt(t.total) || 0;
-                            const correct = parseInt(t.correct) || 0;
+                            const total = Number(t.total) || 0;
+                            const correct = Number(t.correct) || 0;
                             if (total > 0) {
                                 const topicScore = (correct / total) * 100;
                                 if (!topicMap[t.name]) topicMap[t.name] = [];

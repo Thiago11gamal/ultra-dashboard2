@@ -17,6 +17,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
     const [error, setError] = useState(null);
+    const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
 
     // Bug Fix: track mount status for async operations
     const isMounted = React.useRef(true);
@@ -95,13 +96,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
             });
 
-            let invalidSubject = null;
-            let invalidTopic = null;
+            const invalidSubjects = new Set();
+            const invalidTopics = new Set();
+            let firstInvalidSubject = null;
+            let firstInvalidTopic = null;
             let targetSubject = '';
-            let hasErrors = false;
 
-            const validatedRows = rows.map(r => {
-                if (!r.subject && !r.topic) return r;
+            rows.forEach((r, idx) => {
+                if (!r.subject && !r.topic) return;
 
                 const subNorm = normalize(r.subject);
                 const topNorm = normalize(r.topic);
@@ -119,38 +121,37 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     }
                 }
 
-                let newRow = { ...r };
-
                 if (r.subject && !isSubValid) {
-                    invalidSubject = r.subject;
-                    newRow.subject = '';
-                    hasErrors = true;
+                    if (!firstInvalidSubject) firstInvalidSubject = r.subject;
+                    invalidSubjects.add(idx);
                 }
 
                 if (r.topic && !isTopValid) {
-                    invalidTopic = r.topic;
-                    targetSubject = r.subject;
-                    newRow.topic = '';
-                    hasErrors = true;
+                    if (!firstInvalidTopic) {
+                        firstInvalidTopic = r.topic;
+                        targetSubject = r.subject;
+                    }
+                    invalidTopics.add(idx);
                 }
-
-                return newRow;
             });
 
-            if (hasErrors) {
-                setRows(validatedRows);
+            if (invalidSubjects.size > 0 || invalidTopics.size > 0) {
+                setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
 
-                if (invalidSubject && invalidTopic) {
-                    setError(`Matéria '${invalidSubject}' e Assunto '${invalidTopic}' não encontrados.`);
-                } else if (invalidSubject) {
-                    setError(`A matéria '${invalidSubject}' não existe no Dashboard.`);
-                } else if (invalidTopic) {
-                    setError(`O assunto '${invalidTopic}' não existe na matéria '${targetSubject}'.`);
+                if (firstInvalidSubject && firstInvalidTopic) {
+                    setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
+                } else if (firstInvalidSubject) {
+                    setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
+                } else if (firstInvalidTopic) {
+                    setError(`O assunto '${firstInvalidTopic}' não existe na matéria '${targetSubject}'.`);
                 }
 
                 setAnalysisData(null);
+                setLoading(false);
                 return;
             }
+            // Clear errors if all valid
+            setErrorIndices({ subjects: new Set(), topics: new Set() });
         }
 
         const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total) > 0);
@@ -340,11 +341,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
                                         <input type="text" value={row.subject}
                                             disabled={true}
-                                            className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
+                                            className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
                                             placeholder="Matéria" />
                                         <input type="text" value={row.topic}
                                             disabled={true}
-                                            className="bg-transparent outline-none text-sm w-full min-w-0 text-slate-400 cursor-not-allowed"
+                                            className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.topics.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
                                             placeholder="Assunto" />
                                         <input type="number" min="0" value={row.correct}
                                             onChange={(e) => updateRow(index, 'correct', e.target.value)}

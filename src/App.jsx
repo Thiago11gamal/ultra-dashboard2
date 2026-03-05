@@ -86,11 +86,7 @@ function MainLayout() {
     reader.onload = (e) => {
       try {
         const result = parseImportedData(e.target.result, appState);
-        if (result.type === 'FULL_RESTORE') {
-          setAppState(result.data);
-        } else {
-          setAppState(result.data);
-        }
+        setAppState(result.data);
         showToast('Backup restaurado com sucesso!', 'success');
       } catch (err) {
         console.error("Import Error:", err);

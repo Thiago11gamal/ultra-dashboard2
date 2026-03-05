@@ -9,8 +9,9 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
+    const today = new Date().toDateString();
     const rawTodayRows = (data.simuladoRows || []).filter(
-        r => r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()
+        r => r.createdAt && new Date(r.createdAt).toDateString() === today
     );
 
     // 1. Build the auto-synced rows combined with saved data
@@ -129,7 +130,9 @@ export default function Simulados() {
                     // Don't log entirely empty subjects to history
                     if (totalQ > 0) {
                         const score = (totalC / totalQ) * 100;
-                        const newHistory = [...(currentStats.history || []), { date: new Date().toISOString(), score, total: totalQ, correct: totalC, topics: validTopics }];
+                        const d = new Date();
+                        const localNow = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString();
+                        const newHistory = [...(currentStats.history || []), { date: localNow, score, total: totalQ, correct: totalC, topics: validTopics }];
 
                         const grandTotalQ = newHistory.reduce((acc, h) => acc + Number(h.total || 0), 0);
                         const grandTotalC = newHistory.reduce((acc, h) => acc + Number(h.correct || 0), 0);
