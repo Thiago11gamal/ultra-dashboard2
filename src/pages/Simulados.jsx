@@ -131,7 +131,7 @@ export default function Simulados() {
                     if (totalQ > 0) {
                         const score = (totalC / totalQ) * 100;
                         const d = new Date();
-                        const localNow = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString();
+                        const localNow = d.toISOString();
                         const newHistory = [...(currentStats.history || []), { date: localNow, score, total: totalQ, correct: totalC, topics: validTopics }];
 
                         const grandTotalQ = newHistory.reduce((acc, h) => acc + Number(h.total || 0), 0);
