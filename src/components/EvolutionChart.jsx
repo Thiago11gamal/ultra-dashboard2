@@ -54,107 +54,17 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
-// ── COMPONENTE DE CONEXÃO CUSTOMIZADO ──────────────────────
-const ConnectionPath = (props) => {
-    const { formattedGraphicalItems, categories, showOnlyFocus, focusSubjectId, yAxisMap } = props;
-    if (!formattedGraphicalItems || !yAxisMap || !yAxisMap.right) return null;
-
-    const yAxisRight = yAxisMap.right;
-
-    // Filtramos os itens que representam o VOLUME das matérias
-    const volumeItems = formattedGraphicalItems.filter(item => {
-        const dk = item.props?.dataKey || item.dataKey;
-        return dk && String(dk).startsWith('raw_total_');
-    });
-
-    if (volumeItems.length === 0) return null;
-
+// Bar simples arredondada para volume
+const RoundedBar = (props) => {
+    const { fill, x, y, width, height, fillOpacity, stroke, strokeWidth } = props;
+    if (!height || height <= 0 || !y == null) return null;
     return (
-        <g style={{ pointerEvents: 'none' }}>
-            {volumeItems.map((item, idx) => {
-                const dk = item.props?.dataKey || item.dataKey;
-                const catName = String(dk).replace('raw_total_', '');
-                const cat = categories.find(c => c.name === catName);
-                if (!cat) return null;
-
-                const isFocused = focusSubjectId === cat.id;
-                const graphicalData = item.props?.data || item.data || [];
-
-                // Os pontos de RENDIMENTO são calculados usando o valor RENDIMENTO do payload 
-                // mapeado na escala do eixo DIREITO
-                const points = graphicalData.map(p => {
-                    const rendValue = p.payload[`raw_${catName}`];
-                    if (p && typeof p.x === 'number' && typeof rendValue === 'number') {
-                        const yCoord = yAxisRight.scale(rendValue);
-                        return { x: p.x + (p.width / 2), y: yCoord };
-                    }
-                    return null;
-                }).filter(Boolean);
-
-                if (points.length < 2) return null;
-
-                const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-                return (
-                    <path
-                        key={`connect-rend-${cat.id || idx}`}
-                        d={pathD}
-                        fill="none"
-                        stroke={cat.color}
-                        strokeWidth={1.5}
-                        strokeOpacity={showOnlyFocus ? 0.7 : (isFocused ? 0.6 : 0.2)}
-                        strokeDasharray="4 3"
-                    />
-                );
-            })}
-        </g>
-    );
-};
-
-// ── COMPONENTE DE BARRA CUSTOMIZADO COM PONTO DE RENDIMENTO ──
-const CustomBarShape = (props) => {
-    const { fill, x, y, width, height, fillOpacity, stroke, strokeWidth, payload, dataKey, yAxisMap } = props;
-
-    if (height == null || y == null) return null;
-
-    // A barra em si representa VOLUME (eixo ESQUERDO)
-    const catName = String(dataKey).replace('raw_total_', '');
-    const rendValue = payload[`raw_${catName}`];
-
-    // O ponto representa RENDIMENTO (deve usar escala do eixo DIREITO)
-    let rendY = y;
-    if (yAxisMap && yAxisMap.right && typeof rendValue === 'number') {
-        rendY = yAxisMap.right.scale(rendValue);
-    }
-
-    const centerX = x + width / 2;
-
-    return (
-        <g>
-            <Rectangle
-                x={x}
-                y={y}
-                width={width}
-                height={height}
-                fill={fill}
-                fillOpacity={fillOpacity}
-                stroke={stroke}
-                strokeWidth={strokeWidth}
-                radius={[4, 4, 0, 0]}
-            />
-            {/* Ponto de Rendimento - Independente da altura da barra de volume */}
-            {typeof rendValue === 'number' && (
-                <circle
-                    cx={centerX}
-                    cy={rendY}
-                    r={3.5}
-                    fill={fill}
-                    stroke="#ffffff"
-                    strokeWidth={1}
-                    opacity={1}
-                />
-            )}
-        </g>
+        <Rectangle
+            x={x} y={y} width={width} height={height}
+            fill={fill} fillOpacity={fillOpacity}
+            stroke={stroke} strokeWidth={strokeWidth}
+            radius={[3, 3, 0, 0]}
+        />
     );
 };
 
@@ -652,140 +562,175 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                     {/* Volume vs Rendimento */}
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
-                        <div className="flex items-center justify-between mb-2 sm:mb-4 min-w-0">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
                             <div className="min-w-0 flex-1">
-                                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Engenharia de Performance</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Engenharia de Performance</p>
                                 <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
                                     📊 {showOnlyFocus ? `Volume vs Rendimento — ${focusCategory?.name}` : "Volume vs Rendimento — Todas as Matérias"}
                                 </h3>
                             </div>
-                            {!showOnlyFocus && (
-                                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/10 shrink-0 ml-2">
-                                    <div className="w-2 h-0.5 bg-white opacity-50" />
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Média Global</span>
+                            {/* Legend manual — Volume + Eficiência */}
+                            <div className="flex items-center gap-3 shrink-0 ml-3">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded-sm bg-indigo-500/70 inline-block"></span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Volume</span>
                                 </div>
-                            )}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-3 h-0.5 bg-white/60 inline-block"></span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Rendimento</span>
+                                </div>
+                            </div>
                         </div>
-                        <div className="h-[240px] sm:h-[280px] w-full">
+
+                        {/* Chart */}
+                        <div className="h-[300px] sm:h-[340px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={filteredChartData} margin={{ top: 10, right: 10, left: 5, bottom: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <ComposedChart
+                                    data={filteredChartData}
+                                    margin={{ top: 20, right: 50, left: 10, bottom: 20 }}
+                                    barCategoryGap="35%"
+                                >
+                                    <defs>
+                                        {/* Gradiente para cada categoria */}
+                                        {categories.map(cat => (
+                                            <linearGradient key={`grad_${cat.id}`} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={cat.color} stopOpacity={0.85} />
+                                                <stop offset="100%" stopColor={cat.color} stopOpacity={0.35} />
+                                            </linearGradient>
+                                        ))}
+                                    </defs>
+
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+
                                     <XAxis
                                         dataKey="displayDate"
-                                        stroke="#94a3b8"
-                                        tick={{ fontSize: 10, fill: '#94a3b8' }}
-                                        dy={4}
-                                        axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                        axisLine={false}
                                         tickLine={false}
+                                        tick={{ fill: '#64748b', fontSize: 11 }}
+                                        dy={10}
                                         minTickGap={35}
                                     />
 
-                                    {/* Left Axis: Training Volume (Question count) */}
+                                    {/* Eixo Esquerdo: Questões */}
                                     <YAxis
                                         yAxisId="left"
-                                        stroke="#475569"
-                                        tick={{ fontSize: 10, fill: '#475569', fontWeight: 'bold' }}
+                                        orientation="left"
                                         axisLine={false}
                                         tickLine={false}
-                                        width={45}
+                                        tick={{ fill: '#6366f1', fontSize: 11 }}
+                                        width={42}
                                         allowDecimals={false}
+                                        label={{ value: 'Questões', angle: -90, position: 'insideLeft', fill: '#4f46e5', fontSize: 10, dx: -2 }}
                                     />
 
-                                    {/* Right Axis: Performance % (Fixed 0-100) */}
+                                    {/* Eixo Direito: % de Acerto */}
                                     <YAxis
                                         yAxisId="right"
                                         orientation="right"
-                                        stroke="#ffffff"
-                                        tick={{ fontSize: 10, fill: '#ffffff', fontWeight: 'black' }}
+                                        domain={[0, 100]}
                                         axisLine={false}
                                         tickLine={false}
-                                        domain={[0, 100]}
-                                        width={50}
+                                        tick={{ fill: '#10b981', fontSize: 11 }}
+                                        width={44}
+                                        tickFormatter={(v) => `${v}%`}
+                                        label={{ value: '% Acerto', angle: 90, position: 'insideRight', fill: '#059669', fontSize: 10, dx: 6 }}
                                     />
 
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const data = payload[0].payload;
-                                            const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
-                                            return (
-                                                <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[200px]">
-                                                    <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1 text-xs text-center">{data.displayDate}</p>
-                                                    <div className="space-y-3">
-                                                        {catsToShow.map(cat => {
-                                                            const vol = data[`raw_total_${cat.name}`];
-                                                            const rend = data[`raw_${cat.name}`];
-                                                            if (vol == null || vol === 0) return null;
-                                                            return (
-                                                                <div key={cat.id} className="flex flex-col gap-1">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span style={{ color: cat.color }} className="font-bold text-[11px] uppercase tracking-wider">{cat.name}</span>
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <span className="text-[10px] text-slate-500 font-bold">🎯</span>
-                                                                            <span style={{ color: cat.color }} className="font-black text-xs">{rend?.toFixed(1)}%</span>
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const d = payload[0].payload;
+                                                const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
+                                                return (
+                                                    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[210px]">
+                                                        <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1.5 text-xs text-center">{d.displayDate}</p>
+                                                        <div className="space-y-2">
+                                                            {catsToShow.map(cat => {
+                                                                const vol = d[`raw_total_${cat.name}`];
+                                                                const rend = d[`raw_${cat.name}`];
+                                                                if (!vol) return null;
+                                                                return (
+                                                                    <div key={cat.id} className="flex flex-col gap-0.5">
+                                                                        <span style={{ color: cat.color }} className="font-bold text-[10px] uppercase tracking-wider">{cat.name}</span>
+                                                                        <div className="flex justify-between text-[11px] gap-4">
+                                                                            <span className="text-slate-400">📚 <span className="text-slate-200 font-bold">{vol} q</span></span>
+                                                                            <span className="text-slate-400">🎯 <span style={{ color: cat.color }} className="font-bold">{rend?.toFixed(1)}%</span></span>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex justify-between items-center bg-white/5 px-2 py-0.5 rounded">
-                                                                        <span className="text-[9px] text-slate-400 font-bold">VOLUME</span>
-                                                                        <span className="text-[10px] text-slate-200 font-black">{vol} questões</span>
-                                                                    </div>
+                                                                );
+                                                            }).filter(Boolean)}
+                                                            {d.global_total > 0 && !showOnlyFocus && (
+                                                                <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                                                                    <span className="text-[9px] font-black text-white uppercase">Média Global</span>
+                                                                    <span className="text-xs font-black text-white">{d.global_pct?.toFixed(1)}%</span>
                                                                 </div>
-                                                            );
-                                                        }).filter(Boolean)}
-
-                                                        {data.global_total > 0 && !showOnlyFocus && (
-                                                            <div className="pt-2 border-t border-white/10 mt-1">
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest text-shadow-glow">Média Total</span>
-                                                                    <span className="text-xs font-black text-white">{data.global_pct.toFixed(1)}%</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-slate-400 font-bold">
-                                                                    <span className="text-[9px] uppercase">Volume Total</span>
-                                                                    <span className="text-[10px]">{data.global_total} questões</span>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }} />
-
-                                    {!showOnlyFocus && (
-                                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: 20 }} iconType="circle" />
-                                    )}
-
-                                    {/* Subject Bars (Training Volume) - Mapped to LEFT axis */}
-                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
-                                        const isFocused = focusSubjectId === cat.id;
-                                        const volKey = `raw_total_${cat.name}`;
-
-                                        return (
-                                            <Bar
-                                                key={`bar_${cat.id}`}
-                                                yAxisId="left"
-                                                name={cat.name}
-                                                dataKey={volKey}
-                                                fill={cat.color}
-                                                fillOpacity={showOnlyFocus ? 0.5 : (isFocused ? 0.6 : 0.15)}
-                                                stroke={isFocused ? "#ffffff" : "none"}
-                                                strokeWidth={1}
-                                                shape={<CustomBarShape />}
-                                                barSize={showOnlyFocus ? 45 : undefined}
-                                                isAnimationActive={false}
-                                            />
-                                        );
-                                    })}
-
-                                    {/* Connectivity Lines (Performance %) - Mapped to RIGHT axis via Customized */}
-                                    <Customized
-                                        component={ConnectionPath}
-                                        categories={categories}
-                                        showOnlyFocus={showOnlyFocus}
-                                        focusSubjectId={focusSubjectId}
+                                                );
+                                            }
+                                            return null;
+                                        }}
                                     />
 
-                                    {/* Global Performance Line - Mapped to RIGHT axis */}
+                                    {/* BARRAS — Volume (eixo esquerdo) */}
+                                    {categories
+                                        .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+                                        .map((cat) => {
+                                            const isFocused = focusSubjectId === cat.id;
+                                            return (
+                                                <Bar
+                                                    key={`vol_${cat.id}`}
+                                                    yAxisId="left"
+                                                    name={cat.name}
+                                                    dataKey={`raw_total_${cat.name}`}
+                                                    fill={`url(#grad_${cat.id})`}
+                                                    fillOpacity={showOnlyFocus ? 0.9 : (isFocused ? 0.85 : 0.3)}
+                                                    radius={[5, 5, 0, 0]}
+                                                    isAnimationActive={false}
+                                                    barSize={showOnlyFocus ? 50 : undefined}
+                                                    legendType="none"
+                                                />
+                                            );
+                                        })
+                                    }
+
+                                    {/* LINHAS + PONTOS — Rendimento % (eixo direito) */}
+                                    {categories
+                                        .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+                                        .map((cat) => {
+                                            const isFocused = focusSubjectId === cat.id;
+                                            const opacity = showOnlyFocus ? 1 : (isFocused ? 1 : 0.5);
+                                            return (
+                                                <Line
+                                                    key={`rend_${cat.id}`}
+                                                    yAxisId="right"
+                                                    name={`${cat.name} (%)`}
+                                                    dataKey={`raw_${cat.name}`}
+                                                    type="monotone"
+                                                    stroke={cat.color}
+                                                    strokeWidth={isFocused || showOnlyFocus ? 3 : 1.5}
+                                                    strokeOpacity={opacity}
+                                                    dot={{
+                                                        r: isFocused || showOnlyFocus ? 6 : 4,
+                                                        fill: cat.color,
+                                                        stroke: '#0f172a',
+                                                        strokeWidth: 2,
+                                                        opacity: opacity,
+                                                    }}
+                                                    activeDot={{ r: 8, strokeWidth: 2, stroke: '#ffffff' }}
+                                                    connectNulls={false}
+                                                    legendType="none"
+                                                    isAnimationActive={false}
+                                                />
+                                            );
+                                        })
+                                    }
+
+                                    {/* LINHA MÉDIA GLOBAL */}
                                     {!showOnlyFocus && (
                                         <Line
                                             yAxisId="right"
@@ -793,78 +738,262 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             type="monotone"
                                             dataKey="global_pct"
                                             stroke="#f8fafc"
-                                            strokeWidth={3}
-                                            strokeOpacity={0.9}
-                                            strokeDasharray="8 6"
+                                            strokeWidth={2.5}
+                                            strokeOpacity={0.8}
+                                            strokeDasharray="8 5"
                                             dot={false}
                                             activeDot={false}
                                             legendType="none"
-                                            style={{ filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' }}
+                                            style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }}
                                             isAnimationActive={false}
                                         />
                                     )}
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
-                    </div>
 
-                    {/* Matérias Críticas */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
-                        <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
-                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
-                            {pointLeakageData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
-                                    <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
-                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
-                                            {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                    <span className="text-4xl mb-3">🎉</span>
-                                    Nenhum erro registrado esta semana!
-                                </div>
-                            )}
+                        {/* Dica */}
+                        <div className="mt-3 px-3 py-2 bg-white/3 rounded-xl border border-dashed border-slate-800 text-center">
+                            <p className="text-[10px] text-slate-500 italic">
+                                📌 Barra acima do ponto = está estudando mais do que acertando. Ponto acima da barra = eficiência está superando o volume.
+                            </p>
                         </div>
                     </div>
 
-                    {/* Assuntos Críticos */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                        <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
-                        <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
-                        <div className="min-h-[220px] sm:min-h-[260px] w-full">
-                            {subtopicsData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
-                                    <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                        <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
-                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
-                                            {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                    <span className="text-4xl mb-3">🎉</span>
-                                    Nenhum erro registrado esta semana!
-                                </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart
+                            data={filteredChartData}
+                            margin={{ top: 16, right: 55, left: 8, bottom: 12 }}
+                            barCategoryGap="30%"
+                            barGap={2}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis
+                                dataKey="displayDate"
+                                stroke="#94a3b8"
+                                tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                dy={4}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+                                tickLine={false}
+                                minTickGap={35}
+                            />
+
+                            {/* Eixo Esquerdo: Volume de Questões */}
+                            <YAxis
+                                yAxisId="left"
+                                stroke="#475569"
+                                tick={{ fontSize: 9, fill: '#475569' }}
+                                axisLine={false}
+                                tickLine={false}
+                                width={40}
+                                allowDecimals={false}
+                            />
+
+                            {/* Eixo Direito: Rendimento % (0-100) */}
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                stroke="rgba(255,255,255,0.3)"
+                                tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.5)' }}
+                                axisLine={false}
+                                tickLine={false}
+                                domain={[0, 100]}
+                                width={38}
+                                tickFormatter={(v) => `${v}%`}
+                            />
+
+                            <Tooltip
+                                cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 4 }}
+                                content={({ active, payload }) => {
+                                    if (active && payload && payload.length) {
+                                        const data = payload[0].payload;
+                                        const catsToShow = categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
+                                        return (
+                                            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[210px]">
+                                                <p className="font-black text-slate-300 mb-2 border-b border-white/5 pb-1.5 text-xs text-center">{data.displayDate}</p>
+                                                <div className="space-y-2.5">
+                                                    {catsToShow.map(cat => {
+                                                        const vol = data[`raw_total_${cat.name}`];
+                                                        const rend = data[`raw_${cat.name}`];
+                                                        if (vol == null || vol === 0) return null;
+                                                        return (
+                                                            <div key={cat.id} className="flex flex-col gap-1">
+                                                                <span style={{ color: cat.color }} className="font-bold text-[11px] uppercase tracking-wider">{cat.name}</span>
+                                                                <div className="flex justify-between items-center gap-3">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[9px] text-slate-500 font-bold uppercase">Vol</span>
+                                                                        <span className="text-[10px] text-slate-200 font-black">{vol} q</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[9px] text-slate-500 font-bold uppercase">Rend</span>
+                                                                        <span style={{ color: cat.color }} className="font-black text-[11px]">{rend?.toFixed(1)}%</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }).filter(Boolean)}
+                                                    {data.global_total > 0 && !showOnlyFocus && (
+                                                        <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                                                            <span className="text-[9px] font-black text-white uppercase tracking-wide">Média Global</span>
+                                                            <span className="text-[11px] font-black text-white">{data.global_pct?.toFixed(1)}%</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                }}
+                            />
+
+                            {!showOnlyFocus && (
+                                <Legend
+                                    wrapperStyle={{ fontSize: '10px', paddingTop: 16 }}
+                                    iconType="circle"
+                                    formatter={(value) => {
+                                        // Oculta itens de rendimento da legenda (são pontos), mostra só barras
+                                        if (String(value).startsWith('_rend_')) return null;
+                                        return value;
+                                    }}
+                                />
                             )}
+
+                            {/* BARRAS — Volume de Questões (eixo esquerdo) */}
+                            {categories
+                                .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+                                .map((cat) => {
+                                    const isFocused = focusSubjectId === cat.id;
+                                    return (
+                                        <Bar
+                                            key={`vol_${cat.id}`}
+                                            yAxisId="left"
+                                            name={cat.name}
+                                            dataKey={`raw_total_${cat.name}`}
+                                            fill={cat.color}
+                                            fillOpacity={showOnlyFocus ? 0.55 : (isFocused ? 0.65 : 0.18)}
+                                            stroke={isFocused ? cat.color : 'none'}
+                                            strokeWidth={1}
+                                            shape={<RoundedBar />}
+                                            isAnimationActive={false}
+                                            barSize={showOnlyFocus ? 50 : undefined}
+                                        />
+                                    );
+                                })
+                            }
+
+                            {/* PONTOS + LINHAS — Rendimento % (eixo direito) */}
+                            {categories
+                                .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+                                .map((cat) => {
+                                    const isFocused = focusSubjectId === cat.id;
+                                    const opacity = showOnlyFocus ? 1 : (isFocused ? 0.95 : 0.45);
+                                    return (
+                                        <Line
+                                            key={`rend_${cat.id}`}
+                                            yAxisId="right"
+                                            name={`_rend_${cat.name}`}
+                                            dataKey={`raw_${cat.name}`}
+                                            type="monotone"
+                                            stroke={cat.color}
+                                            strokeWidth={1.5}
+                                            strokeOpacity={opacity * 0.7}
+                                            strokeDasharray="5 4"
+                                            dot={{
+                                                r: 5,
+                                                fill: cat.color,
+                                                stroke: '#0f172a',
+                                                strokeWidth: 2,
+                                                opacity: opacity,
+                                            }}
+                                            activeDot={{ r: 7, strokeWidth: 2, stroke: '#ffffff' }}
+                                            connectNulls={false}
+                                            legendType="none"
+                                            isAnimationActive={false}
+                                        />
+                                    );
+                                })
+                            }
+
+                            {/* LINHA MÉDIA GLOBAL (eixo direito) */}
+                            {!showOnlyFocus && (
+                                <Line
+                                    yAxisId="right"
+                                    name="Média Global"
+                                    type="monotone"
+                                    dataKey="global_pct"
+                                    stroke="#f8fafc"
+                                    strokeWidth={2.5}
+                                    strokeOpacity={0.85}
+                                    strokeDasharray="8 5"
+                                    dot={false}
+                                    activeDot={false}
+                                    legendType="none"
+                                    style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }}
+                                    isAnimationActive={false}
+                                />
+                            )}
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Matérias Críticas */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Última semana</p>
+                <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
+                <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Erros absolutos por disciplina nos últimos 7 dias.</p>
+                <div className="min-h-[220px] sm:min-h-[260px] w-full">
+                    {pointLeakageData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
+                            <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
+                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                    {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                    <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                            <span className="text-4xl mb-3">🎉</span>
+                            Nenhum erro registrado esta semana!
                         </div>
-                    </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Assuntos Críticos */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
+                <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">Última semana · todos os assuntos</p>
+                <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
+                <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos de todas as matérias com mais erros absolutos.</p>
+                <div className="min-h-[220px] sm:min-h-[260px] w-full">
+                    {subtopicsData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
+                            <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
+                                <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
+                                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
+                                    {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                                    <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
+                            <span className="text-4xl mb-3">🎉</span>
+                            Nenhum erro registrado esta semana!
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
+            </div >
+        </div >
     );
 }
