@@ -32,7 +32,7 @@ const ENGINES = [
     },
     {
         id: "bayesian", label: "Nível Bayesiano", emoji: "🧠", color: "#34d399", prefix: "bay_", style: "monotone",
-        explain: { titulo: "A sua sabedoria consolidada", simples: "O algoritmo não se deixa enganar por dias ruins ou sorte. Ele calcula seu nível real.", dica: "Use esta visão para decidir se já pode avançar de matéria." },
+        explain: { titulo: "Seu nível real — modelo Beta-Binomial", simples: "Atualiza uma crença probabilística sobre sua taxa de acerto a cada simulado. A banda verde é o intervalo de 95% de confiança: quanto mais estreita, mais certeza temos do seu nível.", dica: "Com poucos simulados a banda é larga (incerteza alta). Ela vai fechando conforme você faz mais provas — use isso para decidir se já pode avançar de matéria." },
     },
     {
         id: "stats", label: "Média Histórica", emoji: "📐", color: "#818cf8", prefix: "stats_", style: "basis",
@@ -118,8 +118,8 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
 
 export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
-    const { activeCategories, timeline, heatmapData, globalMetrics } = useChartData(categories, targetScore);
-    const [focusSubjectId, setFocusSubjectId] = useState(() => activeCategories[0]?.id ?? categories[0]?.id);
+    const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
+    const { activeCategories, timeline, heatmapData, globalMetrics } = useChartData(categories, focusSubjectId);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
 
@@ -194,7 +194,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
         // Bug fix 1: never mutate the memoized timeline array — map to new objects
-        let pts = timeline.map((d) => ({ ...d, "Nota Bruta": d[`raw_${focusCategory.name}`], "Nível Bayesiano": d[`bay_${focusCategory.name}`], "Média Histórica": d[`stats_${focusCategory.name}`] }));
+        let pts = timeline.map((d) => ({ ...d, "Nota Bruta": d[`raw_${focusCategory.name}`], "Nível Bayesiano": d[`bay_${focusCategory.name}`], "Bay CI Low": d[`bay_ci_low_${focusCategory.name}`], "Bay CI High": d[`bay_ci_high_${focusCategory.name}`], "Banda Bayesiana": d[`bay_ci_low_${focusCategory.name}`] != null ? [d[`bay_ci_low_${focusCategory.name}`], d[`bay_ci_high_${focusCategory.name}`]] : null, "Média Histórica": d[`stats_${focusCategory.name}`] }));
         if (mcProjection && pts.length > 0) {
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
@@ -222,20 +222,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
     }, [chartData, timeWindow, timeline]);
 
-    const focusSnapshot = useMemo(() => {
-        if (!focusCategory || !timeline.length) return null;
-        const bayKey = `bay_${focusCategory.name}`;
-        // BUG FIX: use only points where this specific category has valid data.
-        // The old code used the last two timeline dates regardless of category,
-        // so if the user's last two study sessions were in OTHER categories, delta was always 0.
-        const validPoints = timeline.filter(d => d[bayKey] != null && (d[bayKey] > 0));
-        if (!validPoints.length) return null;
-        const last = validPoints[validPoints.length - 1];
-        const prev = validPoints.length > 1 ? validPoints[validPoints.length - 2] : null;
-        const currentBay = last[bayKey] || 0;
-        const previousBay = prev ? (prev[bayKey] || 0) : currentBay;
-        return { currentBay, delta: currentBay - previousBay };
-    }, [focusCategory, timeline]);
+
 
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -390,6 +377,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                         <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                     </linearGradient>
+                    <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
+                    </linearGradient>
                     <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={focusColor} stopOpacity={0.35} />
                         <stop offset="100%" stopColor={focusColor} stopOpacity={0.01} />
@@ -476,15 +467,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
-                ) : activeEngine === "compare" && focusCategory && !activeCategories.some(ac => ac.id === focusCategory.id) ? (
-                    <div className="h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-800/40 bg-amber-950/10 px-6 text-center">
-                        <span className="text-4xl">📦</span>
-                        <p className="text-amber-300 font-bold text-sm">Matéria agrupada em "Outras"</p>
-                        <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
-                            O Raio-X + Monte Carlo exibe individualmente apenas as <span className="text-indigo-400 font-bold">5 matérias com maior volume</span>.
-                            Selecione uma das 5 principais ou use as abas <em>Nível Bayesiano</em> / <em>Realidade Bruta</em> para ver todas.
-                        </p>
-                    </div>
                 ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
@@ -542,8 +524,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 const { x, y, index, value } = props;
                                                 // Only render at the very last point of the line
                                                 if (index === filteredChartData.length - 1 && value != null) {
-                                                    const trendVal = filteredChartData[index][`trend_${cat.name}`];
-                                                    const trendStatus = filteredChartData[index][`trend_status_${cat.name}`];
+
 
                                                     // Apple sweeping offsetPx
                                                     let offsetPx = 0;
@@ -585,6 +566,23 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 }
                                             };
                                             return [
+                                                (isFocused && engine.id === 'bayesian') ? (
+                                                    <Area key={`bay_ci_${cat.id}`} type={engine.style}
+                                                        dataKey={`bay_ci_high_${cat.name}`}
+                                                        name="IC 95% (sup)" stroke="none"
+                                                        fill="url(#bayBandGradient)" legendType="none"
+                                                        baseValue="dataMin" connectNulls
+                                                        isAnimationActive={false}
+                                                    />
+                                                ) : null,
+                                                (isFocused && engine.id === 'bayesian') ? (
+                                                    <Area key={`bay_ci_low_${cat.id}`} type={engine.style}
+                                                        dataKey={`bay_ci_low_${cat.name}`}
+                                                        name="IC 95% (inf)" stroke="none"
+                                                        fill="#0a0f1e" legendType="none"
+                                                        connectNulls isAnimationActive={false}
+                                                    />
+                                                ) : null,
                                                 isFocused ? (
                                                     <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
                                                         fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
@@ -649,6 +647,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                                         return (
                                             <>
+                                                {/* Banda IC 95% Bayesiana */}
+                                                <Area type="monotone" dataKey="Bay CI High"
+                                                    stroke="none" fill="url(#bayBandGradient)"
+                                                    legendType="none" connectNulls isAnimationActive={false} />
+                                                <Area type="monotone" dataKey="Bay CI Low"
+                                                    stroke="none" fill="#0a0f1e"
+                                                    legendType="none" connectNulls isAnimationActive={false} />
                                                 {/* MC Band */}
                                                 <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                                                 {/* Lines */}

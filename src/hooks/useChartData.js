@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { computeCategoryStats, calculateWeightedProjectedMean } from '../engine';
+import { computeCategoryStats } from '../engine';
 
 const getDateKey = (rawDate) => {
     if (!rawDate) return null;
@@ -10,12 +10,7 @@ const getDateKey = (rawDate) => {
     return localDate.toISOString().split('T')[0];
 };
 
-// Fix 2: O(n) helper — compute cumulative stats snapshot at each date position
-// instead of re-filtering the full array per date (O(n²) previously)
 function buildCumulativeStatsPerDate(history, sortedDates) {
-    // BUG FIX: History contains multiple sessions per day. If we pass them all to computeCategoryStats,
-    // the statistical engines (Bayesian EMA, Variance, Trend) will treat them as separate days,
-    // distorting the moving averages and variance calculations. We must pre-aggregate by day first.
     const aggregatedHistoryByDateMap = new Map();
 
     for (const h of history) {
@@ -36,43 +31,57 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         }
     }
 
-    // Convert back to sorted array of daily aggregates
     const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     const dateToStats = {};
     let accumulated = [];
     let histIdx = 0;
 
+    // Bayesian accumulators — Prior Beta(3,3)
+    let bayAlpha = 3;
+    let bayBeta = 3;
+
     for (const date of sortedDates) {
-        // Add all aggregated history entries that fall on or before this date
         while (histIdx < aggregatedHistory.length) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
-                accumulated.push(aggregatedHistory[histIdx]);
+                const entry = aggregatedHistory[histIdx];
+                const total = Number(entry.total) || 0;
+                const correct = Number(entry.correct) || 0;
+                if (total >= 5) {
+                    bayAlpha += correct;
+                    bayBeta += (total - correct);
+                }
+                accumulated.push(entry);
                 histIdx++;
             } else {
                 break;
             }
         }
         if (accumulated.length > 0) {
+            const n = bayAlpha + bayBeta;
+            const p = bayAlpha / n;
+            const variance = (bayAlpha * bayBeta) / (n * n * (n + 1));
+            const sd = Math.sqrt(variance);
             dateToStats[date] = {
                 stats: computeCategoryStats(accumulated, 100),
-                last: accumulated[accumulated.length - 1]
+                last: accumulated[accumulated.length - 1],
+                bayesian: {
+                    mean: p * 100,
+                    ciLow: Math.max(0, (p - 1.96 * sd) * 100),
+                    ciHigh: Math.min(100, (p + 1.96 * sd) * 100),
+                    alpha: bayAlpha,
+                    beta: bayBeta,
+                },
             };
         }
     }
     return dateToStats;
 }
 
-/**
- * Hook for processing and memoizing chart data
- */
-export function useChartData(categories = [], targetScore = 80) {
-    // 1. Memoize active categories — BUG 7 FIX: filter to only cats with actual history
-    // The previous useMemo had no transformation, causing unnecessary re-renders in cascade.
+export function useChartData(categories = [], focusId = null) {
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
-        // Sort by volume descending
         valid.sort((a, b) => {
             const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
@@ -112,12 +121,17 @@ export function useChartData(categories = [], targetScore = 80) {
         return valid;
     }, [categories]);
 
-    // 2. Generate Timeline Data (Common for Line/Composed charts)
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
 
+        const categoriesToProcess = [...activeCategories];
+        const focusedCat = categories.find(c => c.id === focusId);
+        if (focusedCat && !activeCategories.some(ac => ac.id === focusedCat.id)) {
+            categoriesToProcess.push(focusedCat);
+        }
+
         const allDatesSet = new Set();
-        activeCategories.forEach(cat => {
+        categoriesToProcess.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const dateKey = getDateKey(h.date);
                 if (dateKey) allDatesSet.add(dateKey);
@@ -127,7 +141,7 @@ export function useChartData(categories = [], targetScore = 80) {
         const dates = Array.from(allDatesSet).sort();
         const dataByDate = {};
 
-        dates.forEach((date, i) => {
+        dates.forEach((date) => {
             const [_year, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
@@ -135,15 +149,12 @@ export function useChartData(categories = [], targetScore = 80) {
             };
         });
 
-        // Fix 2: compute cumulative stats ONCE per category — O(D + N) instead of O(D × N)
-        activeCategories.forEach(cat => {
+        categoriesToProcess.forEach(cat => {
             const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
             if (!history.length) return;
 
-            // Pre-build cumulative stats snapshots for all dates in one pass
             const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
 
-            // For raw_correct / raw_total: group exact-date entries once
             const exactByDate = {};
             history.forEach(h => {
                 const key = getDateKey(h.date);
@@ -157,40 +168,42 @@ export function useChartData(categories = [], targetScore = 80) {
                 const snap = cumulativeByDate[date];
                 if (!snap) return;
 
-                const { stats, last } = snap;
+                const { stats } = snap;
                 const exact = exactByDate[date];
 
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                // FIX 11: Set raw score to null if the daily sample is too small (<5).
-                // Recharts will use connectNulls to draw a smooth line ignoring the noisy data point.
                 const rawDailyScore = total >= 5 ? (correct / total) * 100 : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
                 dataByDate[date][`raw_${cat.name}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
+                dataByDate[date][`bay_${cat.name}`] = snap.bayesian ? snap.bayesian.mean : 0;
+                dataByDate[date][`bay_ci_low_${cat.name}`] = snap.bayesian ? snap.bayesian.ciLow : 0;
+                dataByDate[date][`bay_ci_high_${cat.name}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
                 dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
 
-                // Global Aggregation (Multi-subject totals for the date)
-                dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
-                dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
+                // ONLY update globals for CATEGORIES in activeCategories!
+                // (To avoid double counting if focusSubject is already in top 5, 
+                // OR counting hidden categories if we want to mimic current UI logic)
+                if (activeCategories.some(ac => ac.id === cat.id)) {
+                    dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
+                    dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
+                }
             });
         });
 
-        // Compute global percentage for each point
         dates.forEach(date => {
             const d = dataByDate[date];
             d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0;
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories, targetScore]);
+    }, [activeCategories, categories, focusId]);
 
-    // 3. Generate Heatmap Data — Fix 8: cap to last 60 unique days
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
 
@@ -203,7 +216,6 @@ export function useChartData(categories = [], targetScore = 80) {
             });
         });
 
-        // Fix 8: only render last 60 days to prevent horizontal layout overflow
         const sortedDates = Array.from(allDatesSet).sort().slice(-60);
         const dates = sortedDates.map(dateStr => {
             const d = new Date(`${dateStr}T12:00:00`);
@@ -242,7 +254,6 @@ export function useChartData(categories = [], targetScore = 80) {
         return { dates, rows };
     }, [activeCategories]);
 
-    // 4. Global Metrics
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
@@ -263,4 +274,3 @@ export function useChartData(categories = [], targetScore = 80) {
         globalMetrics
     };
 }
-

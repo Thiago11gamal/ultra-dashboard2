@@ -5,23 +5,14 @@ export function mean(arr) {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-/**
- * Cálculo de Desvio Padrão com Shrinkage Bayesiano (Melhoria 1)
- * Estabiliza a volatilidade para alunos com poucos dados (< 10 simulados).
- */
 export function standardDeviation(arr) {
     if (!arr || arr.length < 2) return 0;
 
     const n = arr.length;
     const m = mean(arr);
 
-    // Variância da Amostra (cálculo clássico)
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
-    // --- SHRINKAGE BAYESIANO ---
-    // Evita que o desvio seja zero ou explosivo com poucos dados.
-    // POPULATION_SD = 12 (Volatilidade típica de concurseiro)
-    // KAPPA = 3 (Força do prior - equivale a ter 3 provas "fantasmas" na média)
     const POPULATION_SD = 12;
     const KAPPA = 3;
 
@@ -32,15 +23,9 @@ export function standardDeviation(arr) {
     return Math.sqrt(adjustedVar);
 }
 
-/**
- * Cálculo de Tendência com Teste de Significância (Melhoria 2)
- * Retorna o slope apenas se T-Stat > 2.0 (95% confiança).
- * Caso contrário, retorna 0 (estável), evitando falsos alarmes.
- */
 export function calculateTrend(scores) {
     if (!scores || scores.length < 3) return 0;
 
-    // Foca na tendência recente (últimos 10)
     const recentScores = scores.slice(-10);
     const n = recentScores.length;
 
@@ -63,25 +48,21 @@ export function calculateTrend(scores) {
 
     const slope = num / den;
 
-    // Cálculo do Erro Padrão (Standard Error) da inclinação
-    let rss = 0; // Residual Sum of Squares
+    let rss = 0;
     for (let i = 0; i < n; i++) {
         const pred = meanY + slope * (x[i] - meanX);
         rss += Math.pow(y[i] - pred, 2);
     }
 
-    // Prevents division by zero or negative denominators for small samples
     if (n <= 2) return 0;
 
-    const sigma2 = rss / (n - 2); // Variância dos resíduos
-    const seSlope = Math.sqrt(sigma2 / den); // Erro padrão do slope
+    const sigma2 = rss / (n - 2);
+    const seSlope = Math.sqrt(sigma2 / den);
 
-    // T-Statistic: Aplica Student's t-distribution para punir amostras pequenas (<10)
     if (seSlope > 0) {
         const tStat = slope / seSlope;
         const df = n - 2;
 
-        // Tabela empírica para distribuição T-Student (95% confiança)
         const tDist95 = {
             1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57,
             6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23
@@ -91,41 +72,67 @@ export function calculateTrend(scores) {
         if (Math.abs(tStat) < tCrit) return 0;
     }
 
-    // Normaliza para "pontos por 10 simulados" para facilitar leitura humana
     return slope * 10;
 }
 
 /**
- * Legacy support for UI components
- * Aggregates history data into a stats object
+ * Nível Bayesiano Real — Modelo Beta-Binomial Conjugado
+ * Prior: Beta(3,3) = 6 questões fantasma centradas em 50%.
+ * A cada simulado: alpha += acertos, beta += erros.
+ * Retorna média posterior + IC 95%.
  */
+export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
+    let alpha = alpha0;
+    let beta = beta0;
+
+    if (history && history.length > 0) {
+        for (const h of history) {
+            const total = Number(h.total) || 0;
+            const correct = Number(h.correct) || 0;
+            if (total < 5) continue;
+            alpha += correct;
+            beta += (total - correct);
+        }
+    }
+
+    const n = alpha + beta;
+    const p = alpha / n;
+    const mean = p * 100;
+
+    const variance = (alpha * beta) / (n * n * (n + 1));
+    const sd = Math.sqrt(variance);
+
+    const ciLow = Math.max(0, (p - 1.96 * sd) * 100);
+    const ciHigh = Math.min(100, (p + 1.96 * sd) * 100);
+
+    return {
+        mean: Number(mean.toFixed(2)),
+        ciLow: Number(ciLow.toFixed(2)),
+        ciHigh: Number(ciHigh.toFixed(2)),
+        alpha,
+        beta,
+        n,
+    };
+}
+
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
 
-    // FIX 11: Ignore samples where total questions < 5 to prevent false peaks
     const validHistory = history.filter(h => (Number(h.total) || 0) >= 5);
-    const historyToUse = validHistory.length > 0 ? validHistory : history; // fallback to not break early users
+    const historyToUse = validHistory.length > 0 ? validHistory : history;
 
-    // Garante extração estatística segura através do Helper Universal
     const scores = historyToUse.map(h => getSafeScore(h));
 
-    // FIX 3: Usar a verdadeira média ponderada global (Acertos Totais / Questões Totais)
-    // para bater exatamente com a nota exibida no Menu Tarefas, em vez da média comum das notas diárias.
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
     const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
-    // FIX 1: Usa o novo Desvio Padrão Bayesiano
     const sd = standardDeviation(scores);
-
-    // SafeSD: Mantém um piso mínimo de 2% da média para cálculos de risco
     const safeSD = Math.max(sd, m * 0.02);
-
-    // FIX 2: Usa a nova Tendência com Significância
     const rawTrend = calculateTrend(scores);
 
     let trendLabel = 'stable';
-    if (rawTrend > 0.5) trendLabel = 'up'; // Leve tolerância
+    if (rawTrend > 0.5) trendLabel = 'up';
     else if (rawTrend < -0.5) trendLabel = 'down';
 
     return {
@@ -135,6 +142,6 @@ export function computeCategoryStats(history, weight) {
         weight: weight,
         history: history,
         trend: trendLabel,
-        trendValue: rawTrend // Valor numérico para gráficos avançados
+        trendValue: rawTrend
     };
 }
