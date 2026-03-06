@@ -119,7 +119,7 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
 export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
-    const { activeCategories, timeline, heatmapData, globalMetrics } = useChartData(categories, focusSubjectId);
+    const { timeline, heatmapData, globalMetrics } = useChartData(categories, focusSubjectId);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
 

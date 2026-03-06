@@ -20,7 +20,8 @@ export const lazyWithRetry = (componentImport) =>
                 // Log the error and force a refresh to get the latest manifest
                 console.warn('Chunk load failed. Forcing page refresh for latest assets...', error);
                 window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-                return window.location.reload();
+                window.location.reload();
+                return new Promise(() => { }); // Manter a promessa "pendente" enquanto o reload acontece
             }
 
             // If we already refreshed and it still fails, bubble up the error
