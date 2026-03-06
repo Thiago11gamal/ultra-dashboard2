@@ -5,7 +5,7 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     BarChart, Bar, LabelList, Cell
 } from "recharts";
-import { monteCarloSimulation } from "../engine";
+import { monteCarloSimulation, computeCategoryStats, calculateWeightedProjectedMean } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -135,6 +135,29 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return found || categories[0] || null;
     }, [categories, focusSubjectId]);
 
+    // BUG FIX: timeline only carries bay_/raw_ keys for activeCategories (top-5 + "Outras").
+    // Categories beyond the 5th are merged into "Outras" — their individual keys are absent.
+    // This causes DisciplinaCards, Radar and BarCharts to show 0 for those categories.
+    // categoryLevels reads from timeline when available, falls back to computing from raw history.
+    const categoryLevels = useMemo(() => {
+        const map = {};
+        const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
+        categories.forEach(cat => {
+            const fromTimeline = lastPoint?.[`bay_${cat.name}`];
+            if (fromTimeline != null && fromTimeline > 0) {
+                map[cat.id] = fromTimeline;
+                return;
+            }
+            // Fallback: compute directly from raw history (covers categories merged into "Outras")
+            const history = cat.simuladoStats?.history || [];
+            if (!history.length) { map[cat.id] = 0; return; }
+            const stats = computeCategoryStats(history, 100);
+            if (!stats) { map[cat.id] = 0; return; }
+            map[cat.id] = calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0);
+        });
+        return map;
+    }, [categories, timeline]);
+
     // Fix 4: Monte Carlo assíncrono
     const [mcProjection, setMcProjection] = useState(null);
     useEffect(() => {
@@ -201,18 +224,29 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     const focusSnapshot = useMemo(() => {
         if (!focusCategory || !timeline.length) return null;
-        const last = timeline[timeline.length - 1];
-        const prev = timeline.length > 1 ? timeline[timeline.length - 2] : null;
-        const currentBay = last[`bay_${focusCategory.name}`] || 0;
-        const previousBay = prev ? (prev[`bay_${focusCategory.name}`] || 0) : currentBay;
+        const bayKey = `bay_${focusCategory.name}`;
+        // BUG FIX: use only points where this specific category has valid data.
+        // The old code used the last two timeline dates regardless of category,
+        // so if the user's last two study sessions were in OTHER categories, delta was always 0.
+        const validPoints = timeline.filter(d => d[bayKey] != null && (d[bayKey] > 0));
+        if (!validPoints.length) return null;
+        const last = validPoints[validPoints.length - 1];
+        const prev = validPoints.length > 1 ? validPoints[validPoints.length - 2] : null;
+        const currentBay = last[bayKey] || 0;
+        const previousBay = prev ? (prev[bayKey] || 0) : currentBay;
         return { currentBay, delta: currentBay - previousBay };
     }, [focusCategory, timeline]);
 
     const radarData = useMemo(() => {
-        if (!timeline || timeline.length === 0) return [];
-        const lastPoint = timeline[timeline.length - 1];
-        return categories.map(cat => ({ subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15), nivel: Math.round(lastPoint[`bay_${cat.name}`] || 0), meta: targetScore }));
-    }, [timeline, categories, targetScore]);
+        if (!categories || !categories.length) return [];
+        // BUG FIX: was reading bay_${cat.name} from timeline which is absent for categories >5.
+        // Now uses categoryLevels which correctly falls back to history-computed values.
+        return categories.map(cat => ({
+            subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15),
+            nivel: Math.round(categoryLevels[cat.id] || 0),
+            meta: targetScore
+        }));
+    }, [categories, targetScore, categoryLevels]);
 
     // volumeData and maxVolume removed — no longer used after chart refactor
 
@@ -224,7 +258,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
         categories.forEach(cat => {
-            if (cat.tasks) { cat.tasks.forEach(t => { const title = String(t.title || t.text || '').trim(); const key = title.toLowerCase(); if (title && !topicMap[key]) topicMap[key] = { name: title, errors: 0 }; }); }
+            // NOTE: task names removed — they never carry error counts and were always filtered to 0
             (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
                 (h.topics || []).forEach(t => { const n = String(t.name || '').trim(); const key = n.toLowerCase(); if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 }; topicMap[key].errors += Math.max(0, (parseInt(t.total, 10) || 0) - (parseInt(t.correct, 10) || 0)); });
             });
@@ -273,26 +307,20 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         });
     }, [categories]);
 
-    // Dados agregados por matéria: total questões + número de acertos (para gráfico de barras agrupadas)
     const subjectAggData = useMemo(() => {
-        if (!categories || !categories.length || !timeline.length) return [];
+        if (!categories || !categories.length) return [];
         return categories
             .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
             .map(cat => {
-                let totalQ = 0;
-                let totalCorrect = 0;
-                timeline.forEach(d => {
-                    const q = d[`raw_total_${cat.name}`] || 0;
-                    const c = d[`raw_correct_${cat.name}`] || 0;
-                    totalQ += q;
-                    totalCorrect += c;
-                });
+                const history = cat.simuladoStats?.history || [];
+                const totalQ = history.reduce((s, h) => s + (Number(h.total) || 0), 0);
+                const totalCorrect = history.reduce((s, h) => s + (Number(h.correct) || 0), 0);
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, timeline, showOnlyFocus, focusSubjectId]);
+    }, [categories, showOnlyFocus, focusSubjectId]);
 
     const getInsightText = () => {
         if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
@@ -386,7 +414,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 overflow-visible">
                     {categories.map(cat => {
-                        const level = timeline.length > 0 ? timeline[timeline.length - 1][`bay_${cat.name}`] : 0;
+                        // BUG FIX: was reading bay_ from timeline which is absent for categories >5.
+                        // categoryLevels correctly falls back to history-computed values for all categories.
+                        const level = categoryLevels[cat.id] || 0;
                         return <DisciplinaCard key={cat.id} cat={cat} level={level} target={targetScore} isFocused={focusSubjectId === cat.id} onClick={() => setFocusSubjectId(cat.id)} />;
                     })}
                 </div>
@@ -446,6 +476,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
+                ) : activeEngine === "compare" && focusCategory && !activeCategories.some(ac => ac.id === focusCategory.id) ? (
+                    <div className="h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-amber-800/40 bg-amber-950/10 px-6 text-center">
+                        <span className="text-4xl">📦</span>
+                        <p className="text-amber-300 font-bold text-sm">Matéria agrupada em "Outras"</p>
+                        <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
+                            O Raio-X + Monte Carlo exibe individualmente apenas as <span className="text-indigo-400 font-bold">5 matérias com maior volume</span>.
+                            Selecione uma das 5 principais ou use as abas <em>Nível Bayesiano</em> / <em>Realidade Bruta</em> para ver todas.
+                        </p>
+                    </div>
                 ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
@@ -861,7 +900,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4} style={{ filter: 'url(#barShadow)' }}>
                                             {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                            <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                            <LabelList dataKey="value" position="right" offset={8}
+                                                content={(props) => {
+                                                    const { x, y, width, value, index } = props;
+                                                    const entry = pointLeakageData[index];
+                                                    if (!entry || value == null) return null;
+                                                    return (
+                                                        <text x={x + width + 10} y={y + 9} fill="#ffffff" fontSize={10} fontWeight="bold">
+                                                            {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
