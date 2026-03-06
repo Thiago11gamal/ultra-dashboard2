@@ -469,130 +469,201 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={50} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         content={() => null} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
-                                    {categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
-                                        const isFocused = focusSubjectId === cat.id;
-                                        const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
-
-                                        // Render a custom label at the end of the line
-                                        const renderCustomLabel = (props) => {
-                                            const { x, y, index, value } = props;
-                                            // Only render at the very last point of the line
-                                            if (index === filteredChartData.length - 1 && value != null) {
-                                                const trendVal = filteredChartData[index][`trend_${cat.name}`];
-                                                const trendStatus = filteredChartData[index][`trend_status_${cat.name}`];
-
-                                                let trendText = '';
-                                                let trendColor = '#94a3b8';
-                                                if (trendVal != null && Number.isFinite(Number(trendVal))) {
-                                                    if (trendStatus === 'up') {
-                                                        trendText = ` (+${trendVal.toFixed(1)})`;
-                                                        trendColor = '#4ade80';
-                                                    } else if (trendStatus === 'down') {
-                                                        trendText = ` (${trendVal.toFixed(1)})`;
-                                                        trendColor = '#f87171';
-                                                    } else {
-                                                        trendText = ` (—)`;
-                                                    }
-                                                }
-
-                                                return (
-                                                    <g>
-                                                        <text x={x + 8} y={y - 8} fill={cat.color} fontSize={11} fontWeight="bold">
-                                                            {Number(value).toFixed(1)}%
-                                                        </text>
-                                                        {trendText && (
-                                                            <text x={x + 8} y={y + 6} fill={trendColor} fontSize={9} fontWeight="bold">
-                                                                {trendText}
-                                                            </text>
-                                                        )}
-                                                    </g>
-                                                );
+                                    {(() => {
+                                        // 1. Gather all final points to calculate offsets
+                                        const finalPoints = [];
+                                        categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+                                            const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+                                            const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
+                                            if (lastVal != null && Number.isFinite(Number(lastVal))) {
+                                                finalPoints.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
                                             }
-                                            return null;
-                                        };
+                                        });
 
-                                        return [
-                                            isFocused ? (
-                                                <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
-                                                    fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
-                                            ) : null,
-                                            <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
-                                                stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
-                                                strokeOpacity={isFocused ? 1 : 0.5}
-                                                dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : { r: 2, fill: cat.color, strokeWidth: 0 }}
-                                                activeDot={false}
-                                                connectNulls
-                                                style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
-                                                isAnimationActive={false}
-                                            >
-                                                <LabelList content={renderCustomLabel} />
-                                            </Line>
-                                        ];
-                                    }).filter(Boolean)}
+                                        // Sort by value descending
+                                        finalPoints.sort((a, b) => b.value - a.value);
+
+                                        // Calculate Y offsets (assuming roughly 1% of chart height is needed between labels to prevent overlap, adjusting as needed)
+                                        // The SVG Y coordinate is inverted (0 is top), but 'value' is 0-100 (100 is top). Recharts handles the Y prop mapping.
+                                        // We will add a pixel offset directly to the Y prop in the render function.
+                                        const MIN_PX_DISTANCE = 16;
+
+                                        // Render lines
+                                        return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
+                                            const isFocused = focusSubjectId === cat.id;
+                                            const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+
+                                            // Render a custom label at the end of the line
+                                            const renderCustomLabel = (props) => {
+                                                const { x, y, index, value } = props;
+                                                // Only render at the very last point of the line
+                                                if (index === filteredChartData.length - 1 && value != null) {
+                                                    const trendVal = filteredChartData[index][`trend_${cat.name}`];
+                                                    const trendStatus = filteredChartData[index][`trend_status_${cat.name}`];
+
+                                                    // Apple sweeping offsetPx
+                                                    let offsetPx = 0;
+                                                    const pt = finalPoints.find(p => p.id === cat.id);
+                                                    if (pt) {
+                                                        // Calculate the actual array of positions just once.
+                                                        // We use the finalPoints array which was sorted descending.
+                                                        // To guarantee no overlaps, we do a proper sweep here.
+                                                        // Note: in React render we can't easily mutate state between children renders safely without pre-computing.
+                                                        // So we pre-compute the collision-free positions.
+                                                        const yPositions = [...finalPoints].map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+                                                        const MIN_PCT_DISTANCE = 4.5; // Roughly 4.5% difference to prevent overlap (~12px)
+
+                                                        // Sweep from top (highest value) to bottom descending
+                                                        for (let i = 1; i < yPositions.length; i++) {
+                                                            if (yPositions[i - 1].yPos - yPositions[i].yPos < MIN_PCT_DISTANCE) {
+                                                                yPositions[i].yPos = yPositions[i - 1].yPos - MIN_PCT_DISTANCE;
+                                                            }
+                                                        }
+
+                                                        // Find my adjusted position
+                                                        const myAdjPt = yPositions.find(p => p.id === cat.id);
+                                                        if (myAdjPt && myAdjPt.yPos !== myAdjPt.value) {
+                                                            // Calculate pixels to shift.
+                                                            // SVG y axis is inverted. Higher Y value (pixels) means lower on screen.
+                                                            const pctShift = value - myAdjPt.yPos;
+                                                            offsetPx = pctShift * 1.3; // Approx 1.3px per 1% height
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <g>
+                                                            <text x={x + 8} y={y + 4 + offsetPx} fill={cat.color} fontSize={11} fontWeight="bold">
+                                                                {Number(value).toFixed(1)}%
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }
+                                            };
+                                            return [
+                                                isFocused ? (
+                                                    <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
+                                                        fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
+                                                ) : null,
+                                                <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
+                                                    stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
+                                                    strokeOpacity={isFocused ? 1 : 0.5}
+                                                    dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : { r: 2, fill: cat.color, strokeWidth: 0 }}
+                                                    activeDot={false}
+                                                    connectNulls
+                                                    style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
+                                                    isAnimationActive={false}
+                                                >
+                                                    <LabelList content={renderCustomLabel} />
+                                                </Line>
+                                            ];
+                                        }).filter(Boolean);
+                                    })()}
                                 </ComposedChart>
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                                     <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={50} />
+                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                                         content={() => null} />
                                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
-                                    {/* MC Band */}
-                                    <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" legendType="none" />
-                                    <Area type="monotone" dataKey="Cenário Ruim" fill="#0a0f1e" stroke="none" legendType="none" />
-                                    {/* Lines */}
-                                    <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
-                                        fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
-                                        activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
-                                        <LabelList content={(props) => {
-                                            const { x, y, index, value } = props;
-                                            if (value == null) return null;
-                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] != null ? i : acc, -1);
-                                            if (index !== lastIdx) return null;
-                                            return <text x={x + 8} y={y + 4} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
-                                        }} />
-                                    </Area>
-                                    <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
-                                        dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
-                                        <LabelList content={(props) => {
-                                            const { x, y, index, value } = props;
-                                            if (value == null) return null;
-                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
-                                            if (index !== lastIdx) return null;
-                                            return <text x={x + 8} y={y + 4} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
-                                        }} />
-                                    </Line>
-                                    <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
-                                        strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
-                                        <LabelList content={(props) => {
-                                            const { x, y, index, value } = props;
-                                            if (value == null) return null;
-                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] != null ? i : acc, -1);
-                                            if (index !== lastIdx) return null;
-                                            return <text x={x + 8} y={y + 4} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
-                                        }} />
-                                    </Line>
-                                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5}
-                                        strokeDasharray="7 5"
-                                        dot={{ r: 6, fill: '#a78bfa', stroke: '#0a0f1e', strokeWidth: 2 }}
-                                        connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
-                                        <LabelList content={(props) => {
-                                            const { x, y, index, value } = props;
-                                            if (value == null) return null;
-                                            const lastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
-                                            if (index !== lastIdx) return null;
-                                            return <text x={x + 8} y={y + 4} fill="#a78bfa" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
-                                        }} />
-                                    </Line>
+                                    {(() => {
+                                        // 1. Gather points to avoid collision in Compare chart
+                                        const finalComparePoints = [];
+                                        const lastIdx = filteredChartData.length - 1;
+                                        if (lastIdx >= 0) {
+                                            const d = filteredChartData[lastIdx];
+                                            if (d["Nível Bayesiano"] != null) finalComparePoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
+                                            if (d["Nota Bruta"] != null) finalComparePoints.push({ name: 'raw', value: d["Nota Bruta"] });
+                                            if (d["Média Histórica"] != null) finalComparePoints.push({ name: 'stats', value: d["Média Histórica"] });
+                                            if (d["Futuro Provável"] != null) finalComparePoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                        }
+
+                                        // Sort by value descending
+                                        finalComparePoints.sort((a, b) => b.value - a.value);
+
+                                        // Sweep offsets to prevent overlap descending
+                                        const MIN_PCT_DISTANCE = 9; // Roughly 9% difference to prevent overlap (~24px)
+                                        const yPositions = [...finalComparePoints].map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+
+                                        for (let i = 1; i < yPositions.length; i++) {
+                                            if (yPositions[i - 1].yPos - yPositions[i].yPos < MIN_PCT_DISTANCE) {
+                                                yPositions[i].yPos = yPositions[i - 1].yPos - MIN_PCT_DISTANCE;
+                                            }
+                                        }
+
+                                        const getOffset = (name, value) => {
+                                            const pt = yPositions.find(p => p.name === name);
+                                            if (!pt) return 0;
+                                            // Calc pixel shift based on 2.6px per % difference
+                                            const pctShift = value - pt.yPos;
+                                            return pctShift * 2.6;
+                                        };
+
+                                        return (
+                                            <>
+                                                {/* MC Band */}
+                                                <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" legendType="none" />
+                                                <Area type="monotone" dataKey="Cenário Ruim" fill="#0a0f1e" stroke="none" legendType="none" />
+                                                {/* Lines */}
+                                                <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
+                                                    fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
+                                                    activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
+                                                    <LabelList content={(props) => {
+                                                        const { x, y, index, value } = props;
+                                                        if (value == null) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] != null ? i : acc, -1);
+                                                        if (index !== validLastIdx) return null;
+                                                        const offset = getOffset('bay', value);
+                                                        return <text x={x + 8} y={y + 4 + offset} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                                    }} />
+                                                </Area>
+                                                <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
+                                                    dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
+                                                    <LabelList content={(props) => {
+                                                        const { x, y, index, value } = props;
+                                                        if (value == null) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
+                                                        if (index !== validLastIdx) return null;
+                                                        const offset = getOffset('raw', value);
+                                                        return <text x={x + 8} y={y + 4 + offset} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                                    }} />
+                                                </Line>
+                                                <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
+                                                    strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
+                                                    <LabelList content={(props) => {
+                                                        const { x, y, index, value } = props;
+                                                        if (value == null) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] != null ? i : acc, -1);
+                                                        if (index !== validLastIdx) return null;
+                                                        const offset = getOffset('stats', value);
+                                                        return <text x={x + 8} y={y + 4 + offset} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                                    }} />
+                                                </Line>
+                                                <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5}
+                                                    strokeDasharray="7 5"
+                                                    dot={{ r: 6, fill: '#a78bfa', stroke: '#0a0f1e', strokeWidth: 2 }}
+                                                    connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
+                                                    <LabelList content={(props) => {
+                                                        const { x, y, index, value } = props;
+                                                        if (value == null) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
+                                                        if (index !== validLastIdx) return null;
+                                                        const offset = getOffset('mc', value);
+                                                        return <text x={x + 8} y={y + 4 + offset} fill="#a78bfa" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                                    }} />
+                                                </Line>
+                                            </>
+                                        );
+                                    })()}
                                 </ComposedChart>
                             )}
                         </ResponsiveContainer>

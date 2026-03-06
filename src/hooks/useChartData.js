@@ -13,21 +13,42 @@ const getDateKey = (rawDate) => {
 // Fix 2: O(n) helper — compute cumulative stats snapshot at each date position
 // instead of re-filtering the full array per date (O(n²) previously)
 function buildCumulativeStatsPerDate(history, sortedDates) {
+    // BUG FIX: History contains multiple sessions per day. If we pass them all to computeCategoryStats,
+    // the statistical engines (Bayesian EMA, Variance, Trend) will treat them as separate days,
+    // distorting the moving averages and variance calculations. We must pre-aggregate by day first.
+    const aggregatedHistoryByDateMap = new Map();
+
+    for (const h of history) {
+        const key = getDateKey(h.date);
+        if (!key) continue;
+
+        const existing = aggregatedHistoryByDateMap.get(key);
+        const correct = Number(h.correct) || 0;
+        const total = Number(h.total) || 0;
+
+        if (existing) {
+            existing.correct += correct;
+            existing.total += total;
+            existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
+        } else {
+            const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * 100 : 0);
+            aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
+        }
+    }
+
+    // Convert back to sorted array of daily aggregates
+    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+
     const dateToStats = {};
-    // history must already be sorted by date
     let accumulated = [];
     let histIdx = 0;
 
     for (const date of sortedDates) {
-        // Add all history entries that fall on or before this date
-        while (histIdx < history.length) {
-            const key = getDateKey(history[histIdx].date);
+        // Add all aggregated history entries that fall on or before this date
+        while (histIdx < aggregatedHistory.length) {
+            const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
-                const h = history[histIdx];
-                accumulated.push({
-                    ...h,
-                    score: h.score != null ? Number(h.score) : (Number(h.total) > 0 ? (Number(h.correct) / Number(h.total)) * 100 : 0)
-                });
+                accumulated.push(aggregatedHistory[histIdx]);
                 histIdx++;
             } else {
                 break;
@@ -106,9 +127,14 @@ export function useChartData(categories = [], targetScore = 80) {
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
+                // BUG FIX: Instead of just picking the very last simulado entered horizontally on that day,
+                // we calculate the true aggregate daily score (sum of all questions correct / sum of all questions total).
+                // This perfectly matches the metric shown in the Tasks/Daily summary.
+                const rawDailyScore = total > 0 ? (correct / total) * 100 : (last ? last.score : 0);
+
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
-                dataByDate[date][`raw_${cat.name}`] = last.score;
+                dataByDate[date][`raw_${cat.name}`] = rawDailyScore;
                 dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], targetScore, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
