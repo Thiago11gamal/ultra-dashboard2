@@ -468,7 +468,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
-                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30">
+                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 outline-none">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
@@ -480,8 +480,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full outline-none">
+                        <ResponsiveContainer width="100%" height="100%" className="outline-none">
                             {activeEngine !== "compare" ? (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }}>
                                     <defs>
