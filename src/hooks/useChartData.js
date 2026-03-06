@@ -70,10 +70,47 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
 export function useChartData(categories = [], targetScore = 80) {
     // 1. Memoize active categories — BUG 7 FIX: filter to only cats with actual history
     // The previous useMemo had no transformation, causing unnecessary re-renders in cascade.
-    const activeCategories = useMemo(
-        () => categories.filter(c => c.simuladoStats?.history?.length > 0),
-        [categories]
-    );
+    const activeCategories = useMemo(() => {
+        let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
+        // Sort by volume descending
+        valid.sort((a, b) => {
+            const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            return volB - volA;
+        });
+
+        if (valid.length > 5) {
+            const top = valid.slice(0, 5);
+            const others = valid.slice(5);
+
+            const outrasHistoryMap = new Map();
+            others.forEach(cat => {
+                (cat.simuladoStats?.history || []).forEach(h => {
+                    const dKey = h.date;
+                    const correct = Number(h.correct) || 0;
+                    const total = Number(h.total) || 0;
+                    let existing = outrasHistoryMap.get(dKey);
+                    if (!existing) {
+                        existing = { ...h, date: dKey, correct: 0, total: 0 };
+                        outrasHistoryMap.set(dKey, existing);
+                    }
+                    existing.correct += correct;
+                    existing.total += total;
+                    existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
+                });
+            });
+            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+            const outrasCategory = {
+                id: "synthetic-outras",
+                name: "Outras",
+                color: "#64748b",
+                icon: "📦",
+                simuladoStats: { history: outrasHistoryArray }
+            };
+            return [...top, outrasCategory];
+        }
+        return valid;
+    }, [categories]);
 
     // 2. Generate Timeline Data (Common for Line/Composed charts)
     const timeline = useMemo(() => {
@@ -94,8 +131,7 @@ export function useChartData(categories = [], targetScore = 80) {
             const [_year, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
-                displayDate: `${day}/${month}`,
-                weekLabel: `Sem ${i + 1}`
+                displayDate: `${day}/${month}`
             };
         });
 
@@ -127,15 +163,14 @@ export function useChartData(categories = [], targetScore = 80) {
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                // BUG FIX: Instead of just picking the very last simulado entered horizontally on that day,
-                // we calculate the true aggregate daily score (sum of all questions correct / sum of all questions total).
-                // This perfectly matches the metric shown in the Tasks/Daily summary.
-                const rawDailyScore = total > 0 ? (correct / total) * 100 : (last ? last.score : 0);
+                // FIX 11: Set raw score to null if the daily sample is too small (<5).
+                // Recharts will use connectNulls to draw a smooth line ignoring the noisy data point.
+                const rawDailyScore = total >= 5 ? (correct / total) * 100 : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
                 dataByDate[date][`raw_${cat.name}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], targetScore, 0) : 0;
+                dataByDate[date][`bay_${cat.name}`] = stats ? calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0) : 0;
                 dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
                 dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';

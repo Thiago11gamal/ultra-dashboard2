@@ -10,11 +10,6 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
         <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-md">
             <p className="text-slate-300 mb-3 font-bold border-b border-slate-700/80 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
-                {currentData?.weekLabel && (
-                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
-                        {currentData.weekLabel}
-                    </span>
-                )}
             </p>
             <div className="space-y-3">
                 {payload.map((p, i) => {
@@ -75,14 +70,18 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     </span>
                                 </div>
                             </div>
-                            {rawTotal && (
-                                <div className="text-[9px] text-slate-400 text-right mt-2 flex justify-between items-center px-1">
-                                    <span>Último Simulado:</span>
-                                    <span>
-                                        <strong className="text-slate-200">{rawCorrect}</strong> / {rawTotal} questões
-                                    </span>
-                                </div>
-                            )}
+                            {rawTotal > 0 && (() => {
+                                const errs = rawTotal - rawCorrect;
+                                const errPct = Math.round((errs / rawTotal) * 100);
+                                return (
+                                    <div className="text-[9px] text-slate-400 text-right mt-2 flex justify-between items-center px-1">
+                                        <span>Último Simulado:</span>
+                                        <span>
+                                            <strong className="text-red-400">{errs} erros</strong> ({errPct}%)
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     );
                 })}

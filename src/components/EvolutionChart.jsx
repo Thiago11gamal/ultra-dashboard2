@@ -72,8 +72,8 @@ function KpiCard({ value, label, color, icon, sub }) {
             <div className="relative z-10 flex items-center justify-between mb-2 sm:mb-3">
                 <span className="text-xl sm:text-2xl">{icon}</span>
                 {sub != null && Number.isFinite(sub) && (
-                    <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${sub >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                        {sub >= 0 ? `+${sub.toFixed(1)}` : sub.toFixed(1)}
+                    <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${sub === 0 ? 'bg-slate-500/10 text-slate-400' : sub > 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                        {sub === 0 ? '=' : sub > 0 ? `+${sub.toFixed(1)}` : sub.toFixed(1)}
                     </span>
                 )}
             </div>
@@ -178,8 +178,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             // Immutable replacement of last element
             pts = [
                 ...pts.slice(0, lastIdx),
-                { ...pts[lastIdx], "Cenário Ruim": currentLevel, "Cenário Ótimo": currentLevel },
-                { date: mcProjection.date, displayDate: `${mcProjection.date.split('-')[2]}/${mcProjection.date.split('-')[1]} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Ruim": mcProjection.mc_band[0], "Cenário Ótimo": mcProjection.mc_band[1] }
+                { ...pts[lastIdx], "Cenário Range": [currentLevel, currentLevel] },
+                { date: mcProjection.date, displayDate: `${mcProjection.date.split('-')[2]}/${mcProjection.date.split('-')[1]} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Range": [mcProjection.mc_band[0], mcProjection.mc_band[1]] }
             ];
         }
         return pts;
@@ -304,14 +304,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
         // We use new Date().getTime() to avoid React Compiler flagging Date.now() as a pure function violation
         const nowMs = new Date().getTime();
+        const lastDate = new Date(lastPoint.date);
+        const daysAgo = Math.floor((nowMs - lastDate.getTime()) / 86400000);
+        const timeText = daysAgo === 0 ? "hoje" : daysAgo === 1 ? "ontem" : daysAgo <= 7 ? "da semana" : daysAgo <= 30 ? "do mês" : `de ${daysAgo} dias atrás`;
+
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
             .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
             .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
 
-        if (recentVolumeAlert > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolumeAlert} questões esta semana, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
+        if (recentVolumeAlert > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolumeAlert} questões nos últimos 7 dias, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
         if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;
-        if (raw < bayesian - 8) return `⚠️ Mantenha a calma. A nota da semana foi ${raw.toFixed(1)}%, mas a estatística garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
+        if (raw < bayesian - 8) return `⚠️ Mantenha a calma. A nota ${timeText} foi ${raw.toFixed(1)}%, mas a estatística garante que o seu nível real é ${bayesian.toFixed(1)}%. Foi apenas um desvio atípico.`;
         return `✅ Estabilidade de Mestre! O seu nível medido (${raw.toFixed(1)}%) crava com o seu domínio real (${bayesian.toFixed(1)}%). É esse o ritmo de aprovação.`;
     };
 
@@ -371,7 +375,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
                 <div className="col-span-2 sm:col-span-1">
                     <KpiCard value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} label="Precisão Global" color="#fb923c" icon="⚡"
-                        sub={focusSnapshot?.delta} />
+                        sub={timeline.length > 1 ? timeline[timeline.length - 1].global_pct - timeline[timeline.length - 2].global_pct : null} />
                 </div>
             </div>
 
@@ -473,7 +477,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        content={() => null} />
+                                        content={<ChartTooltip chartData={filteredChartData} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {(() => {
                                         // 1. Gather all final points to calculate offsets
@@ -488,11 +492,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                                         // Sort by value descending
                                         finalPoints.sort((a, b) => b.value - a.value);
-
-                                        // Calculate Y offsets (assuming roughly 1% of chart height is needed between labels to prevent overlap, adjusting as needed)
-                                        // The SVG Y coordinate is inverted (0 is top), but 'value' is 0-100 (100 is top). Recharts handles the Y prop mapping.
-                                        // We will add a pixel offset directly to the Y prop in the render function.
-                                        const MIN_PX_DISTANCE = 16;
 
                                         // Render lines
                                         return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
@@ -532,7 +531,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                             // Calculate pixels to shift.
                                                             // SVG y axis is inverted. Higher Y value (pixels) means lower on screen.
                                                             const pctShift = value - myAdjPt.yPos;
-                                                            offsetPx = pctShift * 1.3; // Approx 1.3px per 1% height
+                                                            const PX_PER_PCT = 4.6; // Baseado na altura média do gráfico
+                                                            offsetPx = pctShift * PX_PER_PCT;
                                                         }
                                                     }
 
@@ -573,7 +573,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        content={() => null} />
+                                        content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
                                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                                     {(() => {
                                         // 1. Gather points to avoid collision in Compare chart
@@ -611,8 +611,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         return (
                                             <>
                                                 {/* MC Band */}
-                                                <Area type="monotone" dataKey="Cenário Ótimo" fill="url(#cloudGradient)" stroke="none" legendType="none" />
-                                                <Area type="monotone" dataKey="Cenário Ruim" fill="#0a0f1e" stroke="none" legendType="none" />
+                                                <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                                                 {/* Lines */}
                                                 <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
                                                     fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}

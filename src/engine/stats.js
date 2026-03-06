@@ -102,10 +102,18 @@ export function calculateTrend(scores) {
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
 
-    // Garante extração estatística segura através do Helper Universal
-    const scores = history.map(h => getSafeScore(h));
+    // FIX 11: Ignore samples where total questions < 5 to prevent false peaks
+    const validHistory = history.filter(h => (Number(h.total) || 0) >= 5);
+    const historyToUse = validHistory.length > 0 ? validHistory : history; // fallback to not break early users
 
-    const m = mean(scores);
+    // Garante extração estatística segura através do Helper Universal
+    const scores = historyToUse.map(h => getSafeScore(h));
+
+    // FIX 3: Usar a verdadeira média ponderada global (Acertos Totais / Questões Totais)
+    // para bater exatamente com a nota exibida no Menu Tarefas, em vez da média comum das notas diárias.
+    const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
+    const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
+    const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
     // FIX 1: Usa o novo Desvio Padrão Bayesiano
     const sd = standardDeviation(scores);
