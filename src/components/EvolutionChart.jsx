@@ -201,7 +201,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             // Immutable replacement of last element
             pts = [
                 ...pts.slice(0, lastIdx),
-                { ...pts[lastIdx], "Cenário Range": [currentLevel, currentLevel] },
+                { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] },
                 { date: mcProjection.date, displayDate: `${mcProjection.date.split('-')[2]}/${mcProjection.date.split('-')[1]} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Range": [mcProjection.mc_band[0], mcProjection.mc_band[1]] }
             ];
         }
@@ -352,6 +352,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Global SVG Defs */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .recharts-wrapper:focus, .recharts-surface:focus, svg:focus { outline: none !important; border: none !important; box-shadow: none !important; }
+                .recharts-wrapper { outline: none !important; }
+            ` }} />
             <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
                 <defs>
                     <filter id="lineShadow" height="200%">
@@ -384,6 +389,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={focusColor} stopOpacity={0.35} />
                         <stop offset="100%" stopColor={focusColor} stopOpacity={0.01} />
+                    </linearGradient>
+                    <linearGradient id="projectionGreenGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                     </linearGradient>
                 </defs>
             </svg>
@@ -468,7 +477,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
-                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 outline-none">
+                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 outline-none focus:outline-none focus:ring-0">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
@@ -480,10 +489,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full outline-none">
-                        <ResponsiveContainer width="100%" height="100%" className="outline-none">
+                    <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full outline-none focus:outline-none focus:ring-0">
+                        <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
                             {activeEngine !== "compare" ? (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }}>
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }} style={{ outline: 'none' }} tabIndex="-1">
                                     <defs>
                                         {categories.map(cat => (
                                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -492,9 +501,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </linearGradient>
                                         ))}
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
+                                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -603,10 +612,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     })()}
                                 </ComposedChart>
                             ) : (
-                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                                    <XAxis dataKey="displayDate" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dy={8} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} minTickGap={35} />
-                                    <YAxis stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} dx={-4} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
+                                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
+                                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -654,6 +663,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <Area type="monotone" dataKey="Bay CI Low"
                                                     stroke="none" fill="#0a0f1e"
                                                     legendType="none" connectNulls isAnimationActive={false} />
+                                                {/* Sombra da Projeção Verde (Continuidade Bayesiana) */}
+                                                <Area type="monotone" dataKey="Futuro Provável" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                                                 {/* MC Band */}
                                                 <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                                                 {/* Lines */}
@@ -691,17 +702,32 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
-                                                <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={2.5}
-                                                    strokeDasharray="7 5"
-                                                    dot={{ r: 6, fill: '#a78bfa', stroke: '#0a0f1e', strokeWidth: 2 }}
-                                                    connectNulls strokeOpacity={0.9} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
+                                                <Line type="monotone" dataKey="Futuro Provável" stroke="#ef4444" strokeWidth={1.5}
+                                                    strokeDasharray="4 5"
+                                                    dot={(props) => {
+                                                        const { cx, cy, index } = props;
+                                                        const isLast = index === filteredChartData.length - 1;
+                                                        if (!isLast) return null;
+                                                        return (
+                                                            <g>
+                                                                <circle cx={cx} cy={cy} r={4} fill="#ef4444" stroke="#ffffff" strokeWidth={1} style={{ filter: 'url(#glow)' }}>
+                                                                    <animate attributeName="opacity" values="1;0.6;1" dur="1s" repeatCount="indefinite" />
+                                                                </circle>
+                                                                <circle cx={cx} cy={cy} r={7} fill="#ef4444" opacity="0.3">
+                                                                    <animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite" />
+                                                                    <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite" />
+                                                                </circle>
+                                                            </g>
+                                                        );
+                                                    }}
+                                                    connectNulls strokeOpacity={1} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value } = props;
                                                         if (value == null) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
                                                         const offset = getOffset('mc', value);
-                                                        return <text x={x + 8} y={y + 4 + offset} fill="#a78bfa" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+                                                        return <text x={x + 10} y={y + 4 + offset} fill="#ef4444" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
                                             </>

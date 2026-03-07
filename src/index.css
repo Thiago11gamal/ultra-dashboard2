@@ -194,11 +194,17 @@ select::-ms-expand {
   display: none;
 }
 
-/* Remove default focus outline from Recharts */
+/* Remove default focus outline from Recharts globally */
 .recharts-wrapper,
+.recharts-wrapper *,
 .recharts-surface,
-.recharts-responsive-container {
+.recharts-surface *,
+.recharts-responsive-container,
+svg,
+svg *,
+[tabindex] {
   outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 /* Sparkline sweep animation (used in VerifiedStats prediction card) */
