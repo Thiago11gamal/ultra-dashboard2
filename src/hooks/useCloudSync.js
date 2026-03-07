@@ -16,7 +16,7 @@ const sortObject = (obj) => {
 
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
-    const hasInitialSyncRef = useRef(false);
+    const [isParityValidated, setIsParityValidated] = useState(false);
     const lastLocalMutationRef = useRef(0);
     const latestCloudDataRef = useRef(null);
     const [cloudConnected, setCloudConnected] = useState(false);
@@ -44,9 +44,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
         const safetyBootTimeout = setTimeout(() => {
-            if (!hasInitialSyncRef.current) {
+            if (!isParityValidated) {
                 console.warn("[Sync] Timeout de paridade atingido (V8). Liberando upload por inatividade do servidor.");
-                hasInitialSyncRef.current = true;
+                setIsParityValidated(true);
             }
         }, 5000);
 
@@ -57,7 +57,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
             // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
-            if (isFromCache && !exists && !hasInitialSyncRef.current) {
+            if (isFromCache && !exists && !isParityValidated) {
                 console.debug("[Sync] Aguardando resposta real do servidor...");
                 return;
             }
@@ -68,9 +68,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             if (!cloudData) {
                 // Nuvem realmente vazia (confirmado pelo servidor ou cache confirmado)
-                if (!hasInitialSyncRef.current) {
+                if (!isParityValidated) {
                     lastSyncedRef.current = stateStringForSync(appStateRef.current);
-                    hasInitialSyncRef.current = true;
+                    setIsParityValidated(true);
                 }
                 return;
             }
@@ -82,12 +82,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             if (!contentsAreDifferent) {
                 setHasConflict(false);
                 lastSyncedRef.current = cloudStateString;
-                hasInitialSyncRef.current = true;
+                setIsParityValidated(true);
                 return;
             }
 
             // --- LOCKDOWN RULE: CLOUD WINS ON BOOT (WITH TIMESTAMP CHECK) ---
-            const isBootSync = !hasInitialSyncRef.current;
+            const isBootSync = !isParityValidated;
 
             // --- CONFLICT RESOLUTION ---
             // Aumentando a janela de proteção local para 15 segundos.
@@ -127,7 +127,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
 
-                if (hasInitialSyncRef.current && showToast) {
+                if (isParityValidated && showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
@@ -135,12 +135,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 setHasConflict(true);
             }
 
-            hasInitialSyncRef.current = true;
+            setIsParityValidated(true);
         }, (err) => {
             console.error("[Sync] Erro no listener:", err);
             setCloudConnected(false);
             // Se der erro (ex: offline), liberamos para evitar travar o usuário
-            hasInitialSyncRef.current = true;
+            setIsParityValidated(true);
         });
 
         return () => {
@@ -151,7 +151,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     }, [currentUser?.uid, setAppState, showToast]);
 
     useEffect(() => {
-        hasInitialSyncRef.current = false;
+        setIsParityValidated(false);
         lastSyncedRef.current = null;
         lastLocalMutationRef.current = 0;
         setHasConflict(false);
@@ -160,7 +160,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // 2. EMISSOR (Auto-save) - Master Mode
     useEffect(() => {
         // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade
-        if (!currentUser?.uid || !appState || !hasInitialSyncRef.current) return;
+        if (!currentUser?.uid || !appState || !isParityValidated) return;
 
         const currentStateString = stateStringForSync(appState);
         if (lastSyncedRef.current === currentStateString) return;
@@ -217,7 +217,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const timer = setTimeout(syncToCloud, 3000);
         return () => clearTimeout(timer);
-    }, [appState, currentUser, showToast]);
+    }, [appState, currentUser, showToast, isParityValidated]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

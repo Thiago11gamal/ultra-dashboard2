@@ -30,9 +30,12 @@ export const parseImportedData = (content, currentAppState) => {
 
         // Strategy 3: Legacy "Ultra Dashboard" Wrapper
         if (imported.contests) {
+            const contestKeys = Object.keys(imported.contests);
+            const fallbackId = contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default';
+
             const newState = {
                 ...currentAppState,
-                activeId: Object.keys(imported.contests)[0] || 'default',
+                activeId: fallbackId,
                 contests: imported.contests
             };
             return { type: 'LEGACY_RESTORE', data: newState };

@@ -206,6 +206,7 @@ export const useAppStore = create(
             }),
 
             awardExperience: (xpAmount) => set((state) => {
+                recordHistory(state.appState);
                 processGamification(state, xpAmount);
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -301,8 +302,10 @@ export const useAppStore = create(
 
                 // Achievement tracking: Time of day
                 const startHour = new Date(now).getHours();
-                if (startHour < 7) activeData.user.studiedEarly = true;
-                if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
+                if (activeData.user) {
+                    if (startHour < 7) activeData.user.studiedEarly = true;
+                    if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
+                }
 
                 processGamification(state, baseXP + bonusXP);
                 state.appState.lastUpdated = new Date().toISOString();

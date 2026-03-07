@@ -32,7 +32,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [loading, setLoading] = useState(false);
 
     const updateRow = (index, field, value) => {
-        // 1. SanitizaÃ§Ã£o: Apenas nÃºmeros para campos numÃ©ricos
+        // 1. Sanitização: Apenas números para campos numéricos
         let finalValue = value;
 
         if (field === 'correct' || field === 'total') {

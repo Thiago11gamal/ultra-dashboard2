@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
                 });
                 // onAuthStateChanged fires before updateProfile resolves,
                 // so we manually sync the updated user into state here.
-                setCurrentUser({ ...userCredential.user });
+                setCurrentUser(userCredential.user);
                 return userCredential.user;
             });
     }
