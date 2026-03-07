@@ -12,7 +12,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                 <span>📅 {label}</span>
             </p>
             <div className="space-y-3">
-                {payload.map((p, i) => {
+                {payload.filter(p => !p.name?.startsWith('_')).map((p, i) => {
                     if (isCompare) {
                         const val = Number(p.value);
                         return (

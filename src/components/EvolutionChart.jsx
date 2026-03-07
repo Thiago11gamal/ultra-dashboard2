@@ -507,7 +507,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                        content={<ChartTooltip chartData={filteredChartData} />} />
+                                        content={<ChartTooltip chartData={filteredChartData} isCompare={activeEngine === "compare"} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {(() => {
                                         // 1. Gather all final points to calculate offsets
@@ -613,6 +613,39 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                 </ComposedChart>
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                                    <defs>
+                                        <linearGradient id="projectionGreenGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                        </linearGradient>
+                                        <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.1} />
+                                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.01} />
+                                        </linearGradient>
+                                        <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.1} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                        </linearGradient>
+                                        <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.25} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                        </linearGradient>
+                                        <filter id="lineShadow" height="200%">
+                                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                                            <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
+                                            <feMerge>
+                                                <feMergeNode in="offsetBlur" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur stdDeviation="3" result="glow" />
+                                            <feMerge>
+                                                <feMergeNode in="glow" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                    </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
@@ -664,7 +697,24 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     stroke="none" fill="#0a0f1e"
                                                     legendType="none" connectNulls isAnimationActive={false} />
                                                 {/* Sombra da Projeção Verde (Continuidade Bayesiana) */}
-                                                <Area type="monotone" dataKey="Futuro Provável" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                                                <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                                                {/* Sombra Vermelha do Ganho Projetado (A Diferença) - Camada de Definição */}
+                                                {(() => {
+                                                    const todayPt = filteredChartData[filteredChartData.length - 2];
+                                                    const base = todayPt ? todayPt["Futuro Provável"] : 0;
+                                                    return (
+                                                        <>
+                                                            <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base"
+                                                                fill="#ff0000" fillOpacity={0.7} stroke="none"
+                                                                legendType="none" connectNulls isAnimationActive={false}
+                                                                baseValue={base} />
+                                                            <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge"
+                                                                fill="none" stroke="#ff0000" strokeWidth={1} strokeOpacity={0.7}
+                                                                legendType="none" connectNulls isAnimationActive={false}
+                                                                baseValue={base} />
+                                                        </>
+                                                    );
+                                                })()}
                                                 {/* MC Band */}
                                                 <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                                                 {/* Lines */}
