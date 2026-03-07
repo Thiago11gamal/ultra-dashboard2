@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 
@@ -53,7 +53,19 @@ try {
 }
 
 const auth = getAuth(app);
-const analytics = getAnalytics(app);
+
+let analytics = null;
+if (typeof window !== "undefined") {
+    isAnalyticsSupported()
+        .then((supported) => {
+            if (supported && firebaseConfig.measurementId) {
+                analytics = getAnalytics(app);
+            }
+        })
+        .catch((error) => {
+            console.warn("Analytics indisponível neste ambiente:", error?.message || error);
+        });
+}
 
 export { db, auth, analytics };
 
