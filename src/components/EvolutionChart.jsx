@@ -697,11 +697,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         const lastY = solveCollisions(lastPoints);
 
                                         const getOffset = (name, value, index) => {
-                                            const isFuture = index === filteredChartData.length - 1;
+                                            const isFuture = index === (filteredChartData.length - 1);
                                             const pts = isFuture ? lastY : todayY;
+                                            if (!pts || !pts.length) return 0;
                                             const pt = pts.find(p => p.name === name);
                                             if (!pt) return 0;
-                                            return (value - pt.yPos) * 2.6;
+                                            // Sync multiplier with main chart (4.6px per 1%)
+                                            return (value - pt.yPos) * 4.6;
                                         };
 
                                         return (
@@ -717,7 +719,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                                                 {/* Sombra Vermelha do Ganho Projetado (A Diferença) - Camada de Definição */}
                                                 {(() => {
-                                                    const todayPt = filteredChartData[filteredChartData.length - 2];
+                                                    const len = filteredChartData.length;
+                                                    if (len < 2) return null;
+                                                    const todayPt = filteredChartData[len - 2];
                                                     const base = todayPt ? todayPt["Futuro Provável"] : 0;
                                                     return (
                                                         <>
