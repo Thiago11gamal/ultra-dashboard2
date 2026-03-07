@@ -26,8 +26,8 @@ export default function TopicPerformance({ categories = [] }) {
                 if (!topicMap[name]) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
-                topicMap[name].total += (parseInt(t.total) || 0);
-                topicMap[name].correct += (parseInt(t.correct) || 0);
+                topicMap[name].total += (parseInt(t.total, 10) || 0);
+                topicMap[name].correct += (parseInt(t.correct, 10) || 0);
             });
         });
 

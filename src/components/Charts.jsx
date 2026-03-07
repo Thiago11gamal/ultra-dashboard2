@@ -48,7 +48,7 @@ export default function Charts({ data, compact = false }) {
     const categories = data?.categories || [];
 
     // Pie chart data - tasks per category
-    const pieData = categories.map(cat => {
+    const pieData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
         return {
             name: cat.name,
@@ -57,10 +57,10 @@ export default function Charts({ data, compact = false }) {
             completed: tasks.filter(t => t.completed).length,
             color: cat.color,
         };
-    });
+    }), [categories]);
 
     // Bar chart data - completed vs total per category
-    const barData = categories.map(cat => {
+    const barData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
         return {
             name: cat.name?.split(' ')[0] || 'Unlabeled', // Shortened name
@@ -68,7 +68,7 @@ export default function Charts({ data, compact = false }) {
             completed: tasks.filter(t => t.completed).length,
             color: cat.color,
         };
-    });
+    }), [categories]);
 
     // Simulated weekly progress data (Unused)
     // const weeklyData = [ ... ];
