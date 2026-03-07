@@ -21,6 +21,7 @@ const History = lazyWithRetry(() => import('./pages/History'));
 const Activity = lazyWithRetry(() => import('./pages/Activity'));
 const Retention = lazyWithRetry(() => import('./pages/Retention'));
 const Notes = lazyWithRetry(() => import('./pages/Notes'));
+const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
 
 import { useAuth } from './context/useAuth';
 import { useAppStore } from './store/useAppStore';
@@ -177,6 +178,7 @@ function MainLayout() {
             <Route path="/evolution" element={<Evolution />} />
             <Route path="/coach" element={<Coach />} />
             <Route path="/history" element={<History />} />
+            <Route path="/sessions" element={<Sessions />} />
             <Route path="/heatmap" element={<Activity />} />
             <Route path="/retention" element={<Retention />} />
             <Route path="/notes" element={<Notes />} />

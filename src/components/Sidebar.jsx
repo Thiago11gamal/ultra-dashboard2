@@ -15,7 +15,8 @@ import {
     History,
     HelpCircle,
     Brain,
-    TrendingUp
+    TrendingUp,
+    Clock
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
@@ -57,6 +58,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
         { path: '/stats', label: 'Estatísticas', icon: BarChart3 },
         { path: '/evolution', label: 'Evolução', icon: TrendingUp },
         { path: '/heatmap', label: 'Atividade', icon: CalendarDays },
+        { path: '/sessions', label: 'Sessões', icon: Clock },
         { path: '/retention', label: 'Retenção', icon: Brain },
         { path: '/history', label: 'Histórico', icon: History },
         { path: '/pomodoro', label: 'Pomodoro', icon: Timer },
