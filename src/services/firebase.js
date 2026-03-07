@@ -1,24 +1,32 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getAnalytics } from "firebase/analytics";
+
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 
-// Validate environment variables
+// Validate environment variables strictly
 const requiredEnvVars = [
     'VITE_API_KEY',
     'VITE_AUTH_DOMAIN',
     'VITE_PROJECT_ID',
+    'VITE_STORAGE_BUCKET',
+    'VITE_MESSAGING_SENDER_ID',
     'VITE_APP_ID'
 ];
 
-const missingVars = requiredEnvVars.filter(key => !import.meta.env[key]);
+const missingVars = requiredEnvVars.filter(key => {
+    const val = import.meta.env[key];
+    return !val || val === 'MISSING';
+});
+
 if (missingVars.length > 0) {
-    console.warn(`Firebase configuration incomplete. Missing: ${missingVars.join(', ')}`);
+    console.error(`ERR: Configuração do Firebase incompleta no .env! Faltando: ${missingVars.join(', ')}`);
 }
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_API_KEY || 'MISSING',
+    apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_PROJECT_ID,
     storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
@@ -45,5 +53,7 @@ try {
 }
 
 const auth = getAuth(app);
+const analytics = getAnalytics(app);
 
-export { db, auth };
+export { db, auth, analytics };
+

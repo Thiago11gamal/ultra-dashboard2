@@ -42,6 +42,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            console.debug("[Sync] Mensagem recebida do Firestore para UID:", currentUser.uid);
             setCloudConnected(true);
             const isFromCache = docSnap.metadata.fromCache;
             const exists = docSnap.exists();
@@ -164,7 +165,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const syncToCloud = async () => {
             try {
                 if (lastSyncedRef.current === currentStateString) return;
-                if (lastLocalMutationRef.current !== lastMutation) return;
+                if (lastLocalMutationRef.current !== lastMutation) {
+                    console.debug("[Sync] Abortando upload: mutação local mais recente detectada.");
+                    return;
+                }
 
                 const safeguardContest = (contest) => {
                     if (!contest) return contest;

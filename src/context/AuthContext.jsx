@@ -38,10 +38,15 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.debug("[Auth] Usuário conectado:", user.email);
+            } else {
+                console.debug("[Auth] Nenhum usuário conectado.");
+            }
             setCurrentUser(user);
             setLoading(false);
         }, (error) => {
-            console.error("Auth Error", error);
+            console.error("[Auth] Erro Crítico no Firebase Auth:", error.code, error.message);
             setLoading(false);
         });
 
