@@ -87,16 +87,9 @@ const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
 // --- STORE HELPERS ---
 
 const stripForUndo = (contestsObj) => {
-    const stripped = {};
-    for (const [key, contest] of Object.entries(contestsObj)) {
-        stripped[key] = {
-            ...contest,
-            studyLogs: [],
-            studySessions: [],
-            simuladoRows: [],
-        };
-    }
-    return stripped;
+    // Audit P1 Fix: Stop stripping arrays that don't have another persistence source.
+    // The history cap of 20 snapshots already prevents catastrophic memory leaks.
+    return JSON.parse(JSON.stringify(contestsObj));
 };
 
 const recordHistory = (appState) => {
@@ -169,12 +162,12 @@ export const useAppStore = create(
                 const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
                 if (!nextState || !nextState.contests || !nextState.activeId) return;
 
-                const prevStr = JSON.stringify(stripForUndo(state.appState.contests));
-                const nextStr = JSON.stringify(stripForUndo(nextState.contests));
+                // Audit P1: Comparison check
+                const prevStr = JSON.stringify(state.appState);
+                const nextStr = JSON.stringify(nextState);
+                if (prevStr === nextStr) return;
 
-                if (prevStr !== nextStr) {
-                    recordHistory(state.appState);
-                }
+                recordHistory(state.appState);
 
                 Object.keys(nextState).forEach(key => {
                     if (key !== 'history') {
@@ -191,16 +184,19 @@ export const useAppStore = create(
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
 
-                recordHistory(state.appState);
-
                 const nextData = typeof newDataCallback === 'function'
                     ? newDataCallback(currentData)
                     : newDataCallback;
 
-                if (nextData !== undefined) {
-                    state.appState.contests[contestId] = nextData;
-                }
+                if (nextData === undefined) return;
 
+                // Audit P1: Comparison check
+                const prevStr = JSON.stringify(currentData);
+                const nextStr = JSON.stringify(nextData);
+                if (prevStr === nextStr) return;
+
+                recordHistory(state.appState);
+                state.appState.contests[contestId] = nextData;
                 state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),
 

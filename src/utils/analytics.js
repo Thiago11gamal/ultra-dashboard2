@@ -418,8 +418,8 @@ export const getCompleteReport = (data) => {
 
     return {
         performance: {
-            xp: data.user.xp,
-            level: data.user.level,
+            xp: data.user?.xp || 0,
+            level: data.user?.level || 1,
             // Need to import getXPProgress or pass it logic. 
             // User snippet calls getXPProgress(data.user.xp, data.user.level) assumes it's available or imported.
             // We will leave this helper here assuming it's for external use or needs to fetch that util.

@@ -1,3 +1,22 @@
+const validateFullBackup = (data) => {
+    if (!data || typeof data !== 'object') return false;
+    // Essential root keys
+    if (!data.contests || typeof data.contests !== 'object') return false;
+    if (!data.activeId || typeof data.activeId !== 'string') return false;
+
+    // Check if activeId exists in contests
+    if (!data.contests[data.activeId]) return false;
+
+    // Validate contest structure (basic)
+    for (const contest of Object.values(data.contests)) {
+        if (!Array.isArray(contest.categories)) return false;
+        // User object is optional but should be an object if present
+        if (contest.user && typeof contest.user !== 'object') return false;
+    }
+
+    return true;
+};
+
 export const parseImportedData = (content, currentAppState) => {
     try {
         if (!content) throw new Error("Arquivo vazio");
@@ -11,6 +30,9 @@ export const parseImportedData = (content, currentAppState) => {
 
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {
+            if (!validateFullBackup(imported)) {
+                throw new Error("Backup completo corrompido ou inválido.");
+            }
             return { type: 'FULL_RESTORE', data: imported };
         }
 
@@ -50,6 +72,11 @@ export const parseImportedData = (content, currentAppState) => {
                 activeId: fallbackId,
                 contests: imported.contests
             };
+
+            if (!validateFullBackup(newState)) {
+                throw new Error("Backup legado corrompido ou incompatível.");
+            }
+
             return { type: 'LEGACY_RESTORE', data: newState };
         }
 

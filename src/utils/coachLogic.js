@@ -111,12 +111,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 return totalWeight > 0 ? weightedSum / totalWeight : 50;
             };
 
-            const todayBound = normalizeDate(new Date());
+            const currentBound = normalizeDate(new Date());
             // Bug fix: pastSimulados should INCLUDE today's simulados
             // Using strict < todayBound excluded results entered today, causing notaAnterior
             // to be calculated without today's data while notaBruta included it — the diff
             // was therefore always inflated on the day of data entry.
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) <= todayBound);
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) <= currentBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
