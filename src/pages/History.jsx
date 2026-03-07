@@ -13,6 +13,7 @@ export default function History() {
             simuladoRows={data.simuladoRows || []}
             onDeleteSession={deleteSession}
             onDeleteSimulado={deleteSimulado}
+            mode="performance"
         />
     );
 }

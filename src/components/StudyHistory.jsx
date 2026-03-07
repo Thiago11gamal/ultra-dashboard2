@@ -139,18 +139,18 @@ const StudyHistory = React.memo(function StudyHistory({
 
             {/* Middle Section - Chart and Sessions */}
             {(mode === 'full' || mode === 'sessions') && (
-                <div className="flex gap-4 items-stretch">
+                <div className="flex flex-col gap-4 items-stretch">
                     {/* Weekly Chart - Enhanced */}
-                    <div className="w-1/2 glass p-4">
+                    <div className="w-full glass p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
                             <BarChart3 size={14} />
                             Gráfico Semanal
                         </h3>
-                        <div className="flex items-end justify-between gap-2 h-40">
+                        <div className="flex items-end justify-between gap-2 h-64">
                             {stats.weekData.map((day, idx) => (
                                 <div key={idx} className="flex-1 flex flex-col items-center gap-1">
                                     {/* Bar */}
-                                    <div className="w-full flex flex-col items-center justify-end h-20">
+                                    <div className="w-full flex flex-col items-center justify-end h-40">
                                         <div
                                             className={`w-full max-w-8 rounded-t-lg transition-all duration-500 ${day.isToday
                                                 ? 'bg-gradient-to-t from-emerald-600 to-emerald-400'
@@ -178,7 +178,7 @@ const StudyHistory = React.memo(function StudyHistory({
                     </div>
 
                     {/* Today's Sessions - Enhanced */}
-                    <div className="flex-1 glass p-4">
+                    <div className="w-full glass p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
                             <Zap size={14} />
                             Sessões de Hoje ({stats.todaySessions.length})
@@ -497,7 +497,7 @@ const StudyHistory = React.memo(function StudyHistory({
                             }
 
                             return (
-                                <div className="flex gap-8 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(80vh - 8rem)' }}>
+                                <div className="flex gap-8 flex-1 overflow-y-visible" style={{ minHeight: '400px' }}>
                                     {yesterdaySection || (
                                         <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
                                             <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
