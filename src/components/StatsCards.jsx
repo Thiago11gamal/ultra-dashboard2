@@ -20,19 +20,20 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         if (!user.goalDate) return null;
 
         const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         let goal;
         if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
             const g = new Date(user.goalDate);
+            // ISO strings interpreted as UTC days for the goal
             goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
         } else {
-            goal = new Date(user.goalDate);
-            goal.setHours(0, 0, 0, 0);
+            const g = new Date(user.goalDate);
+            goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
         }
 
-        const diffTime = goal - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffTime = goal.getTime() - localToday.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     }, [user.goalDate]);
 

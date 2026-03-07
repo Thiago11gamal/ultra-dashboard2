@@ -101,7 +101,6 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
         for (const h of history) {
             const total = Number(h.total) || 0;
             const correct = Number(h.correct) || 0;
-            if (total < 5) continue;
             alpha += correct;
             beta += (total - correct);
         }
@@ -130,8 +129,7 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
 export function computeCategoryStats(history, weight) {
     if (!history || history.length === 0) return null;
 
-    const validHistory = history.filter(h => (Number(h.total) || 0) >= 5);
-    const historyToUse = validHistory.length > 0 ? validHistory : history;
+    const historyToUse = history;
 
     const scores = historyToUse.map(h => getSafeScore(h));
 

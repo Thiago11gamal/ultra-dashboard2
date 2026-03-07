@@ -48,10 +48,8 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                 const entry = aggregatedHistory[histIdx];
                 const total = Number(entry.total) || 0;
                 const correct = Number(entry.correct) || 0;
-                if (total >= 5) {
-                    bayAlpha += correct;
-                    bayBeta += (total - correct);
-                }
+                bayAlpha += correct;
+                bayBeta += (total - correct);
                 accumulated.push(entry);
                 histIdx++;
             } else {
@@ -174,7 +172,7 @@ export function useChartData(categories = [], focusId = null) {
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total >= 5 ? (correct / total) * 100 : null;
+                const rawDailyScore = total > 0 ? (correct / total) * 100 : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
