@@ -500,6 +500,25 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
                                             </linearGradient>
                                         ))}
+                                        <filter id="lineShadow" height="200%">
+                                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                                            <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
+                                            <feMerge>
+                                                <feMergeNode in="offsetBlur" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur stdDeviation="3" result="glow" />
+                                            <feMerge>
+                                                <feMergeNode in="glow" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                        <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.1} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                        </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
