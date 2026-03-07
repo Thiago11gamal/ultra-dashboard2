@@ -2,12 +2,12 @@ export const parseImportedData = (content, currentAppState) => {
     try {
         if (!content) throw new Error("Arquivo vazio");
 
-        const imported = JSON.parse(content);
-
-        // Security: Size check (5MB)
+        // Security: Size check (5MB) BEFORE parse
         if (content.length > 5 * 1024 * 1024) {
             throw new Error("Arquivo muito grande (máximo 5MB).");
         }
+
+        const imported = JSON.parse(content);
 
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {

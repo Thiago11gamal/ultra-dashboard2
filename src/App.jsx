@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
@@ -25,7 +25,6 @@ const Notes = lazyWithRetry(() => import('./pages/Notes'));
 import { useAuth } from './context/useAuth';
 import { useAppStore } from './store/useAppStore';
 import { useCloudSync } from './hooks/useCloudSync';
-import { useGamification } from './hooks/useGamification';
 import { useToast } from './hooks/useToast';
 import useMobileDetect from './hooks/useMobileDetect';
 import { parseImportedData } from './utils/backupManager';
@@ -66,7 +65,6 @@ function MainLayout() {
   }, []);
 
   const showToast = useToast();
-  const { levelUpData, closeLevelUpToast } = useGamification(showToast);
 
   // Auto-save pipeline
   const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
@@ -182,12 +180,12 @@ function MainLayout() {
             <Route path="/heatmap" element={<Activity />} />
             <Route path="/retention" element={<Retention />} />
             <Route path="/notes" element={<Notes />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
 
       {/* Global Modals & Toasts */}
-      {levelUpData && <LevelUpToast level={levelUpData.level} title={levelUpData.title} onClose={closeLevelUpToast} />}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
 
       {/* Global Event Driven Toast Container */}

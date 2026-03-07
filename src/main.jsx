@@ -6,9 +6,6 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 
 const rootElement = document.getElementById('root');
-if (rootElement.hasChildNodes()) {
-  rootElement.innerHTML = '';
-}
 
 createRoot(rootElement).render(
   <ErrorBoundary>

@@ -1,19 +1,91 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { format, subDays, differenceInDays } from 'date-fns';
 import { INITIAL_DATA } from '../data/initialData';
 import { SYNC_LOG_CAP } from '../config';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
-import { checkAndUnlockAchievements } from '../utils/gamificationLogic';
 import { generateId } from '../utils/idGenerator';
 
-// Scalability cap: prevents localStorage overflow after months of use
-// Scalability caps unified via config
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
 
-// Helper: strip large append-only arrays from undo snapshots
-// studyLogs / studySessions / simuladoRows don't support undo and bloat RAM
+// --- INLINED GAMIFICATION LOGIC (Session 4 Cleanup) ---
+
+const calculateBestStreak = (dates) => {
+    if (!dates || dates.length === 0) return 0;
+    let best = 1;
+    let current = 1;
+    for (let i = 1; i < dates.length; i++) {
+        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
+        if (diff === 1) {
+            current++;
+            best = Math.max(best, current);
+        } else {
+            current = 1;
+        }
+    }
+    return best;
+};
+
+const calculateStreak = (studyLogs = []) => {
+    if (!studyLogs.length) return { current: 0, best: 0 };
+    const dates = [...new Set(
+        studyLogs.map(l => {
+            if (!l.date) return null;
+            const rawDate = typeof l.date === 'string' && l.date.length === 10
+                ? new Date(`${l.date}T12:00:00`)
+                : new Date(l.date);
+            return isNaN(rawDate.getTime()) ? null : format(rawDate, 'yyyy-MM-dd');
+        }).filter(Boolean)
+    )].sort().reverse();
+    if (dates.length === 0) return { current: 0, best: 0 };
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    if (dates[0] !== today && dates[0] !== yesterday) {
+        return { current: 0, best: calculateBestStreak(dates) };
+    }
+    let current = 1;
+    for (let i = 1; i < dates.length; i++) {
+        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
+        if (diff === 1) current++;
+        else break;
+    }
+    return { current, best: Math.max(current, calculateBestStreak(dates)) };
+};
+
+const ACHIEVEMENTS = [
+    { id: 'first_step', name: 'Primeiro Passo', icon: '🌟', xpReward: 100, condition: (s) => s.completedTasks >= 1 },
+    { id: 'streak_3', name: 'Iniciante Consistente', icon: '🔥', xpReward: 150, condition: (s) => s.currentStreak >= 3 },
+    { id: 'streak_7', name: 'Semana Invicta', icon: '🏆', xpReward: 350, condition: (s) => s.currentStreak >= 7 },
+    { id: 'streak_30', name: 'Maratonista', icon: '👑', xpReward: 1000, condition: (s) => s.currentStreak >= 30 },
+    { id: 'centurion', name: 'Centurião', icon: '💯', xpReward: 300, condition: (s) => s.totalQuestions >= 100 },
+    { id: 'perfectionist', name: 'Perfeccionista', icon: '🎯', xpReward: 500, condition: (s) => s.hasPerfectScore },
+    { id: 'pomodoro_10', name: 'Focado', icon: '⏱️', xpReward: 300, condition: (s) => s.pomodorosCompleted >= 10 },
+    { id: 'early_bird', name: 'Madrugador', icon: '🌅', xpReward: 200, condition: (s) => s.studiedEarly },
+    { id: 'night_owl', name: 'Coruja', icon: '🦉', xpReward: 200, condition: (s) => s.studiedLate },
+];
+
+const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
+    const stats = {
+        completedTasks: data.categories?.reduce((sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
+        currentStreak: calculateStreak(data.studyLogs || []).current,
+        totalQuestions: data.categories?.reduce((sum, cat) => sum + (cat.simuladoStats?.history?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0), 0) || 0,
+        hasPerfectScore: data.categories?.some(cat => cat.simuladoStats?.history?.some(h => h.score === 100 || (h.correct === h.total && h.total > 0))) || false,
+        pomodorosCompleted: data.studySessions?.length || 0,
+        studiedEarly: data.user?.studiedEarly || false,
+        studiedLate: data.user?.studiedLate || false
+    };
+    const newlyUnlocked = [];
+    ACHIEVEMENTS.forEach(ach => {
+        const isUnlocked = currentUnlocked.some(u => (typeof u === 'string' ? u : u.id) === ach.id);
+        if (!isUnlocked && ach.condition(stats)) newlyUnlocked.push(ach.id);
+    });
+    return { newlyUnlocked, xpGained: newlyUnlocked.reduce((sum, id) => sum + (ACHIEVEMENTS.find(a => a.id === id)?.xpReward || 0), 0) };
+};
+
+// --- STORE HELPERS ---
+
 const stripForUndo = (contestsObj) => {
     const stripped = {};
     for (const [key, contest] of Object.entries(contestsObj)) {
@@ -27,11 +99,7 @@ const stripForUndo = (contestsObj) => {
     return stripped;
 };
 
-// BUG 3 FIX: recordHistory is now a pure function outside the store.
-// Previously called via get().recordHistory(state) which relies on Immer internal behavior
-// and can break silently on library updates. Now called directly with the Immer proxy.
 const recordHistory = (appState) => {
-    // Proactive Pruning: If history is getting large, prune it before adding more
     if (appState.history.length >= 20) {
         appState.history.shift();
     }
@@ -39,17 +107,14 @@ const recordHistory = (appState) => {
     appState.history.push({ contests: snapshot, activeId: appState.activeId });
 };
 
-// Helper to handle gamification within the store
-// This mimics the 'applyGamification' from the custom hook, but runs inside Zustand
 const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
-    if (!activeData || !activeData.user || xpGained === 0) return null;
+    if (!activeData || !activeData.user) return null;
 
     let currentXP = activeData.user.xp || 0;
     let currentLevel = activeData.user.level || 1;
     let newXP = Math.max(0, currentXP + xpGained);
 
-    // --- ACHIEVEMENT SYSTEM ACTIVATION ---
     const currentAchievements = activeData.user.achievements || [];
     const { newlyUnlocked, xpGained: achievementXp } = checkAndUnlockAchievements(activeData, currentAchievements);
 
@@ -58,7 +123,6 @@ const processGamification = (state, xpGained) => {
         activeData.user.achievements = [...currentAchievements, ...newlyUnlocked];
     }
 
-    // Recalculate level and check if user leveled up after all XP (base + achievements)
     const finalLevel = calculateLevel(newXP);
     const leveledUp = finalLevel > currentLevel;
 
@@ -66,7 +130,6 @@ const processGamification = (state, xpGained) => {
     activeData.user.level = finalLevel;
 
     if (leveledUp && typeof window !== 'undefined') {
-        // Use a timeout or microtask to ensure the event is dispatched AFTER the store update is commit
         setTimeout(() => {
             window.dispatchEvent(new CustomEvent('level-up', {
                 detail: {
@@ -81,11 +144,9 @@ const processGamification = (state, xpGained) => {
     return leveledUp ? finalLevel : null;
 };
 
-// Create the Zustand store with Immer for easy deep mutations
 export const useAppStore = create(
     persist(
         immer((set) => ({
-            // State
             appState: {
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
@@ -94,10 +155,8 @@ export const useAppStore = create(
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
-            // Actions
             undo: () => set((state) => {
                 if (!state.appState.history || state.appState.history.length === 0) return;
-
                 const snapshot = state.appState.history.pop();
                 if (snapshot.contests) {
                     state.appState.contests = snapshot.contests;
@@ -107,13 +166,9 @@ export const useAppStore = create(
             }),
 
             setAppState: (newStateObj) => set((state) => {
-                // Resolve the next state first before touching history
                 const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
-
-                // Safety check: ensure nextState has required structure before committing
                 if (!nextState || !nextState.contests || !nextState.activeId) return;
 
-                // Only record history if the contests content actually changed
                 const prevStr = JSON.stringify(stripForUndo(state.appState.contests));
                 const nextStr = JSON.stringify(stripForUndo(nextState.contests));
 
@@ -121,20 +176,14 @@ export const useAppStore = create(
                     recordHistory(state.appState);
                 }
 
-                // RESTORE ALL FIELDS (including mcEqualWeights and future fields)
                 Object.keys(nextState).forEach(key => {
                     if (key !== 'history') {
                         state.appState[key] = nextState[key];
                     }
                 });
 
-                // Preserve history stack unless the import explicitly provides a new one
                 if (nextState.history) state.appState.history = nextState.history;
-
-                // IMPORTANT: Prioritize the timestamp from the incoming state (e.g. from cloud)
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
-
-
             }),
 
             setData: (newDataCallback) => set((state) => {
@@ -142,32 +191,21 @@ export const useAppStore = create(
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
 
-                // Record history using standalone pure function
                 recordHistory(state.appState);
 
-                // Allows updating only the active contest data
-                if (typeof newDataCallback === 'function') {
-                    const result = newDataCallback(currentData);
-                    if (result !== undefined) {
-                        state.appState.contests[contestId] = result;
-                    }
-                } else {
-                    state.appState.contests[contestId] = newDataCallback;
-                }
-
-                const result = typeof newDataCallback === 'function'
+                const nextData = typeof newDataCallback === 'function'
                     ? newDataCallback(currentData)
                     : newDataCallback;
 
-                state.appState.lastUpdated = result?.lastUpdated || new Date().toISOString();
+                if (nextData !== undefined) {
+                    state.appState.contests[contestId] = nextData;
+                }
+
+                state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),
 
-            // === Data Mutations (Immer makes this super clean) ===
-
-            // 1. Gamification & Tasks
             toggleTask: (categoryId, taskId) => set((state) => {
                 recordHistory(state.appState);
-                let xpChange = 0;
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData || !activeData.categories) return;
 
@@ -178,13 +216,12 @@ export const useAppStore = create(
                 if (!task) return;
 
                 const completed = !task.completed;
-                xpChange = getTaskXP(task, completed);
+                const xpChange = getTaskXP(task, completed);
 
                 task.completed = completed;
                 task.completedAt = completed ? new Date().toISOString() : null;
                 if (completed) task.lastStudiedAt = new Date().toISOString();
 
-                // Apply XP using unified helper
                 processGamification(state, xpChange);
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -238,7 +275,6 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            // 2. Categories
             addCategory: (name) => set((state) => {
                 recordHistory(state.appState);
                 if (!name || typeof name !== 'string') return;
@@ -267,7 +303,6 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            // 3. Pomodoro & Sessions
             handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state) => {
                 recordHistory(state.appState);
                 const now = new Date().toISOString();
@@ -280,30 +315,21 @@ export const useAppStore = create(
                 activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
                 activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
 
-                // Fix 1: cap arrays to prevent localStorage overflow
-                if (activeData.studyLogs.length > LOG_CAP) {
-                    activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
-                }
-                if (activeData.studySessions.length > SESSION_CAP) {
-                    activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
-                }
+                if (activeData.studyLogs.length > LOG_CAP) activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
+                if (activeData.studySessions.length > SESSION_CAP) activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
 
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
                     category.totalMinutes = (category.totalMinutes || 0) + minutes;
                     category.lastStudiedAt = now;
-
                     if (taskId) {
                         const task = category.tasks.find(t => t.id === taskId);
                         if (task) task.lastStudiedAt = now;
                     }
                 }
 
-                // XP logic using unified helper
-                const baseXP = XP_CONFIG.pomodoro.base; // 100
-                const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0; // +100
-
-                // Achievement tracking: Time of day
+                const baseXP = XP_CONFIG.pomodoro.base;
+                const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
                 const startHour = new Date(now).getHours();
                 if (activeData.user) {
                     if (startHour < 7) activeData.user.studiedEarly = true;
@@ -318,40 +344,28 @@ export const useAppStore = create(
                 recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
-                // Bug fix: returning `false` inside an Immer producer tells Immer to REPLACE
-                // the entire store state with `false`, corrupting all data. Use plain `return` instead.
                 if (sessionIndex === -1 || sessionIndex === undefined) return;
 
                 const session = activeData.studySessions[sessionIndex];
-
-                // Deduct time from category
                 const category = activeData.categories.find(c => c.id === session.categoryId);
                 if (category) {
                     category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
                 }
 
-                // Remove session
                 activeData.studySessions.splice(sessionIndex, 1);
-
-                // Remove log by fixed ID
                 if (activeData.studyLogs) {
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
                 }
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            // 4. Simulados Configs
             setMonteCarloWeights: (weights) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData) return;
                 activeData.mcWeights = weights;
-
-                // Sync with categories for backward compatibility and other displays
                 if (activeData.categories) {
                     activeData.categories.forEach(cat => {
-                        if (weights[cat.name] !== undefined) {
-                            cat.weight = weights[cat.name];
-                        }
+                        if (weights[cat.name] !== undefined) cat.weight = weights[cat.name];
                     });
                 }
                 state.appState.lastUpdated = new Date().toISOString();
@@ -365,13 +379,9 @@ export const useAppStore = create(
             updateWeights: (weights) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData.categories) return;
-
                 activeData.categories.forEach(cat => {
-                    if (weights[cat.name] !== undefined) {
-                        cat.weight = weights[cat.name];
-                    }
+                    if (weights[cat.name] !== undefined) cat.weight = weights[cat.name];
                 });
-                // Also update mcWeights
                 activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -385,19 +395,16 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateStr) => set((state) => {
-                recordHistory(state.appState);
-                const targetDay = new Date(dateStr).toDateString();
+                const targetDay = dateStr.slice(0, 10);
                 const activeData = state.appState.contests[state.appState.activeId];
-
                 const matchesDate = (raw) => {
-                    try { return new Date(raw).toDateString() === targetDay; }
-                    catch { return false; }
+                    if (!raw) return false;
+                    const iso = typeof raw === 'string' ? raw : new Date(raw).toISOString();
+                    return iso.slice(0, 10) === targetDay;
                 };
-
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
                 }
-
                 activeData.categories.forEach(c => {
                     if (c.simuladoStats?.history) {
                         c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
@@ -406,7 +413,6 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            // 5. User Settings & Management
             updatePomodoroSettings: (settings) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.settings = { ...(activeData.settings || {}), ...settings };
@@ -427,7 +433,6 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            // 6. Contests Management
             switchContest: (contestId) => set((state) => {
                 state.appState.activeId = contestId;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -452,7 +457,6 @@ export const useAppStore = create(
             deleteContest: (contestId) => set((state) => {
                 recordHistory(state.appState);
                 delete state.appState.contests[contestId];
-
                 const remainingIds = Object.keys(state.appState.contests);
                 if (remainingIds.length === 0) {
                     state.appState.contests['default'] = JSON.parse(JSON.stringify(INITIAL_DATA));
@@ -462,63 +466,42 @@ export const useAppStore = create(
                 }
                 state.appState.lastUpdated = new Date().toISOString();
             })
-
         })),
         {
             name: 'ultra-dashboard-storage',
-            version: 1, // Add versioning for future migrations
+            version: 1,
             storage: createJSONStorage(() => ({
                 getItem: (name) => localStorage.getItem(name),
                 setItem: (name, value) => {
                     try {
                         localStorage.setItem(name, value);
                     } catch (e) {
-                        // Error code 22 is usually QuotaExceededError
                         if (e.name === 'QuotaExceededError' || e.code === 22) {
-                            console.warn('LocalStorage limit reached! Wiping history from RAM and storage...');
                             try {
                                 const state = JSON.parse(value);
                                 if (state.state?.appState) {
-                                    // CRITICAL: Wipe history NOT JUST in the string but in the store state itself for the NEXT render/save
-                                    // Use set.getState() or reach into the store? Zustand middleware has limited access here
-                                    // but we can at least ensure the string being saved is clean.
                                     state.state.appState.history = [];
                                     localStorage.setItem(name, JSON.stringify(state));
-
-                                    // Notify the UI to clear the RAM state if possible via a global event
                                     window.dispatchEvent(new CustomEvent('storage-quota-reached'));
                                 }
                             } catch (error) {
                                 console.error('Auto-pruning failed:', error);
                             }
-                        } else {
-                            throw e;
-                        }
+                        } else throw e;
                     }
                 },
                 removeItem: (name) => localStorage.removeItem(name)
             })),
             partialize: (state) => ({ appState: state.appState }),
-            // CRITICAL FIX: Custom merge to prevent HMR (Hot Reload) from wiping data
             merge: (persistedState, currentState) => {
                 const persisted = persistedState?.appState;
                 const current = currentState.appState;
-
-                // Sync Safeguard: If the persisted state is the default (1970 timestamp), 
-                // we prefer the clean initialData from the code to avoid "ghost" overrides.
                 const isDefaultState = persisted?.lastUpdated === "1970-01-01T00:00:00.000Z";
-                if (!persisted || isDefaultState) {
-                    return currentState;
-                }
-
+                if (!persisted || isDefaultState) return currentState;
                 const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
                 const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
                 let activeId = persisted.activeId || current.activeId;
-
-                if (!contests[activeId]) {
-                    activeId = Object.keys(contests)[0] || 'default';
-                }
-
+                if (!contests[activeId]) activeId = Object.keys(contests)[0] || 'default';
                 return {
                     ...currentState,
                     appState: {
@@ -526,7 +509,6 @@ export const useAppStore = create(
                         ...persisted,
                         contests,
                         activeId,
-                        // Ensure we carry forward history and other metadata
                         history: persisted.history || [],
                         lastUpdated: persisted.lastUpdated || current.lastUpdated
                     }
@@ -535,4 +517,3 @@ export const useAppStore = create(
         }
     )
 );
-

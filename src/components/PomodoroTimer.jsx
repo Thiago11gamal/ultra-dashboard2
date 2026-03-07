@@ -57,9 +57,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     });
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
-    // --- TIMER REFS FOR CLEANUP ---
+    // --- TIMER REFS FOR CLEANUP & PERSISTENCE ---
     const timerRef = useRef(null);
     const innerTimerRef = useRef(null);
+    const saveTimeoutRef = useRef(null);
     useEffect(() => {
         const saved = localStorage.getItem('pomodoroState');
         if (saved) {
@@ -176,13 +177,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
     };
 
-    // --- ROBUST STATE SAVING (THROTTLED) ---
-    // Save state at most once every 2 seconds to avoid thrashing localStorage at 10x/sec
-    const lastSaveRef = useRef(0);
+    // --- ROBUST STATE SAVING (DEBOUNCED) ---
     useEffect(() => {
-        const now = Date.now();
-        if (now - lastSaveRef.current < 2000) return; // Throttle: max 1 save per 2s
-        lastSaveRef.current = now;
         const stateToSave = {
             mode,
             timeLeft,
@@ -191,11 +187,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             completedCycles,
             targetCycles,
             sessionHistory,
-            savedAt: now,
+            savedAt: Date.now(),
             activeTaskId: activeSubject?.taskId,
             sessionInstanceId: activeSubject?.sessionInstanceId
         };
-        localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        }, 1000);
+
+        return () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        };
     }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
 
 

@@ -54,7 +54,7 @@ export default function Login() {
                 // Basic entropy check
                 const hasMixed = /[a-z]/.test(password) && /[0-9]/.test(password);
                 if (!hasMixed) {
-                    console.warn("Weak password: consider adding numbers and letters.");
+                    throw new Error("Sua senha deve conter letras e números para maior segurança.");
                 }
 
                 await signup(email.trim(), password, name);
