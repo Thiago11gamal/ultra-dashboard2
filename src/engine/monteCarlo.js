@@ -1,21 +1,7 @@
 import { monteCarloSimulation } from './projection.js';
+import { mulberry32, randomNormal } from './random.js';
 
-function createSeededRandom(seed = 123456) {
-  let value = Math.floor(seed) % 2147483647;
-  if (value <= 0) value += 2147483646;
-
-  return function () {
-    value = (value * 16807) % 2147483647;
-    return (value - 1) / 2147483646;
-  };
-}
-
-function randomNormal(rng) {
-  let u = rng();
-  while (u <= 0) u = rng();
-  const v = rng();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
+// Removed createSeededRandom and randomNormal - using unified random.js versions
 
 function simulateNormalDistribution(mean, sd, targetScore, simulations, seed) {
   const safeMean = Number.isFinite(mean) ? mean : 0;
@@ -23,7 +9,7 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed) {
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
 
-  const rng = createSeededRandom(seed);
+  const rng = mulberry32(seed || Date.now());
   let success = 0;
 
   // Math fix: Welford online variance (numerically stable)

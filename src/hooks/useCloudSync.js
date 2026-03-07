@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { SYNC_LOG_CAP } from '../config';
 
 /**
  * Normaliza um objeto para comparação determinística
@@ -28,12 +29,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         appStateRef.current = appState;
     }, [appState]);
 
-    // Compara apenas o conteúdo real, ignorando timestamps e histórico
+    // Normalização leve para detecção de mudança em tempo real
+    // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
     const stateStringForSync = (state) => {
         if (!state) return '';
-        const { history: _h, _lastBackup: _lb, lastUpdated: _lu, ...rest } = state;
-        const normalized = sortObject({ ...rest, history: [] });
-        return JSON.stringify(normalized);
+        return `${state.lastUpdated}|${state.activeId}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
@@ -181,8 +181,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     // Previously capped at 200, causing 800 logs to be lost on cloud pull.
                     return {
                         ...contest,
-                        studyLogs: (contest.studyLogs || []).slice(-1000),
-                        studySessions: (contest.studySessions || []).slice(-1000),
+                        studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
+                        studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
                         simuladoRows: (contest.simuladoRows || []).slice(-300),
                     };
                 };

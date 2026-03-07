@@ -57,7 +57,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     });
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
-    // --- RESUME LOGIC (Back from Background/Refresh) ---
+    // --- TIMER REFS FOR CLEANUP ---
+    const timerRef = useRef(null);
+    const innerTimerRef = useRef(null);
     useEffect(() => {
         const saved = localStorage.getItem('pomodoroState');
         if (saved) {
@@ -95,14 +97,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             return;
                         }
 
-                        setTimeout(() => {
+                        timerRef.current = setTimeout(() => {
                             setTimeLeft(prev => {
                                 const newTime = prev - elapsedSeconds;
                                 return newTime > 0 ? newTime : 0;
                             });
                             // FIX Bug 12: force effect to restart and pick up new timeLeft as initialTimeLeft
                             setIsRunning(false);
-                            setTimeout(() => setIsRunning(true), 0);
+                            innerTimerRef.current = setTimeout(() => setIsRunning(true), 0);
                         }, 0);
                     }
                 } else {
@@ -126,6 +128,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 console.error("Resume logic error");
             }
         }
+        return () => {
+            clearTimeout(timerRef.current);
+            clearTimeout(innerTimerRef.current);
+        };
     }, [activeSubject, safeSettings]); // Added dependencies
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
@@ -709,8 +715,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     key={s}
                                     onClick={() => setSpeed(s)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${speed === s
-                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                            : 'text-stone-500 hover:text-stone-300 hover:bg-[#292524]'
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                        : 'text-stone-500 hover:text-stone-300 hover:bg-[#292524]'
                                         }`}
                                 >
                                     {s}x

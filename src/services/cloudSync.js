@@ -1,5 +1,5 @@
-import { db } from './firebase';
 import { doc, setDoc, getDocFromServer } from "firebase/firestore";
+import { SYNC_LOG_CAP } from '../config';
 
 // Constants
 const BACKUP_COLLECTION = "backups";
@@ -7,7 +7,8 @@ const BACKUP_COLLECTION = "backups";
 export const uploadDataToCloud = async (data, userId) => {
     try {
         if (!data) throw new Error("No data to save");
-        const docId = userId || 'anonymous';
+        if (!userId) throw new Error("Usuário não autenticado. Backup abortado.");
+        const docId = userId;
 
         // Bug fix: studyLogs, studySessions, simuladoRows grow unbounded and can exceed
         // Firestore's 1MB document limit, causing silent backup failures.
@@ -17,9 +18,9 @@ export const uploadDataToCloud = async (data, userId) => {
             if (!contest) return contest;
             return {
                 ...contest,
-                studyLogs: (contest.studyLogs || []).slice(-200),
-                studySessions: (contest.studySessions || []).slice(-200),
-                simuladoRows: (contest.simuladoRows || []).slice(-200),
+                studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
+                studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
+                simuladoRows: (contest.simuladoRows || []).slice(-SYNC_LOG_CAP),
             };
         };
 
@@ -46,7 +47,8 @@ export const uploadDataToCloud = async (data, userId) => {
 
 export const downloadDataFromCloud = async (userId) => {
     try {
-        const docId = userId || 'anonymous';
+        if (!userId) throw new Error("Autenticação necessária para baixar backup.");
+        const docId = userId;
         const docRef = doc(db, BACKUP_COLLECTION, docId);
         const docSnap = await getDocFromServer(docRef);
 

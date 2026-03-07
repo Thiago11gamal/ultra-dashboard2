@@ -65,9 +65,21 @@ export function calculateTrend(scores) {
 
         const tDist95 = {
             1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57,
-            6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23
+            6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
+            11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14, 15: 2.13,
+            20: 2.09, 25: 2.06, 30: 2.04, 60: 2.00, 120: 1.98
         };
-        const tCrit = tDist95[df] || 2.0;
+
+        const getTCrit = (degreesOfFreedom) => {
+            if (degreesOfFreedom >= 120) return 1.96;
+            if (tDist95[degreesOfFreedom]) return tDist95[degreesOfFreedom];
+            // Linear interpolation/fallback for ranges
+            if (degreesOfFreedom > 30) return 2.00;
+            if (degreesOfFreedom > 10) return 2.10;
+            return 2.23;
+        };
+
+        const tCrit = getTCrit(df);
 
         if (Math.abs(tStat) < tCrit) return 0;
     }

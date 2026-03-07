@@ -49,6 +49,14 @@ export default function Login() {
                 await login(email.trim(), password);
             } else {
                 if (!name.trim()) throw new Error("Por favor, insira seu nome.");
+                if (password.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
+
+                // Basic entropy check
+                const hasMixed = /[a-z]/.test(password) && /[0-9]/.test(password);
+                if (!hasMixed) {
+                    console.warn("Weak password: consider adding numbers and letters.");
+                }
+
                 await signup(email.trim(), password, name);
             }
         } catch (err) {
@@ -165,6 +173,27 @@ export default function Login() {
                                 required
                                 suppressHydrationWarning
                             />
+                            {!isLogin && password && (
+                                <div className="pw-strength-container" style={{ marginTop: '8px' }}>
+                                    <div style={{
+                                        height: '4px',
+                                        width: '100%',
+                                        backgroundColor: '#334155',
+                                        borderRadius: '2px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            height: '100%',
+                                            width: password.length < 6 ? '30%' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? '100%' : '60%'),
+                                            backgroundColor: password.length < 6 ? '#ef4444' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? '#10b981' : '#f59e0b'),
+                                            transition: 'width 0.3s ease'
+                                        }} />
+                                    </div>
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                                        {password.length < 6 ? 'Senha muito curta' : (/[0-9]/.test(password) && /[a-z]/.test(password) ? 'Senha forte' : 'Senha média')}
+                                    </span>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 className="eye-btn"

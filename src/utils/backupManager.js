@@ -4,6 +4,11 @@ export const parseImportedData = (content, currentAppState) => {
 
         const imported = JSON.parse(content);
 
+        // Security: Size check (5MB)
+        if (content.length > 5 * 1024 * 1024) {
+            throw new Error("Arquivo muito grande (máximo 5MB).");
+        }
+
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {
             return { type: 'FULL_RESTORE', data: imported };
@@ -11,9 +16,16 @@ export const parseImportedData = (content, currentAppState) => {
 
         // Strategy 2: Single Contest Data (Old Format or Partial Export)
         if (imported.user || imported.categories) {
-            if (!imported.categories) {
-                throw new Error("Formato inválido: Faltam categorias obrigatórias para inicializar o ambiente.");
+            if (!Array.isArray(imported.categories)) {
+                throw new Error("Formato inválido: 'categories' deve ser um array.");
             }
+
+            // Basic sanitization
+            imported.categories.forEach((cat, i) => {
+                if (!cat.id) cat.id = `cat-import-${i}`;
+                if (!cat.name) cat.name = "Sem Nome";
+                if (!Array.isArray(cat.tasks)) cat.tasks = [];
+            });
 
             // Build a new appState wrapping this contest
             const newState = {

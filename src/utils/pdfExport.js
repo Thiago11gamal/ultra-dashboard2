@@ -1,7 +1,11 @@
 import html2pdf from 'html2pdf.js';
 
-export const generatePDFReport = () => {
-    const element = document.body; // Snapshot entire body or a specific ID
+export const generatePDFReport = (containerId = 'dashboard-content') => {
+    const element = document.getElementById(containerId);
+    if (!element) {
+        console.error('PDF Export: Container not found', containerId);
+        return;
+    }
     const today = new Date();
     const dateStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     const opt = {

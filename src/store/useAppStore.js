@@ -2,13 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { INITIAL_DATA } from '../data/initialData';
+import { SYNC_LOG_CAP } from '../config';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 import { checkAndUnlockAchievements } from '../utils/gamificationLogic';
 import { generateId } from '../utils/idGenerator';
 
 // Scalability cap: prevents localStorage overflow after months of use
-const LOG_CAP = 1000;          // max studyLogs entries kept
-const SESSION_CAP = 1000;      // max studySessions entries kept
+// Scalability caps unified via config
+const LOG_CAP = SYNC_LOG_CAP;
+const SESSION_CAP = SYNC_LOG_CAP;
 
 // Helper: strip large append-only arrays from undo snapshots
 // studyLogs / studySessions / simuladoRows don't support undo and bloat RAM
@@ -111,17 +113,13 @@ export const useAppStore = create(
                 // Safety check: ensure nextState has required structure before committing
                 if (!nextState || !nextState.contests || !nextState.activeId) return;
 
-                // Only record snapshot for undo after we know the update is valid
-                // Fix 7: strip append-only arrays to keep undo stack lean
-                const snapshot = JSON.parse(JSON.stringify(stripForUndo(state.appState.contests)));
-                const activeId = state.appState.activeId;
+                // Only record history if the contests content actually changed
+                const prevStr = JSON.stringify(stripForUndo(state.appState.contests));
+                const nextStr = JSON.stringify(stripForUndo(nextState.contests));
 
-                state.appState.history.push({
-                    contests: snapshot,
-                    activeId: activeId
-                });
-
-                if (state.appState.history.length >= 20) state.appState.history.shift();
+                if (prevStr !== nextStr) {
+                    recordHistory(state.appState);
+                }
 
                 // RESTORE ALL FIELDS (including mcEqualWeights and future fields)
                 Object.keys(nextState).forEach(key => {
@@ -157,8 +155,11 @@ export const useAppStore = create(
                     state.appState.contests[contestId] = newDataCallback;
                 }
 
-                state.appState.lastUpdated = (typeof newDataCallback === 'object' && newDataCallback?.lastUpdated)
-                    || new Date().toISOString();
+                const result = typeof newDataCallback === 'function'
+                    ? newDataCallback(currentData)
+                    : newDataCallback;
+
+                state.appState.lastUpdated = result?.lastUpdated || new Date().toISOString();
             }),
 
             // === Data Mutations (Immer makes this super clean) ===
@@ -189,15 +190,17 @@ export const useAppStore = create(
             }),
 
             addTask: (categoryId, title) => set((state) => {
+                const trimmedTitle = typeof title === 'string' ? title.trim() : '';
+                if (!trimmedTitle) return;
+
                 recordHistory(state.appState);
-                if (!title || typeof title !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
                     category.tasks.push({
                         id: generateId('task'),
-                        text: title,
-                        title,
+                        text: trimmedTitle,
+                        title: trimmedTitle,
                         completed: false,
                         priority: 'medium'
                     });
