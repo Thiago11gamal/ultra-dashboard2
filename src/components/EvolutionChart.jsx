@@ -704,10 +704,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         const todayPoints = [];
                                         if (todayIdx >= 0) {
                                             const d = filteredChartData[todayIdx];
-                                            if (d["Nível Bayesiano"] != null) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
-                                            if (d["Nota Bruta"] != null) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
-                                            if (d["Média Histórica"] != null) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
-                                            if (d["Futuro Provável"] != null) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                            if (d["Nível Bayesiano"] !== null && d["Nível Bayesiano"] !== undefined) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
+                                            if (d["Nota Bruta"] !== null && d["Nota Bruta"] !== undefined) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
+                                            if (d["Média Histórica"] !== null && d["Média Histórica"] !== undefined) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
+                                            if (d["Futuro Provável"] !== null && d["Futuro Provável"] !== undefined) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
                                         }
                                         const todayY = solveCollisions(todayPoints);
 
@@ -716,7 +716,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         const lastPoints = [];
                                         if (lastIdx >= 0) {
                                             const d = filteredChartData[lastIdx];
-                                            if (d["Futuro Provável"] != null) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                            if (d["Futuro Provável"] !== null && d["Futuro Provável"] !== undefined) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
                                         }
                                         const lastY = solveCollisions(lastPoints);
 
@@ -768,8 +768,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value } = props;
-                                                        if (value == null) return null;
-                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] != null ? i : acc, -1);
+                                                        if (value === null || value === undefined) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] !== null && curr["Nível Bayesiano"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
                                                         const offset = getOffset('bay', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
@@ -779,8 +779,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value } = props;
-                                                        if (value == null) return null;
-                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
+                                                        if (value === null || value === undefined) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] !== null && curr["Nota Bruta"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
                                                         const offset = getOffset('raw', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
@@ -790,8 +790,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value } = props;
-                                                        if (value == null) return null;
-                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] != null ? i : acc, -1);
+                                                        if (value === null || value === undefined) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] !== null && curr["Média Histórica"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
                                                         const offset = getOffset('stats', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
@@ -818,8 +818,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     connectNulls strokeOpacity={1} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value } = props;
-                                                        if (value == null) return null;
-                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
+                                                        if (value === null || value === undefined) return null;
+                                                        const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] !== null && curr["Futuro Provável"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
                                                         const offset = getOffset('mc', value, index);
                                                         return <text x={x + 10} y={y + 4 + offset} fill="#ef4444" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
@@ -1030,7 +1030,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 content={(props) => {
                                                     const { x, y, width, value, index } = props;
                                                     const entry = pointLeakageData[index];
-                                                    if (!entry || value == null) return null;
+                                                    if (!entry || value === null || value === undefined) return null;
                                                     return (
                                                         <text x={x + width + 10} y={y + 9} fill="#ffffff" fontSize={10} fontWeight="bold">
                                                             {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
