@@ -15,8 +15,8 @@ export default function ParetoAnalysis({ categories = [] }) {
                 cat.simuladoStats.history.forEach(h => {
                     const topics = h.topics || [];
                     topics.forEach(t => {
-                        const correct = parseInt(t.correct) || 0;
-                        const total = parseInt(t.total) || 0;
+                        const correct = parseInt(t.correct, 10) || 0;
+                        const total = parseInt(t.total, 10) || 0;
                         const missed = total - correct;
 
                         if (total > 0) {

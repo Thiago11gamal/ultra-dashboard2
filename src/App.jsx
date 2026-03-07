@@ -58,7 +58,7 @@ function MainLayout() {
 
   useEffect(() => {
     const handleToastEvent = (e) => {
-      const newToast = { id: Date.now() + Math.random(), ...e.detail };
+      const newToast = { id: crypto.randomUUID(), ...e.detail };
       setToasts(prev => [...prev, newToast]);
     };
     window.addEventListener('show-toast', handleToastEvent);

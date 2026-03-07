@@ -286,11 +286,11 @@ const StudyHistory = React.memo(function StudyHistory({
                                 const validRows = rows.filter(r => r.subject && r.topic);
                                 if (validRows.length === 0) return null;
 
-                                const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total) || 0), 0);
+                                const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
 
                                 // Visualize empty state if no questions answered yet (e.g. auto-cloned rows)
                                 if (totalQuestions === 0) return null;
-                                const totalCorrect = validRows.reduce((acc, r) => acc + (parseInt(r.correct) || 0), 0);
+                                const totalCorrect = validRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
                                 const globalPct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
                                 const subjectMap = {};
@@ -299,8 +299,8 @@ const StudyHistory = React.memo(function StudyHistory({
                                     if (!subjectMap[subj]) {
                                         subjectMap[subj] = { name: subj, correct: 0, total: 0, topics: [] };
                                     }
-                                    const correct = parseInt(row.correct) || 0;
-                                    const total = parseInt(row.total) || 0;
+                                    const correct = parseInt(row.correct, 10) || 0;
+                                    const total = parseInt(row.total, 10) || 0;
                                     subjectMap[subj].correct += correct;
                                     subjectMap[subj].total += total;
                                     subjectMap[subj].topics.push({
