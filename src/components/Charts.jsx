@@ -45,7 +45,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Charts({ data, compact = false }) {
     // Ensure categories exists from data prop or fallback
-    const categories = data?.categories || [];
+    const categories = React.useMemo(() => data?.categories || [], [data?.categories]);
 
     // Pie chart data - tasks per category
     const pieData = React.useMemo(() => categories.map(cat => {

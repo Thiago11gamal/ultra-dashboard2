@@ -37,7 +37,19 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
+        let hasResolvedAuth = false;
+
+        const loadingTimeout = setTimeout(() => {
+            if (!hasResolvedAuth) {
+                console.warn('[Auth] onAuthStateChanged demorou para responder. Liberando app sem sessão.');
+                setLoading(false);
+            }
+        }, 6000);
+
         const unsubscribe = onAuthStateChanged(auth, (user) => {
+            hasResolvedAuth = true;
+            clearTimeout(loadingTimeout);
+
             if (user) {
                 console.debug("[Auth] Usuário conectado:", user.email);
             } else {
@@ -46,11 +58,16 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             setLoading(false);
         }, (error) => {
+            hasResolvedAuth = true;
+            clearTimeout(loadingTimeout);
             console.error("[Auth] Erro Crítico no Firebase Auth:", error.code, error.message);
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            clearTimeout(loadingTimeout);
+            unsubscribe();
+        };
     }, []);
 
     const value = {
