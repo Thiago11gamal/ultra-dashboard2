@@ -614,6 +614,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             ) : (
                                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                                     <defs>
+                                        {categories.map(cat => (
+                                            <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
+                                                <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
+                                            </linearGradient>
+                                        ))}
                                         <linearGradient id="projectionGreenGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
                                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
@@ -655,36 +661,47 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
                                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                                     {(() => {
-                                        // 1. Gather points to avoid collision in Compare chart
-                                        const finalComparePoints = [];
+                                        // Helper to sweep collisions
+                                        const solveCollisions = (points) => {
+                                            if (!points.length) return [];
+                                            const sorted = [...points].sort((a, b) => b.value - a.value);
+                                            const yPos = sorted.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+                                            const DIST = 9;
+                                            for (let i = 1; i < yPos.length; i++) {
+                                                if (yPos[i - 1].yPos - yPos[i].yPos < DIST) {
+                                                    yPos[i].yPos = yPos[i - 1].yPos - DIST;
+                                                }
+                                            }
+                                            return yPos;
+                                        };
+
+                                        // 1. Points for "Hoje" (second to last)
+                                        const todayIdx = filteredChartData.length - 2;
+                                        const todayPoints = [];
+                                        if (todayIdx >= 0) {
+                                            const d = filteredChartData[todayIdx];
+                                            if (d["Nível Bayesiano"] != null) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
+                                            if (d["Nota Bruta"] != null) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
+                                            if (d["Média Histórica"] != null) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
+                                            if (d["Futuro Provável"] != null) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                        }
+                                        const todayY = solveCollisions(todayPoints);
+
+                                        // 2. Points for "Futuro" (last)
                                         const lastIdx = filteredChartData.length - 1;
+                                        const lastPoints = [];
                                         if (lastIdx >= 0) {
                                             const d = filteredChartData[lastIdx];
-                                            if (d["Nível Bayesiano"] != null) finalComparePoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
-                                            if (d["Nota Bruta"] != null) finalComparePoints.push({ name: 'raw', value: d["Nota Bruta"] });
-                                            if (d["Média Histórica"] != null) finalComparePoints.push({ name: 'stats', value: d["Média Histórica"] });
-                                            if (d["Futuro Provável"] != null) finalComparePoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                            if (d["Futuro Provável"] != null) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
                                         }
+                                        const lastY = solveCollisions(lastPoints);
 
-                                        // Sort by value descending
-                                        finalComparePoints.sort((a, b) => b.value - a.value);
-
-                                        // Sweep offsets to prevent overlap descending
-                                        const MIN_PCT_DISTANCE = 9; // Roughly 9% difference to prevent overlap (~24px)
-                                        const yPositions = [...finalComparePoints].map(p => ({ ...p, yPos: Number(p.value) || 0 }));
-
-                                        for (let i = 1; i < yPositions.length; i++) {
-                                            if (yPositions[i - 1].yPos - yPositions[i].yPos < MIN_PCT_DISTANCE) {
-                                                yPositions[i].yPos = yPositions[i - 1].yPos - MIN_PCT_DISTANCE;
-                                            }
-                                        }
-
-                                        const getOffset = (name, value) => {
-                                            const pt = yPositions.find(p => p.name === name);
+                                        const getOffset = (name, value, index) => {
+                                            const isFuture = index === filteredChartData.length - 1;
+                                            const pts = isFuture ? lastY : todayY;
+                                            const pt = pts.find(p => p.name === name);
                                             if (!pt) return 0;
-                                            // Calc pixel shift based on 2.6px per % difference
-                                            const pctShift = value - pt.yPos;
-                                            return pctShift * 2.6;
+                                            return (value - pt.yPos) * 2.6;
                                         };
 
                                         return (
@@ -726,7 +743,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         if (value == null) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] != null ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('bay', value);
+                                                        const offset = getOffset('bay', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Area>
@@ -737,7 +754,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         if (value == null) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('raw', value);
+                                                        const offset = getOffset('raw', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
@@ -748,7 +765,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         if (value == null) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] != null ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('stats', value);
+                                                        const offset = getOffset('stats', value, index);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
@@ -776,7 +793,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         if (value == null) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] != null ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('mc', value);
+                                                        const offset = getOffset('mc', value, index);
                                                         return <text x={x + 10} y={y + 4 + offset} fill="#ef4444" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
