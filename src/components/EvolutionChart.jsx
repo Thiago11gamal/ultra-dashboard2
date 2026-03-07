@@ -166,8 +166,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             return;
         }
         const hist = [...focusCategory.simuladoStats.history]
-            .map(h => { const dateKey = getDateKey(h.date); const score = getSafeScore(h); if (!dateKey || !Number.isFinite(score)) return null; return { date: dateKey, score }; })
-            .filter(Boolean).sort((a, b) => new Date(a.date) - new Date(b.date));
+            .map(h => {
+                const dateKey = getDateKey(h.date);
+                const score = getSafeScore(h);
+                if (!dateKey || !Number.isFinite(score)) return null;
+                return { date: dateKey, score, correct: h.correct, total: h.total };
+            })
+            .filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
         if (hist.length < 5) { setTimeout(() => setMcProjection(null), 0); return; }
         let cancelled = false;
         const timer = setTimeout(() => {

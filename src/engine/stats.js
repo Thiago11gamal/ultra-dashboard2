@@ -99,8 +99,8 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
 
     if (history && history.length > 0) {
         for (const h of history) {
-            const total = Number(h.total) || 0;
-            const correct = Number(h.correct) || 0;
+            const total = Math.max(0, Number(h.total) || 0);
+            const correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
             alpha += correct;
             beta += (total - correct);
         }

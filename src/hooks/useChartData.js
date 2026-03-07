@@ -31,7 +31,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         }
     }
 
-    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     const dateToStats = {};
     let accumulated = [];
@@ -40,29 +40,38 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     // Bayesian accumulators — Prior Beta(3,3)
     let bayAlpha = 3;
     let bayBeta = 3;
+    let lastComputedStats = null;
 
     for (const date of sortedDates) {
+        let changed = false;
         while (histIdx < aggregatedHistory.length) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
                 const entry = aggregatedHistory[histIdx];
-                const total = Number(entry.total) || 0;
-                const correct = Number(entry.correct) || 0;
+                const total = Math.max(0, Number(entry.total) || 0);
+                const correct = Math.min(total, Math.max(0, Number(entry.correct) || 0));
+
                 bayAlpha += correct;
                 bayBeta += (total - correct);
                 accumulated.push(entry);
                 histIdx++;
+                changed = true;
             } else {
                 break;
             }
         }
+
+        if (changed || (accumulated.length > 0 && !lastComputedStats)) {
+            lastComputedStats = computeCategoryStats(accumulated, 100);
+        }
+
         if (accumulated.length > 0) {
             const n = bayAlpha + bayBeta;
-            const p = bayAlpha / n;
-            const variance = (bayAlpha * bayBeta) / (n * n * (n + 1));
+            const p = n > 0 ? bayAlpha / n : 0.5;
+            const variance = (n > 0) ? (bayAlpha * bayBeta) / (n * n * (n + 1)) : 0.04;
             const sd = Math.sqrt(variance);
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100),
+                stats: lastComputedStats,
                 last: accumulated[accumulated.length - 1],
                 bayesian: {
                     mean: p * 100,
@@ -93,9 +102,10 @@ export function useChartData(categories = [], focusId = null) {
             const outrasHistoryMap = new Map();
             others.forEach(cat => {
                 (cat.simuladoStats?.history || []).forEach(h => {
-                    const dKey = h.date;
-                    const correct = Number(h.correct) || 0;
-                    const total = Number(h.total) || 0;
+                    const dKey = getDateKey(h.date);
+                    if (!dKey) return;
+                    const total = Math.max(0, Number(h.total) || 0);
+                    const correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
                     let existing = outrasHistoryMap.get(dKey);
                     if (!existing) {
                         existing = { ...h, date: dKey, correct: 0, total: 0 };
@@ -106,7 +116,7 @@ export function useChartData(categories = [], focusId = null) {
                     existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
                 });
             });
-            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => a.date.localeCompare(b.date));
             const outrasCategory = {
                 id: "synthetic-outras",
                 name: "Outras",
@@ -140,15 +150,19 @@ export function useChartData(categories = [], focusId = null) {
         const dataByDate = {};
 
         dates.forEach((date) => {
-            const [_year, month, day] = date.split("-");
+            const [year, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
-                displayDate: `${day}/${month}`
+                displayDate: `${day}/${month}/${year.slice(-2)}`
             };
         });
 
         categoriesToProcess.forEach(cat => {
-            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => {
+                const ka = getDateKey(a.date) || "";
+                const kb = getDateKey(b.date) || "";
+                return ka.localeCompare(kb);
+            });
             if (!history.length) return;
 
             const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
