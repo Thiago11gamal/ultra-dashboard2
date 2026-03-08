@@ -22,11 +22,14 @@ if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
 if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
 if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
 
-if (missingVars.length > 0) {
-    console.warn(`[Firebase] Configuração incompleta. Faltando: ${missingVars.join(', ')}`);
-}
-
 console.debug("[Firebase] Inicializando com ProjectId:", firebaseConfig.projectId);
+
+// Strict validation before initialization to catch missing Vercel variables
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined' || firebaseConfig.apiKey.includes('YOUR_')) {
+    const errorMsg = "VITE_API_KEY AUSENTE NO CLOUD. Configure as Environment Variables no painel da Vercel/Netlify e faça um novo deploy.";
+    console.error(`[Firebase] ${errorMsg}`);
+    throw new Error(errorMsg);
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
