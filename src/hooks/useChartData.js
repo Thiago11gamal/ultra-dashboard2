@@ -88,17 +88,32 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
 
 export function useChartData(categories = [], focusId = null) {
     const activeCategories = useMemo(() => {
+        // 1. Filter categories with history
         let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
-        valid.sort((a, b) => {
+
+        // 2. Identify the focus category (if it exists and has history)
+        const focusCat = valid.find(c => c.id === focusId);
+
+        // 3. Sort by volume to find the most active ones
+        const sortedByVolume = [...valid].sort((a, b) => {
             const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             return volB - volA;
         });
 
-        if (valid.length > 5) {
-            const top = valid.slice(0, 5);
-            const others = valid.slice(5);
+        // 4. Select Top 5
+        const top5 = sortedByVolume.slice(0, 5);
 
+        // 5. Determine which subjects will be shown individually
+        const individualCats = [...top5];
+        if (focusCat && !individualCats.some(c => c.id === focusCat.id)) {
+            individualCats.push(focusCat);
+        }
+
+        // 6. Everything else goes to "Outras"
+        const others = valid.filter(v => !individualCats.some(ic => ic.id === v.id));
+
+        if (others.length > 0) {
             const outrasHistoryMap = new Map();
             others.forEach(cat => {
                 (cat.simuladoStats?.history || []).forEach(h => {
@@ -124,10 +139,11 @@ export function useChartData(categories = [], focusId = null) {
                 icon: "📦",
                 simuladoStats: { history: outrasHistoryArray }
             };
-            return [...top, outrasCategory];
+            return [...individualCats, outrasCategory];
         }
-        return valid;
-    }, [categories]);
+
+        return individualCats;
+    }, [categories, focusId]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];

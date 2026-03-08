@@ -119,7 +119,7 @@ function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
 export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
-    const { timeline, heatmapData, globalMetrics } = useChartData(categories, focusSubjectId);
+    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, focusSubjectId);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
 
@@ -536,7 +536,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     {(() => {
                                         // 1. Gather all final points to calculate offsets
                                         const finalPoints = [];
-                                        categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+                                        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId || cat.id === 'synthetic-outras').forEach(cat => {
                                             const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
                                             const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
                                             if (lastVal != null && Number.isFinite(Number(lastVal))) {
@@ -548,7 +548,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         finalPoints.sort((a, b) => b.value - a.value);
 
                                         // Render lines
-                                        return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
+                                        return activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId || cat.id === 'synthetic-outras').flatMap((cat) => {
                                             const isFocused = focusSubjectId === cat.id;
                                             const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
 
