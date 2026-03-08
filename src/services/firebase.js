@@ -5,26 +5,7 @@ import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/anal
 
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 
-// Validate environment variables strictly
-const requiredEnvVars = [
-    'VITE_API_KEY',
-    'VITE_AUTH_DOMAIN',
-    'VITE_PROJECT_ID',
-    'VITE_STORAGE_BUCKET',
-    'VITE_MESSAGING_SENDER_ID',
-    'VITE_APP_ID'
-];
-
-const missingVars = requiredEnvVars.filter(key => {
-    const val = import.meta.env[key];
-    return !val || val === 'MISSING';
-});
-
-if (missingVars.length > 0) {
-    console.error(`ERR: Configuração do Firebase incompleta no .env! Faltando: ${missingVars.join(', ')}`);
-}
-
-// Your web app's Firebase configuration
+// Validate environment variables strictly (Static access for Vite transformation)
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
@@ -35,11 +16,23 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
+const missingVars = [];
+if (!firebaseConfig.apiKey) missingVars.push('VITE_API_KEY');
+if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
+if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
+if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
+
+if (missingVars.length > 0) {
+    console.warn(`[Firebase] Configuração incompleta. Faltando: ${missingVars.join(', ')}`);
+}
+
+console.debug("[Firebase] Inicializando com ProjectId:", firebaseConfig.projectId);
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+console.debug("[Firebase] App inicializado.");
 
 // Initialize Firestore with persistent cache, falling back to default if unsupported
-// (e.g. Safari private mode, test environments, or missing env config)
 let db;
 try {
     db = initializeFirestore(app, {
@@ -48,24 +41,26 @@ try {
         })
     });
 } catch (e) {
-    console.warn('Persistent Firestore cache unavailable, falling back to default:', e.message);
+    console.warn('[Firebase] Persistent Firestore cache unavailable, falling back to default:', e.message);
     db = getFirestore(app);
 }
 
 const auth = getAuth(app);
+console.debug("[Firebase] Auth instanciado.");
 
+// Analytics support check
 let analytics = null;
 if (typeof window !== "undefined") {
     isAnalyticsSupported()
         .then((supported) => {
             if (supported && firebaseConfig.measurementId) {
                 analytics = getAnalytics(app);
+                console.debug("[Firebase] Analytics inicializado.");
             }
         })
         .catch((error) => {
-            console.warn("Analytics indisponível neste ambiente:", error?.message || error);
+            console.warn("[Firebase] Analytics indisponível:", error?.message || error);
         });
 }
 
 export { db, auth, analytics };
-
