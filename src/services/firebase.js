@@ -22,8 +22,15 @@ if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
 if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
 if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
 
-const availableKeys = Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'));
-console.debug("[Firebase] Chaves VITE_ detectadas:", availableKeys);
+const allEnvKeys = Object.keys(import.meta.env);
+const availableKeys = allEnvKeys.filter(key => key.startsWith('VITE_'));
+const unprefixedSamples = allEnvKeys.filter(key => !key.startsWith('VITE_') && !key.startsWith('BASE_') && !key.startsWith('MODE') && !key.startsWith('DEV') && !key.startsWith('PROD') && !key.startsWith('SSR'));
+
+console.debug("[Firebase] Chaves detectadas:", {
+    total: allEnvKeys.length,
+    com_vite: availableKeys,
+    outras_vazias: unprefixedSamples
+});
 
 const isConfigValid = missingVars.length === 0;
 

@@ -216,16 +216,20 @@ function App() {
           left: 0,
           right: 0,
           zIndex: 9999,
-          background: '#f87171',
+          background: '#ef4444',
           color: 'white',
-          padding: '8px',
+          padding: '12px',
           textAlign: 'center',
-          fontSize: '12px',
+          fontSize: '11px',
           fontWeight: 'bold',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.5)'
+          lineHeight: '1.4',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+          borderBottom: '2px solid rgba(255,255,255,0.3)'
         }}>
-          ⚠️ AMBIENTE INCOMPLETO: {missingVars.join(', ')} ausentes no painel da Vercel.
-          Detectados: [{availableKeys.join(', ') || 'NENHUMA'}]
+          ⚠️ AMBIENTE INCOMPLETO EM {import.meta.env.MODE.toUpperCase()}<br />
+          Faltam: [{missingVars.join(', ')}]<br />
+          Verifique se as Keys no Vercel começam com "VITE_".<br />
+          <small style={{ opacity: 0.8, fontSize: '9px' }}>Detectados: {availableKeys.length} itens. Vercel System Vars: {availableKeys.filter(k => k.includes('VERCEL')).length}</small>
         </div>
       )}
       <MainLayout />
