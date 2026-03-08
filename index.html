@@ -65,6 +65,25 @@
       }
     }
   </style>
+  <script>
+    // Global error handler to catch crashes before React mounts
+    window.onerror = function (msg, url, line, col, error) {
+      const loaderText = document.querySelector('.loader-text');
+      if (loaderText) {
+        loaderText.innerHTML = '<span style="color: #f87171">Erro de Carregamento:<br>' + msg + '</span>';
+        loaderText.style.animation = 'none';
+      }
+      return false;
+    };
+
+    // Auto-reveal hidden content if loading takes too long
+    setTimeout(() => {
+      const loaderText = document.querySelector('.loader-text');
+      if (loaderText && loaderText.innerText === "Carregando...") {
+        loaderText.innerHTML = "Carregamento lento detectado...<br><small style='opacity: 0.5'>Verifique se as variáveis VITE_ estão no painel de deploy.</small>";
+      }
+    }, 8000);
+  </script>
 </head>
 
 <body>
