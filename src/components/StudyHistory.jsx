@@ -224,9 +224,18 @@ const StudyHistory = React.memo(function StudyHistory({
                                     <div className={`text-[9px] font-mono ${day.minutes > 0 ? 'text-slate-300' : 'text-slate-600'}`}>
                                         {day.minutes > 0 ? formatDuration(day.minutes) : '-'}
                                     </div>
-                                    {/* Day label */}
-                                    <div className={`text-[10px] font-bold ${day.isToday ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                        {day.day}
+                                    {/* Day label - Force Portuguese and prevent browser auto-translation */}
+                                    <div
+                                        translate="no"
+                                        className={`text-[10px] font-bold ${day.isToday ? 'text-emerald-400' : 'text-slate-500'}`}
+                                        title={day.day}
+                                    >
+                                        {day.day === 'Domingo' ? 'Dom' :
+                                            day.day === 'Segunda' ? 'Seg' :
+                                                day.day === 'Terça' ? 'Ter' :
+                                                    day.day === 'Quarta' ? 'Qua' :
+                                                        day.day === 'Quinta' ? 'Qui' :
+                                                            day.day === 'Sexta' ? 'Sex' : 'Sáb'}
                                     </div>
                                 </div>
                             ))}
