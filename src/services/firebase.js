@@ -6,14 +6,25 @@ import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/anal
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 
 // Validate environment variables strictly (Static access for Vite transformation)
+const getEnv = (key) => {
+    const value = import.meta.env[key];
+    if (value) return value;
+    // Fallback to localStorage for manual emergency config
+    if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(`__manual_${key}`);
+        if (saved) return saved;
+    }
+    return undefined;
+};
+
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_API_KEY,
-    authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_APP_ID,
-    measurementId: import.meta.env.VITE_MEASUREMENT_ID
+    apiKey: getEnv('VITE_API_KEY'),
+    authDomain: getEnv('VITE_AUTH_DOMAIN'),
+    projectId: getEnv('VITE_PROJECT_ID'),
+    storageBucket: getEnv('VITE_STORAGE_BUCKET'),
+    messagingSenderId: getEnv('VITE_MESSAGING_SENDER_ID'),
+    appId: getEnv('VITE_APP_ID'),
+    measurementId: getEnv('VITE_MEASUREMENT_ID')
 };
 
 const missingVars = [];

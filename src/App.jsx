@@ -207,6 +207,36 @@ function MainLayout() {
 }
 
 function App() {
+  const handleManualConfig = () => {
+    const json = window.prompt("Cole aqui o objeto 'firebaseConfig' (JSON) do seu console Firebase:");
+    if (json === null) return;
+    if (json.trim() === "") {
+      const keys = ['VITE_API_KEY', 'VITE_AUTH_DOMAIN', 'VITE_PROJECT_ID', 'VITE_STORAGE_BUCKET', 'VITE_MESSAGING_SENDER_ID', 'VITE_APP_ID', 'VITE_MEASUREMENT_ID'];
+      keys.forEach(k => localStorage.removeItem(`__manual_${k}`));
+      window.location.reload();
+      return;
+    }
+    try {
+      const cleanJson = json.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;$/, '');
+      const config = JSON.parse(cleanJson);
+      const mapping = {
+        apiKey: 'VITE_API_KEY',
+        authDomain: 'VITE_AUTH_DOMAIN',
+        projectId: 'VITE_PROJECT_ID',
+        storageBucket: 'VITE_STORAGE_BUCKET',
+        messagingSenderId: 'VITE_MESSAGING_SENDER_ID',
+        appId: 'VITE_APP_ID',
+        measurementId: 'VITE_MEASUREMENT_ID'
+      };
+      Object.entries(mapping).forEach(([jsonKey, envKey]) => {
+        if (config[jsonKey]) localStorage.setItem(`__manual_${envKey}`, config[jsonKey]);
+      });
+      window.location.reload();
+    } catch (e) {
+      alert("Erro ao ler JSON. Tente copiar apenas o que está entre as chaves { ... }");
+    }
+  };
+
   return (
     <Router>
       {!isConfigValid && (
@@ -231,10 +261,17 @@ function App() {
           <div style={{ fontSize: '9px', background: 'rgba(0,0,0,0.3)', margin: '4px 0', padding: '4px', borderRadius: '4px', maxHeight: '60px', overflowY: 'auto' }}>
             <strong>Detectados ({availableKeys.length}):</strong> {availableKeys.join(', ') || 'NENHUM'}
           </div>
-          <strong style={{ fontSize: '11px', color: '#ffedd5', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>
-            Verifique as Configurações do PROJETO na Vercel (não da Equipe).
-          </strong><br />
-          <small style={{ opacity: 0.8, fontSize: '9px' }}>Detectados: {availableKeys.length} itens. Vercel System Vars: {availableKeys.filter(k => k.includes('VERCEL')).length}</small>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
+            <button
+              onClick={handleManualConfig}
+              style={{ background: 'white', color: '#ef4444', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
+            >
+              Configurar Manualmente (Bypass Vercel)
+            </button>
+            <strong style={{ fontSize: '10px', color: '#ffedd5', opacity: 0.9 }}>
+              Verifique as Configurações do PROJETO na Vercel.
+            </strong>
+          </div>
         </div>
       )}
       <MainLayout />
