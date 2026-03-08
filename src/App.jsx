@@ -208,7 +208,15 @@ function MainLayout() {
 
 function App() {
   const handleManualConfig = () => {
-    const json = window.prompt("Cole aqui o objeto 'firebaseConfig' (JSON) do seu console Firebase:");
+    console.log("[Bypass] Iniciando configuração manual...");
+    let json;
+    try {
+      json = window.prompt("Cole aqui o objeto 'firebaseConfig' (JSON) do seu console Firebase:");
+    } catch (err) {
+      console.error("[Bypass] Erro ao abrir prompt:", err);
+      alert("O seu navegador bloqueou a janela de entrada. Verifique as permissões de pop-up.");
+      return;
+    }
     if (json === null) return;
     if (json.trim() === "") {
       const keys = ['VITE_API_KEY', 'VITE_AUTH_DOMAIN', 'VITE_PROJECT_ID', 'VITE_STORAGE_BUCKET', 'VITE_MESSAGING_SENDER_ID', 'VITE_APP_ID', 'VITE_MEASUREMENT_ID'];
