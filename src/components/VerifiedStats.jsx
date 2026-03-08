@@ -601,10 +601,9 @@ export default function VerifiedStats({ categories = [], user }) {
                                 const barWidth = Math.max(0, 100 - (sdNum / maxSdVal) * 100);
                                 const deltaNum = parseFloat(cat.delta);
 
-                                // SD color based on value, but prioritized by status
-                                const isStagnantLow = cat.status === 'ESTAGNADO BAIXO' || cat.status === 'EM QUEDA';
-                                const sdBarColor = isStagnantLow ? 'bg-red-500' : (sdNum <= 5 ? 'bg-green-500' : sdNum <= 10 ? 'bg-blue-500' : sdNum <= 15 ? 'bg-yellow-500' : sdNum <= 25 ? 'bg-orange-500' : 'bg-red-500');
-                                const sdBarGlow = isStagnantLow ? 'shadow-red-500/30' : (sdNum <= 5 ? 'shadow-green-500/30' : sdNum <= 10 ? 'shadow-blue-500/30' : sdNum <= 15 ? 'shadow-yellow-500/30' : sdNum <= 25 ? 'shadow-orange-500/30' : 'shadow-red-500/30');
+                                // Bar color and glow synchronized with status
+                                const sdBarColor = cat.color.replace('text-', 'bg-');
+                                const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
 
                                 return (
                                     <div
