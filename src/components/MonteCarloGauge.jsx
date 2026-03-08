@@ -205,7 +205,7 @@ export default function MonteCarloGauge({
 
         const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
         return { status: 'ready', data: simResult };
-    }, [categories, debouncedWeights, projectDays, debouncedTarget, extraQuestions]);
+    }, [categories, debouncedWeights, projectDays, debouncedTarget]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
