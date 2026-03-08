@@ -77,10 +77,13 @@
     };
 
     // Auto-reveal hidden content if loading takes too long
+    const BUILD_VERSION = "2026-03-07-2244";
+    console.log("[Build] Versão:", BUILD_VERSION);
+
     setTimeout(() => {
       const loaderText = document.querySelector('.loader-text');
       if (loaderText && loaderText.innerText === "Carregando...") {
-        loaderText.innerHTML = "Carregamento lento detectado...<br><small style='opacity: 0.5'>Verifique se as variáveis VITE_ estão no painel de deploy.</small>";
+        loaderText.innerHTML = "Carregamento lento detectado...<br><small style='opacity: 0.5'>Versão: " + BUILD_VERSION + " | Verifique o painel VITE_.</small>";
       }
     }, 8000);
   </script>

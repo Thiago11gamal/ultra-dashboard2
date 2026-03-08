@@ -22,53 +22,63 @@ if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
 if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
 if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
 
-console.debug("[Firebase] Chaves de ambiente disponíveis:", Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
+const availableKeys = Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'));
+console.debug("[Firebase] Chaves VITE_ detectadas:", availableKeys);
 
-if (missingVars.length > 0) {
-    const errorMsg = `Erro de Configuração: Variáveis ausentes (${missingVars.join(', ')}). Verifique o painel da Vercel/Netlify e faça um novo deploy.`;
-    console.error(`[Firebase] ${errorMsg}`);
-    throw new Error(errorMsg);
+const isConfigValid = missingVars.length === 0;
+
+if (!isConfigValid) {
+    console.warn(`[Firebase] Configuração incompleta. Variáveis ausentes: ${missingVars.join(', ')}`);
 }
 
-if (firebaseConfig.apiKey === 'undefined' || firebaseConfig.apiKey.includes('YOUR_')) {
-    const errorMsg = "VITE_API_KEY inválida. Configure os valores reais no painel do Cloud.";
-    console.error(`[Firebase] ${errorMsg}`);
-    throw new Error(errorMsg);
+// Initialize Firebase only if config is valid
+let app = null;
+if (isConfigValid) {
+    try {
+        app = initializeApp(firebaseConfig);
+        console.debug("[Firebase] App inicializado com sucesso.");
+    } catch (err) {
+        console.error("[Firebase] Erro ao inicializar o app:", err);
+    }
 }
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 console.debug("[Firebase] App inicializado.");
 
-// Initialize Firestore with persistent cache, falling back to default if unsupported
-let db;
-try {
-    db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager()
-        })
-    });
-} catch (e) {
-    console.warn('[Firebase] Persistent Firestore cache unavailable, falling back to default:', e.message);
-    db = getFirestore(app);
-}
-
-const auth = getAuth(app);
-console.debug("[Firebase] Auth instanciado.");
-
-// Analytics support check
+// Initialize Firestore and Auth only if app is valid
+let db = null;
+let auth = null;
 let analytics = null;
-if (typeof window !== "undefined") {
-    isAnalyticsSupported()
-        .then((supported) => {
-            if (supported && firebaseConfig.measurementId) {
-                analytics = getAnalytics(app);
-                console.debug("[Firebase] Analytics inicializado.");
-            }
-        })
-        .catch((error) => {
-            console.warn("[Firebase] Analytics indisponível:", error?.message || error);
+
+if (app) {
+    try {
+        db = initializeFirestore(app, {
+            localCache: persistentLocalCache({
+                tabManager: persistentMultipleTabManager()
+            })
         });
+        console.debug("[Firebase] Firestore inicializado com sucesso.");
+    } catch (e) {
+        console.warn('[Firebase] Persistent Firestore cache unavailable, falling back to default:', e.message);
+        db = getFirestore(app);
+        console.debug("[Firebase] Firestore inicializado com fallback.");
+    }
+
+    auth = getAuth(app);
+    console.debug("[Firebase] Auth instanciado.");
+
+    if (typeof window !== "undefined") {
+        isAnalyticsSupported()
+            .then((supported) => {
+                if (supported && firebaseConfig.measurementId) {
+                    analytics = getAnalytics(app);
+                    console.debug("[Firebase] Analytics inicializado.");
+                }
+            })
+            .catch((error) => {
+                console.warn("[Firebase] Analytics indisponível:", error?.message || error);
+            });
+    }
+} else {
+    console.warn("[Firebase] App não inicializado devido a configuração inválida. Firestore, Auth e Analytics não serão instanciados.");
 }
 
-export { db, auth, analytics };
+export { db, auth, analytics, isConfigValid, missingVars, availableKeys };
