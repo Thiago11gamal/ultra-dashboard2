@@ -29,7 +29,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
     useEffect(() => {
-        if (!currentUser?.uid || !setAppState) return;
+        if (!currentUser?.uid || !setAppState || !db) {
+            if (!db && currentUser?.uid) console.warn("[Sync] Firestore (db) is missing. Cloud sync disabled.");
+            setIsParityValidated(true);
+            return;
+        }
 
         const docRef = doc(db, 'backups', currentUser.uid);
 
@@ -151,8 +155,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     // 2. EMISSOR (Auto-save) - Master Mode
     useEffect(() => {
-        // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade
-        if (!currentUser?.uid || !appState || !isParityValidated) return;
+        // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade ou db está ausente
+        if (!currentUser?.uid || !appState || !isParityValidated || !db) return;
 
         const currentStateString = stateStringForSync(appState);
         if (lastSyncedRef.current === currentStateString) return;

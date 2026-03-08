@@ -17,24 +17,24 @@ export function AuthProvider({ children }) {
     const [showDebug, setShowDebug] = useState(false);
 
     function signup(email, password, name) {
+        if (!auth) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
         return createUserWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
-                // Update profile with name immediately after signup
                 await updateProfile(userCredential.user, {
                     displayName: name
                 });
-                // onAuthStateChanged fires before updateProfile resolves,
-                // so we manually sync the updated user into state here.
                 setCurrentUser(userCredential.user);
                 return userCredential.user;
             });
     }
 
     function login(email, password) {
+        if (!auth) return Promise.reject(new Error("Auth service is not available."));
         return signInWithEmailAndPassword(auth, email, password);
     }
 
     function logout() {
+        if (!auth) return Promise.resolve();
         return signOut(auth);
     }
 
@@ -48,6 +48,12 @@ export function AuthProvider({ children }) {
                 // No longer forcing setLoading(false) here to allow user to see diagnostic info first
             }
         }, 5000);
+
+        if (!auth) {
+            console.warn('[Auth] Auth service is missing. Bypassing state listener.');
+            setLoading(false);
+            return;
+        }
 
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             hasResolvedAuth = true;
