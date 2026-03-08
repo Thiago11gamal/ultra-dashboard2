@@ -205,9 +205,14 @@ export default function Simulados() {
             };
         });
 
-        showToast('Simulado Processado! +500 XP 📈', 'success');
-        // Then award XP via store action (which handles events cleanly)
-        useAppStore.getState().awardExperience(500);
+        const updatedCount = payload.analysis?.disciplines?.length || payload.disciplines?.length || 0;
+        if (updatedCount > 0) {
+            showToast('Simulado Processado! +500 XP 📈', 'success');
+            // Then award XP via store action (which handles events cleanly)
+            useAppStore.getState().awardExperience(500);
+        } else {
+            showToast('Nenhuma disciplina nova detectada no simulado.', 'warning');
+        }
     };
 
     return (

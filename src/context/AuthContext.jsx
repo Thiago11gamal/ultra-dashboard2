@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
             if (!hasResolvedAuth) {
                 console.warn('[Auth] onAuthStateChanged demorou para responder. Liberando app sem sessão.');
                 setShowDebug(true);
-                // No longer forcing setLoading(false) here to allow user to see diagnostic info first
+                setLoading(false); // Força a liberação do app
             }
         }, 5000);
 

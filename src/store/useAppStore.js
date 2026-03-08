@@ -328,7 +328,7 @@ export const useAppStore = create(
                 const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
                 const startHour = new Date(now).getHours();
                 if (activeData.user) {
-                    if (startHour < 7) activeData.user.studiedEarly = true;
+                    if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
                     if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
                 }
 
