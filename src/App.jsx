@@ -228,7 +228,9 @@ function App() {
         }}>
           ⚠️ AMBIENTE INCOMPLETO EM {import.meta.env.MODE.toUpperCase()}<br />
           Faltam: [{missingVars.join(', ')}]<br />
-          Verifique se as Keys no Vercel começam com "VITE_".<br />
+          <strong style={{ fontSize: '12px', color: '#ffedd5', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>
+            Após salvar na Vercel, você PRECISA clicar em "REDEPLOY" na aba Deployments.
+          </strong><br />
           <small style={{ opacity: 0.8, fontSize: '9px' }}>Detectados: {availableKeys.length} itens. Vercel System Vars: {availableKeys.filter(k => k.includes('VERCEL')).length}</small>
         </div>
       )}
