@@ -10,9 +10,9 @@ const formatDuration = (minutes) => {
     return `${hours}h ${mins}min`;
 };
 
-// Get day name in Portuguese
+// Get day name in Portuguese - Full names to avoid browser translation bugs (Sex -> Gender)
 const getDayName = (date) => {
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     return days[date.getDay()];
 };
 
@@ -27,13 +27,27 @@ const StudyHistory = React.memo(function StudyHistory({
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
 
-    // Calculate total weeks available
+    // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
         if (studySessions.length === 0) return 0;
-        const firstSession = new Date(Math.min(...studySessions.map(s => new Date(s.startTime).getTime())));
-        const now = new Date();
-        const diffTime = Math.abs(now - firstSession);
-        const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+
+        // Find the earliest session
+        const earliestTime = Math.min(...studySessions.map(s => new Date(s.startTime).getTime()));
+        const firstSession = new Date(earliestTime);
+
+        // Get start of week (Sunday) for both earliest session and now
+        const firstSunday = new Date(firstSession);
+        firstSunday.setDate(firstSession.getDate() - firstSession.getDay());
+        firstSunday.setHours(0, 0, 0, 0);
+
+        const todaySunday = new Date();
+        todaySunday.setDate(todaySunday.getDate() - todaySunday.getDay());
+        todaySunday.setHours(0, 0, 0, 0);
+
+        // Count weeks between Sundays
+        const diffTime = Math.abs(todaySunday - firstSunday);
+        const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1;
+
         return Math.max(diffWeeks, 1);
     }, [studySessions]);
     // Calculate stats
