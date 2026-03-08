@@ -18,20 +18,18 @@ const getEnv = (key) => {
 };
 
 const firebaseConfig = {
-    apiKey: getEnv('VITE_API_KEY'),
-    authDomain: getEnv('VITE_AUTH_DOMAIN'),
-    projectId: getEnv('VITE_PROJECT_ID'),
-    storageBucket: getEnv('VITE_STORAGE_BUCKET'),
-    messagingSenderId: getEnv('VITE_MESSAGING_SENDER_ID'),
-    appId: getEnv('VITE_APP_ID'),
-    measurementId: getEnv('VITE_MEASUREMENT_ID')
+    apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+    authDomain: "liquita-67764.firebaseapp.com",
+    projectId: "liquita-67764",
+    storageBucket: "liquita-67764.firebasestorage.app",
+    messagingSenderId: "709882079835",
+    appId: getEnv('VITE_FIREBASE_APP_ID'),
+    measurementId: "G-D8NS2BNKD5"
 };
 
 const missingVars = [];
-if (!firebaseConfig.apiKey) missingVars.push('VITE_API_KEY');
-if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
-if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
-if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
+if (!firebaseConfig.apiKey) missingVars.push('VITE_FIREBASE_API_KEY');
+if (!firebaseConfig.appId) missingVars.push('VITE_FIREBASE_APP_ID');
 
 const allEnvKeys = Object.keys(import.meta.env);
 const availableKeys = allEnvKeys.filter(key => key.startsWith('VITE_'));
