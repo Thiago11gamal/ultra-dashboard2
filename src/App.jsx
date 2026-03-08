@@ -30,7 +30,7 @@ import { useToast } from './hooks/useToast';
 import useMobileDetect from './hooks/useMobileDetect';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
-import { isConfigValid, missingVars, availableKeys } from './services/firebase';
+
 
 import './components/Loading.css';
 
