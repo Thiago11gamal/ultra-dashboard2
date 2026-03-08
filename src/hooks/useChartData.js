@@ -88,62 +88,9 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
 
 export function useChartData(categories = [], focusId = null) {
     const activeCategories = useMemo(() => {
-        // 1. Filter categories with history
-        let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
-
-        // 2. Identify the focus category (if it exists and has history)
-        const focusCat = valid.find(c => c.id === focusId);
-
-        // 3. Sort by volume to find the most active ones
-        const sortedByVolume = [...valid].sort((a, b) => {
-            const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
-            const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
-            return volB - volA;
-        });
-
-        // 4. Select Top 5
-        const top5 = sortedByVolume.slice(0, 5);
-
-        // 5. Determine which subjects will be shown individually
-        const individualCats = [...top5];
-        if (focusCat && !individualCats.some(c => c.id === focusCat.id)) {
-            individualCats.push(focusCat);
-        }
-
-        // 6. Everything else goes to "Outras"
-        const others = valid.filter(v => !individualCats.some(ic => ic.id === v.id));
-
-        if (others.length > 0) {
-            const outrasHistoryMap = new Map();
-            others.forEach(cat => {
-                (cat.simuladoStats?.history || []).forEach(h => {
-                    const dKey = getDateKey(h.date);
-                    if (!dKey) return;
-                    const total = Math.max(0, Number(h.total) || 0);
-                    const correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
-                    let existing = outrasHistoryMap.get(dKey);
-                    if (!existing) {
-                        existing = { ...h, date: dKey, correct: 0, total: 0 };
-                        outrasHistoryMap.set(dKey, existing);
-                    }
-                    existing.correct += correct;
-                    existing.total += total;
-                    existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
-                });
-            });
-            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-            const outrasCategory = {
-                id: "synthetic-outras",
-                name: "Outras",
-                color: "#64748b",
-                icon: "📦",
-                simuladoStats: { history: outrasHistoryArray }
-            };
-            return [...individualCats, outrasCategory];
-        }
-
-        return individualCats;
-    }, [categories, focusId]);
+        // 1. Filter only categories that actually have a history of study
+        return categories.filter(c => c.simuladoStats?.history?.length > 0);
+    }, [categories]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];

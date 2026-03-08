@@ -536,7 +536,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     {(() => {
                                         // 1. Gather all final points to calculate offsets
                                         const finalPoints = [];
-                                        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId || cat.id === 'synthetic-outras').forEach(cat => {
+                                        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                                             const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
                                             const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
                                             if (lastVal != null && Number.isFinite(Number(lastVal))) {
@@ -548,7 +548,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         finalPoints.sort((a, b) => b.value - a.value);
 
                                         // Render lines
-                                        return activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId || cat.id === 'synthetic-outras').flatMap((cat) => {
+                                        return activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                                             const isFocused = focusSubjectId === cat.id;
                                             const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
 
