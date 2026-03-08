@@ -228,8 +228,11 @@ function App() {
         }}>
           ⚠️ AMBIENTE INCOMPLETO EM {import.meta.env.MODE.toUpperCase()}<br />
           Faltam: [{missingVars.join(', ')}]<br />
-          <strong style={{ fontSize: '12px', color: '#ffedd5', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>
-            Após salvar na Vercel, você PRECISA clicar em "REDEPLOY" na aba Deployments.
+          <div style={{ fontSize: '9px', background: 'rgba(0,0,0,0.3)', margin: '4px 0', padding: '4px', borderRadius: '4px', maxHeight: '60px', overflowY: 'auto' }}>
+            <strong>Detectados ({availableKeys.length}):</strong> {availableKeys.join(', ') || 'NENHUM'}
+          </div>
+          <strong style={{ fontSize: '11px', color: '#ffedd5', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>
+            Verifique as Configurações do PROJETO na Vercel (não da Equipe).
           </strong><br />
           <small style={{ opacity: 0.8, fontSize: '9px' }}>Detectados: {availableKeys.length} itens. Vercel System Vars: {availableKeys.filter(k => k.includes('VERCEL')).length}</small>
         </div>
