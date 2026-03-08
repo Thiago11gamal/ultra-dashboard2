@@ -25,21 +25,41 @@ const StudyHistory = React.memo(function StudyHistory({
     mode = 'full' // 'full', 'sessions', 'performance'
 }) {
     const showToast = useToast();
+    const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
+
+    // Calculate total weeks available
+    const availableWeeks = useMemo(() => {
+        if (studySessions.length === 0) return 0;
+        const firstSession = new Date(Math.min(...studySessions.map(s => new Date(s.startTime).getTime())));
+        const now = new Date();
+        const diffTime = Math.abs(now - firstSession);
+        const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+        return Math.max(diffWeeks, 1);
+    }, [studySessions]);
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
+        // Adjust now based on selected week offset (selectedWeekOffset is 0 for current week, -1 for last week, etc.)
+        const referenceDate = new Date(now);
+        referenceDate.setDate(now.getDate() + (selectedWeekOffset * 7));
+
         const today = now.toDateString();
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+        const startOfWeek = new Date(referenceDate);
+        startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay()); // Sunday
         startOfWeek.setHours(0, 0, 0, 0);
 
-        // Today's sessions
+        // Reference week sessions
+        const refWeekStart = new Date(startOfWeek);
+        const refWeekEnd = new Date(startOfWeek);
+        refWeekEnd.setDate(startOfWeek.getDate() + 7);
+
+        // Today's sessions (always actual today)
         const todaySessions = studySessions.filter(s =>
             new Date(s.startTime).toDateString() === today
         );
         const todayMinutes = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0);
 
-        // This week's data (group by day)
+        // Selected week's data (group by day)
         const weekData = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
@@ -67,7 +87,7 @@ const StudyHistory = React.memo(function StudyHistory({
         const maxDayMinutes = Math.max(...weekData.map(d => d.minutes), 30);
 
         return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes };
-    }, [studySessions]);
+    }, [studySessions, selectedWeekOffset]);
 
     // Get category name by ID
     const getCategoryName = (categoryId) => {
@@ -142,10 +162,32 @@ const StudyHistory = React.memo(function StudyHistory({
                 <div className="flex flex-col gap-4 items-stretch">
                     {/* Weekly Chart - Enhanced */}
                     <div className="w-full glass p-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                            <BarChart3 size={14} />
-                            Gráfico Semanal
-                        </h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                <BarChart3 size={14} />
+                                Gráfico Semanal
+                            </h3>
+
+                            {/* Week Selector */}
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                                {Array.from({ length: Math.min(availableWeeks, 8) }).map((_, i) => {
+                                    const offset = -i;
+                                    const isSelected = selectedWeekOffset === offset;
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => setSelectedWeekOffset(offset)}
+                                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${isSelected
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-105'
+                                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
+                                                }`}
+                                        >
+                                            {offset === 0 ? 'Semana Atual' : `Semana ${availableWeeks - i}`}
+                                        </button>
+                                    );
+                                }).reverse()}
+                            </div>
+                        </div>
                         <div className="flex items-end justify-between gap-2 h-64">
                             {stats.weekData.map((day, idx) => (
                                 <div key={idx} className="flex-1 flex flex-col items-center gap-1">
