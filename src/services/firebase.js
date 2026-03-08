@@ -19,14 +19,19 @@ const firebaseConfig = {
 const missingVars = [];
 if (!firebaseConfig.apiKey) missingVars.push('VITE_API_KEY');
 if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
-if (!firebaseConfig.projectId) missingVars.push('ID_DO_PROJETO_VITE');
-if (!firebaseConfig.appId) missingVars.push('ID_do_aplicativo_VITE');
+if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
+if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
 
-console.debug("[Firebase] Inicializando com ProjectId:", firebaseConfig.projectId);
+console.debug("[Firebase] Chaves de ambiente disponíveis:", Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
 
-// Strict validation before initialization to catch missing Vercel variables
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined' || firebaseConfig.apiKey.includes('YOUR_')) {
-    const errorMsg = "VITE_API_KEY AUSENTE NO CLOUD. Configure as Environment Variables no painel da Vercel/Netlify e faça um novo deploy.";
+if (missingVars.length > 0) {
+    const errorMsg = `Erro de Configuração: Variáveis ausentes (${missingVars.join(', ')}). Verifique o painel da Vercel/Netlify e faça um novo deploy.`;
+    console.error(`[Firebase] ${errorMsg}`);
+    throw new Error(errorMsg);
+}
+
+if (firebaseConfig.apiKey === 'undefined' || firebaseConfig.apiKey.includes('YOUR_')) {
+    const errorMsg = "VITE_API_KEY inválida. Configure os valores reais no painel do Cloud.";
     console.error(`[Firebase] ${errorMsg}`);
     throw new Error(errorMsg);
 }
