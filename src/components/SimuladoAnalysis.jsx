@@ -77,6 +77,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         }
     };
 
+    const addTenToAll = () => {
+        const newRows = rows.map(row => ({
+            ...row,
+            total: (parseInt(row.total) || 0) + 10
+        }));
+        setRows(newRows);
+    };
+
     const handleAnalyze = () => {
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
@@ -308,6 +316,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             Dados do Simulado
                         </h3>
                         <div className="flex gap-2">
+                            <button onClick={addTenToAll}
+                                className="text-[10px] font-black bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-2 py-0.5 rounded-lg border border-blue-500/20 transition-all hover:scale-105 active:scale-95">
+                                +10
+                            </button>
                             <button onClick={resetScores}
                                 className="text-[11px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
                                 Zerar
