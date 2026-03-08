@@ -6,6 +6,7 @@ import Login from './components/Login';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
+import ThemeToggle from './components/ThemeToggle';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 import Dashboard from './pages/Dashboard';
@@ -70,6 +71,16 @@ function MainLayout() {
 
   // Auto-save pipeline
   const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
+
+  // --- THEME SYNC ---
+  useEffect(() => {
+    const isDark = data.settings?.darkMode !== false; // Default to dark if undefined
+    if (!isDark) {
+      document.documentElement.classList.add('light-mode');
+    } else {
+      document.documentElement.classList.remove('light-mode');
+    }
+  }, [data.settings?.darkMode]);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
@@ -202,6 +213,8 @@ function MainLayout() {
           </div>
         ))}
       </div>
+
+      <ThemeToggle />
     </div>
   );
 }

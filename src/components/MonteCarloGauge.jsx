@@ -29,12 +29,10 @@ const sanitizeWeightUnit = (value) => {
     return Math.max(0, Math.min(999, numeric));
 };
 
-export default function MonteCarloGauge({
-    categories = [],
-    goalDate,
-    targetScore,
+targetScore,
     forcedMode = null, // 'today' or 'future'
-    forcedTitle = null
+    forcedTitle = null,
+    extraQuestions = 0
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
 
@@ -160,8 +158,10 @@ export default function MonteCarloGauge({
                         const s = getSafeScore(h);
                         const dk = getDateKey(h.date);
                         if (dk && Number.isFinite(s)) {
-                            allHistoryPoints.push({ date: dk, score: s, category: cat.name, weight });
-                            scores.push(s);
+                            // Apply extra questions as a simulation boost
+                            const simulatedScore = Math.min(100, s + (extraQuestions * 0.5)); // Heuristic: +10 questions ~ +5% boost
+                            allHistoryPoints.push({ date: dk, score: simulatedScore, category: cat.name, weight });
+                            scores.push(simulatedScore);
                         }
                     });
                     // Use the first known score as the baseline (entry level)
@@ -216,7 +216,7 @@ export default function MonteCarloGauge({
 
         const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
         return { status: 'ready', data: simResult };
-    }, [categories, debouncedWeights, projectDays, debouncedTarget]);
+    }, [categories, debouncedWeights, projectDays, debouncedTarget, extraQuestions]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
