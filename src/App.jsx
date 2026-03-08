@@ -129,25 +129,6 @@ function MainLayout() {
 
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
-      {!isConfigValid && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 9999,
-          background: '#f87171',
-          color: 'white',
-          padding: '8px',
-          textAlign: 'center',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.5)'
-        }}>
-          ⚠️ AMBIENTE INCOMPLETO: {missingVars.join(', ')} ausentes.
-          Detectados: [{availableKeys.join(', ') || 'NENHUMA'}]
-        </div>
-      )}
       <Sidebar
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
@@ -228,6 +209,25 @@ function MainLayout() {
 function App() {
   return (
     <Router>
+      {!isConfigValid && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9999,
+          background: '#f87171',
+          color: 'white',
+          padding: '8px',
+          textAlign: 'center',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.5)'
+        }}>
+          ⚠️ AMBIENTE INCOMPLETO: {missingVars.join(', ')} ausentes no painel da Vercel.
+          Detectados: [{availableKeys.join(', ') || 'NENHUMA'}]
+        </div>
+      )}
       <MainLayout />
     </Router>
   );
