@@ -261,15 +261,23 @@ function App() {
           <div style={{ fontSize: '9px', background: 'rgba(0,0,0,0.3)', margin: '4px 0', padding: '4px', borderRadius: '4px', maxHeight: '60px', overflowY: 'auto' }}>
             <strong>Detectados ({availableKeys.length}):</strong> {availableKeys.join(', ') || 'NENHUM'}
           </div>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
-            <button
-              onClick={handleManualConfig}
-              style={{ background: 'white', color: '#ef4444', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
-            >
-              Configurar Manualmente (Bypass Vercel)
-            </button>
+          <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', alignItems: 'center', marginTop: '4px' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              <button
+                onClick={handleManualConfig}
+                style={{ background: 'white', color: '#ef4444', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
+              >
+                Configurar Manualmente (Bypass)
+              </button>
+              <button
+                onClick={() => { localStorage.clear(); window.location.reload(); }}
+                style={{ background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid white', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
+              >
+                Limpar Tudo
+              </button>
+            </div>
             <strong style={{ fontSize: '10px', color: '#ffedd5', opacity: 0.9 }}>
-              Verifique as Configurações do PROJETO na Vercel.
+              Manual Keys: {Object.keys(localStorage).filter(k => k.startsWith('__manual_')).length} | Vercel Keys: {availableKeys.length}
             </strong>
           </div>
         </div>
