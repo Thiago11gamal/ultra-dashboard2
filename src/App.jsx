@@ -207,89 +207,8 @@ function MainLayout() {
 }
 
 function App() {
-  const handleManualConfig = () => {
-    console.log("[Bypass] Iniciando configuração manual...");
-    let json;
-    try {
-      json = window.prompt("Cole aqui o objeto 'firebaseConfig' (JSON) do seu console Firebase:");
-    } catch (err) {
-      console.error("[Bypass] Erro ao abrir prompt:", err);
-      alert("O seu navegador bloqueou a janela de entrada. Verifique as permissões de pop-up.");
-      return;
-    }
-    if (json === null) return;
-    if (json.trim() === "") {
-      const keys = ['VITE_API_KEY', 'VITE_AUTH_DOMAIN', 'VITE_PROJECT_ID', 'VITE_STORAGE_BUCKET', 'VITE_MESSAGING_SENDER_ID', 'VITE_APP_ID', 'VITE_MEASUREMENT_ID'];
-      keys.forEach(k => localStorage.removeItem(`__manual_${k}`));
-      window.location.reload();
-      return;
-    }
-    try {
-      const cleanJson = json.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;$/, '');
-      const config = JSON.parse(cleanJson);
-      const mapping = {
-        apiKey: 'VITE_API_KEY',
-        authDomain: 'VITE_AUTH_DOMAIN',
-        projectId: 'VITE_PROJECT_ID',
-        storageBucket: 'VITE_STORAGE_BUCKET',
-        messagingSenderId: 'VITE_MESSAGING_SENDER_ID',
-        appId: 'VITE_APP_ID',
-        measurementId: 'VITE_MEASUREMENT_ID'
-      };
-      Object.entries(mapping).forEach(([jsonKey, envKey]) => {
-        if (config[jsonKey]) localStorage.setItem(`__manual_${envKey}`, config[jsonKey]);
-      });
-      window.location.reload();
-    } catch (e) {
-      alert("Erro ao ler JSON. Tente copiar apenas o que está entre as chaves { ... }");
-    }
-  };
-
   return (
     <Router>
-      {!isConfigValid && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 9999,
-          background: '#ef4444',
-          color: 'white',
-          padding: '12px',
-          textAlign: 'center',
-          fontSize: '11px',
-          fontWeight: 'bold',
-          lineHeight: '1.4',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
-          borderBottom: '2px solid rgba(255,255,255,0.3)'
-        }}>
-          ⚠️ AMBIENTE INCOMPLETO EM {import.meta.env.MODE.toUpperCase()}<br />
-          Faltam: [{missingVars.join(', ')}]<br />
-          <div style={{ fontSize: '9px', background: 'rgba(0,0,0,0.3)', margin: '4px 0', padding: '4px', borderRadius: '4px', maxHeight: '60px', overflowY: 'auto' }}>
-            <strong>Detectados ({availableKeys.length}):</strong> {availableKeys.join(', ') || 'NENHUM'}
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', alignItems: 'center', marginTop: '4px' }}>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-              <button
-                onClick={handleManualConfig}
-                style={{ background: 'white', color: '#ef4444', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
-              >
-                Configurar Manualmente (Bypass)
-              </button>
-              <button
-                onClick={() => { localStorage.clear(); window.location.reload(); }}
-                style={{ background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid white', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}
-              >
-                Limpar Tudo
-              </button>
-            </div>
-            <strong style={{ fontSize: '10px', color: '#ffedd5', opacity: 0.9 }}>
-              Manual Keys: {Object.keys(localStorage).filter(k => k.startsWith('__manual_')).length} | Vercel Keys: {availableKeys.length}
-            </strong>
-          </div>
-        </div>
-      )}
       <MainLayout />
     </Router>
   );
