@@ -221,3 +221,17 @@ svg *,
 .move-right-anim {
   animation: moveRight 3s linear infinite;
 }
+
+@keyframes scanFast {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(200%);
+  }
+}
+
+.animate-scan-fast {
+  animation: scanFast 1s linear infinite;
+}
