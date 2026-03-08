@@ -11,6 +11,7 @@ import { AuthContext } from "./AuthContextValue";
 
 
 export function AuthProvider({ children }) {
+    // Diagnóstico de Produção v1.1
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showDebug, setShowDebug] = useState(false);
