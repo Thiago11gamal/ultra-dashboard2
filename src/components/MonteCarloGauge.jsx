@@ -285,12 +285,36 @@ export default function MonteCarloGauge({
         return 'rgb(34, 197, 94)';
     };
 
+    const [isCalculating, setIsCalculating] = useState(false);
+    useEffect(() => {
+        setIsCalculating(true);
+        const timer = setTimeout(() => setIsCalculating(false), 600);
+        return () => clearTimeout(timer);
+    }, [simulationData.data.probability, targetScore]);
+
     const gradientColor = getGradientColor(prob);
-    let baseMessage = prob > 80 ? "Aprovação Matematicamente Certa" : prob > 50 ? "Na Zona de Briga" : prob > 25 ? "Precisa Melhorar" : "Aprovação Improvável";
-    const message = baseMessage + (effectiveSimulateToday ? " Hoje" : "");
+
+    // Premium Status Messages
+    let baseMessage = "";
+    if (prob > 95) baseMessage = "DOMÍNIO ESTRATÉGICO";
+    else if (prob > 80) baseMessage = "A PROMESSA";
+    else if (prob > 60) baseMessage = "NA ZONA DE BRIGA";
+    else if (prob > 40) baseMessage = "COMPETITIVO";
+    else if (prob > 20) baseMessage = "IMPROVISADOR";
+    else baseMessage = "RISCO DE QUEDA";
+
+    const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
 
     return (
-        <div className="glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-colors shadow-2xl overflow-hidden w-full max-w-full">
+        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl overflow-hidden w-full max-w-full ${isCalculating ? 'opacity-90 scale-[0.99]' : ''}`}>
+
+            {/* Scanning Overlay Effect */}
+            {isCalculating && (
+                <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
+                    <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-4 relative z-10">
                 <div className="flex items-center gap-2">
                     {forcedMode && (
@@ -303,7 +327,7 @@ export default function MonteCarloGauge({
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (
-                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}>Projeção: {simulateToday ? 'Hoje' : 'Futura'}</button>
+                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Hoje' : 'Ver Futuro'}</button>
                     )}
                     {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">
@@ -314,9 +338,9 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center">
+            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isCalculating ? 'blur-sm' : ''}`}>
                 <div className="relative mb-6">
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl"><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isCalculating ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
                         <path
@@ -331,9 +355,11 @@ export default function MonteCarloGauge({
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
                     </svg>
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className="text-5xl font-black tracking-tighter drop-shadow-md" style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
                 </div>
-                <span className="text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg" style={{ color: gradientColor }}>{message}</span>
+                <span className={`text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''}`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
+                    {isCalculating ? "RECALCULANDO..." : message}
+                </span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
