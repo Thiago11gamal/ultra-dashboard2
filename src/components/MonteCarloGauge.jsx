@@ -29,7 +29,10 @@ const sanitizeWeightUnit = (value) => {
     return Math.max(0, Math.min(999, numeric));
 };
 
-targetScore,
+export default function MonteCarloGauge({
+    categories = [],
+    goalDate,
+    targetScore,
     forcedMode = null, // 'today' or 'future'
     forcedTitle = null,
     extraQuestions = 0
