@@ -10,9 +10,9 @@ const formatDuration = (minutes) => {
     return `${hours}h ${mins}min`;
 };
 
-// Get day name in Portuguese - Fixed to full names to avoid browser mistranslations like "Sexo"
+// Get day name in Portuguese
 const getDayName = (date) => {
-    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     return days[date.getDay()];
 };
 
@@ -210,12 +210,9 @@ const StudyHistory = React.memo(function StudyHistory({
                                     <div className={`text-[9px] font-mono ${day.minutes > 0 ? 'text-slate-300' : 'text-slate-600'}`}>
                                         {day.minutes > 0 ? formatDuration(day.minutes) : '-'}
                                     </div>
-                                    {/* Day label - Added translate="no" to avoid browser errors */}
-                                    <div
-                                        translate="no"
-                                        className={`text-[10px] font-bold ${day.isToday ? 'text-emerald-400' : 'text-slate-500'}`}
-                                    >
-                                        {day.day.substring(0, 3)}
+                                    {/* Day label */}
+                                    <div className={`text-[10px] font-bold ${day.isToday ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                        {day.day}
                                     </div>
                                 </div>
                             ))}
