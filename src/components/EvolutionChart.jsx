@@ -9,17 +9,7 @@ import { monteCarloSimulation, computeCategoryStats, calculateWeightedProjectedM
 import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
-import { getSafeScore } from "../utils/scoreHelper";
-
-// ── HELPERS ──────────────────────────────────────────────
-const getDateKey = (rawDate) => {
-    if (!rawDate) return null;
-    const date = new Date(rawDate);
-    if (Number.isNaN(date.getTime())) return null;
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-    return localDate.toISOString().split('T')[0];
-};
+import { getDateKey } from "../utils/dateHelper";
 
 const ENGINES = [
     {

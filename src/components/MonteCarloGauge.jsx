@@ -10,18 +10,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { getSafeScore } from '../utils/scoreHelper';
-
-
-const getDateKey = (rawDate) => {
-    if (!rawDate) return null;
-    const date = new Date(rawDate);
-    if (Number.isNaN(date.getTime())) return null;
-    // Use local date to avoid timezone off-by-one errors (late night simulados)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
+import { getDateKey } from '../utils/dateHelper';
 
 const sanitizeWeightUnit = (value) => {
     const numeric = Number.parseInt(value, 10);
@@ -34,8 +23,7 @@ export default function MonteCarloGauge({
     goalDate,
     targetScore,
     forcedMode = null, // 'today' or 'future'
-    forcedTitle = null,
-    extraQuestions = 0
+    forcedTitle = null
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
 
@@ -161,10 +149,8 @@ export default function MonteCarloGauge({
                         const s = getSafeScore(h);
                         const dk = getDateKey(h.date);
                         if (dk && Number.isFinite(s)) {
-                            // Apply extra questions as a simulation boost
-                            const simulatedScore = Math.min(100, s + (extraQuestions * 0.5)); // Heuristic: +10 questions ~ +5% boost
-                            allHistoryPoints.push({ date: dk, score: simulatedScore, category: cat.name, weight });
-                            scores.push(simulatedScore);
+                            allHistoryPoints.push({ date: dk, score: s, category: cat.name, weight });
+                            scores.push(s);
                         }
                     });
                     // Use the first known score as the baseline (entry level)

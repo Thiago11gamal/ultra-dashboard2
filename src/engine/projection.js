@@ -136,7 +136,12 @@ export function projectScore(history, projectDays = 60) {
 }
 
 function calculateVolatility(history) {
-    if (!history || history.length < 3) return 1.5; // Default safe volatility
+    if (!history || history.length < 3) {
+        // Fallback dinâmico: Se tivermos poucos dados, assumimos uma incerteza de 8% da média
+        // ou um mínimo de 3.0 para evitar intervalos excessivamente otimistas (estreitos).
+        const avg = history && history.length > 0 ? getSafeScore(history[history.length - 1]) : 70;
+        return Math.max(3.0, avg * 0.08);
+    }
 
     // Ensure sorted history
     const sorted = getSortedHistory(history);

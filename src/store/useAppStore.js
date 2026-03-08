@@ -356,12 +356,16 @@ export const useAppStore = create(
             }),
 
             setMonteCarloWeights: (weights) => set((state) => {
-                const activeData = state.appState.contests[state.appState.activeId];
-                if (!activeData) return;
+                const activeId = state.appState.activeId;
+                const activeData = state.appState.contests[activeId];
+                if (!activeData || !weights) return;
+
                 activeData.mcWeights = weights;
                 if (activeData.categories) {
                     activeData.categories.forEach(cat => {
-                        if (weights[cat.name] !== undefined) cat.weight = weights[cat.name];
+                        if (weights[cat.name] !== undefined) {
+                            cat.weight = weights[cat.name];
+                        }
                     });
                 }
                 state.appState.lastUpdated = new Date().toISOString();
@@ -373,11 +377,16 @@ export const useAppStore = create(
             }),
 
             updateWeights: (weights) => set((state) => {
-                const activeData = state.appState.contests[state.appState.activeId];
-                if (!activeData.categories) return;
+                const activeId = state.appState.activeId;
+                const activeData = state.appState.contests[activeId];
+                if (!activeData || !activeData.categories || !weights) return;
+
                 activeData.categories.forEach(cat => {
-                    if (weights[cat.name] !== undefined) cat.weight = weights[cat.name];
+                    if (weights[cat.name] !== undefined) {
+                        cat.weight = weights[cat.name];
+                    }
                 });
+
                 activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -417,8 +426,11 @@ export const useAppStore = create(
 
             toggleDarkMode: () => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
                 if (!activeData.settings) activeData.settings = {};
-                activeData.settings.darkMode = !activeData.settings.darkMode;
+                // Garantir que a lógica de inversão considere o padrão 'true' (dark)
+                const isCurrentlyDark = activeData.settings.darkMode !== false;
+                activeData.settings.darkMode = !isCurrentlyDark;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
