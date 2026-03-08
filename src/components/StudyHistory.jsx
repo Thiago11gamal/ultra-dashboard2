@@ -177,8 +177,10 @@ const StudyHistory = React.memo(function StudyHistory({
                     {/* Weekly Chart - Enhanced */}
                     <div className="w-full glass p-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                                <BarChart3 size={14} />
+                            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                                    <BarChart3 size={12} className="text-blue-400" />
+                                </div>
                                 Gráfico Semanal
                             </h3>
 
@@ -191,12 +193,23 @@ const StudyHistory = React.memo(function StudyHistory({
                                         <button
                                             key={i}
                                             onClick={() => setSelectedWeekOffset(offset)}
-                                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${isSelected
-                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-105'
-                                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300'
-                                                }`}
+                                            className={`
+                                                relative px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest
+                                                transition-all duration-300 ease-out flex items-center gap-2
+                                                ${isSelected
+                                                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.4)] scale-105 border border-white/20'
+                                                    : 'bg-white/5 text-slate-500 hover:bg-white/10 hover:text-slate-300 border border-transparent active:scale-95'
+                                                }
+                                                backdrop-blur-md
+                                            `}
                                         >
+                                            <div className={`w-1 h-1 rounded-full transition-all ${isSelected ? 'bg-white animate-pulse' : 'bg-slate-700'}`} />
                                             {offset === 0 ? 'Semana Atual' : `Semana ${availableWeeks - i}`}
+
+                                            {/* Hover Glow Effect */}
+                                            {!isSelected && (
+                                                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/0 via-purple-500/10 to-purple-500/0 opacity-0 hover:opacity-100 transition-opacity" />
+                                            )}
                                         </button>
                                     );
                                 }).reverse()}
