@@ -3,6 +3,7 @@ import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
+import { computeCategoryStats } from '../engine';
 
 export default function Simulados() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
@@ -129,50 +130,25 @@ export default function Simulados() {
 
                     // Don't log entirely empty subjects to history
                     if (totalQ > 0) {
-                        const score = (totalC / totalQ) * 100;
                         const d = new Date();
                         const localNow = d.toISOString();
-                        const newHistory = [...(currentStats.history || []), { date: localNow, score, total: totalQ, correct: totalC, topics: validTopics }];
+                        const historyPoints = [...(currentStats.history || []), { date: localNow, score: (totalC / totalQ) * 100, total: totalQ, correct: totalC, topics: validTopics }];
 
-                        const grandTotalQ = newHistory.reduce((acc, h) => acc + Number(h.total || 0), 0);
-                        const grandTotalC = newHistory.reduce((acc, h) => acc + Number(h.correct || 0), 0);
-                        const newAverage = grandTotalQ > 0 ? (grandTotalC / grandTotalQ) * 100 : 0;
+                        // BUG-06 FIX: Use centralized engine logic for trend and averages
+                        const stats = computeCategoryStats(historyPoints, category.weight || 1);
 
-                        // FIX Bug 4: Robust Trend Detection using OLS Regression (Last 10 points)
-                        const calculateTrend = (history) => {
-                            if (!history || history.length < 3) return 'stable';
-                            const data = history.slice(-10).map((h, i) => ({ x: i, y: h.score }));
-                            const n = data.length;
-                            const sumX = data.reduce((a, b) => a + b.x, 0);
-                            const sumY = data.reduce((a, b) => a + b.y, 0);
-                            const sumXX = data.reduce((a, b) => a + (b.x * b.x), 0);
-                            const sumXY = data.reduce((a, b) => a + (b.x * b.y), 0);
-
-                            // Sxx_centered (not n·Sxx): correct denominator for OLS
-                            const Sxx = sumXX - (sumX * sumX) / n;
-                            if (Sxx === 0) return 'stable';
-                            const slope = (sumXY - (sumX * sumY) / n) / Sxx;
-
-                            const intercept = (sumY - slope * sumX) / n;
-                            const ssRes = data.reduce((a, b) => a + Math.pow(b.y - (slope * b.x + intercept), 2), 0);
-                            // Math fix: seSlope = √(s2 / Sxx) — not √(s2 / n·Sxx)
-                            // Previous code used denom = n·Sxx, underestimating seSlope by √n
-                            const s2 = ssRes / (n - 2 || 1);
-                            const seSlope = Math.sqrt(s2 / Sxx);
-                            const tStat = Math.abs(slope / (seSlope || 0.001));
-
-                            if (tStat > 1.5 && Math.abs(slope) > 0.5) {
-                                return slope > 0 ? 'up' : 'down';
-                            }
-                            return 'stable';
-                        };
-
-                        const trend = calculateTrend(newHistory);
-
-                        newCategories[catIndex] = {
-                            ...category,
-                            simuladoStats: { history: newHistory, average: newAverage, lastAttempt: score, trend, level: newAverage > 70 ? 'ALTO' : newAverage > 40 ? 'MÉDIO' : 'BAIXO' }
-                        };
+                        if (stats) {
+                            newCategories[catIndex] = {
+                                ...category,
+                                simuladoStats: {
+                                    history: historyPoints,
+                                    average: stats.mean,
+                                    lastAttempt: (totalC / totalQ) * 100,
+                                    trend: stats.trend,
+                                    level: stats.mean > 70 ? 'ALTO' : stats.mean > 40 ? 'MÉDIO' : 'BAIXO'
+                                }
+                            };
+                        }
                     }
                 }
             });

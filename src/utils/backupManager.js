@@ -62,19 +62,22 @@ export const parseImportedData = (content, currentAppState) => {
             return { type: 'PARTIAL_RESTORE', data: newState };
         }
 
-        // Strategy 3: Legacy "Ultra Dashboard" Wrapper
-        if (imported.contests) {
+        // Strategy 3: Legacy "Ultra Dashboard" Wrapper or missing activeId
+        if (imported.contests && typeof imported.contests === 'object') {
             const contestKeys = Object.keys(imported.contests);
-            const fallbackId = contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default';
+            if (contestKeys.length === 0) throw new Error("Backup não contém concursos.");
+
+            const fallbackId = imported.activeId || contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default';
 
             const newState = {
                 ...currentAppState,
+                ...imported,
                 activeId: fallbackId,
                 contests: imported.contests
             };
 
             if (!validateFullBackup(newState)) {
-                throw new Error("Backup legado corrompido ou incompatível.");
+                throw new Error("Backup corrompido ou com estrutura inválida.");
             }
 
             return { type: 'LEGACY_RESTORE', data: newState };
