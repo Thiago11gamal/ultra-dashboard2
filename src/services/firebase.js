@@ -9,18 +9,18 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_APP_ID,
+    projectId: import.meta.env.ID_DO_PROJETO_VITE || import.meta.env.VITE_PROJECT_ID,
+    storageBucket: import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE || import.meta.env.VITE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.ID_do_remetente_de_mensagens_VITE || import.meta.env.VITE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.ID_do_aplicativo_VITE || import.meta.env.VITE_APP_ID,
     measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
 const missingVars = [];
 if (!firebaseConfig.apiKey) missingVars.push('VITE_API_KEY');
 if (!firebaseConfig.authDomain) missingVars.push('VITE_AUTH_DOMAIN');
-if (!firebaseConfig.projectId) missingVars.push('VITE_PROJECT_ID');
-if (!firebaseConfig.appId) missingVars.push('VITE_APP_ID');
+if (!firebaseConfig.projectId) missingVars.push('ID_DO_PROJETO_VITE');
+if (!firebaseConfig.appId) missingVars.push('ID_do_aplicativo_VITE');
 
 console.debug("[Firebase] Inicializando com ProjectId:", firebaseConfig.projectId);
 
