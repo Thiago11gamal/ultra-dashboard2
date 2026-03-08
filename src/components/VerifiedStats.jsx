@@ -26,7 +26,7 @@ export default function VerifiedStats({ categories = [], user }) {
         return !isNaN(userTarget) ? userTarget : 70;
     });
     const [showConfig, setShowConfig] = React.useState(false);
-    const [extraQuestions, setExtraQuestions] = React.useState(0);
+
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
@@ -531,24 +531,6 @@ export default function VerifiedStats({ categories = [], user }) {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {extraQuestions > 0 && (
-                            <button
-                                onClick={() => setExtraQuestions(0)}
-                                className="flex items-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-xs font-bold text-red-400 transition-all shadow-lg"
-                                title="Resetar Simulação"
-                            >
-                                <RotateCcw size={14} />
-                                Reset
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setExtraQuestions(prev => prev + 10)}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 border border-white/5 rounded-xl text-xs font-black text-white transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_20px_rgba(34,197,94,0.5)] active:scale-95"
-                        >
-                            <Plus size={16} />
-                            +10 Questões
-                            {extraQuestions > 0 && <span className="ml-1 bg-black/30 px-1.5 py-0.5 rounded text-[10px]">+{extraQuestions}</span>}
-                        </button>
                         <button
                             onClick={() => setShowConfig(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
@@ -565,7 +547,6 @@ export default function VerifiedStats({ categories = [], user }) {
                         targetScore={targetScore}
                         forcedMode="today"
                         forcedTitle="Status Atual"
-                        extraQuestions={extraQuestions}
                     />
                     <MonteCarloGauge
                         categories={categories}
@@ -573,7 +554,6 @@ export default function VerifiedStats({ categories = [], user }) {
                         targetScore={targetScore}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
-                        extraQuestions={extraQuestions}
                     />
                 </div>
             </div>
