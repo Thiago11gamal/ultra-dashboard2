@@ -76,7 +76,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     if (data.user) {
                         data.user.targetProbability = targetScore;
                     }
-                }, false);
+                    console.log("[MonteCarlo] Syncing final targetScore:", targetScore);
+                }, true); // Force history record now that the user explicitly clicked 'Close/Save'
             }
         }
     }, [targetScore, setUserData, user?.targetProbability, user?.id, user, showConfig]);
