@@ -718,7 +718,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
                             title="Reiniciar Timer"
                         >
-                            <RotateCcw size={18} strokeWidth={2.5} />
+                            <RotateCcw size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
                         </motion.button>
 
                         <motion.button
@@ -736,8 +736,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
                         >
                             {isRunning
-                                ? <Pause size={32} fill="currentColor" className="opacity-100" />
-                                : <Play size={32} fill="currentColor" className="ml-1 opacity-100" />}
+                                ? <Pause size={36} fill="currentColor" className="text-emerald-400 opacity-100" />
+                                : <Play size={36} fill="currentColor" className="ml-1 text-emerald-400 opacity-100" />}
                         </motion.button>
 
                         {/* SKIP */}
@@ -749,7 +749,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
                             title="Pular Etapa"
                         >
-                            <SkipForward size={18} strokeWidth={2.5} />
+                            <SkipForward size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
                         </motion.button>
                     </div>
 

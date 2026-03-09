@@ -104,7 +104,7 @@ export default function Pomodoro() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-180px)] flex flex-col justify-center py-4">
+        <div className="min-h-[calc(100vh-180px)] flex flex-col items-center justify-center py-4">
             <PomodoroTimer
                 settings={data.settings}
                 onUpdateSettings={updatePomodoroSettings}
