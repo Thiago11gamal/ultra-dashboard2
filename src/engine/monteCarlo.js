@@ -3,11 +3,12 @@ import { mulberry32, randomNormal } from './random.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
-function simulateNormalDistribution(mean, sd, targetScore, simulations, seed) {
+function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean) {
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
+  const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
   const rng = mulberry32(seed || Date.now());
   let success = 0;
@@ -45,6 +46,7 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed) {
     sd: Number(projectedSD.toFixed(1)),
     ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
     ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
+    currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
     drift: 0,
@@ -75,7 +77,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
       date: dates[index] || new Date().toISOString().slice(0, 10)
     }));
 
-    return monteCarloSimulation(history, Number(meta) || 0, projectionDays, simulations);
+    return monteCarloSimulation(history, Number(meta) || 0, projectionDays, simulations, options);
   }
 
   return simulateNormalDistribution(
@@ -83,7 +85,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     Number(pooledSD),
     Number(targetScore),
     options.simulations,
-    options.seed
+    options.seed,
+    options.currentMean
   );
 }
 

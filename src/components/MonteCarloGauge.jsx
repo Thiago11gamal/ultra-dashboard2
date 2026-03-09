@@ -114,14 +114,33 @@ export default function MonteCarloGauge({
     const statsData = useMemo(() => {
         let categoryStats = [];
         let totalWeight = 0;
+        let weightedBayesianSum = 0;
+
+        // Group scores by date for BUG-03 (paths)
+        const scoresByDate = {};
+        const weightsByName = {};
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
                 const stats = computeCategoryStats(history, weight);
+                const bayesian = computeBayesianLevel(history);
+
                 if (stats) {
-                    if (weight > 0) totalWeight += weight;
+                    if (weight > 0) {
+                        totalWeight += weight;
+                        weightedBayesianSum += (bayesian.mean * 100) * weight;
+                        weightsByName[cat.name] = weight;
+
+                        history.forEach(h => {
+                            const dk = getDateKey(h.date);
+                            if (dk) {
+                                if (!scoresByDate[dk]) scoresByDate[dk] = {};
+                                scoresByDate[dk][cat.name] = getSafeScore(h);
+                            }
+                        });
+                    }
                     categoryStats.push({ name: cat.name, ...stats });
                 }
             }
@@ -132,18 +151,48 @@ export default function MonteCarloGauge({
         const currentWeightedMean = calculateCurrentWeightedMean(categoryStats, totalWeight);
         const weightedMean = calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays);
         const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
+        const bayesianMean = weightedBayesianSum / totalWeight;
 
-        return { categoryStats, weightedMean, currentWeightedMean, pooledSD, totalWeight };
+        // Reconstruct consolidated global history for path simulation
+        const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
+        const lastSeen = {};
+        const globalHistory = sortedDates.map(date => {
+            Object.assign(lastSeen, scoresByDate[date]);
+            let sum = 0;
+            let tw = 0;
+            Object.keys(lastSeen).forEach(name => {
+                const w = weightsByName[name];
+                if (w > 0) {
+                    sum += lastSeen[name] * w;
+                    tw += w;
+                }
+            });
+            return { date, score: tw > 0 ? sum / tw : 0 };
+        });
+
+        // Daily pooled SD (without time uncertainty added by path engine)
+        const dailySD = Math.sqrt(
+            categoryStats.reduce((acc, cat) => acc + (cat.weight / totalWeight) * Math.pow(cat.sd, 2), 0)
+        );
+
+        return {
+            categoryStats,
+            weightedMean,
+            currentWeightedMean,
+            pooledSD,
+            totalWeight,
+            bayesianMean,
+            globalHistory,
+            dailySD
+        };
     }, [categories, debouncedWeights, projectDays]);
 
     const simulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };
 
-        // 1. Contador de prontidão para a IA (BUG-08 UX Restore)
-        // Precisamos de 5 notas totais e 3 dias diferentes para uma projeção confiável.
+        // 1. Contador de prontidão
         let totalPoints = 0;
         const uniqueDates = new Set();
-
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
@@ -160,17 +209,38 @@ export default function MonteCarloGauge({
         if (totalPoints < 5) return { status: 'waiting', missing: 'count', count: totalPoints };
         if (uniqueDates.size < 3) return { status: 'waiting', missing: 'days', days: uniqueDates.size };
 
-        // 2. Simulação unificada sobre as estatísticas "pooled"
-        // BUG-08 FIX: Direct simulation on pooled stats
-        const result = runMonteCarloAnalysis(
-            statsData.weightedMean,
-            statsData.pooledSD,
-            debouncedTarget,
-            { simulations: 2000 }
-        );
+        // 2. Motor de Simulação (BUG-03 paths vs BUG-08 pooled)
+        const isFuture = projectDays > 0;
+        let result;
+
+        if (isFuture && statsData.globalHistory?.length > 0) {
+            // BUG-03: Paths (monteCarloSimulation)
+            result = runMonteCarloAnalysis({
+                values: statsData.globalHistory.map(h => h.score),
+                dates: statsData.globalHistory.map(h => h.date),
+                meta: debouncedTarget,
+                simulations: 2000,
+                projectionDays: projectDays
+            }, null, null, {
+                forcedVolatility: statsData.dailySD,
+                forcedBaseline: statsData.bayesianMean,
+                currentMean: statsData.currentWeightedMean
+            });
+        } else {
+            // Hoje: Simulação estática (Normal)
+            result = runMonteCarloAnalysis(
+                statsData.bayesianMean,
+                statsData.pooledSD,
+                debouncedTarget,
+                {
+                    simulations: 2000,
+                    currentMean: statsData.currentWeightedMean
+                }
+            );
+        }
 
         return { status: 'ready', data: result };
-    }, [statsData, debouncedTarget, categories, debouncedWeights]);
+    }, [statsData, debouncedTarget, projectDays, categories, debouncedWeights]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'

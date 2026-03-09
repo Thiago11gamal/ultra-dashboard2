@@ -196,13 +196,14 @@ function getRandomElement(arr, rng) {
     return arr[safeIdx];
 }
 
-// 🎲 Monte Carlo Híbrido (Bootstrap + Tendência)
 export function monteCarloSimulation(
     history,
     targetScore = 85,
     days = 90,
-    simulations = 2000
+    simulations = 2000,
+    options = {}
 ) {
+    const { forcedVolatility, forcedBaseline } = options;
     const sortedHistory = getSortedHistory(history);
 
     // Safety check - allow at least 1 point for a flat projection
@@ -217,18 +218,16 @@ export function monteCarloSimulation(
         volatility: 0
     };
 
-    // Fix: Baseline uses a more responsive EMA to avoid anchoring too far behind real progress.
-    // BUG 1 FIX: use getSafeScore() to handle history entries without direct .score field
+    // Fix: Baseline uses a more responsive EMA or forced value (Bayesian) to avoid anchoring.
+    // BUG-04 FIX: Priority to forcedBaseline for stability as requested.
     const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
-    let baselineScore = currentScore;
+    let baselineScore = forcedBaseline !== undefined ? forcedBaseline : currentScore;
 
-    if (sortedHistory.length > 2) {
+    if (forcedBaseline === undefined && sortedHistory.length > 2) {
         let ema = getSafeScore(sortedHistory[0]);
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
         }
-        // Blending EMA with current score for better immediate responsiveness
-        // 70% current, 30% EMA for a balanced starting point
         baselineScore = (currentScore * 0.7) + (ema * 0.3);
     }
 
@@ -255,10 +254,12 @@ export function monteCarloSimulation(
     }).slice(1) : [];
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
-    const useBootstrap = residuals.length >= 5;
+    // BUG-03 FIX: If forcedVolatility is provided, we prefer the Normal path to ensure 
+    // the paths match the pooled statistical uncertainty regardless of bootstrap availability.
+    const useBootstrap = residuals.length >= 5 && forcedVolatility === undefined;
 
     // Calcula volatilidade clássica apenas para fallback
-    const volatility = calculateVolatility(sortedHistory);
+    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
 
     // Bug fix: seed was `history.length * 1000 + floor(currentScore * 10)`.
     // currentScore changes with each new simulado — so the seed, and therefore the entire
