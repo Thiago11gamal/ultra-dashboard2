@@ -177,8 +177,10 @@ function calculateVolatility(history) {
 
     if (sumWeights === 0) return 1.5;
 
-    // MSSD formula: variance = (1/2) * average(diff^2)
-    const mssdVariance = (sumSw / sumWeights) / 2;
+    // MSSD (Mean Successive Difference) variance
+    // We don't divide by 2 here for non-stationary exam progress series as we want 
+    // to capture the raw volatility of the increments directly.
+    const mssdVariance = (sumSw / sumWeights);
 
     // Safe sqrt
     return Math.sqrt(Math.max(0, mssdVariance));

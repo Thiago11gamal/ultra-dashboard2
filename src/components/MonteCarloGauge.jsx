@@ -3,6 +3,7 @@ import { Gauge, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import {
     computeCategoryStats,
     monteCarloSimulation,
+    runMonteCarloAnalysis,
     calculateCurrentWeightedMean,
     calculateWeightedProjectedMean,
     computePooledSD
@@ -136,76 +137,21 @@ export default function MonteCarloGauge({
     }, [categories, debouncedWeights, projectDays]);
 
     const simulationData = useMemo(() => {
-        let allHistoryPoints = [];
-        const categoryBaselines = {};
+        if (!statsData) return { status: 'waiting', missing: 'data' };
 
-        // 1. Collect data and calculate average per category to use as stable baseline
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history?.length > 0) {
-                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
-                if (weight > 0) {
-                    const scores = [];
-                    cat.simuladoStats.history.forEach(h => {
-                        const s = getSafeScore(h);
-                        const dk = getDateKey(h.date);
-                        if (dk && Number.isFinite(s)) {
-                            allHistoryPoints.push({ date: dk, score: s, category: cat.name, weight });
-                            scores.push(s);
-                        }
-                    });
-                    // Use the first known score as the baseline (entry level)
-                    // This prevents "Phantom Trend" when a subject is added later in time
-                    if (scores.length > 0) {
-                        categoryBaselines[cat.name] = { score: scores[0], weight };
-                    }
-                }
-            }
-        });
-
-        if (allHistoryPoints.length < 5) return { status: 'waiting', missing: 'count', count: allHistoryPoints.length };
-
-        // 2. Sort all points chronologically
-        allHistoryPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        const pointsByDate = {};
-        // categoryState starts with baselines for EVERY participating category
-        // FIX Bug 5: Deep copy to prevent mutating the shared baseline objects
-        const categoryState = Object.fromEntries(
-            Object.entries(categoryBaselines).map(([k, v]) => [k, { ...v }])
+        // BUG-08 FIX: Direct simulation on pooled stats
+        // This avoids the "Global History Dilution" where volatility is lost in the average.
+        // We use runMonteCarloAnalysis which treats the exam as a single coherent event
+        // with the combined uncertainty (pooledSD) of all subjects.
+        const result = runMonteCarloAnalysis(
+            statsData.weightedMean,
+            statsData.pooledSD,
+            debouncedTarget,
+            { simulations: 2000 }
         );
 
-        allHistoryPoints.forEach(p => {
-            // Update the state for the specific subject that was measured
-            categoryState[p.category].score = p.score;
-
-            // Calculate the total weighted average for this date
-            // because categoryState includes baselines for ALL subjects, 
-            // the totalWeight remains constant across the entire timeline
-            let totalWeightedScore = 0;
-            let totalWeight = 0;
-
-            Object.values(categoryState).forEach(state => {
-                totalWeightedScore += state.score * state.weight;
-                totalWeight += state.weight;
-            });
-
-            if (totalWeight > 0) {
-                pointsByDate[p.date] = totalWeightedScore / totalWeight;
-            }
-        });
-
-        const globalHistory = Object.keys(pointsByDate)
-            .sort((a, b) => new Date(a) - new Date(b))
-            .map(date => ({
-                date: date,
-                score: pointsByDate[date]
-            }));
-
-        if (globalHistory.length < 3) return { status: 'waiting', missing: 'days', days: globalHistory.length };
-
-        const simResult = monteCarloSimulation(globalHistory, debouncedTarget, projectDays, 2000);
-        return { status: 'ready', data: simResult };
-    }, [categories, debouncedWeights, projectDays, debouncedTarget]);
+        return { status: 'ready', data: result };
+    }, [statsData, debouncedTarget]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
