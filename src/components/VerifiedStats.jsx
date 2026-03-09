@@ -27,6 +27,12 @@ export default function VerifiedStats({ categories = [], user }) {
     });
     const [showConfig, setShowConfig] = React.useState(false);
 
+    // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
+    const [statsTarget, setStatsTarget] = React.useState(targetScore);
+    React.useEffect(() => {
+        const timer = setTimeout(() => setStatsTarget(targetScore), 300);
+        return () => clearTimeout(timer);
+    }, [targetScore]);
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
@@ -63,13 +69,14 @@ export default function VerifiedStats({ categories = [], user }) {
                 localStorage.setItem('monte_carlo_target', targetScore.toString());
             }
 
-            // Sync with global user object
-            if (user && Number(user.targetProbability) !== targetScore) {
+            // Sync with global user object ONLY if target actually changed to avoid re-render loops
+            const currentStoreTarget = Number(user?.targetProbability);
+            if (user && !isNaN(currentStoreTarget) && Math.abs(currentStoreTarget - targetScore) > 0.01) {
                 setUserData(data => {
                     if (data.user) {
                         data.user.targetProbability = targetScore;
                     }
-                }, false); // Pass 'false' to avoid creating an Undo snapshot for every minor adjustment
+                }, false);
             }
         }
     }, [targetScore, setUserData, user?.targetProbability, user?.id, user, showConfig]);
@@ -135,8 +142,8 @@ export default function VerifiedStats({ categories = [], user }) {
         let predictionSubtext = "Realize mais simulados.";
         let predictionStatus = "neutral";
 
-        // Use the lifted state directly
-        const userTarget = targetScore;
+        // Use the debounced statsTarget for heavy calculations
+        const userTarget = statsTarget;
         let calculatedTarget = userTarget;
 
         const distinctDays = dailyHistory.length;
@@ -391,8 +398,8 @@ export default function VerifiedStats({ categories = [], user }) {
             };
         }
 
-        return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore };
-    }, [categories, targetScore]);
+        return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
+    }, [categories, statsTarget]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">

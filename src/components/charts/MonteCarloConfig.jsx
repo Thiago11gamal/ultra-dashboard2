@@ -12,22 +12,22 @@ export const MonteCarloConfig = ({
 
     return (
         <div className="absolute inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200 rounded-3xl">
-            <div className="flex items-center justify-between mb-6">
+            <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between pb-6 border-b border-white/5 mb-6 -mx-2 px-2">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                         <Settings2 size={20} className="text-blue-400" />
                     </div>
                     <div>
                         <h3 className="text-base font-bold text-white">Configuração</h3>
-                        <p className="text-[10px] text-slate-400">Ajuste os parâmetros da simulação</p>
+                        <p className="text-[10px] text-slate-400">Monte Carlo & Pesos</p>
                     </div>
                 </div>
                 <button
                     onClick={() => onClose(false)}
-                    className="w-12 h-12 rounded-full bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 flex items-center justify-center transition-all border border-blue-500/20 group/close"
-                    title="Fechar e Salvar"
+                    className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 active:scale-90 flex items-center justify-center transition-all shadow-lg shadow-blue-500/20 group/close z-30"
+                    title="Salvar e Fechar"
                 >
-                    <Check size={24} className="text-blue-400 group-hover/close:text-blue-300" />
+                    <Check size={28} className="text-white group-hover/close:scale-110 transition-transform" />
                 </button>
             </div>
 

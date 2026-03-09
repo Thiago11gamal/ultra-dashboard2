@@ -92,12 +92,19 @@ const stripForUndo = (contestsObj) => {
     return JSON.parse(JSON.stringify(contestsObj));
 };
 
-const recordHistory = (appState) => {
+let lastHistoryTime = 0;
+const HISTORY_COOLDOWN = 1000; // Only record history once per second for rapid UI actions
+
+const recordHistory = (appState, force = false) => {
+    const now = Date.now();
+    if (!force && (now - lastHistoryTime < HISTORY_COOLDOWN)) return;
+
     if (appState.history.length >= 20) {
         appState.history.shift();
     }
     const snapshot = JSON.parse(JSON.stringify(stripForUndo(appState.contests)));
     appState.history.push({ contests: snapshot, activeId: appState.activeId });
+    lastHistoryTime = now;
 };
 
 const processGamification = (state, xpGained) => {
@@ -190,7 +197,9 @@ export const useAppStore = create(
                 if (nextData === undefined) return;
 
                 state.appState.contests[contestId] = nextData;
-                state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
+                if (shouldRecordHistory) {
+                    state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
+                }
             }),
 
             toggleTask: (categoryId, taskId) => set((state) => {
