@@ -73,6 +73,7 @@ export default function Pomodoro() {
             }));
         }
 
+        localStorage.removeItem('pomodoroActiveSubject');
         const returnPath = location.state?.from ? `/${location.state.from}` : '/';
         navigate(returnPath);
     };
