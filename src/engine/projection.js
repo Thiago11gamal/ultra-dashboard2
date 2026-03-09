@@ -17,7 +17,7 @@ export function getSortedHistory(history) {
 // -----------------------------
 // Regressão ponderada temporal
 // -----------------------------
-function weightedRegression(history, lambda = 0.07) {
+function weightedRegression(history, lambda = 0.09) {
     // Ensure sorted history for correct time calculations
     const sortedHistory = getSortedHistory(history);
 
