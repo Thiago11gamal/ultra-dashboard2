@@ -5,13 +5,13 @@ import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/anal
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_API_KEY,
-    authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_APP_ID,
-    measurementId: import.meta.env.VITE_MEASUREMENT_ID
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: "liquita-67764.firebaseapp.com",
+    projectId: "liquita-67764",
+    storageBucket: "liquita-67764.firebasestorage.app",
+    messagingSenderId: "709882079835",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: "G-D8NS2BNKD5"
 };
 
 // Initialize Firebase
