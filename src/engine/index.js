@@ -26,8 +26,7 @@ export {
 
 export {
     mulberry32,
-    randomNormal,
-    getRandomElement
+    randomNormal
 } from './random.js';
 
 export {

@@ -131,7 +131,7 @@ export default function MonteCarloGauge({
                 if (stats) {
                     if (weight > 0) {
                         totalWeight += weight;
-                        weightedBayesianSum += (bayesian.mean * 100) * weight;
+                        weightedBayesianSum += bayesian.mean * weight;
                         weightsByName[cat.name] = weight;
 
                         history.forEach(h => {
@@ -354,7 +354,7 @@ export default function MonteCarloGauge({
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (
-                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Hoje' : 'Ver Futuro'}</button>
+                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Futuro' : 'Ver Hoje'}</button>
                     )}
                     {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">

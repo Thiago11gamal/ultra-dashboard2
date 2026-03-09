@@ -3,7 +3,7 @@ import { mulberry32, randomNormal } from './random.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
-function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean) {
+export function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean) {
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;

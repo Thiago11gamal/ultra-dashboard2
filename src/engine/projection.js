@@ -7,7 +7,7 @@ import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
-function getSortedHistory(history) {
+export function getSortedHistory(history) {
     if (!history) return [];
     return [...history]
         .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
@@ -135,7 +135,7 @@ export function projectScore(history, projectDays = 60) {
     return Math.max(0, Math.min(100, projected));
 }
 
-function calculateVolatility(history) {
+export function calculateVolatility(history) {
     if (!history || history.length < 3) {
         // Fallback dinâmico: Se tivermos poucos dados, assumimos uma incerteza de 8% da média
         // ou um mínimo de 3.0 para evitar intervalos excessivamente otimistas (estreitos).
@@ -189,7 +189,7 @@ function calculateVolatility(history) {
 // -----------------------------
 // Helper: Bootstrap Sampler
 // -----------------------------
-function getRandomElement(arr, rng) {
+export function getRandomElement(arr, rng) {
     // Usa o RNG seedado para consistência
     const idx = Math.floor(rng() * arr.length);
     const safeIdx = Math.max(0, Math.min(arr.length - 1, idx));
