@@ -13,38 +13,43 @@ export default function Pomodoro() {
     const navigate = useNavigate();
     const showToast = useToast();
 
-    // The activeSubject is now derived purely from Router state for isolation
-    const [activeSubject, setActiveSubject] = useState(null);
+    // The activeSubject is now derived from Router state or hydrated from local storage
+    const [activeSubject, setActiveSubject] = useState(() => {
+        try {
+            const saved = localStorage.getItem('pomodoroActiveSubject');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
+        }
+    });
 
+    // Handle initial activation from location state
     useEffect(() => {
         if (location.state?.categoryId && location.state?.taskId) {
-            // Blindagem contra Loop Infinito: Se a tarefa já foi ativada na sessão, ignora os próximos renders
             if (activeSubject?.taskId === location.state.taskId) return;
 
             const cat = data.categories?.find(c => c.id === location.state.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
+
             if (cat && tsk) {
-                // Initialize session state
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setActiveSubject({
+                const newSubject = {
                     categoryId: cat.id,
                     taskId: tsk.id,
                     category: cat.name,
                     task: tsk.title,
                     priority: tsk.priority,
                     sessionInstanceId: Date.now()
-                });
+                };
+                setActiveSubject(newSubject);
+                localStorage.setItem('pomodoroActiveSubject', JSON.stringify(newSubject));
 
-                // Update task status in store (optional visual feedback), only if necessary
                 if (tsk.status !== 'studying') {
                     setData(prev => ({
                         ...prev,
                         categories: prev.categories.map(c => ({
                             ...c,
                             tasks: c.tasks.map(t => {
-                                // Se for a tarefa que acabou de abrir, marca 'studying'
                                 if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
-                                // Senão, remove o status 'studying' de TODAS as outras
                                 if (t.status === 'studying') return { ...t, status: undefined };
                                 return t;
                             })

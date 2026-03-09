@@ -351,7 +351,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             // Treat skip as completion of work session
             const newSessions = sessions + 1;
             setSessions(newSessions);
-            onSessionComplete?.();
+            onSessionComplete?.(activeSubject);
 
             // Track Study Time
             if (activeSubject && onUpdateStudyTime) {
