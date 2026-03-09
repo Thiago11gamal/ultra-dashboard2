@@ -1,0 +1,21 @@
+﻿
+> ultra-dashboard@0.0.0 lint
+> eslint .
+
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\App.jsx
+    2:50   error    'useNavigate' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                            no-unused-vars
+   69:117  error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+   73:5    error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+   98:6    warning  React Hook useCallback has an unnecessary dependency: 'setAppState'. Either exclude it or remove the dependency array. Outer scope values like 'setAppState' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+   98:7    error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+  110:11   error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+  112:11   error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+  121:6    warning  React Hook useCallback has an unnecessary dependency: 'setAppState'. Either exclude it or remove the dependency array. Outer scope values like 'setAppState' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+  121:17   error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+  130:7    error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+  133:6    warning  React Hook useCallback has an unnecessary dependency: 'setAppState'. Either exclude it or remove the dependency array. Outer scope values like 'setAppState' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+  133:7    error    'setAppState' is not defined                                                                                                                                                                                                                  no-undef
+
+Ô£û 12 problems (9 errors, 3 warnings)
+
