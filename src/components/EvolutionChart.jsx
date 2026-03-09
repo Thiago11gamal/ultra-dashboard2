@@ -10,6 +10,7 @@ import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey } from "../utils/dateHelper";
+import { getSafeScore } from "../utils/scoreHelper";
 
 const ENGINES = [
     {
