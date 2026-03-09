@@ -207,7 +207,9 @@ export default function MonteCarloGauge({
                                 {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
                                 {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
                                 {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                                <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
+                                <span className="max-w-[70px] truncate">
+                                    {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
+                                </span>
                             </div>
                         );
                     })}
@@ -353,7 +355,9 @@ export default function MonteCarloGauge({
                             {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
                             {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
                             {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                            <span className="max-w-[70px] truncate">{cat.name.split(' ')[0]}</span>
+                            <span className="max-w-[70px] truncate">
+                                {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
+                            </span>
                         </div>
                     );
                 })}

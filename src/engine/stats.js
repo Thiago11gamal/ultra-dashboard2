@@ -135,8 +135,29 @@ export function computeCategoryStats(history, weight) {
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
-    const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
+    const cumulativeMean = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
+    // Dynamic Level Estimation (Responsive Baseline)
+    let dynamicMean = cumulativeMean;
+    if (scores.length > 0) {
+        const lastScore = scores[scores.length - 1];
+        if (scores.length > 2) {
+            // EMA Calculation
+            let ema = scores[0];
+            for (let i = 1; i < scores.length; i++) {
+                let K = 0.30;
+                if (i < 5) K = 0.60;
+                else if (i < 15) K = 0.45;
+                ema = (scores[i] * K) + (ema * (1 - K));
+            }
+            // 70/30 Blend (Responsive vs Stable)
+            dynamicMean = (lastScore * 0.7) + (ema * 0.3);
+        } else {
+            dynamicMean = lastScore;
+        }
+    }
+
+    const m = dynamicMean;
     const sd = standardDeviation(scores);
     const safeSD = Math.max(sd, m * 0.02);
     const rawTrend = calculateTrend(scores);
