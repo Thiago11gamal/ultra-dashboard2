@@ -12,7 +12,9 @@ export {
     calculateSlope,
     calculateVolatility,
     projectScore,
-    monteCarloSimulation
+    monteCarloSimulation,
+    calculateCurrentWeightedMean,
+    calculateWeightedProjectedMean
 } from './projection.js';
 
 export {
