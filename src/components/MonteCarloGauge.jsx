@@ -139,10 +139,29 @@ export default function MonteCarloGauge({
     const simulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };
 
+        // 1. Contador de prontidão para a IA (BUG-08 UX Restore)
+        // Precisamos de 5 notas totais e 3 dias diferentes para uma projeção confiável.
+        let totalPoints = 0;
+        const uniqueDates = new Set();
+
+        categories.forEach(cat => {
+            if (cat.simuladoStats?.history?.length > 0) {
+                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
+                if (weight > 0) {
+                    cat.simuladoStats.history.forEach(h => {
+                        totalPoints++;
+                        const dk = getDateKey(h.date);
+                        if (dk) uniqueDates.add(dk);
+                    });
+                }
+            }
+        });
+
+        if (totalPoints < 5) return { status: 'waiting', missing: 'count', count: totalPoints };
+        if (uniqueDates.size < 3) return { status: 'waiting', missing: 'days', days: uniqueDates.size };
+
+        // 2. Simulação unificada sobre as estatísticas "pooled"
         // BUG-08 FIX: Direct simulation on pooled stats
-        // This avoids the "Global History Dilution" where volatility is lost in the average.
-        // We use runMonteCarloAnalysis which treats the exam as a single coherent event
-        // with the combined uncertainty (pooledSD) of all subjects.
         const result = runMonteCarloAnalysis(
             statsData.weightedMean,
             statsData.pooledSD,
@@ -151,7 +170,7 @@ export default function MonteCarloGauge({
         );
 
         return { status: 'ready', data: result };
-    }, [statsData, debouncedTarget]);
+    }, [statsData, debouncedTarget, categories, debouncedWeights]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
