@@ -121,8 +121,8 @@ export function projectScore(history, projectDays = 60) {
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
         }
-        // Consistent blended baseline: 80% raw, 20% EMA
-        currentScore = (lastRawScore * 0.8) + (ema * 0.2);
+        // Consistent blended baseline: 85% raw, 15% EMA
+        currentScore = (lastRawScore * 0.85) + (ema * 0.15);
     }
 
     // Relaxed damping: 45 instead of 30, allows more linear projection for longer
@@ -228,7 +228,7 @@ export function monteCarloSimulation(
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
         }
-        baselineScore = (currentScore * 0.8) + (ema * 0.2);
+        baselineScore = (currentScore * 0.85) + (ema * 0.15);
     }
 
     // 1. Calcular Tendência (Drift)
