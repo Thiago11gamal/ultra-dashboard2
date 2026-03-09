@@ -162,11 +162,6 @@ export const useAppStore = create(
                 const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
                 if (!nextState || !nextState.contests || !nextState.activeId) return;
 
-                // Audit P1: Comparison check
-                const prevStr = JSON.stringify(state.appState);
-                const nextStr = JSON.stringify(nextState);
-                if (prevStr === nextStr) return;
-
                 recordHistory(state.appState);
 
                 Object.keys(nextState).forEach(key => {
@@ -179,10 +174,14 @@ export const useAppStore = create(
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
             }),
 
-            setData: (newDataCallback) => set((state) => {
+            setData: (newDataCallback, shouldRecordHistory = true) => set((state) => {
                 const contestId = state.appState.activeId;
                 const currentData = state.appState.contests[contestId];
                 if (!currentData) return;
+
+                if (shouldRecordHistory) {
+                    recordHistory(state.appState);
+                }
 
                 const nextData = typeof newDataCallback === 'function'
                     ? newDataCallback(currentData)
@@ -190,12 +189,6 @@ export const useAppStore = create(
 
                 if (nextData === undefined) return;
 
-                // Audit P1: Comparison check
-                const prevStr = JSON.stringify(currentData);
-                const nextStr = JSON.stringify(nextData);
-                if (prevStr === nextStr) return;
-
-                recordHistory(state.appState);
                 state.appState.contests[contestId] = nextData;
                 state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),

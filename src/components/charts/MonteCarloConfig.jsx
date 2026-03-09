@@ -22,8 +22,12 @@ export const MonteCarloConfig = ({
                         <p className="text-[10px] text-slate-400">Ajuste os parâmetros da simulação</p>
                     </div>
                 </div>
-                <button onClick={() => onClose(false)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
-                    <Check size={16} className="text-white" />
+                <button
+                    onClick={() => onClose(false)}
+                    className="w-12 h-12 rounded-full bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 flex items-center justify-center transition-all border border-blue-500/20 group/close"
+                    title="Fechar e Salvar"
+                >
+                    <Check size={24} className="text-blue-400 group-hover/close:text-blue-300" />
                 </button>
             </div>
 
