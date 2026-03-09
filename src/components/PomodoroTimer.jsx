@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Settings } from 'lucide-react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 // Update component signature to accept onExit and defaultTargetCycles
-export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
+export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, onUpdateSettings, defaultTargetCycles = 1 }) {
 
     // --- STATE PERSISTENCE INITIALIZATION ---
 
@@ -469,11 +469,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01 }}
-            className={`max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`w-full max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* 1. TOP BAR: Modern Clean Header */}
-            <div className="relative flex items-center justify-center py-2 w-full">
-                <div className="flex-1 flex justify-center px-12 bg-transparent">
+            <div className="relative flex items-center justify-center py-2 w-full px-4">
+                <div className="flex-1 flex justify-center bg-transparent">
                     {activeSubject ? (
                         <motion.div
                             initial={{ y: -5, opacity: 0 }}
@@ -483,7 +483,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center'
                             }}
-                            className={`relative flex items-center gap-3 w-full border border-white/20 rounded-3xl pl-8 pr-36 py-5 transition-all duration-500 shadow-lg max-w-full`}
+                            className={`relative flex items-center gap-3 w-full border border-white/20 rounded-3xl pl-8 pr-12 py-5 transition-all duration-500 shadow-lg max-w-full`}
                         >
                             {/* Icon Box */}
                             <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm transition-colors duration-500 bg-[#ead9ce] text-[#5c3d2e] border border-[#c4a48a] shrink-0`}>
@@ -526,7 +526,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             } : {}}
                             transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
                             onClick={onExit}
-                            className={`flex items-center gap-4 text-white text-base font-black uppercase tracking-widest border-4 border-dashed border-red-500 px-12 py-6 rounded-2xl bg-red-900/80 cursor-pointer hover:scale-105 transition-all shadow-2xl relative z-20 overflow-hidden group`}
+                            className={`flex items-center gap-4 text-white text-base font-black uppercase tracking-widest border-4 border-dashed border-red-500 px-12 py-6 rounded-2xl bg-red-900/80 cursor-pointer hover:scale-105 transition-all shadow-2xl relative z-10 overflow-hidden group`}
                         >
                             {/* Inner Glow Pulse */}
                             {showWarning && (
@@ -550,7 +550,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
                             title="Configurações do Timer"
                         >
-                            <Settings size={18} />
+                            <Settings size={18} className="text-white" />
                         </button>
 
                         <div className="absolute top-full right-0 mt-2 w-48 bg-stone-900 border border-stone-700 rounded-xl p-3 shadow-2xl opacity-0 scale-95 translate-y-[-10px] pointer-events-none group-hover/settings:opacity-100 group-hover/settings:scale-100 group-hover/settings:translate-y-0 group-hover/settings:pointer-events-auto transition-all duration-300 z-[100]">
@@ -715,7 +715,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             whileTap={{ scale: 0.95 }}
                             onClick={reset}
                             disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#292524] border border-stone-700 text-stone-200 hover:bg-[#44403c] flex items-center justify-center transition-colors duration-300"
+                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
                             title="Reiniciar Timer"
                         >
                             <RotateCcw size={18} strokeWidth={2.5} />
@@ -736,8 +736,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
                         >
                             {isRunning
-                                ? <Pause size={32} fill="currentColor" className="opacity-90" />
-                                : <Play size={32} fill="currentColor" className="ml-1 opacity-90" />}
+                                ? <Pause size={32} fill="currentColor" className="opacity-100" />
+                                : <Play size={32} fill="currentColor" className="ml-1 opacity-100" />}
                         </motion.button>
 
                         {/* SKIP */}
@@ -746,7 +746,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             whileTap={{ scale: 0.95 }}
                             onClick={skip}
                             disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#292524] border border-stone-700 text-stone-200 hover:bg-[#44403c] flex items-center justify-center transition-colors duration-300"
+                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
                             title="Pular Etapa"
                         >
                             <SkipForward size={18} strokeWidth={2.5} />
