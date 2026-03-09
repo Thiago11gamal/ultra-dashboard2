@@ -16,13 +16,27 @@ import {
     HelpCircle,
     Brain,
     TrendingUp,
-    Clock
+    Clock,
+    ChevronDown
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
 
 export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
     const location = useLocation();
+    const navScrollRef = React.useRef(null);
+
+    // Auto-scroll mobile nav to active item
+    useEffect(() => {
+        if (navScrollRef.current) {
+            const activeEl = navScrollRef.current.querySelector(`[data-path="${location.pathname}"]`);
+            if (activeEl) {
+                const scrollContainer = navScrollRef.current;
+                const scrollLeft = activeEl.offsetLeft - (scrollContainer.offsetWidth / 2) + (activeEl.offsetWidth / 2);
+                scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+            }
+        }
+    }, [location.pathname]);
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
@@ -95,19 +109,32 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 </div>
 
                 {/* Nav Icons — scrollable */}
-                <div className="flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1">
+                <div
+                    ref={navScrollRef}
+                    className="flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 scroll-smooth"
+                >
                     {menuItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = item.action ? false : location.pathname === item.path;
+
+                        const buttonContent = (
+                            <div className="flex flex-col items-center gap-0.5 px-0.5 min-w-[54px]">
+                                <Icon size={18} className={isActive ? 'text-purple-300' : ''} />
+                                <span className={`text-[8px] font-bold uppercase tracking-tighter ${isActive ? 'text-purple-300' : 'text-slate-500'}`}>
+                                    {item.label}
+                                </span>
+                            </div>
+                        );
+
                         if (item.action === 'openHelp') {
                             return (
                                 <button
                                     key={item.path}
                                     onClick={() => { if (onOpenHelp) onOpenHelp(); }}
-                                    className={`shrink-0 p-2 rounded-xl transition-all ${isActive ? 'bg-purple-500/25 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
+                                    className={`shrink-0 p-1.5 rounded-xl transition-all ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
                                     title={item.label}
                                 >
-                                    <Icon size={17} />
+                                    {buttonContent}
                                 </button>
                             );
                         }
@@ -115,11 +142,12 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                data-path={item.path}
                                 onClick={() => setCollapsed(true)}
-                                className={`shrink-0 p-2 rounded-xl transition-all ${isActive ? 'bg-purple-500/25 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
+                                className={`shrink-0 p-1.5 rounded-xl transition-all ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
                                 title={item.label}
                             >
-                                <Icon size={17} />
+                                {buttonContent}
                             </Link>
                         );
                     })}
