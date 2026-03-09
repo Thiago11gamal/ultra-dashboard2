@@ -99,8 +99,16 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
 
     if (history && history.length > 0) {
         for (const h of history) {
-            const total = Math.max(0, Number(h.total) || 0);
-            const correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
+            let total = Math.max(0, Number(h.total) || 0);
+            let correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
+
+            // Fallback: se não há total/correct, reconstruir com n sintético de 10 questões
+            if (total === 0 && h.score != null) {
+                const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
+                total = 10;
+                correct = Math.round(pct * 10);
+            }
+
             alpha += correct;
             beta += (total - correct);
         }

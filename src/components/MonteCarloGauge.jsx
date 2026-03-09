@@ -7,7 +7,8 @@ import {
     runMonteCarloAnalysis,
     calculateCurrentWeightedMean,
     calculateWeightedProjectedMean,
-    computePooledSD
+    computePooledSD,
+    calculateVolatility
 } from '../engine';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
@@ -67,7 +68,7 @@ export default function MonteCarloGauge({
         if (isNaN(goal.getTime())) return 30;
         const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 30;
+        return diffDays > 0 ? diffDays : 0;
     }, [goalDate, effectiveSimulateToday]);
 
     const getEqualWeights = useCallback(() => {
@@ -171,10 +172,13 @@ export default function MonteCarloGauge({
             return { date, score: tw > 0 ? sum / tw : 0 };
         });
 
-        // Daily pooled SD (without time uncertainty added by path engine)
-        const dailySD = Math.sqrt(
-            categoryStats.reduce((acc, cat) => acc + (cat.weight / totalWeight) * Math.pow(cat.sd, 2), 0)
-        );
+        // Daily pooled SD (using real MSSD volatility)
+        const dailySD = calculateVolatility(globalHistory);
+
+        // OLD: historical SD was inflating uncertainty wrongly over projectDays paths
+        // const dailySD = Math.sqrt(
+        //     categoryStats.reduce((acc, cat) => acc + (cat.weight / totalWeight) * Math.pow(cat.sd, 2), 0)
+        // );
 
         return {
             categoryStats,
