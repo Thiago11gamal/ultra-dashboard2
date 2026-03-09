@@ -6,7 +6,6 @@ import Login from './components/Login';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
-import ThemeToggle from './components/ThemeToggle';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 import Dashboard from './pages/Dashboard';
@@ -214,7 +213,6 @@ function MainLayout() {
         ))}
       </div>
 
-      <ThemeToggle />
     </div>
   );
 }
