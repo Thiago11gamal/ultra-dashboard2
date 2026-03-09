@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import {
     computeCategoryStats,
+    computeBayesianLevel,
     monteCarloSimulation,
     runMonteCarloAnalysis,
     calculateCurrentWeightedMean,
