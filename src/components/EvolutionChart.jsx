@@ -357,45 +357,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 .recharts-wrapper:focus, .recharts-surface:focus, svg:focus { outline: none !important; border: none !important; box-shadow: none !important; }
                 .recharts-wrapper { outline: none !important; }
             ` }} />
-            <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
-                <defs>
-                    <filter id="lineShadow" height="200%">
-                        <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-                        <feOffset in="blur" dx="0" dy="3" result="offsetBlur" />
-                        <feComponentTransfer><feFuncA type="linear" slope="0.55" /></feComponentTransfer>
-                        <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
-                    </filter>
-                    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feGaussianBlur stdDeviation="4" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feOffset dx="0" dy="2" result="offsetBlur" />
-                        <feMerge><feMergeNode in="offsetBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                    </filter>
-                    <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#818cf8" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#818cf8" stopOpacity={0.03} />
-                    </linearGradient>
-                    <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
-                    </linearGradient>
-                    <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
-                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
-                    </linearGradient>
-                    <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={focusColor} stopOpacity={0.35} />
-                        <stop offset="100%" stopColor={focusColor} stopOpacity={0.01} />
-                    </linearGradient>
-                    <linearGradient id="projectionGreenGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
-                        <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
-                    </linearGradient>
-                </defs>
-            </svg>
+
 
             {/* ── 1. KPI CARDS ───────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
