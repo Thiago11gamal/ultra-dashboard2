@@ -405,10 +405,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-    // Progress is 0 if timer hasn't started or is at exactly totalTime
-    // Use a small epsilon to avoid floating point issues where 1500 - 1500.000001 might cause a blip
-    const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
-    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress));
+    // Format time once to use consistently for both clock and progress
+    const displayTime = Math.ceil(timeLeft);
+
+    // Progress is calculated based on ceiled time to stay perfectly in sync with the digital display
+    const progress = (displayTime >= totalTime || displayTime <= 0)
+        ? (displayTime <= 0 ? 100 : 0)
+        : Math.max(0, Math.min(100, ((totalTime - displayTime) / totalTime) * 100));
 
     // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {
