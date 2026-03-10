@@ -369,11 +369,11 @@ const getWeakestTopic = (category, simulados = []) => {
                     scores: []
                 };
             }
-            topicMap[name].total += (parseInt(t.total) || 0);
-            topicMap[name].correct += (parseInt(t.correct) || 0);
+            topicMap[name].total += (parseInt(t.total, 10) || 0);
+            topicMap[name].correct += (parseInt(t.correct, 10) || 0);
 
-            const topicTotal = parseInt(t.total) || 0;
-            const topicCorrect = parseInt(t.correct) || 0;
+            const topicTotal = parseInt(t.total, 10) || 0;
+            const topicCorrect = parseInt(t.correct, 10) || 0;
             if (topicTotal > 0) {
                 topicMap[name].scores.push((topicCorrect / topicTotal) * 100);
             }

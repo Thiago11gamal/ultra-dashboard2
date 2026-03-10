@@ -214,11 +214,11 @@ export function monteCarloSimulation(
     // Safety check - allow at least 1 point for a flat projection
     if (!sortedHistory || sortedHistory.length < 1) return {
         probability: 0,
-        mean: "0.0",
-        sd: "0.0",
-        ci95Low: "0.0",
-        ci95High: "0.0",
-        currentMean: "0.0",
+        mean: 0,
+        sd: 0,
+        ci95Low: 0,
+        ci95High: 0,
+        currentMean: 0,
         drift: 0,
         volatility: 0
     };

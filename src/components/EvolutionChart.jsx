@@ -549,7 +549,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
                                             // Render a custom label at the end of the line
                                             const renderCustomLabel = (props) => {
-                                                const { x, y, index, value } = props;
+                                                const { x, y, index, value, viewBox } = props;
                                                 // Only render at the very last point of the line
                                                 if (index === filteredChartData.length - 1 && value != null) {
 
@@ -579,8 +579,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                             // Calculate pixels to shift.
                                                             // SVG y axis is inverted. Higher Y value (pixels) means lower on screen.
                                                             const pctShift = value - myAdjPt.yPos;
-                                                            const PX_PER_PCT = 4.6; // Baseado na altura média do gráfico
-                                                            offsetPx = pctShift * PX_PER_PCT;
+                                                            // Derive px-per-% from the actual SVG plot area height
+                                                            // so this stays correct at 220px (mobile) / 360px / 460px (desktop).
+                                                            const pxPerPct = viewBox?.height != null ? viewBox.height / 100 : 4.6;
+                                                            offsetPx = pctShift * pxPerPct;
                                                         }
                                                     }
 
@@ -715,14 +717,16 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                         }
                                         const lastY = solveCollisions(lastPoints);
 
-                                        const getOffset = (name, value, index) => {
+                                        const getOffset = (name, value, index, viewBox) => {
                                             const isFuture = index === (filteredChartData.length - 1);
                                             const pts = isFuture ? lastY : todayY;
                                             if (!pts || !pts.length) return 0;
                                             const pt = pts.find(p => p.name === name);
                                             if (!pt) return 0;
-                                            // Sync multiplier with main chart (4.6px per 1%)
-                                            return (value - pt.yPos) * 4.6;
+                                            // Derive px-per-% from the actual SVG plot area height
+                                            // so this stays correct at 220px (mobile) / 360px / 460px (desktop).
+                                            const pxPerPct = viewBox?.height != null ? viewBox.height / 100 : 4.6;
+                                            return (value - pt.yPos) * pxPerPct;
                                         };
 
                                         return (
@@ -762,33 +766,33 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
                                                     activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
-                                                        const { x, y, index, value } = props;
+                                                        const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] !== null && curr["Nível Bayesiano"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('bay', value, index);
+                                                        const offset = getOffset('bay', value, index, viewBox);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Area>
                                                 <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
                                                     dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
-                                                        const { x, y, index, value } = props;
+                                                        const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] !== null && curr["Nota Bruta"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('raw', value, index);
+                                                        const offset = getOffset('raw', value, index, viewBox);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
                                                 <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
                                                     strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
-                                                        const { x, y, index, value } = props;
+                                                        const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] !== null && curr["Média Histórica"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('stats', value, index);
+                                                        const offset = getOffset('stats', value, index, viewBox);
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#818cf8" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
@@ -812,11 +816,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     }}
                                                     connectNulls strokeOpacity={1} style={{ filter: 'url(#glow)' }} isAnimationActive={false}>
                                                     <LabelList content={(props) => {
-                                                        const { x, y, index, value } = props;
+                                                        const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
                                                         const validLastIdx = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] !== null && curr["Futuro Provável"] !== undefined ? i : acc, -1);
                                                         if (index !== validLastIdx) return null;
-                                                        const offset = getOffset('mc', value, index);
+                                                        const offset = getOffset('mc', value, index, viewBox);
                                                         return <text x={x + 10} y={y + 4 + offset} fill="#ef4444" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>

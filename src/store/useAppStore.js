@@ -68,6 +68,8 @@ const recordHistory = (appState, force = false) => {
     appState.lastHistoryTime = now;
 };
 
+// Returns the level-up event detail (or null) so callers can dispatch it
+// OUTSIDE the Immer producer, preventing double-fire in React 18 Strict Mode.
 const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData || !activeData.user) return null;
@@ -91,19 +93,19 @@ const processGamification = (state, xpGained) => {
     // BUG-03 FIX: Prevent level regression. Gamification systems should never demote the user.
     activeData.user.level = Math.max(currentLevel, finalLevel);
 
-    if (leveledUp && typeof window !== 'undefined') {
-        setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('level-up', {
-                detail: {
-                    level: finalLevel,
-                    title: `Nível ${finalLevel} Desbloqueado!`,
-                    xpGained: newXP - currentXP
-                }
-            }));
-        }, 0);
-    }
+    // ✅ No side effects here — return the event detail for the caller to dispatch
+    // after set() completes (outside the Immer draft).
+    return leveledUp ? { level: finalLevel, title: `Nível ${finalLevel} Desbloqueado!`, xpGained: newXP - currentXP } : null;
+};
 
-    return leveledUp ? finalLevel : null;
+// Dispatches a level-up CustomEvent after the Immer producer has committed.
+// queueMicrotask fires after the current synchronous task but before the next
+// macrotask — safe from Strict Mode's double-invocation of the producer.
+const dispatchLevelUp = (detail) => {
+    if (!detail || typeof window === 'undefined') return;
+    queueMicrotask(() => {
+        window.dispatchEvent(new CustomEvent('level-up', { detail }));
+    });
 };
 
 export const useAppStore = create(
@@ -168,27 +170,31 @@ export const useAppStore = create(
                 state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),
 
-            toggleTask: (categoryId, taskId) => set((state) => {
-                recordHistory(state.appState);
-                const activeData = state.appState.contests[state.appState.activeId];
-                if (!activeData || !activeData.categories) return;
+            toggleTask: (categoryId, taskId) => {
+                let levelUpDetail = null;
+                set((state) => {
+                    recordHistory(state.appState);
+                    const activeData = state.appState.contests[state.appState.activeId];
+                    if (!activeData || !activeData.categories) return;
 
-                const category = activeData.categories.find(c => c.id === categoryId);
-                if (!category) return;
+                    const category = activeData.categories.find(c => c.id === categoryId);
+                    if (!category) return;
 
-                const task = category.tasks.find(t => t.id === taskId);
-                if (!task) return;
+                    const task = category.tasks.find(t => t.id === taskId);
+                    if (!task) return;
 
-                const completed = !task.completed;
-                const xpChange = getTaskXP(task, completed);
+                    const completed = !task.completed;
+                    const xpChange = getTaskXP(task, completed);
 
-                task.completed = completed;
-                task.completedAt = completed ? new Date().toISOString() : null;
-                if (completed) task.lastStudiedAt = new Date().toISOString();
+                    task.completed = completed;
+                    task.completedAt = completed ? new Date().toISOString() : null;
+                    if (completed) task.lastStudiedAt = new Date().toISOString();
 
-                processGamification(state, xpChange);
-                state.appState.lastUpdated = new Date().toISOString();
-            }),
+                    levelUpDetail = processGamification(state, xpChange);
+                    state.appState.lastUpdated = new Date().toISOString();
+                });
+                dispatchLevelUp(levelUpDetail);
+            },
 
             addTask: (categoryId, title) => set((state) => {
                 const trimmedTitle = typeof title === 'string' ? title.trim() : '';
@@ -209,11 +215,15 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            awardExperience: (xpAmount) => set((state) => {
-                recordHistory(state.appState);
-                processGamification(state, xpAmount);
-                state.appState.lastUpdated = new Date().toISOString();
-            }),
+            awardExperience: (xpAmount) => {
+                let levelUpDetail = null;
+                set((state) => {
+                    recordHistory(state.appState);
+                    levelUpDetail = processGamification(state, xpAmount);
+                    state.appState.lastUpdated = new Date().toISOString();
+                });
+                dispatchLevelUp(levelUpDetail);
+            },
 
             deleteTask: (categoryId, taskId) => set((state) => {
                 recordHistory(state.appState);
@@ -271,45 +281,49 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            handleUpdateStudyTime: (categoryId, minutes, taskId) => set((state) => {
-                recordHistory(state.appState);
-                const now = new Date().toISOString();
-                const activeData = state.appState.contests[state.appState.activeId];
+            handleUpdateStudyTime: (categoryId, minutes, taskId) => {
+                let levelUpDetail = null;
+                set((state) => {
+                    recordHistory(state.appState);
+                    const now = new Date().toISOString();
+                    const activeData = state.appState.contests[state.appState.activeId];
 
-                if (!activeData.studyLogs) activeData.studyLogs = [];
-                if (!activeData.studySessions) activeData.studySessions = [];
+                    if (!activeData.studyLogs) activeData.studyLogs = [];
+                    if (!activeData.studySessions) activeData.studySessions = [];
 
-                const logId = generateId('log');
-                activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
-                activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
+                    const logId = generateId('log');
+                    activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
+                    activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
 
-                if (activeData.studyLogs.length > LOG_CAP) activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
-                if (activeData.studySessions.length > SESSION_CAP) activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
+                    if (activeData.studyLogs.length > LOG_CAP) activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
+                    if (activeData.studySessions.length > SESSION_CAP) activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
 
-                const category = activeData.categories.find(c => c.id === categoryId);
-                if (category) {
-                    category.totalMinutes = (category.totalMinutes || 0) + minutes;
-                    category.lastStudiedAt = now;
-                    if (taskId) {
-                        const task = category.tasks.find(t => t.id === taskId);
-                        if (task) task.lastStudiedAt = now;
+                    const category = activeData.categories.find(c => c.id === categoryId);
+                    if (category) {
+                        category.totalMinutes = (category.totalMinutes || 0) + minutes;
+                        category.lastStudiedAt = now;
+                        if (taskId) {
+                            const task = category.tasks.find(t => t.id === taskId);
+                            if (task) task.lastStudiedAt = now;
+                        }
                     }
-                }
 
-                const baseXP = XP_CONFIG.pomodoro.base;
-                const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
-                const startHour = new Date(now).getHours();
-                if (activeData.user) {
-                    // BUG-L5: These flags are permanent achievement toggles.
-                    // Once set to true, they unlock the respective achievement and remain true
-                    // to track that the user has performed this habit at least once.
-                    if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
-                    if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
-                }
+                    const baseXP = XP_CONFIG.pomodoro.base;
+                    const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+                    const startHour = new Date(now).getHours();
+                    if (activeData.user) {
+                        // BUG-L5: These flags are permanent achievement toggles.
+                        // Once set to true, they unlock the respective achievement and remain true
+                        // to track that the user has performed this habit at least once.
+                        if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
+                        if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
+                    }
 
-                processGamification(state, baseXP + bonusXP);
-                state.appState.lastUpdated = new Date().toISOString();
-            }),
+                    levelUpDetail = processGamification(state, baseXP + bonusXP);
+                    state.appState.lastUpdated = new Date().toISOString();
+                });
+                dispatchLevelUp(levelUpDetail);
+            },
 
             deleteSession: (sessionId) => set((state) => {
                 recordHistory(state.appState);

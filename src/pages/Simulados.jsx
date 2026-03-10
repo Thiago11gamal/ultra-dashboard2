@@ -87,7 +87,7 @@ export default function Simulados() {
             // 2. Filter out untouched auto-generated rows to save space
             // BUG FIX: preserve the 'validated' field
             const validRowsToSave = updatedTodayRows.filter(r => {
-                const hasScore = parseInt(r.total) > 0 || parseInt(r.correct) > 0;
+                const hasScore = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
                 return r.isAuto && hasScore;
             }).map(row => ({
                 ...row,
@@ -120,12 +120,12 @@ export default function Simulados() {
 
                     let totalQ = 0, totalC = 0;
                     if (validTopics.length > 0) {
-                        totalQ = validTopics.reduce((acc, t) => acc + (parseInt(t.total) || 0), 0);
-                        totalC = validTopics.reduce((acc, t) => acc + (parseInt(t.correct) || 0), 0);
+                        totalQ = validTopics.reduce((acc, t) => acc + (parseInt(t.total, 10) || 0), 0);
+                        totalC = validTopics.reduce((acc, t) => acc + (parseInt(t.correct, 10) || 0), 0);
                     } else {
                         const subjectRows = rawRows.filter(r => normalize(r.subject || r.discipline) === discName);
-                        totalQ = subjectRows.reduce((acc, r) => acc + (parseInt(r.total) || 0), 0);
-                        totalC = subjectRows.reduce((acc, r) => acc + (parseInt(r.correct) || 0), 0);
+                        totalQ = subjectRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
+                        totalC = subjectRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
                     }
 
                     // Don't log entirely empty subjects to history
@@ -166,7 +166,7 @@ export default function Simulados() {
             const validatedRows = [
                 ...nonTodayRows,
                 ...rawRows
-                    .filter(r => r.subject && r.topic && parseInt(r.total) > 0)
+                    .filter(r => r.subject && r.topic && parseInt(r.total, 10) > 0)
                     .map(r => ({
                         ...r,
                         createdAt: r.createdAt || now,

@@ -41,12 +41,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             const val = rawString === '' ? '' : parseInt(rawString, 10);
 
             if (field === 'correct') {
-                const currentTotal = parseInt(rows[index].total) || 0;
+                const currentTotal = parseInt(rows[index].total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
                 if (currentTotal > 0 && val !== '' && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
-                const currentCorrect = parseInt(rows[index].correct) || 0;
+                const currentCorrect = parseInt(rows[index].correct, 10) || 0;
                 // If Total is reduced below Correct, clamp Correct
                 if (val !== '' && val < currentCorrect) {
                     const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
@@ -80,7 +80,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const addTenToAll = () => {
         const newRows = rows.map(row => ({
             ...row,
-            total: (parseInt(row.total) || 0) + 10
+            total: (parseInt(row.total, 10) || 0) + 10
         }));
         setRows(newRows);
     };
@@ -164,7 +164,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             setErrorIndices({ subjects: new Set(), topics: new Set() });
         }
 
-        const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total) > 0);
+        const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total, 10) > 0);
 
         if (validRows.length === 0) {
             setError("Preencha a quantidade de questões feitas em pelo menos um assunto.");
@@ -199,8 +199,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         };
                     }
 
-                    const total = parseInt(row.total) || 0;
-                    const correct = parseInt(row.correct) || 0;
+                    const total = parseInt(row.total, 10) || 0;
+                    const correct = parseInt(row.correct, 10) || 0;
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';
@@ -257,8 +257,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 disciplines.sort((a, b) => a.percentage - b.percentage);
 
                 // 3. General Insight
-                const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total) || 0), 0);
-                const totalC = validRows.reduce((acc, r) => acc + (parseInt(r.correct) || 0), 0);
+                const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
+                const totalC = validRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
 
                 let generalInsight = "";

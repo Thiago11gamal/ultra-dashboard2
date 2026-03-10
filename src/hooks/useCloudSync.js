@@ -12,6 +12,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastLocalMutationRef = useRef(0);
     const debounceRef = useRef(null);
     const latestCloudDataRef = useRef(null);
+    const isMountedRef = useRef(true);
     const [cloudConnected, setCloudConnected] = useState(false);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
     const [hasConflict, setHasConflict] = useState(false);
@@ -219,13 +220,15 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Falha crítica ao salvar.', 'warning');
                 }
             } finally {
-                setIsInternalSyncing(false);
+                if (isMountedRef.current) setIsInternalSyncing(false);
             }
         };
 
+        isMountedRef.current = true;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(syncToCloud, 3000);
         return () => {
+            isMountedRef.current = false;
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
     }, [appState, currentUser, showToast, isParityValidated]); // Fix: use ref in dep check logic is tricky but here we want to re-run if it changes (though it shouldn't once true)

@@ -95,7 +95,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     Number(targetScore),
     options.simulations,
     options.seed,
-    options.currentMean
+    options.currentMean,
+    options.categoryName
   );
 }
 
