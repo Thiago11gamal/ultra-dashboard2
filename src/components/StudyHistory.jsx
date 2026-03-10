@@ -100,7 +100,7 @@ const StudyHistory = React.memo(function StudyHistory({
         // Max for chart scaling
         const maxDayMinutes = Math.max(...weekData.map(d => d.minutes), 30);
 
-        return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes };
+        return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
     }, [studySessions, selectedWeekOffset]);
 
     // Get category name by ID
@@ -215,6 +215,16 @@ const StudyHistory = React.memo(function StudyHistory({
                                 }).reverse()}
                             </div>
                         </div>
+                        {/* Week date range — centered above bars */}
+                        {stats.weekStart && (
+                            <div className="text-center mb-3">
+                                <span className="text-[11px] font-semibold text-slate-400 tracking-wide tabular-nums">
+                                    {stats.weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                    <span className="mx-1.5 text-slate-600">—</span>
+                                    {new Date(stats.weekEnd.getTime() - 1).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                </span>
+                            </div>
+                        )}
                         <div className="flex items-end justify-between gap-2 h-64">
                             {stats.weekData.map((day, idx) => (
                                 <div key={idx} className="flex-1 flex flex-col items-center gap-1">
