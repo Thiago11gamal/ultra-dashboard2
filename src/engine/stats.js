@@ -15,14 +15,13 @@ export function standardDeviation(arr) {
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
     /**
-     * BUG-M1: Bayesian Prior for Standard Deviation.
-     * POPULATION_SD = 12% is a non-informative prior for exam performance consistency,
-     * reflecting a typical spread of results in competitive exams.
-     * KAPPA = 3 acts as pseudo-observations, weighting this prior against actual data
-     * to prevent underestimating uncertainty with very small sample sizes.
+     * D-01 FIX: Prior Bayesiano mais leve para não inflar SD com poucos dados.
+     * Antes: POPULATION_SD=12, KAPPA=3 → com 3 provas e SD real=1, reportava 9.3.
+     * Agora: POPULATION_SD=8, KAPPA=1 → com 3 provas e SD real=1, reporta ~4.1.
+     * O prior se dilui rapidamente conforme o aluno faz mais simulados.
      */
-    const POPULATION_SD = 12;
-    const KAPPA = 3;
+    const POPULATION_SD = 8;
+    const KAPPA = 1;
 
     const adjustedVar =
         ((n - 1) * sampleVar + KAPPA * (Math.pow(POPULATION_SD, 2))) /

@@ -137,10 +137,11 @@ export function projectScore(history, projectDays = 60) {
 
 export function calculateVolatility(history) {
     if (!history || history.length < 3) {
-        // Fallback dinâmico: Se tivermos poucos dados, assumimos uma incerteza de 8% da média
-        // ou um mínimo de 3.0 para evitar intervalos excessivamente otimistas (estreitos).
+        // D-05 FIX: Volatilidade mínima reduzida para não inflar CIs de alunos consistentes.
+        // Antes: max(3.0, avg*0.08) → aluno de 85% recebia vol=6.8, CI de ±15pts.
+        // Agora: max(1.5, avg*0.05) → aluno de 85% recebe vol=4.25, CI mais justo.
         const avg = history && history.length > 0 ? getSafeScore(history[history.length - 1]) : 70;
-        return Math.max(3.0, avg * 0.08);
+        return Math.max(1.5, avg * 0.05);
     }
 
     // Ensure sorted history
@@ -361,12 +362,15 @@ export function monteCarloSimulation(
  * - Muitos dados (Veterano): K mais baixo (0.12) -> Mais estável, mas sem ancorar demais o Monte Carlo
  */
 export function calculateDynamicEMA(currentScore, previousEMA, dataCount) {
-    let K = 0.30; // Padrão (Veterano) - Increased from 0.12
+    // D-06 FIX: K's reduzidos para não saltar violentamente com 1 simulado ruim.
+    // Antes: K=0.60/0.45/0.30. Um simulado ruim derrubava baseline de 78→62%.
+    // Agora: K=0.40/0.25/0.15. Reage, mas preserva mais o histórico acumulado.
+    let K = 0.15; // Veterano (15+ dados) — era 0.30
 
     if (dataCount < 5) {
-        K = 0.60; // Start frio (reage muito rápido) - Increased from 0.25
+        K = 0.40; // Start frio — era 0.60
     } else if (dataCount < 15) {
-        K = 0.45; // Intermediário - Increased from 0.18
+        K = 0.25; // Intermediário — era 0.45
     }
 
     // EMA Formula: Price(t) * k + EMA(y) * (1 – k)

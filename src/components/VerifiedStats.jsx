@@ -133,9 +133,11 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Map to UI-compatible format
         const hasEnoughData = dailyScores.length >= 3;
+        // D-02 FIX: Threshold alinhado ao trend_tolerance do ProgressStateEngine (0.5).
+        // Antes, slope de 0.01 já mostrava "↑ Alta" — agora exige evidência real.
         const trend = !hasEnoughData ? 'insufficient' :
-            (globalAnalysis.trend_slope > 0.01 ? 'up' :
-                globalAnalysis.trend_slope < -0.01 ? 'down' : 'stable');
+            (globalAnalysis.trend_slope > 0.5 ? 'up' :
+                globalAnalysis.trend_slope < -0.5 ? 'down' : 'stable');
         const trendValue = globalAnalysis.trend_slope;
 
         // 2. Linear Regression & Contextual Prediction
@@ -200,9 +202,10 @@ export default function VerifiedStats({ categories = [], user }) {
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
                     predictionStatus = "warning";
                 } else {
-                    let difficultyFactor = 1.0;
-                    if (currentScore >= 80) difficultyFactor = 0.6;
-                    else if (currentScore >= 70) difficultyFactor = 0.8;
+                    // D-04 FIX: Curva contínua de dificuldade em vez de steps arbitrários.
+                    // f(50%)=0.90, f(70%)=0.80, f(80%)=0.74, f(95%)=0.64
+                    // Mais justa: não corta 40% da velocidade abruptamente em 80%.
+                    const difficultyFactor = 1 - 0.4 * Math.pow(currentScore / 100, 2);
 
                     let quality = 0.8;
                     const dailyScoresList = dailyHistory.map(h => h.score);
@@ -384,16 +387,24 @@ export default function VerifiedStats({ categories = [], user }) {
             const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
             const avgSD = categoryAnalyses.reduce((a, b) => a + Math.sqrt(b.variance), 0) / categoryAnalyses.length;
 
-            // Use worst category state for global status
-            const worstCategory = categoryBreakdown[0];
-            const uiState = stateMap[worstCategory.state] || stateMap.insufficient_data;
+            // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
+            // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.
+            const stateScores = {
+                regression: 0, stagnation_negative: 1, unstable: 2,
+                stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6
+            };
+            const stateValues = categoryBreakdown.map(c => stateScores[c.state] ?? 3);
+            stateValues.sort((a, b) => a - b);
+            const medianValue = stateValues[Math.floor(stateValues.length / 2)];
+            const medianState = Object.entries(stateScores).find(([, v]) => v === medianValue)?.[0] || 'unstable';
+            const uiState = stateMap[medianState] || stateMap.insufficient_data;
 
             consistency = {
                 status: uiState.status,
                 color: uiState.color,
                 bgBorder: uiState.bgBorder,
                 icon: uiState.icon,
-                message: worstCategory.message,
+                message: categoryBreakdown[0].message,
                 delta: avgDelta.toFixed(1),
                 sd: avgSD.toFixed(1)
             };
