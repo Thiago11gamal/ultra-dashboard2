@@ -177,10 +177,10 @@ export function calculateVolatility(history) {
 
     if (sumWeights === 0) return 1.5;
 
-    // MSSD (Mean Successive Difference) variance
-    // We don't divide by 2 here for non-stationary exam progress series as we want 
-    // to capture the raw volatility of the increments directly.
-    const mssdVariance = (sumSw / sumWeights);
+    // M-02 FIX: MSSD (Mean Successive Squared Differences) requires division by 2.
+    // Formula: σ²_MSSD = (1/2n) × Σ(x_{i+1} − x_i)²
+    // Without /2, volatility was inflated by √2 ≈ 1.41x, widening Monte Carlo CIs.
+    const mssdVariance = (sumSw / sumWeights) / 2;
 
     // Safe sqrt
     return Math.sqrt(Math.max(0, mssdVariance));

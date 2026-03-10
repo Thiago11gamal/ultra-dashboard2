@@ -175,13 +175,17 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier;
 
         // C. Instability (ADJUSTED BY TREND)
-        let instabilityComponent = Math.min(cfg.INSTABILITY_MAX, standardDeviation * (cfg.INSTABILITY_MAX / 15));
+        // M-06 FIX: Aplicar cap DEPOIS do multiplicador de tendência.
+        // Antes, o ×1.3 podia elevar até 39, excedendo INSTABILITY_MAX=30.
+        let instabilityComponent = standardDeviation * (cfg.INSTABILITY_MAX / 15);
 
         if (trend > 0) {
             instabilityComponent *= 0.5; // Improving = less urgent
         } else if (trend < -5) {
             instabilityComponent *= 1.3; // Getting worse = more urgent
         }
+
+        instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent);
 
         // D. Priority Boost
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;

@@ -211,9 +211,10 @@ export function useChartData(categories = [], focusId = null) {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const key = getDateKey(h.date);
                 if (!key) return;
+                // M-07 FIX: usar Number() para evitar string concatenation (e.g. "5" + 0 = "50")
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                dayMap[key].correct += (h.correct || 0);
-                dayMap[key].total += (h.total || 0);
+                dayMap[key].correct += (Number(h.correct) || 0);
+                dayMap[key].total += (Number(h.total) || 0);
             });
 
             const cells = sortedDates.map(dateStr => {
