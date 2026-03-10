@@ -35,45 +35,40 @@ function AICoachCard({ task, idx }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.08, ease: "easeOut" } }}
-            className="group relative flex flex-col p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/40 hover:bg-slate-800/80 transition-all duration-500 backdrop-blur-xl shadow-xl overflow-hidden"
+            className="group relative flex flex-col p-5 rounded-2xl bg-slate-900/40 border border-white/5 hover:border-purple-500/20 hover:bg-slate-800/60 transition-all duration-300 shadow-sm overflow-hidden"
         >
-            {/* Background Layer for Overflow Safety */}
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-amber-500/10 to-transparent blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-
             {/* Header: Subject Badge */}
-            <div className="relative z-10 flex justify-between items-start mb-5">
-                <span className="inline-flex items-center px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white group-hover:border-amber-500/50 transition-all shadow-sm backdrop-blur-sm leading-[1.6]">
+            <div className="relative z-10 flex justify-between items-start mb-4">
+                <span className="inline-flex items-center px-2.5 py-1 rounded bg-slate-800 border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-purple-300 transition-colors">
                     {subjectPart}
                 </span>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
-                    <div className="p-1.5 rounded-xl bg-amber-600/80 text-white shadow-lg shadow-amber-500/20 backdrop-blur-md">
-                        <Zap size={14} className="fill-white" />
-                    </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <Zap size={14} className="text-purple-400 fill-purple-400" />
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className="relative z-10 flex-1 mb-6">
-                <h3 className="text-xl font-black text-white leading-relaxed mb-2 group-hover:text-amber-200 transition-colors drop-shadow-md py-1">
+            <div className="relative z-10 flex-1 mb-4">
+                <h3 className="text-lg font-bold text-white leading-snug mb-1.5 group-hover:text-purple-100 transition-colors">
                     {displayAssunto}
                 </h3>
-                <p className="text-sm font-medium text-slate-400 group-hover:text-slate-200 leading-relaxed line-clamp-2 transition-colors">
+                <p className="text-xs font-medium text-slate-400 group-hover:text-slate-300 leading-relaxed line-clamp-2 transition-colors">
                     {displayMeta}
                 </p>
             </div>
 
 
-            {/* Footer / Analysis */}
+            {/* Footer / Analysis Toggle */}
             <div
-                className={`relative z-10 mt-auto pt-4 border-t border-white/10 flex items-center justify-between ${task.analysis ? 'cursor-pointer group/footer' : ''}`}
+                className={`relative z-10 mt-auto pt-3 border-t border-white/5 flex items-center justify-between ${task.analysis ? 'cursor-pointer group/footer' : ''}`}
                 onClick={() => task.analysis && setIsExpanded(!isExpanded)}
             >
                 {task.analysis ? (
                     <button
-                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover/footer:text-white transition-colors py-3"
+                        className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 group-hover/footer:text-slate-300 transition-colors py-2"
                     >
-                        <BrainCircuit size={14} className="group-hover/footer:text-amber-400 transition-colors" />
-                        <span>INSIGHT DO COACH</span>
+                        <BrainCircuit size={12} className="group-hover/footer:text-purple-400 transition-colors" />
+                        <span>Insight do Coach</span>
                         <ChevronDown size={12} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
                 ) : <div />}
@@ -85,20 +80,20 @@ function AICoachCard({ task, idx }) {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
                         className="overflow-hidden"
                     >
-                        <div className="pt-4 space-y-3">
-                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <div className="pt-3 space-y-2">
+                            <p className="text-xs text-slate-400 leading-relaxed bg-slate-950/50 p-3 rounded-xl border border-white/5">
                                 {task.analysis.reason}
                             </p>
 
                             {task.analysis.metrics && (
-                                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+                                <div className="flex flex-wrap gap-2 pt-2">
                                     {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                        <div key={key} className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
-                                            <span className="text-[9px] text-slate-400 block uppercase tracking-wider font-bold mb-0.5">{key}</span>
-                                            <span className="text-xs font-mono text-white font-bold">{value}</span>
+                                        <div key={key} className="bg-slate-900 p-2 rounded flex items-center gap-2 border border-white/5">
+                                            <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">{key}</span>
+                                            <span className="text-[10px] font-mono text-slate-300 font-bold">{value}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -119,28 +114,31 @@ export default function AICoachView({
     onClearHistory
 }) {
     return (
-        <div className="space-y-12 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
-            {/* 1. Minimalist Premium Header */}
-            <div className="flex flex-col md:flex-row items-end justify-between gap-8 pt-6 border-b border-white/5 pb-8">
-                <div className="flex-1 md:text-left mb-6 md:mb-0">
-                    <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
-                        Análise de Performance e Metas
-                    </p>
+        <div className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
+            {/* 1. Header & Navigation */}
+            <div className="flex flex-col md:flex-row items-end justify-between gap-6 pt-6 pb-6 border-b border-white/5">
+                <div className="flex-1 md:text-left">
+                    <h1 className="text-xl font-black text-white flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                            <BrainCircuit size={16} className="text-purple-400" />
+                        </div>
+                        Executive Coach
+                        <span className="text-[10px] text-purple-400 uppercase tracking-widest font-bold bg-purple-500/10 px-2 py-1 rounded ml-2">Beta</span>
+                    </h1>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                     <div className="text-right hidden md:block">
-                        <span className="block text-3xl font-black text-white">{coachPlan ? coachPlan.length : 0}</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
+                        <span className="block text-2xl font-black text-white leading-none">{coachPlan ? coachPlan.length : 0}</span>
+                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>
                 </div>
             </div>
 
             {/* 2. Main Layout Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                 {/* Left Column: Widget (4 cols) */}
-                <div className="xl:col-span-4 space-y-6">
+                <div className="xl:col-span-4 lg:col-span-5 space-y-6">
                     <div className="sticky top-8 space-y-6">
                         {/* The High-End Widget */}
                         <div className="relative">
@@ -165,32 +163,30 @@ export default function AICoachView({
                 </div>
 
                 {/* Right Column: The Plan (8 cols) */}
-                <div className="xl:col-span-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            PLANO DE EXECUÇÃO
+                <div className="xl:col-span-8 lg:col-span-7">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                        <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            Plano de Execução
                         </h2>
                         {coachPlan && coachPlan.length > 0 && (
                             <button
                                 onClick={onClearHistory}
-                                className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-red-400 uppercase tracking-widest transition-colors py-2 px-3 rounded-lg hover:bg-red-500/10"
+                                className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-red-400 uppercase tracking-widest transition-colors py-1.5 px-3 rounded-lg hover:bg-slate-800"
                             >
                                 <Trash2 size={12} />
-                                Limpar Plano
+                                Limpar Lista
                             </button>
                         )}
                     </div>
 
                     {(!coachPlan || coachPlan.length === 0) ? (
-                        <div className="flex flex-col items-center justify-center py-24 text-center space-y-6">
-                            <div className="relative">
-                                <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                                    <Compass size={32} className="text-amber-500/50" />
-                                </div>
+                        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 rounded-2xl border border-white/5 bg-slate-900/20">
+                            <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center">
+                                <Compass size={24} className="text-slate-500" />
                             </div>
-                            <div className="space-y-2">
-                                <p className="text-lg font-black text-slate-500">Plano Vazio</p>
-                                <p className="text-sm text-slate-600 max-w-xs">Clique em "Gerar" no painel esquerdo para criar um plano de execução personalizado.</p>
+                            <div>
+                                <p className="text-base font-bold text-slate-300">Nenhum plano ativo</p>
+                                <p className="text-xs text-slate-500 mt-1 max-w-[250px] mx-auto">Solicite uma análise para gerar metas personalizadas de estudo.</p>
                             </div>
                         </div>
                     ) : (
