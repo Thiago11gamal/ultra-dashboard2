@@ -61,6 +61,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const timerRef = useRef(null);
     const innerTimerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
+
+    // --- VISUAL DOM REFS (rAF drives these directly — no React re-render needed) ---
+    const clockRef = useRef(null);
+    const svgCircleRef = useRef(null);
+    const bottomBarRef = useRef(null);
+    const sphereRef = useRef(null);
+
     useEffect(() => {
         if (savedState) {
             try {
@@ -291,23 +298,52 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     // --- ROBUST TIMER LOGIC ---
     // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
-    // Hybrid approach: rAF tracks time at 60fps, but setTimeLeft is only called when the
-    // displayed second changes (~1x/sec). This avoids 60 React re-renders/sec on a large
-    // component. The CSS 'transition: stroke-dashoffset 1.05s linear' on the SVG circle
-    // smoothly fills in the visual gap between state updates at 60fps with zero JS overhead.
+    // Single rAF loop drives ALL 4 visual elements (clock, ring, bar, sphere) via direct DOM
+    // mutation at 60fps. React state (setTimeLeft) is only updated when the displayed second
+    // changes (~1x/sec) for logical state. NO CSS transitions needed — rAF is the animation.
+    // This eliminates 3 bugs: clock/bar drift, CSS-transition fragility, multi-element drift.
     useEffect(() => {
         let rafId;
         if (isRunning && timeLeft > 0) {
             const startTime = performance.now();
             const initialTimeLeft = timeLeft;
+            const currentTotalTime = mode === 'work'
+                ? safeSettings.pomodoroWork * 60
+                : safeSettings.pomodoroBreak * 60;
+            const circumference = 2 * Math.PI * 100;
+
             let lastDisplayedSecond = Math.ceil(initialTimeLeft);
 
             const tick = (now) => {
                 const elapsed = ((now - startTime) / 1000) * speed;
                 const current = Math.max(0, initialTimeLeft - elapsed);
+                const fraction = current / currentTotalTime; // 1.0 → 0.0 as time passes
                 const displaySecond = Math.ceil(current);
 
-                // Only update React state when the clock digit changes — avoids 60 re-renders/sec
+                // 1. Clock — update DOM text directly when second changes
+                if (clockRef.current && displaySecond !== lastDisplayedSecond) {
+                    const mins = Math.floor(displaySecond / 60);
+                    const secs = displaySecond % 60;
+                    clockRef.current.textContent =
+                        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+
+                // 2. SVG Ring — update strokeDashoffset directly every frame
+                if (svgCircleRef.current) {
+                    svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
+                }
+
+                // 3. Blue bar (active work segment) — update width directly every frame
+                if (bottomBarRef.current && mode === 'work') {
+                    bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
+                }
+
+                // 4. Green sphere (active break segment) — update height directly every frame
+                if (sphereRef.current && mode === 'break') {
+                    sphereRef.current.style.height = `${(1 - fraction) * 100}%`;
+                }
+
+                // 5. React state — only for logical updates (~1x/sec), not visuals
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
                     setTimeLeft(current);
@@ -322,7 +358,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
         return () => cancelAnimationFrame(rafId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed]); // Intentionally excludes timeLeft to prevent loop reset on every tick
+    }, [isRunning, speed, mode]); // mode added so refs re-bind on work<->break switch
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
@@ -647,21 +683,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             {/* Track */}
                             <circle cx="112" cy="112" r="100" fill="none" stroke="#44403c" strokeWidth="10" strokeLinecap="round" />
 
-                            {/* Progress – 🔒 LOCKED: transition covers the 1s gap between state updates, making bar fluid */}
+                            {/* Progress – 🔒 LOCKED: rAF drives strokeDashoffset directly, NO CSS transition */}
                             <circle
+                                ref={svgCircleRef}
                                 cx="112" cy="112" r="100" fill="none"
                                 stroke="currentColor"
                                 strokeWidth="10"
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
-                                style={{ transition: isRunning ? 'stroke-dashoffset 1.05s linear' : 'none' }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
 
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-5xl font-bold tracking-tighter transition-colors duration-500 text-stone-200`}>
+                            {/* 🔒 LOCKED: ref allows rAF to update text directly — no React re-render */}
+                            <span ref={clockRef} className={`text-5xl font-bold tracking-tighter transition-colors duration-500 text-stone-200`}>
                                 {formatTime(timeLeft)}
                             </span>
 
@@ -837,12 +874,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="flex-1 h-3 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden">
                                         <div
+                                            // 🔒 LOCKED: ref only on active segment — rAF drives width at 60fps, no CSS transition
+                                            ref={i === sessions && mode === 'work' ? bottomBarRef : null}
                                             className={`h-full rounded-full ${workProgress > 0
                                                 ? 'bg-sky-400'
                                                 : 'bg-transparent'
                                                 }`}
-                                            // 🔒 LOCKED: Must match SVG ring transition exactly (1.05s linear) for sync
-                                            style={{ width: `${workProgress}%`, transition: isRunning ? 'width 1.05s linear' : 'none' }}
+                                            style={{ width: `${workProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top */}
@@ -860,9 +898,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="w-6 h-6 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden flex items-end">
                                         <div
+                                            // 🔒 LOCKED: ref only on active break segment — rAF drives height at 60fps, no CSS transition
+                                            ref={i === sessions - 1 && mode === 'break' ? sphereRef : null}
                                             className="w-full bg-emerald-500"
-                                            // 🔒 LOCKED: Must match SVG ring transition exactly (1.05s linear) for sync
-                                            style={{ height: `${breakProgress}%`, transition: isRunning ? 'height 1.05s linear' : 'none' }}
+                                            style={{ height: `${breakProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top to hide any jagged rendering and clipping from overflow-hidden */}
