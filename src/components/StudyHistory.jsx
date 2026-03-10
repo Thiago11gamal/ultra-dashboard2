@@ -129,7 +129,7 @@ const StudyHistory = React.memo(function StudyHistory({
     };
 
     return (
-        <div className="w-full space-y-5 animate-fade-in-down pb-20">
+        <div className="w-full space-y-5 animate-fade-in-down">
             {/* Top Section - Stats */}
             {(mode === 'full' || mode === 'sessions') && (
                 <div className="flex flex-col gap-6 text-slate-100">
@@ -273,7 +273,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         </h3>
 
                         {stats.todaySessions.length > 0 ? (
-                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
                                 {[...stats.todaySessions].reverse().map((session, idx) => (
                                     <div key={session.id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                         <div className="flex items-center gap-2.5">
