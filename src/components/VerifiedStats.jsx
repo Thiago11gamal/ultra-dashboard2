@@ -273,8 +273,8 @@ export default function VerifiedStats({ categories = [], user }) {
         } else if (totalQuestionsGlobal > 50 || nExams > 5) {
             confidenceData = {
                 level: 'MÉDIA',
-                color: 'text-yellow-400',
-                bgBorder: 'border-yellow-500',
+                color: 'text-blue-400',
+                bgBorder: 'border-blue-500',
                 icon: <HelpCircle size={20} />,
                 message: "Margem de erro diminuindo."
             };
@@ -298,7 +298,7 @@ export default function VerifiedStats({ categories = [], user }) {
         const stateMap = {
             mastery: { status: 'DOMÍNIO', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
             stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
-            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-yellow-400', bgBorder: 'border-yellow-500/30', icon: <AlertCircle size={20} /> },
+            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <AlertCircle size={20} /> },
             stagnation_positive: { status: 'EXCELENTE', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
             progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
             regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
@@ -408,8 +408,8 @@ export default function VerifiedStats({ categories = [], user }) {
             {/* Top Row: AI Forecast and Consistency Metrics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Card 1: Machine Learning & Base Prediction */}
-                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.3)]' :
-                    stats.predictionStatus === 'warning' ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:shadow-[0_0_25px_rgba(234,179,8,0.3)]' :
+                <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
+                    stats.predictionStatus === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
                         'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
                     }`}>
 
@@ -419,8 +419,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     {/* Header */}
                     <div className="flex justify-between items-start mb-4 relative z-10">
                         <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500/20 border-green-500/30' : stats.predictionStatus === 'warning' ? 'bg-yellow-500/20 border-yellow-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
-                                <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-green-400" : stats.predictionStatus === 'warning' ? "text-yellow-400" : "text-blue-400"} />
+                            <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-purple-500/20 border-purple-500/30' : stats.predictionStatus === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                                <Target size={18} className={stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? "text-purple-400" : stats.predictionStatus === 'warning' ? "text-red-400" : "text-blue-400"} />
                             </div>
                             <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
                                 Previsão IA
@@ -431,8 +431,8 @@ export default function VerifiedStats({ categories = [], user }) {
 
                     {/* Main Verdict with Dynamic Glow */}
                     <div className="text-center my-4 relative z-10">
-                        <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]' :
-                            stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' :
+                        <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500 drop-shadow-[0_0_10px_rgba(168,85,247,0.4)]' :
+                            stats.predictionStatus === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]' :
                                 'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
                             }`}>
                             {stats.prediction}
@@ -476,8 +476,8 @@ export default function VerifiedStats({ categories = [], user }) {
 
                     {/* Animated Loading Sparkline at the bottom */}
                     <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
-                        <div className={`h-full w-1/3 rounded-full opacity-70 move-right-anim ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-green-500' :
-                            stats.predictionStatus === 'warning' ? 'bg-yellow-500' :
+                        <div className={`h-full w-1/3 rounded-full opacity-70 move-right-anim ${stats.predictionStatus === 'excellence' || stats.predictionStatus === 'good' ? 'bg-purple-500' :
+                            stats.predictionStatus === 'warning' ? 'bg-red-500' :
                                 'bg-blue-500'
                             }`} />
                     </div>
@@ -695,11 +695,11 @@ export default function VerifiedStats({ categories = [], user }) {
                         {/* Legend */}
                         <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
                             {[
-                                { color: 'bg-green-500', label: 'SD ≤ 5' },
+                                { color: 'bg-purple-500', label: 'SD ≤ 5' },
                                 { color: 'bg-blue-500', label: 'SD ≤ 10' },
-                                { color: 'bg-yellow-500', label: 'SD ≤ 15' },
-                                { color: 'bg-orange-500', label: 'SD ≤ 25' },
-                                { color: 'bg-red-500', label: 'SD > 25' }
+                                { color: 'bg-orange-500', label: 'SD ≤ 15' },
+                                { color: 'bg-red-400', label: 'SD ≤ 25' },
+                                { color: 'bg-red-600', label: 'SD > 25' }
                             ].map(l => (
                                 <div key={l.label} className="flex items-center gap-1.5">
                                     <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />

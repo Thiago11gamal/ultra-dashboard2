@@ -23,7 +23,7 @@ const VolumeRanking = ({ categories = [] }) => {
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
 
     const getRankStyles = (index) => {
-        if (index === 0) return { icon: <Medal size={20} className="text-yellow-400 fill-yellow-400/20" />, color: 'text-yellow-400', barCol: 'bg-yellow-500', glow: 'shadow-yellow-500/20' };
+        if (index === 0) return { icon: <Medal size={20} className="text-purple-400 fill-purple-400/20" />, color: 'text-purple-400', barCol: 'bg-purple-500', glow: 'shadow-purple-500/30' };
         if (index === 1) return { icon: <Medal size={20} className="text-slate-300 fill-slate-300/20" />, color: 'text-slate-300', barCol: 'bg-slate-400', glow: 'shadow-slate-400/20' };
         if (index === 2) return { icon: <Medal size={20} className="text-amber-600 fill-amber-600/20" />, color: 'text-amber-600', barCol: 'bg-amber-600', glow: 'shadow-amber-600/20' };
         return { icon: <span className="text-[10px] font-black text-slate-600 font-mono">#{index + 1}</span>, color: 'text-slate-500', barCol: 'bg-slate-700', glow: 'shadow-transparent' };
@@ -56,15 +56,15 @@ const VolumeRanking = ({ categories = [] }) => {
                 {sorted.length > 0 && totalVolumeOverall > 0 ? (
                     <div className="bg-black/30 rounded-xl p-3 border border-white/[0.03]">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
-                                <TrendingUp size={16} className="text-yellow-400" />
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                                <TrendingUp size={16} className="text-purple-400" />
                             </div>
                             <div className="flex flex-col min-w-0">
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight truncate">
                                     Líder de Produção
                                 </span>
                                 <span className="text-xs font-black text-white truncate">
-                                    {sorted[0].name} <span className="text-yellow-500 ml-1">({Math.round(leaderPercentage)}%)</span>
+                                    {sorted[0].name} <span className="text-purple-400 ml-1">({Math.round(leaderPercentage)}%)</span>
                                 </span>
                             </div>
                         </div>

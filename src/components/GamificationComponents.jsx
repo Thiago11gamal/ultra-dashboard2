@@ -88,7 +88,7 @@ export const AchievementsGrid = ({ unlockedIds = [] }) => {
     return (
         <div className="rounded-xl p-3 border border-white/10 bg-slate-900/80 backdrop-blur-sm">
             <div className="flex items-center gap-2 mb-2">
-                <Trophy size={14} className="text-yellow-400" />
+                <Trophy size={14} className="text-purple-400" />
                 <h3 className="text-xs font-bold text-white">Conquistas</h3>
                 <span className="ml-auto text-[10px] text-slate-400">
                     {unlockedIds.length}/{ACHIEVEMENTS.length}
@@ -98,12 +98,12 @@ export const AchievementsGrid = ({ unlockedIds = [] }) => {
                 {ACHIEVEMENTS.map(achievement => {
                     const unlocked = unlockedIds.some(u => (typeof u === 'string' ? u : u?.id) === achievement.id);
                     return (
-                        <div key={achievement.id} className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all cursor-help group relative ${unlocked ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30' : 'bg-slate-800/50 border border-slate-700/50 grayscale opacity-40'}`} title={`${achievement.name}: ${achievement.description}`}>
+                        <div key={achievement.id} className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all cursor-help group relative ${unlocked ? 'bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30' : 'bg-slate-800/50 border border-slate-700/50 grayscale opacity-40'}`} title={`${achievement.name}: ${achievement.description}`}>
                             <span className={unlocked ? '' : 'brightness-50'}>{achievement.icon}</span>
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-28 p-2 bg-slate-800 border border-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 text-center">
                                 <div className="text-[10px] font-bold text-white">{achievement.name}</div>
                                 <div className="text-[9px] text-slate-400">{achievement.description}</div>
-                                <div className="text-[9px] text-yellow-400 mt-1">+{achievement.xpReward} XP</div>
+                                <div className="text-[9px] text-purple-400 mt-1">+{achievement.xpReward} XP</div>
                             </div>
                         </div>
                     );

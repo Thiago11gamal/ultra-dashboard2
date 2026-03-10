@@ -3,12 +3,12 @@ import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from
 
 const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, isMVP = false, subtitle }) => {
     return (
-        <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-yellow-500/30 hover:border-yellow-400/60 shadow-[0_0_40px_rgba(234,179,8,0.1)] hover:shadow-[0_0_60px_rgba(234,179,8,0.2)]' :
+        <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_40px_rgba(168,85,247,0.1)] hover:shadow-[0_0_60px_rgba(168,85,247,0.2)]' :
             isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
                 'bg-slate-900/60 border-white/5 hover:border-white/20'
             }`}>
             {/* Background Glows */}
-            <div className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br transition-all duration-700 blur-[80px] ${isMVP ? 'from-yellow-400/20 to-orange-500/20 opacity-40 group-hover:opacity-60 group-hover:scale-125' :
+            <div className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br transition-all duration-700 blur-[80px] ${isMVP ? 'from-purple-400/20 to-violet-500/20 opacity-40 group-hover:opacity-60 group-hover:scale-125' :
                 isNegative ? 'from-red-500/10 to-rose-600/10 opacity-20' :
                     'from-blue-500/10 to-cyan-500/10 opacity-20'
                 }`} />
@@ -24,11 +24,11 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 
             <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isMVP ? 'text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]' :
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isMVP ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]' :
                         isNegative ? 'text-red-400/80' :
                             'text-slate-500'
                         }`}>
-                        <div className={`p-1.5 rounded-lg ${isMVP ? 'bg-yellow-500/10' : 'bg-slate-800/50'}`}>
+                        <div className={`p-1.5 rounded-lg ${isMVP ? 'bg-purple-500/10' : 'bg-slate-800/50'}`}>
                             {Icon && <Icon size={14} />}
                         </div>
                         {title}
@@ -36,9 +36,9 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 
                     {isMVP && (
                         <div className="flex gap-1">
-                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse" />
-                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse delay-75" />
-                            <Star size={10} className="text-yellow-500 fill-yellow-500 animate-pulse delay-150" />
+                            <Star size={10} className="text-purple-400 fill-purple-400 animate-pulse" />
+                            <Star size={10} className="text-purple-400 fill-purple-400 animate-pulse delay-75" />
+                            <Star size={10} className="text-purple-400 fill-purple-400 animate-pulse delay-150" />
                         </div>
                     )}
                 </div>
@@ -46,14 +46,14 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                 {item ? (
                     <div className="flex flex-col">
                         <div className="flex items-center gap-4 mb-5">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 shadow-2xl relative ${isMVP ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-slate-800/80 border border-white/5'
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 shadow-2xl relative ${isMVP ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-slate-800/80 border border-white/5'
                                 }`}>
                                 {item.icon || '📚'}
-                                {isMVP && <Crown size={16} className="absolute -top-2 -right-2 text-yellow-500 drop-shadow-lg" />}
+                                {isMVP && <Crown size={16} className="absolute -top-2 -right-2 text-purple-400 drop-shadow-lg" />}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-yellow-400' : 'text-slate-100'
-                                    }`} style={!isMVP ? { color: item.color } : {}}>
+                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-purple-300' : 'text-slate-100'
+                                    }`} style={(!isMVP && !isNegative) ? { color: item.color } : {}}>
                                     {item.name}
                                 </span>
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
@@ -72,11 +72,11 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                                 </span>
                             </div>
                             <div className="flex flex-col pb-1">
-                                <span className={`text-[9px] font-black uppercase tracking-widest ${isMVP ? 'text-yellow-600' : 'text-slate-500'
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${isMVP ? 'text-purple-500' : 'text-slate-500'
                                     }`}>
                                     {label}
                                 </span>
-                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-yellow-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
+                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-purple-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
                                     } opacity-30`} />
                             </div>
                         </div>
@@ -135,7 +135,7 @@ function PersonalRanking({ categories = [] }) {
                 <StatCard
                     title="MVP Dominante"
                     item={strongest}
-                    color="from-yellow-400 to-orange-500"
+                    color="from-purple-400 to-violet-600"
                     icon={Crown}
                     metric={strongest ? (strongest.balance > 0 ? `+${strongest.balance}` : strongest.balance) : 0}
                     label="Saldo Líquido"

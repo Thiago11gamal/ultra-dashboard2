@@ -185,7 +185,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                             <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
-                                stroke="#eab308"
+                                stroke="#a855f7"
                                 strokeWidth="3"
                                 strokeDasharray={`${progress}, 100`}
                                 strokeLinecap="round"
