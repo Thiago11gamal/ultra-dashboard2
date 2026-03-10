@@ -52,7 +52,7 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                                 {isMVP && <Crown size={16} className="absolute -top-2 -right-2 text-purple-400 drop-shadow-lg" />}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-purple-300' : 'text-slate-100'
+                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-purple-600' : 'text-slate-100'
                                     }`} style={(!isMVP && !isNegative) ? { color: item.color } : {}}>
                                     {item.name}
                                 </span>
