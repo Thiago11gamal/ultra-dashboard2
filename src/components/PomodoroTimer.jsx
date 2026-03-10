@@ -837,13 +837,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="flex-1 h-3 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden">
                                         <div
-                                            className={`h-full rounded-full transition-all duration-75 ${workProgress > 0
-                                                ? isWarning
-                                                    ? 'bg-sky-400'
-                                                    : 'bg-sky-400'
+                                            className={`h-full rounded-full ${workProgress > 0
+                                                ? 'bg-sky-400'
                                                 : 'bg-transparent'
                                                 }`}
-                                            style={{ width: `${workProgress}%` }}
+                                            // 🔒 LOCKED: Must match SVG ring transition exactly (1.05s linear) for sync
+                                            style={{ width: `${workProgress}%`, transition: isRunning ? 'width 1.05s linear' : 'none' }}
                                         ></div>
                                     </div>
                                     {/* Border on top */}
@@ -861,8 +860,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <div className="w-6 h-6 relative shrink-0">
                                     <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden flex items-end">
                                         <div
-                                            className="w-full bg-emerald-500 transition-all duration-75"
-                                            style={{ height: `${breakProgress}%` }}
+                                            className="w-full bg-emerald-500"
+                                            // 🔒 LOCKED: Must match SVG ring transition exactly (1.05s linear) for sync
+                                            style={{ height: `${breakProgress}%`, transition: isRunning ? 'height 1.05s linear' : 'none' }}
                                         ></div>
                                     </div>
                                     {/* Border on top to hide any jagged rendering and clipping from overflow-hidden */}
