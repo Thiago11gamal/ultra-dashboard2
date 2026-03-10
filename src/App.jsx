@@ -35,7 +35,7 @@ import { exportData } from './data/initialData';
 import './components/Loading.css';
 
 function MainLayout() {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth();
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
@@ -134,6 +134,11 @@ function MainLayout() {
     }
   }, [currentUser, data, contests, activeContestId, switchContest]);
 
+  if (loading) return (
+    <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+    </div>
+  );
   if (!currentUser) return <Login />;
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 
