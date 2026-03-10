@@ -507,8 +507,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     <div className="grid grid-cols-2 gap-2 w-full mb-3">
                         <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                            <span className={`text-sm font-black ${stats.consistency.sd > 0 ? stats.consistency.color : 'text-slate-500'}`}>
-                                {stats.consistency.sd > 0 ? `±${stats.consistency.sd}%` : '---'}
+                            <span className={`text-sm font-black ${stats.consistency.status !== 'Dados Insuficientes' ? stats.consistency.color : 'text-slate-500'}`}>
+                                {stats.consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(stats.consistency.sd)) ? `±${stats.consistency.sd}%` : '---'}
                             </span>
                         </div>
                         <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
