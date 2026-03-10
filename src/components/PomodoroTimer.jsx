@@ -290,22 +290,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
     // --- ROBUST TIMER LOGIC ---
-    // 🔒 LOCKED: Uses requestAnimationFrame for 60fps smooth animation.
-    // DO NOT replace with setInterval — it causes visible stuttering on the progress bar.
+    // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
+    // Hybrid approach: rAF tracks time at 60fps, but setTimeLeft is only called when the
+    // displayed second changes (~1x/sec). This avoids 60 React re-renders/sec on a large
+    // component. The CSS 'transition: stroke-dashoffset 1.05s linear' on the SVG circle
+    // smoothly fills in the visual gap between state updates at 60fps with zero JS overhead.
     useEffect(() => {
         let rafId;
         if (isRunning && timeLeft > 0) {
             const startTime = performance.now();
             const initialTimeLeft = timeLeft;
+            let lastDisplayedSecond = Math.ceil(initialTimeLeft);
 
             const tick = (now) => {
-                const totalElapsedSec = ((now - startTime) / 1000) * speed;
-                const expectedTimeLeft = initialTimeLeft - totalElapsedSec;
+                const elapsed = ((now - startTime) / 1000) * speed;
+                const current = Math.max(0, initialTimeLeft - elapsed);
+                const displaySecond = Math.ceil(current);
 
-                if (expectedTimeLeft <= 0) {
-                    setTimeLeft(0);
-                } else {
-                    setTimeLeft(expectedTimeLeft);
+                // Only update React state when the clock digit changes — avoids 60 re-renders/sec
+                if (displaySecond !== lastDisplayedSecond || current <= 0) {
+                    lastDisplayedSecond = displaySecond;
+                    setTimeLeft(current);
+                }
+
+                if (current > 0) {
                     rafId = requestAnimationFrame(tick);
                 }
             };
@@ -314,7 +322,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
         return () => cancelAnimationFrame(rafId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed]); // We intentionally do not include timeLeft to prevent loop reset on every tick
+    }, [isRunning, speed]); // Intentionally excludes timeLeft to prevent loop reset on every tick
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
@@ -639,7 +647,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             {/* Track */}
                             <circle cx="112" cy="112" r="100" fill="none" stroke="#44403c" strokeWidth="10" strokeLinecap="round" />
 
-                            {/* Progress – 🔒 LOCKED: style transition is intentional for smooth animation */}
+                            {/* Progress – 🔒 LOCKED: transition covers the 1s gap between state updates, making bar fluid */}
                             <circle
                                 cx="112" cy="112" r="100" fill="none"
                                 stroke="currentColor"
@@ -647,7 +655,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
-                                style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                                style={{ transition: isRunning ? 'stroke-dashoffset 1.05s linear' : 'none' }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
