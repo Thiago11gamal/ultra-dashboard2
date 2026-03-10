@@ -282,13 +282,22 @@ export const detectProcrastination = (categories, studyLogs) => {
                 });
 
                 if (recentLogs.length === 0) {
-                    warnings.push({
-                        type: 'stale_high_priority',
-                        // Bug fix: data model uses task.text, not task.title — was showing undefined
-                        task: task.text || task.title || 'Tarefa sem nome',
-                        category: cat.name,
-                        severity: 'high'
+                    // B-07 FIX: Antes de emitir alerta, verificar se há logs da CATEGORIA
+                    // (sessões de estudo geral sem taskId explícito).
+                    // Evita falso alerta quando o usuário estudou a matéria sem focar na tarefa.
+                    const categoryLogs = logsByCategoryId[cat.id] || [];
+                    const recentCategoryLogs = categoryLogs.filter(log => {
+                        const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
+                        return daysDiff <= 3;
                     });
+                    if (recentCategoryLogs.length === 0) {
+                        warnings.push({
+                            type: 'stale_high_priority',
+                            task: task.text || task.title || 'Tarefa sem nome',
+                            category: cat.name,
+                            severity: 'high'
+                        });
+                    }
                 }
             }
         });
@@ -347,12 +356,12 @@ export const calculatePomodoroStats = (stats) => {
     const { studySessions = [], categories = [] } = stats || {};
 
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-    // Configurações baseadas no store config (podem ser passadas via param)
-    const DAILY_GOAL_MINUTES = 120; // Meta padrão: 2 horas
+    // B-02 FIX: Usar objeto Date local, não toISOString() que sempre retorna UTC.
+    // Em UTC-4, toISOString() adiantaria o início do dia em 4h, incluindo sessões de ontem.
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const todaySessions = studySessions.filter(s => s.startTime >= startOfDay);
+    const todaySessions = studySessions.filter(s => new Date(s.startTime) >= startOfDay);
     const todayMinutes = todaySessions.reduce((total, s) => total + s.duration, 0);
 
     // Calcular a série de dias (streak)

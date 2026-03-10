@@ -328,8 +328,11 @@ export const useAppStore = create(
             deleteSession: (sessionId) => set((state) => {
                 recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
-                const sessionIndex = activeData.studySessions?.findIndex(s => s.id === sessionId);
-                if (sessionIndex === -1 || sessionIndex === undefined) return;
+                // B-04 FIX: optional chaining não protege contra null (só undefined).
+                // Guard explícito evita TypeError se studySessions for null.
+                if (!activeData.studySessions) return;
+                const sessionIndex = activeData.studySessions.findIndex(s => s.id === sessionId);
+                if (sessionIndex === -1) return;
 
                 const session = activeData.studySessions[sessionIndex];
                 const category = activeData.categories.find(c => c.id === session.categoryId);
@@ -393,10 +396,16 @@ export const useAppStore = create(
                 recordHistory(state.appState, true);
                 const targetDay = dateStr.slice(0, 10);
                 const activeData = state.appState.contests[state.appState.activeId];
+                // B-09 FIX: toISOString() retorna UTC, causando off-by-one em fusos negativos.
+                // Usar data local (mesmo comportamento de getDateKey em dateHelper.js).
                 const matchesDate = (raw) => {
                     if (!raw) return false;
-                    const iso = typeof raw === 'string' ? raw : new Date(raw).toISOString();
-                    return iso.slice(0, 10) === targetDay;
+                    const d = new Date(raw);
+                    if (isNaN(d.getTime())) return false;
+                    const localDay = d.getFullYear() + '-' +
+                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(d.getDate()).padStart(2, '0');
+                    return localDay === targetDay;
                 };
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));

@@ -44,8 +44,8 @@ export function analyzeProgressState(scores, config = {}) {
     // 4. Extract window
     const recentScores = scores.slice(-safeWindowSize);
 
-    // 5.1 Mean (Absolute Level)
-    const mean = recentScores.reduce((a, b) => a + b, 0) / safeWindowSize;
+    // 5.1 Mean (Absolute Level) — B-08 FIX: usar recentScores.length real, não safeWindowSize fixo.
+    const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
 
     // 5.2 Delta (Mean Absolute Variation)
     let variationTotal = 0;

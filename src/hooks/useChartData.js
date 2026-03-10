@@ -174,7 +174,9 @@ export function useChartData(categories = [], focusId = null) {
 
         dates.forEach(date => {
             const d = dataByDate[date];
-            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0;
+            // B-06 FIX: Retornar null (ponto ausente) em vez de 0 (linha no chão).
+            // Dias sem dados de nenhuma categoria não devem aparecer como 0% no gráfico global.
+            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : null;
         });
 
         return dates.map(d => dataByDate[d]);
