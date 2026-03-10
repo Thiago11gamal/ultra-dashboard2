@@ -31,9 +31,9 @@ const normalizeDate = (dateInput) => {
 // Boost SRS baseado em dias
 function getSRSBoost(daysSince, cfg) {
     if (daysSince === 1) return { boost: cfg.SRS_BOOST, label: "Revisão de 24h" };
-    if (daysSince >= 3 && daysSince <= 4) return { boost: cfg.SRS_BOOST, label: "Revisão de 3 dias" };
-    if (daysSince >= 7 && daysSince <= 8) return { boost: cfg.SRS_BOOST, label: "Revisão de 7 dias" };
-    if (daysSince >= 30 && daysSince <= 32) return { boost: cfg.SRS_BOOST, label: "Revisão de 30 dias" };
+    if (daysSince >= 3 && daysSince <= 5) return { boost: cfg.SRS_BOOST, label: "Revisão de 3 dias" };
+    if (daysSince >= 7 && daysSince <= 10) return { boost: cfg.SRS_BOOST, label: "Revisão de 7 dias" };
+    if (daysSince >= 30) return { boost: cfg.SRS_BOOST, label: "Revisão Crítica (30+ dias)" };
     return { boost: 0, label: null };
 }
 
@@ -187,11 +187,17 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
-        // E. Efficiency Penalty (REMOVED: DEAD CODE) — Variable kept in details but remains 0.
-        let efficiencyPenalty = 0;
-        let recentStudyDays = 0;
+        // E. Calculate recent study days for Burnout Detection
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalHours = totalMinutes / 60;
+
+        const todayForBurnout = normalizeDate(new Date());
+        const oneWeekAgo = todayForBurnout.getTime() - (7 * 24 * 60 * 60 * 1000);
+        const recentStudyDays = new Set(
+            categoryStudyLogs
+                .filter(log => normalizeDate(log.date).getTime() >= oneWeekAgo)
+                .map(log => normalizeDate(log.date).getTime())
+        ).size;
 
         // F. SRS Boost
         // BUG FIX: Only trigger Spaced Repetition (SRS) if the subject has actually been studied at least once.
@@ -247,7 +253,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let isBurnoutRisk = false;
 
         // Burnout threshold: High recent effort (>=5 days in last week) + declining/stagnant trend
-        // BUG-05: Calculation removed to save CPU. recentStudyDays fallback to 0.
+        // Restored BUG-05 feature: recentStudyDays is now tracked efficiently.
         if (recentStudyDays >= 5 && trend <= 0) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
             isBurnoutRisk = true;
@@ -255,9 +261,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             recommendation = `${srsLabel} - Não pule essa revisão!`;
         } else if (standardDeviation > 10 && trend > 0) {
             recommendation = `Evolução Frágil (Volatilidade Alta: ±${standardDeviation.toFixed(1)}). Consolide a base.`;
-        } else if (efficiencyPenalty > 5) {
-            // O aviso continua aqui, mas a nota não caiu!
-            recommendation = `⚠️ Alerta: ${totalHours.toFixed(1)}h sem melhora. Troque o método!`;
         } else if (daysSinceLastStudy > 14) {
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
         } else if (trend < -5) {
@@ -283,7 +286,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 hasData: relevantSimulados.length > 0 || categoryStudyLogs.length > 0,
                 hasSimulados: relevantSimulados.length > 0,
                 hasHighPriorityTasks,
-                efficiencyPenalty: Number(efficiencyPenalty.toFixed(1)),
                 weight,
                 srsLabel,
                 isBurnoutRisk, // Passed for goal generation logic
@@ -302,7 +304,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     instabilityComponent: Number(instabilityComponent.toFixed(2)),
                     priorityBoost: Number(priorityBoost.toFixed(2)),
                     srsBoost: Number(srsBoost.toFixed(2)),
-                    efficiencyPenalty: Number(efficiencyPenalty.toFixed(2)),
                     rotationPenalty: Number(rotationPenalty.toFixed(2))
                 }
             }
