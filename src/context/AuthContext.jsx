@@ -88,56 +88,7 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={value}>
-            {loading ? (
-                <div className="flex h-screen w-full flex-col items-center justify-center bg-[#0f1016] text-white p-6">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm text-slate-400 animate-pulse">Carregando contexto de segurança...</p>
-                    </div>
-
-                    {showDebug && (
-                        <div className="mt-12 p-6 bg-slate-900/50 border border-white/10 rounded-xl max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            <h3 className="text-red-400 font-bold mb-4 flex items-center gap-2">
-                                <span className="w-2 h-2 bg-red-400 rounded-full animate-ping"></span>
-                                Diagnóstico de Produção
-                            </h3>
-                            <div className="space-y-2 mb-6">
-                                <div className="flex justify-between text-xs font-mono">
-                                    <span className="text-slate-500">API_KEY:</span>
-                                    <span className={import.meta.env.VITE_API_KEY ? "text-green-400" : "text-red-400"}>
-                                        {import.meta.env.VITE_API_KEY ? "CONFIGURADO" : "AUSENTE"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-xs font-mono">
-                                    <span className="text-slate-500">PROJECT_ID:</span>
-                                    <span className={import.meta.env.VITE_PROJECT_ID ? "text-green-400" : "text-red-400"}>
-                                        {import.meta.env.VITE_PROJECT_ID ? "CONFIGURADO" : "AUSENTE"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-xs font-mono">
-                                    <span className="text-slate-500">APP_ID:</span>
-                                    <span className={import.meta.env.VITE_APP_ID ? "text-green-400" : "text-red-400"}>
-                                        {import.meta.env.VITE_APP_ID ? "CONFIGURADO" : "AUSENTE"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <p className="text-xs text-slate-400 mb-4 italic">
-                                Se houver itens "AUSENTES" acima, você precisa configurar as Environment Variables no seu painel de deploy.
-                            </p>
-
-                            <button
-                                onClick={() => setLoading(false)}
-                                className="w-full py-2 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/50 rounded text-purple-300 text-xs font-bold transition-all"
-                            >
-                                Pular Carregamento (Debug Force)
-                            </button>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                children
-            )}
+            {children}
         </AuthContext.Provider>
     );
 }
