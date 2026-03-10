@@ -290,35 +290,31 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
 
     // --- ROBUST TIMER LOGIC ---
-    // Use a single, drift-proof effect based on start time delta.
-
-
-    // FINAL ROBUST TIMER EFFECT
+    // 🔒 LOCKED: Uses requestAnimationFrame for 60fps smooth animation.
+    // DO NOT replace with setInterval — it causes visible stuttering on the progress bar.
     useEffect(() => {
-        let interval;
+        let rafId;
         if (isRunning && timeLeft > 0) {
-            const startTime = Date.now(); // When this effect started/resumed
+            const startTime = performance.now();
             const initialTimeLeft = timeLeft;
 
-            interval = setInterval(() => {
-                const now = Date.now();
-                const totalElapsed = (now - startTime) / 1000; // Seconds elapsed since effect start
+            const tick = (now) => {
+                const totalElapsedSec = ((now - startTime) / 1000) * speed;
+                const expectedTimeLeft = initialTimeLeft - totalElapsedSec;
 
-                // Calculate what timeLeft SHOULD be right now
-                const expectedTimeLeft = initialTimeLeft - (totalElapsed * speed);
-
-                // Update state
                 if (expectedTimeLeft <= 0) {
-                    clearInterval(interval);
                     setTimeLeft(0);
                 } else {
                     setTimeLeft(expectedTimeLeft);
+                    rafId = requestAnimationFrame(tick);
                 }
-            }, 100 / speed); // Smoother tick rate (100ms)
+            };
+
+            rafId = requestAnimationFrame(tick);
         }
-        return () => clearInterval(interval);
+        return () => cancelAnimationFrame(rafId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed]); // We intentionally do not include timeLeft to prevent interval reset on every tick
+    }, [isRunning, speed]); // We intentionally do not include timeLeft to prevent loop reset on every tick
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
