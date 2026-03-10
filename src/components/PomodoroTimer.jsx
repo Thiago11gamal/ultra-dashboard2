@@ -543,47 +543,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 {/* Lock & Reset Controls */}
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    {/* NEW: Settings Popover/Menu */}
-                    <div className="relative group/settings">
-                        <button
-                            className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
-                            title="Configurações do Timer"
-                        >
-                            <Settings size={18} className="text-white" />
-                        </button>
 
-                        <div className="absolute top-full right-0 mt-2 w-48 bg-stone-900 border border-stone-700 rounded-xl p-3 shadow-2xl opacity-0 scale-95 translate-y-[-10px] pointer-events-none group-hover/settings:opacity-100 group-hover/settings:scale-100 group-hover/settings:translate-y-0 group-hover/settings:pointer-events-auto transition-all duration-300 z-[100]">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Ciclos (Meta)</label>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setTargetCycles(prev => Math.max(1, prev - 1))}
-                                            className="w-8 h-8 rounded-lg bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-300"
-                                        >-</button>
-                                        <span className="flex-1 text-center font-black text-white">{targetCycles}</span>
-                                        <button
-                                            onClick={() => setTargetCycles(prev => Math.min(10, prev + 1))}
-                                            className="w-8 h-8 rounded-lg bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-300"
-                                        >+</button>
-                                    </div>
-                                </div>
-
-                                <div className="pt-2 border-t border-stone-800">
-                                    <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Trabalho (Min)</label>
-                                    <select
-                                        value={safeSettings.pomodoroWork}
-                                        onChange={(e) => onUpdateSettings?.({ pomodoroWork: parseInt(e.target.value) })}
-                                        className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs font-bold text-white focus:outline-none"
-                                    >
-                                        {[10, 15, 20, 25, 30, 45, 50, 60].map(m => (
-                                            <option key={m} value={m}>{m} min</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     {!isLayoutLocked && (
                         <button
