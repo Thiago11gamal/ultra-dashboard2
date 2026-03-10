@@ -129,7 +129,7 @@ const StudyHistory = React.memo(function StudyHistory({
     };
 
     return (
-        <div className="w-full space-y-5 animate-fade-in-down">
+        <div className="w-full space-y-5 animate-fade-in-down pb-20">
             {/* Top Section - Stats */}
             {(mode === 'full' || mode === 'sessions') && (
                 <div className="flex flex-col gap-6 text-slate-100">
