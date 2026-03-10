@@ -112,11 +112,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             };
 
             const currentBound = normalizeDate(new Date());
-            // Bug fix: pastSimulados should INCLUDE today's simulados
-            // Using strict < todayBound excluded results entered today, causing notaAnterior
-            // to be calculated without today's data while notaBruta included it — the diff
-            // was therefore always inflated on the day of data entry.
-            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) <= currentBound);
+            // BUG-01 FIX: pastSimulados should EXCLUDE today's simulados to have a real comparison baseline.
+            // Using <= included today, making notaBruta and notaAnterior identical (delta=0).
+            const pastSimulados = relevantSimulados.filter(s => normalizeDate(s.date) < currentBound);
             const notaBruta = calculateExponentialScore(relevantSimulados);
 
             if (pastSimulados.length > 0) {
@@ -189,35 +187,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
-        // E. Efficiency Penalty & BURNOUT DETECTION
+        // E. Efficiency Penalty (REMOVED: DEAD CODE) — Variable kept in details but remains 0.
         let efficiencyPenalty = 0;
-        let recentStudyDays = 0; // Days studied in the last 7 days
-        const todayBound = normalizeDate(new Date());
-
-        const minutesByDay = {};
-
-        const totalMinutes = categoryStudyLogs.reduce((acc, log) => {
-            const logDate = normalizeDate(log.date);
-            const daysSinceLog = Math.max(0, Math.floor((todayBound - logDate) / (1000 * 60 * 60 * 24)));
-
-            // Aggregate minutes per day for the burnout metric
-            if (daysSinceLog <= 7) {
-                const dateKey = logDate.getTime();
-                minutesByDay[dateKey] = (minutesByDay[dateKey] || 0) + (Number(log.minutes) || 0);
-            }
-
-            return acc + (Number(log.minutes) || 0);
-        }, 0);
-
-        // Calculate how many distinct days had > 30 mins of study
-        recentStudyDays = Object.values(minutesByDay).filter(mins => mins > 30).length;
-
+        let recentStudyDays = 0;
+        const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalHours = totalMinutes / 60;
-
-        if (totalHours > cfg.BASE_HOURS_THRESHOLD && averageScore < targetScore) {
-            const gap = targetScore - averageScore;
-            efficiencyPenalty = Math.min(cfg.EFFICIENCY_MAX, (totalHours / cfg.BASE_HOURS_THRESHOLD - 1) * gap * 0.5);
-        }
 
         // F. SRS Boost
         // BUG FIX: Only trigger Spaced Repetition (SRS) if the subject has actually been studied at least once.
@@ -273,6 +247,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let isBurnoutRisk = false;
 
         // Burnout threshold: High recent effort (>=5 days in last week) + declining/stagnant trend
+        // BUG-05: Calculation removed to save CPU. recentStudyDays fallback to 0.
         if (recentStudyDays >= 5 && trend <= 0) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
             isBurnoutRisk = true;

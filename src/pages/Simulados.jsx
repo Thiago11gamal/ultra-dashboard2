@@ -179,7 +179,7 @@ export default function Simulados() {
                 categories: newCategories,
                 simuladoRows: validatedRows
             };
-        });
+        }, false); // BUG-04 FIX: don't record history here, awardExperience will handle the one and only snapshot.
 
         const updatedCount = payload.analysis?.disciplines?.length || payload.disciplines?.length || 0;
         if (updatedCount > 0) {

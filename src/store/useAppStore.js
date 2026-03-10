@@ -88,7 +88,8 @@ const processGamification = (state, xpGained) => {
     const leveledUp = finalLevel > currentLevel;
 
     activeData.user.xp = newXP;
-    activeData.user.level = finalLevel;
+    // BUG-03 FIX: Prevent level regression. Gamification systems should never demote the user.
+    activeData.user.level = Math.max(currentLevel, finalLevel);
 
     if (leveledUp && typeof window !== 'undefined') {
         setTimeout(() => {
@@ -242,6 +243,8 @@ export const useAppStore = create(
                 recordHistory(state.appState);
                 if (!name || typeof name !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
+                // BUG-06 FIX: Add guard to ensure categories is a valid array
+                if (!activeData || !Array.isArray(activeData.categories)) return;
                 activeData.categories.push({
                     id: generateId('cat'),
                     name,
@@ -256,6 +259,8 @@ export const useAppStore = create(
             deleteCategory: (id) => set((state) => {
                 recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
+                // BUG-06 FIX: Add guard to ensure categories is a valid array
+                if (!activeData || !Array.isArray(activeData.categories)) return;
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
                 if (activeData.studyLogs) {
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.categoryId !== id);
