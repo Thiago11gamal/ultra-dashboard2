@@ -163,7 +163,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             y: uiPosition.y + info.offset.y
         };
         setUiPosition(newPos);
-        localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
+        try {
+            localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
+        } catch { /* ignore storage errors */ }
     };
 
     // --- ROBUST STATE SAVING (DEBOUNCED) ---
@@ -183,7 +185,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
-            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+            try {
+                localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+            } catch { /* ignore storage errors */ }
         }, 1000);
 
         return () => {
@@ -329,9 +333,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         setTimeLeft(resetTime);
         // Force save immediately to clean state
-        localStorage.setItem('pomodoroState', JSON.stringify({
-            mode, timeLeft: resetTime, isRunning: false, sessions, completedCycles, targetCycles, sessionHistory, savedAt: Date.now()
-        }));
+        try {
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                mode, timeLeft: resetTime, isRunning: false, sessions, completedCycles, targetCycles, sessionHistory, savedAt: Date.now()
+            }));
+        } catch { /* ignore storage errors */ }
     };
 
     const skip = () => {
@@ -352,14 +358,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setTimeLeft(safeSettings.pomodoroBreak * 60);
 
             // Persist state for break
-            localStorage.setItem('pomodoroState', JSON.stringify({
-                mode: 'break', timeLeft: safeSettings.pomodoroBreak * 60,
-                isRunning: false, sessions: newSessions, completedCycles,
-                targetCycles, sessionHistory,
-                savedAt: Date.now(),
-                activeTaskId: activeSubject?.taskId,
-                sessionInstanceId: activeSubject?.sessionInstanceId
-            }));
+            try {
+                localStorage.setItem('pomodoroState', JSON.stringify({
+                    mode: 'break', timeLeft: safeSettings.pomodoroBreak * 60,
+                    isRunning: false, sessions: newSessions, completedCycles,
+                    targetCycles, sessionHistory,
+                    savedAt: Date.now(),
+                    activeTaskId: activeSubject?.taskId,
+                    sessionInstanceId: activeSubject?.sessionInstanceId
+                }));
+            } catch { /* ignore storage errors */ }
 
         } else {
             // Treat skip as completion of break
@@ -369,14 +377,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (sessions >= targetCycles) {
                 onFullCycleComplete?.();
                 // Persist completed state
-                localStorage.setItem('pomodoroState', JSON.stringify({
-                    mode: 'work', timeLeft: safeSettings.pomodoroWork * 60,
-                    isRunning: false, sessions: 0, completedCycles: 0,
-                    targetCycles, sessionHistory: [],
-                    savedAt: Date.now(),
-                    activeTaskId: null,
-                    sessionInstanceId: null
-                }));
+                try {
+                    localStorage.setItem('pomodoroState', JSON.stringify({
+                        mode: 'work', timeLeft: safeSettings.pomodoroWork * 60,
+                        isRunning: false, sessions: 0, completedCycles: 0,
+                        targetCycles, sessionHistory: [],
+                        savedAt: Date.now(),
+                        activeTaskId: null,
+                        sessionInstanceId: null
+                    }));
+                } catch { /* ignore storage errors */ }
                 return;
             }
 

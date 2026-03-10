@@ -25,7 +25,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
     const stateStringForSync = (state) => {
         if (!state) return '';
-        return `${state.lastUpdated}|${state.activeId}`;
+        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode

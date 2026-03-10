@@ -31,7 +31,10 @@ export const calculateStudyStreak = (studyLogs) => {
     const hasToday = uniqueDays.includes(today);
     const hasYesterday = uniqueDays.includes(yesterday);
 
-    if (!hasToday && !hasYesterday) return { current: 0, longest: calculateLongest(uniqueDays), isActive: false };
+    if (!hasToday && !hasYesterday) {
+        const longest = calculateLongest(uniqueDays);
+        return { current: 0, best: longest, longest, isActive: false };
+    }
 
     // Calculate current streak
     let dateCursor = new Date();

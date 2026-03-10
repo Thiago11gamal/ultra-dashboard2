@@ -113,6 +113,7 @@ export const useAppStore = create(
                 activeId: 'default',
                 history: [],
                 lastHistoryTime: 0,
+                version: 0,
                 mcEqualWeights: true,
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
@@ -142,6 +143,7 @@ export const useAppStore = create(
                 if (nextState.history && nextState.history.length > 0) {
                     state.appState.history = nextState.history;
                 }
+                state.appState.lastHistoryTime = 0;
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
             }),
 
@@ -161,6 +163,7 @@ export const useAppStore = create(
                 if (nextData === undefined) return;
 
                 state.appState.contests[contestId] = nextData;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),
 

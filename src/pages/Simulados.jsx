@@ -10,9 +10,9 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
-    const today = new Date().toDateString();
+    const todayISO = new Date().toISOString().slice(0, 10);
     const rawTodayRows = (data.simuladoRows || []).filter(
-        r => r.createdAt && new Date(r.createdAt).toDateString() === today
+        r => r.createdAt && new Date(r.createdAt).toISOString().slice(0, 10) === todayISO
     );
 
     // 1. Build the auto-synced rows combined with saved data
@@ -79,10 +79,10 @@ export default function Simulados() {
     // manual rows are no longer supported
 
     const handleUpdateSimuladoRows = (updatedTodayRows) => {
-        const today = new Date().toDateString();
+        const todayISO = new Date().toISOString().slice(0, 10);
         setData(prev => {
             const existingRows = prev.simuladoRows || [];
-            const nonTodayRows = existingRows.filter(row => !row.createdAt || new Date(row.createdAt).toDateString() !== today);
+            const nonTodayRows = existingRows.filter(row => !row.createdAt || new Date(row.createdAt).toISOString().slice(0, 10) !== todayISO);
 
             // 2. Filter out untouched auto-generated rows to save space
             // BUG FIX: preserve the 'validated' field
@@ -157,9 +157,9 @@ export default function Simulados() {
             // Fix 5: Cap to 300 to prevent Firestore 1MB document limit overflow
             // DEFINITIVE FIX: direct upsert of rawRows as validated
             // Skip fragile matching, just stamp and append to non-today data
-            const today = new Date().toDateString();
+            const todayISO = new Date().toISOString().slice(0, 10);
             const nonTodayRows = (prev.simuladoRows || []).filter(
-                r => !r.createdAt || new Date(r.createdAt).toDateString() !== today
+                r => !r.createdAt || new Date(r.createdAt).toISOString().slice(0, 10) !== todayISO
             );
 
             const now = Date.now();

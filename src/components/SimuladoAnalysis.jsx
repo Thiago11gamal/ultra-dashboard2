@@ -120,7 +120,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                 let isTopValid = true;
                 if (r.topic) {
-                    if (isSubValid && r.subject) {
+                    if (topNorm === 'nenhum') {
+                        isTopValid = true;
+                    } else if (isSubValid && r.subject) {
                         isTopValid = validDataMap[subNorm].has(topNorm);
                     } else if (r.subject) {
                         isTopValid = false;

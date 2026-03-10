@@ -117,7 +117,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     useEffect(() => {
         if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            setTimeout(() => setFocusSubjectId(categories[0].id), 0);
+            setTimeout(() => {
+                if (categories.length > 0) {
+                    setFocusSubjectId(categories[0].id);
+                }
+            }, 0);
         }
     }, [categories, focusSubjectId]);
 
