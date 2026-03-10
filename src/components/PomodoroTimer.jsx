@@ -408,10 +408,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     // Format time once to use consistently for both clock and progress
     const displayTime = Math.ceil(timeLeft);
 
-    // Progress is calculated based on ceiled time to stay perfectly in sync with the digital display
-    const progress = (displayTime >= totalTime || displayTime <= 0)
-        ? (displayTime <= 0 ? 100 : 0)
-        : Math.max(0, Math.min(100, ((totalTime - displayTime) / totalTime) * 100));
+    // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
+    // The smooth float-based progress is intentional. A previous attempt to use Math.ceil()
+    // here to "sync" the bar with the clock broke the visual behavior. DO NOT change this.
+    // Reverted 2026-03-10.
+    const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
+    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress));
 
     // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {
