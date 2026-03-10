@@ -203,7 +203,12 @@ export function monteCarloSimulation(
     simulations = 2000,
     options = {}
 ) {
-    const { forcedVolatility, forcedBaseline } = options;
+    // CACHE BUG FIX: destructure currentMean from options.
+    // Previously only forcedVolatility and forcedBaseline were read; options.currentMean
+    // (the proper weighted mean passed from MonteCarloGauge) was silently dropped,
+    // causing the returned currentMean to always use the last raw score from the
+    // composite global history instead of the caller-computed weighted mean.
+    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean } = options;
     const sortedHistory = getSortedHistory(history);
 
     // Safety check - allow at least 1 point for a flat projection
@@ -337,7 +342,9 @@ export function monteCarloSimulation(
         sd: Number(projectedSD.toFixed(1)),
         ci95Low,
         ci95High,
-        currentMean: Number(currentScore.toFixed(1)),
+        // CACHE BUG FIX: prefer options.currentMean (weighted mean from MonteCarloGauge)
+        // over currentScore (last raw entry in the composite history).
+        currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
         drift,
         volatility,
         method: useBootstrap ? "bootstrap" : "normal"

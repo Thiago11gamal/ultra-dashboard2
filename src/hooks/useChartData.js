@@ -57,7 +57,13 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         }
 
         if (changed || (accumulated.length > 0 && !lastComputedStats)) {
-            lastComputedStats = computeCategoryStats(accumulated, 100);
+            // CACHE BUG FIX: pass a shallow copy of accumulated instead of the live array.
+            // Without the copy, lastComputedStats.history is a reference to the same `accumulated`
+            // array that keeps growing as the loop processes later dates. Every stats snapshot
+            // would silently point to the final full history rather than the partial history
+            // up to that date, corrupting any consumer that reads stats.history or stats.n
+            // from historical snapshots.
+            lastComputedStats = computeCategoryStats([...accumulated], 100);
         }
 
         if (accumulated.length > 0) {
