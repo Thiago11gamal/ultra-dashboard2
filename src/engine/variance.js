@@ -11,6 +11,9 @@
  * 
  * We use the weighted AVERAGE of variances (not portfolio variance w²×σ²)
  * because exam subjects are correlated (shared study effort, test-day effects).
+ * 
+ * BUG-M3: This formula (Σ w_i * σ_i²) assumes perfect correlation (ρ=1) 
+ * between subjects, which is a conservative upper bound for uncertainty.
  * Portfolio variance (w²×σ²) assumes independence and drastically underestimates
  * the true variance — with 5 equal categories it reduces SD by ~5x.
  * 
@@ -32,8 +35,10 @@ export function computeWeightedVariance(stats, totalWeight) {
  * Compute time uncertainty using sublinear growth
  * Formula: σ_time = √(days) × 0.5
  * 
- * Sublinear growth reflects reality: uncertainty doesn't grow
+ * BUG-M2: Sublinear growth reflects reality: uncertainty doesn't grow
  * linearly with time, it decelerates (diminishing returns).
+ * The 0.5 constant is an empirical factor representing ~0.5pp of 
+ * additional uncertainty per square root of projected day.
  * 
  * @param {number} projectDays - Days to project forward
  * @returns {number} Time uncertainty SD

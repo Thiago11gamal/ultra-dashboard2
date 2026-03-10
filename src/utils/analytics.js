@@ -1,3 +1,4 @@
+import { getXPProgress } from './gamification.js';
 // Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
 const toISODay = (date) => {
     const d = typeof date === 'string' && date.length === 10 ? new Date(`${date}T12:00:00`) : new Date(date);
@@ -9,7 +10,7 @@ const toISODay = (date) => {
 
 export const calculateStudyStreak = (studyLogs) => {
     if (!studyLogs || studyLogs.length === 0) {
-        return { current: 0, longest: 0, isActive: false };
+        return { current: 0, best: 0, longest: 0, isActive: false };
     }
 
     // Agrupar por dia único usando YYYY-MM-DD local
@@ -47,9 +48,11 @@ export const calculateStudyStreak = (studyLogs) => {
         }
     }
 
+    const longest = calculateLongest(uniqueDays);
     return {
         current: streak,
-        longest: calculateLongest(uniqueDays),
+        best: longest, // BUG-L6: Unified alias for store compatibility
+        longest: longest,
         isActive: hasToday || hasYesterday
     };
 };
@@ -420,14 +423,7 @@ export const getCompleteReport = (data) => {
         performance: {
             xp: data.user?.xp || 0,
             level: data.user?.level || 1,
-            // Need to import getXPProgress or pass it logic. 
-            // User snippet calls getXPProgress(data.user.xp, data.user.level) assumes it's available or imported.
-            // We will leave this helper here assuming it's for external use or needs to fetch that util.
-            // Since getXPProgress is in gamification.js, we shouldn't circular depend if possible.
-            // Or we can just duplicate logic or import it.
-            // Ideally analytics shouldn't depend on gamification. 
-            // Let's comment this out or just return basic info for now to avoid circular dependency hell.
-            // xpProgress: ... 
+            xpProgress: getXPProgress(data.user?.xp || 0),
         },
         consistency: streak,
         balance,

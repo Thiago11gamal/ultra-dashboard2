@@ -57,7 +57,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }
 
-        // 3. AtualizaÃ§Ã£o ImutÃ¡vel
+        // 3. Atualização Imutável
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 return { ...row, [field]: finalValue };

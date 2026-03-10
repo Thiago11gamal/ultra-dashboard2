@@ -1,4 +1,5 @@
 import { getSafeScore } from '../utils/scoreHelper.js';
+import { calculateDynamicEMA } from './projection.js';
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
@@ -13,6 +14,13 @@ export function standardDeviation(arr) {
 
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
+    /**
+     * BUG-M1: Bayesian Prior for Standard Deviation.
+     * POPULATION_SD = 12% is a non-informative prior for exam performance consistency,
+     * reflecting a typical spread of results in competitive exams.
+     * KAPPA = 3 acts as pseudo-observations, weighting this prior against actual data
+     * to prevent underestimating uncertainty with very small sample sizes.
+     */
     const POPULATION_SD = 12;
     const KAPPA = 3;
 
@@ -84,6 +92,11 @@ export function calculateTrend(scores) {
         if (Math.abs(tStat) < tCrit) return 0;
     }
 
+    /**
+     * BUG-M4: Trend amplification factor.
+     * We multiply the slope by 10 to represent "points per 10 exams",
+     * which aligns with the UI thresholds (0.5 = 5 points gain in 10 exams).
+     */
     return slope * 10;
 }
 
@@ -101,6 +114,9 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
         for (const h of history) {
             let total = Math.max(0, Number(h.total) || 0);
             let correct = Math.min(total, Math.max(0, Number(h.correct) || 0));
+
+            // MEL-7: Extra safety clamp to ensure data integrity
+            if (correct > total) correct = total;
 
             // Fallback: se não há total/correct, reconstruir com n sintético de 10 questões
             if (total === 0 && h.score != null) {
@@ -150,16 +166,13 @@ export function computeCategoryStats(history, weight) {
     if (scores.length > 0) {
         const lastScore = scores[scores.length - 1];
         if (scores.length > 2) {
-            // EMA Calculation
+            // BUG-L1: Centralized EMA logic
             let ema = scores[0];
             for (let i = 1; i < scores.length; i++) {
-                let K = 0.30;
-                if (i < 5) K = 0.60;
-                else if (i < 15) K = 0.45;
-                ema = (scores[i] * K) + (ema * (1 - K));
+                ema = calculateDynamicEMA(scores[i], ema, i + 1);
             }
-            // 70/30 Blend (Responsive vs Stable)
-            dynamicMean = (lastScore * 0.7) + (ema * 0.3);
+            // BUG-L2: Standardized 80/20 Blend
+            dynamicMean = (lastScore * 0.8) + (ema * 0.2);
         } else {
             dynamicMean = lastScore;
         }

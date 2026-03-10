@@ -6,53 +6,14 @@ import { INITIAL_DATA } from '../data/initialData';
 import { SYNC_LOG_CAP } from '../config';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 import { generateId } from '../utils/idGenerator';
+import { calculateStudyStreak } from '../utils/analytics';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
 
 // --- INLINED GAMIFICATION LOGIC (Session 4 Cleanup) ---
 
-const calculateBestStreak = (dates) => {
-    if (!dates || dates.length === 0) return 0;
-    let best = 1;
-    let current = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
-        if (diff === 1) {
-            current++;
-            best = Math.max(best, current);
-        } else {
-            current = 1;
-        }
-    }
-    return best;
-};
-
-const calculateStreak = (studyLogs = []) => {
-    if (!studyLogs.length) return { current: 0, best: 0 };
-    const dates = [...new Set(
-        studyLogs.map(l => {
-            if (!l.date) return null;
-            const rawDate = typeof l.date === 'string' && l.date.length === 10
-                ? new Date(`${l.date}T12:00:00`)
-                : new Date(l.date);
-            return isNaN(rawDate.getTime()) ? null : format(rawDate, 'yyyy-MM-dd');
-        }).filter(Boolean)
-    )].sort().reverse();
-    if (dates.length === 0) return { current: 0, best: 0 };
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-    if (dates[0] !== today && dates[0] !== yesterday) {
-        return { current: 0, best: calculateBestStreak(dates) };
-    }
-    let current = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
-        if (diff === 1) current++;
-        else break;
-    }
-    return { current, best: Math.max(current, calculateBestStreak(dates)) };
-};
+// Removed redundant calculateBestStreak and calculateStreak - moved to analytics.js (BUG-L6)
 
 const ACHIEVEMENTS = [
     { id: 'first_step', name: 'Primeiro Passo', icon: '🌟', xpReward: 100, condition: (s) => s.completedTasks >= 1 },
@@ -69,7 +30,7 @@ const ACHIEVEMENTS = [
 const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
     const stats = {
         completedTasks: data.categories?.reduce((sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
-        currentStreak: calculateStreak(data.studyLogs || []).current,
+        currentStreak: calculateStudyStreak(data.studyLogs || []).current,
         totalQuestions: data.categories?.reduce((sum, cat) => sum + (cat.simuladoStats?.history?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0), 0) || 0,
         hasPerfectScore: data.categories?.some(cat => cat.simuladoStats?.history?.some(h => h.score === 100 || (h.correct === h.total && h.total > 0))) || false,
         pomodorosCompleted: data.studySessions?.length || 0,
@@ -92,19 +53,19 @@ const stripForUndo = (contestsObj) => {
     return JSON.parse(JSON.stringify(contestsObj));
 };
 
-let lastHistoryTime = 0;
 const HISTORY_COOLDOWN = 1000; // Only record history once per second for rapid UI actions
 
 const recordHistory = (appState, force = false) => {
     const now = Date.now();
-    if (!force && (now - lastHistoryTime < HISTORY_COOLDOWN)) return;
+    const lastTime = appState.lastHistoryTime || 0;
+    if (!force && (now - lastTime < HISTORY_COOLDOWN)) return;
 
     if (appState.history.length >= 20) {
         appState.history.shift();
     }
     const snapshot = JSON.parse(JSON.stringify(stripForUndo(appState.contests)));
     appState.history.push({ contests: snapshot, activeId: appState.activeId });
-    lastHistoryTime = now;
+    appState.lastHistoryTime = now;
 };
 
 const processGamification = (state, xpGained) => {
@@ -151,6 +112,7 @@ export const useAppStore = create(
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
                 history: [],
+                lastHistoryTime: 0,
                 mcEqualWeights: true,
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
@@ -177,7 +139,9 @@ export const useAppStore = create(
                     }
                 });
 
-                if (nextState.history) state.appState.history = nextState.history;
+                if (nextState.history && nextState.history.length > 0) {
+                    state.appState.history = nextState.history;
+                }
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
             }),
 
@@ -197,9 +161,7 @@ export const useAppStore = create(
                 if (nextData === undefined) return;
 
                 state.appState.contests[contestId] = nextData;
-                if (shouldRecordHistory) {
-                    state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
-                }
+                state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
             }),
 
             toggleTask: (categoryId, taskId) => set((state) => {
@@ -330,6 +292,9 @@ export const useAppStore = create(
                 const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
                 const startHour = new Date(now).getHours();
                 if (activeData.user) {
+                    // BUG-L5: These flags are permanent achievement toggles.
+                    // Once set to true, they unlock the respective achievement and remain true
+                    // to track that the user has performed this habit at least once.
                     if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
                     if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
                 }
@@ -394,6 +359,7 @@ export const useAppStore = create(
             }),
 
             resetSimuladoStats: () => set((state) => {
+                recordHistory(state.appState, true);
                 const activeData = state.appState.contests[state.appState.activeId];
                 activeData.categories.forEach(c => {
                     c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
@@ -402,6 +368,7 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateStr) => set((state) => {
+                recordHistory(state.appState, true);
                 const targetDay = dateStr.slice(0, 10);
                 const activeData = state.appState.contests[state.appState.activeId];
                 const matchesDate = (raw) => {

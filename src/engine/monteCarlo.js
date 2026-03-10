@@ -3,17 +3,20 @@ import { mulberry32, randomNormal } from './random.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
-export function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean) {
+export function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean, categoryName) {
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
+  // MEL-4: Incorporate a hash of the category name and target score for uniqueness
+  const categoryHash = (categoryName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const stableSeed = seed ?? (
     Math.round(safeMean * 100) * 100003 +
     Math.round(safeSD * 100) * 997 +
-    Math.round(safeTarget * 10)
+    Math.round(safeTarget * 10) +
+    categoryHash
   );
 
   const rng = mulberry32(stableSeed);

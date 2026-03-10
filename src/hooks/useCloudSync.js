@@ -54,6 +54,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const isFromCache = docSnap.metadata.fromCache;
             const exists = docSnap.exists();
 
+            clearTimeout(safetyBootTimeout);
+
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
             // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
             if (isFromCache && !exists && !isParityValidatedRef.current) {
@@ -61,7 +63,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 return;
             }
 
-            clearTimeout(safetyBootTimeout);
             const cloudData = exists ? docSnap.data() : null;
             latestCloudDataRef.current = cloudData;
 

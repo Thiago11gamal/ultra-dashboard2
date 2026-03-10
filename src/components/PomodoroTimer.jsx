@@ -62,10 +62,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const innerTimerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
     useEffect(() => {
-        const saved = localStorage.getItem('pomodoroState');
-        if (saved) {
+        if (savedState) {
             try {
-                const parsed = JSON.parse(saved);
+                const parsed = savedState;
 
                 // CRITICAL FIX: Only resume if the saved session matches the current valid session instance
                 // This prevents old/stale sessions from zeroing out a new timer
@@ -109,16 +108,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         }, 0);
                     }
                 } else {
-                    // Timer was NOT running - rely on default initialization (which is fresh)
-                    // unless we are specifically in a "paused" state of the SAME session?
-                    // For now, if it wasn't running, we assume we don't need to "catch up" time.
-                    // But if it was the SAME session, we might want to restore the EXACT time left?
-                    // The 'useState' initialization already tried to load 'timeLeft' from 'savedState' (which checks IDs).
-                    // So this Effect is mostly for "Elapsed Time Correction" when coming back to a RUNNING timer.
-
-                    // If IDs match (checked above) and it was paused, useState likely already handled it.
-                    // If IDs don't match, we returned early.
-
                     // Cleanup old state if meaningful
                     if (msSinceSave > 12 * 60 * 60 * 1000) {
                         localStorage.removeItem('pomodoroState');
@@ -133,7 +122,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             clearTimeout(timerRef.current);
             clearTimeout(innerTimerRef.current);
         };
-    }, [activeSubject, safeSettings]); // Added dependencies
+    }, [activeSubject, safeSettings, savedState]); // Added savedState dependency
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [speed, setSpeed] = useState(1); // Dev speed toggles added back per user request
