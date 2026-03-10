@@ -10,7 +10,13 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  const rng = mulberry32(seed || Date.now());
+  const stableSeed = seed ?? (
+    Math.round(safeMean * 100) * 100003 +
+    Math.round(safeSD * 100) * 997 +
+    Math.round(safeTarget * 10)
+  );
+
+  const rng = mulberry32(stableSeed);
   let success = 0;
 
   // Math fix: Welford online variance (numerically stable)

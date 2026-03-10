@@ -152,8 +152,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     // Fix 4: Monte Carlo assíncrono
     const [mcProjection, setMcProjection] = useState(null);
     useEffect(() => {
+        setMcProjection(null);
         if (!focusCategory?.simuladoStats?.history) {
-            setTimeout(() => setMcProjection(null), 0);
             return;
         }
         const hist = [...focusCategory.simuladoStats.history]
@@ -164,7 +164,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 return { date: dateKey, score, correct: h.correct, total: h.total };
             })
             .filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
-        if (hist.length < 5) { setTimeout(() => setMcProjection(null), 0); return; }
+        if (hist.length < 5) { return; }
         let cancelled = false;
         const timer = setTimeout(() => {
             if (cancelled) return;
