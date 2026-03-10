@@ -643,7 +643,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             {/* Track */}
                             <circle cx="112" cy="112" r="100" fill="none" stroke="#44403c" strokeWidth="10" strokeLinecap="round" />
 
-                            {/* Progress */}
+                            {/* Progress – 🔒 LOCKED: style transition is intentional for smooth animation */}
                             <circle
                                 cx="112" cy="112" r="100" fill="none"
                                 stroke="currentColor"
@@ -651,6 +651,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
                                 strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
+                                style={{ transition: 'stroke-dashoffset 0.1s linear' }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
