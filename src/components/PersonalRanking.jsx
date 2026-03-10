@@ -72,11 +72,11 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                                 </span>
                             </div>
                             <div className="flex flex-col pb-1">
-                                <span className={`text-[9px] font-black uppercase tracking-widest ${isMVP ? 'text-purple-500' : 'text-slate-500'
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${isMVP ? 'text-slate-400' : 'text-slate-500'
                                     }`}>
                                     {label}
                                 </span>
-                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-purple-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
+                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-slate-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
                                     } opacity-30`} />
                             </div>
                         </div>
