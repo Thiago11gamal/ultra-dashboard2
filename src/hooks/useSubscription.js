@@ -7,8 +7,11 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Bypass do Paywall para desenvolvimento local ou testes em produção
-        if (import.meta.env.DEV || localStorage.getItem('bypassPaywall') === 'true') {
+        // Coloque seu User UID (do Firebase Auth) aqui para ter acesso grátis
+        const ADMIN_UIDS = ['seu_uid_aqui'];
+
+        // Bypass: Desenvolvimento local OU se o UID do usuário for administrador
+        if (import.meta.env.DEV || (user?.uid && ADMIN_UIDS.includes(user.uid))) {
             setIsPremium(true);
             setLoading(false);
             return;
