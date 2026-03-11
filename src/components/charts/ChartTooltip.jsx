@@ -43,7 +43,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     return (
                         <div key={i} className="flex flex-col bg-slate-800/40 p-1 rounded-lg border border-slate-700/50">
                             <div className="flex justify-between items-center mb-0.5">
-                                <span style={{ color: p.color }} className="font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 line-clamp-1 truncate">
+                                <span style={{ color: p.color }} className="font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center gap-1 line-clamp-1 truncate">
                                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                                     {subjName}
                                 </span>
@@ -51,25 +51,25 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                             <div className="grid grid-cols-4 gap-0.5 text-center">
                                 <div className="flex flex-col bg-slate-900/50 pt-0.5 pb-0.5 rounded border border-slate-700/30">
                                     <span className="text-[7px] text-slate-500 font-bold uppercase leading-none">Bruta</span>
-                                    <span className="text-[9px] font-mono text-orange-400 font-bold leading-none mt-0.5">
+                                    <span className="text-[11px] sm:text-xs font-mono text-orange-400 font-bold leading-none mt-1">
                                         {rawVal != null && Number.isFinite(Number(rawVal)) ? Number(rawVal).toFixed(1) : '—'}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 pt-0.5 pb-0.5 rounded border border-slate-700/30">
                                     <span className="text-[7px] text-slate-500 font-bold uppercase leading-none">Hist</span>
-                                    <span className="text-[9px] font-mono text-blue-400 font-bold leading-none mt-0.5">
+                                    <span className="text-[11px] sm:text-xs font-mono text-blue-400 font-bold leading-none mt-1">
                                         {statsVal != null && Number.isFinite(Number(statsVal)) ? Number(statsVal).toFixed(1) : '—'}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 pt-0.5 pb-0.5 rounded border border-slate-700/30">
                                     <span className="text-[7px] text-slate-500 font-bold uppercase leading-none">Real</span>
-                                    <span className="text-[9px] font-mono text-emerald-400 font-bold leading-none mt-0.5">
+                                    <span className="text-[11px] sm:text-xs font-mono text-emerald-400 font-bold leading-none mt-1">
                                         {bayVal != null && Number.isFinite(Number(bayVal)) ? Number(bayVal).toFixed(1) : '—'}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 pt-0.5 pb-0.5 rounded border border-slate-700/30">
                                     <span className="text-[7px] text-slate-500 font-bold uppercase leading-none">Tend</span>
-                                    <span className={`text-[9px] font-mono font-bold leading-none mt-0.5 ${trendStatus === 'up' ? 'text-green-400' : trendStatus === 'down' ? 'text-red-400' : 'text-slate-400'}`}>
+                                    <span className={`text-[11px] sm:text-xs font-mono font-bold leading-none mt-1 ${trendStatus === 'up' ? 'text-green-400' : trendStatus === 'down' ? 'text-red-400' : 'text-slate-400'}`}>
                                         {trendVal != null && Number.isFinite(Number(trendVal)) ? (trendVal > 0 ? `+${trendVal.toFixed(1)}` : trendVal.toFixed(1)) : '—'}
                                     </span>
                                 </div>
