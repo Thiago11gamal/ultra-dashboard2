@@ -4,15 +4,18 @@ import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
+import { getDateKey } from '../utils/dateHelper';
 
 export default function Simulados() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
-    const todayISO = new Date().toISOString().slice(0, 10);
+    // C-01 FIX: usar data local em vez de toISOString (UTC).
+    // Em UTC-4 às 21h, toISOString retornava o dia seguinte.
+    const todayKey = getDateKey(new Date());
     const rawTodayRows = (data.simuladoRows || []).filter(
-        r => r.createdAt && new Date(r.createdAt).toISOString().slice(0, 10) === todayISO
+        r => r.createdAt && getDateKey(new Date(r.createdAt)) === todayKey
     );
 
     // 1. Build the auto-synced rows combined with saved data
@@ -79,10 +82,10 @@ export default function Simulados() {
     // manual rows are no longer supported
 
     const handleUpdateSimuladoRows = (updatedTodayRows) => {
-        const todayISO = new Date().toISOString().slice(0, 10);
+        const todayKey = getDateKey(new Date());
         setData(prev => {
             const existingRows = prev.simuladoRows || [];
-            const nonTodayRows = existingRows.filter(row => !row.createdAt || new Date(row.createdAt).toISOString().slice(0, 10) !== todayISO);
+            const nonTodayRows = existingRows.filter(row => !row.createdAt || getDateKey(new Date(row.createdAt)) !== todayKey);
 
             // 2. Filter out untouched auto-generated rows to save space
             // BUG FIX: preserve the 'validated' field
@@ -157,9 +160,10 @@ export default function Simulados() {
             // Fix 5: Cap to 300 to prevent Firestore 1MB document limit overflow
             // DEFINITIVE FIX: direct upsert of rawRows as validated
             // Skip fragile matching, just stamp and append to non-today data
-            const todayISO = new Date().toISOString().slice(0, 10);
+            // C-02 FIX: mesma correção de timezone
+            const todayKey2 = getDateKey(new Date());
             const nonTodayRows = (prev.simuladoRows || []).filter(
-                r => !r.createdAt || new Date(r.createdAt).toISOString().slice(0, 10) !== todayISO
+                r => !r.createdAt || getDateKey(new Date(r.createdAt)) !== todayKey2
             );
 
             const now = Date.now();
