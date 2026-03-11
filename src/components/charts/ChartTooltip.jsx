@@ -1,17 +1,21 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CHART_COLORS } from '../../utils/chartConfig';
 
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [] }) => {
     if (!active || !payload?.length) return null;
 
     const currentData = chartData.find(d => d.displayDate === label);
+    const target = document.getElementById('evolution-chart-header');
 
-    return (
-        <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm w-max max-w-[90vw] z-50 backdrop-blur-md overflow-hidden">
-            <p className="text-slate-300 mb-3 font-bold border-b border-slate-700/80 pb-2 flex items-center justify-between">
-                <span>📅 {label}</span>
-            </p>
-            <div className={isCompare ? "space-y-3 min-w-[280px]" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
+    const content = (
+        <div className="absolute top-0 left-0 w-full p-2 sm:p-4 z-50 pointer-events-none">
+            <div className="w-full bg-slate-900/98 backdrop-blur-xl border border-slate-700 p-4 rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] pointer-events-auto">
+                <p className="text-slate-200 mb-3 font-bold border-b border-slate-700/80 pb-2 flex items-center justify-between">
+                    <span>📅 {label}</span>
+                    <span className="text-[10px] sm:text-xs text-indigo-400/80 font-normal">Análise do Simulado</span>
+                </p>
+                <div className={isCompare ? "flex flex-wrap gap-4 min-w-[280px]" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"}>
                 {payload.filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana'].includes(p.name)).map((p, i) => {
                     if (isCompare) {
                         const val = Number(p.value);
@@ -86,6 +90,12 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     );
                 })}
             </div>
+            </div>
         </div>
     );
+
+    if (target) {
+        return createPortal(content, target);
+    }
+    return content;
 };

@@ -385,7 +385,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             </div>
 
             {/* ── 3. ENGINE TABS ────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0">
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0 relative">
+                <div id="evolution-chart-header" className="absolute top-0 left-0 w-full z-50 pointer-events-none" />
                 {/* Tab bar */}
                 <div className="flex overflow-x-auto pb-2 sm:pb-4 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full mobile-edge-fade">
                     {ENGINES.map((eng) => {
