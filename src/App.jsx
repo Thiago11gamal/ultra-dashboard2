@@ -24,6 +24,8 @@ const Notes = lazyWithRetry(() => import('./pages/Notes'));
 const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
 
 import { useAuth } from './context/useAuth';
+import { useSubscription } from './hooks/useSubscription';
+import Paywall from './components/Paywall';
 import { useAppStore } from './store/useAppStore';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
@@ -35,7 +37,9 @@ import { exportData } from './data/initialData';
 import './components/Loading.css';
 
 function MainLayout() {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, logout } = useAuth();
+  const { isPremium, loading: subLoading } = useSubscription(currentUser);
+  
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
@@ -134,12 +138,17 @@ function MainLayout() {
     }
   }, [currentUser, data, contests, activeContestId, switchContest]);
 
-  if (loading) return (
+  if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
     </div>
   );
   if (!currentUser) return <Login />;
+  
+  // ── Stripe Paywall Guard ──
+  // Aguarda a confirmação via coleção "subscriptions" que a Extensão Oficial gerencia
+  if (!isPremium) return <Paywall user={currentUser} onLogout={logout} />;
+  
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 
   return (
