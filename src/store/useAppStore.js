@@ -428,9 +428,9 @@ export const useAppStore = create(
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData) return;
                 if (!activeData.settings) activeData.settings = {};
-                // Garantir que a lógica de inversão considere o padrão 'true' (dark)
-                const isCurrentlyDark = activeData.settings.darkMode !== false;
-                activeData.settings.darkMode = !isCurrentlyDark;
+                // B-16 FIX: Initial undefined resolves logically without double-clicking requirement
+                const currentVal = activeData.settings.darkMode;
+                activeData.settings.darkMode = currentVal === undefined ? false : !currentVal;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 

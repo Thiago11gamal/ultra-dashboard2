@@ -103,10 +103,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 // Bug Fix: Não usar "0" como fallback se o Date falhar, use o tempo atual.
                 // Isso previne que a nuvem seja sempre rejeitada se faltar a prop `lastUpdated` no banco.
                 const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
-                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? 0 : cloudUpdatedRaw.getTime();
+                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? Date.now() : cloudUpdatedRaw.getTime(); // B-15 FIX
 
                 const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
-                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
+                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? Date.now() : localUpdatedRaw.getTime(); // B-15 FIX
 
                 // Regra Mestre de Boot: A nuvem vence ACESSOS em novos aparelhos,
                 // A MENOS que o local seja ESTRITAMENTE mais novo (cenário de Offline-Progress salvo).
@@ -231,7 +231,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             isMountedRef.current = false;
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [appState, currentUser, showToast, isParityValidated]); // Fix: use ref in dep check logic is tricky but here we want to re-run if it changes (though it shouldn't once true)
+    // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appState, isParityValidated]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

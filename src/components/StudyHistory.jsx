@@ -34,7 +34,11 @@ const StudyHistory = React.memo(function StudyHistory({
         if (studySessions.length === 0) return 0;
 
         // Find the earliest session
-        const earliestTime = Math.min(...studySessions.map(s => new Date(s.startTime).getTime()));
+        const earliestTimeArr = studySessions.map(s => {
+            const t = new Date(s.startTime).getTime();
+            return isNaN(t) ? Date.now() : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
+        });
+        const earliestTime = Math.min(...earliestTimeArr, Date.now());
         const firstSession = new Date(earliestTime);
 
         // Get start of week (Sunday) for both earliest session and now
