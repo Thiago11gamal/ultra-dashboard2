@@ -25,22 +25,46 @@ export default function Paywall({ user, onLogout }) {
                 mode: 'payment' // 👈 Garante que o Checkout seja "Único" e aceite PIX
             });
 
-            // Aguardar a extensão popular a sessão
-            onSnapshot(docRef, async (snap) => {
-                const { error, sessionId } = snap.data();
-                if (error) {
-                    setError(`Erro: ${error.message}`);
+            let isResolved = false;
+
+            // Timer de segurança: Se a extensão não funcionar em 12s, desarma a tela.
+            const timeoutId = setTimeout(() => {
+                if (!isResolved) {
+                    setError("O sistema de pagamentos demorou a responder. Verifique sua conexão ou a configuração da Extensão no Firebase.");
                     setLoading(false);
                 }
-                if (sessionId) {
-                    // Temos a sessão, vamos pro Checkout do Stripe!
+            }, 12000);
+
+            // Aguardar a extensão popular a sessão
+            onSnapshot(docRef, async (snap) => {
+                const data = snap.data();
+                if (!data) return;
+
+                const { error, sessionId, url } = data;
+
+                if (error) {
+                    isResolved = true;
+                    clearTimeout(timeoutId);
+                    setError(`Erro da Stripe: ${error.message}`);
+                    setLoading(false);
+                }
+                
+                if (url) {
+                    isResolved = true;
+                    clearTimeout(timeoutId);
+                    // Novo padrão da extensão retorna diretamente a URL de checkout
+                    window.location.assign(url);
+                } else if (sessionId) {
+                    isResolved = true;
+                    clearTimeout(timeoutId);
+                    // Temos a sessão antiga, vamos pro Checkout via JS!
                     const stripe = await stripePromise;
                     stripe.redirectToCheckout({ sessionId });
                 }
             });
         } catch (err) {
             console.error("Erro ao redirecionar ao checkout:", err);
-            setError(`Falha de conexão: ${err.message || 'Erro desconhecido.'}`);
+            setError(`Falha local: ${err.message || 'Erro desconhecido.'}`);
             setLoading(false);
         }
     };
