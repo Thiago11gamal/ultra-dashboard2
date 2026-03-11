@@ -38,7 +38,7 @@ export default function Paywall({ user, onLogout }) {
             });
         } catch (err) {
             console.error("Erro ao redirecionar ao checkout:", err);
-            setError("Falha de conexão com a plataforma de pagamentos.");
+            setError(`Falha de conexão: ${err.message || 'Erro desconhecido.'}`);
             setLoading(false);
         }
     };
