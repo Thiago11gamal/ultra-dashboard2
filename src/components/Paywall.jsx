@@ -27,6 +27,7 @@ export default function Paywall({ user, onLogout }) {
                         quantity: 1,
                     },
                 ],
+                payment_method_types: ['card', 'pix'],
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
                 mode: 'payment' // 👈 Garante o suporte ao PIX e Pagamento Único
