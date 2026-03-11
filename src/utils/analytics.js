@@ -352,6 +352,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     };
 };
 
+const DAILY_GOAL_MINUTES = 120;
+
 export const calculatePomodoroStats = (stats) => {
     const { studySessions = [], categories = [] } = stats || {};
 

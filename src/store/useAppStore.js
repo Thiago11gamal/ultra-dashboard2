@@ -95,7 +95,16 @@ const processGamification = (state, xpGained) => {
 
     // ✅ No side effects here — return the event detail for the caller to dispatch
     // after set() completes (outside the Immer draft).
-    return leveledUp ? { level: finalLevel, title: `Nível ${finalLevel} Desbloqueado!`, xpGained: newXP - currentXP } : null;
+    if (leveledUp) {
+        let title;
+        if (finalLevel - currentLevel > 1) {
+            title = `Níveis ${currentLevel + 1} a ${finalLevel} Desbloqueados!`;
+        } else {
+            title = `Nível ${finalLevel} Desbloqueado!`;
+        }
+        return { level: finalLevel, title, xpGained: newXP - currentXP };
+    }
+    return null;
 };
 
 // Dispatches a level-up CustomEvent after the Immer producer has committed.
@@ -163,7 +172,13 @@ export const useAppStore = create(
                     ? newDataCallback(currentData)
                     : newDataCallback;
 
-                if (nextData === undefined) return;
+                if (nextData === undefined) {
+                    // CRASH-2: The callback mutated currentData through Immer's draft.
+                    // We must update the metadata so the sync logic detects a change.
+                    state.appState.version = (state.appState.version || 0) + 1;
+                    state.appState.lastUpdated = new Date().toISOString();
+                    return;
+                }
 
                 state.appState.contests[contestId] = nextData;
                 state.appState.version = (state.appState.version || 0) + 1;

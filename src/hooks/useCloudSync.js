@@ -22,6 +22,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         appStateRef.current = appState;
     }, [appState]);
 
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
     // Normalização leve para detecção de mudança em tempo real
     // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
     const stateStringForSync = (state) => {
@@ -55,14 +62,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const isFromCache = docSnap.metadata.fromCache;
             const exists = docSnap.exists();
 
-            clearTimeout(safetyBootTimeout);
-
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
             // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
             if (isFromCache && !exists && !isParityValidatedRef.current) {
                 console.debug("[Sync] Aguardando resposta real do servidor...");
                 return;
             }
+
+            clearTimeout(safetyBootTimeout);
 
             const cloudData = exists ? docSnap.data() : null;
             latestCloudDataRef.current = cloudData;
@@ -224,11 +231,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
-        isMountedRef.current = true;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(syncToCloud, 3000);
         return () => {
-            isMountedRef.current = false;
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
     // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.

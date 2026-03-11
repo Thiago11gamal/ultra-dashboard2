@@ -438,7 +438,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
-                ) : (activeEngine === "compare" ? timeline.length : filteredChartData.length) < 2 ? (
+                ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 outline-none focus:outline-none focus:ring-0">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">

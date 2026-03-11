@@ -43,8 +43,14 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
                 const entry = aggregatedHistory[histIdx];
-                const total = Math.max(0, Number(entry.total) || 0);
-                const correct = Math.min(total, Math.max(0, Number(entry.correct) || 0));
+                let total = Math.max(0, Number(entry.total) || 0);
+                let correct = Math.min(total, Math.max(0, Number(entry.correct) || 0));
+
+                if (total === 0 && entry.score != null) {
+                    const pct = Math.min(1, Math.max(0, Number(entry.score) / 100));
+                    total = 10;
+                    correct = Math.round(pct * 10);
+                }
 
                 bayAlpha += correct;
                 bayBeta += (total - correct);

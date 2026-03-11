@@ -19,7 +19,7 @@ export default function VerifiedStats({ categories = [], user }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('monte_carlo_target');
+            const saved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
             if (saved) { const parsed = parseFloat(saved); if (!isNaN(parsed)) return parsed; }
         }
         const userTarget = parseFloat(user?.targetProbability);
@@ -64,9 +64,9 @@ export default function VerifiedStats({ categories = [], user }) {
         // Performance Fix: Sync with global store only when config panel is CLOSED 
         // or periodically, to avoid blocking the UI thread on every slider movement.
         if (!showConfig) {
-            const lastSaved = localStorage.getItem('monte_carlo_target');
+            const lastSaved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
             if (lastSaved !== targetScore.toString()) {
-                localStorage.setItem('monte_carlo_target', targetScore.toString());
+                localStorage.setItem(`monte_carlo_target_${user?.uid || 'default'}`, targetScore.toString());
             }
 
             // Sync with global user object ONLY if target actually changed to avoid re-render loops
