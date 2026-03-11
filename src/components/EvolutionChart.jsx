@@ -658,29 +658,30 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             return yPos;
                                         };
 
-                                        // 1. Points for "Hoje" (second to last)
-                                        const todayIdx = filteredChartData.length - 2;
+                                        // 1. Points for "Hoje" (the actual last valid point with raw data)
+                                        const todayIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
                                         const todayPoints = [];
                                         if (todayIdx >= 0) {
                                             const d = filteredChartData[todayIdx];
-                                            if (d["Nível Bayesiano"] !== null && d["Nível Bayesiano"] !== undefined) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
-                                            if (d["Nota Bruta"] !== null && d["Nota Bruta"] !== undefined) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
-                                            if (d["Média Histórica"] !== null && d["Média Histórica"] !== undefined) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
-                                            if (d["Futuro Provável"] !== null && d["Futuro Provável"] !== undefined) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                            if (d["Nível Bayesiano"] != null) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
+                                            if (d["Nota Bruta"] != null) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
+                                            if (d["Média Histórica"] != null) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
+                                            if (d["Futuro Provável"] != null) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
                                         }
                                         const todayY = solveCollisions(todayPoints);
 
-                                        // 2. Points for "Futuro" (last)
-                                        const lastIdx = filteredChartData.length - 1;
+                                        // 2. Points for "Futuro" (if future projection exists beyond today)
+                                        const futureIdx = filteredChartData.length - 1;
+                                        const isFuturePoint = futureIdx > todayIdx;
                                         const lastPoints = [];
-                                        if (lastIdx >= 0) {
-                                            const d = filteredChartData[lastIdx];
-                                            if (d["Futuro Provável"] !== null && d["Futuro Provável"] !== undefined) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
+                                        if (isFuturePoint && futureIdx >= 0) {
+                                            const d = filteredChartData[futureIdx];
+                                            if (d["Futuro Provável"] != null) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
                                         }
                                         const lastY = solveCollisions(lastPoints);
 
                                         const getOffset = (name, value, index, viewBox) => {
-                                            const isFuture = index === (filteredChartData.length - 1);
+                                            const isFuture = isFuturePoint && index === futureIdx;
                                             const pts = isFuture ? lastY : todayY;
                                             if (!pts || !pts.length) return 0;
                                             const pt = pts.find(p => p.name === name);

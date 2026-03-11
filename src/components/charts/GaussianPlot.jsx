@@ -4,7 +4,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const [hover, setHover] = useState(null);
 
     const { pathData, areaPathData, range, xMin, targetVal } = useMemo(() => {
-        const vizSd = Math.max(3, sd ?? 3);
+        const vizSd = (sd != null && sd >= 1) ? sd : Math.max(1, sd ?? 3);
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         let xMin = Math.max(0, meanVal - 3.5 * vizSd);

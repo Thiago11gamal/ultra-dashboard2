@@ -164,7 +164,7 @@ export function useChartData(categories = [], focusId = null) {
                 dataByDate[date][`bay_${cat.name}`] = snap.bayesian ? snap.bayesian.mean : 0;
                 dataByDate[date][`bay_ci_low_${cat.name}`] = snap.bayesian ? snap.bayesian.ciLow : 0;
                 dataByDate[date][`bay_ci_high_${cat.name}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
-                dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
+                dataByDate[date][`stats_${cat.name}`] = stats ? stats.cumulativeMean : 0;
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
                 dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
 
@@ -217,10 +217,18 @@ export function useChartData(categories = [], focusId = null) {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const key = getDateKey(h.date);
                 if (!key) return;
-                // M-07 FIX: usar Number() para evitar string concatenation (e.g. "5" + 0 = "50")
+                
+                let correct = Number(h.correct) || 0;
+                let total = Number(h.total) || 0;
+                if (total === 0 && h.score != null) {
+                    const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
+                    total = 10;
+                    correct = Math.round(pct * 10);
+                }
+
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                dayMap[key].correct += (Number(h.correct) || 0);
-                dayMap[key].total += (Number(h.total) || 0);
+                dayMap[key].correct += correct;
+                dayMap[key].total += total;
             });
 
             const cells = sortedDates.map(dateStr => {
