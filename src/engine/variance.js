@@ -12,10 +12,9 @@
  * We use the weighted AVERAGE of variances (not portfolio variance w²×σ²)
  * because exam subjects are correlated (shared study effort, test-day effects).
  * 
- * BUG-M3: This formula (Σ w_i * σ_i²) assumes perfect correlation (ρ=1) 
- * between subjects, which is a conservative upper bound for uncertainty.
- * Portfolio variance (w²×σ²) assumes independence and drastically underestimates
- * the true variance — with 5 equal categories it reduces SD by ~5x.
+ * BUG-M3: This formula (Σ w_i * σ_i²) is a pragmatic middle ground between 
+ * perfect independence (portfolio variance Σ w_i²*σ_i², which drastically underestimates
+ * uncertainty) and perfect correlation ((Σ w_i*σ_i)², which overestimates it).
  * 
  * @param {Object[]} stats - Array of { sd, weight } objects
  * @param {number} totalWeight - Sum of all weights

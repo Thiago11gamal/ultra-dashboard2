@@ -148,6 +148,9 @@ export function calculateVolatility(history) {
     const sorted = getSortedHistory(history);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
+    // Extrair tendência para não ser duplamente quantificada como ruído (volatilidade)
+    const drift = calculateSlope(sorted);
+
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
     let sumWeights = 0;
@@ -166,11 +169,15 @@ export function calculateVolatility(history) {
         // Without this cap, a long hiatus produces tiny dailyVariance, underestimating volatility.
         const daysBetween = Math.min(30, rawDaysBetween);
 
+        // Subtrair o ganho esperado (drift) para reter apenas o ruído estatístico puro no resíduo
+        const expectedDiff = drift * daysBetween;
+        const residual = diff - expectedDiff;
+
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
 
-        // Normalização temporal do quadrado da diferença (Daily Variance)
-        const dailyVariance = (diff * diff) / daysBetween;
+        // Normalização temporal do quadrado da diferença (Daily Variance) usando resíduo
+        const dailyVariance = (residual * residual) / daysBetween;
 
         sumSw += dailyVariance * weight;
         sumWeights += weight;
