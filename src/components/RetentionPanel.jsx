@@ -134,9 +134,12 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                 // Use category-level lastStudiedAt if no task data, otherwise use average
                 // Fallback to 0/never if both are missing
-                const categoryRetention = avgTaskRetention !== null
-                    ? { ...calculateRetention(null), val: avgTaskRetention, ...getRetentionStyle(avgTaskRetention) }
-                    : calculateRetention(cat.lastStudiedAt || null);
+                // B-17 FIX: Evite sobrescrever a retenção geral pela retenção diluída das tasks se o aluno estudou
+                // na disciplina root. Use max() para refletir sempre o ponto mais lúcido da curva.
+                const catDirectRet = calculateRetention(cat.lastStudiedAt || null);
+                const finalVal = avgTaskRetention !== null ? Math.max(avgTaskRetention, catDirectRet.val) : catDirectRet.val;
+
+                const categoryRetention = { ...calculateRetention(null), val: finalVal, ...getRetentionStyle(finalVal) };
 
                 return {
                     ...cat,
