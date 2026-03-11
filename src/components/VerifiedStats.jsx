@@ -5,6 +5,7 @@ import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
+import { calculateSlope } from '../engine';
 
 const InfoTooltip = ({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -161,29 +162,11 @@ export default function VerifiedStats({ categories = [], user }) {
                 calculatedTarget = 100;
             }
 
-            // Simple Linear Regression on dailyHistory
-            const startTime = dailyHistory[0].date;
-            const dataPoints = dailyHistory.map(h => ({
-                x: (h.date - startTime) / (1000 * 60 * 60 * 24), // Days
-                y: h.score
-            }));
-
-            const n = dataPoints.length;
-            const sumX = dataPoints.reduce((a, b) => a + b.x, 0);
-            const sumY = dataPoints.reduce((a, b) => a + b.y, 0);
-            const sumXY = dataPoints.reduce((a, b) => a + b.x * b.y, 0);
-            const sumXX = dataPoints.reduce((a, b) => a + b.x * b.x, 0);
-
-            const denom = (n * sumXX - sumX * sumX);
-            let slope = 0;
-
-            if (denom !== 0) {
-                slope = (n * sumXY - sumX * sumY) / denom;
-                // Limit slope to realistic values (-2.0% to +2.0% per day)
-                slope = Math.max(-2.0, Math.min(2.0, slope));
-            } else {
-                slope = 0;
-            }
+            // Use the shared Weighted Regression engine function for total consistency with Monte Carlo Dashboard
+            // ensure format is valid (dailyHistory already has { date: number(ms), score: number })
+            let slope = calculateSlope(dailyHistory);
+            // Engine clamps properly internally, but we can do a hard limit just to be absolutely safe for dates.
+            slope = Math.max(-2.0, Math.min(2.0, slope));
 
             // ANTIGRAVITY PREDICTION ENGINE 🚀
             const currentScore = currentAvg;

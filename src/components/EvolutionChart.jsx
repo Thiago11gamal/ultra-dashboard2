@@ -5,7 +5,7 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     BarChart, Bar, LabelList, Cell
 } from "recharts";
-import { monteCarloSimulation, computeCategoryStats, calculateWeightedProjectedMean } from "../engine";
+import { monteCarloSimulation, computeCategoryStats, calculateWeightedProjectedMean, computeBayesianLevel, calculateVolatility } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -173,7 +173,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const timer = setTimeout(() => {
             if (cancelled) return;
             try {
-                const result = monteCarloSimulation(hist, targetScore, 30, 2000);
+                const bayesian = computeBayesianLevel(hist);
+                const vol = calculateVolatility(hist);
+                const result = monteCarloSimulation(hist, targetScore, 30, 2000, {
+                    forcedBaseline: bayesian ? bayesian.mean : undefined,
+                    forcedVolatility: vol,
+                    currentMean: bayesian ? bayesian.mean : undefined
+                });
                 if (!result || cancelled) return;
                 const lastDate = new Date(hist[hist.length - 1].date);
                 if (Number.isNaN(lastDate.getTime())) return;
@@ -247,7 +253,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         categories.forEach(cat => {
             // NOTE: task names removed — they never carry error counts and were always filtered to 0
             (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
-                (h.topics || []).forEach(t => { const n = String(t.name || '').trim(); const key = n.toLowerCase(); if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 }; topicMap[key].errors += Math.max(0, (parseInt(t.total, 10) || 0) - (parseInt(t.correct, 10) || 0)); });
+                (h.topics || []).forEach(t => { 
+                    const n = String(t.name || '').trim(); 
+                    const key = n.toLowerCase(); 
+                    if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 }; 
+                    const total = t.total != null ? parseInt(t.total, 10) : 10;
+                    const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * 10);
+                    topicMap[key].errors += Math.max(0, total - correct); 
+                });
             });
         });
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
@@ -276,7 +289,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
         const rawData = categories.map(cat => {
             let errors = 0;
-            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => { errors += Math.max(0, (parseInt(h.total, 10) || 0) - (parseInt(h.correct, 10) || 0)); });
+            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => { 
+                const total = h.total != null ? parseInt(h.total, 10) : 10;
+                const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
+                errors += Math.max(0, total - correct); 
+            });
             totalErrors += errors;
             return { name: cat.name, value: errors };
         });
@@ -708,7 +725,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     const len = filteredChartData.length;
                                                     if (len < 2) return null;
                                                     const todayPt = filteredChartData[len - 2];
-                                                    const base = todayPt ? todayPt["Futuro Provável"] : 0;
+                                                    const baseFallback = todayPt ? (todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"]) : 'dataMin';
+                                                    const base = todayPt && todayPt["Futuro Provável"] != null ? todayPt["Futuro Provável"] : baseFallback;
                                                     return (
                                                         <>
                                                             <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base"

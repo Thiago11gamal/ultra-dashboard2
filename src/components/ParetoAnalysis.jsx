@@ -82,8 +82,8 @@ export default function ParetoAnalysis({ categories = [] }) {
             }
         });
 
-        // Limit UI to top 5 enemies to keep it clean
-        const topEnemiesList = enemies.slice(0, 5);
+        // Use all qualifying enemies instead of a fixed UI limit to respect the true 80%
+        const topEnemiesList = enemies;
 
         // Hidden Opportunities: Topics with LOW total questions but 100% error rate (Low hanging fruit)
         // or High Volume, Low Performance
