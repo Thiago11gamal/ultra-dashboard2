@@ -13,18 +13,6 @@ export function useSubscription(user) {
             return;
         }
 
-        // Modo Criador / Admins - Acesso Livre Vitalício
-        const ADMIN_EMAILS = [
-            'antunest040@gmail.com', // O seu e-mail de criador
-            // Adicione os e-mails dos seus sócios ou testadores aqui
-        ];
-
-        if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-            setIsPremium(true);
-            setLoading(false);
-            return; // Encerra a checagem aqui, cancela as obrigações de pagamento
-        }
-
         // Alterado para 'payments' para buscar compras únicas (One-Time / PIX)
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         // Buscamos apenas os pagamentos confirmados
