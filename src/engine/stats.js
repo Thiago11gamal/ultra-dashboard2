@@ -188,6 +188,7 @@ export function computeCategoryStats(history, weight) {
 
     return {
         mean: m,
+        cumulativeMean: cumulativeMean,
         sd: safeSD,
         n: history.length,
         weight: weight,
