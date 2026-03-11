@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, areaPathData, range, xMin } = useMemo(() => {
+    const { pathData, areaPathData, range, xMin, targetVal } = useMemo(() => {
         const vizSd = Math.max(3, sd ?? 3);
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
