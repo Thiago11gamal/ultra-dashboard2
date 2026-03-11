@@ -26,15 +26,9 @@ export default function Paywall({ user, onLogout }) {
                         quantity: 1,
                     },
                 ],
-                payment_method_options: {
-                    pix: {
-                        expires_after_seconds: 600, // Tempo de bloqueio no app do banco (10 min)
-                    },
-                },
-                payment_method_types: ['card', 'pix'],
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
-                mode: 'payment' // 👈 Garante o suporte ao PIX e Pagamento Único
+                mode: 'payment' // 👈 Garante o suporte ao Pagamento Único
             });
 
             console.log("[Stripe] Documento criado com ID:", docRef.id);
@@ -103,7 +97,7 @@ export default function Paywall({ user, onLogout }) {
                     </h1>
                     
                     <p className="text-slate-400 text-sm sm:text-base mb-8 leading-relaxed">
-                        O seu período gratuito terminou ou o passe anterior venceu. Adquira 30 dias de acesso completo via PIX ou Cartão e turbine a sua aprovação agora mesmo.
+                        O seu período gratuito terminou ou o passe anterior venceu. Adquira 30 dias de acesso completo e turbine a sua aprovação agora mesmo.
                     </p>
 
                     <div className="space-y-4 mb-8 text-left bg-slate-950/50 rounded-2xl p-5 border border-slate-800">
