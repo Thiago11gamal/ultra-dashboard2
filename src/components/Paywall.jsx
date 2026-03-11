@@ -16,7 +16,7 @@ export default function Paywall({ user, onLogout }) {
         setError(null);
         try {
             // Se estiver usando o Firebase Stripe Extension, criamos um documento de sessão:
-            const checkoutRefs = collection(db, 'users', user.uid, 'checkout_sessions');
+            const checkoutRefs = collection(db, 'customers', user.uid, 'checkout_sessions');
             const docRef = await addDoc(checkoutRefs, {
                 price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                 success_url: window.location.origin,

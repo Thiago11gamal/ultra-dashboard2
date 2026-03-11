@@ -14,7 +14,7 @@ export function useSubscription(user) {
         }
 
         // A extensão "Run Payments with Stripe" gerencia a subcoleção 'subscriptions'
-        const subscriptionsRef = collection(db, 'users', user.uid, 'subscriptions');
+        const subscriptionsRef = collection(db, 'customers', user.uid, 'subscriptions');
         // Uma assinatura é válida se estiver 'active' ou em 'trialing'
         const q = query(subscriptionsRef, where('status', 'in', ['trialing', 'active']));
 
