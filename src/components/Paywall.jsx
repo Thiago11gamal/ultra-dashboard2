@@ -15,22 +15,32 @@ export default function Paywall({ user, onLogout }) {
         setLoading(true);
         setError(null);
         try {
+            console.log("[Stripe] Criando sessão para:", user.uid);
+            
             // Se estiver usando o Firebase Stripe Extension, criamos um documento de sessão:
             const checkoutRefs = collection(db, 'customers', user.uid, 'checkout_sessions');
             const docRef = await addDoc(checkoutRefs, {
-                price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
+                // Formato Robusto: Usando line_items para garantir que a extensão não ignore
+                line_items: [
+                    {
+                        price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
+                        quantity: 1,
+                    },
+                ],
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
-                client: 'web',
-                mode: 'payment' // 👈 Garante que o Checkout seja "Único" e aceite PIX
+                mode: 'payment' // 👈 Garante o suporte ao PIX e Pagamento Único
             });
+
+            console.log("[Stripe] Documento criado com ID:", docRef.id);
 
             let isResolved = false;
 
             // Timer de segurança: Se a extensão não funcionar em 12s, desarma a tela.
             const timeoutId = setTimeout(() => {
                 if (!isResolved) {
-                    setError("O sistema de pagamentos demorou a responder. Verifique sua conexão ou a configuração da Extensão no Firebase.");
+                    console.error("[Stripe] Timeout atingido. A extensão não respondeu.");
+                    setError("O servidor de pagamentos não respondeu. Verifique se a extensão 'Run Payments with Stripe' está instalada e configurada para observar a coleção 'customers'.");
                     setLoading(false);
                 }
             }, 12000);
@@ -39,6 +49,8 @@ export default function Paywall({ user, onLogout }) {
             onSnapshot(docRef, async (snap) => {
                 const data = snap.data();
                 if (!data) return;
+
+                console.log("[Stripe] Atualização do Firebase:", data);
 
                 const { error, sessionId, url } = data;
 
@@ -52,19 +64,19 @@ export default function Paywall({ user, onLogout }) {
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutId);
-                    // Novo padrão da extensão retorna diretamente a URL de checkout
+                    console.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
                     clearTimeout(timeoutId);
-                    // Temos a sessão antiga, vamos pro Checkout via JS!
+                    console.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await stripePromise;
                     stripe.redirectToCheckout({ sessionId });
                 }
             });
         } catch (err) {
-            console.error("Erro ao redirecionar ao checkout:", err);
-            setError(`Falha local: ${err.message || 'Erro desconhecido.'}`);
+            console.error("[Stripe] Erro Crítico:", err);
+            setError(`Falha local: ${err.message || 'Erro de conexão com Firebase.'}`);
             setLoading(false);
         }
     };
