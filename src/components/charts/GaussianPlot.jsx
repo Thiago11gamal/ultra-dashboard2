@@ -70,10 +70,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
         const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
 
-        return { pathData: path, areaPathData: areaPath, range, xMin };
+        return { pathData: path, areaPathData: areaPath, range, xMin, targetVal };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 
-    const targetPos = (targetScore - xMin) / range * 100;
+    const targetPos = (targetVal - xMin) / range * 100;
     const isTargetVisible = targetPos >= 0 && targetPos <= 100;
     const currentPos = ((currentMean || 0) - xMin) / range * 100;
     const isCurrentVisible = currentMean > 0 && currentPos >= 0 && currentPos <= 100;
