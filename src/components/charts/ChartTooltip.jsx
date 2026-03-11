@@ -9,9 +9,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const target = document.getElementById('evolution-chart-header');
 
     const content = (
-        <div className="absolute -top-3 left-0 w-full py-1 px-1 z-50 pointer-events-none">
-            <div className="w-full bg-slate-900/98 backdrop-blur-xl border border-slate-700 p-1.5 sm:p-2 rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] pointer-events-auto">
-                <p className="text-slate-200 mb-1 font-bold border-b border-slate-700/80 pb-0.5 flex items-center justify-between px-1">
+        <div className="absolute -top-3 left-0 w-full py-1 px-1 z-50 pointer-events-none flex justify-center">
+            <div className="w-max max-w-full bg-slate-900/98 backdrop-blur-xl border border-slate-700 p-1.5 sm:p-2 rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] pointer-events-auto">
+                <p className="text-slate-200 mb-1 font-bold border-b border-slate-700/80 pb-0.5 flex items-center justify-between px-1 gap-10">
                     <span className="text-xs">📅 {label}</span>
                     <span className="text-[10px] text-indigo-400/80 font-normal">Análise do Simulado</span>
                 </p>
