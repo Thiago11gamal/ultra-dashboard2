@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 
 export const MonteCarloConfig = ({
@@ -6,6 +6,7 @@ export const MonteCarloConfig = ({
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
     setWeights, weights, updateWeight, categories, onWeightsChange
 }) => {
+    const savedCustomWeights = useRef(null);
     if (!show) return null;
 
     const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.name], 10) || 1), 0);
@@ -57,6 +58,7 @@ export const MonteCarloConfig = ({
                         <button
                             onClick={() => {
                                 if (!equalWeightsMode) {
+                                    savedCustomWeights.current = weights;
                                     const ew = getEqualWeights();
                                     setWeights(ew);
                                     if (onWeightsChange) onWeightsChange(ew);
@@ -69,7 +71,13 @@ export const MonteCarloConfig = ({
                             Pesos Iguais
                         </button>
                         <button
-                            onClick={() => setEqualWeightsMode(false)}
+                            onClick={() => {
+                                if (equalWeightsMode && savedCustomWeights.current) {
+                                    setWeights(savedCustomWeights.current);
+                                    if (onWeightsChange) onWeightsChange(savedCustomWeights.current);
+                                }
+                                setEqualWeightsMode(false);
+                            }}
                             className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <div className={`w-2 h-2 rounded-full ${!equalWeightsMode ? 'bg-white' : 'bg-slate-600'}`} />

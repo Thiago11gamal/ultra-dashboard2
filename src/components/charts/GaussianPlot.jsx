@@ -76,7 +76,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const targetPos = (targetVal - xMin) / range * 100;
     const isTargetVisible = targetPos >= 0 && targetPos <= 100;
     const currentPos = ((currentMean || 0) - xMin) / range * 100;
-    const isCurrentVisible = currentMean > 0 && currentPos >= 0 && currentPos <= 100;
+    const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
 
     return (
         <div
@@ -92,8 +92,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         >
             <style>
                 {`
-                    @keyframes dash { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
-                    .animate-path { stroke-dasharray: 1000; stroke-dashoffset: 0; animation: dash 2s ease-out forwards; }
+                    @keyframes dash { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+                    .animate-path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: dash 2s ease-out forwards; }
                 `}
             </style>
 
@@ -115,7 +115,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
+                <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
                 <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} />
 
                 {isCurrentVisible && (
