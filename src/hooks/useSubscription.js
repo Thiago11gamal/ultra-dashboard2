@@ -8,10 +8,11 @@ export function useSubscription(user) {
 
     useEffect(() => {
         // Coloque seu email aqui para ter acesso grátis vitalício na produção
-        const ADMIN_EMAILS = ['thiago11gamal@gmail.com', 'seu_email_aqui@exemplo.com'];
+        const ADMIN_EMAILS = ['thiago11gamal@gmail.com', 'antunest040@gmail.com'];
 
         // Bypass: Desenvolvimento local OU se o email do usuário for administrador
-        if (import.meta.env.DEV || (user?.email && ADMIN_EMAILS.includes(user.email))) {
+        const normalizedUserEmail = user?.email?.trim().toLowerCase();
+        if (import.meta.env.DEV || (normalizedUserEmail && ADMIN_EMAILS.includes(normalizedUserEmail))) {
             setIsPremium(true);
             setLoading(false);
             return;
@@ -46,13 +47,13 @@ export function useSubscription(user) {
                 // A extensão Stripe normalmente salva o 'created' em segundos (Unix timestamp)
                 // ou como um Timestamp nativo do Firestore (data.created.seconds)
                 let createdSeconds = 0;
-                
+
                 if (data.created && typeof data.created === 'number') {
                     createdSeconds = data.created;
                 } else if (data.created && data.created.seconds) {
                     createdSeconds = data.created.seconds;
                 }
-                
+
                 // Se a compra foi feita há menos de 30 dias, o acesso está liberado
                 if (createdSeconds > 0 && (now - createdSeconds <= THIRTY_DAYS_IN_SECONDS)) {
                     hasValidPayment = true;
