@@ -10,15 +10,24 @@ const PerformanceTable = ({ categories = [] }) => {
         const historyA = statsA.history || [];
         const historyB = statsB.history || [];
 
-        const totalQA = historyA.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-        const correctA = historyA.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
-        const wrongA = totalQA - correctA;
+        let correctA = 0, wrongA = 0;
+        for (let i = 0; i < historyA.length; i++) {
+            const h = historyA[i];
+            const t = parseInt(h.total, 10) || 0;
+            const c = parseInt(h.correct, 10) || 0;
+            correctA += c;
+            wrongA += (t - c);
+        }
         const balanceA = correctA - wrongA;
 
-        const totalQB = historyB.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-        const correctB = historyB.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
-        // Bug fix: removed redundant `totalB` that was a duplicate of totalQB above
-        const wrongB = totalQB - correctB;
+        let correctB = 0, wrongB = 0;
+        for (let i = 0; i < historyB.length; i++) {
+            const h = historyB[i];
+            const t = parseInt(h.total, 10) || 0;
+            const c = parseInt(h.correct, 10) || 0;
+            correctB += c;
+            wrongB += (t - c);
+        }
         const balanceB = correctB - wrongB;
 
         return balanceB - balanceA;

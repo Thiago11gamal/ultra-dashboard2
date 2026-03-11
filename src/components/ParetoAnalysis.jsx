@@ -143,7 +143,7 @@ export default function ParetoAnalysis({ categories = [] }) {
 
                     <div className="p-4 rounded-xl border border-dashed border-slate-700 text-center">
                         <p className="text-xs text-slate-400">
-                            Ao dominar apenas estes {topEnemies.length} tópicos, você recupera <span className="text-white font-bold">{Math.round((topEnemies.reduce((a, b) => a + b.weightedMissed, 0) / (totalLostPoints || 1)) * 100)}%</span> dos seus pontos perdidos na prova.
+                            Ao dominar apenas estes {topEnemies.length} tópicos, você recupera <span className="text-white font-bold">{Math.round((topEnemies.reduce((a, b) => a + (b.weightedMissed || 0), 0) / (totalLostPoints || 1)) * 100)}%</span> dos seus pontos perdidos na prova.
                         </p>
                     </div>
                 </div>
