@@ -146,13 +146,18 @@ function MainLayout() {
   if (!currentUser) return <Login />;
   
   // ── Stripe Paywall Guard ──
-  // Aguarda a confirmação via coleção "subscriptions" que a Extensão Oficial gerencia
-  if (!isPremium) return <Paywall user={currentUser} onLogout={logout} />;
+  // A verificação de assinatura agora atua como um Overlay impenetrável
+  // para não quebrar a árvore de hidratação do React Router.
   
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 
   return (
-    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30">
+    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative">
+      {!isPremium && (
+        <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
+          <Paywall user={currentUser} onLogout={logout} />
+        </div>
+      )}
       <Sidebar
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
