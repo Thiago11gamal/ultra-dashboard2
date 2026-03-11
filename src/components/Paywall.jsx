@@ -21,6 +21,7 @@ export default function Paywall({ user, onLogout }) {
                 price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
+                client: 'web'
             });
 
             // Aguardar a extensão popular a sessão
