@@ -7,11 +7,11 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
     const currentData = chartData.find(d => d.displayDate === label);
 
     return (
-        <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-md">
+        <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm w-max max-w-[90vw] z-50 backdrop-blur-md overflow-hidden">
             <p className="text-slate-300 mb-3 font-bold border-b border-slate-700/80 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
-            <div className="space-y-3">
+            <div className={isCompare ? "space-y-3 min-w-[280px]" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                 {payload.filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana'].includes(p.name)).map((p, i) => {
                     if (isCompare) {
                         const val = Number(p.value);
