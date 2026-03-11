@@ -81,20 +81,9 @@ export default function Paywall({ user, onLogout }) {
     };
 
     return (
-        <div 
-            className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-slate-200 z-[9999]"
-            style={{
-                backgroundImage: `url('/bg-criador.webp')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-            }}
-        >
-            {/* Dark Overlay Escuro Sobre a Foto - Mantém a leitura 100% nítida */}
-            <div className="absolute inset-0 bg-[#0a0f1e]/85 backdrop-blur-[2px]" />
-
+        <div className="min-h-screen bg-[#0a0f1e] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-slate-200 z-[9999]">
             {/* Background Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none z-0" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="relative z-10 max-w-lg w-full">
                 <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-8 sm:p-12 shadow-[0_0_60px_-15px_rgba(99,102,241,0.3)] text-center">

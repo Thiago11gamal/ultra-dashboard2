@@ -7,6 +7,13 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Bypass do Paywall para desenvolvimento local ou testes em produção
+        if (import.meta.env.DEV || localStorage.getItem('bypassPaywall') === 'true') {
+            setIsPremium(true);
+            setLoading(false);
+            return;
+        }
+
         if (!user || !user.uid) {
             setIsPremium(false);
             setLoading(false);
