@@ -102,9 +102,10 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             if (existingLogIndex >= 0) {
                 // Create new object instead of mutating in-place
+                // E-02 FIX: guard || 0 para evitar NaN quando log.minutes é undefined
                 targetGroup.logs[existingLogIndex] = {
                     ...targetGroup.logs[existingLogIndex],
-                    minutes: targetGroup.logs[existingLogIndex].minutes + log.minutes
+                    minutes: (targetGroup.logs[existingLogIndex].minutes || 0) + (log.minutes || 0)
                 };
             } else {
                 targetGroup.logs.push({

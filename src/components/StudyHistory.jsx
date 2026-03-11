@@ -3,9 +3,11 @@ import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle,
 import { useToast } from '../hooks/useToast';
 
 // Format minutes to hours:minutes
+// E-01 FIX: Math.round() evita minutos fracionários (ex: 25.5 → "26min")
 const formatDuration = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+    const total = Math.round(minutes || 0);
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
     if (hours === 0) return `${mins}min`;
     return `${hours}h ${mins}min`;
 };
@@ -295,10 +297,12 @@ const StudyHistory = React.memo(function StudyHistory({
                                                 <button
                                                     onClick={() => {
                                                         if (window.confirm('Excluir esta sessão de estudo? O tempo será subtraído da categoria.')) {
-                                                            const result = onDeleteSession(session.id);
-                                                            if (result !== false) {
+                                                            // E-03 FIX: Zustand set() retorna void, não boolean.
+                                                            // Usar try/catch em vez de checar resultado.
+                                                            try {
+                                                                onDeleteSession(session.id);
                                                                 showToast('Sessão excluída.', 'info');
-                                                            } else {
+                                                            } catch {
                                                                 showToast('Erro ao excluir sessão.', 'error');
                                                             }
                                                         }
