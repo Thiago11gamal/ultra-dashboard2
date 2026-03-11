@@ -7,11 +7,11 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Coloque seu User UID (do Firebase Auth) aqui para ter acesso grátis
-        const ADMIN_UIDS = ['seu_uid_aqui'];
+        // Coloque seu email aqui para ter acesso grátis vitalício na produção
+        const ADMIN_EMAILS = ['thiago11gamal@gmail.com', 'seu_email_aqui@exemplo.com'];
 
-        // Bypass: Desenvolvimento local OU se o UID do usuário for administrador
-        if (import.meta.env.DEV || (user?.uid && ADMIN_UIDS.includes(user.uid))) {
+        // Bypass: Desenvolvimento local OU se o email do usuário for administrador
+        if (import.meta.env.DEV || (user?.email && ADMIN_EMAILS.includes(user.email))) {
             setIsPremium(true);
             setLoading(false);
             return;
