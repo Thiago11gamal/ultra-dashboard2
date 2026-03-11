@@ -97,16 +97,16 @@ export default function Paywall({ user, onLogout }) {
                         {loading ? (
                             <span className="animate-spin w-6 h-6 border-2 border-white/30 border-t-white rounded-full"></span>
                         ) : (
-                            <>
+                            <span className="flex items-center gap-2">
                                 <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                Assinar Plano Mensal
-                            </>
+                                <span>Assinar Plano Mensal</span>
+                            </span>
                         )}
                     </button>
                     
                     <div className="mt-6">
                         <button onClick={onLogout} className="text-xs text-slate-500 hover:text-slate-300 transition-colors uppercase font-bold tracking-wider">
-                            Sair da Conta
+                            <span>Sair da Conta</span>
                         </button>
                     </div>
                 </div>
