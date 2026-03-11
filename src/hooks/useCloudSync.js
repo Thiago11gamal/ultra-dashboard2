@@ -237,8 +237,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
     // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
+    // Added currentUser?.uid to fix BUG-DEP-1 (prevent old UID on fast account switch).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appState, isParityValidated]);
+    }, [appState, isParityValidated, currentUser?.uid]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

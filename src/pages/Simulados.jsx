@@ -135,7 +135,11 @@ export default function Simulados() {
                     if (totalQ > 0) {
                         const d = new Date();
                         const localNow = d.toISOString();
-                        const historyPoints = [...(currentStats.history || []), { date: localNow, score: (totalC / totalQ) * 100, total: totalQ, correct: totalC, topics: validTopics }];
+                        const todayKey = getDateKey(localNow);
+                        const historyWithoutToday = (currentStats.history || []).filter(
+                            h => getDateKey(h.date) !== todayKey
+                        );
+                        const historyPoints = [...historyWithoutToday, { date: localNow, score: (totalC / totalQ) * 100, total: totalQ, correct: totalC, topics: validTopics }];
 
                         // BUG-06 FIX: Use centralized engine logic for trend and averages
                         const stats = computeCategoryStats(historyPoints, category.weight || 1);

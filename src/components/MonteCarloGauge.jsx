@@ -160,10 +160,7 @@ export default function MonteCarloGauge({
         // C-04 FIX: Só gerar ponto quando pelo menos 1 matéria foi avaliada naquele dia.
         // Antes: lastSeen arrastava scores antigos indefinidamente, poluindo globalHistory.
         // Agora: para cada data, usa só matérias que TÊM score naquele dia específico.
-        const lastSeen = {};
         const globalHistory = sortedDates.map(date => {
-            // Atualiza lastSeen com os scores REAIS deste dia
-            Object.assign(lastSeen, scoresByDate[date]);
             let sum = 0;
             let tw = 0;
             // Usar SOMENTE matérias que foram avaliadas neste dia específico
