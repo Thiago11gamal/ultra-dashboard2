@@ -20,13 +20,18 @@ export default function Paywall({ user, onLogout }) {
             // Se estiver usando o Firebase Stripe Extension, criamos um documento de sessão:
             const checkoutRefs = collection(db, 'customers', user.uid, 'checkout_sessions');
             const docRef = await addDoc(checkoutRefs, {
-                // Formato Robusto: Usando line_items para garantir que a extensão não ignore
                 line_items: [
                     {
                         price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                         quantity: 1,
                     },
                 ],
+                payment_method_options: {
+                    pix: {
+                        expires_after_seconds: 600, // Tempo de bloqueio no app do banco (10 min)
+                    },
+                },
+                payment_method_types: ['card', 'pix'],
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
                 mode: 'payment' // 👈 Garante o suporte ao PIX e Pagamento Único

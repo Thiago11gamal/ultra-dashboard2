@@ -23,6 +23,7 @@
     "react-router-dom": "^7.13.0",
     "react-tsparticles": "^2.12.2",
     "recharts": "^3.5.1",
+    "stripe": "^20.4.1",
     "three": "^0.181.2",
     "tsparticles": "^3.9.1",
     "tsparticles-slim": "^2.12.0",
