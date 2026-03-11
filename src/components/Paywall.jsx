@@ -21,7 +21,8 @@ export default function Paywall({ user, onLogout }) {
                 price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
-                client: 'web'
+                client: 'web',
+                mode: 'payment' // 👈 Garante que o Checkout seja "Único" e aceite PIX
             });
 
             // Aguardar a extensão popular a sessão
@@ -61,7 +62,7 @@ export default function Paywall({ user, onLogout }) {
                     </h1>
                     
                     <p className="text-slate-400 text-sm sm:text-base mb-8 leading-relaxed">
-                        O seu período gratuito terminou ou você não possui uma assinatura ativa. Libere o poder do seu Dashboard e turbine a sua aprovação agora mesmo.
+                        O seu período gratuito terminou ou o passe anterior venceu. Adquira 30 dias de acesso completo via PIX ou Cartão e turbine a sua aprovação agora mesmo.
                     </p>
 
                     <div className="space-y-4 mb-8 text-left bg-slate-950/50 rounded-2xl p-5 border border-slate-800">
@@ -100,7 +101,7 @@ export default function Paywall({ user, onLogout }) {
                         ) : (
                             <span className="flex items-center gap-2">
                                 <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <span>Assinar Plano Mensal</span>
+                                <span>Liberar Acesso (30 Dias)</span>
                             </span>
                         )}
                     </button>

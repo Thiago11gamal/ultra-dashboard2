@@ -13,16 +13,46 @@ export function useSubscription(user) {
             return;
         }
 
-        // A extensão "Run Payments with Stripe" gerencia a subcoleção 'subscriptions'
-        const subscriptionsRef = collection(db, 'customers', user.uid, 'subscriptions');
-        // Uma assinatura é válida se estiver 'active' ou em 'trialing'
-        const q = query(subscriptionsRef, where('status', 'in', ['trialing', 'active']));
+        // Alterado para 'payments' para buscar compras únicas (One-Time / PIX)
+        const paymentsRef = collection(db, 'customers', user.uid, 'payments');
+        // Buscamos apenas os pagamentos confirmados
+        const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setIsPremium(snapshot.docs.length > 0);
+            if (snapshot.empty) {
+                setIsPremium(false);
+                setLoading(false);
+                return;
+            }
+
+            // Pega a data atual em segundos
+            const now = Math.floor(Date.now() / 1000);
+            const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
+
+            let hasValidPayment = false;
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                // A extensão Stripe normalmente salva o 'created' em segundos (Unix timestamp)
+                // ou como um Timestamp nativo do Firestore (data.created.seconds)
+                let createdSeconds = 0;
+                
+                if (data.created && typeof data.created === 'number') {
+                    createdSeconds = data.created;
+                } else if (data.created && data.created.seconds) {
+                    createdSeconds = data.created.seconds;
+                }
+                
+                // Se a compra foi feita há menos de 30 dias, o acesso está liberado
+                if (createdSeconds > 0 && (now - createdSeconds <= THIRTY_DAYS_IN_SECONDS)) {
+                    hasValidPayment = true;
+                }
+            });
+
+            setIsPremium(hasValidPayment);
             setLoading(false);
         }, (error) => {
-            console.error("[Stripe] Erro ao buscar o status de assinatura:", error);
+            console.error("[Stripe] Erro ao buscar pagamentos:", error);
             setIsPremium(false);
             setLoading(false);
         });
