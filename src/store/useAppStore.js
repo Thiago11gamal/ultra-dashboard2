@@ -392,12 +392,17 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
-            deleteSimulado: (dateStr) => set((state) => {
+            deleteSimulado: (dateInput) => set((state) => {
                 recordHistory(state.appState, true);
-                const targetDay = dateStr.slice(0, 10);
+                
+                const dt = new Date(dateInput);
+                const targetDay = dt.getFullYear() + '-' +
+                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(dt.getDate()).padStart(2, '0');
+
                 const activeData = state.appState.contests[state.appState.activeId];
-                // B-09 FIX: toISOString() retorna UTC, causando off-by-one em fusos negativos.
-                // Usar data local (mesmo comportamento de getDateKey em dateHelper.js).
+                // B-09/B-19 FIX: toISOString() retorna UTC, causando off-by-one em fusos negativos.
+                // Usar data local para o input garante paridade estrita. Input de timestamp (Date.now) também previne crash TypeError.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
                     const d = new Date(raw);
