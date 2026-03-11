@@ -224,7 +224,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             } catch (e) {
                 console.error("[Sync] Erro no auto-save:", e);
                 if (showToast && e.code !== 'unavailable') {
-                    showToast('Falha crítica ao salvar.', 'warning');
+                    showToast(`Falha crítica ao salvar: ${e.message}`, 'error');
                 }
             } finally {
                 if (isMountedRef.current) setIsInternalSyncing(false);
