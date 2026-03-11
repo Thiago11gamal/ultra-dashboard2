@@ -27,6 +27,7 @@ export default function Paywall({ user, onLogout }) {
                         quantity: 1,
                     },
                 ],
+                payment_method_types: ['card', 'pix'], // 👈 Força a Stripe a oferecer PIX e Cartão
                 success_url: window.location.origin,
                 cancel_url: window.location.origin,
                 mode: 'payment' // 👈 Garante o suporte ao PIX e Pagamento Único
@@ -141,8 +142,9 @@ export default function Paywall({ user, onLogout }) {
                             </span>
                         )}
                     </button>
+                    {loading && <p className="mt-4 text-xs text-indigo-400 animate-pulse">Preparando ambiente seguro na nuvem...</p>}
                     
-                    <div className="mt-6">
+                    <div className="mt-4">
                         <button onClick={onLogout} className="text-xs text-slate-500 hover:text-slate-300 transition-colors uppercase font-bold tracking-wider">
                             <span>Sair da Conta</span>
                         </button>
