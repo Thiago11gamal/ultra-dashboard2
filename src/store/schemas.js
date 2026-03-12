@@ -140,27 +140,35 @@ export const AppStateSchema = z.object({
  */
 export const validateAppState = (data) => {
   // --- MIGRATION LOGIC ---
-  // Se o estado estiver vazio, tentamos buscar da chave legada 'ultra-dashboard-data'
+  // Se o estado estiver vazio ou for apenas o inicial, buscamos da chave legada
   let dataToValidate = data;
-  const isEssentiallyEmpty = !data || !data.contests || Object.keys(data.contests).length === 0 || 
-                             (Object.keys(data.contests).length === 1 && data.contests.default?.lastUpdated === "1970-01-01T00:00:00.000Z");
+  
+  // Condição de "Estado Inicial": sem histórico, sem categorias ou com o timestamp de 1970 do INITIAL_DATA
+  const contests = data?.contests || {};
+  const isInitial = Object.keys(contests).length <= 1 && 
+                    (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante");
 
-  if (isEssentiallyEmpty && typeof window !== 'undefined') {
+  if (isInitial && typeof window !== 'undefined') {
     try {
       const legacyData = localStorage.getItem('ultra-dashboard-data');
       if (legacyData) {
         const parsedLegacy = JSON.parse(legacyData);
-        console.warn("[Migration] Dados legados detectados. Iniciando migração...");
+        // Verifica se o legacy não está vazio
+        const hasLegacyCategories = (parsedLegacy.categories && parsedLegacy.categories.length > 0) || 
+                                     (parsedLegacy.contests && Object.keys(parsedLegacy.contests).length > 0);
         
-        // Se for o formato antigo (um concurso direto)
-        if (parsedLegacy.categories && !parsedLegacy.contests) {
-          dataToValidate = {
-            contests: { 'default': parsedLegacy },
-            activeId: 'default',
-            lastUpdated: new Date().toISOString()
-          };
-        } else if (parsedLegacy.contests) {
-          dataToValidate = parsedLegacy;
+        if (hasLegacyCategories) {
+          console.warn("[Migration] Dados legados potentes detectados. Forçando migração...");
+          
+          if (parsedLegacy.categories && !parsedLegacy.contests) {
+            dataToValidate = {
+              contests: { 'default': parsedLegacy },
+              activeId: 'default',
+              lastUpdated: new Date().toISOString()
+            };
+          } else if (parsedLegacy.contests) {
+            dataToValidate = parsedLegacy;
+          }
         }
       }
     } catch (e) {
