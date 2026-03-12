@@ -250,33 +250,23 @@ export const validateAppState = (data) => {
         }
       }
 
-      if (bestRescueCandidate) {
-        console.warn(`[Rescue] APLICANDO MELHOR CANDIDATO (Score: ${highestScore})`);
-        
-        // Garantimos que o dado resgatado tenha a estrutura correta E o timestamp mais recente
-        // Isso evita que ele seja sobrescrito por uma nuvem vazia com timestamp mais atual.
+      if (bestRescueCandidate && typeof window !== 'undefined') {
         const now = new Date().toISOString();
         
-        if (bestRescueCandidate.categories && !bestRescueCandidate.contests) {
-          dataToValidate = { 
-            contests: { 'default': { ...bestRescueCandidate, lastUpdated: now } }, 
-            activeId: 'default', 
-            lastUpdated: now 
-          };
-        } else {
-          dataToValidate = { 
-            ...bestRescueCandidate, 
-            lastUpdated: now 
-          };
-          // Se o candidato tiver concursos, garante que o ativo tenha o timestamp atualizado tbm
-          if (dataToValidate.contests?.[dataToValidate.activeId]) {
-            dataToValidate.contests[dataToValidate.activeId].lastUpdated = now;
-          }
-        }
-        
-        // Armazena para diagnóstico se o usuário precisar nos enviar
-        if (typeof window !== 'undefined') {
-          window.__ULTRA_RESCUE_SUCCESS = { key: 'found', score: highestScore, time: now };
+        // Formata o candidato para o Dashboard
+        window.__ULTRA_RESCUE_CANDIDATE = { 
+          score: highestScore, 
+          data: bestRescueCandidate.categories && !bestRescueCandidate.contests 
+            ? { contests: { 'default': { ...bestRescueCandidate, lastUpdated: now } }, activeId: 'default', lastUpdated: now }
+            : { ...bestRescueCandidate, lastUpdated: now }
+        };
+
+        // AUTO-APLICAR apenas se estivermos em modo de resgate inicial/proativo
+        if (shouldRunRescueScanner && highestScore >= 150) {
+          console.warn(`[Rescue] AUTO-APLICANDO MELHOR CANDIDATO (Score: ${highestScore})`);
+          dataToValidate = window.__ULTRA_RESCUE_CANDIDATE.data;
+          window.__ULTRA_RESCUE_SUCCESS = { score: highestScore, time: now };
+          delete window.__ULTRA_RESCUE_CANDIDATE; // Remove o banner se já auto-aplicou
         }
       }
     } catch (globalE) {
