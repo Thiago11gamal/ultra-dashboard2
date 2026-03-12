@@ -86,11 +86,23 @@ const ContestDataSchema = z.object({
 });
 
 export const AppStateSchema = z.object({
-  contests: z.record(ContestDataSchema).transform(val => {
-    if (Object.keys(val).length === 0) {
+  contests: z.record(z.any()).transform((val) => {
+    const validated = {};
+    Object.entries(val).forEach(([id, data]) => {
+      try {
+        // Validação individual por concurso
+        validated[id] = ContestDataSchema.parse(data);
+      } catch (e) {
+        console.error(`[Schema Validation] Falha no concurso ${id}:`, e);
+        // Se falhar, tentamos salvar o que for possível ou ignoramos o item corrompido
+      }
+    });
+
+    // Garantia de pelo menos um concurso default
+    if (Object.keys(validated).length === 0) {
       return { 'default': INITIAL_DATA };
     }
-    return val;
+    return validated;
   }).catch({ 'default': INITIAL_DATA }),
   activeId: z.string().default('default'),
   history: z.array(z.any()).catch([]),
@@ -98,6 +110,12 @@ export const AppStateSchema = z.object({
   version: z.number().catch(0),
   mcEqualWeights: z.boolean().catch(true),
   lastUpdated: z.string().catch(() => new Date().toISOString())
+}).superRefine((data) => {
+  // Garantia: activeId DEVE existir em contests
+  if (!data.contests[data.activeId]) {
+    data.activeId = Object.keys(data.contests)[0] || 'default';
+  }
+  return true;
 });
 
 /**
