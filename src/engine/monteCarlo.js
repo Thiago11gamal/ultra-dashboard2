@@ -55,15 +55,17 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
     probability: (success / safeSimulations) * 100,
     mean: Number(projectedMean.toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    // Preserva a intenção original de usar o CI Bayesiano se fornecido, sem quebrar o cálculo
-    ci95Low: bayesianCI ? Number(bayesianCI.ciLow.toFixed(1)) : Number(Math.max(0, allScores[p025idx]).toFixed(1)),
-    ci95High: bayesianCI ? Number(bayesianCI.ciHigh.toFixed(1)) : Number(Math.min(100, allScores[p975idx]).toFixed(1)),
+    
+    // Usar os percentis reais de Monte Carlo em vez do override Bayesiano
+    ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
+    ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
+    
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
     drift: 0,
     volatility: safeSD,
-    method: bayesianCI ? 'bayesian_static' : 'normal'
+    method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
   };
 }
 

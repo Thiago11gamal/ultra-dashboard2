@@ -22,10 +22,10 @@ const Activity = lazyWithRetry(() => import('./pages/Activity'));
 const Retention = lazyWithRetry(() => import('./pages/Retention'));
 const Notes = lazyWithRetry(() => import('./pages/Notes'));
 const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
+const Paywall = lazyWithRetry(() => import('./components/Paywall'));
 
 import { useAuth } from './context/useAuth';
 import { useSubscription } from './hooks/useSubscription';
-import Paywall from './components/Paywall';
 import { useAppStore } from './store/useAppStore';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
@@ -166,7 +166,9 @@ function MainLayout() {
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative">
       {!isPremium && (
         <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
-          <Paywall user={currentUser} onLogout={logout} />
+          <Suspense fallback={null}>
+            <Paywall user={currentUser} onLogout={logout} />
+          </Suspense>
         </div>
       )}
       <Sidebar
