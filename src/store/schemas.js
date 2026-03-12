@@ -144,8 +144,7 @@ export const validateAppState = (data) => {
   let dataToValidate = data;
 
   // 1. MIGRATION: detecta se o dado recebido (do Firebase ou Local) está no formato antigo
-  // Formato antigo: { categories: [...], user: {...}, etc } sem a chave 'contests'
-  const isLegacy = data && data.categories && !data.contests;
+  const isLegacy = data && data.categories && Array.isArray(data.categories) && !data.contests;
   
   if (isLegacy) {
     console.warn("[Migration] Dados legados detectados no input. Migrando...");
@@ -157,27 +156,44 @@ export const validateAppState = (data) => {
     };
   }
 
-  // 2. RESCUE: Se o estado atual for inicial/vazio, tentamos o LocalStorage (último recurso)
+  // 2. RESCUE: Vasculhar TODAS as chaves possíveis se o app estiver vazio
   const contests = dataToValidate?.contests || {};
+  const hasNoContent = Object.values(contests).every(c => !c.categories || c.categories.length === 0);
   const isInitial = Object.keys(contests).length <= 1 && 
-                    (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante");
+                    (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante" || hasNoContent);
 
   if (isInitial && typeof window !== 'undefined') {
-    try {
-      const legacyData = localStorage.getItem('ultra-dashboard-data');
-      if (legacyData) {
-        const parsedLegacy = JSON.parse(legacyData);
-        if (parsedLegacy.categories || parsedLegacy.contests) {
-          console.warn("[Migration] Resgatando dados do LocalStorage antigo...");
-          if (parsedLegacy.categories && !parsedLegacy.contests) {
-            dataToValidate = { contests: { 'default': parsedLegacy }, activeId: 'default', lastUpdated: new Date().toISOString() };
-          } else {
-            dataToValidate = parsedLegacy;
+    const backupKeys = [
+      'ultra-dashboard-data',
+      'ultra-dashboard-v8',
+      'ultra-dashboard-storage-v8',
+      'ultra-dashboard-data-backup-safety'
+    ];
+
+    for (const key of backupKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // Se for o formato do Zustand (com .state)
+          const stateData = parsed.state?.appState || parsed;
+          
+          const hasData = (stateData.categories && stateData.categories.length > 0) || 
+                          (stateData.contests && Object.keys(stateData.contests).length > 0);
+          
+          if (hasData) {
+            console.warn(`[Migration] RESGATE DE EMERGÊNCIA: Dados encontrados em '${key}'. Aplicando...`);
+            if (stateData.categories && !stateData.contests) {
+              dataToValidate = { contests: { 'default': stateData }, activeId: 'default', lastUpdated: new Date().toISOString() };
+            } else {
+              dataToValidate = stateData;
+            }
+            break; // Para na primeira chave que tiver dados reais
           }
         }
+      } catch (e) {
+        console.warn(`[Migration] Falha ao ler chave ${key}:`, e);
       }
-    } catch (e) {
-      console.error("[Migration] Erro no resgate:", e);
     }
   }
 

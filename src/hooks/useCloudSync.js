@@ -107,26 +107,27 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             let shouldPullCloud = false;
 
             if (isBootSync) {
-                // Bug Fix: Não usar "0" como fallback se o Date falhar, use o tempo atual.
-                // Isso previne que a nuvem seja sempre rejeitada se faltar a prop `lastUpdated` no banco.
                 const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
-                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? Date.now() : cloudUpdatedRaw.getTime(); // B-15 FIX
+                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? Date.now() : cloudUpdatedRaw.getTime();
 
                 const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
-                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? Date.now() : localUpdatedRaw.getTime(); // B-15 FIX
+                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
-                // Regra Mestre de Boot: A nuvem vence ACESSOS em novos aparelhos,
-                // A MENOS que o local seja ESTRITAMENTE mais novo (cenário de Offline-Progress salvo).
-                // Adicionada tolerância estrita de 5s para clock-drifts de NTP.
-                if (cloudUpdated >= localUpdated - 5000) {
+                // Regra Mestre de Resgate: Se local for 1970 (zerado) e a nuvem tem QUALQUER coisa, a nuvem vence.
+                const localIsInitial = localUpdated <= 0 || appStateRef.current?.user?.name === "Estudante";
+                const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) || 
+                                        (cloudData.contests && Object.keys(cloudData.contests).length > 0);
+
+                if (localIsInitial && cloudHasContent) {
+                    console.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
+                    shouldPullCloud = true;
+                } else if (cloudUpdated >= localUpdated - 5000) {
                     shouldPullCloud = true;
                 } else {
-                    console.warn(`[Sync] RECUSANDO NUVEM NO BOOT! Local é mais recente (Trabalho Offline salvo). Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
+                    console.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
                     shouldPullCloud = false;
                 }
             } else {
-                // Se o App já está rolando (Hot Sync), a nuvem envia live-updates (Telas duplas).
-                // Aceitamos a nuvem SÓ SE o usuário não está digitando ativamente.
                 shouldPullCloud = !localWasJustEdited;
             }
 
