@@ -176,39 +176,61 @@ export const validateAppState = (data) => {
                     (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante" || hasNoContent);
 
   if (isInitial && typeof window !== 'undefined') {
-    const backupKeys = [
-      'ultra-dashboard-storage', 
-      'ultra-dashboard-data',
-      'ultra-dashboard-v8',
-      'ultra-dashboard-storage-v8',
-      'ultra-dashboard-data-backup-safety'
-    ];
+    try {
+      // Scanner dinâmico: busca em TODAS as chaves do LocalStorage que pareçam ser desse app
+      const allKeys = Object.keys(localStorage).filter(k => k.toLowerCase().includes('ultra-dashboard'));
+      
+      console.log("[Rescue] Iniciando Scanner de Emergência em chaves:", allKeys);
 
-    for (const key of backupKeys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) {
+      let bestRescueCandidate = null;
+      let foundDireito = false;
+
+      for (const key of allKeys) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          
+          // Busca textual rápida por 'Direito' para priorizar a chave
+          const hasDireitoRaw = raw.toLowerCase().includes('"direito"');
+          
           const parsed = JSON.parse(raw);
           const stateData = extractCore(parsed);
           
           if (stateData) {
-            const hasRealData = (stateData.categories && stateData.categories.length > 0) || 
-                                (stateData.contests && Object.keys(stateData.contests).length > 0);
+            const hasCategories = stateData.categories && stateData.categories.length > 0;
+            const hasContestsWithData = stateData.contests && Object.values(stateData.contests).some(c => c.categories && c.categories.length > 0);
             
-            if (hasRealData) {
-              console.warn(`[Migration] RESGATE DE EMERGÊNCIA: Dados encontrados em '${key}'.`);
-              if (stateData.categories && !stateData.contests) {
-                dataToValidate = { contests: { 'default': stateData }, activeId: 'default', lastUpdated: new Date().toISOString() };
-              } else {
-                dataToValidate = stateData;
+            if (hasCategories || hasContestsWithData) {
+              console.log(`[Rescue] Candidato encontrado em '${key}' (Direito: ${hasDireitoRaw})`);
+              
+              // Prioridade 1: Chave que contém 'Direito'
+              if (hasDireitoRaw) {
+                bestRescueCandidate = stateData;
+                foundDireito = true;
+                console.warn(`[Rescue] SUCESSO! Encontrado rastro de 'Direito' na chave '${key}'. Forçando restauração.`);
+                break; 
               }
-              break; 
+              
+              // Prioridade 2: Primeira chave com dados reais se ainda não achamos 'Direito'
+              if (!bestRescueCandidate) {
+                bestRescueCandidate = stateData;
+              }
             }
           }
+        } catch (e) {
+          // Ignora erros de parse em chaves que não são nossas
         }
-      } catch (e) {
-        console.warn(`[Migration] Falha ao ler chave ${key}:`, e);
       }
+
+      if (bestRescueCandidate) {
+        if (bestRescueCandidate.categories && !bestRescueCandidate.contests) {
+          dataToValidate = { contests: { 'default': bestRescueCandidate }, activeId: 'default', lastUpdated: new Date().toISOString() };
+        } else {
+          dataToValidate = bestRescueCandidate;
+        }
+      }
+    } catch (globalE) {
+      console.error("[Rescue] Erro crítico no scanner:", globalE);
     }
   }
 
