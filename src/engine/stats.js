@@ -30,16 +30,18 @@ export function standardDeviation(arr) {
     return Math.sqrt(adjustedVar);
 }
 
-export function calculateTrend(scores) {
-    if (!scores || scores.length < 3) return 0;
+export function calculateTrend(history) {
+    if (!history || history.length < 3) return 0;
 
-    const recentScores = scores.slice(-10);
-    const n = recentScores.length;
+    const recentHistory = history.slice(-10);
+    const n = recentHistory.length;
 
-    const x = recentScores.map((_, i) => i);
-    const y = recentScores;
+    // Use actual time (days) for regression to avoid distortions from irregular intervals
+    const startTime = new Date(recentHistory[0].date).getTime();
+    const x = recentHistory.map(h => (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24));
+    const y = recentHistory.map(h => getSafeScore(h));
 
-    const meanX = (n - 1) / 2;
+    const meanX = x.reduce((a, b) => a + b, 0) / n;
     const meanY = mean(y);
 
     let num = 0;
@@ -93,8 +95,8 @@ export function calculateTrend(scores) {
 
     /**
      * BUG-M4: Trend amplification factor.
-     * We multiply the slope by 10 to represent "points per 10 exams",
-     * which aligns with the UI thresholds (0.5 = 5 points gain in 10 exams).
+     * We multiply the slope by 10 to represent "points per 10 days",
+     * which maintains backward compatibility with UI thresholds (0.5 = 5 points gain in 10 days).
      */
     return slope * 10;
 }
@@ -180,7 +182,7 @@ export function computeCategoryStats(history, weight) {
     const m = dynamicMean;
     const sd = standardDeviation(scores);
     const safeSD = Math.max(sd, m * 0.02);
-    const rawTrend = calculateTrend(scores);
+    const rawTrend = calculateTrend(historyToUse);
 
     let trendLabel = 'stable';
     if (rawTrend > 0.5) trendLabel = 'up';

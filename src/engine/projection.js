@@ -88,8 +88,8 @@ export function calculateSlope(history) {
     const historyBoost =
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
-    const baseLimit = 1.2;
-    const absoluteMax = 1.5;
+    const baseLimit = 0.4;
+    const absoluteMax = 0.4;
 
     const dynamicLimit = Math.min(
         absoluteMax,

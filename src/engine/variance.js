@@ -51,6 +51,11 @@ export function computeTimeUncertainty(projectDays) {
  * Compute pooled standard deviation combining all sources
  * Formula: σ_pooled = √(σ²_weighted + σ²_time)
  * 
+ * NOTE: This combines two different conceptual units: σ_weighted (historical variation 
+ * between exams) and σ_time (trajectory uncertainty). While pragmatically useful for 
+ * confidence bands, the resulting value is a composite estimator, not a pure 
+ * frequentist SD.
+ * 
  * @param {Object[]} stats - Array of category statistics
  * @param {number} totalWeight - Sum of all weights
  * @param {number} projectDays - Days to project forward
