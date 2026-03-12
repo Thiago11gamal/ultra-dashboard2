@@ -176,13 +176,18 @@ export const validateAppState = (data) => {
     };
   }
 
-  // 2. RESCUE: Vasculhar TODAS as chaves possíveis se o app estiver vazio/inicial
+  // 2. RESCUE: Vasculhar TODAS as chaves possíveis se o app estiver vazio/inicial ou se o usuário perdeu 'Direito'
   const contests = dataToValidate?.contests || {};
   const hasNoContent = Object.values(contests).every(c => !c.categories || c.categories.length === 0);
+  const currentHasDireito = JSON.stringify(dataToValidate).toLowerCase().includes('direito');
+  
   const isInitial = Object.keys(contests).length <= 1 && 
                     (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante" || hasNoContent);
 
-  if (isInitial && typeof window !== 'undefined') {
+  // Executamos o scanner se estiver inicial OU se o usuário está procurando 'Direito' e não temos nada com esse nome
+  const shouldRunRescueScanner = isInitial || !currentHasDireito;
+
+  if (shouldRunRescueScanner && typeof window !== 'undefined') {
     try {
       // 1. SCANNER UNIVERSAL: Busca em ABSOLUTAMENTE TODAS as chaves do LocalStorage
       const allKeys = Object.keys(localStorage);
