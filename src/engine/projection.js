@@ -290,15 +290,34 @@ export function monteCarloSimulation(
     let welfordM2 = 0;
     let welfordCount = 0;
 
-    // T=0 FIX: If projecting for today (0 days), don't run Monte Carlo at all.
-    // Standard simulation with Math.max(1, days) injects unnecessary noise shock,
-    // causing the Confidence Interval to explode from ~15pp (Bayesian) to ~35pp (MC 1-day).
+    // T=0 FIX: If projecting for today (0 days), don't run FULL Monte Carlo, 
+    // BUT we must calculate a proper probability distribution based on the Bayesian CI,
+    // not just a hardcoded 0 or 100%.
     if (days === 0 && forcedBaseline !== undefined && options.bayesianCI) {
         const { ciLow, ciHigh } = options.bayesianCI;
+        
+        // Infer standard deviation from the 95% CI (roughly 4 standard deviations wide)
+        const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 4);
+        
+        // Calculate theoretical probability using cumulative normal distribution approximation
+        const zScore = (targetScore - forcedBaseline) / inferredSD;
+        
+        // Abramowitz & Stegun approximation for cumulative normal distribution
+        const t = 1 / (1 + 0.2316419 * Math.abs(zScore));
+        const d = 0.3989423 * Math.exp(-zScore * zScore / 2);
+        let probability = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+        
+        if (zScore > 0) probability = 1 - probability;
+        probability = probability * 100; // Convert to percentage
+        
+        // Ensure probability is not identically 0 or 100 unless extremely far off
+        if (probability < 0.1) probability = 0.1;
+        if (probability > 99.9) probability = 99.9;
+
         return {
-            probability: forcedBaseline >= targetScore ? 100 : 0,
+            probability: Number(probability.toFixed(1)), // Use the calculated theoretical probability
             mean: Number(forcedBaseline.toFixed(1)),
-            sd: 0,
+            sd: Number(inferredSD.toFixed(1)), // Pass the inferred SD so the chart draws a proper bell curve
             ci95Low: Number(ciLow.toFixed(1)),
             ci95High: Number(ciHigh.toFixed(1)),
             currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
