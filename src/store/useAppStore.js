@@ -530,29 +530,31 @@ export const useAppStore = create(
             merge: (persistedState, currentState) => {
                 const persisted = persistedState?.appState;
                 const current = currentState.appState;
-                const isDefaultState = persisted?.lastUpdated === "1970-01-01T00:00:00.000Z";
-                if (!persisted || isDefaultState) return currentState;
-                const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
-                const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
-                let activeId = persisted.activeId || current.activeId;
-                if (!contests[activeId]) activeId = Object.keys(contests)[0] || 'default';
+
+                // Se houver dados persistidos, fazemos o merge básico primeiro
+                let baseState = persisted || current;
                 
-                const mergedState = {
-                    ...currentState,
-                    appState: {
+                if (persisted && persisted.lastUpdated !== "1970-01-01T00:00:00.000Z") {
+                    const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
+                    const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
+                    let activeId = persisted.activeId || current.activeId;
+                    if (!contests[activeId]) activeId = Object.keys(contests)[0] || 'default';
+                    
+                    baseState = {
                         ...current,
                         ...persisted,
                         contests,
                         activeId,
                         history: persisted.history || [],
                         lastUpdated: persisted.lastUpdated || current.lastUpdated
-                    }
-                };
+                    };
+                }
 
-                // Validação e limpeza profunda com Zod
-                mergedState.appState = validateAppState(mergedState.appState);
-                
-                return mergedState;
+                // A mágica acontece aqui: validateAppState fará a migração se baseState for o inicial
+                return {
+                    ...currentState,
+                    appState: validateAppState(baseState)
+                };
             }
         }
     )
