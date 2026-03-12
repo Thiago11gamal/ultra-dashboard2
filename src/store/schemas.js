@@ -252,6 +252,9 @@ export const validateAppState = (data) => {
 
       if (bestRescueCandidate && typeof window !== 'undefined') {
         const now = new Date().toISOString();
+        console.log(`[Rescue-Audit] Alvo encontrado! Categorias:`, bestRescueCandidate.categories?.length, `Concursos:`, Object.keys(bestRescueCandidate.contests || {}).length);
+        
+        window.DEBUG_RESCUE_DATA = JSON.parse(JSON.stringify(bestRescueCandidate)); // Backup bruto para inspeção
         
         // Formata o candidato para o Dashboard
         window.__ULTRA_RESCUE_CANDIDATE = { 
@@ -262,11 +265,18 @@ export const validateAppState = (data) => {
         };
 
         // AUTO-APLICAR apenas se estivermos em modo de resgate inicial/proativo
-        if (shouldRunRescueScanner && highestScore >= 150) {
-          console.warn(`[Rescue] AUTO-APLICANDO MELHOR CANDIDATO (Score: ${highestScore})`);
+        if (shouldRunRescueScanner && highestScore >= 130) {
+          console.warn(`[Rescue-Audit] AUTO-APLICANDO AGORA! Score: ${highestScore}`);
           dataToValidate = window.__ULTRA_RESCUE_CANDIDATE.data;
+          
+          // FORÇAMOS A ESCRITA NO LOCALSTORAGE PARA GARANTIR QUE PERSISTA
+          localStorage.setItem('ultra-dashboard-data', JSON.stringify(dataToValidate));
+          localStorage.setItem('ultra-dashboard-storage', JSON.stringify({ state: { appState: dataToValidate }, version: 1 }));
+
           window.__ULTRA_RESCUE_SUCCESS = { score: highestScore, time: now };
-          delete window.__ULTRA_RESCUE_CANDIDATE; // Remove o banner se já auto-aplicou
+          delete window.__ULTRA_RESCUE_CANDIDATE; 
+        } else {
+          console.log(`[Rescue-Audit] Candidato disponível mas não auto-aplicado (Score: ${highestScore}, Scanner: ${shouldRunRescueScanner})`);
         }
       }
     } catch (globalE) {

@@ -124,10 +124,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 if (localIsInitial && cloudHasContent) {
                     console.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
                     shouldPullCloud = true;
-                } else if (cloudUpdated >= localUpdated - 5000) {
-                    shouldPullCloud = true;
                 } else {
                     console.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
+                    shouldPullCloud = false;
+                }
+
+                // PROTEÇÃO ANTI-SOBRECRITA DE RESGATE
+                if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
+                    console.warn("[Sync] BLOQUEIO DE RESGATE ATIVO. Recusando pull da nuvem para proteger dados locais.");
                     shouldPullCloud = false;
                 }
             } else {
