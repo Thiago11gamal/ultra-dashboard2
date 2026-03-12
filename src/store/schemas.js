@@ -30,21 +30,25 @@ const UserSchema = z.object({
 });
 
 const TaskSchema = z.object({
-  id: z.string(),
-  text: z.string(),
+  id: z.string().catch(() => `task_${Math.random().toString(36).substr(2, 9)}`),
+  text: z.string().catch("Nova Tarefa"),
   title: z.string().optional(),
   completed: z.boolean().catch(false),
   completedAt: z.string().nullable().optional(),
   lastStudiedAt: z.string().nullable().optional(),
   priority: z.enum(['low', 'medium', 'high']).catch('medium')
-});
+}).catch(null); // Permite filtrar tarefas inválidas
 
 const CategorySchema = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().catch(() => `cat_${Math.random().toString(36).substr(2, 9)}`),
+  name: z.string().catch("Sem Nome"),
   color: z.string().default('#3b82f6'),
   icon: z.string().default('📚'),
-  tasks: z.array(TaskSchema).catch([]),
+  tasks: z.array(z.any())
+    .transform(arr => arr.map(t => {
+      try { return TaskSchema.parse(t); } catch { return null; }
+    }).filter(Boolean))
+    .catch([]),
   weight: z.number().catch(10),
   totalMinutes: z.number().catch(0),
   lastStudiedAt: z.string().nullable().optional(),
@@ -61,11 +65,15 @@ const CategorySchema = z.object({
     trend: 'stable',
     level: 'BAIXO'
   })
-});
+}).catch(null); // Permite filtrar categorias inválidas
 
 const ContestDataSchema = z.object({
   user: UserSchema,
-  categories: z.array(CategorySchema).catch([]),
+  categories: z.array(z.any())
+    .transform(arr => (Array.isArray(arr) ? arr : []).map(c => {
+      try { return CategorySchema.parse(c); } catch { return null; }
+    }).filter(Boolean))
+    .catch([]),
   simuladoRows: z.array(z.any()).catch([]),
   simulados: z.array(z.any()).catch([]),
   studyLogs: z.array(z.any()).catch([]),
@@ -88,17 +96,21 @@ const ContestDataSchema = z.object({
 export const AppStateSchema = z.object({
   contests: z.record(z.any()).transform((val) => {
     const validated = {};
+    if (!val || typeof val !== 'object') return { 'default': INITIAL_DATA };
+    
     Object.entries(val).forEach(([id, data]) => {
       try {
-        // Validação individual por concurso
-        validated[id] = ContestDataSchema.parse(data);
+        // Se o dado for o formato antigo (um concurso direto), migramos
+        if (data && data.categories && !data.contests) {
+           validated[id] = ContestDataSchema.parse(data);
+        } else {
+           validated[id] = ContestDataSchema.parse(data);
+        }
       } catch (e) {
         console.error(`[Schema Validation] Falha no concurso ${id}:`, e);
-        // Se falhar, tentamos salvar o que for possível ou ignoramos o item corrompido
       }
     });
 
-    // Garantia de pelo menos um concurso default
     if (Object.keys(validated).length === 0) {
       return { 'default': INITIAL_DATA };
     }
@@ -111,8 +123,6 @@ export const AppStateSchema = z.object({
   mcEqualWeights: z.boolean().catch(true),
   lastUpdated: z.string().catch(() => new Date().toISOString())
 }).transform((data) => {
-  // Garantia: activeId DEVE existir em contests. 
-  // Diferente de superRefine, o transform REALMENTE altera o dado.
   if (!data.contests[data.activeId]) {
     const firstId = Object.keys(data.contests)[0];
     if (firstId) {
@@ -127,14 +137,41 @@ export const AppStateSchema = z.object({
 
 /**
  * Valida o estado completo e retorna uma versão "limpa".
- * Se algo estiver gravemente errado, o Zod aplicará os defaults/catch.
  */
 export const validateAppState = (data) => {
+  // --- MIGRATION LOGIC ---
+  // Se o estado estiver vazio, tentamos buscar da chave legada 'ultra-dashboard-data'
+  let dataToValidate = data;
+  const isEssentiallyEmpty = !data || !data.contests || Object.keys(data.contests).length === 0 || 
+                             (Object.keys(data.contests).length === 1 && data.contests.default?.lastUpdated === "1970-01-01T00:00:00.000Z");
+
+  if (isEssentiallyEmpty && typeof window !== 'undefined') {
+    try {
+      const legacyData = localStorage.getItem('ultra-dashboard-data');
+      if (legacyData) {
+        const parsedLegacy = JSON.parse(legacyData);
+        console.warn("[Migration] Dados legados detectados. Iniciando migração...");
+        
+        // Se for o formato antigo (um concurso direto)
+        if (parsedLegacy.categories && !parsedLegacy.contests) {
+          dataToValidate = {
+            contests: { 'default': parsedLegacy },
+            activeId: 'default',
+            lastUpdated: new Date().toISOString()
+          };
+        } else if (parsedLegacy.contests) {
+          dataToValidate = parsedLegacy;
+        }
+      }
+    } catch (e) {
+      console.error("[Migration] Erro ao migrar dados legados:", e);
+    }
+  }
+
   try {
-    return AppStateSchema.parse(data);
+    return AppStateSchema.parse(dataToValidate);
   } catch (e) {
     console.error("[Schema Validation] Erro Crítico:", e);
-    // Retorna o dado original se falhar miseravelmente (safeguard)
-    return data;
+    return dataToValidate;
   }
 };
