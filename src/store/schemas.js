@@ -139,12 +139,26 @@ export const AppStateSchema = z.object({
  * Valida o estado completo e retorna uma versão "limpa".
  */
 export const validateAppState = (data) => {
-  // --- MIGRATION LOGIC ---
-  // Se o estado estiver vazio ou for apenas o inicial, buscamos da chave legada
+  if (!data) return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
+
   let dataToValidate = data;
+
+  // 1. MIGRATION: detecta se o dado recebido (do Firebase ou Local) está no formato antigo
+  // Formato antigo: { categories: [...], user: {...}, etc } sem a chave 'contests'
+  const isLegacy = data && data.categories && !data.contests;
   
-  // Condição de "Estado Inicial": sem histórico, sem categorias ou com o timestamp de 1970 do INITIAL_DATA
-  const contests = data?.contests || {};
+  if (isLegacy) {
+    console.warn("[Migration] Dados legados detectados no input. Migrando...");
+    dataToValidate = {
+      contests: { 'default': data },
+      activeId: 'default',
+      lastUpdated: data.lastUpdated || new Date().toISOString(),
+      version: data.version || 0
+    };
+  }
+
+  // 2. RESCUE: Se o estado atual for inicial/vazio, tentamos o LocalStorage (último recurso)
+  const contests = dataToValidate?.contests || {};
   const isInitial = Object.keys(contests).length <= 1 && 
                     (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante");
 
@@ -153,26 +167,17 @@ export const validateAppState = (data) => {
       const legacyData = localStorage.getItem('ultra-dashboard-data');
       if (legacyData) {
         const parsedLegacy = JSON.parse(legacyData);
-        // Verifica se o legacy não está vazio
-        const hasLegacyCategories = (parsedLegacy.categories && parsedLegacy.categories.length > 0) || 
-                                     (parsedLegacy.contests && Object.keys(parsedLegacy.contests).length > 0);
-        
-        if (hasLegacyCategories) {
-          console.warn("[Migration] Dados legados potentes detectados. Forçando migração...");
-          
+        if (parsedLegacy.categories || parsedLegacy.contests) {
+          console.warn("[Migration] Resgatando dados do LocalStorage antigo...");
           if (parsedLegacy.categories && !parsedLegacy.contests) {
-            dataToValidate = {
-              contests: { 'default': parsedLegacy },
-              activeId: 'default',
-              lastUpdated: new Date().toISOString()
-            };
-          } else if (parsedLegacy.contests) {
+            dataToValidate = { contests: { 'default': parsedLegacy }, activeId: 'default', lastUpdated: new Date().toISOString() };
+          } else {
             dataToValidate = parsedLegacy;
           }
         }
       }
     } catch (e) {
-      console.error("[Migration] Erro ao migrar dados legados:", e);
+      console.error("[Migration] Erro no resgate:", e);
     }
   }
 

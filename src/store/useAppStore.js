@@ -142,8 +142,11 @@ export const useAppStore = create(
             }),
 
             setAppState: (newStateObj) => set((state) => {
-                const nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
-                if (!nextState || !nextState.contests || !nextState.activeId) return;
+                let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+                if (!nextState) return;
+
+                // A mágica da migração acontece aqui para dados externos (ex: Firebase)
+                nextState = validateAppState(nextState);
 
                 recordHistory(state.appState);
 
@@ -156,9 +159,6 @@ export const useAppStore = create(
                 if (nextState.history && nextState.history.length > 0) {
                     state.appState.history = nextState.history;
                 }
-                
-                // Validação final antes de cometer
-                state.appState = validateAppState(state.appState);
                 
                 state.appState.lastHistoryTime = 0;
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
