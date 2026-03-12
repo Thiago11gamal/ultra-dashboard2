@@ -110,12 +110,19 @@ export const AppStateSchema = z.object({
   version: z.number().catch(0),
   mcEqualWeights: z.boolean().catch(true),
   lastUpdated: z.string().catch(() => new Date().toISOString())
-}).superRefine((data) => {
-  // Garantia: activeId DEVE existir em contests
+}).transform((data) => {
+  // Garantia: activeId DEVE existir em contests. 
+  // Diferente de superRefine, o transform REALMENTE altera o dado.
   if (!data.contests[data.activeId]) {
-    data.activeId = Object.keys(data.contests)[0] || 'default';
+    const firstId = Object.keys(data.contests)[0];
+    if (firstId) {
+      data.activeId = firstId;
+    } else {
+      data.contests['default'] = INITIAL_DATA;
+      data.activeId = 'default';
+    }
   }
-  return true;
+  return data;
 });
 
 /**
