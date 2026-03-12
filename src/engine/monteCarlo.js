@@ -10,25 +10,7 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  // T-00 FIX: If Bayesian CI is provided and we are in static mode (drift=0, etc)
-  // we use the narrow Bayesian interval instead of the wide MC simulation.
-  if (bayesianCI) {
-    return {
-      probability: safeMean >= safeTarget ? 100 : 0,
-      mean: Number(safeMean.toFixed(1)),
-      sd: 0,
-      ci95Low: Number(bayesianCI.ciLow.toFixed(1)),
-      ci95High: Number(bayesianCI.ciHigh.toFixed(1)),
-      currentMean: Number(safeCurrentMean.toFixed(1)),
-      projectedMean: safeMean,
-      projectedSD: 0,
-      drift: 0,
-      volatility: 0,
-      method: 'bayesian_static'
-    };
-  }
-
-  // MEL-4: Incorporate a hash of the category name and target score for uniqueness
+  // Hash da categoria para manter consistência no gerador de números aleatórios
   const categoryHash = (categoryName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const stableSeed = seed ?? (
     Math.round(safeMean * 100) * 100003 +
@@ -40,34 +22,18 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const rng = mulberry32(stableSeed);
   let success = 0;
 
-  // Math fix: Welford online variance (numerically stable)
+  // Variância online de Welford
   let welfordMean = 0;
   let welfordM2 = 0;
   let welfordCount = 0;
 
-  // Math fix: empirical percentiles for CI instead of ±1.96σ on truncated distribution
   const allScores = new Array(safeSimulations);
 
-  // T-00 FIX: If Bayesian CI is provided and we are in static mode (drift=0, etc)
-  // we use the narrow Bayesian interval instead of the wide MC simulation.
-  if (options?.bayesianCI) {
-    return {
-      probability: safeMean >= safeTarget ? 100 : 0,
-      mean: Number(safeMean.toFixed(1)),
-      sd: 0,
-      ci95Low: Number(options.bayesianCI.ciLow.toFixed(1)),
-      ci95High: Number(options.bayesianCI.ciHigh.toFixed(1)),
-      currentMean: Number(safeCurrentMean.toFixed(1)),
-      projectedMean: safeMean,
-      projectedSD: 0,
-      drift: 0,
-      volatility: 0,
-      method: 'bayesian_static'
-    };
-  }
-
+  // LOOP DA SIMULAÇÃO (agora não é mais ignorado)
   for (let i = 0; i < safeSimulations; i++) {
     const score = Math.max(0, Math.min(100, safeMean + randomNormal(rng) * safeSD));
+    
+    // Calcula quantos cenários atingiram a nota alvo
     if (score >= safeTarget) success++;
 
     allScores[i] = score;
@@ -89,14 +55,15 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
     probability: (success / safeSimulations) * 100,
     mean: Number(projectedMean.toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
-    ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
+    // Preserva a intenção original de usar o CI Bayesiano se fornecido, sem quebrar o cálculo
+    ci95Low: bayesianCI ? Number(bayesianCI.ciLow.toFixed(1)) : Number(Math.max(0, allScores[p025idx]).toFixed(1)),
+    ci95High: bayesianCI ? Number(bayesianCI.ciHigh.toFixed(1)) : Number(Math.min(100, allScores[p975idx]).toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
     drift: 0,
     volatility: safeSD,
-    method: 'normal'
+    method: bayesianCI ? 'bayesian_static' : 'normal'
   };
 }
 
