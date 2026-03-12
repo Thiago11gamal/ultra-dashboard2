@@ -141,22 +141,35 @@ export const AppStateSchema = z.object({
 export const validateAppState = (data) => {
   if (!data) return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
 
-  let dataToValidate = data;
+  /**
+   * Tenta extrair o núcleo dos dados (contests ou categories) de estruturas aninhadas.
+   * Lida com { state: { appState: ... } } (Zustand) ou { appState: ... }
+   */
+  const extractCore = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    if (obj.contests || (obj.categories && Array.isArray(obj.categories))) return obj;
+    if (obj.appState) return extractCore(obj.appState);
+    if (obj.state) return extractCore(obj.state);
+    return null;
+  };
 
-  // 1. MIGRATION: detecta se o dado recebido (do Firebase ou Local) está no formato antigo
-  const isLegacy = data && data.categories && Array.isArray(data.categories) && !data.contests;
+  let coreData = extractCore(data);
+  let dataToValidate = coreData || data;
+
+  // 1. MIGRATION: detecta se o dado (Firebase/Local) está no formato antigo (único concurso)
+  const isLegacy = dataToValidate && dataToValidate.categories && Array.isArray(dataToValidate.categories) && !dataToValidate.contests;
   
   if (isLegacy) {
     console.warn("[Migration] Dados legados detectados no input. Migrando...");
     dataToValidate = {
-      contests: { 'default': data },
+      contests: { 'default': dataToValidate },
       activeId: 'default',
-      lastUpdated: data.lastUpdated || new Date().toISOString(),
-      version: data.version || 0
+      lastUpdated: dataToValidate.lastUpdated || new Date().toISOString(),
+      version: dataToValidate.version || 0
     };
   }
 
-  // 2. RESCUE: Vasculhar TODAS as chaves possíveis se o app estiver vazio
+  // 2. RESCUE: Vasculhar TODAS as chaves possíveis se o app estiver vazio/inicial
   const contests = dataToValidate?.contests || {};
   const hasNoContent = Object.values(contests).every(c => !c.categories || c.categories.length === 0);
   const isInitial = Object.keys(contests).length <= 1 && 
@@ -164,6 +177,7 @@ export const validateAppState = (data) => {
 
   if (isInitial && typeof window !== 'undefined') {
     const backupKeys = [
+      'ultra-dashboard-storage', 
       'ultra-dashboard-data',
       'ultra-dashboard-v8',
       'ultra-dashboard-storage-v8',
@@ -175,20 +189,21 @@ export const validateAppState = (data) => {
         const raw = localStorage.getItem(key);
         if (raw) {
           const parsed = JSON.parse(raw);
-          // Se for o formato do Zustand (com .state)
-          const stateData = parsed.state?.appState || parsed;
+          const stateData = extractCore(parsed);
           
-          const hasData = (stateData.categories && stateData.categories.length > 0) || 
-                          (stateData.contests && Object.keys(stateData.contests).length > 0);
-          
-          if (hasData) {
-            console.warn(`[Migration] RESGATE DE EMERGÊNCIA: Dados encontrados em '${key}'. Aplicando...`);
-            if (stateData.categories && !stateData.contests) {
-              dataToValidate = { contests: { 'default': stateData }, activeId: 'default', lastUpdated: new Date().toISOString() };
-            } else {
-              dataToValidate = stateData;
+          if (stateData) {
+            const hasRealData = (stateData.categories && stateData.categories.length > 0) || 
+                                (stateData.contests && Object.keys(stateData.contests).length > 0);
+            
+            if (hasRealData) {
+              console.warn(`[Migration] RESGATE DE EMERGÊNCIA: Dados encontrados em '${key}'.`);
+              if (stateData.categories && !stateData.contests) {
+                dataToValidate = { contests: { 'default': stateData }, activeId: 'default', lastUpdated: new Date().toISOString() };
+              } else {
+                dataToValidate = stateData;
+              }
+              break; 
             }
-            break; // Para na primeira chave que tiver dados reais
           }
         }
       } catch (e) {
@@ -201,6 +216,12 @@ export const validateAppState = (data) => {
     return AppStateSchema.parse(dataToValidate);
   } catch (e) {
     console.error("[Schema Validation] Erro Crítico:", e);
-    return dataToValidate;
+    // Fallback absoluto: tenta retornar o objeto garantindo estrutura mínima
+    return {
+      contests: dataToValidate?.contests || { 'default': INITIAL_DATA },
+      activeId: dataToValidate?.activeId || 'default',
+      lastUpdated: dataToValidate?.lastUpdated || new Date().toISOString(),
+      version: dataToValidate?.version || 0
+    };
   }
 };

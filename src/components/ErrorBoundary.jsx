@@ -56,11 +56,25 @@ class ErrorBoundary extends React.Component {
                         </button>
                         <button
                             onClick={() => {
-                                const data = localStorage.getItem('ultra-dashboard-storage');
-                                if (data) {
-                                    navigator.clipboard.writeText(data).then(() => alert('Dados copiados para a área de transferência! Salve em um arquivo de texto.'));
+                                const backupKeys = [
+                                    'ultra-dashboard-storage', 
+                                    'ultra-dashboard-data',
+                                    'ultra-dashboard-v8',
+                                    'ultra-dashboard-storage-v8',
+                                    'ultra-dashboard-data-backup-safety'
+                                ];
+                                let foundData = {};
+                                backupKeys.forEach(key => {
+                                    const val = localStorage.getItem(key);
+                                    if (val) foundData[key] = val;
+                                });
+
+                                if (Object.keys(foundData).length > 0) {
+                                    navigator.clipboard.writeText(JSON.stringify(foundData, null, 2)).then(() => 
+                                        alert('Dados de resgate copiados! Foram encontrados dados em: ' + Object.keys(foundData).join(', '))
+                                    );
                                 } else {
-                                    alert('Nenhum dado encontrado para copiar.');
+                                    alert('Nenhum dado encontrado em nenhuma chave local.');
                                 }
                             }}
                             className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-colors border border-white/10"

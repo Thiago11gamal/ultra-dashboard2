@@ -113,10 +113,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
                 const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
-                // Regra Mestre de Resgate: Se local for 1970 (zerado) e a nuvem tem QUALQUER coisa, a nuvem vence.
-                const localIsInitial = localUpdated <= 0 || appStateRef.current?.user?.name === "Estudante";
+                const localIsInitial = localUpdated <= 0 || 
+                                       appStateRef.current?.user?.name === "Estudante" || 
+                                       !appStateRef.current?.contests || 
+                                       Object.values(appStateRef.current.contests).every(c => !c.categories || c.categories.length === 0);
+
                 const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) || 
-                                        (cloudData.contests && Object.keys(cloudData.contests).length > 0);
+                                        (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
 
                 if (localIsInitial && cloudHasContent) {
                     console.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
