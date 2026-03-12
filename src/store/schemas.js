@@ -208,27 +208,30 @@ export const validateAppState = (data) => {
 
           const stateData = extractCore(parsed);
           
-          if (stateData) {
+            if (stateData) {
             let score = 0;
-            const hasCategories = Array.isArray(stateData.categories) && stateData.categories.length > 0;
-            const hasContests = stateData.contests && Object.values(stateData.contests).some(c => c.categories && c.categories.length > 0);
-            const isDireitoUser = stateData.user?.name?.toLowerCase().includes('direito');
-            const hasDireitoInCategories = hasCategories && JSON.stringify(stateData.categories).toLowerCase().includes('direito');
-            const hasDireitoInContests = hasContests && JSON.stringify(stateData.contests).toLowerCase().includes('direito');
+            const categoryCount = Array.isArray(stateData.categories) ? stateData.categories.length : 0;
+            const contestsWithData = stateData.contests ? Object.values(stateData.contests).filter(c => c.categories && c.categories.length > 0) : [];
+            const contestCategoryCount = contestsWithData.reduce((sum, c) => sum + (c.categories?.length || 0), 0);
+            
+            const hasData = categoryCount > 0 || contestCategoryCount > 0;
+            
+            if (!hasData) continue; // IGNORE states with no actual categories
 
-            if (hasCategories || hasContests) score += 10;
+            const isDireitoUser = stateData.user?.name?.toLowerCase().includes('direito');
+            const hasDireitoInCategories = categoryCount > 0 && JSON.stringify(stateData.categories).toLowerCase().includes('direito');
+            const hasDireitoInContests = contestCategoryCount > 0 && JSON.stringify(stateData.contests).toLowerCase().includes('direito');
+
+            score += 10; // Base score for having data
+            score += (categoryCount + contestCategoryCount) * 2; // More data = better
             if (hasDireito) score += 50;
             if (isDireitoUser || hasDireitoInCategories || hasDireitoInContests) score += 100;
             if (key.includes('ultra-dashboard')) score += 5;
 
-            if (score > highestScore && score >= 10) {
+            if (score > highestScore) {
               highestScore = score;
               bestRescueCandidate = stateData;
-              console.log(`[Rescue] Novo melhor candidato: '${key}' (Score: ${score})`);
-              
-              if (score >= 150) {
-                console.warn(`[Rescue] ALVO LOCALIZADO! Chave '${key}' parece conter os dados de 'Direito'.`);
-              }
+              console.log(`[Rescue] Melhor candidato: '${key}' (Score: ${score}, Categorias: ${categoryCount + contestCategoryCount})`);
             }
           } else if (Array.isArray(parsed) && parsed.some(item => item.name && item.name.toLowerCase().includes('direito'))) {
              // Caso especial: o dado está puramente como um array de categorias
