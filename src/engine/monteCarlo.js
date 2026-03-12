@@ -3,12 +3,30 @@ import { mulberry32, randomNormal } from './random.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
-export function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean, categoryName) {
+export function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
+
+  // T-00 FIX: If Bayesian CI is provided and we are in static mode (drift=0, etc)
+  // we use the narrow Bayesian interval instead of the wide MC simulation.
+  if (bayesianCI) {
+    return {
+      probability: safeMean >= safeTarget ? 100 : 0,
+      mean: Number(safeMean.toFixed(1)),
+      sd: 0,
+      ci95Low: Number(bayesianCI.ciLow.toFixed(1)),
+      ci95High: Number(bayesianCI.ciHigh.toFixed(1)),
+      currentMean: Number(safeCurrentMean.toFixed(1)),
+      projectedMean: safeMean,
+      projectedSD: 0,
+      drift: 0,
+      volatility: 0,
+      method: 'bayesian_static'
+    };
+  }
 
   // MEL-4: Incorporate a hash of the category name and target score for uniqueness
   const categoryHash = (categoryName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -29,6 +47,24 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
 
   // Math fix: empirical percentiles for CI instead of ±1.96σ on truncated distribution
   const allScores = new Array(safeSimulations);
+
+  // T-00 FIX: If Bayesian CI is provided and we are in static mode (drift=0, etc)
+  // we use the narrow Bayesian interval instead of the wide MC simulation.
+  if (options?.bayesianCI) {
+    return {
+      probability: safeMean >= safeTarget ? 100 : 0,
+      mean: Number(safeMean.toFixed(1)),
+      sd: 0,
+      ci95Low: Number(options.bayesianCI.ciLow.toFixed(1)),
+      ci95High: Number(options.bayesianCI.ciHigh.toFixed(1)),
+      currentMean: Number(safeCurrentMean.toFixed(1)),
+      projectedMean: safeMean,
+      projectedSD: 0,
+      drift: 0,
+      volatility: 0,
+      method: 'bayesian_static'
+    };
+  }
 
   for (let i = 0; i < safeSimulations; i++) {
     const score = Math.max(0, Math.min(100, safeMean + randomNormal(rng) * safeSD));
@@ -96,7 +132,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     options.simulations,
     options.seed,
     options.currentMean,
-    options.categoryName
+    options.categoryName,
+    options.bayesianCI
   );
 }
 

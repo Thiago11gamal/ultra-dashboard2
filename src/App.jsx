@@ -72,6 +72,17 @@ function MainLayout() {
 
   const showToast = useToast();
 
+  // Gamification: Level Up Toast
+  const [levelUpData, setLevelUpData] = useState(null);
+
+  useEffect(() => {
+    const handleLevelUp = (e) => {
+      setLevelUpData(e.detail);
+    };
+    window.addEventListener('level-up', handleLevelUp);
+    return () => window.removeEventListener('level-up', handleLevelUp);
+  }, []);
+
   // Auto-save pipeline
   const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
 
@@ -219,6 +230,14 @@ function MainLayout() {
 
       {/* Global Modals & Toasts */}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+
+      {levelUpData && (
+        <LevelUpToast 
+          level={levelUpData.level} 
+          title={levelUpData.title} 
+          onClose={() => setLevelUpData(null)} 
+        />
+      )}
 
       {/* Global Event Driven Toast Container */}
       <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">

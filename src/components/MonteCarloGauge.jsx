@@ -155,6 +155,20 @@ export default function MonteCarloGauge({
         const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
         const bayesianMean = weightedBayesianSum / totalWeight;
 
+        // Calculate weighted Bayesian interval
+        let weightedLow = 0;
+        let weightedHigh = 0;
+        categories.forEach(cat => {
+            if (cat.simuladoStats?.history?.length > 0) {
+                const weight = debouncedWeights[cat.name] || 0;
+                if (weight > 0) {
+                    const baye = computeBayesianLevel(cat.simuladoStats.history);
+                    weightedLow += baye.ciLow * (weight / totalWeight);
+                    weightedHigh += baye.ciHigh * (weight / totalWeight);
+                }
+            }
+        });
+
         // Reconstruct consolidated global history for path simulation
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
         // C-04 FIX: Só gerar ponto quando pelo menos 1 matéria foi avaliada naquele dia.
@@ -189,6 +203,7 @@ export default function MonteCarloGauge({
             pooledSD,
             totalWeight,
             bayesianMean,
+            bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
             globalHistory,
             dailySD
         };
