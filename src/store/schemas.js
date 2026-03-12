@@ -184,60 +184,95 @@ export const validateAppState = (data) => {
 
   if (isInitial && typeof window !== 'undefined') {
     try {
-      // Scanner dinâmico: busca em TODAS as chaves do LocalStorage que pareçam ser desse app
-      const allKeys = Object.keys(localStorage).filter(k => k.toLowerCase().includes('ultra-dashboard'));
-      
-      console.log("[Rescue] Iniciando Scanner de Emergência em chaves:", allKeys);
+      // 1. SCANNER UNIVERSAL: Busca em ABSOLUTAMENTE TODAS as chaves do LocalStorage
+      const allKeys = Object.keys(localStorage);
+      console.log(`[Rescue] Iniciando Scanner UNIVERSAL em ${allKeys.length} chaves.`);
 
       let bestRescueCandidate = null;
-      let foundDireito = false;
+      let highestScore = -1;
 
       for (const key of allKeys) {
         try {
           const raw = localStorage.getItem(key);
-          if (!raw) continue;
+          if (!raw || raw.length < 50) continue; // Ignora chaves muito pequenas
           
-          // Busca textual rápida por 'Direito' para priorizar a chave
-          const hasDireitoRaw = raw.toLowerCase().includes('"direito"');
+          const rawLower = raw.toLowerCase();
+          const hasDireito = rawLower.includes('direito');
           
-          const parsed = JSON.parse(raw);
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            continue; 
+          }
+
           const stateData = extractCore(parsed);
           
           if (stateData) {
-            const hasCategories = stateData.categories && stateData.categories.length > 0;
-            const hasContestsWithData = stateData.contests && Object.values(stateData.contests).some(c => c.categories && c.categories.length > 0);
-            
-            if (hasCategories || hasContestsWithData) {
-              console.log(`[Rescue] Candidato encontrado em '${key}' (Direito: ${hasDireitoRaw})`);
+            let score = 0;
+            const hasCategories = Array.isArray(stateData.categories) && stateData.categories.length > 0;
+            const hasContests = stateData.contests && Object.values(stateData.contests).some(c => c.categories && c.categories.length > 0);
+            const isDireitoUser = stateData.user?.name?.toLowerCase().includes('direito');
+            const hasDireitoInCategories = hasCategories && JSON.stringify(stateData.categories).toLowerCase().includes('direito');
+            const hasDireitoInContests = hasContests && JSON.stringify(stateData.contests).toLowerCase().includes('direito');
+
+            if (hasCategories || hasContests) score += 10;
+            if (hasDireito) score += 50;
+            if (isDireitoUser || hasDireitoInCategories || hasDireitoInContests) score += 100;
+            if (key.includes('ultra-dashboard')) score += 5;
+
+            if (score > highestScore && score >= 10) {
+              highestScore = score;
+              bestRescueCandidate = stateData;
+              console.log(`[Rescue] Novo melhor candidato: '${key}' (Score: ${score})`);
               
-              // Prioridade 1: Chave que contém 'Direito'
-              if (hasDireitoRaw) {
-                bestRescueCandidate = stateData;
-                foundDireito = true;
-                console.warn(`[Rescue] SUCESSO! Encontrado rastro de 'Direito' na chave '${key}'. Forçando restauração.`);
-                break; 
-              }
-              
-              // Prioridade 2: Primeira chave com dados reais se ainda não achamos 'Direito'
-              if (!bestRescueCandidate) {
-                bestRescueCandidate = stateData;
+              if (score >= 150) {
+                console.warn(`[Rescue] ALVO LOCALIZADO! Chave '${key}' parece conter os dados de 'Direito'.`);
               }
             }
+          } else if (Array.isArray(parsed) && parsed.some(item => item.name && item.name.toLowerCase().includes('direito'))) {
+             // Caso especial: o dado está puramente como um array de categorias
+             console.warn(`[Rescue] Encontrado array de categorias solto em '${key}'. Migrando...`);
+             bestRescueCandidate = { categories: parsed, user: { name: 'Resgatado' } };
+             highestScore = 200;
+             break;
           }
         } catch (e) {
-          // Ignora erros de parse em chaves que não são nossas
+          // Ignora erros individuais de chave
         }
       }
 
       if (bestRescueCandidate) {
+        console.warn(`[Rescue] APLICANDO MELHOR CANDIDATO (Score: ${highestScore})`);
+        
+        // Garantimos que o dado resgatado tenha a estrutura correta E o timestamp mais recente
+        // Isso evita que ele seja sobrescrito por uma nuvem vazia com timestamp mais atual.
+        const now = new Date().toISOString();
+        
         if (bestRescueCandidate.categories && !bestRescueCandidate.contests) {
-          dataToValidate = { contests: { 'default': bestRescueCandidate }, activeId: 'default', lastUpdated: new Date().toISOString() };
+          dataToValidate = { 
+            contests: { 'default': { ...bestRescueCandidate, lastUpdated: now } }, 
+            activeId: 'default', 
+            lastUpdated: now 
+          };
         } else {
-          dataToValidate = bestRescueCandidate;
+          dataToValidate = { 
+            ...bestRescueCandidate, 
+            lastUpdated: now 
+          };
+          // Se o candidato tiver concursos, garante que o ativo tenha o timestamp atualizado tbm
+          if (dataToValidate.contests?.[dataToValidate.activeId]) {
+            dataToValidate.contests[dataToValidate.activeId].lastUpdated = now;
+          }
+        }
+        
+        // Armazena para diagnóstico se o usuário precisar nos enviar
+        if (typeof window !== 'undefined') {
+          window.__ULTRA_RESCUE_SUCCESS = { key: 'found', score: highestScore, time: now };
         }
       }
     } catch (globalE) {
-      console.error("[Rescue] Erro crítico no scanner:", globalE);
+      console.error("[Rescue] Erro crítico no scanner universal:", globalE);
     }
   }
 

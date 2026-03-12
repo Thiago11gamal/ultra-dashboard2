@@ -72,6 +72,14 @@ function MainLayout() {
   // --- THEME SYNC ---
   useThemeSync(data?.settings?.darkMode);
 
+  // --- RESCUE NOTIFICATION ---
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
+        showToast('Dados de "Direito" recuperados do armazenamento profundo! 💎📚', 'success');
+        delete window.__ULTRA_RESCUE_SUCCESS;
+    }
+  }, [showToast]);
+
   // Global Handlers
   const handleUndo = useCallback(() => {
     undo();
