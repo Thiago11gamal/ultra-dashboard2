@@ -241,7 +241,8 @@ export default function MonteCarloGauge({
                 debouncedTarget,
                 {
                     simulations: 2000,
-                    currentMean: statsData.currentWeightedMean
+                    currentMean: statsData.currentWeightedMean,
+                    bayesianCI: statsData.bayesianCI // Added bayesianCI
                 }
             );
         }

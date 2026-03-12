@@ -36,10 +36,22 @@ export function calculateTrend(history) {
     const recentHistory = history.slice(-10);
     const n = recentHistory.length;
 
-    // Use actual time (days) for regression to avoid distortions from irregular intervals
-    const startTime = new Date(recentHistory[0].date).getTime();
-    const x = recentHistory.map(h => (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24));
-    const y = recentHistory.map(h => getSafeScore(h));
+    let x, y;
+    
+    // Check if we have temporal data or just a simple array of scores (primitives)
+    // BUG-M5 FIX: Support both legacy number arrays (Coach AI) and new history objects
+    const hasDateData = recentHistory[0] && typeof recentHistory[0] === 'object' && recentHistory[0].date;
+
+    if (hasDateData) {
+        // Use actual time (days) for regression
+        const startTime = new Date(recentHistory[0].date).getTime();
+        x = recentHistory.map(h => (new Date(h.date).getTime() - startTime) / (1000 * 60 * 60 * 24));
+        y = recentHistory.map(h => getSafeScore(h));
+    } else {
+        // Fallback to index-based regression for primitive arrays (Coach Logic)
+        x = recentHistory.map((_, i) => i);
+        y = recentHistory.map(val => (typeof val === 'object' ? getSafeScore(val) : val));
+    }
 
     const meanX = x.reduce((a, b) => a + b, 0) / n;
     const meanY = mean(y);

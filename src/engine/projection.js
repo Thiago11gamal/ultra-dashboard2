@@ -290,15 +290,30 @@ export function monteCarloSimulation(
     let welfordM2 = 0;
     let welfordCount = 0;
 
+    // T=0 FIX: If projecting for today (0 days), don't run Monte Carlo at all.
+    // Standard simulation with Math.max(1, days) injects unnecessary noise shock,
+    // causing the Confidence Interval to explode from ~15pp (Bayesian) to ~35pp (MC 1-day).
+    if (days === 0 && forcedBaseline !== undefined && options.bayesianCI) {
+        const { ciLow, ciHigh } = options.bayesianCI;
+        return {
+            probability: forcedBaseline >= targetScore ? 100 : 0,
+            mean: Number(forcedBaseline.toFixed(1)),
+            sd: 0,
+            ci95Low: Number(ciLow.toFixed(1)),
+            ci95High: Number(ciHigh.toFixed(1)),
+            currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
+            drift: 0,
+            volatility,
+            method: "bayesian_static"
+        };
+    }
+
     // Math fix 1: Collect all final scores for empirical CI percentiles
-    // ±1.96σ assumes a Gaussian distribution — but our distribution is truncated [0,100]
-    // and can be asymmetric near the score ceiling or floor. Empirical percentiles are exact.
     const safeSimulations = Math.max(1, simulations);
     const allFinalScores = new Array(safeSimulations);
 
-    // FIX: Simulate at least 1 day with 0 drift for 0-day projections 
-    // to account for inherent test variance, avoiding locking the probability at 0% or 100%.
-    const simulationDays = Math.max(1, days);
+    // D-08 FIX: Remove Math.max(1, days) which was injecting false noise walk in T=0.
+    const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
 
     for (let s = 0; s < safeSimulations; s++) {

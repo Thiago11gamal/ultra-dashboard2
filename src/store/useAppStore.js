@@ -411,21 +411,22 @@ export const useAppStore = create(
                 recordHistory(state.appState, true);
                 
                 const dt = new Date(dateInput);
-                const targetDay = dt.getFullYear() + '-' +
-                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(dt.getDate()).padStart(2, '0');
+                const targetDay = dt.getUTCFullYear() + '-' +
+                    String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' +
+                    String(dt.getUTCDate()).padStart(2, '0');
 
                 const activeData = state.appState.contests[state.appState.activeId];
-                // B-09/B-19 FIX: toISOString() retorna UTC, causando off-by-one em fusos negativos.
-                // Usar data local para o input garante paridade estrita. Input de timestamp (Date.now) também previne crash TypeError.
+                // B-09/B-19 FIX: Use UTC to ensure paritas between storage (ISO UTC) and deletion target.
+                // Simulados after 21:00 BRT are saved as the next day in UTC; using local getDate()
+                // would target the previous day incorrectly.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
                     const d = new Date(raw);
                     if (isNaN(d.getTime())) return false;
-                    const localDay = d.getFullYear() + '-' +
-                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getDate()).padStart(2, '0');
-                    return localDay === targetDay;
+                    const utcDay = d.getUTCFullYear() + '-' +
+                        String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+                        String(d.getUTCMonth() === 11 && d.getUTCDate() === 31 ? 31 : d.getUTCDate()).padStart(2, '0');
+                    return utcDay === targetDay;
                 };
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
