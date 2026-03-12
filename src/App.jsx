@@ -30,6 +30,9 @@ import { useAppStore } from './store/useAppStore';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
 import useMobileDetect from './hooks/useMobileDetect';
+import { useGlobalToasts } from './hooks/useGlobalToasts';
+import { useLevelUp } from './hooks/useLevelUp';
+import { useThemeSync } from './hooks/useThemeSync';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
 
@@ -54,47 +57,20 @@ function MainLayout() {
 
   const isMobile = useMobileDetect();
 
+  // Custom Hooks para lógica global
+  const { toasts, removeToast } = useGlobalToasts();
+  const { levelUpData, clearLevelUp } = useLevelUp();
+  const showToast = useToast();
+
   // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
-
-  // Global Toasts State
-  const [toasts, setToasts] = useState([]);
-
-  useEffect(() => {
-    const handleToastEvent = (e) => {
-      const newToast = { id: crypto.randomUUID(), ...e.detail };
-      setToasts(prev => [...prev, newToast]);
-    };
-    window.addEventListener('show-toast', handleToastEvent);
-    return () => window.removeEventListener('show-toast', handleToastEvent);
-  }, []);
-
-  const showToast = useToast();
-
-  // Gamification: Level Up Toast
-  const [levelUpData, setLevelUpData] = useState(null);
-
-  useEffect(() => {
-    const handleLevelUp = (e) => {
-      setLevelUpData(e.detail);
-    };
-    window.addEventListener('level-up', handleLevelUp);
-    return () => window.removeEventListener('level-up', handleLevelUp);
-  }, []);
 
   // Auto-save pipeline
   const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
 
   // --- THEME SYNC ---
-  useEffect(() => {
-    const isDark = data.settings?.darkMode !== false; // Default to dark if undefined
-    if (!isDark) {
-      document.documentElement.classList.add('light-mode');
-    } else {
-      document.documentElement.classList.remove('light-mode');
-    }
-  }, [data.settings?.darkMode]);
+  useThemeSync(data.settings?.darkMode);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
@@ -237,7 +213,7 @@ function MainLayout() {
         <LevelUpToast 
           level={levelUpData.level} 
           title={levelUpData.title} 
-          onClose={() => setLevelUpData(null)} 
+          onClose={clearLevelUp} 
         />
       )}
 
@@ -247,7 +223,7 @@ function MainLayout() {
           <div key={toast.id} className="pointer-events-auto">
             <Toast
               toast={toast}
-              onClose={() => setToasts(current => current.filter(t => t.id !== toast.id))}
+              onClose={() => removeToast(toast.id)}
             />
           </div>
         ))}

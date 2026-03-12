@@ -7,6 +7,7 @@ import { SYNC_LOG_CAP } from '../config';
 import { XP_CONFIG, getTaskXP, calculateLevel } from '../utils/gamification';
 import { generateId } from '../utils/idGenerator';
 import { calculateStudyStreak } from '../utils/analytics';
+import { validateAppState } from './schemas';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
@@ -155,6 +156,10 @@ export const useAppStore = create(
                 if (nextState.history && nextState.history.length > 0) {
                     state.appState.history = nextState.history;
                 }
+                
+                // Validação final antes de cometer
+                state.appState = validateAppState(state.appState);
+                
                 state.appState.lastHistoryTime = 0;
                 state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
             }),
@@ -531,7 +536,8 @@ export const useAppStore = create(
                 const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
                 let activeId = persisted.activeId || current.activeId;
                 if (!contests[activeId]) activeId = Object.keys(contests)[0] || 'default';
-                return {
+                
+                const mergedState = {
                     ...currentState,
                     appState: {
                         ...current,
@@ -542,6 +548,11 @@ export const useAppStore = create(
                         lastUpdated: persisted.lastUpdated || current.lastUpdated
                     }
                 };
+
+                // Validação e limpeza profunda com Zod
+                mergedState.appState = validateAppState(mergedState.appState);
+                
+                return mergedState;
             }
         }
     )
