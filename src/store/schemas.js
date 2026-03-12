@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INITIAL_DATA } from '../data/initialData';
 
 /**
  * Esquemas de validação para o estado da aplicação Ultra Dashboard.
@@ -85,7 +86,12 @@ const ContestDataSchema = z.object({
 });
 
 export const AppStateSchema = z.object({
-  contests: z.record(ContestDataSchema).catch({}),
+  contests: z.record(ContestDataSchema).transform(val => {
+    if (Object.keys(val).length === 0) {
+      return { 'default': INITIAL_DATA };
+    }
+    return val;
+  }).catch({ 'default': INITIAL_DATA }),
   activeId: z.string().default('default'),
   history: z.array(z.any()).catch([]),
   lastHistoryTime: z.number().catch(0),

@@ -70,7 +70,7 @@ function MainLayout() {
   const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
 
   // --- THEME SYNC ---
-  useThemeSync(data.settings?.darkMode);
+  useThemeSync(data?.settings?.darkMode);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
