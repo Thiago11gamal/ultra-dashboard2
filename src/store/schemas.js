@@ -100,12 +100,7 @@ export const AppStateSchema = z.object({
     
     Object.entries(val).forEach(([id, data]) => {
       try {
-        // Se o dado for o formato antigo (um concurso direto), migramos
-        if (data && data.categories && !data.contests) {
-           validated[id] = ContestDataSchema.parse(data);
-        } else {
-           validated[id] = ContestDataSchema.parse(data);
-        }
+        validated[id] = ContestDataSchema.parse(data);
       } catch (e) {
         console.error(`[Schema Validation] Falha no concurso ${id}:`, e);
       }
@@ -123,14 +118,26 @@ export const AppStateSchema = z.object({
   mcEqualWeights: z.boolean().catch(true),
   lastUpdated: z.string().catch(() => new Date().toISOString())
 }).transform((data) => {
-  if (!data.contests[data.activeId]) {
-    const firstId = Object.keys(data.contests)[0];
-    if (firstId) {
-      data.activeId = firstId;
-    } else {
-      data.contests['default'] = INITIAL_DATA;
-      data.activeId = 'default';
+  const contestIds = Object.keys(data.contests);
+  
+  // Lógica de Foco: tenta encontrar 'Direito' se o atual estiver vazio
+  const currentIsEmpty = !data.contests[data.activeId]?.categories || data.contests[data.activeId].categories.length === 0;
+  
+  if (currentIsEmpty) {
+    const derechoContest = contestIds.find(id => {
+      const c = data.contests[id];
+      if (!c.categories) return false;
+      return JSON.stringify(c.categories).toLowerCase().includes('direito');
+    });
+    
+    if (derechoContest) {
+      console.warn(`[Focus] Auto-selecionando concurso '${derechoContest}' pois contém 'Direito'.`);
+      data.activeId = derechoContest;
     }
+  }
+
+  if (!data.contests[data.activeId]) {
+    data.activeId = contestIds[0] || 'default';
   }
   return data;
 });
