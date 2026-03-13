@@ -196,13 +196,13 @@ export const validateAppState = (data) => {
       const allKeys = Object.keys(localStorage);
       console.log(`[Rescue] Iniciando Scanner UNIVERSAL em ${allKeys.length} chaves.`);
 
-      let bestRescueCandidate = null;
-      let highestScore = -1;
+      let rescueList = [];
+      const rescueMap = new Map(); // Para evitar duplicatas com o mesmo timestamp
 
       for (const key of allKeys) {
         try {
           const raw = localStorage.getItem(key);
-          if (!raw || raw.length < 50) continue; // Ignora chaves muito pequenas
+          if (!raw || raw.length < 50) continue;
 
           const rawLower = raw.toLowerCase();
           const hasDireito = rawLower.includes('direito');
@@ -210,9 +210,7 @@ export const validateAppState = (data) => {
           let parsed;
           try {
             parsed = JSON.parse(raw);
-          } catch {
-            continue;
-          }
+          } catch { continue; }
 
           const stateData = extractCore(parsed);
 
@@ -222,75 +220,53 @@ export const validateAppState = (data) => {
             const contestsWithData = stateData.contests ? Object.values(stateData.contests).filter(c => c.categories && c.categories.length > 0) : [];
             const contestCategoryCount = contestsWithData.reduce((sum, c) => sum + (c.categories?.length || 0), 0);
 
-            const hasData = categoryCount > 0 || contestCategoryCount > 0;
+            if (categoryCount === 0 && contestCategoryCount === 0) continue;
 
-            if (!hasData) continue; // IGNORE states with no actual categories
-
-            const isDireitoUser = stateData.user?.name?.toLowerCase().includes('direito');
-            const hasDireitoInCategories = categoryCount > 0 && JSON.stringify(stateData.categories).toLowerCase().includes('direito');
-            const hasDireitoInContests = contestCategoryCount > 0 && JSON.stringify(stateData.contests).toLowerCase().includes('direito');
-
-            const todayStr = "2026-03-12";
-            const isToday = raw.includes(todayStr);
             const updatedDate = stateData.lastUpdated || (stateData.contests ? Object.values(stateData.contests)[0]?.lastUpdated : null);
-            const isUpdatedToday = updatedDate && updatedDate.startsWith(todayStr);
+            if (!updatedDate) continue;
 
-            score += 10; // Base score for having data
-            score += (categoryCount + contestCategoryCount) * 2; // More data = better
+            // Datas alvo: 10, 11 e 12 de março de 2026
+            const targetDates = ["2026-03-10", "2026-03-11", "2026-03-12"];
+            const isTargetDate = targetDates.some(d => updatedDate.startsWith(d));
+            const hasTargetInRaw = targetDates.some(d => raw.includes(d));
+
+            score += 10;
+            score += (categoryCount + contestCategoryCount) * 2;
             if (hasDireito) score += 50;
-            if (isToday) score += 100; // Bonus por data ser de hoje
-            if (isUpdatedToday) score += 300; // Bonus máximo por ser o timestamp exato de hoje
-            if (isDireitoUser || hasDireitoInCategories || hasDireitoInContests) score += 100;
-            if (key.includes('ultra-dashboard')) score += 5;
+            if (isTargetDate) score += 300;
+            if (hasTargetInRaw) score += 100;
+            if (key.includes('ultra-dashboard')) score += 20;
 
-            if (score > highestScore) {
-              highestScore = score;
-              bestRescueCandidate = stateData;
-              console.log(`[Rescue-12/03] Candidato Prioritário: '${key}' (Score: ${score}, Data: ${updatedDate})`);
+            if (score > 50) {
+              const candidate = {
+                key,
+                score,
+                date: updatedDate,
+                data: stateData.categories && !stateData.contests
+                  ? { contests: { 'default': { ...stateData, lastUpdated: updatedDate } }, activeId: 'default', lastUpdated: updatedDate }
+                  : { ...stateData, lastUpdated: updatedDate }
+              };
+              
+              // Se já temos esse timestamp, guardamos apenas o de maior score
+              if (!rescueMap.has(updatedDate) || rescueMap.get(updatedDate).score < score) {
+                rescueMap.set(updatedDate, candidate);
+              }
             }
-          } else if (Array.isArray(parsed) && parsed.some(item => item.name && item.name.toLowerCase().includes('direito'))) {
-            // Caso especial: o dado está puramente como um array de categorias
-            console.warn(`[Rescue] Encontrado array de categorias solto em '${key}'. Migrando...`);
-            bestRescueCandidate = { categories: parsed, user: { name: 'Resgatado' } };
-            highestScore = 200;
-            break;
           }
-        } catch (e) {
-          // Ignora erros individuais de chave
-        }
+        } catch (e) {}
       }
 
-      if (bestRescueCandidate && typeof window !== 'undefined') {
-        const now = new Date().toISOString();
-        console.log(`[Rescue-Audit] Alvo encontrado! Categorias:`, bestRescueCandidate.categories?.length, `Concursos:`, Object.keys(bestRescueCandidate.contests || {}).length);
-
-        window.DEBUG_RESCUE_DATA = JSON.parse(JSON.stringify(bestRescueCandidate)); // Backup bruto para inspeção
-
-        // Formata o candidato para o Dashboard
-        window.__ULTRA_RESCUE_CANDIDATE = {
-          score: highestScore,
-          data: bestRescueCandidate.categories && !bestRescueCandidate.contests
-            ? { contests: { 'default': { ...bestRescueCandidate, lastUpdated: now } }, activeId: 'default', lastUpdated: now }
-            : { ...bestRescueCandidate, lastUpdated: now }
-        };
-
-        // AUTO-APLICAR apenas se estivermos em modo de resgate inicial/proativo
-        if (shouldRunRescueScanner && highestScore >= 130) {
-          console.warn(`[Rescue-Audit] AUTO-APLICANDO AGORA! Score: ${highestScore}`);
-          dataToValidate = window.__ULTRA_RESCUE_CANDIDATE.data;
-
-          // FORÇAMOS A ESCRITA NO LOCALSTORAGE PARA GARANTIR QUE PERSISTA
-          localStorage.setItem('ultra-dashboard-data', JSON.stringify(dataToValidate));
-          localStorage.setItem('ultra-dashboard-storage', JSON.stringify({ state: { appState: dataToValidate }, version: 1 }));
-
-          window.__ULTRA_RESCUE_SUCCESS = { score: highestScore, time: now };
-          delete window.__ULTRA_RESCUE_CANDIDATE;
-        } else {
-          console.log(`[Rescue-Audit] Candidato disponível mas não auto-aplicado (Score: ${highestScore}, Scanner: ${shouldRunRescueScanner})`);
-        }
+      const finalRescueList = Array.from(rescueMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      if (finalRescueList.length > 0 && typeof window !== 'undefined') {
+        console.log(`[Rescue-Multi] Encontrados ${finalRescueList.length} backups relevantes.`);
+        window.__ULTRA_RESCUE_LIST = finalRescueList;
+        
+        // Mantemos o __ULTRA_RESCUE_CANDIDATE como o melhor de todos para retrocompatibilidade
+        window.__ULTRA_RESCUE_CANDIDATE = finalRescueList[0];
       }
     } catch (globalE) {
-      console.error("[Rescue] Erro crítico no scanner universal:", globalE);
+      console.error("[Rescue] Erro crítico no scanner multi-versão:", globalE);
     }
   }
 

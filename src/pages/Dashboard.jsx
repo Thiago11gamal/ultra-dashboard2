@@ -22,37 +22,57 @@ export default function Dashboard() {
         navigate('/pomodoro', { state: { categoryId, taskId } });
     };
 
-    const [rescueCandidate, setRescueCandidate] = useState(() => typeof window !== 'undefined' ? window.__ULTRA_RESCUE_CANDIDATE : null);
+    const [rescueList, setRescueList] = useState(() => typeof window !== 'undefined' ? window.__ULTRA_RESCUE_LIST : []);
 
-    const handleForceRescue = () => {
-        if (rescueCandidate) {
-            setData(() => rescueCandidate.data);
-            showToast('Dados restaurados com sucesso! 🎉', 'success');
-            setRescueCandidate(null);
+    const handleRestoreBackup = (backup) => {
+        if (backup && backup.data) {
+            setData(() => backup.data);
+            showToast(`Dados de ${new Date(backup.date).toLocaleDateString('pt-BR')} restaurados! 🎉`, 'success');
+            setRescueList([]);
+            delete window.__ULTRA_RESCUE_LIST;
             delete window.__ULTRA_RESCUE_CANDIDATE;
         }
     };
 
     return (
         <div className="space-y-6 animate-fade-in">
-            {rescueCandidate && (
-                <div className="glass p-6 border-2 border-purple-500/50 bg-purple-900/10 animate-bounce-subtle">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <span className="text-3xl">💎</span>
+            {rescueList && rescueList.length > 0 && (
+                <div className="glass p-6 border-2 border-purple-500/50 bg-purple-900/15 shadow-2xl shadow-purple-900/20">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex items-center gap-4 border-b border-purple-500/20 pb-4">
+                            <span className="text-4xl animate-pulse">💎</span>
                             <div>
-                                <h3 className="text-xl font-bold text-purple-200">Encontramos dados de hoje (12/03)!</h3>
-                                <p className="text-slate-400 text-sm">
-                                    Backup localizado: <span className="text-purple-300 font-mono">{new Date(rescueCandidate.data.lastUpdated).toLocaleString('pt-BR')}</span>
-                                </p>
+                                <h3 className="text-2xl font-black text-white italic tracking-tight">CENTRO DE RECUPERAÇÃO ULTRA</h3>
+                                <p className="text-purple-300 text-sm font-medium">Encontramos backups dos dias 10, 11 e 12 de Março. Qual você deseja restaurar?</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleForceRescue}
-                            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-purple-500/30 hover:scale-105 transition-all"
-                        >
-                            Restaurar Agora 🚀
-                        </button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {rescueList.map((item, idx) => (
+                                <div key={idx} className="bg-slate-900/50 border border-white/5 p-4 rounded-2xl hover:border-purple-500/40 transition-all group">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 group-hover:text-purple-400 transition-colors">Backup Local</span>
+                                            <span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold">Confiança: {item.score}</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-lg font-mono font-bold text-white">{new Date(item.date).toLocaleDateString('pt-BR')}</p>
+                                          <p className="text-xs text-slate-400">Horário: {new Date(item.date).toLocaleTimeString('pt-BR')}</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleRestoreBackup(item)}
+                                            className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-black rounded-xl transition-all shadow-lg active:scale-95"
+                                        >
+                                            RESTAURAR ESTE 🚀
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-[10px] text-slate-500 italic text-center">
+                            Note: Restaurar um backup substituirá seus dados atuais na tela. Certifique-se de escolher a data correta.
+                        </div>
                     </div>
                 </div>
             )}
