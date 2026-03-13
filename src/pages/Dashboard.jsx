@@ -5,11 +5,13 @@ import PriorityProgress from '../components/PriorityProgress';
 import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const setData = useAppStore(state => state.setData);
+    const { setData, setAppState } = useAppStore();
     const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
+    const showToast = useToast();
 
     // Actions
     const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority } = useAppStore();
@@ -26,7 +28,7 @@ export default function Dashboard() {
 
     const handleRestoreBackup = (backup) => {
         if (backup && backup.data) {
-            setData(() => backup.data);
+            setAppState(backup.data);
             showToast(`Dados de ${new Date(backup.date).toLocaleDateString('pt-BR')} restaurados! 🎉`, 'success');
             setRescueList([]);
             delete window.__ULTRA_RESCUE_LIST;
