@@ -47,19 +47,22 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const docRef = doc(db, 'backups', currentUser.uid);
 
+        console.log(`%c[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
+
         // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
-                console.warn("[Sync] Timeout de paridade atingido (V8). Liberando upload por inatividade do servidor.");
+                console.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
                 isParityValidatedRef.current = true;
                 setIsParityValidated(true);
             }
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            console.debug("[Sync] Mensagem recebida do Firestore para UID:", currentUser.uid);
+            console.log(`%c[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
             setCloudConnected(true);
             const isFromCache = docSnap.metadata.fromCache;
+            if (isFromCache) console.debug("[Firebase-Diag] Nota: Dado vindo do cache local (ainda sincronizando com servidor...)");
             const exists = docSnap.exists();
 
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
@@ -228,6 +231,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 setIsInternalSyncing(true);
                 console.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+                console.log("%c[Firebase-Diag] DADOS SINCRONIZADOS COM SUCESSO! ✅", "color: #22c55e; font-weight: bold;");
                 lastSyncedRef.current = currentStateString;
             } catch (e) {
                 console.error("[Sync] Erro no auto-save:", e);
