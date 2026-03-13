@@ -1,5 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Settings2 } from 'lucide-react';
 import {
     computeCategoryStats,
     computeBayesianLevel,
@@ -12,6 +11,7 @@ import {
 } from '../engine';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
+import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { getSafeScore } from '../utils/scoreHelper';
 import { getDateKey } from '../utils/dateHelper';
 
@@ -29,18 +29,14 @@ export default function MonteCarloGauge({
     forcedTitle = null
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
+    const [showConfig, setShowConfig] = useState(false);
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
-    // The original instruction had a malformed line here.
-    // Based on the instruction "Remove the unused variable declarations reported by ESLint",
-    // `setEqualWeightsMode` was unused and should be removed.
-    // The line `const { activeId, mcEqualWeights } = useStore();state => state.setMcEqualWeights);`
-    // from the instruction was syntactically incorrect and not a valid replacement.
-    // The correct action is to simply remove the unused `setEqualWeightsMode` declaration.
+    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
 
     const activeCategories = useMemo(() =>
         categories.filter(c => c.simuladoStats?.history?.length > 0),
@@ -376,7 +372,16 @@ export default function MonteCarloGauge({
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (
-                        <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Futuro' : 'Ver Hoje'}</button>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowConfig(true); }}
+                                className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all shadow-sm"
+                                title="Configurar Pesos"
+                            >
+                                <Settings2 size={14} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Futuro' : 'Ver Hoje'}</button>
+                        </div>
                     )}
                     {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">
@@ -457,6 +462,19 @@ export default function MonteCarloGauge({
                 {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
                 {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
             </div>
+            <MonteCarloConfig
+                show={showConfig}
+                onClose={setShowConfig}
+                targetScore={targetScore}
+                setTargetScore={() => {}} // TargetScore is coming from props in this context
+                equalWeightsMode={equalWeightsMode}
+                setEqualWeightsMode={setEqualWeightsMode}
+                getEqualWeights={getEqualWeights}
+                weights={weights}
+                setWeights={setWeights}
+                updateWeight={(name, p) => setWeights({ ...weights, [name]: p })}
+                categories={categories}
+            />
         </div>
     );
 }
