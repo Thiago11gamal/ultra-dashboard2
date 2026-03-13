@@ -132,6 +132,7 @@ export const validateAppState = (data) => {
           // Contagem de conteúdo Real
           let categoryCount = 0;
           let taskCount = 0;
+          let studyCount = 0;
           
           if (candidateData.contests) {
             Object.values(candidateData.contests).forEach(c => {
@@ -141,15 +142,17 @@ export const validateAppState = (data) => {
                   if (Array.isArray(cat.tasks)) taskCount += cat.tasks.length;
                 });
               }
+              if (Array.isArray(c.studySessions)) studyCount += c.studySessions.length;
             });
           } else if (Array.isArray(candidateData.categories)) {
             categoryCount = candidateData.categories.length;
             candidateData.categories.forEach(cat => {
               if (Array.isArray(cat.tasks)) taskCount += cat.tasks.length;
             });
+            if (Array.isArray(candidateData.studySessions)) studyCount += candidateData.studySessions.length;
           }
 
-          if (categoryCount === 0) continue;
+          if (categoryCount === 0 && studyCount === 0) continue;
 
           let score = 0;
           const hasDireito = raw.toLowerCase().includes('direito');
@@ -162,12 +165,12 @@ export const validateAppState = (data) => {
           if (hasDireito) score += 100;
           if (isTargetDate) score += 300;
           if (key.includes('ultra-dashboard')) score += 50;
-          score += (categoryCount * 10) + (taskCount * 2);
+          score += (categoryCount * 10) + (taskCount * 2) + (studyCount * 5);
 
           if (score > 50) {
             const candidate = {
               key, score, date: updatedDate,
-              categoryCount, taskCount,
+              categoryCount, taskCount, studyCount,
               data: candidateData.categories && !candidateData.contests 
                 ? { contests: { 'default': candidateData }, activeId: 'default', lastUpdated: updatedDate }
                 : candidateData
