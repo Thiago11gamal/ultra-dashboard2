@@ -97,7 +97,7 @@ export const AppStateSchema = z.object({
   contests: z.record(z.any()).transform((val) => {
     const validated = {};
     if (!val || typeof val !== 'object') return { 'default': INITIAL_DATA };
-    
+
     Object.entries(val).forEach(([id, data]) => {
       try {
         validated[id] = ContestDataSchema.parse(data);
@@ -119,17 +119,17 @@ export const AppStateSchema = z.object({
   lastUpdated: z.string().catch(() => new Date().toISOString())
 }).transform((data) => {
   const contestIds = Object.keys(data.contests);
-  
+
   // Lógica de Foco: tenta encontrar 'Direito' se o atual estiver vazio
   const currentIsEmpty = !data.contests[data.activeId]?.categories || data.contests[data.activeId].categories.length === 0;
-  
+
   if (currentIsEmpty) {
     const derechoContest = contestIds.find(id => {
       const c = data.contests[id];
       if (!c.categories) return false;
       return JSON.stringify(c.categories).toLowerCase().includes('direito');
     });
-    
+
     if (derechoContest) {
       console.warn(`[Focus] Auto-selecionando concurso '${derechoContest}' pois contém 'Direito'.`);
       data.activeId = derechoContest;
@@ -165,7 +165,7 @@ export const validateAppState = (data) => {
 
   // 1. MIGRATION: detecta se o dado (Firebase/Local) está no formato antigo (único concurso)
   const isLegacy = dataToValidate && dataToValidate.categories && Array.isArray(dataToValidate.categories) && !dataToValidate.contests;
-  
+
   if (isLegacy) {
     console.warn("[Migration] Dados legados detectados no input. Migrando...");
     dataToValidate = {
@@ -180,12 +180,15 @@ export const validateAppState = (data) => {
   const contests = dataToValidate?.contests || {};
   const hasNoContent = Object.values(contests).every(c => !c.categories || c.categories.length === 0);
   const currentHasDireito = JSON.stringify(dataToValidate).toLowerCase().includes('direito');
-  
-  const isInitial = Object.keys(contests).length <= 1 && 
-                    (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante" || hasNoContent);
+
+  const isInitial = Object.keys(contests).length <= 1 &&
+    (!contests.default || contests.default.lastUpdated === "1970-01-01T00:00:00.000Z" || contests.default.user?.name === "Estudante" || hasNoContent);
 
   // Executamos o scanner se estiver inicial OU se o usuário está procurando 'Direito' e não temos nada com esse nome
-  const shouldRunRescueScanner = isInitial || !currentHasDireito;
+  // OU se os dados atuais são de antes de hoje (12/03) e queremos algo mais recente.
+  const todayPrefix = "2026-03-12";
+  const isUpToDate = dataToValidate?.lastUpdated?.startsWith(todayPrefix);
+  const shouldRunRescueScanner = isInitial || !currentHasDireito || !isUpToDate;
 
   if (shouldRunRescueScanner && typeof window !== 'undefined') {
     try {
@@ -200,50 +203,57 @@ export const validateAppState = (data) => {
         try {
           const raw = localStorage.getItem(key);
           if (!raw || raw.length < 50) continue; // Ignora chaves muito pequenas
-          
+
           const rawLower = raw.toLowerCase();
           const hasDireito = rawLower.includes('direito');
-          
+
           let parsed;
           try {
             parsed = JSON.parse(raw);
           } catch {
-            continue; 
+            continue;
           }
 
           const stateData = extractCore(parsed);
-          
-            if (stateData) {
+
+          if (stateData) {
             let score = 0;
             const categoryCount = Array.isArray(stateData.categories) ? stateData.categories.length : 0;
             const contestsWithData = stateData.contests ? Object.values(stateData.contests).filter(c => c.categories && c.categories.length > 0) : [];
             const contestCategoryCount = contestsWithData.reduce((sum, c) => sum + (c.categories?.length || 0), 0);
-            
+
             const hasData = categoryCount > 0 || contestCategoryCount > 0;
-            
+
             if (!hasData) continue; // IGNORE states with no actual categories
 
             const isDireitoUser = stateData.user?.name?.toLowerCase().includes('direito');
             const hasDireitoInCategories = categoryCount > 0 && JSON.stringify(stateData.categories).toLowerCase().includes('direito');
             const hasDireitoInContests = contestCategoryCount > 0 && JSON.stringify(stateData.contests).toLowerCase().includes('direito');
 
+            const todayStr = "2026-03-12";
+            const isToday = raw.includes(todayStr);
+            const updatedDate = stateData.lastUpdated || (stateData.contests ? Object.values(stateData.contests)[0]?.lastUpdated : null);
+            const isUpdatedToday = updatedDate && updatedDate.startsWith(todayStr);
+
             score += 10; // Base score for having data
             score += (categoryCount + contestCategoryCount) * 2; // More data = better
             if (hasDireito) score += 50;
+            if (isToday) score += 100; // Bonus por data ser de hoje
+            if (isUpdatedToday) score += 300; // Bonus máximo por ser o timestamp exato de hoje
             if (isDireitoUser || hasDireitoInCategories || hasDireitoInContests) score += 100;
             if (key.includes('ultra-dashboard')) score += 5;
 
             if (score > highestScore) {
               highestScore = score;
               bestRescueCandidate = stateData;
-              console.log(`[Rescue] Melhor candidato: '${key}' (Score: ${score}, Categorias: ${categoryCount + contestCategoryCount})`);
+              console.log(`[Rescue-12/03] Candidato Prioritário: '${key}' (Score: ${score}, Data: ${updatedDate})`);
             }
           } else if (Array.isArray(parsed) && parsed.some(item => item.name && item.name.toLowerCase().includes('direito'))) {
-             // Caso especial: o dado está puramente como um array de categorias
-             console.warn(`[Rescue] Encontrado array de categorias solto em '${key}'. Migrando...`);
-             bestRescueCandidate = { categories: parsed, user: { name: 'Resgatado' } };
-             highestScore = 200;
-             break;
+            // Caso especial: o dado está puramente como um array de categorias
+            console.warn(`[Rescue] Encontrado array de categorias solto em '${key}'. Migrando...`);
+            bestRescueCandidate = { categories: parsed, user: { name: 'Resgatado' } };
+            highestScore = 200;
+            break;
           }
         } catch (e) {
           // Ignora erros individuais de chave
@@ -253,13 +263,13 @@ export const validateAppState = (data) => {
       if (bestRescueCandidate && typeof window !== 'undefined') {
         const now = new Date().toISOString();
         console.log(`[Rescue-Audit] Alvo encontrado! Categorias:`, bestRescueCandidate.categories?.length, `Concursos:`, Object.keys(bestRescueCandidate.contests || {}).length);
-        
+
         window.DEBUG_RESCUE_DATA = JSON.parse(JSON.stringify(bestRescueCandidate)); // Backup bruto para inspeção
-        
+
         // Formata o candidato para o Dashboard
-        window.__ULTRA_RESCUE_CANDIDATE = { 
-          score: highestScore, 
-          data: bestRescueCandidate.categories && !bestRescueCandidate.contests 
+        window.__ULTRA_RESCUE_CANDIDATE = {
+          score: highestScore,
+          data: bestRescueCandidate.categories && !bestRescueCandidate.contests
             ? { contests: { 'default': { ...bestRescueCandidate, lastUpdated: now } }, activeId: 'default', lastUpdated: now }
             : { ...bestRescueCandidate, lastUpdated: now }
         };
@@ -268,13 +278,13 @@ export const validateAppState = (data) => {
         if (shouldRunRescueScanner && highestScore >= 130) {
           console.warn(`[Rescue-Audit] AUTO-APLICANDO AGORA! Score: ${highestScore}`);
           dataToValidate = window.__ULTRA_RESCUE_CANDIDATE.data;
-          
+
           // FORÇAMOS A ESCRITA NO LOCALSTORAGE PARA GARANTIR QUE PERSISTA
           localStorage.setItem('ultra-dashboard-data', JSON.stringify(dataToValidate));
           localStorage.setItem('ultra-dashboard-storage', JSON.stringify({ state: { appState: dataToValidate }, version: 1 }));
 
           window.__ULTRA_RESCUE_SUCCESS = { score: highestScore, time: now };
-          delete window.__ULTRA_RESCUE_CANDIDATE; 
+          delete window.__ULTRA_RESCUE_CANDIDATE;
         } else {
           console.log(`[Rescue-Audit] Candidato disponível mas não auto-aplicado (Score: ${highestScore}, Scanner: ${shouldRunRescueScanner})`);
         }

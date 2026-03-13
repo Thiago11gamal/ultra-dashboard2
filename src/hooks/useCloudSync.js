@@ -113,13 +113,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
                 const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
-                const localIsInitial = localUpdated <= 0 || 
-                                       appStateRef.current?.user?.name === "Estudante" || 
-                                       !appStateRef.current?.contests || 
-                                       Object.values(appStateRef.current.contests).every(c => !c.categories || c.categories.length === 0);
+                const localIsInitial = localUpdated <= 0 ||
+                    appStateRef.current?.user?.name === "Estudante" ||
+                    !appStateRef.current?.contests ||
+                    Object.values(appStateRef.current.contests).every(c => !c.categories || c.categories.length === 0);
 
-                const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) || 
-                                        (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
+                const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
+                    (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
 
                 if (localIsInitial && cloudHasContent) {
                     console.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
@@ -244,9 +244,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
-    // Added currentUser?.uid to fix BUG-DEP-1 (prevent old UID on fast account switch).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
+        // Added currentUser?.uid to fix BUG-DEP-1 (prevent old UID on fast account switch).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appState, isParityValidated, currentUser?.uid]);
 
     const forcePull = () => {

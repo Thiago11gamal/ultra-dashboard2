@@ -41,11 +41,13 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💎</span>
                             <div>
-                                <h3 className="text-xl font-bold text-purple-200">Encontramos seus dados de "Direito"!</h3>
-                                <p className="text-slate-400 text-sm">Detectamos um backup antigo no seu navegador que parece conter seus estudos.</p>
+                                <h3 className="text-xl font-bold text-purple-200">Encontramos dados de hoje (12/03)!</h3>
+                                <p className="text-slate-400 text-sm">
+                                    Backup localizado: <span className="text-purple-300 font-mono">{new Date(rescueCandidate.data.lastUpdated).toLocaleString('pt-BR')}</span>
+                                </p>
                             </div>
                         </div>
-                        <button 
+                        <button
                             onClick={handleForceRescue}
                             className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-purple-500/30 hover:scale-105 transition-all"
                         >

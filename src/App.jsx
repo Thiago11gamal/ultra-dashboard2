@@ -42,7 +42,7 @@ import './components/Loading.css';
 function MainLayout() {
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
-  
+
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
@@ -75,8 +75,8 @@ function MainLayout() {
   // --- RESCUE NOTIFICATION ---
   useEffect(() => {
     if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
-        showToast('Dados de "Direito" recuperados do armazenamento profundo! 💎📚', 'success');
-        delete window.__ULTRA_RESCUE_SUCCESS;
+      showToast('Dados de "Direito" recuperados do armazenamento profundo! 💎📚', 'success');
+      delete window.__ULTRA_RESCUE_SUCCESS;
     }
   }, [showToast]);
 
@@ -139,11 +139,11 @@ function MainLayout() {
     </div>
   );
   if (!currentUser) return <Login />;
-  
+
   // ── Stripe Paywall Guard ──
   // A verificação de assinatura agora atua como um Overlay impenetrável
   // para não quebrar a árvore de hidratação do React Router.
-  
+
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 
   return (
@@ -218,10 +218,10 @@ function MainLayout() {
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
 
       {levelUpData && (
-        <LevelUpToast 
-          level={levelUpData.level} 
-          title={levelUpData.title} 
-          onClose={clearLevelUp} 
+        <LevelUpToast
+          level={levelUpData.level}
+          title={levelUpData.title}
+          onClose={clearLevelUp}
         />
       )}
 
