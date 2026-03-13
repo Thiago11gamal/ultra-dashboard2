@@ -10,6 +10,7 @@ export {
     getSortedHistory,
     calculateDynamicEMA,
     calculateSlope,
+    calculateSlope as calculateAdaptiveSlope,
     calculateVolatility,
     projectScore,
     monteCarloSimulation,

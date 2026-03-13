@@ -28,6 +28,7 @@ const sanitizeContest = (data) => {
       tasks: (Array.isArray(cat.tasks) ? cat.tasks : []).map(t => ({
         id: t.id || `task_${Math.random().toString(36).substr(2, 9)}`,
         text: t.text || t.title || "Nova Tarefa",
+        title: t.title || t.text || "Nova Tarefa",
         completed: Boolean(t.completed),
         completedAt: t.completedAt || null,
         lastStudiedAt: t.lastStudiedAt || null,
