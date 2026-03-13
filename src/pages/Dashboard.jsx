@@ -91,6 +91,19 @@ export default function Dashboard() {
                                           <p className="text-lg font-mono font-bold text-white">{new Date(item.date).toLocaleDateString('pt-BR')}</p>
                                           <p className="text-xs text-slate-400">Horário: {new Date(item.date).toLocaleTimeString('pt-BR')}</p>
                                         </div>
+                                        
+                                        <div className="flex gap-2 py-2 border-y border-white/5 my-1">
+                                            <div className="flex-1 text-center">
+                                                <p className="text-[10px] text-slate-500 uppercase font-bold">Matérias</p>
+                                                <p className="text-sm font-black text-purple-400">{item.categoryCount || 0}</p>
+                                            </div>
+                                            <div className="w-px bg-white/5" />
+                                            <div className="flex-1 text-center">
+                                                <p className="text-[10px] text-slate-500 uppercase font-bold">Tarefas</p>
+                                                <p className="text-sm font-black text-blue-400">{item.taskCount || 0}</p>
+                                            </div>
+                                        </div>
+
                                         <button 
                                             onClick={() => handleRestoreBackup(item)}
                                             className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-black rounded-xl transition-all shadow-lg active:scale-95"

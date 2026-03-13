@@ -91,6 +91,17 @@ export const validateAppState = (data) => {
     });
 
     let activeId = d.activeId || 'default';
+    
+    // Lógica de Foco: Se o concurso ativo estiver vazio, tenta encontrar um que contenha 'Direito'
+    const currentIsEmpty = !validatedContests[activeId] || !validatedContests[activeId].categories || validatedContests[activeId].categories.length === 0;
+    if (currentIsEmpty) {
+      const derechoId = Object.keys(validatedContests).find(id => {
+        const c = validatedContests[id];
+        return JSON.stringify(c.categories || []).toLowerCase().includes('direito');
+      });
+      if (derechoId) activeId = derechoId;
+    }
+
     if (!validatedContests[activeId]) activeId = Object.keys(validatedContests)[0] || 'default';
 
     const finalState = {
@@ -118,6 +129,28 @@ export const validateAppState = (data) => {
           const candidateData = extractCore(parsed);
           if (!candidateData) continue;
 
+          // Contagem de conteúdo Real
+          let categoryCount = 0;
+          let taskCount = 0;
+          
+          if (candidateData.contests) {
+            Object.values(candidateData.contests).forEach(c => {
+              if (Array.isArray(c.categories)) {
+                categoryCount += c.categories.length;
+                c.categories.forEach(cat => {
+                  if (Array.isArray(cat.tasks)) taskCount += cat.tasks.length;
+                });
+              }
+            });
+          } else if (Array.isArray(candidateData.categories)) {
+            categoryCount = candidateData.categories.length;
+            candidateData.categories.forEach(cat => {
+              if (Array.isArray(cat.tasks)) taskCount += cat.tasks.length;
+            });
+          }
+
+          if (categoryCount === 0) continue;
+
           let score = 0;
           const hasDireito = raw.toLowerCase().includes('direito');
           const updatedDate = candidateData.lastUpdated || candidateData.contests?.[Object.keys(candidateData.contests)[0]]?.lastUpdated;
@@ -129,10 +162,12 @@ export const validateAppState = (data) => {
           if (hasDireito) score += 100;
           if (isTargetDate) score += 300;
           if (key.includes('ultra-dashboard')) score += 50;
+          score += (categoryCount * 10) + (taskCount * 2);
 
           if (score > 50) {
             const candidate = {
               key, score, date: updatedDate,
+              categoryCount, taskCount,
               data: candidateData.categories && !candidateData.contests 
                 ? { contests: { 'default': candidateData }, activeId: 'default', lastUpdated: updatedDate }
                 : candidateData
