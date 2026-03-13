@@ -9,6 +9,17 @@ import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    
+    // GUARDA DE SEGURANÇA: Previne crash se o estado mudar rapidamente durante a restauração
+    if (!data || !data.categories) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            </div>
+        );
+    }
+    
     const setAppState = useAppStore(state => state.setAppState);
     const setData = useAppStore(state => state.setData);
     
