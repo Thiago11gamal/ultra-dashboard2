@@ -9,13 +9,14 @@ import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const { setData, setAppState } = useAppStore();
-    const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
-    const showToast = useToast();
-
-    // Actions
+    const setAppState = useAppStore(state => state.setAppState);
+    const setData = useAppStore(state => state.setData);
+    
     const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority } = useAppStore();
+    const showToast = useToast();
     const navigate = useNavigate();
+    
+    const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
 
     const [filter, setFilter] = useState('all');
 
@@ -27,24 +28,29 @@ export default function Dashboard() {
     const [rescueList, setRescueList] = useState(() => typeof window !== 'undefined' ? window.__ULTRA_RESCUE_LIST : []);
 
     const handleRestoreBackup = (backup) => {
-        console.log("[Rescue] Tentando restaurar backup:", backup);
+        console.log("[Rescue] Forçando restauração direta:", backup);
         if (backup && backup.data) {
             try {
-                setAppState(backup.data);
+                // SALVAMENTO DE EMERGÊNCIA (Direto no LocalStorage)
+                const dataToSave = JSON.parse(JSON.stringify(backup.data));
+                localStorage.setItem('ultra-dashboard-data', JSON.stringify(dataToSave));
+                localStorage.setItem('ultra-dashboard-storage', JSON.stringify({ state: { appState: dataToSave }, version: 1 }));
+                
+                // Aplica no store atual
+                setAppState(dataToSave);
+                
                 showToast(`Dados de ${new Date(backup.date).toLocaleDateString('pt-BR')} restaurados! Recarregando... ⏳`, 'success');
                 
-                // Limpeza
                 setRescueList([]);
                 delete window.__ULTRA_RESCUE_LIST;
                 delete window.__ULTRA_RESCUE_CANDIDATE;
 
-                // Força o reload após 1.5s para garantir que o Zustand persistiu e o usuário viu o toast
                 setTimeout(() => {
                     window.location.reload();
-                }, 1500);
+                }, 1000);
             } catch (err) {
-                console.error("[Rescue] Erro ao aplicar backup:", err);
-                showToast("Erro ao aplicar backup. Verifique o console.", "error");
+                console.error("[Rescue] Falha crítica:", err);
+                showToast("Erro ao restaurar. Tente novamente ou veja o console.", "error");
             }
         }
     };
