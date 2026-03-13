@@ -159,11 +159,14 @@ export const validateAppState = (data) => {
           const updatedDate = candidateData.lastUpdated || candidateData.contests?.[Object.keys(candidateData.contests)[0]]?.lastUpdated;
           if (!updatedDate) continue;
 
-          const targetDates = ["2026-03-10", "2026-03-11", "2026-03-12"];
-          const isTargetDate = targetDates.some(dt => updatedDate.startsWith(dt));
+          // Datas Dinâmicas: Prioriza backups recentes (Últimos 7 dias)
+          const now = new Date();
+          const backupDate = new Date(updatedDate);
+          const diffDays = (now - backupDate) / (1000 * 60 * 60 * 24);
+          const isRecent = diffDays >= 0 && diffDays <= 7;
 
           if (hasDireito) score += 100;
-          if (isTargetDate) score += 300;
+          if (isRecent) score += 300;
           if (key.includes('ultra-dashboard')) score += 50;
           score += (categoryCount * 10) + (taskCount * 2) + (studyCount * 5);
 

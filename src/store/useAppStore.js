@@ -430,7 +430,7 @@ export const useAppStore = create(
                     if (isNaN(d.getTime())) return false;
                     const utcDay = d.getUTCFullYear() + '-' +
                         String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getUTCMonth() === 11 && d.getUTCDate() === 31 ? 31 : d.getUTCDate()).padStart(2, '0');
+                        String(d.getUTCDate()).padStart(2, '0');
                     return utcDay === targetDay;
                 };
                 if (activeData.simuladoRows) {
