@@ -27,12 +27,25 @@ export default function Dashboard() {
     const [rescueList, setRescueList] = useState(() => typeof window !== 'undefined' ? window.__ULTRA_RESCUE_LIST : []);
 
     const handleRestoreBackup = (backup) => {
+        console.log("[Rescue] Tentando restaurar backup:", backup);
         if (backup && backup.data) {
-            setAppState(backup.data);
-            showToast(`Dados de ${new Date(backup.date).toLocaleDateString('pt-BR')} restaurados! 🎉`, 'success');
-            setRescueList([]);
-            delete window.__ULTRA_RESCUE_LIST;
-            delete window.__ULTRA_RESCUE_CANDIDATE;
+            try {
+                setAppState(backup.data);
+                showToast(`Dados de ${new Date(backup.date).toLocaleDateString('pt-BR')} restaurados! Recarregando... ⏳`, 'success');
+                
+                // Limpeza
+                setRescueList([]);
+                delete window.__ULTRA_RESCUE_LIST;
+                delete window.__ULTRA_RESCUE_CANDIDATE;
+
+                // Força o reload após 1.5s para garantir que o Zustand persistiu e o usuário viu o toast
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } catch (err) {
+                console.error("[Rescue] Erro ao aplicar backup:", err);
+                showToast("Erro ao aplicar backup. Verifique o console.", "error");
+            }
         }
     };
 
