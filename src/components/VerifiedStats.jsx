@@ -7,14 +7,164 @@ import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
 
-const InfoTooltip = ({ text }) => (
+const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
         <HelpCircle size={14} className="text-slate-600 hover:text-purple-400 transition-colors cursor-help" />
         <div className="absolute bottom-full right-0 mb-2 w-48 p-3 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-xl text-xs text-slate-300 shadow-2xl opacity-0 translate-y-2 group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all pointer-events-none z-[9999] text-right">
             {text}
         </div>
     </div>
-);
+));
+
+const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData }) => (
+    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
+        status === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
+            'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
+        }`}>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                    <Target size={18} className={status === 'excellence' || status === 'good' ? "text-purple-400" : status === 'warning' ? "text-red-400" : "text-blue-400"} />
+                </div>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                    Previsão IA
+                    {trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                </span>
+            </div>
+        </div>
+        <div className="text-center my-4 relative z-10">
+            <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500 drop-shadow-[0_0_10px_rgba(168,85,247,0.4)]' :
+                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]' :
+                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                }`}>
+                {prediction}
+            </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
+            <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
+                <div className="flex items-baseline gap-0.5">
+                    <span className="text-sm font-black text-slate-200">{targetScore ?? 90}</span>
+                    <span className="text-[9px] text-slate-500 font-bold">%</span>
+                </div>
+            </div>
+            <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
+                <div className="flex items-center gap-1.5">
+                    {hasEnoughData ? (
+                        <>
+                            {trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
+                            {trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
+                            {trend === 'stable' && <Minus size={14} className="text-slate-500" />}
+                            <span className="text-xs font-black text-slate-200 uppercase">
+                                {trend === 'up' ? 'Alta' : trend === 'down' ? 'Baixa' : 'Estável'}
+                            </span>
+                        </>
+                    ) : (
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                    )}
+                </div>
+            </div>
+        </div>
+        <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
+            <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
+                {subtext}
+            </p>
+        </div>
+        <div className="absolute bottom-0 left-0 w-full h-1 bg-black/50 overflow-hidden">
+            <div className={`h-full w-1/3 rounded-full opacity-70 move-right-anim ${status === 'excellence' || status === 'good' ? 'bg-purple-500' : status === 'warning' ? 'bg-red-500' : 'bg-blue-500'}`} />
+        </div>
+    </div>
+));
+
+const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
+    const sdNum = parseFloat(cat.sd);
+    const barWidth = Math.max(0, 100 - (sdNum / maxSdVal) * 100);
+    const deltaNum = parseFloat(cat.delta);
+    const sdBarColor = cat.color.replace('text-', 'bg-');
+    const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
+
+    return (
+        <div className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
+            <div className="col-span-3 flex items-center gap-2 min-w-0">
+                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
+            </div>
+            <div className="col-span-2 flex justify-center">
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
+                    {cat.status}
+                </span>
+            </div>
+            <div className="col-span-4 flex items-center gap-2">
+                <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                    <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} title="SD=15" />
+                </div>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
+            </div>
+            <div className="col-span-1 flex justify-center items-center">
+                {deltaNum > 0 ? (
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
+                ) : deltaNum < 0 ? (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
+                ) : (
+                    <span className="text-[10px] font-bold text-slate-600">—</span>
+                )}
+            </div>
+            <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
+                {cat.villains && cat.villains.length > 0 ? (
+                    cat.villains.slice(0, 2).map((v) => (
+                        <div key={v.name} className="relative flex items-center justify-center text-[12px] leading-tight min-h-[14px]">
+                            <span className="text-slate-400 truncate max-w-[70px] font-semibold text-center" title={v.name}>{v.name.length > 15 ? v.name.substring(0, 14) + '…' : v.name}</span>
+                            <span className="absolute right-0 text-red-400 font-mono font-black text-[12px]">±{v.sd.toFixed(0)}</span>
+                        </div>
+                    ))
+                ) : (
+                    <span className="text-[10px] text-slate-600 text-center">—</span>
+                )}
+            </div>
+        </div>
+    );
+});
+
+const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
+    if (categoryBreakdown.length === 0) return (
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.</div>
+    );
+
+    const maxSdVal = Math.max(25, ...categoryBreakdown.map(c => c.rawSd || 0));
+
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-1">
+                <div className="col-span-3">Matéria</div>
+                <div className="col-span-2 text-center">Status</div>
+                <div className="col-span-4 text-center">Desvio Padrão (SD)</div>
+                <div className="col-span-1 text-center">Δ</div>
+                <div className="col-span-2 text-center">Vilões</div>
+            </div>
+            {categoryBreakdown.map((cat, idx) => (
+                <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} />
+            ))}
+            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+                {[
+                    { color: 'bg-purple-500', label: 'SD ≤ 5' },
+                    { color: 'bg-blue-500', label: 'SD ≤ 10' },
+                    { color: 'bg-orange-500', label: 'SD ≤ 15' },
+                    { color: 'bg-red-400', label: 'SD ≤ 25' },
+                    { color: 'bg-red-600', label: 'SD > 25' }
+                ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                        <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
+                        <span className="text-[9px] text-slate-500 font-medium">{l.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+});
 
 export default function VerifiedStats({ categories = [], user }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
