@@ -32,12 +32,12 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
 
   // LOOP DA SIMULAÇÃO (agora não é mais ignorado)
   for (let i = 0; i < safeSimulations; i++) {
-    const score = Math.max(0, Math.min(100, safeMean + randomNormal(rng) * safeSD));
+    const score = safeMean + randomNormal(rng) * safeSD;
     
-    // Calcula quantos cenários atingiram a nota alvo
-    if (score >= safeTarget) success++;
+    const finalScore = Math.max(0, Math.min(100, score));
+    if (finalScore >= safeTarget) success++;
 
-    allScores[i] = score;
+    allScores[i] = finalScore;
 
     welfordCount++;
     const delta = score - welfordMean;
@@ -49,24 +49,31 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const projectedSD = Math.sqrt(welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0);
 
   allScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
-  const p025idx = Math.floor(safeSimulations * 0.025);
+  const p025idx = Math.max(0, Math.ceil(safeSimulations * 0.025) - 1);
   const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
 
-  return {
+  const result = {
     probability: (success / safeSimulations) * 100,
     mean: Number(projectedMean.toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    
-    // Usar os percentis reais de Monte Carlo em vez do override Bayesiano
     ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
     ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
-    
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
     drift: 0,
     volatility: safeSD,
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
+  };
+
+  // Se bayesianCI foi fornecido, usar o mais conservador (IC mais amplo)
+  const finalLow = bayesianCI ? Math.min(result.ci95Low, bayesianCI.ciLow) : result.ci95Low;
+  const finalHigh = bayesianCI ? Math.max(result.ci95High, bayesianCI.ciHigh) : result.ci95High;
+
+  return {
+    ...result,
+    ci95Low: Number(finalLow.toFixed(1)),
+    ci95High: Number(finalHigh.toFixed(1)),
   };
 }
 

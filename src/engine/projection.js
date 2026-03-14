@@ -185,10 +185,9 @@ export function calculateVolatility(history) {
 
     if (sumWeights === 0) return 1.5;
 
-    // M-02 FIX: MSSD (Mean Successive Squared Differences) requires division by 2.
-    // Formula: σ²_MSSD = (1/2n) × Σ(x_{i+1} − x_i)²
-    // Without /2, volatility was inflated by √2 ≈ 1.41x, widening Monte Carlo CIs.
-    const mssdVariance = (sumSw / sumWeights) / 2;
+    // M-02 FIX: MSSD (Mean Successive Squared Differences)
+    // Bug 1 Fix: Remover a divisão por 2. O dailyVariance já normaliza para variância/dia.
+    const mssdVariance = sumSw / sumWeights;
 
     // Safe sqrt
     return Math.sqrt(Math.max(0, mssdVariance));
@@ -267,9 +266,8 @@ export function monteCarloSimulation(
     }).slice(1) : [];
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
-    // BUG-03 FIX: If forcedVolatility is provided, we prefer the Normal path to ensure 
-    // the paths match the pooled statistical uncertainty regardless of bootstrap availability.
-    const useBootstrap = residuals.length >= 5 && forcedVolatility === undefined;
+    // BUG-03 FIX: Permitir bootstrap mesmo com forcedVolatility, mas escalando resíduos.
+    const useBootstrap = residuals.length >= 5;
 
     // Calcula volatilidade clássica apenas para fallback
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
@@ -343,7 +341,15 @@ export function monteCarloSimulation(
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            if (useBootstrap) {
+            if (useBootstrap && forcedVolatility !== undefined) {
+                const residualSD = Math.sqrt(
+                    residuals.reduce((s, r) => s + r * r, 0) / residuals.length
+                );
+                const scale = residualSD > 0 ? forcedVolatility / residualSD : 1;
+                const randomResidual = getRandomElement(residuals, rng);
+                const jitter = (rng() - 0.5) * 0.1;
+                shock = (randomResidual + jitter) * scale;
+            } else if (useBootstrap) {
                 const randomResidual = getRandomElement(residuals, rng);
                 const jitter = (rng() - 0.5) * 0.1;
                 shock = randomResidual + jitter;
@@ -354,8 +360,9 @@ export function monteCarloSimulation(
             // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
             const dampedDrift = dayDrift * (45 / (45 + d));
             score += dampedDrift + shock;
-            score = Math.max(0, Math.min(100, score));
         }
+
+        score = Math.max(0, Math.min(100, score));
 
         if (score >= targetScore) success++;
 
@@ -375,7 +382,7 @@ export function monteCarloSimulation(
 
     // Empirical percentiles — sort then pick P2.5 and P97.5
     allFinalScores.sort((a, b) => a - b);
-    const p025idx = Math.floor(safeSimulations * 0.025);
+    const p025idx = Math.max(0, Math.ceil(safeSimulations * 0.025) - 1);
     const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
