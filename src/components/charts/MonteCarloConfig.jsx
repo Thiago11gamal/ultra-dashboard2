@@ -13,8 +13,8 @@ export const MonteCarloConfig = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
-            {/* Backdrop com clique para fechar opcional (mantido rígido por enquanto para evitar fechamento acidental) */}
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => onClose(false)} />
+            {/* Backdrop com clique para fechar opcional (stopPropagation adicionado para evitar bubbling ao fundo) */}
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(false); }} />
 
             <div className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between p-6 border-b border-white/5">

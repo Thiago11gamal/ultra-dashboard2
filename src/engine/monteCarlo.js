@@ -27,7 +27,8 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   let welfordM2 = 0;
   let welfordCount = 0;
 
-  const allScores = new Array(safeSimulations);
+  // PERFORMANCE FIX: Use Float32Array to reduce GC pressure on 2000+ simulations
+  const allScores = new Float32Array(safeSimulations);
 
   // LOOP DA SIMULAÇÃO (agora não é mais ignorado)
   for (let i = 0; i < safeSimulations; i++) {
@@ -47,7 +48,7 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0);
 
-  allScores.sort((a, b) => a - b);
+  allScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
   const p025idx = Math.floor(safeSimulations * 0.025);
   const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
 
@@ -94,10 +95,16 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     return monteCarloSimulation(history, Number(meta) || 0, projectionDays, simulations, options);
   }
 
+  // STABILITY FIX: Hard sanitization before invoking simulation to prevent NaN/Infinity propagating
+  const sanitize = (val) => {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   return simulateNormalDistribution(
-    Number(inputOrMean),
-    Number(pooledSD),
-    Number(targetScore),
+    sanitize(inputOrMean),
+    sanitize(pooledSD),
+    sanitize(targetScore),
     options.simulations,
     options.seed,
     options.currentMean,

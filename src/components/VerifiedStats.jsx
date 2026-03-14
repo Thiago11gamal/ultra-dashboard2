@@ -551,6 +551,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
+                        onTargetScoreChange={setTargetScore}
                         forcedMode="today"
                         forcedTitle="Status Atual"
                     />
@@ -558,6 +559,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         categories={categories}
                         goalDate={user?.goalDate}
                         targetScore={targetScore}
+                        onTargetScoreChange={setTargetScore}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
                     />

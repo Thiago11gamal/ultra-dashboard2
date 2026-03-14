@@ -26,6 +26,7 @@ export default function MonteCarloGauge({
     categories = [],
     goalDate,
     targetScore,
+    onTargetScoreChange, // Callback to update parent state
     forcedMode = null, // 'today' or 'future'
     forcedTitle = null
 }) {
@@ -168,13 +169,12 @@ export default function MonteCarloGauge({
 
         // Reconstruct consolidated global history for path simulation
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
+        
         // C-04 FIX: Só gerar ponto quando pelo menos 1 matéria foi avaliada naquele dia.
-        // Antes: lastSeen arrastava scores antigos indefinidamente, poluindo globalHistory.
-        // Agora: para cada data, usa só matérias que TÊM score naquele dia específico.
+        // BUG-03 RIGOR: Para o histórico visual, mantemos a agregação diária.
         const globalHistory = sortedDates.map(date => {
             let sum = 0;
             let tw = 0;
-            // Usar SOMENTE matérias que foram avaliadas neste dia específico
             Object.keys(scoresByDate[date]).forEach(name => {
                 const w = weightsByName[name];
                 if (w > 0) {
@@ -185,13 +185,18 @@ export default function MonteCarloGauge({
             return { date, score: tw > 0 ? sum / tw : 0 };
         }).filter(h => h.score > 0);
 
-        // Daily pooled SD (using real MSSD volatility)
-        const dailySD = calculateVolatility(globalHistory);
+        // BUG-03 FIX: Volatilidade Inflada.
+        // Não usamos calculateVolatility(globalHistory) pois saltos entre matérias (ex: Português 90 -> Matemática 50)
+        // inflariam artificialmente o desvio padrão diário.
+        // Usamos a média ponderada das volatilidades REAIS de cada matéria.
+        let sumVolatility = 0;
+        categoryStats.forEach(cat => {
+            const catVol = calculateVolatility(cat.history);
+            const w = cat.weight || 0;
+            sumVolatility += catVol * (w / totalWeight);
+        });
 
-        // OLD: historical SD was inflating uncertainty wrongly over projectDays paths
-        // const dailySD = Math.sqrt(
-        //     categoryStats.reduce((acc, cat) => acc + (cat.weight / totalWeight) * Math.pow(cat.sd, 2), 0)
-        // );
+        const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
 
         return {
             categoryStats,
@@ -467,7 +472,7 @@ export default function MonteCarloGauge({
                 show={showConfig}
                 onClose={setShowConfig}
                 targetScore={targetScore}
-                setTargetScore={() => {}} // TargetScore is coming from props in this context
+                setTargetScore={onTargetScoreChange} 
                 equalWeightsMode={equalWeightsMode}
                 setEqualWeightsMode={setEqualWeightsMode}
                 getEqualWeights={getEqualWeights}
