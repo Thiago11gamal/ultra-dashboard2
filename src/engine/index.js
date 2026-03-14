@@ -1,36 +1,11 @@
-export {
-    mean,
-    standardDeviation,
-    calculateTrend,
-    computeBayesianLevel,
-    computeCategoryStats
-} from './stats.js';
+/**
+ * Monte Carlo Engine - Unified Export
+ */
 
-export {
-    getSortedHistory,
-    calculateDynamicEMA,
-    calculateSlope,
-    calculateSlope as calculateAdaptiveSlope,
-    calculateVolatility,
-    projectScore,
-    monteCarloSimulation,
-    calculateCurrentWeightedMean,
-    calculateWeightedProjectedMean
-} from './projection.js';
+export * from './stats.js';
+export * from './projection.js';
+export * from './variance.js';
+export * from './random.js';
+export { computeCategoryStats, computeBayesianLevel } from './stats.js';
 
-export {
-    computeWeightedVariance,
-    computeTimeUncertainty,
-    computePooledSD,
-    getVarianceBreakdown
-} from './variance.js';
-
-export {
-    mulberry32,
-    randomNormal
-} from './random.js';
-
-export {
-    simulateNormalDistribution,
-    runMonteCarloAnalysis
-} from './monteCarlo.js';
+export * from './monteCarlo.js';

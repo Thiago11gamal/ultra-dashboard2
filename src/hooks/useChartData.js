@@ -1,7 +1,14 @@
 import { useMemo } from 'react';
-import { computeCategoryStats } from '../engine';
+import { computeCategoryStats, calculateWeightedProjectedMean, computeBayesianLevel } from '../engine';
 
-import { getDateKey } from '../utils/dateHelper';
+const getDateKey = (rawDate) => {
+    if (!rawDate) return null;
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return null;
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+};
 
 function buildCumulativeStatsPerDate(history, sortedDates) {
     const aggregatedHistoryByDateMap = new Map();
@@ -17,16 +24,14 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         if (existing) {
             existing.correct += correct;
             existing.total += total;
-            existing.score = existing.total > 0
-                ? (existing.correct / existing.total) * 100
-                : existing.score; // Fallback to current score if no new questions to avoid 0% zero-out
+            existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
         } else {
             const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * 100 : 0);
             aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
         }
     }
 
-    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     const dateToStats = {};
     let accumulated = [];
@@ -34,58 +39,39 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
 
     // Bayesian accumulators — Prior Beta(3,3)
     let bayAlpha = 3;
-    let bayBeta = 3;
-    let lastComputedStats = null;
+    let bayBeta  = 3;
 
     for (const date of sortedDates) {
-        let changed = false;
         while (histIdx < aggregatedHistory.length) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
-                const entry = aggregatedHistory[histIdx];
-                let total = Math.max(0, Number(entry.total) || 0);
-                let correct = Math.min(total, Math.max(0, Number(entry.correct) || 0));
-
-                if (total === 0 && entry.score != null) {
-                    const pct = Math.min(1, Math.max(0, Number(entry.score) / 100));
-                    total = 10;
-                    correct = Math.round(pct * 10);
+                const entry   = aggregatedHistory[histIdx];
+                const total   = Number(entry.total)   || 0;
+                const correct = Number(entry.correct) || 0;
+                if (total >= 5) {
+                    bayAlpha += correct;
+                    bayBeta  += (total - correct);
                 }
-
-                bayAlpha += correct;
-                bayBeta += (total - correct);
                 accumulated.push(entry);
                 histIdx++;
-                changed = true;
             } else {
                 break;
             }
         }
-
-        if (changed || (accumulated.length > 0 && !lastComputedStats)) {
-            // CACHE BUG FIX: pass a shallow copy of accumulated instead of the live array.
-            // Without the copy, lastComputedStats.history is a reference to the same `accumulated`
-            // array that keeps growing as the loop processes later dates. Every stats snapshot
-            // would silently point to the final full history rather than the partial history
-            // up to that date, corrupting any consumer that reads stats.history or stats.n
-            // from historical snapshots.
-            lastComputedStats = computeCategoryStats([...accumulated], 100);
-        }
-
         if (accumulated.length > 0) {
-            const n = bayAlpha + bayBeta;
-            const p = n > 0 ? bayAlpha / n : 0.5;
-            const variance = (n > 0) ? (bayAlpha * bayBeta) / (n * n * (n + 1)) : 0.04;
-            const sd = Math.sqrt(variance);
+            const n    = bayAlpha + bayBeta;
+            const p    = bayAlpha / n;
+            const variance = (bayAlpha * bayBeta) / (n * n * (n + 1));
+            const sd   = Math.sqrt(variance);
             dateToStats[date] = {
-                stats: lastComputedStats,
-                last: accumulated[accumulated.length - 1],
+                stats: computeCategoryStats(accumulated, 100),
+                last:  accumulated[accumulated.length - 1],
                 bayesian: {
-                    mean: p * 100,
-                    ciLow: Math.max(0, (p - 1.96 * sd) * 100),
+                    mean:   p * 100,
+                    ciLow:  Math.max(0,   (p - 1.96 * sd) * 100),
                     ciHigh: Math.min(100, (p + 1.96 * sd) * 100),
-                    alpha: bayAlpha,
-                    beta: bayBeta,
+                    alpha:  bayAlpha,
+                    beta:   bayBeta,
                 },
             };
         }
@@ -93,23 +79,53 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     return dateToStats;
 }
 
-export function useChartData(categories = [], focusId = null) {
+export function useChartData(categories = [], targetScore = 80) {
     const activeCategories = useMemo(() => {
-        // 1. Filter only categories that actually have a history of study
-        return categories.filter(c => c.simuladoStats?.history?.length > 0);
+        let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
+        valid.sort((a, b) => {
+            const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            return volB - volA;
+        });
+
+        if (valid.length > 5) {
+            const top = valid.slice(0, 5);
+            const others = valid.slice(5);
+
+            const outrasHistoryMap = new Map();
+            others.forEach(cat => {
+                (cat.simuladoStats?.history || []).forEach(h => {
+                    const dKey = h.date;
+                    const correct = Number(h.correct) || 0;
+                    const total = Number(h.total) || 0;
+                    let existing = outrasHistoryMap.get(dKey);
+                    if (!existing) {
+                        existing = { ...h, date: dKey, correct: 0, total: 0 };
+                        outrasHistoryMap.set(dKey, existing);
+                    }
+                    existing.correct += correct;
+                    existing.total += total;
+                    existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
+                });
+            });
+            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+            const outrasCategory = {
+                id: "synthetic-outras",
+                name: "Outras",
+                color: "#64748b",
+                icon: "📦",
+                simuladoStats: { history: outrasHistoryArray }
+            };
+            return [...top, outrasCategory];
+        }
+        return valid;
     }, [categories]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
 
-        const categoriesToProcess = [...activeCategories];
-        const focusedCat = categories.find(c => c.id === focusId);
-        if (focusedCat && !activeCategories.some(ac => ac.id === focusedCat.id)) {
-            categoriesToProcess.push(focusedCat);
-        }
-
         const allDatesSet = new Set();
-        categoriesToProcess.forEach(cat => {
+        activeCategories.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const dateKey = getDateKey(h.date);
                 if (dateKey) allDatesSet.add(dateKey);
@@ -120,19 +136,15 @@ export function useChartData(categories = [], focusId = null) {
         const dataByDate = {};
 
         dates.forEach((date) => {
-            const [year, month, day] = date.split("-");
+            const [_year, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
-                displayDate: `${day}/${month}/${year.slice(-2)}`
+                displayDate: `${day}/${month}`
             };
         });
 
-        categoriesToProcess.forEach(cat => {
-            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => {
-                const ka = getDateKey(a.date) || "";
-                const kb = getDateKey(b.date) || "";
-                return ka.localeCompare(kb);
-            });
+        activeCategories.forEach(cat => {
+            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
             if (!history.length) return;
 
             const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
@@ -150,43 +162,36 @@ export function useChartData(categories = [], focusId = null) {
                 const snap = cumulativeByDate[date];
                 if (!snap) return;
 
-                const { stats } = snap;
+                const { stats, last } = snap;
                 const exact = exactByDate[date];
 
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total > 0 ? (correct / total) * 100 : null;
+                const rawDailyScore = total >= 5 ? (correct / total) * 100 : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
                 dataByDate[date][`raw_${cat.name}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.name}`] = snap.bayesian ? snap.bayesian.mean : 0;
-                dataByDate[date][`bay_ci_low_${cat.name}`] = snap.bayesian ? snap.bayesian.ciLow : 0;
+                dataByDate[date][`bay_${cat.name}`]        = snap.bayesian ? snap.bayesian.mean   : 0;
+                dataByDate[date][`bay_ci_low_${cat.name}`]  = snap.bayesian ? snap.bayesian.ciLow  : 0;
                 dataByDate[date][`bay_ci_high_${cat.name}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
-                dataByDate[date][`stats_${cat.name}`] = stats ? stats.cumulativeMean : 0;
+                dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
                 dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
 
-                // ONLY update globals for CATEGORIES in activeCategories!
-                // (To avoid double counting if focusSubject is already in top 5, 
-                // OR counting hidden categories if we want to mimic current UI logic)
-                if (activeCategories.some(ac => ac.id === cat.id)) {
-                    dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
-                    dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
-                }
+                dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
+                dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
             });
         });
 
         dates.forEach(date => {
             const d = dataByDate[date];
-            // B-06 FIX: Retornar null (ponto ausente) em vez de 0 (linha no chão).
-            // Dias sem dados de nenhuma categoria não devem aparecer como 0% no gráfico global.
-            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : null;
+            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0;
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories, categories, focusId]);
+    }, [activeCategories, targetScore]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
@@ -217,18 +222,9 @@ export function useChartData(categories = [], focusId = null) {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const key = getDateKey(h.date);
                 if (!key) return;
-                
-                let correct = Number(h.correct) || 0;
-                let total = Number(h.total) || 0;
-                if (total === 0 && h.score != null) {
-                    const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
-                    total = 10;
-                    correct = Math.round(pct * 10);
-                }
-
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                dayMap[key].correct += correct;
-                dayMap[key].total += total;
+                dayMap[key].correct += (h.correct || 0);
+                dayMap[key].total += (h.total || 0);
             });
 
             const cells = sortedDates.map(dateStr => {

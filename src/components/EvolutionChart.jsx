@@ -495,8 +495,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </feMerge>
                                         </filter>
                                         <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.1} />
-                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -629,8 +629,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <stop offset="100%" stopColor="#6366f1" stopOpacity={0.01} />
                                         </linearGradient>
                                         <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.1} />
-                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
+                                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
                                         </linearGradient>
                                         <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.25} />
