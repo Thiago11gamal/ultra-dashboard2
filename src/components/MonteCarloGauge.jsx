@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Minus, Settings2 } from 'lucide-react';
 import {
     computeCategoryStats,
