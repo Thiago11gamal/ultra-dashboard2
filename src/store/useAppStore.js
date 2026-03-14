@@ -90,9 +90,12 @@ const processGamification = (state, xpGained) => {
     const finalLevel = calculateLevel(newXP);
     const leveledUp = finalLevel > currentLevel;
 
-    activeData.user.xp = newXP;
-    // BUG-03 FIX: Prevent level regression. Gamification systems should never demote the user.
+    // Bug #12: XP floor for level preservation
+    // If the system prevents level regression (Math.max below), 
+    // we must also ensure XP doesn't drop below that level's floor.
     activeData.user.level = Math.max(currentLevel, finalLevel);
+    const minXpForCurrentLevel = Math.pow(activeData.user.level - 1, 2) * 100;
+    activeData.user.xp = Math.max(newXP, minXpForCurrentLevel);
 
     // ✅ No side effects here — return the event detail for the caller to dispatch
     // after set() completes (outside the Immer draft).
@@ -291,7 +294,17 @@ export const useAppStore = create(
                 const activeData = state.appState.contests[state.appState.activeId];
                 // BUG-06 FIX: Add guard to ensure categories is a valid array
                 if (!activeData || !Array.isArray(activeData.categories)) return;
+                
+                const category = activeData.categories.find(c => c.id === id);
+                const name = category?.name;
+
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
+                
+                // Bug #7: Memory Leak Cleanup
+                if (name && activeData.mcWeights && activeData.mcWeights[name]) {
+                    delete activeData.mcWeights[name];
+                }
+
                 if (activeData.studyLogs) {
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.categoryId !== id);
                 }
@@ -416,22 +429,21 @@ export const useAppStore = create(
                 recordHistory(state.appState, true);
                 
                 const dt = new Date(dateInput);
-                const targetDay = dt.getUTCFullYear() + '-' +
-                    String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' +
-                    String(dt.getUTCDate()).padStart(2, '0');
+                const targetDay = dt.getFullYear() + '-' +
+                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(dt.getDate()).padStart(2, '0');
 
                 const activeData = state.appState.contests[state.appState.activeId];
-                // B-09/B-19 FIX: Use UTC to ensure paritas between storage (ISO UTC) and deletion target.
-                // Simulados after 21:00 BRT are saved as the next day in UTC; using local getDate()
-                // would target the previous day incorrectly.
+                
+                // Bug #5: Consistency fix using local time methods for UI-storage parity.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
                     const d = new Date(raw);
                     if (isNaN(d.getTime())) return false;
-                    const utcDay = d.getUTCFullYear() + '-' +
-                        String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getUTCDate()).padStart(2, '0');
-                    return utcDay === targetDay;
+                    const day = d.getFullYear() + '-' +
+                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(d.getDate()).padStart(2, '0');
+                    return day === targetDay;
                 };
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
@@ -478,10 +490,10 @@ export const useAppStore = create(
                 const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
                 const newContestData = {
                     ...initialClone,
-                    user: { ...initialClone.user, name: 'Novo Concurso' },
                     simuladoRows: [],
                     simulados: [],
-                    categories: []
+                    categories: [],
+                    mcWeights: {} // Bug #6: Initialize fresh Monte Carlo weights
                 };
                 state.appState.contests[newId] = newContestData;
                 state.appState.activeId = newId;

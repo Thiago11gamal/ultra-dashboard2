@@ -122,16 +122,18 @@ function MainLayout() {
   const activeContestId = appState?.activeId || 'default';
   const contests = React.useMemo(() => appState?.contests || {}, [appState?.contests]);
 
-  // Safety: If store is loaded but active contest is missing, recover in an effect (not during render)
   useEffect(() => {
-    if (currentUser && !data && Object.keys(contests).length > 0) {
-      const firstAvailableId = Object.keys(contests)[0];
-      if (firstAvailableId && firstAvailableId !== activeContestId) {
+    if (currentUser && !data) {
+      const ids = Object.keys(contests);
+      if (ids.length > 0 && ids[0] !== activeContestId) {
         console.warn("Store inconsistency detected. Attempting to recover activeId...");
-        switchContest(firstAvailableId);
+        switchContest(ids[0]);
+      } else if (ids.length === 0) {
+        console.warn("No contests found. Creating default...");
+        createNewContest();
       }
     }
-  }, [currentUser, data, contests, activeContestId, switchContest]);
+  }, [currentUser, data, contests, activeContestId, switchContest, createNewContest]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

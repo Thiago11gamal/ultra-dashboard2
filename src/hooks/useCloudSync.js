@@ -204,8 +204,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
                 const safeguardContest = (contest) => {
                     if (!contest) return contest;
-                    // BUG 5 FIX: align cloud cap with LOG_CAP (1000) to prevent silent data loss.
-                    // Previously capped at 200, causing 800 logs to be lost on cloud pull.
                     return {
                         ...contest,
                         studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
@@ -225,7 +223,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     _lastBackup: new Date().toISOString()
                 };
 
-                // Firebase Firestore REJEITA keys com valores 'undefined'. O parse/stringify varre e remove tds silenciosamente.
                 const stateToSave = JSON.parse(JSON.stringify(rawStateToSave));
 
                 setIsInternalSyncing(true);
@@ -243,10 +240,19 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
+        // Bug #1: Emergency Save on Unload
+        const handleBeforeUnload = () => {
+            if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
+                syncToCloud(); 
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(syncToCloud, 3000);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
         // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
         // Added currentUser?.uid to fix BUG-DEP-1 (prevent old UID on fast account switch).

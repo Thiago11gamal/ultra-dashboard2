@@ -116,12 +116,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     useEffect(() => {
         if (!categories.length) return;
+        if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            setTimeout(() => {
-                if (categories.length > 0) {
-                    setFocusSubjectId(categories[0].id);
-                }
-            }, 0);
+            if (categories.length > 0) {
+                setFocusSubjectId(categories[0].id);
+            }
         }
     }, [categories, focusSubjectId]);
 
@@ -498,6 +497,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
                                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
                                         </linearGradient>
+                                        {/* Bug #9: Missing Shadow Filter for Critical Topics Bar Charts */}
+                                        <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+                                            <feOffset in="blur" dx="0" dy="2" result="offsetBlur" />
+                                            <feMerge>
+                                                <feMergeNode in="offsetBlur" />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />

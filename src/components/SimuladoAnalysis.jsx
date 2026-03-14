@@ -49,7 +49,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const currentCorrect = parseInt(rows[index].correct, 10) || 0;
                 // If Total is reduced below Correct, clamp Correct
                 if (val !== '' && val < currentCorrect) {
-                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val } : r);
+                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val, score: 100 } : r);
                     setRows(newRows);
                     return;
                 }
