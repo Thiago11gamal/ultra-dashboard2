@@ -40,9 +40,10 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
     allScores[i] = finalScore;
 
     welfordCount++;
-    const delta = score - welfordMean;
+    // CORREÇÃO: Usar finalScore em vez de score bruto para alinhar com o clamping (0-100)
+    const delta = finalScore - welfordMean;
     welfordMean += delta / welfordCount;
-    welfordM2 += delta * (score - welfordMean);
+    welfordM2 += delta * (finalScore - welfordMean);
   }
 
   const projectedMean = welfordMean;
