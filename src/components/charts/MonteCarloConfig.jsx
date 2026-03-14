@@ -29,17 +29,19 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
 });
 
 export const MonteCarloConfig = ({
-    show, onClose, targetScore, setTargetScore,
+    show, onClose,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
-    setWeights, weights, updateWeight, categories, onWeightsChange
+    setWeights, weights, updateWeight, categories, onWeightsChange, user
 }) => {
     const savedCustomWeights = useRef(null);
-    const [localTarget, setLocalTarget] = React.useState(targetScore);
-
-    // Sync local state when external targetScore changes (e.g. on load)
-    React.useEffect(() => {
-        setLocalTarget(targetScore);
-    }, [targetScore]);
+    const [targetScore, setTargetScore] = React.useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
+            if (saved) { const parsed = parseFloat(saved); if (!isNaN(parsed)) return parsed; }
+        }
+        const userTarget = parseFloat(user?.targetProbability);
+        return !isNaN(userTarget) ? userTarget : 70;
+    });
 
     if (!show) return null;
 
