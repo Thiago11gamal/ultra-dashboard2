@@ -46,8 +46,16 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
                 const entry   = aggregatedHistory[histIdx];
-                const total   = Number(entry.total)   || 0;
-                const correct = Number(entry.correct) || 0;
+                let total   = Number(entry.total)   || 0;
+                let correct = Number(entry.correct) || 0;
+                
+                // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
+                if (total === 0 && entry.score != null) {
+                    const pct = Math.min(1, Math.max(0, Number(entry.score) / 100));
+                    total = 10;
+                    correct = Math.round(pct * 10);
+                }
+
                 if (total >= 5) {
                     bayAlpha += correct;
                     bayBeta  += (total - correct);
