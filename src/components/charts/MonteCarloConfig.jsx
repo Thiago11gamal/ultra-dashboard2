@@ -66,11 +66,11 @@ export const MonteCarloConfig = ({
                             e.stopPropagation();
                             onClose(false);
                         }}
-                        className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 active:scale-90 flex flex-col items-center justify-center transition-all shadow-xl shadow-emerald-500/20 group/close z-30 ml-4"
-                        title="Salvar Alterações e Fechar"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close"
+                        title="Salvar e Fechar"
                     >
-                        <Check size={32} className="text-white group-hover/close:scale-110 transition-transform" />
-                        <span className="text-[8px] font-black text-white/80 uppercase mt-0.5">Salvar</span>
+                        <Check size={18} className="text-white group-hover/close:scale-110 transition-transform" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Salvar</span>
                     </button>
                 </div>
 

@@ -386,7 +386,12 @@ export default function MonteCarloGauge({
                             >
                                 <Settings2 size={14} />
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}> {simulateToday ? 'Ver Futuro' : 'Ver Hoje'}</button>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} 
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}
+                            > 
+                                {simulateToday ? 'Ver Projeção' : 'Ver Agora'}
+                            </button>
                         </div>
                     )}
                     {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
@@ -478,7 +483,7 @@ export default function MonteCarloGauge({
                 getEqualWeights={getEqualWeights}
                 weights={weights}
                 setWeights={setWeights}
-                updateWeight={(name, p) => setWeights({ ...weights, [name]: p })}
+                updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
                 categories={categories}
             />
         </div>

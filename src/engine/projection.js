@@ -291,10 +291,13 @@ export function monteCarloSimulation(
     let welfordCount = 0;
 
     // T=0 FIX: If projecting for today (0 days), don't run FULL Monte Carlo, 
-    // BUT we must calculate a proper probability distribution based on the Bayesian CI,
+    // BUT we must calculate a proper probability distribution based on uncertainty,
     // not just a hardcoded 0 or 100%.
-    if (days === 0 && forcedBaseline !== undefined && options.bayesianCI) {
-        const { ciLow, ciHigh } = options.bayesianCI;
+    if (days === 0 && forcedBaseline !== undefined) {
+        const { ciLow, ciHigh } = options.bayesianCI || { 
+            ciLow: forcedBaseline - (volatility * 2), 
+            ciHigh: forcedBaseline + (volatility * 2) 
+        };
         
         // Infer standard deviation from the 95% CI (roughly 4 standard deviations wide)
         const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 4);
@@ -307,23 +310,22 @@ export function monteCarloSimulation(
         const d = 0.3989423 * Math.exp(-zScore * zScore / 2);
         let probability = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
         
-        if (zScore < 0) probability = 1 - probability; // Bug 2 Fix: Inverted sign for correct probability
+        if (zScore < 0) probability = 1 - probability;
         probability = probability * 100; // Convert to percentage
         
-        // Ensure probability is not identically 0 or 100 unless extremely far off
         if (probability < 0.1) probability = 0.1;
         if (probability > 99.9) probability = 99.9;
 
         return {
-            probability: Number(probability.toFixed(1)), // Use the calculated theoretical probability
+            probability: Number(probability.toFixed(1)),
             mean: Number(forcedBaseline.toFixed(1)),
-            sd: Number(inferredSD.toFixed(1)), // Pass the inferred SD so the chart draws a proper bell curve
+            sd: Number(inferredSD.toFixed(1)),
             ci95Low: Number(ciLow.toFixed(1)),
             ci95High: Number(ciHigh.toFixed(1)),
             currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
             drift: 0,
             volatility,
-            method: "bayesian_static"
+            method: options.bayesianCI ? "bayesian_static" : "normal_static"
         };
     }
 
