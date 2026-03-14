@@ -329,7 +329,7 @@ export default function Header({
                                 : 'bg-red-500/10 border-red-500/30 text-red-400'
                         }`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${cloudStatus.connected ? 'bg-green-400' : 'bg-red-400'} ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
-                            {cloudStatus.syncing ? 'Sincronizando...' : cloudStatus.connected ? 'Cloud Online' : 'Cloud Offline'}
+                            {cloudStatus.syncing ? 'Sincronizando...' : cloudStatus.connected ? 'Nuvem Online' : 'Nuvem Offline'}
                         </div>
                     </div>
                 </div>
