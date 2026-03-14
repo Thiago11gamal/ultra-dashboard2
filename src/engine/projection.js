@@ -207,7 +207,7 @@ export function monteCarloSimulation(
     history,
     targetScore = 85,
     days = 90,
-    simulations = 2000,
+    simulations = 5000,
     options = {}
 ) {
     // CACHE BUG FIX: destructure currentMean from options.

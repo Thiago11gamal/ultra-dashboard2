@@ -136,7 +136,8 @@ export function computeCategoryStats(history, weight) {
     const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
     const sd = standardDeviation(scores);
-    const safeSD = Math.max(sd, m * 0.02);
+    // AUDIT FIX: SD fallback floor increased to 10% (10 points) per audit recommendation
+    const safeSD = Math.max(sd, 10);
     const rawTrend = calculateTrend(scores);
 
     let trendLabel = 'stable';

@@ -7,7 +7,7 @@ export function simulateNormalDistribution(mean, sd, targetScore, simulations, s
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
-  const safeSimulations = Math.max(1, Math.floor(simulations || 2000));
+  const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
   // Hash da categoria para manter consistência no gerador de números aleatórios
@@ -90,7 +90,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
       values = [],
       dates = [],
       meta = 0,
-      simulations = 2000,
+      simulations = 5000,
       projectionDays = 90
     } = inputOrMean;
 
