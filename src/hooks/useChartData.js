@@ -88,36 +88,6 @@ export function useChartData(categories = [], targetScore = 80) {
             return volB - volA;
         });
 
-        if (valid.length > 5) {
-            const top = valid.slice(0, 5);
-            const others = valid.slice(5);
-
-            const outrasHistoryMap = new Map();
-            others.forEach(cat => {
-                (cat.simuladoStats?.history || []).forEach(h => {
-                    const dKey = h.date;
-                    const correct = Number(h.correct) || 0;
-                    const total = Number(h.total) || 0;
-                    let existing = outrasHistoryMap.get(dKey);
-                    if (!existing) {
-                        existing = { ...h, date: dKey, correct: 0, total: 0 };
-                        outrasHistoryMap.set(dKey, existing);
-                    }
-                    existing.correct += correct;
-                    existing.total += total;
-                    existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
-                });
-            });
-            const outrasHistoryArray = Array.from(outrasHistoryMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-            const outrasCategory = {
-                id: "synthetic-outras",
-                name: "Outras",
-                color: "#64748b",
-                icon: "📦",
-                simuladoStats: { history: outrasHistoryArray }
-            };
-            return [...top, outrasCategory];
-        }
         return valid;
     }, [categories]);
 

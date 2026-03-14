@@ -129,20 +129,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         return found || categories[0] || null;
     }, [categories, focusSubjectId]);
 
-    // BUG FIX: timeline only carries bay_/raw_ keys for activeCategories (top-5 + "Outras").
-    // Categories beyond the 5th are merged into "Outras" — their individual keys are absent.
-    // This causes DisciplinaCards, Radar and BarCharts to show 0 for those categories.
-    // categoryLevels reads from timeline when available, falls back to computing from raw history.
+    // categoryLevels reads from timeline keys (which now contains all categories)
     const categoryLevels = useMemo(() => {
         const map = {};
         const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
+
         categories.forEach(cat => {
             const fromTimeline = lastPoint?.[`bay_${cat.name}`];
             if (fromTimeline != null && fromTimeline > 0) {
                 map[cat.id] = fromTimeline;
                 return;
             }
-            // Fallback: compute directly from raw history (covers categories merged into "Outras")
+            // Fallback for safety (e.g. no recent history)
             const history = cat.simuladoStats?.history || [];
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100);
