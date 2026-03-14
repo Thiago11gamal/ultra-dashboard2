@@ -654,6 +654,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 weights={weights}
                 updateWeight={updateWeight}
                 categories={categories}
+                user={user}
             />
 
             {/* Subject Consistency Breakdown - Full Width */}
