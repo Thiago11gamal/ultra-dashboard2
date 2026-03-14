@@ -1,6 +1,33 @@
 import React, { useRef } from 'react';
 import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 
+const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
+    const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
+    return (
+        <div key={cat.id || cat.name} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color || '#3b82f6'}20`, border: `1px solid ${cat.color || '#3b82f6'}30` }}>{cat.icon || '📚'}</div>
+            <div className="flex-1">
+                <p className="text-sm font-bold text-white mb-1.5">{cat.name || 'Matéria'}</p>
+                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Participação: {normalizedShare}%</p>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg p-1 border border-white/5">
+                {[1, 2, 3].map(p => (
+                    <button
+                        key={p}
+                        onClick={() => updateWeight(cat.name, p)}
+                        className={`w-8 h-8 rounded-md text-[10px] font-black transition-all ${weight === p ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    >
+                        P{p}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+});
+
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
@@ -110,33 +137,15 @@ export const MonteCarloConfig = ({
                             </div>
                         ) : (
                             Array.isArray(categories) && categories.length > 0 ? (
-                                categories.map(cat => {
-                                    const weight = weights ? (parseInt(weights[cat.name], 10) || 1) : 1;
-                                    const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
-                                    return (
-                                        <div key={cat.id || cat.name} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
-                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color || '#3b82f6'}20`, border: `1px solid ${cat.color || '#3b82f6'}30` }}>{cat.icon || '📚'}</div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold text-white mb-1.5">{cat.name || 'Matéria'}</p>
-                                                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full transition-all" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
-                                                </div>
-                                                <p className="text-[10px] text-slate-400 mt-1">Participação: {normalizedShare}%</p>
-                                            </div>
-                                            <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg p-1 border border-white/5">
-                                                {[1, 2, 3].map(p => (
-                                                    <button
-                                                        key={p}
-                                                        onClick={() => updateWeight(cat.name, p)}
-                                                        className={`w-8 h-8 rounded-md text-[10px] font-black transition-all ${weight === p ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                                                    >
-                                                        P{p}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })
+                                categories.map(cat => (
+                                    <WeightRow
+                                        key={cat.id || cat.name}
+                                        cat={cat}
+                                        weight={weights ? (parseInt(weights[cat.name], 10) || 1) : 1}
+                                        manualTotal={manualTotal}
+                                        updateWeight={updateWeight}
+                                    />
+                                ))
                             ) : (
                                 <div className="h-full flex flex-col items-center justify-center text-center opacity-50 space-y-2 py-10">
                                     <Activity size={40} className="text-slate-600 mb-2" />
