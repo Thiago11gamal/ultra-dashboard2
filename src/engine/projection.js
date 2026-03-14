@@ -89,7 +89,7 @@ export function calculateSlope(history) {
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
     const baseLimit = 0.4;
-    const absoluteMax = 0.4;
+    const absoluteMax = 0.6; // Bug 3 Fix: Increased from 0.4 to 0.6 to allow historyBoost effect
 
     const dynamicLimit = Math.min(
         absoluteMax,
@@ -307,7 +307,7 @@ export function monteCarloSimulation(
         const d = 0.3989423 * Math.exp(-zScore * zScore / 2);
         let probability = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
         
-        if (zScore > 0) probability = 1 - probability;
+        if (zScore < 0) probability = 1 - probability; // Bug 2 Fix: Inverted sign for correct probability
         probability = probability * 100; // Convert to percentage
         
         // Ensure probability is not identically 0 or 100 unless extremely far off

@@ -267,6 +267,13 @@ export default function MonteCarloGauge({
         return { status: 'ready', data: result };
     }, [statsData, debouncedTarget, projectDays, categories, debouncedWeights]);
 
+    const [isCalculating, setIsCalculating] = useState(false);
+    useEffect(() => {
+        setIsCalculating(true);
+        const timer = setTimeout(() => setIsCalculating(false), 600);
+        return () => clearTimeout(timer);
+    }, [simulationData?.data?.probability, targetScore]);
+
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
             ? `Você precisa lançar simulados em pelo menos 3 dias diferentes (tem ${simulationData.days}). Faltam ${3 - simulationData.days} dia(s) para a IA identificar o seu ritmo.`
@@ -335,13 +342,6 @@ export default function MonteCarloGauge({
         }
         return 'rgb(34, 197, 94)';
     };
-
-    const [isCalculating, setIsCalculating] = useState(false);
-    useEffect(() => {
-        setIsCalculating(true);
-        const timer = setTimeout(() => setIsCalculating(false), 600);
-        return () => clearTimeout(timer);
-    }, [simulationData.data.probability, targetScore]);
 
     const gradientColor = getGradientColor(prob);
 
