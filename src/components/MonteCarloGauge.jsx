@@ -272,7 +272,7 @@ export default function MonteCarloGauge({
         setIsCalculating(true);
         const timer = setTimeout(() => setIsCalculating(false), 600);
         return () => clearTimeout(timer);
-    }, [simulationData?.data?.probability, targetScore]);
+    }, [simulationData?.data?.probability]); // Removed targetScore for smoother slider
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'

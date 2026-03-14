@@ -7,6 +7,13 @@ export const MonteCarloConfig = ({
     setWeights, weights, updateWeight, categories, onWeightsChange
 }) => {
     const savedCustomWeights = useRef(null);
+    const [localTarget, setLocalTarget] = React.useState(targetScore);
+
+    // Sync local state when external targetScore changes (e.g. on load)
+    React.useEffect(() => {
+        setLocalTarget(targetScore);
+    }, [targetScore]);
+
     if (!show) return null;
 
     const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.name], 10) || 1), 0);
@@ -44,9 +51,19 @@ export const MonteCarloConfig = ({
                     <div className="bg-slate-800/50 p-6 rounded-2xl mb-8 border border-white/5 shadow-inner">
                         <div className="flex justify-between items-center mb-3">
                             <span className="text-xs font-bold text-white uppercase tracking-wider">Meta de Aprovação</span>
-                            <span className="text-xl font-black text-blue-400">{targetScore}%</span>
+                            <span className="text-xl font-black text-blue-400">{localTarget}%</span>
                         </div>
-                        <input type="range" min="60" max="90" step="1" value={targetScore} onChange={(e) => setTargetScore(parseInt(e.target.value, 10))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                        <input 
+                            type="range" 
+                            min="60" 
+                            max="90" 
+                            step="1" 
+                            value={localTarget} 
+                            onChange={(e) => setLocalTarget(parseInt(e.target.value, 10))}
+                            onMouseUp={() => setTargetScore(localTarget)}
+                            onTouchEnd={() => setTargetScore(localTarget)}
+                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                        />
                         <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
                             <span>60% (Fácil)</span>
                             <span>75% (Médio)</span>
