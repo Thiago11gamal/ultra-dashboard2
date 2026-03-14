@@ -18,32 +18,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const vizSd = (inferredSd != null && inferredSd >= 0.5) ? inferredSd : Math.max(1, inferredSd ?? 3);
         const targetVal = targetScore ?? 70;
         
-        // Definir limites de X básicos
-        let xMin = Math.max(0, meanVal - 3.5 * vizSd);
-        let xMax = Math.min(100, meanVal + 3.5 * vizSd);
-
-        // Expandir limites para não esconder a meta e a média atual
-        xMin = Math.min(xMin, targetVal - 5);
-        xMax = Math.max(xMax, targetVal + 5);
-
-        if (currentMean > 0) {
-            xMin = Math.min(xMin, currentMean - 5);
-            xMax = Math.max(xMax, currentMean + 5);
-        }
-
-        // CORREÇÃO 2: Expandir os limites X para garantir que a sombra verde do IC 95% caiba inteira na tela
-        if (low95 != null) xMin = Math.min(xMin, low95 - 2);
-        if (high95 != null) xMax = Math.max(xMax, high95 + 2);
-
-        xMin = Math.max(0, xMin);
-        xMax = Math.min(100, xMax);
-        const range = Math.max(10, xMax - xMin);
+        // AUDIT FIX: Eixo X Estático (0 a 100) para manter proporção e noção de escala real da prova.
+        const xMin = 0;
+        const xMax = 100;
+        const range = 100;
 
         // Função Gaussiana Clássica
         const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - meanVal) / vizSd, 2));
         
         const points = [];
-        const steps = 60; // Aumentado para desenhar uma curva mais suave e bonita
+        const steps = 100; // Alta resolução para curva suave no eixo fixo
 
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
@@ -54,35 +38,33 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const path = `M ${points.join(' L ')}`;
 
         const areaPoints = [];
-        const l95 = low95 ?? xMin;
-        const h95 = high95 ?? xMax;
+        // AUDIT FIX: Sombreado agora destaca a ÁREA DE SUCESSO (da Meta até 100%) 
+        // em vez de apenas o intervalo de confiança, tornando a probabilidade intuitiva.
+        const successStart = Math.max(xMin, targetVal);
+        const successEnd = xMax;
 
-        // Ponto inicial da área verde sombreada
-        if (l95 >= xMin && l95 <= xMin + range) {
-            const yL = gaussian(l95);
-            areaPoints.push(`${(l95 - xMin) / range * 100},${100 - (isNaN(yL) ? 0 : yL * 100)}`);
-        }
+        // Ponto inicial da área de sucesso
+        const yStart = gaussian(successStart);
+        areaPoints.push(`${(successStart - xMin) / range * 100},${100 - (isNaN(yStart) ? 0 : yStart * 100)}`);
 
-        // Preenchimento central da sombra verde
+        // Preenchimento da área de sucesso seguindo a curva
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
-            if (x > l95 && x < h95) {
+            if (x > successStart && x < successEnd) {
                 const y = gaussian(x);
                 const safeY = isNaN(y) ? 0 : y;
                 areaPoints.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
             }
         }
 
-        // Ponto final da área verde
-        if (h95 >= xMin && h95 <= xMin + range) {
-            const yH = gaussian(h95);
-            areaPoints.push(`${(h95 - xMin) / range * 100},${100 - (isNaN(yH) ? 0 : yH * 100)}`);
-        }
+        // Ponto final da área de sucesso
+        const yEnd = gaussian(successEnd);
+        areaPoints.push(`${(successEnd - xMin) / range * 100},${100 - (isNaN(yEnd) ? 0 : yEnd * 100)}`);
 
-        // Fecha o desenho do polígono colando na base do gráfico (y=100)
+        // Fecha o desenho do polígono
         if (areaPoints.length > 0) {
-            const firstX = areaPoints[0].split(',')[0];
             const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
+            const firstX = areaPoints[0].split(',')[0];
             areaPoints.push(`${lastX},100`);
             areaPoints.push(`${firstX},100`);
         }

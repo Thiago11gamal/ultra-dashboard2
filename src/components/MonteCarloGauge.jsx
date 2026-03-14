@@ -243,7 +243,7 @@ export default function MonteCarloGauge({
                 values: statsData.globalHistory.map(h => h.score),
                 dates: statsData.globalHistory.map(h => h.date),
                 meta: debouncedTarget,
-                simulations: 2000,
+                simulations: 5000,
                 projectionDays: projectDays
             }, null, null, {
                 forcedVolatility: statsData.dailySD,
@@ -257,7 +257,7 @@ export default function MonteCarloGauge({
                 statsData.pooledSD,
                 debouncedTarget,
                 {
-                    simulations: 2000,
+                    simulations: 5000,
                     currentMean: statsData.currentWeightedMean,
                     bayesianCI: statsData.bayesianCI // Added bayesianCI
                 }
@@ -331,16 +331,11 @@ export default function MonteCarloGauge({
     const prob = parseFloat(probability);
 
     const getGradientColor = (percentage) => {
-        if (percentage <= 25) return 'rgb(239, 68, 68)';
-        if (percentage <= 55) {
-            const t = (percentage - 25) / 30;
-            return `rgb(${Math.round(239 + (234 - 239) * t)}, ${Math.round(68 + (179 - 68) * t)}, ${Math.round(68 + (8 - 68) * t)})`;
-        }
-        if (percentage <= 65) {
-            const t = (percentage - 55) / 10;
-            return `rgb(${Math.round(234 + (34 - 234) * t)}, ${Math.round(179 + (197 - 179) * t)}, ${Math.round(8 + (94 - 8) * t)})`;
-        }
-        return 'rgb(34, 197, 94)';
+        // AUDIT FIX: Alinhamento com padrões institucionais de risco
+        // < 60% (Vermelho), 60-80% (Amarelo/Amber), > 80% (Verde)
+        if (percentage < 60) return '#ef4444'; // Red-500
+        if (percentage < 80) return '#f59e0b'; // Amber-500 (Yellow)
+        return '#22c55e'; // Green-500
     };
 
     const gradientColor = getGradientColor(prob);
