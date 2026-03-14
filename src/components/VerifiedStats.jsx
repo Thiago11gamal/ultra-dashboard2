@@ -78,6 +78,45 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
     </div>
 ));
 
+const ConsistencyCard = React.memo(({ consistency }) => (
+    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${consistency.bgBorder}`}>
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${consistency.color.replace('text-', 'bg-')}/20 ${consistency.bgBorder}`}>
+                    <Activity size={18} className={consistency.color} />
+                </div>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
+            </div>
+        </div>
+        <div className="text-center my-4 relative z-10">
+            <h2 className={`text-lg md:text-xl font-black leading-tight ${consistency.color} drop-shadow-md`}>
+                {consistency.status}
+            </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2 w-full mb-3">
+            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
+                <span className={`text-sm font-black ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
+                    {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}%` : '---'}
+                </span>
+            </div>
+            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
+                <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+                    {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+                        (['EXCELENTE', 'EM EVOLUÇÃO'].includes(consistency.status) ? 'Alta Estabilidade' :
+                            (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
+                </span>
+            </div>
+        </div>
+        <div className="mt-auto pt-2 border-t border-white/10">
+            <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                {consistency.message}
+            </p>
+        </div>
+    </div>
+));
+
 const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdNum = parseFloat(cat.sd);
     const barWidth = Math.max(0, 100 - (sdNum / maxSdVal) * 100);
