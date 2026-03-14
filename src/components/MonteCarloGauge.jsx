@@ -485,6 +485,7 @@ export default function MonteCarloGauge({
                 setWeights={setWeights}
                 updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
                 categories={categories}
+                user={useAppStore(state => state.appState.contests[activeId]?.user)}
             />
         </div>
     );
