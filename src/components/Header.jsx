@@ -323,14 +323,12 @@ export default function Header({
                     </div>
                     <div className="flex items-center gap-3">
                         <DateDisplay time={clockTime} />
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-bold uppercase transition-all ${
-                            cloudStatus.connected 
-                                ? 'bg-green-500/10 border-green-500/30 text-green-400' 
-                                : 'bg-red-500/10 border-red-500/30 text-red-400'
-                        }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${cloudStatus.connected ? 'bg-green-400' : 'bg-red-400'} ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
-                            {cloudStatus.syncing ? 'Sincronizando...' : cloudStatus.connected ? 'Nuvem Online' : 'Nuvem Offline'}
-                        </div>
+                        {cloudStatus.connected && (
+                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-bold uppercase transition-all bg-green-500/10 border-green-500/30 text-green-400`}>
+                                <div className={`w-1.5 h-1.5 rounded-full bg-green-400 ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
+                                {cloudStatus.syncing ? 'Sincronizando...' : 'Nuvem Online'}
+                            </div>
+                        )}
                     </div>
                 </div>
 
