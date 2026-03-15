@@ -56,13 +56,11 @@ function weightedRegression(history, lambda = 0.08) {
     const slope = (Sw * Sxy - Sx * Sy) / denom;
     const intercept = (Sy - slope * Sx) / Sw;
 
-    const residuals = data.map(p =>
-        p.w * Math.pow(p.y - (slope * p.x + intercept), 2)
+    // BUG-05 FIX: WLS correto denomina pela soma dos pesos menos 2 (graus de liberdade ponderados)
+    const wrss = data.reduce((acc, p) =>
+        acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
     );
-
-    const variance =
-        residuals.reduce((a, r) => a + r, 0) /
-        Math.max(1, data.length - 2);
+    const variance = wrss / Math.max(0.001, Sw - 2);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
     // Sxx_centered = \\sum w_i (x_i - \\bar{x})^2 = Sxx - Sx^2 / Sw
@@ -266,8 +264,9 @@ export function monteCarloSimulation(
     }).slice(1) : [];
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
-    // BUG-03 FIX: Permitir bootstrap mesmo com forcedVolatility, mas escalando resíduos.
-    const useBootstrap = residuals.length >= 5;
+    // BUG-01 FIX: Com 5 pontos, residuals tem 4 itens (devido ao slice(1)).
+    // residuals.length >= 4 é o mínimo correto para bootstrap.
+    const useBootstrap = residuals.length >= 4;
 
     // Calcula volatilidade clássica apenas para fallback
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
@@ -288,35 +287,32 @@ export function monteCarloSimulation(
     let welfordM2 = 0;
     let welfordCount = 0;
 
-    // T=0 FIX: If projecting for today (0 days), don't run FULL Monte Carlo, 
-    // BUT we must calculate a proper probability distribution based on uncertainty,
-    // not just a hardcoded 0 or 100%.
-    if (days === 0 && forcedBaseline !== undefined) {
-        const { ciLow, ciHigh } = options.bayesianCI || { 
-            ciLow: forcedBaseline - (volatility * 2), 
-            ciHigh: forcedBaseline + (volatility * 2) 
-        };
-        
-        // Infer standard deviation from the 95% CI (roughly 4 standard deviations wide)
-        const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 4);
-        
+    // BUG-02 FIX: Suporta modo sem forcedBaseline (ex: Ver Agora sem histórico longo)
+    if (days === 0) {
+        const baseline = forcedBaseline !== undefined ? forcedBaseline : baselineScore;
+        const ciLow = options.bayesianCI?.ciLow ?? (baseline - volatility * 2);
+        const ciHigh = options.bayesianCI?.ciHigh ?? (baseline + volatility * 2);
+
+        // BUG-04 FIX: Divisor 3.92 para IC de 95% (2 * 1.96)
+        const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 3.92);
+
         // Calculate theoretical probability using cumulative normal distribution approximation
-        const zScore = (targetScore - forcedBaseline) / inferredSD;
-        
+        const zScore = (targetScore - baseline) / inferredSD;
+
         // Abramowitz & Stegun approximation for cumulative normal distribution
         const t = 1 / (1 + 0.2316419 * Math.abs(zScore));
         const d = 0.3989423 * Math.exp(-zScore * zScore / 2);
         let probability = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-        
+
         if (zScore < 0) probability = 1 - probability;
         probability = probability * 100; // Convert to percentage
-        
+
         if (probability < 0.1) probability = 0.1;
         if (probability > 99.9) probability = 99.9;
 
         return {
             probability: Number(probability.toFixed(1)),
-            mean: Number(forcedBaseline.toFixed(1)),
+            mean: Number(baseline.toFixed(1)),
             sd: Number(inferredSD.toFixed(1)),
             ci95Low: Number(ciLow.toFixed(1)),
             ci95High: Number(ciHigh.toFixed(1)),
@@ -329,7 +325,16 @@ export function monteCarloSimulation(
 
     // Math fix 1: Collect all final scores for empirical CI percentiles
     const safeSimulations = Math.max(1, simulations);
-    const allFinalScores = new Array(safeSimulations);
+    // BUG-07: Use Float32Array for better performance and to avoid sparse array issues
+    const allFinalScores = new Float32Array(safeSimulations);
+
+    // BUG-08: HOIST — calcular parâmetros do Bootstrap uma única vez antes dos loops
+    const residualSD = (useBootstrap && residuals.length > 0)
+        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length)
+        : 0;
+    const bootstrapScale = (useBootstrap && forcedVolatility !== undefined && residualSD > 0)
+        ? forcedVolatility / residualSD
+        : 1;
 
     // D-08 FIX: Remove Math.max(1, days) which was injecting false noise walk in T=0.
     const simulationDays = days;
@@ -342,13 +347,9 @@ export function monteCarloSimulation(
             let shock;
 
             if (useBootstrap && forcedVolatility !== undefined) {
-                const residualSD = Math.sqrt(
-                    residuals.reduce((s, r) => s + r * r, 0) / residuals.length
-                );
-                const scale = residualSD > 0 ? forcedVolatility / residualSD : 1;
                 const randomResidual = getRandomElement(residuals, rng);
                 const jitter = (rng() - 0.5) * 0.1;
-                shock = (randomResidual + jitter) * scale;
+                shock = (randomResidual + jitter) * bootstrapScale;
             } else if (useBootstrap) {
                 const randomResidual = getRandomElement(residuals, rng);
                 const jitter = (rng() - 0.5) * 0.1;
@@ -381,7 +382,7 @@ export function monteCarloSimulation(
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     // Empirical percentiles — sort then pick P2.5 and P97.5
-    allFinalScores.sort((a, b) => a - b);
+    allFinalScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
     const p025idx = Math.max(0, Math.ceil(safeSimulations * 0.025) - 1);
     const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));

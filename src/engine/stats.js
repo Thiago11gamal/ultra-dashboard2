@@ -110,8 +110,12 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
     const variance = (alpha * beta) / (n * n * (n + 1));
     const sd       = Math.sqrt(variance);
 
-    const ciLow  = Math.max(0,   (p - 1.96 * sd) * 100);
-    const ciHigh = Math.min(100, (p + 1.96 * sd) * 100);
+    // BUG-06 FIX: Floor epistêmico para evitar que o IC colapse com histórico longo
+    const MIN_SD = 0.02; // Mínimo 2 pontos percentuais de incerteza
+    const effectiveSd = Math.max(sd, MIN_SD);
+
+    const ciLow  = Math.max(0,   (p - 1.96 * effectiveSd) * 100);
+    const ciHigh = Math.min(100, (p + 1.96 * effectiveSd) * 100);
 
     return {
         mean:  Number(mean.toFixed(2)),

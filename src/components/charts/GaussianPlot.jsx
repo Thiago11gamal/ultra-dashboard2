@@ -11,7 +11,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         // Isso impede que a curva Gaussiana vire uma linha super fina e invisível.
         let inferredSd = sd;
         if ((!inferredSd || inferredSd <= 0.1) && low95 != null && high95 != null) {
-            inferredSd = Math.max(0.1, (high95 - low95) / 4); // IC de 95% cobre cerca de 4 SDs (±2 SD)
+            // BUG-04 FIX: Divisor 3.92 para IC de 95% (2 * 1.96)
+            inferredSd = Math.max(0.1, (high95 - low95) / 3.92);
         }
         
         // Garante um desvio padrão mínimo visual para desenhar a curva

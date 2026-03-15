@@ -198,6 +198,14 @@ export default function MonteCarloGauge({
 
         const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
 
+        // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio)
+        const avgCV = categoryStats.length > 0
+            ? categoryStats.reduce((acc, cat) => {
+                // CV = (SD / Mean) * 100
+                return acc + (cat.mean > 0 ? (cat.sd / cat.mean) * 100 : 0);
+            }, 0) / categoryStats.length
+            : 0;
+
         return {
             categoryStats,
             weightedMean,
@@ -207,7 +215,8 @@ export default function MonteCarloGauge({
             bayesianMean,
             bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
             globalHistory,
-            dailySD
+            dailySD,
+            consistencyScore: Math.max(0, 100 - avgCV)
         };
     }, [categories, debouncedWeights, projectDays]);
 
@@ -238,30 +247,28 @@ export default function MonteCarloGauge({
         let result;
 
         if (isFuture && statsData.globalHistory?.length > 0) {
-            // BUG-03: Paths (monteCarloSimulation)
+            // BUG-03: Paths (monteCarloSimulation) - Usando assinatura unificada em objeto
             result = runMonteCarloAnalysis({
                 values: statsData.globalHistory.map(h => h.score),
                 dates: statsData.globalHistory.map(h => h.date),
                 meta: debouncedTarget,
                 simulations: 5000,
-                projectionDays: projectDays
-            }, null, null, {
+                projectionDays: projectDays,
                 forcedVolatility: statsData.dailySD,
                 forcedBaseline: statsData.bayesianMean,
-                currentMean: statsData.currentWeightedMean
+                currentMean: statsData.currentWeightedMean,
+                bayesianCI: statsData.bayesianCI
             });
         } else {
-            // Hoje: Simulação estática (Normal)
-            result = runMonteCarloAnalysis(
-                statsData.bayesianMean,
-                statsData.pooledSD,
-                debouncedTarget,
-                {
-                    simulations: 5000,
-                    currentMean: statsData.currentWeightedMean,
-                    bayesianCI: statsData.bayesianCI // Added bayesianCI
-                }
-            );
+            // Hoje: Simulação estática (Normal) - Usando assinatura unificada em objeto
+            result = runMonteCarloAnalysis({
+                mean: statsData.bayesianMean,
+                sd: statsData.pooledSD,
+                targetScore: debouncedTarget,
+                simulations: 5000,
+                currentMean: statsData.currentWeightedMean,
+                bayesianCI: statsData.bayesianCI
+            });
         }
 
         return { status: 'ready', data: result };
@@ -422,11 +429,12 @@ export default function MonteCarloGauge({
                 </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
                 {[
                     { label: "Sua Meta", val: `${targetScore}%`, color: "text-red-400" },
-                    { label: "Média", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
-                    { label: "Consistência", val: `±${Math.abs(parseFloat(sd))}%`, color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
+                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-slate-300" },
+                    { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
+                    { label: "Consistência", val: `${(statsData.consistencyScore || 0).toFixed(0)}%`, color: (statsData.consistencyScore || 0) > 85 ? "text-green-400" : (statsData.consistencyScore || 0) > 70 ? "text-yellow-400" : "text-red-400" },
                     { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-400" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
@@ -468,20 +476,22 @@ export default function MonteCarloGauge({
                 {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
                 {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
             </div>
-            <MonteCarloConfig
-                show={showConfig}
-                onClose={setShowConfig}
-                targetScore={targetScore}
-                setTargetScore={onTargetScoreChange} 
-                equalWeightsMode={equalWeightsMode}
-                setEqualWeightsMode={setEqualWeightsMode}
-                getEqualWeights={getEqualWeights}
-                weights={weights}
-                setWeights={setWeights}
-                updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
-                categories={categories}
-                user={useAppStore(state => state.appState.contests[activeId]?.user)}
-            />
+            {!forcedMode && (
+                <MonteCarloConfig
+                    show={showConfig}
+                    onClose={setShowConfig}
+                    targetScore={targetScore}
+                    setTargetScore={onTargetScoreChange} 
+                    equalWeightsMode={equalWeightsMode}
+                    setEqualWeightsMode={setEqualWeightsMode}
+                    getEqualWeights={getEqualWeights}
+                    weights={weights}
+                    setWeights={setWeights}
+                    updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
+                    categories={categories}
+                    user={useAppStore(state => state.appState.contests[activeId]?.user)}
+                />
+            )}
         </div>
     );
 }
