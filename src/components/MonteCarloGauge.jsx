@@ -247,17 +247,15 @@ export default function MonteCarloGauge({
         let result;
 
         if (isFuture && statsData.globalHistory?.length > 0) {
-            // BUG-03: Paths (monteCarloSimulation) - Usando assinatura unificada em objeto
             result = runMonteCarloAnalysis({
-                values: statsData.globalHistory.map(h => h.score),
-                dates: statsData.globalHistory.map(h => h.date),
-                meta: debouncedTarget,
-                simulations: 5000,
-                projectionDays: projectDays,
+                values:          statsData.globalHistory.map(h => h.score),
+                dates:           statsData.globalHistory.map(h => h.date),
+                meta:            debouncedTarget,
+                simulations:     5000,
+                projectionDays:  projectDays,
                 forcedVolatility: statsData.dailySD,
-                forcedBaseline: statsData.bayesianMean,
-                currentMean: statsData.currentWeightedMean,
-                bayesianCI: statsData.bayesianCI
+                forcedBaseline:   statsData.bayesianMean,
+                currentMean:      statsData.currentWeightedMean,
             });
         } else {
             // Hoje: Simulação estática (Normal) - Usando assinatura unificada em objeto
@@ -431,11 +429,11 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
                 {[
-                    { label: "Sua Meta", val: `${targetScore}%`, color: "text-red-400" },
-                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-slate-300" },
-                    { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
-                    { label: "Consistência", val: `${(statsData.consistencyScore || 0).toFixed(0)}%`, color: (statsData.consistencyScore || 0) > 85 ? "text-green-400" : (statsData.consistencyScore || 0) > 70 ? "text-yellow-400" : "text-red-400" },
-                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-400" }
+                    { label: "Sua Meta",  val: `${targetScore}%`,                           color: "text-red-400" },
+                    { label: "Hoje",      val: `${parseFloat(currentMean).toFixed(1)}%`,    color: "text-slate-300" },
+                    { label: "Projeção",  val: `${parseFloat(mean).toFixed(1)}%`,           color: "text-blue-400" },
+                    { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`,            color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
+                    { label: "IC 95%",    val: `${ci95Low}-${ci95High}%`,                   color: "text-green-400" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</span>

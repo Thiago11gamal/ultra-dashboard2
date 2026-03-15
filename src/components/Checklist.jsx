@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
-import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import PromptModal from './PromptModal';
 
 const priorityColors = {

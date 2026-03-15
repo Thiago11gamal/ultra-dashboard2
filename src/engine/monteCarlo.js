@@ -95,22 +95,23 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, options = {}) {
   if (typeof inputOrMean === 'object' && inputOrMean !== null && !Array.isArray(inputOrMean)) {
     const {
-      values = [],
-      dates = [],
-      meta = 0,
-      simulations = 5000,
-      projectionDays = 90,
-      // BUG-03: Aceitar opções dentro do objeto também para evitar ignorar parâmetros silenciosamente
-      forcedVolatility,
-      forcedBaseline,
-      currentMean: objCurrentMean,
+        values = [],
+        dates = [],
+        meta = 0,
+        simulations = 5000,
+        projectionDays = 90,
+        // Aceitar opções embutidas no objeto (forma mais intuitiva de chamar):
+        forcedVolatility: objForcedVolatility,
+        forcedBaseline: objForcedBaseline,
+        currentMean: objCurrentMean,
     } = inputOrMean;
 
+    // 4° argumento tem prioridade sobre opções do objeto:
     const mergedOptions = {
-        forcedVolatility,
-        forcedBaseline,
+        forcedVolatility: objForcedVolatility,
+        forcedBaseline: objForcedBaseline,
         currentMean: objCurrentMean,
-        ...options, // options do 4° argumento sobrepõem mantendo compatibilidade
+        ...options,
     };
 
     const history = values.map((score, index) => ({

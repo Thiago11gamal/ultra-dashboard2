@@ -18,8 +18,8 @@ export default function Coach() {
         // writes to localStorage when the config modal closes (not during slider interaction).
         // Fix: prefer data.user.targetProbability which IS in the reactive store and IS a
         // dep via data.user. localStorage serves only as bootstrap fallback on cold mount.
-        const storeTarget = data.user?.targetProbability;
-        const storedTarget = localStorage.getItem('monte_carlo_target');
+        const uid = data.user?.uid;
+        const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
         const targetScore = (storeTarget != null && !isNaN(Number(storeTarget)))
             ? Number(storeTarget)
             : storedTarget ? parseInt(storedTarget, 10) : 80;
@@ -36,11 +36,11 @@ export default function Coach() {
         setCoachLoading(true);
         setTimeout(() => {
             // CACHE BUG FIX: same fix as suggestedFocus — prefer reactive store value.
-            const storeTarget = data.user?.targetProbability;
-            const storedTarget = localStorage.getItem('monte_carlo_target');
-            const targetScore = (storeTarget != null && !isNaN(Number(storeTarget)))
-                ? Number(storeTarget)
-                : storedTarget ? parseInt(storedTarget, 10) : 80;
+        const uid = data.user?.uid;
+        const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
+        const targetScore = (storeTarget != null && !isNaN(Number(storeTarget)))
+            ? Number(storeTarget)
+            : storedTarget ? parseInt(storedTarget, 10) : 80;
 
             const newTasks = generateDailyGoals(
                 data.categories,
