@@ -258,15 +258,17 @@ export default function MonteCarloGauge({
                 currentMean:      statsData.currentWeightedMean,
             });
         } else {
-            // Hoje: Simulação estática (Normal) - Usando assinatura unificada em objeto
-            result = runMonteCarloAnalysis({
-                mean: statsData.bayesianMean,
-                sd: statsData.pooledSD,
-                targetScore: debouncedTarget,
-                simulations: 5000,
-                currentMean: statsData.currentWeightedMean,
-                bayesianCI: statsData.bayesianCI
-            });
+            // Hoje: Simulação estática (Normal) - Usando assinatura posicional para disparar engine correto
+            result = runMonteCarloAnalysis(
+                statsData.bayesianMean,
+                statsData.pooledSD,
+                debouncedTarget,
+                {
+                    simulations: 5000,
+                    currentMean: statsData.currentWeightedMean,
+                    bayesianCI: statsData.bayesianCI
+                }
+            );
         }
 
         return { status: 'ready', data: result };
