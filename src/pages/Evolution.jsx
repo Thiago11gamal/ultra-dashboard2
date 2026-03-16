@@ -11,7 +11,7 @@ export default function Evolution() {
         <div className="animate-fade-in">
             <EvolutionChart
                 categories={categories}
-                targetScore={user?.targetScore ?? 70}
+                targetScore={user?.targetProbability ?? 70}
             />
         </div>
     );
