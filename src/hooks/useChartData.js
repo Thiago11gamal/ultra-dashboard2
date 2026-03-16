@@ -57,8 +57,8 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                 }
 
                 if (total >= 5) {
-                    bayAlpha += correct;
-                    bayBeta  += (total - correct);
+                    bayAlpha += Number(correct);
+                    bayBeta  += (Number(total) - Number(correct));
                 }
                 accumulated.push(entry);
                 histIdx++;
@@ -226,8 +226,8 @@ export function useChartData(categories = [], targetScore = 80) {
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
-                totalQuestions += (h.total || 0);
-                totalCorrect += (h.correct || 0);
+                totalQuestions += (Number(h.total) || 0);
+                totalCorrect += (Number(h.correct) || 0);
             });
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;

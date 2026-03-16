@@ -106,9 +106,10 @@ export default function Simulados() {
             const analysisResult = payload.analysis || payload;
             const rawRows = payload.rawRows || [];
             
-            // 1. Garantir nova referência para o array de categorias
-            const newCategories = prev.categories.map(c => ({ ...c }));
+            // 1. Garantir nova referência profunda para as categorias (Reatividade total)
+            const newCategories = JSON.parse(JSON.stringify(prev.categories || []));
             let totalProcessedDisciplines = 0;
+            const updatedNames = [];
 
             analysisResult.disciplines.forEach(disc => {
                 const discNameNorm = normalize(disc.name);
@@ -125,84 +126,91 @@ export default function Simulados() {
                     const category = newCategories[catIndex];
                     const currentStats = category.simuladoStats || { history: [], average: 0 };
 
-                    // 2. Extrair questões e acertos de forma robusta
-                    // Prioridade 1: Tópicos validados (que existem no Dashboard)
+                    // 2. Calcular questões e acertos apenas dos tópicos desta sessão
                     const validTopicsFromAnalysis = (disc.topics || []).filter(t => 
-                        category.tasks?.some(task => normalize(task.title || task.text) === normalize(t.name))
+                        (category.tasks || []).some(task => normalize(task.title || task.text) === normalize(t.name))
                     );
 
-                    let totalQ = 0;
-                    let totalC = 0;
+                    let sessionQ = 0;
+                    let sessionC = 0;
 
                     if (validTopicsFromAnalysis.length > 0) {
-                        totalQ = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-                        totalC = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.correct) || 0), 0);
+                        sessionQ = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+                        sessionC = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.correct) || 0), 0);
                     } else {
-                        // Prioridade 2: Fallback para as linhas brutas da tabela (caso existam assuntos sem tarefas)
+                        // Fallback para as linhas brutas se não houver tarefas mapeadas
                         const subjectRows = rawRows.filter(r => normalize(r.subject) === discNameNorm);
-                        totalQ = subjectRows.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
-                        totalC = subjectRows.reduce((acc, r) => acc + (Number(r.correct) || 0), 0);
+                        sessionQ = subjectRows.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
+                        sessionC = subjectRows.reduce((acc, r) => acc + (Number(r.correct) || 0), 0);
                     }
 
-                    // Só processa se houver volume de dados
-                    if (totalQ > 0) {
+                    if (sessionQ > 0) {
                         totalProcessedDisciplines++;
+                        updatedNames.push(category.name);
                         
-                        // 3. Atualizar Histórico (Substituindo apenas a entrada de hoje se existir)
+                        // 3. Atualizar Histórico (Garantindo apenas um ponto por dia)
                         const d = new Date();
                         const timestamp = d.toISOString();
-                        const todayKey = getDateKey(d);
+                        const todayKeyStr = getDateKey(d);
                         
                         const historyWithoutToday = (currentStats.history || []).filter(
-                            h => getDateKey(h.date) !== todayKey
+                            h => getDateKey(h.date) !== todayKeyStr
+                        );
+
+                        // Encontrar ganhos do dia atual se já houver registro (Soma incremental)
+                        const existingToday = (currentStats.history || []).find(
+                            h => getDateKey(h.date) === todayKeyStr
                         );
                         
+                        // AGGREGATION FIX: Sum current session with existing today record
+                        const finalQ = (Number(existingToday?.total) || 0) + Number(sessionQ);
+                        const finalC = (Number(existingToday?.correct) || 0) + Number(sessionC);
+
                         const newHistoryPoint = { 
                             date: timestamp, 
-                            score: (totalC / totalQ) * 100, 
-                            total: totalQ, 
-                            correct: totalC, 
-                            topics: validTopicsFromAnalysis 
+                            score: finalQ > 0 ? (finalC / finalQ) * 100 : 0, 
+                            total: finalQ, 
+                            correct: finalC, 
+                            topics: [...(existingToday?.topics || []), ...validTopicsFromAnalysis] 
                         };
 
                         const historyPoints = [...historyWithoutToday, newHistoryPoint];
 
-                        // 4. Recalcular Estatísticas usando o motor central
+                        // 4. Recalcular Estatísticas
                         const stats = computeCategoryStats(historyPoints, category.weight || 10);
 
-                        if (stats) {
-                            newCategories[catIndex].simuladoStats = {
-                                history: historyPoints,
-                                average: stats.mean,
-                                lastAttempt: (totalC / totalQ) * 100,
-                                trend: stats.trend,
-                                level: stats.mean > 70 ? 'ALTO' : stats.mean > 40 ? 'MÉDIO' : 'BAIXO'
-                            };
-                        }
+                        newCategories[catIndex].simuladoStats = {
+                            history: historyPoints,
+                            average: stats ? stats.mean : (finalC / finalQ) * 100,
+                            lastAttempt: (sessionC / sessionQ) * 100,
+                            trend: stats ? stats.trend : 'stable',
+                            level: (stats ? stats.mean : (finalC / finalQ) * 100) > 70 ? 'ALTO' : 
+                                   (stats ? stats.mean : (finalC / finalQ) * 100) > 40 ? 'MÉDIO' : 'BAIXO'
+                        };
                     }
                 }
             });
 
-            // 5. Persistir as linhas validadas para manter o Simulador preenchido
+            // 5. Persistência das linhas da tabela
             const todayKey2 = getDateKey(new Date());
             const nonTodayRows = (prev.simuladoRows || []).filter(
                 r => !r.createdAt || getDateKey(new Date(r.createdAt)) !== todayKey2
             );
 
-            const now = Date.now();
             const validatedRows = [
                 ...nonTodayRows,
                 ...rawRows
                     .filter(r => r.subject && r.topic && (Number(r.total) > 0))
                     .map(r => ({
                         ...r,
-                        createdAt: r.createdAt || now,
+                        createdAt: r.createdAt || Date.now(),
                         validated: true
                     }))
             ].slice(-300);
 
-            // Armazenar sinalizador temporário para o Toast
+            // Metadados para o Toast
             window.__LAST_RESULT_COUNT = totalProcessedDisciplines;
+            window.__LAST_RESULT_STR = updatedNames.join(', ');
 
             return {
                 ...prev,
@@ -210,19 +218,22 @@ export default function Simulados() {
                 simuladoRows: validatedRows,
                 lastUpdated: new Date().toISOString()
             };
-        }, false);
+        }, true);
 
-        // Feedback visual imediato
+        // Feedback
         const updatedCount = window.__LAST_RESULT_COUNT || 0;
+        const names = window.__LAST_RESULT_STR || '';
         delete window.__LAST_RESULT_COUNT;
+        delete window.__LAST_RESULT_STR;
 
         if (updatedCount > 0) {
-            showToast(`Sucesso! ${updatedCount} matérias atualizadas no seu gráfico de evolução. +500 XP`, 'success');
+            showToast(`Sucesso! Atualizado: ${names}. Dados enviados para o gráfico de evolução.`, 'success');
             useAppStore.getState().awardExperience(500);
         } else {
-            showToast('Nenhum dado novo para as matérias atuais. Verifique os valores.', 'warning');
+            showToast('Nenhuma matéria correspondente encontrada no Dashboard.', 'warning');
         }
     };
+
 
     return (
         <SimuladoAnalysis
