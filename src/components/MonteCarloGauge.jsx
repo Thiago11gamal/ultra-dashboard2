@@ -167,7 +167,7 @@ export default function MonteCarloGauge({
 
         // Reconstruct consolidated global history for path simulation
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
-        
+
         // C-04 FIX: Só gerar ponto quando pelo menos 1 matéria foi avaliada naquele dia.
         // BUG-03 RIGOR: Para o histórico visual, mantemos a agregação diária.
         const globalHistory = sortedDates.map(date => {
@@ -245,14 +245,14 @@ export default function MonteCarloGauge({
 
         if (isFuture && statsData.globalHistory?.length > 0) {
             result = runMonteCarloAnalysis({
-                values:          statsData.globalHistory.map(h => h.score),
-                dates:           statsData.globalHistory.map(h => h.date),
-                meta:            debouncedTarget,
-                simulations:     5000,
-                projectionDays:  projectDays,
+                values: statsData.globalHistory.map(h => h.score),
+                dates: statsData.globalHistory.map(h => h.date),
+                meta: debouncedTarget,
+                simulations: 5000,
+                projectionDays: projectDays,
                 forcedVolatility: statsData.dailySD,
-                forcedBaseline:   statsData.bayesianMean,
-                currentMean:      statsData.currentWeightedMean,
+                forcedBaseline: statsData.bayesianMean,
+                currentMean: statsData.currentWeightedMean,
             });
         } else {
             // Hoje: Simulação estática (Normal) - Usando assinatura posicional para disparar engine correto
@@ -385,10 +385,10 @@ export default function MonteCarloGauge({
                             >
                                 <Settings2 size={14} />
                             </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }} 
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}
-                            > 
+                            >
                                 {simulateToday ? 'Ver Projeção' : 'Ver Agora'}
                             </button>
                         </div>
@@ -428,11 +428,11 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
                 {[
-                    { label: "Sua Meta",  val: `${targetScore}%`,                           color: "text-red-400" },
-                    { label: "Hoje",      val: `${parseFloat(currentMean).toFixed(1)}%`,    color: "text-slate-300" },
-                    { label: "Projeção",  val: `${parseFloat(mean).toFixed(1)}%`,           color: "text-blue-400" },
-                    { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`,            color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
-                    { label: "IC 95%",    val: `${ci95Low}-${ci95High}%`,                   color: "text-green-400" }
+                    { label: "Sua Meta", val: `${targetScore}%`, color: "text-red-400" },
+                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-slate-300" },
+                    { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
+                    { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`, color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
+                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-400" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</span>
@@ -478,7 +478,7 @@ export default function MonteCarloGauge({
                     show={showConfig}
                     onClose={setShowConfig}
                     targetScore={targetScore}
-                    setTargetScore={onTargetScoreChange} 
+                    setTargetScore={onTargetScoreChange}
                     equalWeightsMode={equalWeightsMode}
                     setEqualWeightsMode={setEqualWeightsMode}
                     getEqualWeights={getEqualWeights}

@@ -160,7 +160,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             {/* Labels HTML Absolutos (Resolvendo o problema de escala do SVG) */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 {/* Texto: Projeção Média */}
-                <div 
+                <div
                     className="absolute top-0 transform -translate-x-1/2 text-[10px] font-black text-blue-300 pointer-events-none"
                     style={{ left: `${(mean - xMin) / range * 100}%` }}
                 >
@@ -169,7 +169,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 {/* Texto: Meta */}
                 {isTargetVisible && (
-                    <div 
+                    <div
                         className="absolute top-0 transform -translate-x-1/2 text-[10px] font-black text-red-400 pointer-events-none flex flex-col items-center"
                         style={{ left: `${targetPos}%`, top: targetPos > 90 ? '16px' : '0' }}
                     >
@@ -179,7 +179,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 {/* Texto: Hoje (Abaixo da linha) */}
                 {isCurrentVisible && (
-                    <div 
+                    <div
                         className="absolute transform -translate-x-1/2 text-[9px] font-bold text-white/40 pointer-events-none"
                         style={{ left: `${Math.max(0, currentPos)}%`, top: '40px' }}
                     >
@@ -202,10 +202,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             <div className="absolute -bottom-1 left-0 flex flex-col items-start translate-y-full">
                 <span className="text-[9px] font-bold text-slate-500">{Math.round(xMin)}%</span>
             </div>
-            
+
             <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 translate-y-full">
                 <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter">
-                   IC 95%: {ciLabel}
+                    IC 95%: {ciLabel}
                 </span>
             </div>
 
