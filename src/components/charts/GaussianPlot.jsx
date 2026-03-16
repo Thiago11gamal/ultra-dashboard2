@@ -3,95 +3,86 @@ import React, { useMemo, useState } from 'react';
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, areaPathData, trendCurvePath, range, xMin, targetVal, xp, yp, heightFactor } = useMemo(() => {
+    const { pathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
-
-        // 🎯 Eixo X Estático (0 a 100)
         const xMin = 0;
         const xMax = 100;
         const range = 100;
 
-        // 🧠 MODELO: Split-Normal (Two-Piece Normal)
-        // Usamos as distâncias para low95 e high95 para inferir desvios padrões independentes
-        // para a esquerda e para a direita, refletindo o "piling" em 100% ou 0%.
         let sdLeft = sd;
         let sdRight = sd;
-
         if (low95 != null && high95 != null) {
-            // Em uma normal, 95% do IC está em ±1.96 * sd.
-            // Para a split-normal, calculamos os sigmas separadamente.
             sdLeft = Math.max(0.2, (meanVal - low95) / 1.96);
             sdRight = Math.max(0.2, (high95 - meanVal) / 1.96);
         }
-
-        // Garante visibilidade mínima (evita curva-agulha)
         const vizSdLeft = Math.max(1, sdLeft);
         const vizSdRight = Math.max(1, sdRight);
-
-    // 🧠 DISPERSÃO REAL: Normalizar a altura pela média dos sigmas
-    // Se σ é alto, a curva deve ser baixa e larga.
-    const avgSd = (vizSdLeft + vizSdRight) / 2;
-        // v3 FIX: heightScale = min(1, 10/σ)
+        const avgSd = (vizSdLeft + vizSdRight) / 2;
         const heightFactor = Math.min(1, 10 / avgSd);
 
-        // Geometria Helpers para Sincronização
         const xp = (v) => (v - xMin) / range * 100;
         const yp = (yVal) => 100 - (yVal * 100);
 
-        // Função Gaussiana Assimétrica (Split-Normal)
         const asymmetricGaussian = (x) => {
             const currentSd = x < meanVal ? vizSdLeft : vizSdRight;
             return heightFactor * Math.exp(-0.5 * Math.pow((x - meanVal) / currentSd, 2));
         };
 
-        const points = [];
-        const steps = 110;
+        // v5: PATH UNIFICAÇÃO (Linha contínua total)
+        const combinedPoints = [];
+        const tSteps = 20;
+        const gSteps = 90;
 
-        for (let i = 0; i <= steps; i++) {
-            const x = xMin + (range * (i / steps));
-            const y = asymmetricGaussian(x);
-            points.push(`${xp(x)},${yp(y)}`);
-        }
-        const path = `M ${points.join(' L ')}`;
-
-        // Sombreado da ÁREA DE SUCESSO
-        const areaPoints = [];
-        const successStart = Math.max(xMin, targetVal);
-        const successEnd = xMax;
-
-        areaPoints.push(`${xp(successStart)},${yp(asymmetricGaussian(successStart))}`);
-        for (let i = 0; i <= steps; i++) {
-            const x = xMin + (range * (i / steps));
-            if (x > successStart && x < successEnd) {
-                areaPoints.push(`${xp(x)},${yp(asymmetricGaussian(x))}`);
+        if (currentMean != null) {
+            // Parte 1: Tendência do Hoje ao Pico
+            for (let i = 0; i < tSteps; i++) {
+                const t = i / tSteps;
+                const tWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3));
+                const tx = currentMean + (meanVal - currentMean) * tWeight;
+                const ty = heightFactor * tWeight;
+                combinedPoints.push(`${xp(tx)},${yp(ty)}`);
+            }
+        } else {
+            // Se não houver "Hoje", desenha a cauda esquerda da Gaussiana
+            for (let i = 0; i < 30; i++) {
+                const x = xMin + (meanVal - xMin) * (i / 30);
+                const y = asymmetricGaussian(x);
+                combinedPoints.push(`${xp(x)},${yp(y)}`);
             }
         }
-        areaPoints.push(`${xp(successEnd)},${yp(asymmetricGaussian(successEnd))}`);
+
+        // Parte 2: O Pico e a Cauda Direita da Gaussiana
+        for (let i = 0; i <= gSteps; i++) {
+            const x = meanVal + (xMax - meanVal) * (i / gSteps);
+            const y = asymmetricGaussian(x);
+            combinedPoints.push(`${xp(x)},${yp(y)}`);
+        }
+
+        const path = `M ${combinedPoints.join(' L ')}`;
+
+        // Sombreado da ÁREA DE SUCESSO (Sempre contínuo com a curva)
+        const areaPoints = [];
+        const successStart = Math.max(xMin, targetVal);
+        
+        combinedPoints.forEach(p => {
+            const [xPos, yPos] = p.split(',').map(Number);
+            if (xPos >= xp(successStart)) {
+                areaPoints.push(p);
+            }
+        });
+
         if (areaPoints.length > 0) {
-            const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
-            const firstX = areaPoints[0].split(',')[0];
+            const firstP = areaPoints[0];
+            const lastP = areaPoints[areaPoints.length - 1];
+            const firstX = firstP.split(',')[0];
+            const lastX = lastP.split(',')[0];
             areaPoints.push(`${lastX},100`);
             areaPoints.push(`${firstX},100`);
         }
         const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
 
-        // v4: LINHA DE TENDÊNCIA (Hoje -> Pico)
-        const trendPoints = [];
-        if (currentMean != null) {
-            const tSteps = 20;
-            for (let i = 0; i <= tSteps; i++) {
-                const t = i / tSteps;
-                // Curva de ganho logarítmico simulada
-                const tWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3));
-                const tx = currentMean + (meanVal - currentMean) * tWeight;
-                const ty = heightFactor * tWeight; // Sincroniza com o pico da Gaussiana
-                trendPoints.push(`${xp(tx)},${yp(ty)}`);
-            }
-        }
-        const trendCurvePath = trendPoints.length > 0 ? `M ${trendPoints.join(' L ')}` : '';
-
-        return { pathData: path, areaPathData: areaPath, trendCurvePath, range, xMin, targetVal, xp, yp, heightFactor };
+        return { pathData: path, areaPathData: areaPath, range, xMin, targetVal, xp, yp, heightFactor };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 
     const xp_helper = xp;
@@ -163,10 +154,7 @@ return (
             {/* 1. Área de Sucesso */}
             <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="1.2" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} className="opacity-30" />
 
-            {/* v4: 1.5 Linha de Tendência (Discreta -> Contínua) */}
-            <path d={trendCurvePath} fill="none" stroke="#3b82f6" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" vectorEffect="non-scaling-stroke" />
-
-            {/* 2. Curva Principal - Integral */}
+            {/* 2. Curva Principal Unificada (Contínua do Hoje -> Projeção) */}
             <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80" vectorEffect="non-scaling-stroke" />
 
             {/* Linha Vertical de Meta com Anotação de Chance (Area invisible fix) */}
