@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 

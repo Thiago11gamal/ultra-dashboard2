@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
 import PromptModal from './PromptModal';
 
