@@ -170,13 +170,13 @@ export function calculateVolatility(history) {
 
         // Subtrair o ganho esperado (drift) para reter apenas o ruído estatístico puro no resíduo
         const expectedDiff = drift * daysBetween;
-        const residual = diff - expectedDiff;
+        const residual = (diff - expectedDiff) / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
 
-        // Normalização temporal do quadrado da diferença (Daily Variance) usando resíduo
-        const dailyVariance = (residual * residual) / daysBetween;
+        // O quadrado do resíduo já é a variância diária (diff²/days)
+        const dailyVariance = residual * residual;
 
         sumSw += dailyVariance * weight;
         sumWeights += weight;
