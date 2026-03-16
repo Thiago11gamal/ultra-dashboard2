@@ -414,7 +414,7 @@ export default function MonteCarloGauge({
                             strokeWidth="12"
                             strokeLinecap="round"
                             pathLength="100"
-                            strokeDasharray={`${Math.max(prob, 5)} 100`}
+                            strokeDasharray={`${prob < 10 ? 5 + Math.sqrt(prob) * 1.5 : prob} 100`}
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
@@ -444,9 +444,10 @@ export default function MonteCarloGauge({
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-36 px-2">
-                    <GaussianPlot mean={parseFloat(mean)} sd={parseFloat(sd)} low95={parseFloat(ci95Low)} high95={parseFloat(ci95High)} targetScore={targetScore} currentMean={currentMean ? parseFloat(currentMean) : parseFloat(mean)} />
+                    <GaussianPlot mean={parseFloat(mean)} sd={parseFloat(sd)} low95={parseFloat(ci95Low)} high95={parseFloat(ci95High)} targetScore={targetScore} currentMean={currentMean ? parseFloat(currentMean) : parseFloat(mean)} prob={prob} />
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full text-center mb-1">Elementos do Gráfico</span>
                     {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média", dash: true }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40 rounded-full", lbl: "Hoje", dot: true }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
                             <div className={`${l.bg} ${l.dot ? 'w-2 h-2' : 'w-3 h-0.5'}`} style={l.dash ? { borderTop: '1px dashed #3b82f6' } : {}}></div>
@@ -456,22 +457,25 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="w-full flex flex-wrap justify-center gap-1.5 min-h-[24px]">
-                {activeCategories?.slice(0, 8).map((cat) => {
-                    const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
-                    return (
-                        <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
-                            {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
-                            {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
-                            {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                            <span className="max-w-[70px] truncate">
-                                {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
-                            </span>
-                        </div>
-                    );
-                })}
-                {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
-                {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
+            <div className="w-full flex flex-col gap-2">
+                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
+                 <div className="flex flex-wrap justify-center gap-1.5 min-h-[24px]">
+                    {activeCategories?.slice(0, 8).map((cat) => {
+                        const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
+                        return (
+                            <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
+                                <span className="max-w-[70px] truncate">
+                                    {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
+                                </span>
+                            </div>
+                        );
+                    })}
+                    {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
+                    {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
+                </div>
             </div>
             {!forcedMode && (
                 <MonteCarloConfig
