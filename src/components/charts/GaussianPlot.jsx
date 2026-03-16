@@ -83,6 +83,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const currentPos = ((currentMean || 0) - xMin) / range * 100;
     const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
 
+    const ciLabel = (high95 - low95) >= 95
+        ? "Alta incerteza"
+        : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
+
     return (
         <div
             className="relative w-full h-32 mt-6 mb-4 cursor-crosshair group/chart"
@@ -141,34 +145,48 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* 2. Depois desenha a Curva Principal Azul (Para ficar na frente da sombra) */}
                 <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
 
-                {/* Linha da Média Atual (Hoje) */}
+                {/* Linhas indicadoras sem texto (Texto movido para HTML abaixo) */}
                 {isCurrentVisible && (
-                    <g>
-                        <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" strokeDasharray="3,3" className="opacity-40" vectorEffect="non-scaling-stroke" />
-                        <text x={Math.max(0, currentPos)} y={35} fontSize={7} fill="white" className="opacity-40 font-bold" textAnchor="middle">
-                            {currentMean.toFixed(1)}%
-                        </text>
-                    </g>
+                    <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" strokeDasharray="3,3" className="opacity-40" vectorEffect="non-scaling-stroke" />
                 )}
 
-                {/* Linha da Projeção Média */}
-                <g>
-                    <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
-                    <text x={(mean - xMin) / range * 100} y={12} fontSize={8} fill="#93c5fd" className="font-black" textAnchor="middle">
-                        {mean.toFixed(1)}%
-                    </text>
-                </g>
+                <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
 
-                {/* Linha da Meta */}
                 {isTargetVisible && (
-                    <g>
-                        <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                        <text x={targetPos} y={targetPos > 90 ? 25 : 12} fontSize={8} fill="#fca5a5" className="font-black" textAnchor={targetPos > 90 ? "end" : "middle"}>
-                            {targetVal}%
-                        </text>
-                    </g>
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                 )}
             </svg>
+
+            {/* Labels HTML Absolutos (Resolvendo o problema de escala do SVG) */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                {/* Texto: Projeção Média */}
+                <div 
+                    className="absolute top-0 transform -translate-x-1/2 text-[10px] font-black text-blue-300 pointer-events-none"
+                    style={{ left: `${(mean - xMin) / range * 100}%` }}
+                >
+                    {mean.toFixed(1)}%
+                </div>
+
+                {/* Texto: Meta */}
+                {isTargetVisible && (
+                    <div 
+                        className="absolute top-0 transform -translate-x-1/2 text-[10px] font-black text-red-400 pointer-events-none flex flex-col items-center"
+                        style={{ left: `${targetPos}%`, top: targetPos > 90 ? '16px' : '0' }}
+                    >
+                        <span>{targetVal}%</span>
+                    </div>
+                )}
+
+                {/* Texto: Hoje (Abaixo da linha) */}
+                {isCurrentVisible && (
+                    <div 
+                        className="absolute transform -translate-x-1/2 text-[9px] font-bold text-white/40 pointer-events-none"
+                        style={{ left: `${Math.max(0, currentPos)}%`, top: '40px' }}
+                    >
+                        {currentMean.toFixed(1)}%
+                    </div>
+                )}
+            </div>
 
             {/* Marcador flutuante de Hover (Mouse em cima) */}
             {hover && (
@@ -180,8 +198,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </>
             )}
 
-            <div className="absolute bottom-0 left-1 text-[9px] font-bold text-slate-500 transform translate-y-full">{Math.round(xMin)}%</div>
-            <div className="absolute bottom-0 right-1 text-[9px] font-bold text-slate-500 transform translate-y-full">{Math.round(xMin + range)}%</div>
+            {/* Eixos e Legenda de IC */}
+            <div className="absolute -bottom-1 left-0 flex flex-col items-start translate-y-full">
+                <span className="text-[9px] font-bold text-slate-500">{Math.round(xMin)}%</span>
+            </div>
+            
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 translate-y-full">
+                <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter">
+                   IC 95%: {ciLabel}
+                </span>
+            </div>
+
+            <div className="absolute -bottom-1 right-0 flex flex-col items-end translate-y-full">
+                <span className="text-[9px] font-bold text-slate-500">{Math.round(xMin + range)}%</span>
+            </div>
         </div>
     );
 };
