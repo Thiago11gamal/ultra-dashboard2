@@ -25,10 +25,13 @@ export function standardDeviation(arr) {
 
 export function calculateTrend(history) {
     if (!history) return 0;
+    const lastTime = new Date(history[history.length - 1].date).getTime();
+    const lastTimeDays = lastTime / (1000 * 60 * 60 * 24);
+
     const data = history.slice(-10).map(h => {
         const time = new Date(h.date).getTime();
         return {
-            x: time / (1000 * 60 * 60 * 24), // x in days
+            x: (time / (1000 * 60 * 60 * 24)) - lastTimeDays, // relative days from last exam
             y: getSafeScore(h)
         };
     });
