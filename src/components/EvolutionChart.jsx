@@ -682,7 +682,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </feMerge>
                                         </filter>
                                     </defs>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
                                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45}

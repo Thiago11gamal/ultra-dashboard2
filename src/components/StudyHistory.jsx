@@ -185,7 +185,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <BarChart3 size={12} className="text-blue-400" />
                                 </div>
                                 Gráfico Semanal
                             </h3>
@@ -595,13 +595,13 @@ const StudyHistory = React.memo(function StudyHistory({
                             return (
                                 <div className="flex gap-8 flex-1 overflow-y-visible" style={{ minHeight: '400px' }}>
                                     {yesterdaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
+                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
                                             <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
                                         </div>
                                     )}
 
                                     {todaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700/40">
+                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
                                             <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
                                         </div>
                                     )}
