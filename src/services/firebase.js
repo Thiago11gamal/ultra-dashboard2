@@ -35,13 +35,13 @@ const db = initializeFirestore(app, {
 
 const auth = getAuth(app);
 
-let analytics = null;
-if (typeof window !== "undefined") {
-    isAnalyticsSupported().then((supported) => {
-        if (supported) {
-            analytics = getAnalytics(app);
-        }
-    });
-}
+const getAppAnalytics = async () => {
+    if (typeof window === "undefined") return null;
+    const supported = await isAnalyticsSupported();
+    if (supported) {
+        return getAnalytics(app);
+    }
+    return null;
+};
 
-export { db, auth, analytics };
+export { db, auth, getAppAnalytics };

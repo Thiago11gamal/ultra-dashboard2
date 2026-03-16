@@ -64,7 +64,7 @@ const recordHistory = (appState, force = false) => {
     if (appState.history.length >= 20) {
         appState.history.shift();
     }
-    const snapshot = JSON.parse(JSON.stringify(stripForUndo(appState.contests)));
+    const snapshot = stripForUndo(appState.contests);
     appState.history.push({ contests: snapshot, activeId: appState.activeId });
     appState.lastHistoryTime = now;
 };

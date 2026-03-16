@@ -56,11 +56,13 @@ function weightedRegression(history, lambda = 0.08) {
     const slope = (Sw * Sxy - Sx * Sy) / denom;
     const intercept = (Sy - slope * Sx) / Sw;
 
-// WLS: denominador é Sw - 2 (graus de liberdade ponderados), não n - 2
+// WLS: denominations for statistical degrees of freedom should be sample size-based
+// Fix: Use n - 2 for real statistical degrees of freedom instead of Sw - 2
+const n = data.length;
 const wrss = data.reduce((acc, p) =>
     acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
 );
-const variance = wrss / Math.max(0.001, Sw - 2);
+const variance = wrss / Math.max(0.001, n - 2);
 // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
@@ -278,13 +280,10 @@ export function monteCarloSimulation(
     // Calcula volatilidade clássica apenas para fallback
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
 
-    // Bug fix: seed was `history.length * 1000 + floor(currentScore * 10)`.
-    // currentScore changes with each new simulado — so the seed, and therefore the entire
-    // Monte Carlo distribution, jumped visually on every new data point even mid-session.
-    // New seed uses sum of all rounded scores + count, which is stable during a session
-    // and only changes when data truly changes.
+    const lastScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
     const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h), 0));
-    const seed = sortedHistory.length * 997 + scoreSum;
+    // Fix: Enhance seed uniqueness by adding lastScore and better multipliers
+    const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore) * 31;
     const rng = mulberry32(seed);
 
     let success = 0;
