@@ -455,8 +455,8 @@ export default function MonteCarloGauge({
             </div>
 
             <div className="w-full flex flex-col gap-2">
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
-                 <div className="flex flex-wrap justify-center gap-1.5 min-h-[24px]">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
+                <div className="flex flex-wrap justify-center gap-1.5 min-h-[24px]">
                     {activeCategories?.slice(0, 8).map((cat) => {
                         const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
                         return (
