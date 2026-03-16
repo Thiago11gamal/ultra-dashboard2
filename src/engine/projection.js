@@ -356,12 +356,12 @@ export function monteCarloSimulation(
             // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
             const dampedDrift = dayDrift * (45 / (45 + d));
             score += dampedDrift + shock;
-            score = Math.max(0, Math.min(100, score));
         }
 
-        if (score >= targetScore) success++;
+        const finalScore = Math.max(0, Math.min(100, score));
+        if (finalScore >= targetScore) success++;
 
-        allFinalScores[s] = score;
+        allFinalScores[s] = finalScore;
 
         // Welford online update
         welfordCount++;

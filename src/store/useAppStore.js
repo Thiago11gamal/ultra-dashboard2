@@ -301,6 +301,10 @@ export const useAppStore = create(
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
                 
                 // Bug #7: Memory Leak Cleanup
+                if (activeData.mcWeights && activeData.mcWeights[id]) {
+                    delete activeData.mcWeights[id];
+                }
+                // Fallback for legacy name-based weights if any
                 if (name && activeData.mcWeights && activeData.mcWeights[name]) {
                     delete activeData.mcWeights[name];
                 }
@@ -426,24 +430,16 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateInput) => set((state) => {
-                recordHistory(state.appState, true);
-                
-                const dt = new Date(dateInput);
-                const targetDay = dt.getFullYear() + '-' +
-                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(dt.getDate()).padStart(2, '0');
+                const targetDayDay = new Date(dateInput).toISOString().slice(0, 10);
 
                 const activeData = state.appState.contests[state.appState.activeId];
                 
-                // Bug #5: Consistency fix using local time methods for UI-storage parity.
+                // Bug #5: Consistency fix using UTC for UI-storage parity.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
                     const d = new Date(raw);
                     if (isNaN(d.getTime())) return false;
-                    const day = d.getFullYear() + '-' +
-                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getDate()).padStart(2, '0');
-                    return day === targetDay;
+                    return d.toISOString().slice(0, 10) === targetDayDay;
                 };
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
@@ -538,7 +534,12 @@ export const useAppStore = create(
                 },
                 removeItem: (name) => localStorage.removeItem(name)
             })),
-            partialize: (state) => ({ appState: state.appState }),
+            partialize: (state) => {
+                // BUG-08 FIX: Exclude history from persistence to prevent QuotaExceededError. 
+                // History should live only in RAM.
+                const { history, ...restOfAppState } = state.appState;
+                return { appState: restOfAppState };
+            },
             merge: (persistedState, currentState) => {
                 const persisted = persistedState?.appState;
                 const current = currentState.appState;

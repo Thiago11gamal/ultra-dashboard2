@@ -23,16 +23,22 @@ export function standardDeviation(arr) {
     return Math.sqrt(adjustedVar);
 }
 
-export function calculateTrend(scores) {
-    if (!scores || scores.length < 3) return 0;
+export function calculateTrend(history) {
+    if (!history) return 0;
+    const data = history.slice(-10).map(h => {
+        const time = new Date(h.date).getTime();
+        return {
+            x: time / (1000 * 60 * 60 * 24), // x in days
+            y: getSafeScore(h)
+        };
+    });
+    const n = data.length;
+    if (n < 3) return 0;
 
-    const recentScores = scores.slice(-10);
-    const n = recentScores.length;
+    const x = data.map(p => p.x);
+    const y = data.map(p => p.y);
 
-    const x = recentScores.map((_, i) => i);
-    const y = recentScores;
-
-    const meanX = (n - 1) / 2;
+    const meanX = mean(x);
     const meanY = mean(y);
 
     let num = 0;
@@ -72,7 +78,7 @@ export function calculateTrend(scores) {
         if (Math.abs(tStat) < tCrit) return 0;
     }
 
-    return slope * 10;
+    return slope * 10; // Normalized slope for UI display
 }
 
 /**
@@ -90,11 +96,11 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
             let total   = Number(h.total)   || 0;
             let correct = Number(h.correct) || 0;
             
-            // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (10 questões)
+            // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 100 para precisão)
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
-                total = 10;
-                correct = Math.round(pct * 10);
+                total = 100;
+                correct = Math.round(pct * 100);
             }
             
             if (total < 5) continue;
@@ -140,7 +146,7 @@ export function computeCategoryStats(history, weight) {
     const sd = standardDeviation(scores);
     // AUDIT FIX: SD fallback floor reduced to 2% (2 points) to respect Bayesian shrinkage and reward high consistency
     const safeSD = Math.max(sd, 2);
-    const rawTrend = calculateTrend(scores);
+    const rawTrend = calculateTrend(historyToUse);
 
     let trendLabel = 'stable';
     if (rawTrend > 0.5) trendLabel = 'up';
