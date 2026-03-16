@@ -185,7 +185,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
                                 <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                                    <BarChart3 size={12} className="text-blue-400" />
+                                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                 </div>
                                 Gráfico Semanal
                             </h3>

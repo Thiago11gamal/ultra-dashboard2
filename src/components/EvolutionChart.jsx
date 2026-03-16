@@ -527,12 +527,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </feMerge>
                                         </filter>
                                     </defs>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
-                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45}
+                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45} strokeDasharray="0"
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1 }}
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                                         content={<ChartTooltip chartData={filteredChartData} isCompare={activeEngine === "compare"} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {(() => {
@@ -873,7 +873,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         <div className="h-[240px] sm:h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
-                                    <PolarGrid stroke="rgba(255,255,255,0.15)" />
+                                    <PolarGrid stroke="rgba(255,255,255,0.1)" strokeDasharray="0" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                     <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeOpacity={0.5} fill="none" />

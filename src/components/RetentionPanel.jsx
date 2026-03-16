@@ -231,7 +231,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                     <AlertTriangle size={70} className="absolute -right-6 -bottom-6 text-red-500/10 group-hover:text-red-500/20 transition-all duration-700" />
                     <div className="relative z-10 mb-auto">
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
-                            <AlertTriangle size={12} className="text-red-500" />
+                            <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                             Críticos
                         </div>
                         <div className="text-4xl font-black text-red-400 tracking-tighter drop-shadow-[0_0_10px_rgba(239,68,68,0.2)]">{stats.critical}</div>

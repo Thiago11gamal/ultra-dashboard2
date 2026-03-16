@@ -155,6 +155,7 @@ return (
                     fill="rgba(59, 130, 246, 0.08)"
                     stroke="rgba(59, 130, 246, 0.4)"
                     strokeWidth="0.5"
+                    strokeDasharray="0"
                     className="opacity-60"
                 />
             )}
@@ -171,18 +172,18 @@ return (
             {/* Linha Vertical de Meta com Anotação de Chance (Area invisible fix) */}
             {isTargetVisible && (
                 <g>
-                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" className="opacity-80" />
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeDasharray="0" className="opacity-80" />
                     {/* Indicador de "Região de Sucesso" */}
-                    <path d={`M ${targetPos},10 L ${targetPos + 5},5 L ${targetPos + 15},5`} fill="none" stroke="#22c55e" strokeWidth="0.5" vectorEffect="non-scaling-stroke" className="opacity-40" />
+                    <path d={`M ${targetPos},10 L ${targetPos + 5},5 L ${targetPos + 15},5`} fill="none" stroke="#22c55e" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="0" className="opacity-40" />
                 </g>
             )}
 
             {/* Linhas indicadoras */}
             {isCurrentVisible && (
-                <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" className="opacity-40" vectorEffect="non-scaling-stroke" />
+                <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" strokeDasharray="0" className="opacity-40" vectorEffect="non-scaling-stroke" />
             )}
 
-            <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="1.5" className="opacity-80" vectorEffect="non-scaling-stroke" />
+            <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="0" className="opacity-80" vectorEffect="non-scaling-stroke" />
         </svg>
 
         {/* Labels HTML Absolutos com Evitação de Colisão */}
