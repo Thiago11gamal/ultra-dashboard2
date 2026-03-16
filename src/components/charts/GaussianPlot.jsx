@@ -245,7 +245,7 @@ return (
                 </div>
             )}
 
-            <div className="absolute bottom-[18px] left-1/2 transform -translate-x-1/2 translate-y-full">
+            <div className="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 translate-y-full">
                 <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter">
                     IC 95%: {ciLabel}
                 </span>

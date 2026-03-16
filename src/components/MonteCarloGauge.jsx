@@ -414,7 +414,7 @@ export default function MonteCarloGauge({
                             strokeWidth="12"
                             strokeLinecap="round"
                             pathLength="100"
-                            strokeDasharray={`${prob < 15 ? Math.max(4, Math.sqrt(prob) * 4.5) : prob} 100`}
+                            strokeDasharray={`${prob < 15 ? Math.max(5, Math.sqrt(prob) * 4.5) : prob} 100`}
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />

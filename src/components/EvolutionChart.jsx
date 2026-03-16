@@ -202,10 +202,32 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
             // Immutable replacement of last element
+            // v3 FIX: Curva de tendência exponencial (diminishing returns) y(t) = hoje + (proj-hoje)*(1-e^-3t)
+            const futurePoints = [];
+            const steps = 6; 
+            for (let i = 1; i <= steps; i++) {
+                const t = i / steps;
+                const expWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3)); // Normalize so it exactly hits proj at t=1
+                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * expWeight;
+                const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * expWeight;
+                const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * expWeight;
+
+                const interDate = new Date(pts[lastIdx].date);
+                interDate.setDate(interDate.getDate() + Math.round(30 * t));
+                const iso = interDate.toISOString().split('T')[0];
+
+                futurePoints.push({ 
+                    date: iso, 
+                    displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "", 
+                    "Futuro Provável": val, 
+                    "Cenário Range": [bandLow, bandHigh] 
+                });
+            }
+
             pts = [
                 ...pts.slice(0, lastIdx),
                 { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] },
-                { date: mcProjection.date, displayDate: `${mcProjection.date.split('-')[2]}/${mcProjection.date.split('-')[1]} ✦`, "Futuro Provável": mcProjection.mc_p50, "Cenário Range": [mcProjection.mc_band[0], mcProjection.mc_band[1]] }
+                ...futurePoints
             ];
         }
         return pts;
