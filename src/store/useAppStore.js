@@ -430,16 +430,24 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateInput) => set((state) => {
-                const targetDayDay = new Date(dateInput).toISOString().slice(0, 10);
+                recordHistory(state.appState, true); // ← LINHA RESTAURADA
+
+                const dt = new Date(dateInput);
+                const targetDay = dt.getFullYear() + '-' +
+                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(dt.getDate()).padStart(2, '0'); // ← hora local
 
                 const activeData = state.appState.contests[state.appState.activeId];
                 
-                // Bug #5: Consistency fix using UTC for UI-storage parity.
+                // Bug #5: Consistency fix using local time methods for UI-storage parity.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
                     const d = new Date(raw);
                     if (isNaN(d.getTime())) return false;
-                    return d.toISOString().slice(0, 10) === targetDayDay;
+                    const day = d.getFullYear() + '-' +
+                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(d.getDate()).padStart(2, '0'); // ← hora local
+                    return day === targetDay;
                 };
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
