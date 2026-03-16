@@ -179,7 +179,7 @@ export default function MonteCarloGauge({
                 }
             });
             return { date, score: tw > 0 ? sum / tw : 0 };
-        }).filter(h => h.score > 0);
+        }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         // BUG-03 FIX: Volatilidade Inflada.
         // Não usamos calculateVolatility(globalHistory) pois saltos entre matérias (ex: Português 90 -> Matemática 50)
@@ -273,7 +273,7 @@ export default function MonteCarloGauge({
         setIsCalculating(true);
         const timer = setTimeout(() => setIsCalculating(false), 600);
         return () => clearTimeout(timer);
-    }, [simulationData?.data?.probability]); // Removed targetScore for smoother slider
+    }, [simulationData?.data?.probability, debouncedTarget]); // Re-added target score for better responsiveness
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
@@ -411,7 +411,7 @@ export default function MonteCarloGauge({
                             strokeWidth="12"
                             strokeLinecap="round"
                             pathLength="100"
-                            strokeDasharray={`${prob < 15 ? Math.max(5, Math.sqrt(prob) * 4.5) : prob} 100`}
+                            strokeDasharray={`${prob} 100`}
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
@@ -441,7 +441,24 @@ export default function MonteCarloGauge({
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-36 px-2">
-                    <GaussianPlot mean={parseFloat(mean)} sd={parseFloat(sd)} low95={parseFloat(ci95Low)} high95={parseFloat(ci95High)} targetScore={targetScore} currentMean={currentMean ? parseFloat(currentMean) : parseFloat(mean)} prob={prob} />
+                    {(() => {
+                        // Recalcula o SD visual para que o gráfico Gaussiano bata certo com o IC de 95%
+                        const visualSD = Math.max(0.1, (parseFloat(ci95High) - parseFloat(ci95Low)) / (2 * 1.96));
+                        // Garante que o zero absoluto não oculta a bolinha do "Hoje"
+                        const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
+
+                        return (
+                            <GaussianPlot 
+                                mean={parseFloat(mean)} 
+                                sd={visualSD} 
+                                low95={parseFloat(ci95Low)} 
+                                high95={parseFloat(ci95High)} 
+                                targetScore={targetScore} 
+                                currentMean={safeCurrentMean} 
+                                prob={prob} 
+                            />
+                        );
+                    })()}
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full text-center mb-1">Elementos do Gráfico</span>
