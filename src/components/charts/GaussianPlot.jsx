@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, areaPathData, range, xMin, targetVal } = useMemo(() => {
+    const { pathData, areaPathData, trendCurvePath, range, xMin, targetVal, xp, yp, heightFactor } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
 
@@ -32,62 +32,77 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // 🧠 DISPERSÃO REAL: Normalizar a altura pela média dos sigmas
     // Se σ é alto, a curva deve ser baixa e larga.
     const avgSd = (vizSdLeft + vizSdRight) / 2;
-    // v3 FIX: heightScale = min(1, 10/σ)
-    const heightFactor = Math.min(1, 10 / avgSd);
+        // v3 FIX: heightScale = min(1, 10/σ)
+        const heightFactor = Math.min(1, 10 / avgSd);
 
-    // Função Gaussiana Assimétrica (Split-Normal) Normalizada
-    const asymmetricGaussian = (x) => {
-        const currentSd = x < meanVal ? vizSdLeft : vizSdRight;
-        return heightFactor * Math.exp(-0.5 * Math.pow((x - meanVal) / currentSd, 2));
-    };
+        // Geometria Helpers para Sincronização
+        const xp = (v) => (v - xMin) / range * 100;
+        const yp = (yVal) => 100 - (yVal * 100);
 
-    const points = [];
-    const steps = 110;
+        // Função Gaussiana Assimétrica (Split-Normal)
+        const asymmetricGaussian = (x) => {
+            const currentSd = x < meanVal ? vizSdLeft : vizSdRight;
+            return heightFactor * Math.exp(-0.5 * Math.pow((x - meanVal) / currentSd, 2));
+        };
 
-    for (let i = 0; i <= steps; i++) {
-        const x = xMin + (range * (i / steps));
-        const y = asymmetricGaussian(x);
-        const safeY = isNaN(y) ? 0 : y;
-        points.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
-    }
-    const path = `M ${points.join(' L ')}`;
+        const points = [];
+        const steps = 110;
 
-    // Sombreado da ÁREA DE SUCESSO
-    const areaPoints = [];
-    const successStart = Math.max(xMin, targetVal);
-    const successEnd = xMax;
-
-    const yStart = asymmetricGaussian(successStart);
-    areaPoints.push(`${(successStart - xMin) / range * 100},${100 - (isNaN(yStart) ? 0 : yStart * 100)}`);
-
-    for (let i = 0; i <= steps; i++) {
-        const x = xMin + (range * (i / steps));
-        if (x > successStart && x < successEnd) {
+        for (let i = 0; i <= steps; i++) {
+            const x = xMin + (range * (i / steps));
             const y = asymmetricGaussian(x);
-            const safeY = isNaN(y) ? 0 : y;
-            areaPoints.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
+            points.push(`${xp(x)},${yp(y)}`);
         }
-    }
+        const path = `M ${points.join(' L ')}`;
 
-    const yEnd = asymmetricGaussian(successEnd);
-    areaPoints.push(`${(successEnd - xMin) / range * 100},${100 - (isNaN(yEnd) ? 0 : yEnd * 100)}`);
+        // Sombreado da ÁREA DE SUCESSO
+        const areaPoints = [];
+        const successStart = Math.max(xMin, targetVal);
+        const successEnd = xMax;
 
-    if (areaPoints.length > 0) {
-        const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
-        const firstX = areaPoints[0].split(',')[0];
-        areaPoints.push(`${lastX},100`);
-        areaPoints.push(`${firstX},100`);
-    }
+        areaPoints.push(`${xp(successStart)},${yp(asymmetricGaussian(successStart))}`);
+        for (let i = 0; i <= steps; i++) {
+            const x = xMin + (range * (i / steps));
+            if (x > successStart && x < successEnd) {
+                areaPoints.push(`${xp(x)},${yp(asymmetricGaussian(x))}`);
+            }
+        }
+        areaPoints.push(`${xp(successEnd)},${yp(asymmetricGaussian(successEnd))}`);
+        if (areaPoints.length > 0) {
+            const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
+            const firstX = areaPoints[0].split(',')[0];
+            areaPoints.push(`${lastX},100`);
+            areaPoints.push(`${firstX},100`);
+        }
+        const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
 
-    const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
+        // v4: LINHA DE TENDÊNCIA (Hoje -> Pico)
+        const trendPoints = [];
+        if (currentMean != null) {
+            const tSteps = 20;
+            for (let i = 0; i <= tSteps; i++) {
+                const t = i / tSteps;
+                // Curva de ganho logarítmico simulada
+                const tWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3));
+                const tx = currentMean + (meanVal - currentMean) * tWeight;
+                const ty = heightFactor * tWeight; // Sincroniza com o pico da Gaussiana
+                trendPoints.push(`${xp(tx)},${yp(ty)}`);
+            }
+        }
+        const trendCurvePath = trendPoints.length > 0 ? `M ${trendPoints.join(' L ')}` : '';
 
-    return { pathData: path, areaPathData: areaPath, range, xMin, targetVal };
-}, [mean, sd, low95, high95, targetScore]);
+        return { pathData: path, areaPathData: areaPath, trendCurvePath, range, xMin, targetVal, xp, yp, heightFactor };
+    }, [mean, sd, low95, high95, targetScore, currentMean]);
 
-const targetPos = (targetVal - xMin) / range * 100;
-const isTargetVisible = targetPos >= 0 && targetPos <= 100;
-const currentPos = ((currentMean || 0) - xMin) / range * 100;
-const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
+    const xp_helper = xp;
+    const yp_helper = yp;
+    const targetPos = xp_helper(targetVal);
+    const meanPos = xp_helper(mean);
+    const currentPos = currentMean != null ? xp_helper(currentMean) : 0;
+    const ciHighPx = xp_helper(high95);
+    const ciLowPx = xp_helper(low95);
+    const isTargetVisible = targetPos >= 0 && targetPos <= 100;
+    const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
 
 const ciWide = (high95 - low95) >= 95;
 const ciLabel = ciWide
@@ -95,10 +110,6 @@ const ciLabel = ciWide
     : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
 
 // Lógica de Evitação de Colisão de Labels
-const meanPos = (mean - xMin) / range * 100;
-const ciLowPx = (low95 - xMin) / range * 100;
-
-// v3 FIX: Colisão Meta vs Projeção
 const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
 // v3 FIX: Colisão Projeção vs IC Low
 const collisionMeanCi = !ciWide && Math.abs(meanPos - ciLowPx) < 10;
@@ -156,10 +167,13 @@ return (
             )}
 
             {/* 1. Área de Sucesso */}
-            <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="1" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} className="opacity-40" />
+            <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="1" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} className="opacity-30" />
 
-            {/* 2. Curva Principal */}
-            <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
+            {/* v4: 1.5 Linha de Tendência (Discreta) */}
+            <path d={trendCurvePath} fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" className="opacity-40" vectorEffect="non-scaling-stroke" />
+
+            {/* 2. Curva Principal - Integral */}
+            <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-80 animate-path" vectorEffect="non-scaling-stroke" />
 
             {/* Linha Vertical de Meta com Anotação de Chance (Area invisible fix) */}
             {isTargetVisible && (
@@ -245,8 +259,14 @@ return (
                 </div>
             )}
 
-            <div className="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 translate-y-full">
-                <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter">
+            <div 
+                className="absolute bottom-[20px] pointer-events-none" 
+                style={{ 
+                    left: `${Math.min(98, ciHighPx)}%`, 
+                    transform: 'translateX(-100%)' 
+                }}
+            >
+                <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter whitespace-nowrap">
                     IC 95%: {ciLabel}
                 </span>
             </div>
