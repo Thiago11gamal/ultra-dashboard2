@@ -448,14 +448,14 @@ export default function MonteCarloGauge({
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
 
                         return (
-                            <GaussianPlot 
-                                mean={parseFloat(mean)} 
-                                sd={visualSD} 
-                                low95={parseFloat(ci95Low)} 
-                                high95={parseFloat(ci95High)} 
-                                targetScore={targetScore} 
-                                currentMean={safeCurrentMean} 
-                                prob={prob} 
+                            <GaussianPlot
+                                mean={parseFloat(mean)}
+                                sd={visualSD}
+                                low95={parseFloat(ci95Low)}
+                                high95={parseFloat(ci95High)}
+                                targetScore={targetScore}
+                                currentMean={safeCurrentMean}
+                                prob={prob}
                             />
                         );
                     })()}
