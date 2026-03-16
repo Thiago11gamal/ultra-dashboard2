@@ -14,7 +14,7 @@ export function standardDeviation(arr) {
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
     const POPULATION_SD = 12;
-    const KAPPA = 3;
+    const KAPPA = 1;
 
     const adjustedVar =
         ((n - 1) * sampleVar + KAPPA * (Math.pow(POPULATION_SD, 2))) /
