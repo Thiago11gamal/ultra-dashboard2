@@ -32,9 +32,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // 🧠 DISPERSÃO REAL: Normalizar a altura pela média dos sigmas
     // Se σ é alto, a curva deve ser baixa e larga.
     const avgSd = (vizSdLeft + vizSdRight) / 2;
-    // Fator de escala: σ=10 é base (altura 100). σ=40 -> altura ~25.
-    // Limitamos para não sumir nem estourar.
-    const heightFactor = Math.min(1.2, Math.max(0.15, 10 / avgSd));
+    // v3 FIX: heightScale = min(1, 10/σ)
+    const heightFactor = Math.min(1, 10 / avgSd);
 
     // Função Gaussiana Assimétrica (Split-Normal) Normalizada
     const asymmetricGaussian = (x) => {
@@ -90,13 +89,19 @@ const isTargetVisible = targetPos >= 0 && targetPos <= 100;
 const currentPos = ((currentMean || 0) - xMin) / range * 100;
 const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
 
-const ciLabel = (high95 - low95) >= 95
+const ciWide = (high95 - low95) >= 95;
+const ciLabel = ciWide
     ? "Alta incerteza"
     : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
 
 // Lógica de Evitação de Colisão de Labels
 const meanPos = (mean - xMin) / range * 100;
-const collision = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
+const ciLowPx = (low95 - xMin) / range * 100;
+
+// v3 FIX: Colisão Meta vs Projeção
+const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
+// v3 FIX: Colisão Projeção vs IC Low
+const collisionMeanCi = !ciWide && Math.abs(meanPos - ciLowPx) < 10;
 
 return (
     <div
@@ -189,7 +194,7 @@ return (
                     className="absolute transform -translate-x-1/2 text-[10px] font-black text-red-100 pointer-events-none flex flex-col items-center bg-red-600/40 px-1 rounded transition-all shadow-lg"
                     style={{ 
                         left: `${targetPos}%`, 
-                        top: collision ? '20px' : (targetPos > 90 ? '24px' : '0') 
+                        top: collisionMetaMean ? '20px' : (targetPos > 90 ? '24px' : '0') 
                     }}
                 >
                     <span>🎯{targetVal}%</span>
@@ -233,7 +238,14 @@ return (
                 <span className="text-[9px] font-bold text-slate-500">{Math.round(xMin)}%</span>
             </div>
 
-            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 translate-y-full">
+            {/* v3 FIX: Ghost label suppress + collision detection + overlap spacing */}
+            {!ciWide && low95 > 1 && !collisionMeanCi && (
+                <div className="absolute top-0 transform -translate-x-1/2 text-[9px] font-bold text-slate-500/60" style={{ left: `${ciLowPx}%` }}>
+                    {low95.toFixed(0)}%
+                </div>
+            )}
+
+            <div className="absolute bottom-[18px] left-1/2 transform -translate-x-1/2 translate-y-full">
                 <span className="text-[8px] font-black text-blue-400/60 uppercase tracking-tighter">
                     IC 95%: {ciLabel}
                 </span>
