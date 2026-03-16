@@ -5,63 +5,67 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const { pathData, areaPathData, range, xMin, targetVal } = useMemo(() => {
         const meanVal = mean ?? 0;
-
-        // CORREÇÃO 1: Inferir o Desvio Padrão a partir do Intervalo de Confiança 
-        // caso o SD seja 0 ou muito baixo (cenário da simulação do dia atual / bayesiana).
-        // Isso impede que a curva Gaussiana vire uma linha super fina e invisível.
-        let inferredSd = sd;
-        if ((!inferredSd || inferredSd <= 0.1) && low95 != null && high95 != null) {
-            inferredSd = Math.max(0.1, (high95 - low95) / 3.92);
-        }
-
-        // Garante um desvio padrão mínimo visual para desenhar a curva
-        const vizSd = (inferredSd != null && inferredSd >= 0.5) ? inferredSd : Math.max(1, inferredSd ?? 3);
         const targetVal = targetScore ?? 70;
 
-        // AUDIT FIX: Eixo X Estático (0 a 100) para manter proporção e noção de escala real da prova.
+        // 🎯 Eixo X Estático (0 a 100)
         const xMin = 0;
         const xMax = 100;
         const range = 100;
 
-        // Função Gaussiana Clássica
-        const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - meanVal) / vizSd, 2));
+        // 🧠 MODELO: Split-Normal (Two-Piece Normal)
+        // Usamos as distâncias para low95 e high95 para inferir desvios padrões independentes
+        // para a esquerda e para a direita, refletindo o "piling" em 100% ou 0%.
+        let sdLeft = sd;
+        let sdRight = sd;
+
+        if (low95 != null && high95 != null) {
+            // Em uma normal, 95% do IC está em ±1.96 * sd.
+            // Para a split-normal, calculamos os sigmas separadamente.
+            sdLeft = Math.max(0.2, (meanVal - low95) / 1.96);
+            sdRight = Math.max(0.2, (high95 - meanVal) / 1.96);
+        }
+
+        // Garante visibilidade mínima (evita curva-agulha)
+        const vizSdLeft = Math.max(1, sdLeft);
+        const vizSdRight = Math.max(1, sdRight);
+
+        // Função Gaussiana Assimétrica (Split-Normal)
+        const asymmetricGaussian = (x) => {
+            const currentSd = x < meanVal ? vizSdLeft : vizSdRight;
+            return Math.exp(-0.5 * Math.pow((x - meanVal) / currentSd, 2));
+        };
 
         const points = [];
-        const steps = 100; // Alta resolução para curva suave no eixo fixo
+        const steps = 110; // Extra steps para suavidade
 
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
-            const y = gaussian(x);
+            const y = asymmetricGaussian(x);
             const safeY = isNaN(y) ? 0 : y;
             points.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
         }
         const path = `M ${points.join(' L ')}`;
 
+        // Sombreado da ÁREA DE SUCESSO (Meta -> 100)
         const areaPoints = [];
-        // AUDIT FIX: Sombreado agora destaca a ÁREA DE SUCESSO (da Meta até 100%) 
-        // em vez de apenas o intervalo de confiança, tornando a probabilidade intuitiva.
         const successStart = Math.max(xMin, targetVal);
         const successEnd = xMax;
 
-        // Ponto inicial da área de sucesso
-        const yStart = gaussian(successStart);
+        const yStart = asymmetricGaussian(successStart);
         areaPoints.push(`${(successStart - xMin) / range * 100},${100 - (isNaN(yStart) ? 0 : yStart * 100)}`);
 
-        // Preenchimento da área de sucesso seguindo a curva
         for (let i = 0; i <= steps; i++) {
             const x = xMin + (range * (i / steps));
             if (x > successStart && x < successEnd) {
-                const y = gaussian(x);
+                const y = asymmetricGaussian(x);
                 const safeY = isNaN(y) ? 0 : y;
                 areaPoints.push(`${(x - xMin) / range * 100},${100 - (safeY * 100)}`);
             }
         }
 
-        // Ponto final da área de sucesso
-        const yEnd = gaussian(successEnd);
+        const yEnd = asymmetricGaussian(successEnd);
         areaPoints.push(`${(successEnd - xMin) / range * 100},${100 - (isNaN(yEnd) ? 0 : yEnd * 100)}`);
 
-        // Fecha o desenho do polígono
         if (areaPoints.length > 0) {
             const lastX = areaPoints[areaPoints.length - 1].split(',')[0];
             const firstX = areaPoints[0].split(',')[0];
