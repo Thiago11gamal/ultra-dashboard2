@@ -204,7 +204,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             // Immutable replacement of last element
             // v3 FIX: Curva de tendência exponencial (diminishing returns) y(t) = hoje + (proj-hoje)*(1-e^-3t)
             const futurePoints = [];
-            const steps = 6; 
+            const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
                 const expWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3)); // Normalize so it exactly hits proj at t=1
@@ -216,11 +216,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 interDate.setDate(interDate.getDate() + Math.round(30 * t));
                 const iso = interDate.toISOString().split('T')[0];
 
-                futurePoints.push({ 
-                    date: iso, 
-                    displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "", 
-                    "Futuro Provável": val, 
-                    "Cenário Range": [bandLow, bandHigh] 
+                futurePoints.push({
+                    date: iso,
+                    displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
+                    "Futuro Provável": val,
+                    "Cenário Range": [bandLow, bandHigh]
                 });
             }
 
@@ -272,13 +272,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         categories.forEach(cat => {
             // NOTE: task names removed — they never carry error counts and were always filtered to 0
             (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
-                (h.topics || []).forEach(t => { 
-                    const n = String(t.name || '').trim(); 
-                    const key = n.toLowerCase(); 
-                    if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 }; 
+                (h.topics || []).forEach(t => {
+                    const n = String(t.name || '').trim();
+                    const key = n.toLowerCase();
+                    if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
                     const total = t.total != null ? parseInt(t.total, 10) : 10;
                     const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * 10);
-                    topicMap[key].errors += Math.max(0, total - correct); 
+                    topicMap[key].errors += Math.max(0, total - correct);
                 });
             });
         });
@@ -308,10 +308,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
         const rawData = categories.map(cat => {
             let errors = 0;
-            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => { 
+            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
                 const total = h.total != null ? parseInt(h.total, 10) : 10;
                 const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
-                errors += Math.max(0, total - correct); 
+                errors += Math.max(0, total - correct);
             });
             totalErrors += errors;
             return { name: cat.name, value: errors };
