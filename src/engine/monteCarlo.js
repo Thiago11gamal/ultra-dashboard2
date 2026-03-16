@@ -63,7 +63,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const result = {
     probability: (success / safeSimulations) * 100,
     mean: Number(projectedMean.toFixed(1)),
-    sd: Number(projectedSD.toFixed(1)),
+    sd: Number(safeSD.toFixed(1)),
     ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
     ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
