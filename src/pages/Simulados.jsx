@@ -220,6 +220,9 @@ export default function Simulados() {
         }, true);
 
         // Feedback
+        const updatedCount = window.__LAST_RESULT_COUNT || 0;
+        delete window.__LAST_RESULT_COUNT;
+
         if (updatedCount > 0) {
             showToast('Simulado processado com sucesso!', 'success');
             useAppStore.getState().awardExperience(500);
