@@ -132,8 +132,8 @@ export function useChartData(categories = [], targetScore = 80) {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0 };
-                exactByDate[key].correct += (h.correct || 0);
-                exactByDate[key].total += (h.total || 0);
+                exactByDate[key].correct += (Number(h.correct) || 0);
+                exactByDate[key].total += (Number(h.total) || 0);
             });
 
             dates.forEach(date => {
@@ -158,8 +158,8 @@ export function useChartData(categories = [], targetScore = 80) {
                 dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
                 dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
 
-                dataByDate[date].global_correct = (dataByDate[date].global_correct || 0) + correct;
-                dataByDate[date].global_total = (dataByDate[date].global_total || 0) + total;
+                dataByDate[date].global_correct = (Number(dataByDate[date].global_correct) || 0) + correct;
+                dataByDate[date].global_total = (Number(dataByDate[date].global_total) || 0) + total;
             });
         });
 
@@ -201,8 +201,8 @@ export function useChartData(categories = [], targetScore = 80) {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                dayMap[key].correct += (h.correct || 0);
-                dayMap[key].total += (h.total || 0);
+                dayMap[key].correct += (Number(h.correct) || 0);
+                dayMap[key].total += (Number(h.total) || 0);
             });
 
             const cells = sortedDates.map(dateStr => {

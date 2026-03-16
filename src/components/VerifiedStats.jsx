@@ -285,9 +285,9 @@ export default function VerifiedStats({ categories = [], user }) {
                         allHistory.push({
                             date: new Date(h.date).getTime(),
                             score: safeScore,
-                            totalQuestions: h.total || 0
+                            totalQuestions: Number(h.total) || 0
                         });
-                        totalQuestionsGlobal += (h.total || 0);
+                        totalQuestionsGlobal += (Number(h.total) || 0);
                     }
                 });
             }
@@ -302,8 +302,8 @@ export default function VerifiedStats({ categories = [], user }) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }
             // Weight by volume to favor "representative" days
-            const weight = Math.max(1, h.totalQuestions || 1);
-            dailyMap[dateStr].scoreSum += (h.score * weight);
+            const weight = Math.max(1, Number(h.totalQuestions) || 1);
+            dailyMap[dateStr].scoreSum += (Number(h.score) * weight);
             dailyMap[dateStr].weightSum += weight;
         });
 

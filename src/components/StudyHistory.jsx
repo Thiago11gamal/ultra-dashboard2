@@ -77,7 +77,7 @@ const StudyHistory = React.memo(function StudyHistory({
         const todaySessions = studySessions.filter(s =>
             new Date(s.startTime).toDateString() === today
         );
-        const todayMinutes = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0);
+        const todayMinutes = todaySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
         // Selected week's data (group by day)
         const weekData = [];
@@ -89,7 +89,7 @@ const StudyHistory = React.memo(function StudyHistory({
             const daySessions = studySessions.filter(s =>
                 new Date(s.startTime).toDateString() === dateStr
             );
-            const dayMinutes = daySessions.reduce((acc, s) => acc + (s.duration || 0), 0);
+            const dayMinutes = daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
             weekData.push({
                 day: getDayName(date),
@@ -100,7 +100,7 @@ const StudyHistory = React.memo(function StudyHistory({
         }
 
         // Total all time
-        const totalMinutes = studySessions.reduce((acc, s) => acc + (s.duration || 0), 0);
+        const totalMinutes = studySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
         const totalSessions = studySessions.length;
 
         // Max for chart scaling

@@ -8,15 +8,15 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
         // 1. Calculate Stats
         // BUG FIX: log.minutes might be undefined/null → guard with || 0 to avoid NaN
-        const totalMinutes = studyLogs.reduce((acc, log) => acc + (log.minutes || 0), 0);
+        const totalMinutes = studyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalSessions = studyLogs.length;
 
         // Find top category
         const catCounts = {};
         studyLogs.forEach(log => {
             const catId = log.categoryId;
-            // Bug fix: guard log.minutes with || 0 to prevent NaN propagating into sort
-            catCounts[catId] = (catCounts[catId] || 0) + (log.minutes || 0);
+            // Bug fix: guard log.minutes with Number() to prevent string concatenation
+            catCounts[catId] = (catCounts[catId] || 0) + (Number(log.minutes) || 0);
         });
         const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
         const topCategory = categories.find(c => c.id === topCatId)?.name || '-';
@@ -105,7 +105,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 // E-02 FIX: guard || 0 para evitar NaN quando log.minutes é undefined
                 targetGroup.logs[existingLogIndex] = {
                     ...targetGroup.logs[existingLogIndex],
-                    minutes: (targetGroup.logs[existingLogIndex].minutes || 0) + (log.minutes || 0)
+                    minutes: (Number(targetGroup.logs[existingLogIndex].minutes) || 0) + (Number(log.minutes) || 0)
                 };
             } else {
                 targetGroup.logs.push({
@@ -117,7 +117,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 });
             }
 
-            targetGroup.totalMinutes += (log.minutes || 0); // BUG FIX: guard undefined minutes
+            targetGroup.totalMinutes += (Number(log.minutes) || 0); // BUG FIX: guard undefined minutes
         });
 
         // Convert Objects to Arrays for rendering
