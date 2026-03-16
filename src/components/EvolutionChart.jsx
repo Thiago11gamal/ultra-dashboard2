@@ -475,7 +475,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : filteredChartData.length < 2 ? (
-                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 outline-none focus:outline-none focus:ring-0">
+                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 outline-none focus:outline-none focus:ring-0">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
@@ -1019,7 +1019,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                         </div>
 
                         {/* Dica */}
-                        <div className="mt-3 px-3 py-2 bg-white/3 rounded-xl border border-dashed border-slate-800 text-center">
+                        <div className="mt-3 px-3 py-2 bg-white/3 rounded-xl border border-slate-800 text-center">
                             <p className="text-[10px] text-slate-500 italic">
                                 📌 Quanto mais a barra verde (acertos) se aproximar da barra roxa (questões), maior o seu aproveitamento na matéria.
                             </p>
