@@ -107,7 +107,8 @@ export default function Simulados() {
             const rawRows = payload.rawRows || [];
             
             // 1. Garantir nova referência profunda para as categorias (Reatividade total)
-            const newCategories = JSON.parse(JSON.stringify(prev.categories || []));
+            const categoriesSource = Array.isArray(prev.categories) ? prev.categories : [];
+            const newCategories = JSON.parse(JSON.stringify(categoriesSource));
             let totalProcessedDisciplines = 0;
             const updatedNames = [];
 
@@ -127,9 +128,10 @@ export default function Simulados() {
                     const currentStats = category.simuladoStats || { history: [], average: 0 };
 
                     // 2. Calcular questões e acertos apenas dos tópicos desta sessão
-                    const validTopicsFromAnalysis = (disc.topics || []).filter(t => 
-                        (category.tasks || []).some(task => normalize(task.title || task.text) === normalize(t.name))
-                    );
+                    const validTopicsFromAnalysis = (disc.topics || []).filter(t => {
+                        const tasks = Array.isArray(category.tasks) ? category.tasks : [];
+                        return tasks.some(task => normalize(task?.title || task?.text || '') === normalize(t?.name || ''));
+                    });
 
                     let sessionQ = 0;
                     let sessionC = 0;
@@ -166,12 +168,13 @@ export default function Simulados() {
                         const finalQ = (Number(existingToday?.total) || 0) + Number(sessionQ);
                         const finalC = (Number(existingToday?.correct) || 0) + Number(sessionC);
 
+                        const existingTopics = Array.isArray(existingToday?.topics) ? existingToday.topics : [];
                         const newHistoryPoint = { 
                             date: timestamp, 
                             score: finalQ > 0 ? (finalC / finalQ) * 100 : 0, 
                             total: finalQ, 
                             correct: finalC, 
-                            topics: [...(existingToday?.topics || []), ...validTopicsFromAnalysis] 
+                            topics: [...existingTopics, ...validTopicsFromAnalysis] 
                         };
 
                         const historyPoints = [...historyWithoutToday, newHistoryPoint];

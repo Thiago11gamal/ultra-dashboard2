@@ -89,10 +89,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categories && categories.length > 0) {
 
-            const validDataMap = {};
+            const validDataMap = Object.create(null);
             categories.forEach(cat => {
+                if (!cat?.name) return;
                 const subName = normalize(cat.name);
-                const topics = new Set((cat.tasks || []).map(t => normalize(t.title || t.text || '')));
+                const tasks = Array.isArray(cat.tasks) ? cat.tasks : [];
+                const topics = new Set(tasks.map(t => normalize(t?.title || t?.text || '')));
                 validDataMap[subName] = topics;
 
                 // Add aliases mapping to the same topics
@@ -122,12 +124,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 if (r.topic) {
                     if (topNorm === 'nenhum') {
                         isTopValid = true;
-                    } else if (isSubValid && r.subject) {
+                    } else if (isSubValid && r.subject && validDataMap[subNorm] instanceof Set) {
                         isTopValid = validDataMap[subNorm].has(topNorm);
                     } else if (r.subject) {
                         isTopValid = false;
                     } else {
-                        isTopValid = Object.values(validDataMap).some(set => set.has(topNorm));
+                        isTopValid = Object.values(validDataMap).some(set => (set instanceof Set) && set.has(topNorm));
                     }
                 }
 
@@ -278,7 +280,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
 
             } catch (err) {
-                console.error(err);
+                setAnalysisData(null);
                 setError("Erro ao processar dados.");
             } finally {
                 setLoading(false);
