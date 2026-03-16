@@ -138,8 +138,8 @@ export function computeCategoryStats(history, weight) {
     const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
     const sd = standardDeviation(scores);
-    // AUDIT FIX: SD fallback floor reduced to 5% (5 points) to respect Bayesian shrinkage
-    const safeSD = Math.max(sd, 5);
+    // AUDIT FIX: SD fallback floor reduced to 2% (2 points) to respect Bayesian shrinkage and reward high consistency
+    const safeSD = Math.max(sd, 2);
     const rawTrend = calculateTrend(scores);
 
     let trendLabel = 'stable';
