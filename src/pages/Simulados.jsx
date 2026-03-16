@@ -210,7 +210,6 @@ export default function Simulados() {
 
             // Metadados para o Toast
             window.__LAST_RESULT_COUNT = totalProcessedDisciplines;
-            window.__LAST_RESULT_STR = updatedNames.join(', ');
 
             return {
                 ...prev,
@@ -221,16 +220,11 @@ export default function Simulados() {
         }, true);
 
         // Feedback
-        const updatedCount = window.__LAST_RESULT_COUNT || 0;
-        const names = window.__LAST_RESULT_STR || '';
-        delete window.__LAST_RESULT_COUNT;
-        delete window.__LAST_RESULT_STR;
-
         if (updatedCount > 0) {
-            showToast(`Sucesso! Atualizado: ${names}. Dados enviados para o gráfico de evolução.`, 'success');
+            showToast('Simulado processado com sucesso!', 'success');
             useAppStore.getState().awardExperience(500);
         } else {
-            showToast('Nenhuma matéria correspondente encontrada no Dashboard.', 'warning');
+            showToast('Nenhuma matéria correspondente encontrada.', 'warning');
         }
     };
 
