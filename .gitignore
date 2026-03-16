@@ -39,3 +39,4 @@ test_projection.js
 test_new_projection.js
 test_fairness_engine*.mjs
 package-lock.html
+.env
