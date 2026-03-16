@@ -323,8 +323,8 @@ export function monteCarloSimulation(
     const _residualSD = (useBootstrap && residuals.length > 0)
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length)
         : 0;
-    const _bootstrapScale = (useBootstrap && forcedVolatility !== undefined && _residualSD > 0)
-        ? forcedVolatility / _residualSD
+    const _bootstrapScale = (useBootstrap && _residualSD > 0)
+        ? volatility / _residualSD
         : 1;
 
     const simulationDays = days;
