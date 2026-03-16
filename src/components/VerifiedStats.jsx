@@ -251,26 +251,28 @@ export default function VerifiedStats({ categories = [], user }) {
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        // Performance Fix: Sync with global store only when config panel is CLOSED 
-        // or periodically, to avoid blocking the UI thread on every slider movement.
-        if (!showConfig) {
-            const lastSaved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
-            if (lastSaved !== targetScore.toString()) {
-                localStorage.setItem(`monte_carlo_target_${user?.uid || 'default'}`, targetScore.toString());
-            }
-
-            // Sync with global user object ONLY if target actually changed to avoid re-render loops
-            const currentStoreTarget = Number(user?.targetProbability);
-            if (user && !isNaN(currentStoreTarget) && Math.abs(currentStoreTarget - targetScore) > 0.01) {
-                setUserData(data => {
-                    if (data.user) {
-                        data.user.targetProbability = targetScore;
-                    }
-                    console.log("[MonteCarlo] Syncing final targetScore:", targetScore);
-                }, true); // Force history record now that the user explicitly clicked 'Close/Save'
-            }
+        // 1. Always sync LocalStorage for persistence across reloads
+        const lastSaved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
+        if (lastSaved !== targetScore.toString()) {
+            localStorage.setItem(`monte_carlo_target_${user?.uid || 'default'}`, targetScore.toString());
         }
-    }, [targetScore, setUserData, user?.targetProbability, user?.id, user, showConfig]);
+
+        // 2. Sync with global store to keep other components (like Coach.jsx) updated
+        const currentStoreTarget = Number(user?.targetProbability);
+        if (user && !isNaN(currentStoreTarget) && Math.abs(currentStoreTarget - targetScore) > 0.01) {
+            // Only record history if the modal is closed to avoid flooding undo snapshots
+            const shouldRecordHistory = !showConfig;
+            
+            setUserData(data => {
+                if (data.user) {
+                    data.user.targetProbability = targetScore;
+                }
+                if (!showConfig) {
+                    console.log("[MonteCarlo] Final sync of targetScore:", targetScore);
+                }
+            }, shouldRecordHistory);
+        }
+    }, [targetScore, setUserData, user?.targetProbability, user?.uid, showConfig]);
 
     const stats = useMemo(() => {
         let allHistory = [];
