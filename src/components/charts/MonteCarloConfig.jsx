@@ -89,7 +89,12 @@ export const MonteCarloConfig = ({
                             max="90" 
                             step="1" 
                             value={localTarget} 
-                            onChange={(e) => setLocalTarget(parseInt(e.target.value, 10))}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                setLocalTarget(val);
+                                // Real-time propagation for smoother UI sync (BUG-7 Fix)
+                                if (setTargetScore) setTargetScore(val);
+                            }}
                             onMouseUp={() => setTargetScore(localTarget)}
                             onTouchEnd={() => setTargetScore(localTarget)}
                             className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 

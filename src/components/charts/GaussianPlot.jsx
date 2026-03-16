@@ -116,23 +116,53 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 
+                {/* 0. Intervalo de Confiança 95% (BUG-8 Fix) */}
+                {low95 != null && high95 != null && (
+                    <rect
+                        x={`${Math.max(0, (low95 - xMin) / range * 100)}%`}
+                        y="0"
+                        width={`${Math.min(100, (high95 - low95) / range * 100)}%`}
+                        height="100"
+                        fill="rgba(59, 130, 246, 0.08)"
+                        stroke="#3b82f6"
+                        strokeWidth="0.5"
+                        strokeDasharray="3,3"
+                        className="opacity-60"
+                    />
+                )}
+
                 {/* 1. Primeiro desenha a Sombra Verde (Para ficar no fundo) */}
                 <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} />
                 
                 {/* 2. Depois desenha a Curva Principal Azul (Para ficar na frente da sombra) */}
                 <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
 
-                {/* Linha da Média Atual */}
+                {/* Linha da Média Atual (Hoje) */}
                 {isCurrentVisible && (
-                    <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-40" vectorEffect="non-scaling-stroke" />
+                    <g>
+                        <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" strokeDasharray="3,3" className="opacity-40" vectorEffect="non-scaling-stroke" />
+                        <text x={Math.max(0, currentPos)} y={35} fontSize={7} fill="white" className="opacity-40 font-bold" textAnchor="middle">
+                            {currentMean.toFixed(1)}%
+                        </text>
+                    </g>
                 )}
 
                 {/* Linha da Projeção Média */}
-                <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
+                <g>
+                    <line x1={(mean - xMin) / range * 100} y1="100" x2={(mean - xMin) / range * 100} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
+                    <text x={(mean - xMin) / range * 100} y={12} fontSize={8} fill="#93c5fd" className="font-black" textAnchor="middle">
+                        {mean.toFixed(1)}%
+                    </text>
+                </g>
 
                 {/* Linha da Meta */}
                 {isTargetVisible && (
-                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                    <g>
+                        <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                        <text x={targetPos} y={targetPos > 90 ? 25 : 12} fontSize={8} fill="#fca5a5" className="font-black" textAnchor={targetPos > 90 ? "end" : "middle"}>
+                            {targetVal}%
+                        </text>
+                    </g>
                 )}
             </svg>
 
