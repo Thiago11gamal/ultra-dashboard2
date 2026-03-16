@@ -20,8 +20,9 @@ export default function Coach() {
         // dep via data.user. localStorage serves only as bootstrap fallback on cold mount.
         const uid = data.user?.uid;
         const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
-        const targetScore = (storeTarget != null && !isNaN(Number(storeTarget)))
-            ? Number(storeTarget)
+        const storeTargetValue = data.user?.targetProbability;
+        const targetScore = (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
+            ? Number(storeTargetValue)
             : storedTarget ? parseInt(storedTarget, 10) : 80;
 
         return getSuggestedFocus(
@@ -36,11 +37,12 @@ export default function Coach() {
         setCoachLoading(true);
         setTimeout(() => {
             // CACHE BUG FIX: same fix as suggestedFocus — prefer reactive store value.
-        const uid = data.user?.uid;
-        const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
-        const targetScore = (storeTarget != null && !isNaN(Number(storeTarget)))
-            ? Number(storeTarget)
-            : storedTarget ? parseInt(storedTarget, 10) : 80;
+            const uid = data.user?.uid;
+            const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
+            const storeTargetValue = data.user?.targetProbability;
+            const targetScore = (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
+                ? Number(storeTargetValue)
+                : storedTarget ? parseInt(storedTarget, 10) : 80;
 
             const newTasks = generateDailyGoals(
                 data.categories,
