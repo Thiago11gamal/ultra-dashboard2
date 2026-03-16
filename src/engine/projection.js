@@ -147,8 +147,8 @@ export function calculateVolatility(history) {
     const sorted = getSortedHistory(history);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
-    // Extrair tendência para não ser duplamente quantificada como ruído (volatilidade)
-    const drift = calculateSlope(sorted);
+    // Extrair tendência bruta (não clampeada) para não inflar variância
+    const { slope: rawDrift } = weightedRegression(sorted);
 
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
@@ -168,8 +168,8 @@ export function calculateVolatility(history) {
         // Without this cap, a long hiatus produces tiny dailyVariance, underestimating volatility.
         const daysBetween = Math.min(30, rawDaysBetween);
 
-        // Subtrair o ganho esperado (drift) para reter apenas o ruído estatístico puro no resíduo
-        const expectedDiff = drift * daysBetween;
+        // Subtrair o ganho esperado bruto (raw) para reter apenas o ruído estatístico puro
+        const expectedDiff = rawDrift * daysBetween;
         const residual = (diff - expectedDiff) / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -243,11 +243,12 @@ export function monteCarloSimulation(
     }
 
     // 1. Calcular Tendência (Drift)
-    const drift = sortedHistory.length > 1 ? calculateSlope(sortedHistory) : 0;
+    const { slope: rawDrift } = sortedHistory.length > 1 ? weightedRegression(sortedHistory) : { slope: 0 };
+    const drift = calculateSlope(sortedHistory); // Tendência clampeada para o path determinístico
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
-    const residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
+    let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
         const prev = getSafeScore(sortedHistory[i - 1]);
         const actualChange = getSafeScore(h) - prev;
@@ -255,14 +256,19 @@ export function monteCarloSimulation(
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
         const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
-        // Fix 6: Cap to 30 days — long hiatuses produce abnormally small residuals
-        // which underestimates volatility and narrows confidence intervals incorrectly.
         const daysBetween = Math.min(30, rawDays);
 
-        const expectedChange = drift * daysBetween;
+        const expectedChange = rawDrift * daysBetween; // Usar raw para garantir resíduo médio = 0
         // Resíduo diário = (Diferença Efetiva - Diferença Esperada) / sqrt(dias)
         return (actualChange - expectedChange) / Math.sqrt(daysBetween);
     }).slice(1) : [];
+
+    // Math Fix: Centralizar resíduos para garantir que a média do choque seja rigorosamente zero.
+    // Isso impede que o "sucesso" histórico do aluno vaze para o bootstrap inflando o drift.
+    if (residuals.length > 0) {
+        const resMean = residuals.reduce((a, b) => a + b, 0) / residuals.length;
+        residuals = residuals.map(r => r - resMean);
+    }
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
     // .slice(1) já removeu 1 elemento: 5 pontos de histórico → 4 resíduos.
