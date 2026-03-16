@@ -5,7 +5,6 @@ import {
     computeBayesianLevel,
     monteCarloSimulation,
     runMonteCarloAnalysis,
-    calculateCurrentWeightedMean,
     computePooledSD,
     calculateVolatility
 } from '../engine';
@@ -147,7 +146,6 @@ export default function MonteCarloGauge({
 
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-        const currentWeightedMean = calculateCurrentWeightedMean(categoryStats, totalWeight);
         const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
         const bayesianMean = weightedBayesianSum / totalWeight;
 
@@ -206,10 +204,9 @@ export default function MonteCarloGauge({
 
         return {
             categoryStats,
-            currentWeightedMean,
+            bayesianMean,
             pooledSD,
             totalWeight,
-            bayesianMean,
             bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
             globalHistory,
             dailySD,
@@ -252,7 +249,7 @@ export default function MonteCarloGauge({
                 projectionDays: projectDays,
                 forcedVolatility: statsData.dailySD,
                 forcedBaseline: statsData.bayesianMean,
-                currentMean: statsData.currentWeightedMean,
+                currentMean: statsData.bayesianMean,
             });
         } else {
             // Hoje: Simulação estática (Normal) - Usando assinatura posicional para disparar engine correto
@@ -262,7 +259,7 @@ export default function MonteCarloGauge({
                 debouncedTarget,
                 {
                     simulations: 5000,
-                    currentMean: statsData.currentWeightedMean,
+                    currentMean: statsData.bayesianMean,
                     bayesianCI: statsData.bayesianCI
                 }
             );
