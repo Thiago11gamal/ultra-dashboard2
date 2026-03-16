@@ -5,7 +5,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const { pathData, areaPathData, range, xMin, targetVal } = useMemo(() => {
         const meanVal = mean ?? 0;
-        
+
         // CORREÇÃO 1: Inferir o Desvio Padrão a partir do Intervalo de Confiança 
         // caso o SD seja 0 ou muito baixo (cenário da simulação do dia atual / bayesiana).
         // Isso impede que a curva Gaussiana vire uma linha super fina e invisível.
@@ -13,11 +13,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         if ((!inferredSd || inferredSd <= 0.1) && low95 != null && high95 != null) {
             inferredSd = Math.max(0.1, (high95 - low95) / 3.92);
         }
-        
+
         // Garante um desvio padrão mínimo visual para desenhar a curva
         const vizSd = (inferredSd != null && inferredSd >= 0.5) ? inferredSd : Math.max(1, inferredSd ?? 3);
         const targetVal = targetScore ?? 70;
-        
+
         // AUDIT FIX: Eixo X Estático (0 a 100) para manter proporção e noção de escala real da prova.
         const xMin = 0;
         const xMax = 100;
@@ -25,7 +25,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         // Função Gaussiana Clássica
         const gaussian = (x) => Math.exp(-0.5 * Math.pow((x - meanVal) / vizSd, 2));
-        
+
         const points = [];
         const steps = 100; // Alta resolução para curva suave no eixo fixo
 
@@ -68,7 +68,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             areaPoints.push(`${lastX},100`);
             areaPoints.push(`${firstX},100`);
         }
-        
+
         const areaPath = areaPoints.length > 0 ? `M ${areaPoints.join(' L ')} Z` : '';
 
         return { pathData: path, areaPathData: areaPath, range, xMin, targetVal };
@@ -115,7 +115,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                
+
                 {/* 0. Intervalo de Confiança 95% (BUG-8 Fix) */}
                 {low95 != null && high95 != null && (
                     <rect
@@ -133,7 +133,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 {/* 1. Primeiro desenha a Sombra Verde (Para ficar no fundo) */}
                 <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} />
-                
+
                 {/* 2. Depois desenha a Curva Principal Azul (Para ficar na frente da sombra) */}
                 <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-50 animate-path" vectorEffect="non-scaling-stroke" />
 
