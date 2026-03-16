@@ -126,12 +126,6 @@ return (
         }}
         onMouseLeave={() => setHover(null)}
     >
-        <style>
-            {`
-                @keyframes dash { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-                .animate-path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: dash 2s ease-out forwards; }
-            `}
-        </style>
 
         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
             <defs>
@@ -161,24 +155,23 @@ return (
                     fill="rgba(59, 130, 246, 0.08)"
                     stroke="rgba(59, 130, 246, 0.4)"
                     strokeWidth="0.5"
-                    strokeDasharray="3,3"
                     className="opacity-60"
                 />
             )}
 
             {/* 1. Área de Sucesso */}
-            <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="1" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} className="opacity-30" />
+            <path d={areaPathData} fill="url(#areaGradientGP)" stroke="#22c55e" strokeWidth="1.2" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#glowPlotGP)' }} className="opacity-30" />
 
-            {/* v4: 1.5 Linha de Tendência (Discreta) */}
-            <path d={trendCurvePath} fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="2,2" className="opacity-40" vectorEffect="non-scaling-stroke" />
+            {/* v4: 1.5 Linha de Tendência (Discreta -> Contínua) */}
+            <path d={trendCurvePath} fill="none" stroke="#3b82f6" strokeWidth="1.2" strokeLinecap="round" className="opacity-40" vectorEffect="non-scaling-stroke" />
 
             {/* 2. Curva Principal - Integral */}
-            <path d={pathData} pathLength="1" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" className="opacity-80 animate-path" vectorEffect="non-scaling-stroke" />
+            <path d={pathData} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80" vectorEffect="non-scaling-stroke" />
 
             {/* Linha Vertical de Meta com Anotação de Chance (Area invisible fix) */}
             {isTargetVisible && (
                 <g>
-                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3,1" vectorEffect="non-scaling-stroke" className="opacity-80" />
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" vectorEffect="non-scaling-stroke" className="opacity-80" />
                     {/* Indicador de "Região de Sucesso" */}
                     <path d={`M ${targetPos},10 L ${targetPos + 5},5 L ${targetPos + 15},5`} fill="none" stroke="#22c55e" strokeWidth="0.5" vectorEffect="non-scaling-stroke" className="opacity-40" />
                 </g>
@@ -186,10 +179,10 @@ return (
 
             {/* Linhas indicadoras */}
             {isCurrentVisible && (
-                <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" strokeDasharray="3,3" className="opacity-40" vectorEffect="non-scaling-stroke" />
+                <line x1={Math.max(0, currentPos)} y1="100" x2={Math.max(0, currentPos)} y2="20" stroke="white" strokeWidth="1" className="opacity-40" vectorEffect="non-scaling-stroke" />
             )}
 
-            <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="5,5" className="opacity-80" vectorEffect="non-scaling-stroke" />
+            <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="1.5" className="opacity-80" vectorEffect="non-scaling-stroke" />
         </svg>
 
         {/* Labels HTML Absolutos com Evitação de Colisão */}

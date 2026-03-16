@@ -447,7 +447,7 @@ export default function MonteCarloGauge({
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full text-center mb-1">Elementos do Gráfico</span>
                     {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média", dash: true }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40 rounded-full", lbl: "Hoje", dot: true }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
-                            <div className={`${l.bg} ${l.dot ? 'w-2 h-2' : 'w-3 h-0.5'}`} style={l.dash ? { borderTop: '1px dashed #3b82f6' } : {}}></div>
+                            <div className={`${l.bg} ${l.dot ? 'w-2 h-2' : 'w-3 h-0.5'}`}></div>
                             <span className="text-[9px] text-slate-400">{l.lbl}</span>
                         </div>
                     ))}

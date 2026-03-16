@@ -339,7 +339,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     {/* Linhas de entrada */}
                     <div className="space-y-1.5 pr-1">
                         {rows.length === 0 ? (
-                            <div className="text-center py-6 text-slate-500 text-sm italic border border-slate-800 border-dashed rounded-xl">
+                            <div className="text-center py-6 text-slate-500 text-sm italic border border-slate-800 rounded-xl">
                                 Nenhuma matéria/assunto cadastrado no Dashboard.
                             </div>
                         ) : rows.map((row, index) => {
@@ -411,7 +411,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     )}
 
                     {!analysisData && !loading && !error && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-600 min-h-[380px] border-2 border-dashed border-slate-800 rounded-2xl gap-4">
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-600 min-h-[380px] border-2 border-slate-800 rounded-2xl gap-4">
                             <BrainCircuit size={52} className="opacity-30" />
                             <p className="max-w-xs text-center text-sm leading-relaxed">
                                 Preencha os dados ao lado e clique em <strong className="text-slate-400">Gerar Plano de Revisão</strong> para ver o relatório aqui.

@@ -527,12 +527,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </feMerge>
                                         </filter>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
-                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
+                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1 }}
                                         content={<ChartTooltip chartData={filteredChartData} isCompare={activeEngine === "compare"} />} />
                                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                                     {(() => {
@@ -625,13 +625,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
                                                 ) : null,
                                                 <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
-                                                    stroke={cat.color} strokeWidth={isFocused ? 3 : 1.5}
-                                                    strokeOpacity={isFocused ? 1 : 0.5}
-                                                    dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : { r: 2, fill: cat.color, strokeWidth: 0 }}
+                                                    stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2}
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                    strokeOpacity={isFocused ? 1 : 0.4}
+                                                    dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : false}
                                                     activeDot={false}
                                                     connectNulls
                                                     style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
-                                                    isAnimationActive={false}
+                                                    isAnimationActive={true}
+                                                    animationDuration={1500}
                                                 >
                                                     <LabelList content={renderCustomLabel} />
                                                 </Line>
@@ -680,12 +682,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </feMerge>
                                         </filter>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
                                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
-                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeDasharray="5 4" strokeOpacity={0.45}
+                                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45}
                                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
-                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1 }}
                                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
                                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                                     {(() => {
@@ -772,8 +774,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                 <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                                                 {/* Lines */}
                                                 <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
+                                                    strokeLinecap="round" strokeLinejoin="round"
                                                     fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
-                                                    activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={false}>
+                                                    activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={true}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
@@ -783,8 +786,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#34d399" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Area>
-                                                <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={1.5}
-                                                    dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={false}>
+                                                <Line type="monotone" dataKey="Futuro Provável" stroke="#6366f1" strokeWidth={3}
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                    dot={false} activeDot={false} connectNulls isAnimationActive={true} />
+                                                <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2}
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                    dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={true}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
@@ -794,8 +801,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                         return <text x={x + 8} y={y + 4 + offset} fill="#fb923c" fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
                                                     }} />
                                                 </Line>
-                                                <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={1.5}
-                                                    strokeDasharray="5 4" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={false}>
+                                                <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2}
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                    dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={true}>
                                                     <LabelList content={(props) => {
                                                         const { x, y, index, value, viewBox } = props;
                                                         if (value === null || value === undefined) return null;
@@ -806,7 +814,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                                     }} />
                                                 </Line>
                                                 <Line type="monotone" dataKey="Futuro Provável" stroke="#ef4444" strokeWidth={1.5}
-                                                    strokeDasharray="4 5"
                                                     dot={(props) => {
                                                         const { cx, cy, index } = props;
                                                         const isLast = index === filteredChartData.length - 1;
@@ -869,7 +876,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                     <PolarGrid stroke="rgba(255,255,255,0.15)" />
                                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
                                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                    <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} fill="none" />
+                                    <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeOpacity={0.5} fill="none" />
                                     <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
                                     <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
@@ -922,7 +929,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                                             </linearGradient>
                                         </defs>
 
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                                        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
 
                                         <XAxis
                                             dataKey="name"
@@ -1028,7 +1035,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             {pointLeakageData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)}>
                                     <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
                                         <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Matéria']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
@@ -1067,7 +1074,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                             {subtopicsData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)}>
                                     <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 30, left: -5, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
+                                        <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
                                         <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
                                         <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} erros`, props?.payload?.fullName || 'Assunto']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />

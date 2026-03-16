@@ -264,7 +264,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             <CheckCircle2 size={12} className="text-emerald-500" />
                             Saudáveis
                         </div>
-                        <div className="text-4xl font-black text-emerald-400 tracking-tighter drop-shadow-[0_0_10px_rgba(52,211,153,0.2)]">{stats.healthy}</div>
+                        <div className="text-4xl font-black text-emerald-400 tracking-tighter">{stats.healthy}</div>
                     </div>
                     <div className="relative z-10 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
                         excelente

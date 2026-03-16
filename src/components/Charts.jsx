@@ -155,7 +155,7 @@ export default function Charts({ data, compact = false }) {
                 <h3 className="text-lg font-bold mb-4">Progresso por Matéria</h3>
                 <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={barData} barCategoryGap="20%" style={{ outline: 'none' }} tabIndex="-1">
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11, fontWeight: 600 }} tickLine={false} axisLine={false} />
                         <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val)} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
