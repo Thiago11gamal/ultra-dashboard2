@@ -5,7 +5,7 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     BarChart, Bar, LabelList, Cell
 } from "recharts";
-import { monteCarloSimulation, computeCategoryStats, calculateWeightedProjectedMean, computeBayesianLevel, calculateVolatility } from "../engine";
+import { monteCarloSimulation, computeCategoryStats, calculateCurrentWeightedMean, computeBayesianLevel, calculateVolatility } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -145,7 +145,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             if (!history.length) { map[cat.id] = 0; return; }
             const stats = computeCategoryStats(history, 100);
             if (!stats) { map[cat.id] = 0; return; }
-            map[cat.id] = calculateWeightedProjectedMean([{ ...stats, weight: 100 }], 100, 0);
+            map[cat.id] = calculateCurrentWeightedMean([{ ...stats, weight: 100 }], 100);
         });
         return map;
     }, [categories, timeline]);

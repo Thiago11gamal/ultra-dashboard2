@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { computeCategoryStats, calculateWeightedProjectedMean, computeBayesianLevel } from '../engine';
+import { computeCategoryStats, computeBayesianLevel } from '../engine';
 
 const getDateKey = (rawDate) => {
     if (!rawDate) return null;

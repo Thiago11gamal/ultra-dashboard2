@@ -321,7 +321,7 @@ export function monteCarloSimulation(
 
     // Hoist: calcular uma única vez antes dos loops
     const _residualSD = (useBootstrap && residuals.length > 0)
-        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length)
+        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
         : 0;
     const _bootstrapScale = (useBootstrap && _residualSD > 0)
         ? volatility / _residualSD
@@ -351,9 +351,8 @@ export function monteCarloSimulation(
             // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
             const dampedDrift = dayDrift * (45 / (45 + d));
             score += dampedDrift + shock;
+            score = Math.max(0, Math.min(100, score));
         }
-
-        score = Math.max(0, Math.min(100, score));
 
         if (score >= targetScore) success++;
 
@@ -422,21 +421,6 @@ export function calculateDynamicEMA(currentScore, previousEMA, dataCount) {
 // ADAPTERS FOR BACKWARD COMPATIBILITY
 // ==========================================
 
-export function calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays) {
-    if (totalWeight === 0) return 0;
-
-    return categoryStats.reduce((acc, cat) => {
-        const normalizedWeight = cat.weight / totalWeight;
-
-        if (!cat.history || cat.history.length < 2) {
-            return acc + (cat.mean * normalizedWeight);
-        }
-        const projected = projectScore(cat.history, projectDays);
-        return acc + (projected * normalizedWeight);
-
-    }, 0);
-}
-
 export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     if (totalWeight === 0) return 0;
 
@@ -451,6 +435,5 @@ export default {
     projectScore,
     monteCarloSimulation,
     calculateDynamicEMA, // Exportando a nova função
-    calculateWeightedProjectedMean,
     calculateCurrentWeightedMean
 };

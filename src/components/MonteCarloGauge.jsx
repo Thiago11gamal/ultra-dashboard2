@@ -6,7 +6,6 @@ import {
     monteCarloSimulation,
     runMonteCarloAnalysis,
     calculateCurrentWeightedMean,
-    calculateWeightedProjectedMean,
     computePooledSD,
     calculateVolatility
 } from '../engine';
@@ -149,7 +148,6 @@ export default function MonteCarloGauge({
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
         const currentWeightedMean = calculateCurrentWeightedMean(categoryStats, totalWeight);
-        const weightedMean = calculateWeightedProjectedMean(categoryStats, totalWeight, projectDays);
         const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
         const bayesianMean = weightedBayesianSum / totalWeight;
 
@@ -208,7 +206,6 @@ export default function MonteCarloGauge({
 
         return {
             categoryStats,
-            weightedMean,
             currentWeightedMean,
             pooledSD,
             totalWeight,
