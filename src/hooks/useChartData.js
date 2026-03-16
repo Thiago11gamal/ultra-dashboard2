@@ -70,7 +70,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
             const n    = bayAlpha + bayBeta;
             const p    = bayAlpha / n;
             const variance = (bayAlpha * bayBeta) / (n * n * (n + 1));
-            const sd   = Math.sqrt(variance);
+            const sd   = Math.max(Math.sqrt(variance), 0.02);
             dateToStats[date] = {
                 stats: computeCategoryStats(accumulated, 100),
                 last:  accumulated[accumulated.length - 1],
