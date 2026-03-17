@@ -20,12 +20,16 @@ const DEFAULT_CONFIG = {
 // Helper: Normalize to Midnight Local to avoid Timezone/Time-of-Day artifacts
 const normalizeDate = (dateInput) => {
     if (!dateInput) return new Date(0);
-    const d = typeof dateInput === 'string' && dateInput.length === 10
-        ? new Date(`${dateInput}T12:00:00`)
-        : new Date(dateInput);
-    if (isNaN(d.getTime())) return new Date(0);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    try {
+        const d = typeof dateInput === 'string' && dateInput.length === 10
+            ? new Date(`${dateInput}T12:00:00`)
+            : new Date(dateInput);
+        if (isNaN(d.getTime())) return new Date(0);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    } catch (e) {
+        return new Date(0);
+    }
 };
 
 // Boost SRS baseado em dias
@@ -364,9 +368,11 @@ const getWeakestTopic = (category, simulados = []) => {
 
     // 1. Populate from History
     history.forEach(entry => {
+        if (!entry) return;
         const entryDate = new Date(entry.date || 0);
         const topics = entry.topics || [];
         topics.forEach(t => {
+            if (!t) return;
             let rawName = t.name;
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
             const name = rawName.trim();
