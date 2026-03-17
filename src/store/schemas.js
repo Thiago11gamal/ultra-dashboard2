@@ -64,11 +64,11 @@ const sanitizeContest = (data) => {
   };
 };
 
-export const extractCore = (obj) => {
-  if (!obj || typeof obj !== 'object') return null;
+export const extractCore = (obj, depth = 0) => {
+  if (depth > 5 || !obj || typeof obj !== 'object') return null;
   if (obj.contests || (obj.categories && Array.isArray(obj.categories))) return obj;
-  if (obj.appState) return extractCore(obj.appState);
-  if (obj.state) return extractCore(obj.state);
+  if (obj.appState) return extractCore(obj.appState, depth + 1);
+  if (obj.state) return extractCore(obj.state, depth + 1);
   return null;
 };
 
@@ -98,11 +98,14 @@ export const validateAppState = (data) => {
     let activeId = d.activeId || 'default';
     
     // Lógica de Foco: Se o concurso ativo estiver vazio, tenta encontrar um que contenha 'Direito'
-    const currentIsEmpty = !validatedContests[activeId] || !validatedContests[activeId].categories || validatedContests[activeId].categories.length === 0;
+    const activeContest = validatedContests[activeId];
+    const currentIsEmpty = !activeContest || !activeContest.categories || activeContest.categories.length === 0;
+    
     if (currentIsEmpty) {
       const derechoId = Object.keys(validatedContests).find(id => {
         const c = validatedContests[id];
-        return JSON.stringify(c.categories || []).toLowerCase().includes('direito');
+        // Busca otimizada sem JSON.stringify completo
+        return c.categories?.some(cat => cat.name?.toLowerCase().includes('direito'));
       });
       if (derechoId) activeId = derechoId;
     }

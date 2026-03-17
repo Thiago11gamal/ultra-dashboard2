@@ -648,7 +648,7 @@ export const useAppStore = create(
                 // Se houver dados persistidos, fazemos o merge básico primeiro
                 let baseState = persisted || current;
                 
-                if (persisted && persisted.lastUpdated !== "1970-01-01T00:00:00.000Z") {
+                if (persisted && persisted.contests && Object.keys(persisted.contests).length > 0) {
                     const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
                     const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
                     let activeId = persisted.activeId || current.activeId;

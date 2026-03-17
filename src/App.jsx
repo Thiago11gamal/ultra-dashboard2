@@ -48,15 +48,13 @@ function MainLayout() {
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
-  const {
-    setAppState,
-    switchContest,
-    createNewContest,
-    deleteContest,
-    updateUserName,
-    undo,
-    setThemeMode
-  } = useAppStore();
+  const setAppState = useAppStore(state => state.setAppState);
+  const switchContest = useAppStore(state => state.switchContest);
+  const createNewContest = useAppStore(state => state.createNewContest);
+  const deleteContest = useAppStore(state => state.deleteContest);
+  const updateUserName = useAppStore(state => state.updateUserName);
+  const undo = useAppStore(state => state.undo);
+  const setThemeMode = useAppStore(state => state.setThemeMode);
 
   const isMobile = useMobileDetect();
 
