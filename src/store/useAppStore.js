@@ -128,6 +128,7 @@ export const useAppStore = create(
                 contests: { 'default': INITIAL_DATA },
                 activeId: 'default',
                 history: [],
+                trash: [],
                 lastHistoryTime: 0,
                 version: 0,
                 mcEqualWeights: true,

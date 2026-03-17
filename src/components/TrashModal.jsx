@@ -2,9 +2,10 @@ import React from 'react';
 import { X, RotateCcw, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
-export default function TrashModal({ isOpen, onClose }) {
-    const trash = useAppStore(state => state.appState.trash || []);
-    const { restoreFromTrash, emptyTrash } = useAppStore();
+const TrashModalContent = ({ isOpen, onClose }) => {
+    const trash = useAppStore(state => state.appState.trash);
+    const restoreFromTrash = useAppStore(state => state.restoreFromTrash);
+    const emptyTrash = useAppStore(state => state.emptyTrash);
 
     if (!isOpen) return null;
 
@@ -77,4 +78,7 @@ export default function TrashModal({ isOpen, onClose }) {
             </div>
         </div>
     );
-}
+};
+
+const TrashModal = React.memo(TrashModalContent);
+export default TrashModal;
