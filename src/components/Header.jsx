@@ -259,7 +259,7 @@ export default function Header({
                         {/* Avatar → opens drawer */}
                         <button
                             onClick={() => setDrawerOpen(true)}
-                            className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-base hover:scale-105 transition-transform shadow-lg shadow-purple-500/30 ring-2 ring-purple-500/30"
+                            className="tour-step-1 w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-base hover:scale-105 transition-transform shadow-lg shadow-purple-500/30 ring-2 ring-purple-500/30"
                         >
                             {user.avatar}
                         </button>
@@ -366,7 +366,7 @@ export default function Header({
                     <div className="relative">
                         <button
                             onClick={toggleProfile}
-                            className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-2xl hover:scale-105 transition-transform cursor-pointer"
+                            className="tour-step-1 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-2xl hover:scale-105 transition-transform cursor-pointer"
                         >
                             {user.avatar}
                         </button>

@@ -111,7 +111,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Nav Icons — scrollable */}
                 <div
                     ref={navScrollRef}
-                    className="flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 scroll-smooth"
+                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 scroll-smooth"
                 >
                     {menuItems.map((item) => {
                         const Icon = item.icon;
@@ -144,7 +144,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                                 to={item.path}
                                 data-path={item.path}
                                 onClick={() => setCollapsed(true)}
-                                className={`shrink-0 p-1.5 rounded-xl transition-all ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
+                                className={`shrink-0 p-1.5 rounded-xl transition-all ${item.path === '/pomodoro' ? 'tour-step-3' : ''} ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
                                 title={item.label}
                             >
                                 {buttonContent}
@@ -198,7 +198,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     </div>
                 ) : (
                     // Expanded State: Full Menu
-                    <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
+                    <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
                         <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
                             <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
@@ -222,7 +222,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                                     </>
                                 );
 
-                                const className = `shrink-0 p-1.5 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${isActive
+                                const className = `shrink-0 p-1.5 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${item.path === '/pomodoro' ? 'tour-step-3' : ''} ${isActive
                                     ? 'bg-purple-500/20 text-purple-300'
                                     : 'hover:bg-white/10 text-slate-400 hover:text-white'
                                     }`;
