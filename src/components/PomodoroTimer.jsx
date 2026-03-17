@@ -358,7 +358,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
         return () => cancelAnimationFrame(rafId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]); // mode added so refs re-bind on work<->break switch
+    }, [isRunning, speed, mode, timeLeft, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]); // Added timeLeft to avoid stale closure in RAF
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)

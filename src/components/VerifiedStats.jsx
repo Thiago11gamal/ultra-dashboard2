@@ -271,8 +271,9 @@ export default function VerifiedStats({ categories = [], user }) {
                     data.user.targetProbability = targetScore;
                 }
                 if (!showConfig) {
-                    console.log("[MonteCarlo] Final sync of targetScore:", targetScore);
+                    console.log("[MonteCarlo) Final sync of targetScore:", targetScore);
                 }
+                return data; // BUG-A3 FIX: Ensure mutation is committed
             }, shouldRecordHistory);
         }
     }, [targetScore, setUserData, user?.targetProbability, user?.uid, showConfig]);
