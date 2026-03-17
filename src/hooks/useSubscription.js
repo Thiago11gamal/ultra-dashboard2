@@ -7,12 +7,8 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Coloque seu email aqui para ter acesso grátis vitalício na produção
-        const ADMIN_EMAILS = ['thiago11gamal@gmail.com', 'antunest040@gmail.com'];
-
-        // Bypass: Desenvolvimento local OU se o email do usuário for administrador
-        const normalizedUserEmail = user?.email?.trim().toLowerCase();
-        if (import.meta.env.DEV || (normalizedUserEmail && ADMIN_EMAILS.includes(normalizedUserEmail))) {
+        // Bypass: Desenvolvimento local 
+        if (import.meta.env.DEV) {
             setIsPremium(true);
             setLoading(false);
             return;
