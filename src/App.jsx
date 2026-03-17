@@ -63,8 +63,8 @@ function MainLayout() {
   const { levelUpData, clearLevelUp } = useLevelUp();
   const showToast = useToast();
 
-  // --- AUTO-LOGOUT (TEST MODE: 5 SEC) ---
-  useIdleLogout(logout, 5000);
+  // --- AUTO-LOGOUT (20 MIN INACTIVITY) ---
+  useIdleLogout(logout, 20 * 60 * 1000);
 
   // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
