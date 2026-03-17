@@ -380,15 +380,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch { /* ignore storage errors */ }
     };
 
+    /**
+     * onSessionComplete(): chamado sempre SEM argumentos ao fim de cada sessão work
+     * (tanto por conclusão natural quanto por Skip). O registro de tempo de estudo
+     * é feito exclusivamente via onUpdateStudyTime — nunca via onSessionComplete.
+     */
     const skip = () => {
         setIsRunning(false);
         if (mode === 'work') {
             // Treat skip as completion of work session
             const newSessions = sessions + 1;
             setSessions(newSessions);
-            onSessionComplete?.(activeSubject);
+            onSessionComplete?.();
 
-            // Track Study Time
+            // Track Study Time (única fonte de verdade)
             if (activeSubject && onUpdateStudyTime) {
                 onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }

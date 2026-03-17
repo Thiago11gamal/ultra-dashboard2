@@ -92,10 +92,7 @@ export default function Pomodoro() {
         handleExit();
     };
 
-    const handleSessionComplete = (subject) => {
-        if (subject) {
-            handleUpdateStudyTime(subject.categoryId, 25, subject.taskId);
-        }
+    const handleSessionComplete = () => {
         setData(prev => ({
             ...prev,
             pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
