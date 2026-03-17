@@ -10,6 +10,7 @@ const sanitizeContest = (data) => {
   
   return {
     user: {
+      ...(data.user && typeof data.user === 'object' ? data.user : {}),
       name: data.user?.name || "Estudante",
       avatar: data.user?.avatar || "👤",
       startDate: data.user?.startDate || new Date().toISOString().split('T')[0],
@@ -18,7 +19,10 @@ const sanitizeContest = (data) => {
       level: Number(data.user?.level) || 1,
       achievements: Array.isArray(data.user?.achievements) ? data.user?.achievements : [],
       studiedEarly: Boolean(data.user?.studiedEarly),
-      studiedLate: Boolean(data.user?.studiedLate)
+      studiedLate: Boolean(data.user?.studiedLate),
+      targetProbability: (data.user?.targetProbability != null && Number.isFinite(Number(data.user.targetProbability)))
+        ? Number(data.user.targetProbability)
+        : 70
     },
     categories: (Array.isArray(data.categories) ? data.categories : []).map(cat => ({
       id: cat.id || `cat_${Math.random().toString(36).substr(2, 9)}`,

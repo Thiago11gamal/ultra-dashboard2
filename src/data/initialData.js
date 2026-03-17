@@ -18,7 +18,8 @@ export const INITIAL_DATA = {
         goalDate: null,  // Null default (no exam date set)
         xp: 0,
         level: 1, // Fix: start at level 1 (calculateLevel(0) = 1)
-        achievements: [] // Unlocked achievement IDs
+        achievements: [], // Unlocked achievement IDs
+        targetProbability: 70
     },
 
     categories: [],
