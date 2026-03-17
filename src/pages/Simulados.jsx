@@ -220,12 +220,12 @@ export default function Simulados() {
             };
         }, true);
 
-        // Feedback
+        // BUG-A5 FIX: Read count from state and cleanup immediately
         const activeId = useAppStore.getState().appState.activeId;
         const updatedContest = useAppStore.getState().appState.contests[activeId];
         const updatedCount = updatedContest?._lastProcessedCount ?? 0;
 
-        // Limpa o campo temporário para não vazar para sync/backup
+        // Cleanup temporary field
         setData(prev => {
             const { _lastProcessedCount: _drop, ...rest } = prev;
             return rest;
