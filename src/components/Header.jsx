@@ -3,6 +3,7 @@ import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, Che
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../context/useAuth';
+import TrashModal from './TrashModal';
 
 const useClock = () => {
     const [time, setTime] = useState(new Date());
@@ -28,7 +29,7 @@ const TimeDisplay = ({ time }) => (
 /* ─────────────────────────────────────────────────────────
    Profile Side Drawer (mobile only)
 ───────────────────────────────────────────────────────── */
-function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport }) {
+function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash }) {
     return (
         <>
             {/* Backdrop */}
@@ -132,6 +133,16 @@ function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitc
                         Criar Novo Painel
                     </button>
 
+                    <button
+                        onClick={() => { onOpenTrash(); onClose(); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-sm font-medium"
+                    >
+                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                            <Trash2 size={15} className="text-slate-400" />
+                        </div>
+                        Lixeira
+                    </button>
+
                     {onExport && (
                         <button
                             onClick={onExport}
@@ -190,6 +201,7 @@ export default function Header({
 
     const [profileOpen, setProfileOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [trashOpen, setTrashOpen] = useState(false);
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
@@ -288,7 +300,10 @@ export default function Header({
                 onLogout={handleLogout}
                 onExport={onExport}
                 onImport={onImport}
+                onOpenTrash={() => setTrashOpen(true)}
             />
+
+            <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
             <header className="hidden md:flex items-center justify-between z-50 relative">
@@ -397,6 +412,13 @@ export default function Header({
                                     >
                                         <Plus size={16} />
                                         <span>Criar Novo Painel</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setTrashOpen(true); setProfileOpen(false); }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                        <span>Lixeira</span>
                                     </button>
                                     <button
                                         onClick={handleLogout}

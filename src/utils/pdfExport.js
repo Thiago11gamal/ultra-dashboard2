@@ -1,24 +1,36 @@
 import html2pdf from 'html2pdf.js';
 
-export const generatePDFReport = (containerId = 'dashboard-content') => {
-    const element = document.getElementById(containerId);
+export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf', orientation = 'landscape') => {
+    const element = document.getElementById(elementId);
     if (!element) {
-        console.error('PDF Export: Container not found', containerId);
+        console.error(`Elemento com ID ${elementId} não encontrado.`);
         return;
     }
-    const today = new Date();
-    const dateStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+    // Identificar o tema atual para o fundo do PDF
+    const isDark = document.documentElement.classList.contains('dark') || document.body.style.backgroundColor !== '';
+    const bgColor = isDark ? '#0f172a' : '#ffffff';
+
     const opt = {
-        margin: 0.5,
-        filename: `relatorio-estudos-${dateStr}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+        margin:       [15, 15, 15, 15],
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false,
+            backgroundColor: bgColor,
+            // Ignorar elementos de UI que não são para impressão (botões, painéis flutuantes, etc)
+            ignoreElements: (node) => node.classList && node.classList.contains('no-print')
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: orientation }
     };
 
-    // Use a specific container if possible to avoid UI clutter
-    // For now, body is safest to capture everything seen.
-    // Ideally, we clones the node and removes buttons, but let's start simple.
-
-    html2pdf().set(opt).from(element).save();
+    try {
+        await html2pdf().set(opt).from(element).save();
+        return true;
+    } catch (e) {
+        console.error('Erro ao gerar PDF:', e);
+        return false;
+    }
 };
