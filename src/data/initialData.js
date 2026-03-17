@@ -37,7 +37,7 @@ export const INITIAL_DATA = {
 
 
     settings: {
-        darkMode: true,
+        darkMode: 'auto',
         soundEnabled: true,
         pomodoroWork: 25,
         pomodoroBreak: 5,
