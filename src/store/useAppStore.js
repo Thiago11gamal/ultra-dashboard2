@@ -153,6 +153,8 @@ export const useAppStore = create(
             }),
 
             updateCoachPlanner: (newPlannerData) => set((state) => {
+                // Guard: simple shallow check if identical reference (often not enough but helps)
+                if (state.appState.coachPlanner === newPlannerData) return;
                 state.appState.coachPlanner = newPlannerData;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -168,6 +170,10 @@ export const useAppStore = create(
                 if (!activeData.settings) activeData.settings = {};
                 
                 const val = mode === 'auto' ? 'auto' : (mode === 'dark');
+                
+                // Guard: don't update if already same
+                if (activeData.settings.darkMode === val) return;
+
                 activeData.settings.darkMode = val;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
