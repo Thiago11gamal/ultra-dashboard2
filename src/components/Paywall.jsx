@@ -97,7 +97,7 @@ export default function Paywall({ user, onLogout }) {
                     </h1>
                     
                     <p className="text-slate-400 text-sm sm:text-base mb-8 leading-relaxed">
-                        O seu período gratuito terminou ou o passe anterior venceu. Adquira 30 dias de acesso completo e turbine a sua aprovação agora mesmo.
+                        O seu período gratuito terminou ou o passe anterior venceu. Adquira o seu acesso vitalício completo e turbine a sua aprovação agora mesmo.
                     </p>
 
                     <div className="space-y-4 mb-8 text-left bg-slate-950/50 rounded-2xl p-5 border border-slate-800">
@@ -136,7 +136,7 @@ export default function Paywall({ user, onLogout }) {
                         ) : (
                             <span className="flex items-center gap-2">
                                 <Zap className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <span>Liberar Acesso (30 Dias)</span>
+                                <span>Liberar Acesso Vitalício</span>
                             </span>
                         )}
                     </button>

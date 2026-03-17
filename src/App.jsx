@@ -167,7 +167,7 @@ function MainLayout() {
 
       <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-all duration-300 w-full overflow-x-hidden">
         {/* Mobile spacer: pushes content below the fixed top nav bar */}
-        <div className="h-7 md:hidden" aria-hidden="true" />
+        <div className="h-14 md:hidden" aria-hidden="true" />
         {/* Desktop spacer - removed */}
         <Header
           user={data.user}
