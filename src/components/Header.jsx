@@ -212,6 +212,11 @@ function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitc
                         </div>
                         Sair da Conta
                     </button>
+
+                    <div className="pt-4 mt-2 border-t border-white/5">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest px-2 mb-2">Aparência do Tema</p>
+                        <ThemeSwitcher currentMode={settings?.darkMode} onThemeChange={onThemeChange} />
+                    </div>
                 </div>
             </div>
         </>
