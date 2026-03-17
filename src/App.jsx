@@ -35,6 +35,7 @@ import { useLevelUp } from './hooks/useLevelUp';
 import { useThemeSync } from './hooks/useThemeSync';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
+import useIdleLogout from './hooks/useIdleLogout';
 
 
 import './components/Loading.css';
@@ -61,6 +62,9 @@ function MainLayout() {
   const { toasts, removeToast } = useGlobalToasts();
   const { levelUpData, clearLevelUp } = useLevelUp();
   const showToast = useToast();
+
+  // --- AUTO-LOGOUT (TEST MODE: 5 SEC) ---
+  useIdleLogout(logout, 5000);
 
   // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
