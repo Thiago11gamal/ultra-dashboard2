@@ -36,26 +36,13 @@ export function useSubscription(user) {
                 return;
             }
 
-            // Pega a data atual em segundos
-            const now = Math.floor(Date.now() / 1000);
-            const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
-
+            // BIZ-01 fix: produto é compra única (PIX/one-time), não assinatura recorrente.
+            // Qualquer pagamento confirmado concede acesso vitalício.
             let hasValidPayment = false;
 
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                // A extensão Stripe normalmente salva o 'created' em segundos (Unix timestamp)
-                // ou como um Timestamp nativo do Firestore (data.created.seconds)
-                let createdSeconds = 0;
-
-                if (data.created && typeof data.created === 'number') {
-                    createdSeconds = data.created;
-                } else if (data.created && data.created.seconds) {
-                    createdSeconds = data.created.seconds;
-                }
-
-                // Se a compra foi feita há menos de 30 dias, o acesso está liberado
-                if (createdSeconds > 0 && (now - createdSeconds <= THIRTY_DAYS_IN_SECONDS)) {
+                if (data.status === 'succeeded') {
                     hasValidPayment = true;
                 }
             });
