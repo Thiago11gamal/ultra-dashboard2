@@ -26,6 +26,8 @@ export default function Dashboard() {
             </div>
         );
     }
+    
+    const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
 
     const handleStartStudying = (categoryId, taskId) => {
         // Redireciona para aba Pomodoro passando os params necessários no state do Router
