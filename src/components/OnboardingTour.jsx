@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useAppStore } from '../store/useAppStore';
 
