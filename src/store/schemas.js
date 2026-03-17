@@ -113,6 +113,10 @@ export const validateAppState = (data) => {
       contests: validatedContests,
       activeId: activeId,
       history: Array.isArray(d.history) ? d.history : [],
+      trash: Array.isArray(d.trash) ? d.trash.filter(item => {
+        if (!item || !item.deletedAt) return false;
+        return (new Date() - new Date(item.deletedAt)) / (1000 * 60 * 60 * 24) <= 30;
+      }) : [],
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
       mcEqualWeights: d.mcEqualWeights ?? true,

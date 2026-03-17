@@ -296,6 +296,17 @@ export const useAppStore = create(
                 if (!activeData || !Array.isArray(activeData.categories)) return;
                 
                 const category = activeData.categories.find(c => c.id === id);
+                if (category) {
+                    if (!state.appState.trash) state.appState.trash = [];
+                    state.appState.trash.push({
+                        id: generateId('trash'),
+                        type: 'category',
+                        contestId: state.appState.activeId,
+                        data: JSON.parse(JSON.stringify(category)),
+                        deletedAt: new Date().toISOString()
+                    });
+                }
+
                 const name = category?.name;
 
                 activeData.categories = activeData.categories.filter(c => c.id !== id);
@@ -511,6 +522,18 @@ export const useAppStore = create(
 
             deleteContest: (contestId) => set((state) => {
                 recordHistory(state.appState);
+                const contestData = state.appState.contests[contestId];
+                if (contestData) {
+                    if (!state.appState.trash) state.appState.trash = [];
+                    state.appState.trash.push({
+                        id: generateId('trash'),
+                        type: 'contest',
+                        contestId: contestId,
+                        data: JSON.parse(JSON.stringify(contestData)),
+                        deletedAt: new Date().toISOString()
+                    });
+                }
+
                 delete state.appState.contests[contestId];
                 const remainingIds = Object.keys(state.appState.contests);
                 if (remainingIds.length === 0) {
@@ -519,6 +542,44 @@ export const useAppStore = create(
                 } else if (contestId === state.appState.activeId) {
                     state.appState.activeId = remainingIds[0];
                 }
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            restoreFromTrash: (trashId) => set((state) => {
+                if (!state.appState.trash) return;
+                const index = state.appState.trash.findIndex(t => t.id === trashId);
+                if (index === -1) return;
+                
+                recordHistory(state.appState);
+                const item = state.appState.trash[index];
+                
+                if (item.type === 'category') {
+                    // Restore to its original contest if it still exists, else active
+                    const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
+                    const contest = state.appState.contests[targetContestId];
+                    if (contest) {
+                        if (!contest.categories) contest.categories = [];
+                        // Check if ID already exists, if so generate a new one
+                        if (contest.categories.some(c => c.id === item.data.id)) {
+                            item.data.id = generateId('cat');
+                        }
+                        contest.categories.push(item.data);
+                    }
+                } else if (item.type === 'contest') {
+                    let newId = item.contestId;
+                    if (state.appState.contests[newId]) {
+                        newId = generateId('contest');
+                    }
+                    state.appState.contests[newId] = item.data;
+                    state.appState.activeId = newId;
+                }
+                
+                state.appState.trash.splice(index, 1);
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            emptyTrash: () => set((state) => {
+                state.appState.trash = [];
                 state.appState.lastUpdated = new Date().toISOString();
             })
         })),
