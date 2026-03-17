@@ -63,15 +63,32 @@
     }
   </style>
   <script>
-    // Global error handler to catch crashes before React mounts
-    window.onerror = function (msg, url, line, col, error) {
+    window.logToUI = function(msg, color = "#94a3b8") {
+      console.log("[Boot]", msg);
       const loaderText = document.querySelector('.loader-text');
       if (loaderText) {
-        loaderText.innerHTML = '<span style="color: #f87171">Erro de Carregamento:<br>' + msg + '</span>';
-        loaderText.style.animation = 'none';
+        const line = document.createElement('div');
+        line.style.color = color;
+        line.style.fontSize = "10px";
+        line.style.marginTop = "4px";
+        line.innerText = "> " + msg;
+        loaderText.appendChild(line);
       }
+    };
+
+    // Global error handler to catch crashes before React mounts
+    window.onerror = function (msg, url, line, col, error) {
+      window.logToUI("ERRO: " + msg, "#f87171");
       return false;
     };
+
+    window.addEventListener('error', function(e) {
+      if (e.target.tagName === 'SCRIPT') {
+        window.logToUI("Falha ao carregar script: " + e.target.src, "#f87171");
+      }
+    }, true);
+
+    window.logToUI("Iniciando carregamento...");
 
     // Auto-reveal hidden content if loading takes too long
     const BUILD_VERSION = "2026-03-08-0045";

@@ -42,19 +42,24 @@ import useIdleLogout from './hooks/useIdleLogout';
 import './components/Loading.css';
 
 function MainLayout() {
+  if (typeof window !== 'undefined' && window.logToUI) window.logToUI("React: MainLayout renderizado (Início)...");
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
-  const setAppState = useAppStore(state => state.setAppState);
-  const switchContest = useAppStore(state => state.switchContest);
-  const createNewContest = useAppStore(state => state.createNewContest);
-  const deleteContest = useAppStore(state => state.deleteContest);
-  const updateUserName = useAppStore(state => state.updateUserName);
-  const undo = useAppStore(state => state.undo);
-  const setThemeMode = useAppStore(state => state.setThemeMode);
+  const {
+    setAppState,
+    switchContest,
+    createNewContest,
+    deleteContest,
+    updateUserName,
+    undo,
+    setThemeMode
+  } = useAppStore();
+
+  console.log("[App] MainLayout renderizado. Loading:", loading, "SubLoading:", subLoading, "Data:", !!data);
 
   const isMobile = useMobileDetect();
 
