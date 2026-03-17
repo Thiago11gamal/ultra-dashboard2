@@ -6,6 +6,7 @@ import Login from './components/Login';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
+import OnboardingTour from './components/OnboardingTour';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 import Dashboard from './pages/Dashboard';
@@ -220,8 +221,9 @@ function MainLayout() {
         </Suspense>
       </main>
 
-      {/* Global Modals & Toasts */}
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+
+      <OnboardingTour />
 
       {levelUpData && (
         <LevelUpToast
