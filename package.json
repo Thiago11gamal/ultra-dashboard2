@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@hello-pangea/dnd": "^18.0.1",
     "@stripe/stripe-js": "^8.9.0",
     "date-fns": "^4.1.0",
     "firebase": "^12.6.0",
