@@ -6,12 +6,27 @@ import { useEffect } from 'react';
  */
 export function useThemeSync(darkModeSetting) {
   useEffect(() => {
-    const isDark = darkModeSetting !== false; // Default to dark if undefined
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    if (!isDark) {
-      document.documentElement.classList.add('light-mode');
+    const applyTheme = (isDark) => {
+      if (!isDark) {
+        document.documentElement.classList.add('light-mode');
+      } else {
+        document.documentElement.classList.remove('light-mode');
+      }
+    };
+
+    if (darkModeSetting === 'auto') {
+      // Apply initial
+      applyTheme(mediaQuery.matches);
+
+      // Listen for changes
+      const handler = (e) => applyTheme(e.matches);
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
     } else {
-      document.documentElement.classList.remove('light-mode');
+      // Explicit true/false (true is default if something else is passed)
+      applyTheme(darkModeSetting !== false);
     }
   }, [darkModeSetting]);
 }

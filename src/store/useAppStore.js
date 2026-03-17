@@ -156,6 +156,21 @@ export const useAppStore = create(
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
+            setThemeMode: (mode) => set((state) => {
+                // Ensure mode is one of the valid options
+                if (!['dark', 'light', 'auto'].includes(mode)) return;
+                
+                const activeId = state.appState.activeId;
+                const activeData = state.appState.contests[activeId];
+                if (!activeData) return;
+
+                if (!activeData.settings) activeData.settings = {};
+                
+                const val = mode === 'auto' ? 'auto' : (mode === 'dark');
+                activeData.settings.darkMode = val;
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
             setAppState: (newStateObj) => set((state) => {
                 let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
                 if (!nextState) return;
