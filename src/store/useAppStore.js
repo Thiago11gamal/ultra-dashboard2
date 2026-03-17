@@ -132,6 +132,7 @@ export const useAppStore = create(
                 version: 0,
                 mcEqualWeights: true,
                 hasSeenTour: false,
+                coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
@@ -147,6 +148,11 @@ export const useAppStore = create(
 
             setHasSeenTour: (value) => set((state) => {
                 state.appState.hasSeenTour = value;
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            updateCoachPlanner: (newPlannerData) => set((state) => {
+                state.appState.coachPlanner = newPlannerData;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
