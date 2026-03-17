@@ -53,9 +53,9 @@ export default function LevelUpToast({ level, title, onClose }) {
                 {/* Text */}
                 <div className="space-y-1">
                     <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500 uppercase tracking-wide drop-shadow-sm">
-                        Nova Colocação!
+                        Nível Desbloqueado!
                     </h2>
-                    <p className="text-slate-400 font-medium">Você alcançou a Colocação {level}</p>
+                    <p className="text-slate-400 font-medium">Você alcançou o Nível {level}</p>
                 </div>
 
                 {/* Title Badge */}
