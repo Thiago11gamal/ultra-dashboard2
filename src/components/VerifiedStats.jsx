@@ -259,9 +259,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // 2. Sync with global store to keep other components (like Coach.jsx) updated
         const currentStoreTarget = Number(user?.targetProbability);
-        const shouldSync = isNaN(currentStoreTarget) || Math.abs(currentStoreTarget - targetScore) > 0.01;
+        const storeTargetMissing = user?.targetProbability == null || isNaN(currentStoreTarget);
+        const storeTargetDiffers = !storeTargetMissing && Math.abs(currentStoreTarget - targetScore) > 0.01;
         
-        if (user && shouldSync) {
+        if (user && (storeTargetMissing || storeTargetDiffers)) {
             // Only record history if the modal is closed to avoid flooding undo snapshots
             const shouldRecordHistory = !showConfig;
             
