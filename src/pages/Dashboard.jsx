@@ -8,6 +8,13 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
+    const setAppState = useAppStore(state => state.setAppState);
+    const setData = useAppStore(state => state.setData);
+    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority } = useAppStore();
+    const showToast = useToast();
+    const navigate = useNavigate();
+    const [filter, setFilter] = useState('all');
+
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     
     // GUARDA DE SEGURANÇA: Previne crash se o estado mudar rapidamente durante a restauração
@@ -19,17 +26,6 @@ export default function Dashboard() {
             </div>
         );
     }
-    
-    const setAppState = useAppStore(state => state.setAppState);
-    const setData = useAppStore(state => state.setData);
-    
-    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority } = useAppStore();
-    const showToast = useToast();
-    const navigate = useNavigate();
-    
-    const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
-
-    const [filter, setFilter] = useState('all');
 
     const handleStartStudying = (categoryId, taskId) => {
         // Redireciona para aba Pomodoro passando os params necessários no state do Router

@@ -16,11 +16,7 @@ const firebaseConfig = {
     measurementId: clean(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.ID_DE_MEDIÇÃO_VITE)
 };
 
-console.log("--- FIREBASE DEBUG V2 ---");
-console.log("API KEY: [" + (firebaseConfig.apiKey || "MISSING") + "]");
-console.log("API KEY LENGTH:", firebaseConfig.apiKey ? firebaseConfig.apiKey.length : 0);
-console.log("PROJECT ID: [" + (firebaseConfig.projectId || "MISSING") + "]");
-console.log("-------------------------");
+// No debug logs in production
 
 
 // Initialize Firebase

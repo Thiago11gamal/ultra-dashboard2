@@ -159,7 +159,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const validForDev = relevantSimulados.filter(s => s.total > 0);
         const lastNScores = validForDev.slice(0, 10).map(s => (s.correct / s.total) * 100).reverse();
         const standardDeviation = calculateStandardDeviation(lastNScores);
-        const trend = calculateTrend(lastNScores);
+        
+        // BUG-C2 FIX: calculateTrend espera array de objetos {score, date}
+        const trendHistory = lastNScores.map((val, idx) => ({
+            score: val,
+            date: new Date(Date.now() - (lastNScores.length - 1 - idx) * 86400000).toISOString()
+        }));
+        const trend = calculateTrend(trendHistory);
 
         // --- COMPONENT CALCULATION ---
 
@@ -413,7 +419,14 @@ const getWeakestTopic = (category, simulados = []) => {
 
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
-        const trend = calculateTrend(data.scores.slice(-3));
+        
+        // BUG-C2 FIX: Mapper para objetos antes do trend
+        const topicScores = data.scores.slice(-3);
+        const topicHistory = topicScores.map((val, idx) => ({
+            score: val,
+            date: new Date(Date.now() - (topicScores.length - 1 - idx) * 86400000).toISOString()
+        }));
+        const trend = calculateTrend(topicHistory);
 
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
