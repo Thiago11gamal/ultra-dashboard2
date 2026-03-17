@@ -182,6 +182,12 @@ export const useAppStore = create(
                 let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
                 if (!nextState) return;
 
+                // Guard: If timestamps match and data is actually identical in reference, avoid full update
+                // This is crucial to break loops coming from cloud sync or multiple tabs.
+                if (nextState.lastUpdated === state.appState.lastUpdated && nextState !== state.appState) {
+                    return;
+                }
+
                 // A mágica da migração acontece aqui para dados externos (ex: Firebase)
                 nextState = validateAppState(nextState);
 
