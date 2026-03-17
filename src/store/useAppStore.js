@@ -131,6 +131,7 @@ export const useAppStore = create(
                 lastHistoryTime: 0,
                 version: 0,
                 mcEqualWeights: true,
+                hasSeenTour: false,
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
@@ -141,6 +142,11 @@ export const useAppStore = create(
                     state.appState.contests = snapshot.contests;
                     state.appState.activeId = snapshot.activeId;
                 }
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            setHasSeenTour: (value) => set((state) => {
+                state.appState.hasSeenTour = value;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
