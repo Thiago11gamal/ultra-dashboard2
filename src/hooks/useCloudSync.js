@@ -240,18 +240,32 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
-        // Bug #1: Emergency Save on Unload
+        // Bug #1: Emergency Save on Unload / Visibility Change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
+                    console.debug("[Sync] Visibility change (hidden) - triggering emergency sync.");
+                    syncToCloud();
+                }
+            }
+        };
+
         const handleBeforeUnload = () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
             if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
+                // Last effort (may fail in some browsers if async, but visibilitychange covers most cases)
                 syncToCloud(); 
             }
         };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('beforeunload', handleBeforeUnload);
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(syncToCloud, 3000);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
         // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
