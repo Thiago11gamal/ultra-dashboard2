@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, Target, Zap, Trash2, ArrowRight, HelpCircle, BrainCircuit, ChevronDown, ChevronUp, Layers, Compass } from 'lucide-react';
+import { Sparkles, Target, Zap, Trash2, ArrowRight, HelpCircle, BrainCircuit, ChevronDown, ChevronUp, Layers, Compass, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
+import { exportComponentAsPDF } from '../utils/pdfExport';
 
 function AICoachCard({ task, idx }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -113,8 +114,16 @@ export default function AICoachView({
     coachPlan = [],
     onClearHistory
 }) {
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = async () => {
+        setIsExporting(true);
+        await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_AICoach.pdf', 'portrait');
+        setIsExporting(false);
+    };
+
     return (
-        <div className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
+        <div id="ai-coach-container" className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
             {/* 1. Header & Navigation */}
             <div className="flex flex-col md:flex-row items-end justify-between gap-6 pt-6 pb-6 border-b border-white/5">
                 <div className="flex-1 md:text-left">
@@ -128,7 +137,16 @@ export default function AICoachView({
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="text-right hidden md:block">
+                    <button 
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="no-print flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 text-xs font-bold transition-all border border-purple-500/30 disabled:opacity-50"
+                    >
+                        {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        <span className="hidden sm:inline">{isExporting ? 'Progresso...' : 'Salvar Plano'}</span>
+                        <span className="sm:hidden">PDF</span>
+                    </button>
+                    <div className="text-right hidden md:block border-l border-white/10 pl-4">
                         <span className="block text-2xl font-black text-white leading-none">{coachPlan ? coachPlan.length : 0}</span>
                         <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>

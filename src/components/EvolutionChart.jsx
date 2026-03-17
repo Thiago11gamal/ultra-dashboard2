@@ -11,6 +11,8 @@ import { ChartTooltip } from "./charts/ChartTooltip";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey } from "../utils/dateHelper";
 import { getSafeScore } from "../utils/scoreHelper";
+import { exportComponentAsPDF } from "../utils/pdfExport";
+import { Download, Loader2 } from "lucide-react";
 
 const ENGINES = [
     {
@@ -113,9 +115,9 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, focusSubjectId);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
+    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
-        if (!categories.length) return;
         if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
             if (categories.length > 0) {
@@ -385,15 +387,33 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     // Grid-template gradients for SVG defs
     const focusColor = focusCategory?.color || "#818cf8";
 
+    const handleExport = async () => {
+        setIsExporting(true);
+        await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
+        setIsExporting(false);
+    };
+
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div id="evolution-chart-container" className="space-y-6 animate-fade-in relative">
+            {/* Cabeçalho Exportação PDF (no-print para sumir dentro do PDF) */}
+            <div className="flex justify-end mb-[-10px] sm:mb-[-20px] relative z-20 no-print pr-1">
+                <button 
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-[10px] sm:text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
+                >
+                    {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
+                    <span className="sm:hidden">PDF</span>
+                </button>
+            </div>
+
             {/* Global SVG Defs */}
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .recharts-wrapper:focus, .recharts-surface:focus, svg:focus { outline: none !important; border: none !important; box-shadow: none !important; }
                 .recharts-wrapper { outline: none !important; }
             ` }} />
-
 
             {/* ── 1. KPI CARDS ───────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
