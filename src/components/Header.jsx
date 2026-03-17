@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight, Download, Upload } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight, Download, Upload, Sun, Moon, Monitor } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../context/useAuth';
@@ -27,9 +27,47 @@ const TimeDisplay = ({ time }) => (
 );
 
 /* ─────────────────────────────────────────────────────────
+   Theme Switcher Component
+───────────────────────────────────────────────────────── */
+function ThemeSwitcher({ currentMode, onThemeChange }) {
+    const modes = [
+        { id: 'light', icon: Sun, label: 'Claro' },
+        { id: 'dark', icon: Moon, label: 'Escuro' },
+        { id: 'auto', icon: Monitor, label: 'Auto' }
+    ];
+
+    // Normalize currentMode (true -> 'dark', false -> 'light', 'auto' -> 'auto')
+    const normalizedMode = currentMode === 'auto' ? 'auto' : (currentMode === false ? 'light' : 'dark');
+
+    return (
+        <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 gap-1">
+            {modes.map(m => {
+                const Icon = m.icon;
+                const isActive = normalizedMode === m.id;
+                return (
+                    <button
+                        key={m.id}
+                        onClick={(e) => { e.stopPropagation(); onThemeChange(m.id); }}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${
+                            isActive 
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'
+                        }`}
+                        title={m.label}
+                    >
+                        <Icon size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-tighter hidden sm:inline">{m.label}</span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────
    Profile Side Drawer (mobile only)
 ───────────────────────────────────────────────────────── */
-function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash }) {
+function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash, settings, onThemeChange }) {
     return (
         <>
             {/* Backdrop */}
@@ -194,7 +232,9 @@ export default function Header({
     onUndo,
     cloudStatus = { connected: false, syncing: false },
     onExport,
-    onImport
+    onImport,
+    settings,
+    onThemeChange
 }) {
     const { logout } = useAuth();
     const clockTime = useClock();
@@ -301,6 +341,8 @@ export default function Header({
                 onExport={onExport}
                 onImport={onImport}
                 onOpenTrash={() => setTrashOpen(true)}
+                settings={settings}
+                onThemeChange={onThemeChange}
             />
 
             <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
@@ -427,6 +469,10 @@ export default function Header({
                                         <LogOut size={16} />
                                         <span>Sair da Conta</span>
                                     </button>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-white/10">
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest px-1 mb-2">Aparência</p>
+                                    <ThemeSwitcher currentMode={settings?.darkMode} onThemeChange={onThemeChange} />
                                 </div>
                             </div>
                         )}
