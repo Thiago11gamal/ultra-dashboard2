@@ -102,99 +102,113 @@ export default function Simulados() {
     };
 
     const handleSimuladoAnalysis = (payload) => {
+        // Captura a contagem diretamente no callback, evitando leitura assíncrona de getState()
+        let capturedCount = 0;
+
         setData(prev => {
             const analysisResult = payload.analysis || payload;
             const rawRows = payload.rawRows || [];
-            
-            // 1. Garantir nova referência profunda para as categorias (Reatividade total)
+
             const categoriesSource = Array.isArray(prev.categories) ? prev.categories : [];
             const newCategories = JSON.parse(JSON.stringify(categoriesSource));
             let totalProcessedDisciplines = 0;
-            const updatedNames = [];
 
-            analysisResult.disciplines.forEach(disc => {
-                const discNameNorm = normalize(disc.name);
-                
-                // Encontrar categoria correspondente (Exato ou Alias)
-                let catIndex = newCategories.findIndex(c => normalize(c.name) === discNameNorm);
-                if (catIndex === -1) {
-                    catIndex = newCategories.findIndex(c => 
-                        aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
-                    );
-                }
+            // BUG-07: Processamento unificado suportando tanto o formato 'disciplines' 
+            // quanto o formato de objeto direto (para maior resiliência).
+            const dataToProcess = analysisResult.disciplines || analysisResult;
 
-                if (catIndex !== -1) {
-                    const category = newCategories[catIndex];
-                    const currentStats = category.simuladoStats || { history: [], average: 0 };
-
-                    // 2. Calcular questões e acertos apenas dos tópicos desta sessão
-                    const validTopicsFromAnalysis = (disc.topics || []).filter(t => {
-                        const tasks = Array.isArray(category.tasks) ? category.tasks : [];
-                        return tasks.some(task => normalize(task?.title || task?.text || '') === normalize(t?.name || ''));
-                    });
-
-                    let sessionQ = 0;
-                    let sessionC = 0;
-
-                    if (validTopicsFromAnalysis.length > 0) {
-                        sessionQ = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
-                        sessionC = validTopicsFromAnalysis.reduce((acc, t) => acc + (Number(t.correct) || 0), 0);
-                    } else {
-                        // Fallback para as linhas brutas se não houver tarefas mapeadas
-                        const subjectRows = rawRows.filter(r => normalize(r.subject) === discNameNorm);
-                        sessionQ = subjectRows.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
-                        sessionC = subjectRows.reduce((acc, r) => acc + (Number(r.correct) || 0), 0);
+            if (Array.isArray(dataToProcess)) {
+                // Formato de array (disciplines)
+                dataToProcess.forEach(disc => {
+                    const discNameNorm = normalize(disc.name);
+                    let catIdx = newCategories.findIndex(c => normalize(c.name) === discNameNorm);
+                    if (catIdx === -1) {
+                        catIdx = newCategories.findIndex(c => 
+                            aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
+                        );
                     }
 
-                    if (sessionQ > 0) {
+                    if (catIdx !== -1) {
                         totalProcessedDisciplines++;
-                        updatedNames.push(category.name);
+                        const cat = newCategories[catIdx];
+                        if (!cat.simuladoStats) {
+                            cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+                        }
+
+                        const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
+                        const todayKey = getDateKey(new Date());
+                        const filteredHistory = history.filter(h => getDateKey(h.date) !== todayKey);
                         
-                        // 3. Atualizar Histórico (Garantindo apenas um ponto por dia)
-                        const d = new Date();
-                        const timestamp = d.toISOString();
-                        const todayKeyStr = getDateKey(d);
-                        
-                        const historyWithoutToday = (currentStats.history || []).filter(
-                            h => getDateKey(h.date) !== todayKeyStr
-                        );
+                        const finalC = Number(disc.correct);
+                        const finalQ = Number(disc.total);
 
-                        // Encontrar ganhos do dia atual se já houver registro (Soma incremental)
-                        const existingToday = (currentStats.history || []).find(
-                            h => getDateKey(h.date) === todayKeyStr
-                        );
-                        
-                        // AGGREGATION FIX: Sum current session with existing today record
-                        const finalQ = (Number(existingToday?.total) || 0) + Number(sessionQ);
-                        const finalC = (Number(existingToday?.correct) || 0) + Number(sessionC);
+                        if (finalQ > 0) {
+                            filteredHistory.push({
+                                date: new Date().toISOString(),
+                                correct: finalC,
+                                total: finalQ,
+                                score: (finalC / finalQ) * 100
+                            });
 
-                        const existingTopics = Array.isArray(existingToday?.topics) ? existingToday.topics : [];
-                        const newHistoryPoint = { 
-                            date: timestamp, 
-                            score: finalQ > 0 ? (finalC / finalQ) * 100 : 0, 
-                            total: finalQ, 
-                            correct: finalC, 
-                            topics: [...existingTopics, ...validTopicsFromAnalysis] 
-                        };
-
-                        const historyPoints = [...historyWithoutToday, newHistoryPoint];
-
-                        // 4. Recalcular Estatísticas
-                        const stats = computeCategoryStats(historyPoints, category.weight || 10);
-
-                        newCategories[catIndex].simuladoStats = {
-                            history: historyPoints,
-                            average: stats ? stats.mean : (finalC / finalQ) * 100,
-                            lastAttempt: (sessionC / sessionQ) * 100,
-                            trend: stats ? stats.trend : 'stable',
-                            level: (stats ? stats.mean : (finalC / finalQ) * 100) > 70 ? 'ALTO' : 
-                                   (stats ? stats.mean : (finalC / finalQ) * 100) > 40 ? 'MÉDIO' : 'BAIXO'
-                        };
+                            cat.simuladoStats = {
+                                ...cat.simuladoStats,
+                                history: filteredHistory.slice(-50),
+                                average: Number(((filteredHistory.reduce((acc, h) => acc + (h.score || 0), 0)) / filteredHistory.length).toFixed(1)),
+                                lastAttempt: (finalC / finalQ) * 100,
+                                level: (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
+                                       (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                            };
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                // Formato de objeto (rawSubject -> stats)
+                Object.entries(dataToProcess).forEach(([rawSubject, stats]) => {
+                    const discNameNorm = normalize(rawSubject);
+                    let catIdx = newCategories.findIndex(c => normalize(c.name) === discNameNorm);
+                    if (catIdx === -1) {
+                        catIdx = newCategories.findIndex(c => 
+                            aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
+                        );
+                    }
 
-            // 5. Persistência das linhas da tabela
+                    if (catIdx !== -1) {
+                        totalProcessedDisciplines++;
+                        const cat = newCategories[catIdx];
+                        if (!cat.simuladoStats) {
+                            cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+                        }
+
+                        const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
+                        const todayKey = getDateKey(new Date());
+                        const filteredHistory = history.filter(h => getDateKey(h.date) !== todayKey);
+                        
+                        const finalC = Number(stats.correct);
+                        const finalQ = Number(stats.total);
+
+                        if (finalQ > 0) {
+                            filteredHistory.push({
+                                date: new Date().toISOString(),
+                                correct: finalC,
+                                total: finalQ,
+                                score: (finalC / finalQ) * 100
+                            });
+
+                            cat.simuladoStats = {
+                                ...cat.simuladoStats,
+                                history: filteredHistory.slice(-50),
+                                average: Number(((filteredHistory.reduce((acc, h) => acc + (h.score || 0), 0)) / filteredHistory.length).toFixed(1)),
+                                lastAttempt: (finalC / finalQ) * 100,
+                                level: (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
+                                       (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                            };
+                        }
+                    }
+                });
+            }
+
+            capturedCount = totalProcessedDisciplines;
+
             const todayKey2 = getDateKey(new Date());
             const nonTodayRows = (prev.simuladoRows || []).filter(
                 r => !r.createdAt || getDateKey(new Date(r.createdAt)) !== todayKey2
@@ -215,23 +229,11 @@ export default function Simulados() {
                 ...prev,
                 categories: newCategories,
                 simuladoRows: validatedRows,
-                lastUpdated: new Date().toISOString(),
-                _lastProcessedCount: totalProcessedDisciplines
+                lastUpdated: new Date().toISOString()
             };
         }, true);
 
-        // BUG-A5 FIX: Read count from state and cleanup immediately
-        const activeId = useAppStore.getState().appState.activeId;
-        const updatedContest = useAppStore.getState().appState.contests[activeId];
-        const updatedCount = updatedContest?._lastProcessedCount ?? 0;
-
-        // Cleanup temporary field
-        setData(prev => {
-            const { _lastProcessedCount: _drop, ...rest } = prev;
-            return rest;
-        }, false);
-
-        if (updatedCount > 0) {
+        if (capturedCount > 0) {
             showToast('Simulado processado com sucesso!', 'success');
             useAppStore.getState().awardExperience(500);
         } else {

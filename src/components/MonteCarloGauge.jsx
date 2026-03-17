@@ -37,6 +37,7 @@ export default function MonteCarloGauge({
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+    const activeUser = useAppStore(state => state.appState.contests[activeId]?.user);
 
     const activeCategories = useMemo(() =>
         categories.filter(c => c.simuladoStats?.history?.length > 0),
@@ -504,7 +505,7 @@ export default function MonteCarloGauge({
                     setWeights={setWeights}
                     updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
                     categories={categories}
-                    user={useAppStore(state => state.appState.contests[activeId]?.user)}
+                    user={activeUser}
                 />
             )}
         </div>

@@ -57,8 +57,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
   allScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
-  const p025idx = Math.max(0, Math.ceil(safeSimulations * 0.025) - 1);
-  const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
+  const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
+  const p975idx = Math.min(safeSimulations - 1, Math.ceil(safeSimulations * 0.975) - 1);
 
   const result = {
     probability: (success / safeSimulations) * 100,

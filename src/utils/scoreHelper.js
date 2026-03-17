@@ -10,17 +10,17 @@ export function getSafeScore(historyRow) {
     if (historyRow.score != null) {
         let s = Number(historyRow.score);
         
-        // Smart Normalization: 
-        // Se a nota é <= 10 e temos um Total <= 10, e a nota <= Total,
-        // é altamente provável que seja uma escala 0-10 (ex: 8 acertos em 10).
+        // Smart Normalization:
+        // Escala 0-10 (ex: 8 acertos em 10): s <= 10, total <= 10, s ESTRITAMENTE menor que total.
+        // Excluir s === total porque neste caso é ambíguo (10/10 = 100% OU score=100%?).
+        // A ambiguidade de s === total é resolvida conservadoramente: assumir que já é percentual.
         const total = Number(historyRow.total);
-        if (s <= 10 && total > 0 && total <= 10 && s <= total) {
+        if (s < 10 && total > 0 && total <= 10 && s < total) {
             s = (s / total) * 100;
-        } 
+        }
         // Se a nota é <= 1 e temos um total plausível, pode ser escala 0-1.
-        else if (s <= 1 && total > 0 && s <= total && !historyRow.isPercentage) {
-             // Apenas se não for explicitamente marcado como percentual (ex: 0.041 para 4.1%)
-             s = (s / total) * 100;
+        else if (s < 1 && total > 0 && s < total && !historyRow.isPercentage) {
+            s = (s / total) * 100;
         }
 
         return Number.isFinite(s) ? s : 0;

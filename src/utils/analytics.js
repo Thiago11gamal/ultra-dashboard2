@@ -61,25 +61,22 @@ export const calculateStudyStreak = (studyLogs) => {
 };
 
 const calculateLongest = (uniqueDays) => {
-    let longest = 0;
-    let current = 0;
-    for (let i = 0; i < uniqueDays.length; i++) {
+    if (!uniqueDays || uniqueDays.length === 0) return 0;
+    let longest = 1;
+    let current = 1;
+    // uniqueDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
+    for (let i = 1; i < uniqueDays.length; i++) {
         const dCurrent = new Date(uniqueDays[i]);
-        const dPrev = i > 0 ? new Date(uniqueDays[i - 1]) : null;
-
-        if (dPrev) {
-            const diff = (dPrev - dCurrent) / (1000 * 60 * 60 * 24);
-            if (Math.round(diff) === 1) {
-                current++;
-            } else {
-                longest = Math.max(longest, current);
-                current = 1;
-            }
+        const dPrev = new Date(uniqueDays[i - 1]);
+        const diff = Math.round((dPrev - dCurrent) / (1000 * 60 * 60 * 24));
+        if (diff === 1) {
+            current++;
+            longest = Math.max(longest, current);
         } else {
             current = 1;
         }
     }
-    return Math.max(longest, current);
+    return longest;
 };
 
 export const analyzeSubjectBalance = (categories) => {

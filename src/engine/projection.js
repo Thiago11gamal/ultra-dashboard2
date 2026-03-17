@@ -328,9 +328,11 @@ export function monteCarloSimulation(
     const _residualSD = (useBootstrap && residuals.length > 0)
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
         : 0;
-    const _bootstrapScale = (useBootstrap && _residualSD > 0)
-        ? volatility / _residualSD
-        : 1;
+    // Cap do scale para evitar amplificação explosiva com histórico curto/homogêneo.
+    // Se _residualSD for muito pequeno (< 0.5), limitar scale a 10x para segurança.
+    const _bootstrapScale = (useBootstrap && _residualSD > 0.5)
+        ? Math.min(10, volatility / _residualSD)
+        : (useBootstrap && _residualSD > 0 ? Math.min(10, volatility / _residualSD) : 1);
 
     const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
@@ -378,8 +380,8 @@ export function monteCarloSimulation(
 
     // Empirical percentiles — sort then pick P2.5 and P97.5
     allFinalScores.sort(); // Float32Array.sort() é numérico e estável sem comparator
-    const p025idx = Math.max(0, Math.ceil(safeSimulations * 0.025) - 1);
-    const p975idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.975));
+    const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
+    const p975idx = Math.min(safeSimulations - 1, Math.ceil(safeSimulations * 0.975) - 1);
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 

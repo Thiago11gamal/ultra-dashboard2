@@ -392,7 +392,10 @@ export const useAppStore = create(
                 activeData.mcWeights = weights;
                 if (activeData.categories) {
                     activeData.categories.forEach(cat => {
-                        if (weights[cat.name] !== undefined) {
+                        // Preferir id como chave estável; fallback para name (retrocompatibilidade)
+                        if (weights[cat.id] !== undefined) {
+                            cat.weight = weights[cat.id];
+                        } else if (weights[cat.name] !== undefined) {
                             cat.weight = weights[cat.name];
                         }
                     });
@@ -411,7 +414,9 @@ export const useAppStore = create(
                 if (!activeData || !activeData.categories || !weights) return;
 
                 activeData.categories.forEach(cat => {
-                    if (weights[cat.name] !== undefined) {
+                    if (weights[cat.id] !== undefined) {
+                        cat.weight = weights[cat.id];
+                    } else if (weights[cat.name] !== undefined) {
                         cat.weight = weights[cat.name];
                     }
                 });
