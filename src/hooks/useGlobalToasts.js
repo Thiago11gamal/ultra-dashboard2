@@ -13,9 +13,8 @@ export function useGlobalToasts() {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
         ...e.detail
       };
-      // Only keep the most recent toast. 
-      // This prevents accumulation and makes it "reappear" for each new event.
-      setToasts([newToast]);
+      // Accumulate toasts instead of replacing. Limit to 5 most recent to avoid clutter.
+      setToasts(prev => [...prev, newToast].slice(-5));
     };
 
     window.addEventListener('show-toast', handleToastEvent);
