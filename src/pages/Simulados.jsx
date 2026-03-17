@@ -94,7 +94,7 @@ export default function Simulados() {
                 return r.isAuto && hasScore;
             }).map(row => ({
                 ...row,
-                createdAt: row.createdAt || Date.now()
+                createdAt: row.createdAt || new Date().toISOString()
             }));
 
             return { ...prev, simuladoRows: [...nonTodayRows, ...validRowsToSave] };
@@ -206,25 +206,26 @@ export default function Simulados() {
                     .filter(r => r.subject && r.topic && (Number(r.total) > 0))
                     .map(r => ({
                         ...r,
-                        createdAt: r.createdAt || Date.now(),
+                        createdAt: r.createdAt || new Date().toISOString(),
                         validated: true
                     }))
             ].slice(-300);
 
-            // Metadados para o Toast
-            window.__LAST_RESULT_COUNT = totalProcessedDisciplines;
-
+            // Retornamos um objeto contendo o estado e metadados
             return {
-                ...prev,
-                categories: newCategories,
-                simuladoRows: validatedRows,
-                lastUpdated: new Date().toISOString()
+                nextState: {
+                    ...prev,
+                    categories: newCategories,
+                    simuladoRows: validatedRows,
+                    lastUpdated: new Date().toISOString()
+                },
+                updatedCount: totalProcessedDisciplines
             };
         }, true);
 
         // Feedback
-        const updatedCount = window.__LAST_RESULT_COUNT || 0;
-        delete window.__LAST_RESULT_COUNT;
+        const { nextState, updatedCount } = result;
+        setData(() => nextState);
 
         if (updatedCount > 0) {
             showToast('Simulado processado com sucesso!', 'success');
