@@ -137,7 +137,7 @@ export default function Simulados() {
 
                         const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
                         const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => getDateKey(h.date) !== todayKey);
+                        const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
                         
                         const finalC = Number(disc.correct);
                         const finalQ = Number(disc.total);
@@ -181,7 +181,7 @@ export default function Simulados() {
 
                         const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
                         const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => getDateKey(h.date) !== todayKey);
+                        const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
                         
                         const finalC = Number(stats.correct);
                         const finalQ = Number(stats.total);

@@ -28,14 +28,22 @@ export function standardDeviation(arr) {
 }
 
 export function calculateTrend(history) {
-    if (!history) return 0;
-    const lastTime = new Date(history[history.length - 1].date).getTime();
+    if (!history || history.length < 3) return 0;
+
+    // BUG FIX: Ensure the array contains valid objects with a date property.
+    // If the last item is undefined, accessing .date will crash.
+    const lastValidItem = history[history.length - 1];
+    if (!lastValidItem || !lastValidItem.date) return 0;
+
+    const lastTime = new Date(lastValidItem.date).getTime();
+    if (isNaN(lastTime)) return 0;
     const lastTimeDays = lastTime / (1000 * 60 * 60 * 24);
 
     const data = history.slice(-10).map(h => {
+        if (!h || !h.date) return { x: 0, y: 0 };
         const time = new Date(h.date).getTime();
         return {
-            x: (time / (1000 * 60 * 60 * 24)) - lastTimeDays, // relative days from last exam
+            x: isNaN(time) ? 0 : (time / (1000 * 60 * 60 * 24)) - lastTimeDays, // relative days from last exam
             y: getSafeScore(h)
         };
     });
