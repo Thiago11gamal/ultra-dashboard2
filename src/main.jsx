@@ -7,8 +7,6 @@ import { AuthProvider } from './context/AuthContext.jsx'
 
 const rootElement = document.getElementById('root');
 
-if (typeof window !== 'undefined' && window.logToUI) window.logToUI("React: Renderizando raiz...");
-
 createRoot(rootElement).render(
   <ErrorBoundary>
     <AuthProvider>
@@ -16,5 +14,3 @@ createRoot(rootElement).render(
     </AuthProvider>
   </ErrorBoundary>,
 )
-
-if (typeof window !== 'undefined' && window.logToUI) window.logToUI("React: Ciclo inicial disparado.");

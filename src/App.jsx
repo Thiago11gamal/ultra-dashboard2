@@ -42,7 +42,6 @@ import useIdleLogout from './hooks/useIdleLogout';
 import './components/Loading.css';
 
 function MainLayout() {
-  if (typeof window !== 'undefined' && window.logToUI) window.logToUI("React: MainLayout renderizado (Início)...");
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
@@ -58,8 +57,6 @@ function MainLayout() {
     undo,
     setThemeMode
   } = useAppStore();
-
-  console.log("[App] MainLayout renderizado. Loading:", loading, "SubLoading:", subLoading, "Data:", !!data);
 
   const isMobile = useMobileDetect();
 

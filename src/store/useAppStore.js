@@ -635,39 +635,13 @@ export const useAppStore = create(
                 },
                 removeItem: (name) => localStorage.removeItem(name)
             })),
-            partialize: (state) => {
-                // BUG-08 FIX: Exclude history from persistence to prevent QuotaExceededError. 
-                // History should live only in RAM.
-                const { history, ...restOfAppState } = state.appState;
-                return { appState: restOfAppState };
-            },
+            partialize: (state) => ({ appState: state.appState }),
             merge: (persistedState, currentState) => {
                 const persisted = persistedState?.appState;
-                const current = currentState.appState;
-
-                // Se houver dados persistidos, fazemos o merge básico primeiro
-                let baseState = persisted || current;
-                
-                if (persisted && persisted.contests && Object.keys(persisted.contests).length > 0) {
-                    const hasKeys = (obj) => obj && Object.keys(obj).length > 0;
-                    const contests = hasKeys(persisted.contests) ? persisted.contests : current.contests;
-                    let activeId = persisted.activeId || current.activeId;
-                    if (!contests[activeId]) activeId = Object.keys(contests)[0] || 'default';
-                    
-                    baseState = {
-                        ...current,
-                        ...persisted,
-                        contests,
-                        activeId,
-                        history: persisted.history || [],
-                        lastUpdated: persisted.lastUpdated || current.lastUpdated
-                    };
-                }
-
-                // A mágica acontece aqui: validateAppState fará a migração se baseState for o inicial
+                if (!persisted) return currentState;
                 return {
                     ...currentState,
-                    appState: validateAppState(baseState)
+                    appState: validateAppState(persisted)
                 };
             }
         }
