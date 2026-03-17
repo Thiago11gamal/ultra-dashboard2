@@ -211,21 +211,25 @@ export default function Simulados() {
                     }))
             ].slice(-300);
 
-            // Retornamos um objeto contendo o estado e metadados
             return {
-                nextState: {
-                    ...prev,
-                    categories: newCategories,
-                    simuladoRows: validatedRows,
-                    lastUpdated: new Date().toISOString()
-                },
-                updatedCount: totalProcessedDisciplines
+                ...prev,
+                categories: newCategories,
+                simuladoRows: validatedRows,
+                lastUpdated: new Date().toISOString(),
+                _lastProcessedCount: totalProcessedDisciplines
             };
         }, true);
 
         // Feedback
-        const { nextState, updatedCount } = result;
-        setData(() => nextState);
+        const activeId = useAppStore.getState().appState.activeId;
+        const updatedContest = useAppStore.getState().appState.contests[activeId];
+        const updatedCount = updatedContest?._lastProcessedCount ?? 0;
+
+        // Limpa o campo temporário para não vazar para sync/backup
+        setData(prev => {
+            const { _lastProcessedCount: _drop, ...rest } = prev;
+            return rest;
+        }, false);
 
         if (updatedCount > 0) {
             showToast('Simulado processado com sucesso!', 'success');
