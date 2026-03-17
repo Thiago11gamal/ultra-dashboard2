@@ -7,13 +7,6 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Bypass: Desenvolvimento local ou Dispositivos Móveis
-        if (import.meta.env.DEV || (typeof window !== 'undefined' && window.innerWidth < 768)) {
-            setIsPremium(true);
-            setLoading(false);
-            return;
-        }
-
         if (!user || !user.uid) {
             setIsPremium(false);
             setLoading(false);
