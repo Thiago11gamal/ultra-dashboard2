@@ -43,11 +43,17 @@ const steps = [
     }
 ];
 
+const TOUR_LOCALE = {
+    back: 'Anterior',
+    close: 'Fechar',
+    last: 'Finalizar',
+    next: 'Avançar',
+    skip: 'Pular Tour'
+};
+
 export default function OnboardingTour() {
-    const { hasSeenTour, setHasSeenTour } = useAppStore(state => ({
-        hasSeenTour: state.appState.hasSeenTour,
-        setHasSeenTour: state.setHasSeenTour
-    }));
+    const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
+    const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
     const handleJoyrideCallback = (data) => {
         const { status } = data;
@@ -92,13 +98,7 @@ export default function OnboardingTour() {
                     color: '#94a3b8',
                 }
             }}
-            locale={{
-                back: 'Anterior',
-                close: 'Fechar',
-                last: 'Finalizar',
-                next: 'Avançar',
-                skip: 'Pular Tour'
-            }}
+            locale={TOUR_LOCALE}
         />
     );
 }
