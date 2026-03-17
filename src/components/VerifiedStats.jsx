@@ -208,12 +208,15 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
 export default function VerifiedStats({ categories = [], user }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
+        // BUG-Q1 FIX: Prioritize global store data over local storage
+        const userTarget = parseFloat(user?.targetProbability);
+        if (!isNaN(userTarget)) return userTarget;
+
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
             if (saved) { const parsed = parseFloat(saved); if (!isNaN(parsed)) return parsed; }
         }
-        const userTarget = parseFloat(user?.targetProbability);
-        return !isNaN(userTarget) ? userTarget : 70;
+        return 70;
     });
     const [showConfig, setShowConfig] = React.useState(false);
 

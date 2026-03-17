@@ -362,9 +362,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
+    const isHandlingCompleteRef = React.useRef(false);
     useEffect(() => {
-        if (timeLeft <= 0 && isRunning) { // Changed to <= 0 for float safety
-            setTimeout(() => handleTimerComplete(), 0);
+        if (timeLeft <= 0 && isRunning && !isHandlingCompleteRef.current) {
+            isHandlingCompleteRef.current = true;
+            setTimeout(() => {
+                handleTimerComplete();
+                // O state isRunning vai virar false, mas resetamos o ref para a próxima sessão
+                isHandlingCompleteRef.current = false;
+            }, 0);
         }
     }, [timeLeft, isRunning, handleTimerComplete]);
 
