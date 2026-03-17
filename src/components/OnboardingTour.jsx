@@ -55,14 +55,14 @@ export default function OnboardingTour() {
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
-    const handleJoyrideCallback = (data) => {
+    const handleJoyrideCallback = useCallback((data) => {
         const { status } = data;
         if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
             if (setHasSeenTour) {
                 setHasSeenTour(true);
             }
         }
-    };
+    }, [setHasSeenTour]);
 
     if (hasSeenTour) return null;
 

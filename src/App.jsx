@@ -126,18 +126,19 @@ function MainLayout() {
   const activeContestId = appState?.activeId || 'default';
   const contests = React.useMemo(() => appState?.contests || {}, [appState?.contests]);
 
+  const contestsCount = Object.keys(contests).length;
+
   useEffect(() => {
     if (currentUser && !data) {
-      const ids = Object.keys(contests);
-      if (ids.length > 0 && ids[0] !== activeContestId) {
+      if (contestsCount > 0 && Object.keys(contests)[0] !== activeContestId) {
         console.warn("Store inconsistency detected. Attempting to recover activeId...");
-        switchContest(ids[0]);
-      } else if (ids.length === 0) {
+        switchContest(Object.keys(contests)[0]);
+      } else if (contestsCount === 0) {
         console.warn("No contests found. Creating default...");
         createNewContest();
       }
     }
-  }, [currentUser, data, contests, activeContestId, switchContest, createNewContest]);
+  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
