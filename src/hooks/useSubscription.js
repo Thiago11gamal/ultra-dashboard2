@@ -7,6 +7,19 @@ export function useSubscription(user) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Opção 2: Lista de Administradores com acesso vitalício garantido
+        const ADMIN_UIDS = [
+            'F4Py5tJoRjQmXTSPE6vQUX3th662',
+        ];
+
+        const isAdmin = user && ADMIN_UIDS.includes(user.uid);
+
+        if (isAdmin) {
+            setIsPremium(true);
+            setLoading(false);
+            return;
+        }
+
         if (!user || !user.uid) {
             setIsPremium(false);
             setLoading(false);

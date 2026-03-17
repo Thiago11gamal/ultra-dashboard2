@@ -16,7 +16,7 @@ export default function Paywall({ user, onLogout }) {
         setError(null);
         try {
             console.log("[Stripe] Criando sessão para:", user.uid);
-            
+
             // Se estiver usando o Firebase Stripe Extension, criamos um documento de sessão:
             const checkoutRefs = collection(db, 'customers', user.uid, 'checkout_sessions');
             const docRef = await addDoc(checkoutRefs, {
@@ -59,7 +59,7 @@ export default function Paywall({ user, onLogout }) {
                     setError(`Erro da Stripe: ${error.message}`);
                     setLoading(false);
                 }
-                
+
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutId);
@@ -87,7 +87,7 @@ export default function Paywall({ user, onLogout }) {
 
             <div className="relative z-10 max-w-lg w-full">
                 <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-8 sm:p-12 shadow-[0_0_60px_-15px_rgba(99,102,241,0.3)] text-center">
-                    
+
                     <div className="w-20 h-20 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
                         <Lock className="w-10 h-10 text-indigo-400" />
                     </div>
@@ -95,7 +95,7 @@ export default function Paywall({ user, onLogout }) {
                     <h1 className="text-3xl sm:text-4xl font-black text-white mb-4 tracking-tight">
                         Acesso Ultra <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Premium</span>
                     </h1>
-                    
+
                     <p className="text-slate-400 text-sm sm:text-base mb-8 leading-relaxed">
                         O seu período gratuito terminou ou o passe anterior venceu. Adquira o seu acesso vitalício completo e turbine a sua aprovação agora mesmo.
                     </p>
@@ -141,7 +141,7 @@ export default function Paywall({ user, onLogout }) {
                         )}
                     </button>
                     {loading && <p className="mt-4 text-xs text-indigo-400 animate-pulse">Preparando ambiente seguro na nuvem...</p>}
-                    
+
                     <div className="mt-4">
                         <button onClick={onLogout} className="text-xs text-slate-500 hover:text-slate-300 transition-colors uppercase font-bold tracking-wider">
                             <span>Sair da Conta</span>
