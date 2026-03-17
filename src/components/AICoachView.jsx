@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
 import { Sparkles, Target, Zap, Trash2, ArrowRight, HelpCircle, BrainCircuit, ChevronDown, ChevronUp, Layers, Compass, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
+import AICoachPlanner from './AICoachPlanner';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 
 function AICoachCard({ task, idx }) {
@@ -115,6 +115,7 @@ export default function AICoachView({
     onClearHistory
 }) {
     const [isExporting, setIsExporting] = useState(false);
+    const [viewMode, setViewMode] = useState('planner');
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -183,9 +184,27 @@ export default function AICoachView({
                 {/* Right Column: The Plan (8 cols) */}
                 <div className="xl:col-span-8 lg:col-span-7">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                        <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            Plano de Execução
-                        </h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                Execução
+                            </h2>
+                            {coachPlan && coachPlan.length > 0 && (
+                                <div className="flex items-center bg-slate-800 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setViewMode('planner')}
+                                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors ${viewMode === 'planner' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        Planner
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('list')}
+                                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors ${viewMode === 'list' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        Lista
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         {coachPlan && coachPlan.length > 0 && (
                             <button
                                 onClick={onClearHistory}
@@ -207,6 +226,8 @@ export default function AICoachView({
                                 <p className="text-xs text-slate-500 mt-1 max-w-[250px] mx-auto">Solicite uma análise para gerar metas personalizadas de estudo.</p>
                             </div>
                         </div>
+                    ) : viewMode === 'planner' ? (
+                        <AICoachPlanner coachPlan={coachPlan} />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {coachPlan.map((task, idx) => (
