@@ -55,7 +55,7 @@ const sanitizeContest = (data) => {
     studySessions: Array.isArray(data.studySessions) ? data.studySessions : [],
     notes: data.notes || "",
     settings: {
-      darkMode: data.settings?.darkMode ?? true,
+      darkMode: data.settings?.darkMode ?? 'auto',
       soundEnabled: data.settings?.soundEnabled ?? true,
       pomodoroWork: Number(data.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(data.settings?.pomodoroBreak) || 5,

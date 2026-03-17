@@ -49,6 +49,10 @@ function MainLayout() {
   const appState = useAppStore(state => state.appState);
   // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
   const {
+    setAppState,
+    switchContest,
+    createNewContest,
+    deleteContest,
     updateUserName,
     undo,
     setThemeMode
