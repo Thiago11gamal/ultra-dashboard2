@@ -147,6 +147,7 @@ export const useAppStore = create(
             }),
 
             setHasSeenTour: (value) => set((state) => {
+                if (state.appState.hasSeenTour === value) return;
                 state.appState.hasSeenTour = value;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
