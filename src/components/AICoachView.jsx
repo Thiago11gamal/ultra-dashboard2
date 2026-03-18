@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Sparkles, Target, Zap, Trash2, ArrowRight, HelpCircle, BrainCircuit, ChevronDown, ChevronUp, Layers, Compass, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
