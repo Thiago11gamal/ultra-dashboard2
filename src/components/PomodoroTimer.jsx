@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAppStore } from '../store/useAppStore';
 // Update component signature to accept onExit and defaultTargetCycles
 export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, onUpdateSettings, defaultTargetCycles = 1 }) {
 
@@ -45,16 +46,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const defaultTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    const [sessions, setSessions] = useState(() => getSavedState('sessions', 0));
-    const [completedCycles, setCompletedCycles] = useState(() => getSavedState('completedCycles', 0));
-    const [targetCycles, setTargetCycles] = useState(() => {
-        // Only load saved target cycles if we are legitimately resuming the same active session instance.
-        // Otherwise, always reset to the default requested by the parent (now 1)
-        if (savedState && savedState.activeTaskId === activeSubject?.taskId && savedState.sessionInstanceId === activeSubject?.sessionInstanceId) {
-            return savedState.targetCycles !== undefined ? savedState.targetCycles : defaultTargetCycles;
-        }
-        return defaultTargetCycles;
-    });
+    const sessions = useAppStore(state => state.appState.pomodoro.sessions);
+    const setSessions = useAppStore(state => state.setPomodoroSessions);
+    const targetCycles = useAppStore(state => state.appState.pomodoro.targetCycles);
+    const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
+    const completedCycles = useAppStore(state => state.appState.pomodoro.completedCycles);
+    const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
+
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
     // --- TIMER REFS FOR CLEANUP & PERSISTENCE ---
@@ -135,6 +133,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [speed, setSpeed] = useState(1); // Dev speed toggles added back per user request
     const [showWarning, setShowWarning] = useState(false);
 
+
+    // Initialize targetCycles from prop if store is initial (optional, but good for first mount)
+    useEffect(() => {
+        if (targetCycles === 1 && defaultTargetCycles !== 1) {
+            setTargetCycles(defaultTargetCycles);
+        }
+    }, [defaultTargetCycles, targetCycles, setTargetCycles]);
 
     // Request notification permission on mount
     useEffect(() => {

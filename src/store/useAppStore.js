@@ -134,7 +134,7 @@ export const useAppStore = create(
                 mcEqualWeights: true,
                 hasSeenTour: false,
                 coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-                pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1 },
+                pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
 
@@ -637,6 +637,11 @@ export const useAppStore = create(
 
             setPomodoroTargetCycles: (target) => set((state) => {
                 state.appState.pomodoro.targetCycles = target;
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            setPomodoroCompletedCycles: (count) => set((state) => {
+                state.appState.pomodoro.completedCycles = count;
                 state.appState.lastUpdated = new Date().toISOString();
             })
         })),
