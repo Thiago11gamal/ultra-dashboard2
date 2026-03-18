@@ -137,8 +137,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <stop offset="100%" stopColor="#2dd4bf" />
                     </linearGradient>
                     <linearGradient id="gpAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(34, 197, 94, 0.4)" />
-                        <stop offset="100%" stopColor="rgba(34, 197, 94, 0.05)" />
+                        <stop offset="0%" stopColor="rgba(34, 197, 94, 0.7)" />
+                        <stop offset="100%" stopColor="rgba(34, 197, 94, 0.2)" />
                     </linearGradient>
                     <filter id="gpGlow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="1.2" result="blur" />
@@ -165,7 +165,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 {/* BUG-06 FIX: Success Area */}
-                <path d={areaPathData} fill="url(#gpAreaGradient)" stroke="#22c55e" strokeWidth="0.8" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="opacity-40" />
+                <path d={areaPathData} fill="url(#gpAreaGradient)" stroke="#22c55e" strokeWidth="1.2" strokeDasharray="none" vectorEffect="non-scaling-stroke" className="opacity-80" style={{ filter: 'url(#gpGlow)' }} />
 
                 {/* VISUAL-02: Animated Dashed Trend Line */}
                 {trendPathData && (
@@ -232,10 +232,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-opacity duration-300"
                         style={{ left: `${targetPos + (100 - targetPos) / 2}%`, top: '35%' }}
                     >
-                        <span className="text-[14px] font-black text-emerald-400 drop-shadow-lg">
+                        <span className="text-[16px] font-black text-emerald-400 drop-shadow-lg shadow-emerald-500/50">
                             {prob ? prob.toFixed(1) : '0'}%
                         </span>
-                        <span className="text-[7px] font-black text-emerald-500/60 uppercase tracking-widest leading-none">Caminho de Sucesso</span>
+                        <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest leading-none">Caminho de Sucesso</span>
                     </div>
                 )}
 
