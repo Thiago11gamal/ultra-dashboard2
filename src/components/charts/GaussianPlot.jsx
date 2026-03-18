@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, trendPathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints } = useMemo(() => {
+    const { pathData, trendPathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussian, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         const xMin = 0;
@@ -79,11 +79,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
 
+        // Added for Ultra-Premium markers
+        const median = meanVal;
+        const p25 = meanVal - 0.674 * vizSdLeft;
+        const p75 = meanVal + 0.674 * vizSdRight;
+
         return {
             pathData: path,
             trendPathData: trendPath,
             areaPathData: areaPath,
-            range, xMin, targetVal, xp, yp, heightFactor, curvePoints
+            range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussian,
+            median, p25, p75
         };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 
@@ -144,6 +150,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <feGaussianBlur stdDeviation="1.2" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
+                    <filter id="gpStrongGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
                 </defs>
 
                 {/* X-Axis and Ticks (VISUAL-01) */}
@@ -164,8 +174,21 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     />
                 )}
 
-                {/* BUG-06 FIX: Success Area */}
-                <path d={areaPathData} fill="url(#gpAreaGradient)" stroke="#22c55e" strokeWidth="1.2" strokeDasharray="none" vectorEffect="non-scaling-stroke" className="opacity-80" style={{ filter: 'url(#gpGlow)' }} />
+                {/* BUG-06 FIX: Success Area (With Pulse if High Prob) */}
+                <path 
+                    d={areaPathData} 
+                    fill="url(#gpAreaGradient)" 
+                    stroke="#22c55e" 
+                    strokeWidth="1.2" 
+                    strokeDasharray="none" 
+                    vectorEffect="non-scaling-stroke" 
+                    className={`opacity-80 transition-all duration-1000 ${prob > 80 ? 'animate-pulse' : ''}`} 
+                    style={{ filter: 'url(#gpGlow)' }} 
+                />
+
+                {/* Vertical Markers (p25, Median, p75) */}
+                <line x1={xp(p25)} y1="100" x2={xp(p25)} y2={yp(asymmetricGaussian(p25))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
+                <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussian(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
 
                 {/* VISUAL-02: Animated Dashed Trend Line */}
                 {trendPathData && (
@@ -205,10 +228,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     className="absolute transform -translate-x-1/2 -top-5 flex flex-col items-center"
                     style={{ left: `${meanPos}%` }}
                 >
-                    <span className="text-[10px] font-black text-blue-400 bg-slate-900/80 px-1.5 py-0.5 rounded shadow-sm border border-blue-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                    <span className="text-[9px] font-black text-blue-400 mt-1 drop-shadow-sm">
                         {mean.toFixed(1)}%
                     </span>
-                    <span className="text-[8px] font-bold text-blue-500/60 uppercase tracking-tighter mt-1">Projeção</span>
+                    <span className="text-[7px] font-bold text-blue-500/60 uppercase tracking-tighter mt-0.5">Projeção</span>
                 </div>
 
                 {/* Target Label */}
@@ -220,8 +244,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                             top: collisionMetaMean ? '22px' : '0'
                         }}
                     >
-                        <span className="text-[10px] font-black text-rose-100 bg-rose-600/60 px-1.5 py-0.5 rounded shadow-md border border-rose-400/30">
-                            🎯{targetVal}%
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                        <span className="text-[9px] font-black text-rose-400 mt-1 drop-shadow-sm">
+                            {targetVal}%
                         </span>
                     </div>
                 )}
@@ -242,26 +267,39 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* Hoje Label */}
                 {isCurrentVisible && (
                     <div
-                        className="absolute transform -translate-x-1/2 bottom-1 bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded shadow-sm transition-all group-hover/chart:opacity-20"
+                        className="absolute transform -translate-x-1/2 bottom-1.5 flex flex-col items-center transition-all group-hover/chart:opacity-20"
                         style={{ left: `${currentPos}%` }}
                     >
-                        <span className="text-[9px] font-black text-white/70 tracking-tight">Hoje: {currentMean.toFixed(1)}%</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400/80 mb-1 shadow-[0_0_6px_rgba(255,255,255,0.3)]" />
+                        <span className="text-[9px] font-black text-white/60 tracking-tight leading-none whitespace-nowrap">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
             </div>
 
-            {/* Hover Tooltip (VISUAL-07) */}
+            {/* Hover Tooltip (Curve-Following Ultra) */}
             {hover && (
                 <div
-                    className="absolute top-0 bottom-0 pointer-events-none z-50 flex flex-col items-center"
-                    style={{ left: `${hover.x}%` }}
+                    className="absolute inset-0 pointer-events-none z-50 overflow-hidden"
                 >
-                    <div className="h-full w-px bg-white/20 shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
-                    <div className="absolute -top-10 bg-slate-900 border border-indigo-500/50 text-white px-2 py-1.5 rounded-lg shadow-2xl flex flex-col items-center">
-                        <span className="text-[11px] font-black">{hover.val.toFixed(1)}%</span>
-                        <span className={`text-[7px] font-bold uppercase tracking-wider ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-500'}`}>
-                            {hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}
-                        </span>
+                    <div 
+                        className="absolute h-full w-px bg-white/10" 
+                        style={{ left: `${hover.x}%` }}
+                    />
+                    <div 
+                        className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white] transition-all duration-75"
+                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussian(hover.val))}%`, transform: 'translate(-50%, -50%)' }}
+                    />
+                    <div 
+                        className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px] transition-all duration-150"
+                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussian(hover.val)) - 10}%`, transform: 'translate(-50%, -100%)' }}
+                    >
+                        <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}%</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                            <span className={`text-[8px] font-black uppercase tracking-widest ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                {hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             )}

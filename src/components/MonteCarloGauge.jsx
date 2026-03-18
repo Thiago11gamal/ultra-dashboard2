@@ -422,6 +422,12 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
+                        {/* Needle / Pointer (Premium Tip) */}
+                        {!isCalculating && (
+                             <g transform={`rotate(${(prob / 100) * 180 - 180}, 70, 65)`}>
+                                <path d="M 10 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                             </g>
+                        )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
                 </div>
@@ -467,9 +473,9 @@ export default function MonteCarloGauge({
                     })()}
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
-                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média", dash: true }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40 rounded-full", lbl: "Hoje", dot: true }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
+                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
-                            <div className={`${l.bg} ${l.dot ? 'w-2 h-2' : 'w-3 h-0.5'}`}></div>
+                            <div className={`${l.bg} w-2 h-2 rounded-full`}></div>
                             <span className="text-[9px] text-slate-400">{l.lbl}</span>
                         </div>
                     ))}
