@@ -4,21 +4,24 @@ import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
     return (
-        <div key={cat.id || cat.name} className="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-4">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${cat.color || '#3b82f6'}20`, border: `1px solid ${cat.color || '#3b82f6'}30` }}>{cat.icon || '📚'}</div>
+        <div key={cat.id || cat.name} className="bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex items-center gap-4 hover:border-indigo-500/20 transition-all">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-inner" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
             <div className="flex-1">
-                <p className="text-sm font-bold text-white mb-1.5">{cat.name || 'Matéria'}</p>
-                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
+                <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-1.5">{cat.name || 'Matéria'}</p>
+                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Participação: {normalizedShare}%</p>
+                <div className="flex items-center justify-between mt-1">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Share</p>
+                    <p className="text-[9px] font-black text-slate-400">{normalizedShare}%</p>
+                </div>
             </div>
-            <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg p-1 border border-white/5">
+            <div className="flex items-center gap-1 bg-slate-950/40 rounded-xl p-1 border border-white/5">
                 {[1, 2, 3].map(p => (
                     <button
                         key={p}
                         onClick={() => updateWeight(cat.name, p)}
-                        className={`w-8 h-8 rounded-md text-[10px] font-black transition-all ${weight === p ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                        className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${weight === p ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
                         P{p}
                     </button>
@@ -78,31 +81,41 @@ export const MonteCarloConfig = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
-                    <div className="bg-slate-800/50 p-6 rounded-2xl mb-8 border border-white/5 shadow-inner">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-xs font-bold text-white uppercase tracking-wider">Meta de Aprovação</span>
-                            <span className="text-xl font-black text-blue-400">{localTarget}%</span>
+                    <div className="bg-slate-950/40 backdrop-blur-xl p-6 rounded-3xl mb-8 border border-white/[0.03] shadow-2xl relative overflow-hidden group/target">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/target:opacity-20 transition-opacity">
+                             <Activity size={48} className="text-blue-500" />
                         </div>
-                        <input 
-                            type="range" 
-                            min="60" 
-                            max="90" 
-                            step="1" 
-                            value={localTarget} 
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                setLocalTarget(val);
-                                // Real-time propagation for smoother UI sync (BUG-7 Fix)
-                                if (setTargetScore) setTargetScore(val);
-                            }}
-                            onMouseUp={() => setTargetScore(localTarget)}
-                            onTouchEnd={() => setTargetScore(localTarget)}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
-                        />
-                        <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
-                            <span>60% (Fácil)</span>
-                            <span>75% (Médio)</span>
-                            <span>90% (Hard)</span>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-1">Target Achievement</span>
+                                <span className="text-3xl font-black text-white tracking-tighter italic">{localTarget}<span className="text-blue-500">%</span></span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black text-blue-500/60 uppercase tracking-widest block">Min. Viability</span>
+                                <span className="text-xs font-bold text-slate-400">Competitive Goal</span>
+                            </div>
+                        </div>
+                        <div className="relative h-6 flex items-center mb-4">
+                            <input 
+                                type="range" 
+                                min="60" 
+                                max="90" 
+                                step="1" 
+                                value={localTarget} 
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    setLocalTarget(val);
+                                    if (setTargetScore) setTargetScore(val);
+                                }}
+                                onMouseUp={() => setTargetScore(localTarget)}
+                                onTouchEnd={() => setTargetScore(localTarget)}
+                                className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-500 transition-all hover:accent-blue-400" 
+                            />
+                        </div>
+                        <div className="flex justify-between px-1">
+                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Baseline (60%)</span>
+                            <span className="text-[8px] font-black text-blue-500/40 uppercase tracking-widest">Optimized (75%)</span>
+                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Elite (90%)</span>
                         </div>
                     </div>
 

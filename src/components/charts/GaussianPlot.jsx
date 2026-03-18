@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, trendPathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussian, median, p25, p75 } = useMemo(() => {
+    const { pathData, trendPathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         const xMin = 0;
@@ -24,10 +25,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const xp = (v) => (v - xMin) / range * 100;
         const yp = (yVal) => 100 - (yVal * 100);
 
-        const asymmetricGaussian = (x) => {
-            const currentSd = x < meanVal ? vizSdLeft : vizSdRight;
-            return heightFactor * Math.exp(-0.5 * Math.pow((x - meanVal) / currentSd, 2));
-        };
+        // Uses centralized logic
 
         // 1. Trend Line (Today -> Peak)
         const trendPoints = [];
@@ -42,14 +40,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             }
         }
 
-        // 2. Main Gaussian Curve (Always full extent)
-        const curvePoints = [];
-        const gSteps = 100;
-        for (let i = 0; i <= gSteps; i++) {
-            const x = xMin + (xMax - xMin) * (i / gSteps);
-            const y = asymmetricGaussian(x);
-            curvePoints.push(`${xp(x)},${yp(y)}`);
-        }
+        // 2. Main Gaussian Curve (Always full extent) - Uses centralized helper
+        const curvePoints = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, heightFactor, xp, yp);
 
         const path = `M ${curvePoints.join(' L ')}`;
         const trendPath = trendPoints.length > 0 ? `M ${trendPoints.join(' L ')}` : '';
@@ -59,7 +51,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const successStart = Math.max(xMin, targetVal);
 
         // Find intersection with the curve at exactly successStart
-        const yAtTarget = asymmetricGaussian(successStart);
+        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, heightFactor);
         areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
 
         // Add points from the curve that are >= successStart
@@ -88,7 +80,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             pathData: path,
             trendPathData: trendPath,
             areaPathData: areaPath,
-            range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussian,
+            range, xMin, targetVal, xp, yp, heightFactor, curvePoints, 
+            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactor),
             median, p25, p75
         };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
@@ -108,10 +101,25 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const delta = mean - (currentMean ?? 0);
     const deltaColor = delta >= 0 ? "text-emerald-400" : "text-rose-400";
 
-    // Collision Detection Logic (BUG-11 / VISUAL Polish)
-    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 10;
-    const collisionMeanCi = !ciWide && Math.abs(meanPos - ciLowPx) < 12;
-    const collisionTargetCi = !ciWide && isTargetVisible && Math.abs(targetPos - ciHighPx) < 10;
+    // 3-Tier Collision Logic for Top Labels (Projeção & Target)
+    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 14;
+    
+    // Bottom Label Collision (Hoje vs the chart features)
+    const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 14;
+    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 14;
+
+    // Resolve Tier levels (0 = Default, 1 = Mid, 2 = Low)
+    // Priority: Mean (Projeção) stays at top if possible
+    let meanLevel = 0;
+    let targetLevel = collisionMetaMean ? 1 : 0;
+    
+    // Resolve Bottom (Hoje)
+    let hojeLevel = 0;
+    if (collisionHojeMean || collisionHojeTarget) {
+        hojeLevel = 1;
+        // If it's hitting BOTH, or hitting something already moved, go even lower (Level 2)
+        if (collisionHojeMean && collisionHojeTarget) hojeLevel = 2;
+    }
 
     return (
         <div
@@ -187,8 +195,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 />
 
                 {/* Vertical Markers (p25, Median, p75) */}
-                <line x1={xp(p25)} y1="100" x2={xp(p25)} y2={yp(asymmetricGaussian(p25))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
-                <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussian(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
+                <line x1={xp(p25)} y1="100" x2={xp(p25)} y2={yp(asymmetricGaussianFn(p25))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
+                <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussianFn(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
 
                 {/* VISUAL-02: Animated Dashed Trend Line */}
                 {trendPathData && (
@@ -225,29 +233,35 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             <div className="absolute inset-0 pointer-events-none">
                 {/* Projeção Label */}
                 <div
-                    className="absolute transform -translate-x-1/2 -top-5 flex flex-col items-center"
-                    style={{ left: `${meanPos}%` }}
+                    className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-700 pointer-events-none"
+                    style={{ 
+                        left: `${meanPos}%`,
+                        top: meanLevel === 1 ? '15px' : '-8px',
+                        zIndex: 30
+                    }}
                 >
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-                    <span className="text-[9px] font-black text-blue-400 mt-1 drop-shadow-sm">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
+                    <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {mean.toFixed(1)}%
                     </span>
-                    <span className="text-[7px] font-bold text-blue-500/60 uppercase tracking-tighter mt-0.5">Projeção</span>
+                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5">Projeção</span>
                 </div>
 
                 {/* Target Label */}
                 {isTargetVisible && (
                     <div
-                        className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-300"
+                        className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-700 pointer-events-none"
                         style={{
                             left: `${targetPos}%`,
-                            top: collisionMetaMean ? '22px' : '0'
+                            top: targetLevel === 1 ? '22px' : '-8px',
+                            zIndex: 20
                         }}
                     >
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                        <span className="text-[9px] font-black text-rose-400 mt-1 drop-shadow-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
+                        <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                             {targetVal}%
                         </span>
+                        <span className="text-[7px] font-black text-rose-500/50 uppercase tracking-tighter mt-0.5">Meta</span>
                     </div>
                 )}
 
@@ -264,14 +278,18 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </div>
                 )}
 
-                {/* Hoje Label */}
+                {/* Hoje Label (With Stronger Spacing) */}
                 {isCurrentVisible && (
                     <div
-                        className="absolute transform -translate-x-1/2 bottom-1.5 flex flex-col items-center transition-all group-hover/chart:opacity-20"
-                        style={{ left: `${currentPos}%` }}
+                        className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500 pointer-events-none"
+                        style={{ 
+                            left: `${currentPos}%`,
+                            bottom: hojeLevel === 2 ? '42px' : (hojeLevel === 1 ? '24px' : '6px'),
+                            zIndex: 10
+                        }}
                     >
-                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400/80 mb-1 shadow-[0_0_6px_rgba(255,255,255,0.3)]" />
-                        <span className="text-[9px] font-black text-white/60 tracking-tight leading-none whitespace-nowrap">Hoje: {currentMean.toFixed(1)}%</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] mb-1" />
+                        <span className="text-[9px] font-black text-white/70 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
             </div>
@@ -287,11 +305,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     />
                     <div 
                         className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white] transition-all duration-75"
-                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussian(hover.val))}%`, transform: 'translate(-50%, -50%)' }}
+                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val))}%`, transform: 'translate(-50%, -50%)' }}
                     />
                     <div 
                         className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px] transition-all duration-150"
-                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussian(hover.val)) - 10}%`, transform: 'translate(-50%, -100%)' }}
+                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val)) - 10}%`, transform: 'translate(-50%, -100%)' }}
                     >
                         <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}%</span>
                         <div className="flex items-center gap-1 mt-0.5">

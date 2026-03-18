@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2 } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info } from 'lucide-react';
 import {
     computeCategoryStats,
     computeBayesianLevel,
@@ -436,13 +436,13 @@ export default function MonteCarloGauge({
                 </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
-                    { label: "Sua Meta", val: `${targetScore}%`, color: "text-red-400" },
-                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-slate-300" },
+                    { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
+                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
                     { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
                     { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`, color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
-                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-400" }
+                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</span>
@@ -482,24 +482,30 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="w-full flex flex-col gap-2">
+            <div className="w-full flex flex-col gap-2 mt-4">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
-                <div className="flex flex-wrap justify-center gap-1.5 min-h-[24px]">
+                <div className="flex flex-wrap justify-center gap-2.5 min-h-[24px]">
                     {activeCategories?.slice(0, 8).map((cat) => {
                         const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
                         return (
-                            <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
-                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
-                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                            <div key={cat.id || cat.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight leading-relaxed">
+                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
                                 {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                                <span className="max-w-[70px] truncate">
-                                    {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
+                                <span className="max-w-[100px] truncate">
+                                    {cat.name}
                                 </span>
                             </div>
                         );
                     })}
-                    {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
-                    {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
+                    {(activeCategories?.length || 0) > 8 && (
+                        <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
+                            +{activeCategories.length - 8}
+                        </span>
+                    )}
+                    {activeCategories?.length === 0 && (
+                        <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>
+                    )}
                 </div>
             </div>
             {!forcedMode && (
