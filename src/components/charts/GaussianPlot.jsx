@@ -57,7 +57,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         // 3. Precise Area Path (BUG-06 FIX)
         const areaPoints = [];
         const successStart = Math.max(xMin, targetVal);
-        
+
         // Find intersection with the curve at exactly successStart
         const yAtTarget = asymmetricGaussian(successStart);
         areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
@@ -79,11 +79,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
 
-        return { 
-            pathData: path, 
-            trendPathData: trendPath, 
-            areaPathData: areaPath, 
-            range, xMin, targetVal, xp, yp, heightFactor, curvePoints 
+        return {
+            pathData: path,
+            trendPathData: trendPath,
+            areaPathData: areaPath,
+            range, xMin, targetVal, xp, yp, heightFactor, curvePoints
         };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 
@@ -169,12 +169,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 {/* VISUAL-02: Animated Dashed Trend Line */}
                 {trendPathData && (
-                    <path 
-                        d={trendPathData} 
-                        fill="none" 
-                        stroke="rgba(255,255,255,0.4)" 
-                        strokeWidth="1.5" 
-                        strokeDasharray="4,4" 
+                    <path
+                        d={trendPathData}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.4)"
+                        strokeWidth="1.5"
+                        strokeDasharray="4,4"
                         vectorEffect="non-scaling-stroke"
                         className="animate-[dash_20s_linear_infinite]"
                     />
@@ -215,8 +215,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {isTargetVisible && (
                     <div
                         className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-300"
-                        style={{ 
-                            left: `${targetPos}%`, 
+                        style={{
+                            left: `${targetPos}%`,
                             top: collisionMetaMean ? '22px' : '0'
                         }}
                     >
@@ -252,7 +252,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
             {/* Hover Tooltip (VISUAL-07) */}
             {hover && (
-                <div 
+                <div
                     className="absolute top-0 bottom-0 pointer-events-none z-50 flex flex-col items-center"
                     style={{ left: `${hover.x}%` }}
                 >
@@ -275,7 +275,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </div>
             </div>
 
-            <div 
+            <div
                 className="absolute -bottom-8 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
                 style={{ left: `${ciLowPx}%` }}
             >
@@ -285,7 +285,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </span>
             </div>
 
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @keyframes dash {
                     to { stroke-dashoffset: -1000; }
                 }
