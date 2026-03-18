@@ -124,6 +124,9 @@ export const validateAppState = (data) => {
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
       mcEqualWeights: d.mcEqualWeights ?? true,
+      coachPlanner: (d.coachPlanner && typeof d.coachPlanner === 'object')
+        ? d.coachPlanner
+        : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
       lastUpdated: d.lastUpdated || new Date().toISOString()
     };
 

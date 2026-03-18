@@ -170,7 +170,7 @@ export function computeCategoryStats(history, weight) {
     return {
         mean: m,
         sd: safeSD,
-        n: history.length,
+        n: historyToUse.length,   // BUGFIX H2: usar historyToUse (validado), não history total
         weight: weight,
         history: history,
         trend: trendLabel,

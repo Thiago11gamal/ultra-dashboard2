@@ -147,7 +147,8 @@ export default function Simulados() {
                                 date: new Date().toISOString(),
                                 correct: finalC,
                                 total: finalQ,
-                                score: (finalC / finalQ) * 100
+                                score: (finalC / finalQ) * 100,
+                                isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
                             });
 
                             cat.simuladoStats = {
@@ -191,7 +192,8 @@ export default function Simulados() {
                                 date: new Date().toISOString(),
                                 correct: finalC,
                                 total: finalQ,
-                                score: (finalC / finalQ) * 100
+                                score: (finalC / finalQ) * 100,
+                                isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
                             });
 
                             cat.simuladoStats = {

@@ -7,11 +7,23 @@ export function mulberry32(seed) {
     };
 }
 
+// BUGFIX H3: Box-Muller completo com cache do 2° valor.
+// Antes: sin() era calculado e descartado, dobrando as chamadas ao RNG.
+// Agora: o 2° valor é guardado em closure e retornado na próxima chamada.
+// ⚠️ ATENÇÃO: altera a sequência do RNG — seeds existentes produzirão valores diferentes.
+// Se reprodutibilidade de seeds históricas for crítica, manter o código antigo e comentar esta mudança.
+const _spareNormals = new WeakMap();
+
 export function randomNormal(rng) {
+    if (_spareNormals.has(rng)) {
+        const spare = _spareNormals.get(rng);
+        _spareNormals.delete(rng);
+        return spare;
+    }
     let u = 0, v = 0;
     while (u === 0) u = rng();
     while (v === 0) v = rng();
-
-    return Math.sqrt(-2.0 * Math.log(u)) *
-        Math.cos(2.0 * Math.PI * v);
+    const mag = Math.sqrt(-2.0 * Math.log(u));
+    _spareNormals.set(rng, mag * Math.sin(2.0 * Math.PI * v));
+    return mag * Math.cos(2.0 * Math.PI * v);
 }

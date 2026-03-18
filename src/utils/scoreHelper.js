@@ -6,20 +6,21 @@
 export function getSafeScore(historyRow) {
     if (!historyRow) return 0;
 
-    // Se a prova já tiver um .score calculado e armazenado corretamente, nós o consumimos.
     if (historyRow.score != null) {
         let s = Number(historyRow.score);
-        
-        // Smart Normalization:
-        // Escala 0-10 (ex: 8 acertos em 10): s <= 10, total <= 10, s ESTRITAMENTE menor que total.
-        // Excluir s === total porque neste caso é ambíguo (10/10 = 100% OU score=100%?).
-        // A ambiguidade de s === total é resolvida conservadoramente: assumir que já é percentual.
+
+        // BUGFIX M1: Se a entrada foi salva com isPercentage=true, confiar diretamente no valor.
+        // Isso resolve a ambiguidade de score=10 total=10 (10/10 = 100%, não 10%).
+        if (historyRow.isPercentage) {
+            return Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
+        }
+
+        // Normalização legada (entradas antigas sem isPercentage):
+        // Escala 0-10: s < total E total <= 10 (exclui s === total para evitar ambiguidade)
         const total = Number(historyRow.total);
         if (s < 10 && total > 0 && total <= 10 && s < total) {
             s = (s / total) * 100;
-        }
-        // Se a nota é <= 1 e temos um total plausível, pode ser escala 0-1.
-        else if (s < 1 && total > 0 && s < total && !historyRow.isPercentage) {
+        } else if (s < 1 && total > 0 && s < total) {
             s = (s / total) * 100;
         }
 

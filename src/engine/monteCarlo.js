@@ -19,11 +19,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   // Hash da categoria para manter consistência no gerador de números aleatórios
   const categoryHash = (categoryName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  // BUG-L2: incluir safeSimulations no seed para evitar colisão entre chamadas com N diferente
   const stableSeed = seed ?? (
     Math.round(safeMean * 100) * 100003 +
     Math.round(safeSD * 100) * 997 +
     Math.round(safeTarget * 10) +
-    categoryHash
+    categoryHash +
+    (safeSimulations * 7)
   );
 
   const rng = mulberry32(stableSeed);
@@ -78,8 +80,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const finalLow = bayesianCI ? Math.min(result.ci95Low, bayesianCI.ciLow) : result.ci95Low;
   const finalHigh = bayesianCI ? Math.max(result.ci95High, bayesianCI.ciHigh) : result.ci95High;
 
+  // BUGFIX M2: Inferir SD a partir do IC empírico para consistência com o gráfico.
+  // O Welford SD da distribuição clampada subestima quando a curva encosta em 0 ou 100.
+  const inferredSD = (finalHigh - finalLow) / 3.92;
   return {
     ...result,
+    sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
     ci95Low: Number(finalLow.toFixed(1)),
     ci95High: Number(finalHigh.toFixed(1)),
   };

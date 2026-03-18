@@ -98,7 +98,10 @@ export default function MonteCarloGauge({
     }, [equalWeightsMode, weights, categories, getEqualWeights]);
 
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
-    const [debouncedWeights, setDebouncedWeights] = useState(effectiveWeights);
+    // BUGFIX M4: inicializar como null para aguardar hidratação do Zustand.
+    // Inicializar com effectiveWeights causava um setState com pesos padrão (todos=1)
+    // que sobrescrevia os pesos customizados salvos antes do Zustand reidratar.
+    const [debouncedWeights, setDebouncedWeights] = useState(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedTarget(targetScore), 300);
@@ -122,7 +125,7 @@ export default function MonteCarloGauge({
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.name] ?? 0);
                 const stats = computeCategoryStats(history, weight);
                 const bayesian = computeBayesianLevel(history);
 
@@ -155,7 +158,7 @@ export default function MonteCarloGauge({
         let weightedHigh = 0;
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                const weight = debouncedWeights[cat.name] || 0;
+                const weight = (debouncedWeights ?? effectiveWeights)[cat.name] || 0;
                 if (weight > 0) {
                     const baye = computeBayesianLevel(cat.simuladoStats.history);
                     weightedLow += baye.ciLow * (weight / totalWeight);
@@ -213,7 +216,7 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, projectDays]);
+    }, [categories, debouncedWeights, effectiveWeights, projectDays]);
 
     const simulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };
@@ -223,7 +226,7 @@ export default function MonteCarloGauge({
         const uniqueDates = new Set();
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                const weight = sanitizeWeightUnit(debouncedWeights[cat.name] ?? 0);
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.name] ?? 0);
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
                         totalPoints++;
@@ -267,7 +270,7 @@ export default function MonteCarloGauge({
         }
 
         return { status: 'ready', data: result };
-    }, [statsData, debouncedTarget, projectDays, categories, debouncedWeights]);
+    }, [statsData, debouncedTarget, projectDays, categories, debouncedWeights, effectiveWeights]);
 
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {

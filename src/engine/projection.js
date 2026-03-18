@@ -24,6 +24,17 @@ function weightedRegression(history, lambda = 0.08) {
     if (!sortedHistory || sortedHistory.length < 2) {
         return { slope: 0, intercept: 0, slopeStdError: 0 };
     }
+    // BUGFIX H4: Com exatamente 2 pontos, n-2 = 0 → divisão por 0.001 infla variance 1000×.
+    // Retornar slope simples (sem erro padrão) é mais honesto matematicamente.
+    if (sortedHistory.length === 2) {
+        const p0 = sortedHistory[0];
+        const p1 = sortedHistory[1];
+        const dy = getSafeScore(p1) - getSafeScore(p0);
+        const dt = Math.max(1, (new Date(p1.date) - new Date(p0.date)) / (1000 * 60 * 60 * 24));
+        const slope = dy / dt;
+        const intercept = getSafeScore(p1);
+        return { slope, intercept, slopeStdError: Infinity };
+    }
 
     const now = new Date(sortedHistory[sortedHistory.length - 1].date).getTime();
 
@@ -325,14 +336,15 @@ export function monteCarloSimulation(
     const allFinalScores = new Float32Array(safeSimulations);
 
     // Hoist: calcular uma única vez antes dos loops
+    // BUGFIX H1: _bootstrapScale só é relevante quando NÃO há forcedVolatility.
+    // Quando forcedVolatility está presente, usamos randomNormal * volatility diretamente
+    // para evitar a amplificação (volatility / _residualSD) que pode chegar a 10×.
     const _residualSD = (useBootstrap && residuals.length > 0)
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
         : 0;
-    // Cap do scale para evitar amplificação explosiva com histórico curto/homogêneo.
-    // Se _residualSD for muito pequeno (< 0.5), limitar scale a 10x para segurança.
-    const _bootstrapScale = (useBootstrap && _residualSD > 0.5)
-        ? Math.min(10, volatility / _residualSD)
-        : (useBootstrap && _residualSD > 0 ? Math.min(10, volatility / _residualSD) : 1);
+    const _bootstrapScale = (useBootstrap && _residualSD > 0)
+        ? Math.min(3, volatility / _residualSD)   // cap reduzido de 10 para 3
+        : 1;
 
     const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
@@ -343,14 +355,14 @@ export function monteCarloSimulation(
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            if (useBootstrap && forcedVolatility !== undefined) {
-                const randomResidual = getRandomElement(residuals, rng);
-                const jitter = (rng() - 0.5) * 0.1;
-                shock = (randomResidual + jitter) * _bootstrapScale;
+            if (forcedVolatility !== undefined) {
+                // Volatilidade explícita fornecida pelo caller (ex: MonteCarloGauge):
+                // usar distribuição Normal para evitar amplificação de resíduos históricos.
+                shock = randomNormal(rng) * volatility;
             } else if (useBootstrap) {
                 const randomResidual = getRandomElement(residuals, rng);
                 const jitter = (rng() - 0.5) * 0.1;
-                shock = randomResidual + jitter;
+                shock = (randomResidual + jitter) * _bootstrapScale;
             } else {
                 shock = randomNormal(rng) * volatility;
             }
@@ -385,14 +397,14 @@ export function monteCarloSimulation(
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 
+    // BUGFIX M2: Inferir SD a partir do IC empírico para consistência com o card de Incerteza.
+    const inferredSD = (parseFloat(ci95High) - parseFloat(ci95Low)) / 3.92;
     return {
         probability: (success / safeSimulations) * 100,
         mean: Number(projectedMean.toFixed(1)),
-        sd: Number(projectedSD.toFixed(1)),
+        sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
         ci95Low,
         ci95High,
-        // CACHE BUG FIX: prefer options.currentMean (weighted mean from MonteCarloGauge)
-        // over currentScore (last raw entry in the composite history).
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
         drift,
         volatility,

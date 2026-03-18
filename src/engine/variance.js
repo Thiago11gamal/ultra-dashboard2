@@ -42,9 +42,13 @@ export function computeWeightedVariance(stats, totalWeight) {
  * @param {number} projectDays - Days to project forward
  * @returns {number} Time uncertainty SD
  */
+// BUG-L5: extrair como constante nomeada para facilitar calibração
+// σ_time representa ~0.5pp de incerteza adicional por √dia de projeção
+const TIME_UNCERTAINTY_FACTOR = 0.5;
+
 export function computeTimeUncertainty(projectDays) {
     if (projectDays <= 0) return 0;
-    return Math.sqrt(projectDays) * 0.5;
+    return Math.sqrt(projectDays) * TIME_UNCERTAINTY_FACTOR;
 }
 
 /**
