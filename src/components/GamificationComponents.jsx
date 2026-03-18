@@ -1,48 +1,7 @@
-import React, { useMemo } from 'react';
 import { Flame, Trophy, Sparkles } from 'lucide-react';
 import { format, subDays, differenceInDays } from 'date-fns';
+import { calculateStudyStreak } from '../utils/analytics';
 
-const calculateBestStreak = (dates) => {
-    if (!dates || dates.length === 0) return 0;
-    let best = 1;
-    let current = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
-        if (diff === 1) {
-            current++;
-            best = Math.max(best, current);
-        } else {
-            current = 1;
-        }
-    }
-    return best;
-};
-
-const calculateStreak = (studyLogs = []) => {
-    if (!studyLogs.length) return { current: 0, best: 0 };
-    const dates = [...new Set(
-        studyLogs.map(l => {
-            if (!l.date) return null;
-            const rawDate = typeof l.date === 'string' && l.date.length === 10
-                ? new Date(`${l.date}T12:00:00`)
-                : new Date(l.date);
-            return isNaN(rawDate.getTime()) ? null : format(rawDate, 'yyyy-MM-dd');
-        }).filter(Boolean)
-    )].sort().reverse();
-    if (dates.length === 0) return { current: 0, best: 0 };
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-    if (dates[0] !== today && dates[0] !== yesterday) {
-        return { current: 0, best: calculateBestStreak(dates) };
-    }
-    let current = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const diff = differenceInDays(new Date(dates[i - 1]), new Date(dates[i]));
-        if (diff === 1) current++;
-        else break;
-    }
-    return { current, best: Math.max(current, calculateBestStreak(dates)) };
-};
 
 const ACHIEVEMENTS = [
     { id: 'first_step', name: 'Primeiro Passo', description: 'Complete sua primeira tarefa', icon: '🌟', xpReward: 100 },
@@ -57,7 +16,7 @@ const ACHIEVEMENTS = [
 ];
 
 export const StreakDisplay = ({ studyLogs }) => {
-    const { current, best } = useMemo(() => calculateStreak(studyLogs), [studyLogs]);
+    const { current, best } = useMemo(() => calculateStudyStreak(studyLogs), [studyLogs]);
     const bonus = Math.min(500, current * 50);
 
     return (

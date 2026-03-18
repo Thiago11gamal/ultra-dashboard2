@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { db } from '../services/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
+import { logger } from '../utils/logger';
 
 
 
@@ -47,28 +48,28 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const docRef = doc(db, 'backups', currentUser.uid);
 
-        console.log(`%c[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
+        logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
 
         // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
-                console.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
+                logger.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
                 isParityValidatedRef.current = true;
                 setIsParityValidated(true);
             }
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            console.log(`%c[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
+            logger.styled(`[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
             setCloudConnected(true);
             const isFromCache = docSnap.metadata.fromCache;
-            if (isFromCache) console.debug("[Firebase-Diag] Nota: Dado vindo do cache local (ainda sincronizando com servidor...)");
+            if (isFromCache) logger.debug("[Firebase-Diag] Nota: Dado vindo do cache local (ainda sincronizando com servidor...)");
             const exists = docSnap.exists();
 
             // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
             // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
             if (isFromCache && !exists && !isParityValidatedRef.current) {
-                console.debug("[Sync] Aguardando resposta real do servidor...");
+                logger.debug("[Sync] Aguardando resposta real do servidor...");
                 return;
             }
 
@@ -125,16 +126,16 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
 
                 if (localIsInitial && cloudHasContent) {
-                    console.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
+                    logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
                     shouldPullCloud = true;
                 } else {
-                    console.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
+                    logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
                     shouldPullCloud = false;
                 }
 
                 // PROTEÇÃO ANTI-SOBRECRITA DE RESGATE
                 if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
-                    console.warn("[Sync] BLOQUEIO DE RESGATE ATIVO. Recusando pull da nuvem para proteger dados locais.");
+                    logger.warn("[Sync] BLOQUEIO DE RESGATE ATIVO. Recusando pull da nuvem para proteger dados locais.");
                     shouldPullCloud = false;
                 }
             } else {
@@ -142,8 +143,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             if (shouldPullCloud) {
-                console.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
-                console.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
+                logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
+                logger.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
@@ -152,14 +153,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                console.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
+                logger.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
                 setHasConflict(true);
             }
 
             isParityValidatedRef.current = true;
             setIsParityValidated(true);
         }, (err) => {
-            console.error("[Sync] Erro no listener:", err);
+            logger.error("[Sync] Erro no listener:", err);
             setCloudConnected(false);
             // Se der erro (ex: offline), liberamos para evitar travar o usuário
             isParityValidatedRef.current = true;
@@ -198,7 +199,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             try {
                 if (lastSyncedRef.current === currentStateString) return;
                 if (lastLocalMutationRef.current !== lastMutation) {
-                    console.debug("[Sync] Abortando upload: mutação local mais recente detectada.");
+                    logger.debug("[Sync] Abortando upload: mutação local mais recente detectada.");
                     return;
                 }
 
@@ -226,12 +227,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const stateToSave = JSON.parse(JSON.stringify(rawStateToSave));
 
                 setIsInternalSyncing(true);
-                console.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
+                logger.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
                 await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                console.log("%c[Firebase-Diag] DADOS SINCRONIZADOS COM SUCESSO! ✅", "color: #22c55e; font-weight: bold;");
+                logger.styled("[Firebase-Diag] DADOS SINCRONIZADOS COM SUCESSO! ✅", "color: #22c55e; font-weight: bold;");
                 lastSyncedRef.current = currentStateString;
             } catch (e) {
-                console.error("[Sync] Erro no auto-save:", e);
+                logger.error("[Sync] Erro no auto-save:", e);
                 if (showToast && e.code !== 'unavailable') {
                     showToast(`Falha crítica ao salvar: ${e.message}`, 'error');
                 }
@@ -244,7 +245,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
                 if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
-                    console.debug("[Sync] Visibility change (hidden) - triggering emergency sync.");
+                    logger.debug("[Sync] Visibility change (hidden) - triggering emergency sync.");
                     syncToCloud();
                 }
             }

@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, He
 import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
+import { logger } from '../utils/logger';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
@@ -208,15 +209,8 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
 export default function VerifiedStats({ categories = [], user }) {
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
-        // BUG-Q1 FIX: Prioritize global store data over local storage
         const userTarget = parseFloat(user?.targetProbability);
-        if (!isNaN(userTarget)) return userTarget;
-
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
-            if (saved) { const parsed = parseFloat(saved); if (!isNaN(parsed)) return parsed; }
-        }
-        return 70;
+        return !isNaN(userTarget) ? userTarget : 70;
     });
     const [showConfig, setShowConfig] = React.useState(false);
 
@@ -254,13 +248,7 @@ export default function VerifiedStats({ categories = [], user }) {
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        // 1. Always sync LocalStorage for persistence across reloads
-        const lastSaved = localStorage.getItem(`monte_carlo_target_${user?.uid || 'default'}`);
-        if (lastSaved !== targetScore.toString()) {
-            localStorage.setItem(`monte_carlo_target_${user?.uid || 'default'}`, targetScore.toString());
-        }
-
-        // 2. Sync with global store to keep other components (like Coach.jsx) updated
+        // 1. Sync with global store to keep other components (like Coach.jsx) updated
         const currentStoreTarget = Number(user?.targetProbability);
         const storeTargetMissing = user?.targetProbability == null || isNaN(currentStoreTarget);
         const storeTargetDiffers = !storeTargetMissing && Math.abs(currentStoreTarget - targetScore) > 0.01;
@@ -274,7 +262,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     data.user.targetProbability = targetScore;
                 }
                 if (!showConfig) {
-                    console.log("[MonteCarlo) Final sync of targetScore:", targetScore);
+                    logger.log("[MonteCarlo) Final sync of targetScore:", targetScore);
                 }
                 return data; // BUG-A3 FIX: Ensure mutation is committed
             }, shouldRecordHistory);

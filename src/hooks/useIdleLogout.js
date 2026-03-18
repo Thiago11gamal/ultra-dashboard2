@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { logger } from '../utils/logger';
 
 /**
  * useIdleLogout Hook
@@ -15,7 +16,7 @@ export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
             clearTimeout(timerRef.current);
         }
         timerRef.current = setTimeout(() => {
-            console.log('[IdleLogout] Inatividade detectada. Deslogando...');
+            logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
             logout();
         }, timeoutMs);
     };

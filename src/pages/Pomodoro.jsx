@@ -14,14 +14,8 @@ export default function Pomodoro() {
     const showToast = useToast();
 
     // The activeSubject is now derived from Router state or hydrated from local storage
-    const [activeSubject, setActiveSubject] = useState(() => {
-        try {
-            const saved = localStorage.getItem('pomodoroActiveSubject');
-            return saved ? JSON.parse(saved) : null;
-        } catch (e) {
-            return null;
-        }
-    });
+    const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
+    const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
     // Handle initial activation from location state
     useEffect(() => {
@@ -40,8 +34,7 @@ export default function Pomodoro() {
                     priority: tsk.priority,
                     sessionInstanceId: Date.now()
                 };
-                setActiveSubject(newSubject);
-                localStorage.setItem('pomodoroActiveSubject', JSON.stringify(newSubject));
+                setPomodoroActiveSubject(newSubject);
 
                 if (tsk.status !== 'studying') {
                     setData(prev => ({
@@ -59,7 +52,7 @@ export default function Pomodoro() {
                 }
             }
         }
-    }, [location.state, data.categories, setData, showToast, activeSubject?.taskId]);
+    }, [location.state, data.categories, setData, showToast, activeSubject?.taskId, setPomodoroActiveSubject]);
 
     const handleExit = () => {
         // Clear studying status
@@ -73,7 +66,7 @@ export default function Pomodoro() {
             }));
         }
 
-        localStorage.removeItem('pomodoroActiveSubject');
+        setPomodoroActiveSubject(null);
         const returnPath = location.state?.from ? `/${location.state.from}` : '/';
         navigate(returnPath);
     };
