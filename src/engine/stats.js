@@ -118,7 +118,7 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
                 correct = Math.round(pct * 10);
             }
             
-            if (total < 5) continue;
+            if (total < 1) continue;
             alpha += correct;
             beta  += (total - correct);
         }

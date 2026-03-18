@@ -3,6 +3,15 @@ import { mulberry32, randomNormal } from './random.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
+// Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
+// Implementation using Abramowitz & Stegun approximation (formula 7.1.26)
+function normalCDF_complement(z) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp(-z * z / 2);
+  let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z >= 0 ? p : 1 - p;
+}
+
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   let mean = meanOrObj;
   
@@ -80,11 +89,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const finalLow = bayesianCI ? Math.min(result.ci95Low, bayesianCI.ciLow) : result.ci95Low;
   const finalHigh = bayesianCI ? Math.max(result.ci95High, bayesianCI.ciHigh) : result.ci95High;
 
-  // BUGFIX M2: Inferir SD a partir do IC empírico para consistência com o gráfico.
-  // O Welford SD da distribuição clampada subestima quando a curva encosta em 0 ou 100.
+  // BUGFIX MC-01: Recalculate probability analytically using inferredSD 
+  // (the SD consistent with the final IC) to avoid contradiction with the visual curve.
   const inferredSD = (finalHigh - finalLow) / 3.92;
+  const zScore = (safeTarget - safeMean) / Math.max(0.1, inferredSD);
+  const correctedProbability = normalCDF_complement(zScore) * 100;
+
   return {
     ...result,
+    probability: Math.min(99.9, Math.max(0.1, correctedProbability)),
     sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
     ci95Low: Number(finalLow.toFixed(1)),
     ci95High: Number(finalHigh.toFixed(1)),

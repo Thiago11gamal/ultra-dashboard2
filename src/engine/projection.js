@@ -6,6 +6,14 @@
 import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 
+// Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
+function normalCDF_complement(z) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989423 * Math.exp(-z * z / 2);
+    let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z >= 0 ? p : 1 - p;
+}
+
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
     if (!history) return [];
@@ -312,11 +320,7 @@ export function monteCarloSimulation(
         };
         const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 3.92);
         const zScore = (targetScore - baseline) / inferredSD;
-        const t = 1 / (1 + 0.2316419 * Math.abs(zScore));
-        const d = 0.3989423 * Math.exp(-zScore * zScore / 2);
-        let probability = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-        if (zScore < 0) probability = 1 - probability;
-        probability = Math.min(99.9, Math.max(0.1, probability * 100));
+        const probability = Math.min(99.9, Math.max(0.1, normalCDF_complement(zScore) * 100));
 
         return {
             probability: Number(probability.toFixed(1)),
@@ -349,6 +353,11 @@ export function monteCarloSimulation(
     const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
 
+    // BUGFIX MC-02: Scaling factor to prevent "random walk explosion" in long projections.
+    // Standard random walk variance grows linearly with time (N*SD^2). 
+    // This factor (0.35-0.45) dampens the accumulation to reflect performance reality.
+    const MC_STABILITY_SCALING = 0.4; 
+
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 
@@ -358,13 +367,13 @@ export function monteCarloSimulation(
             if (forcedVolatility !== undefined) {
                 // Volatilidade explícita fornecida pelo caller (ex: MonteCarloGauge):
                 // usar distribuição Normal para evitar amplificação de resíduos históricos.
-                shock = randomNormal(rng) * volatility;
+                shock = randomNormal(rng) * volatility * MC_STABILITY_SCALING;
             } else if (useBootstrap) {
                 const randomResidual = getRandomElement(residuals, rng);
                 const jitter = (rng() - 0.5) * 0.1;
-                shock = (randomResidual + jitter) * _bootstrapScale;
+                shock = (randomResidual + jitter) * _bootstrapScale * MC_STABILITY_SCALING;
             } else {
-                shock = randomNormal(rng) * volatility;
+                shock = randomNormal(rng) * volatility * MC_STABILITY_SCALING;
             }
 
             // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)

@@ -151,7 +151,9 @@ export default function MonteCarloGauge({
 
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-        const pooledSD = computePooledSD(categoryStats, totalWeight, projectDays);
+        // MC-04 FIX: pooledSD is only used for the "Today" (static) simulation.
+        // It shouldn't include future time uncertainty.
+        const pooledSD = computePooledSD(categoryStats, totalWeight, 0); 
         const bayesianMean = weightedBayesianSum / totalWeight;
 
         // Calculate weighted Bayesian interval
@@ -447,15 +449,14 @@ export default function MonteCarloGauge({
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-36 px-2">
                     {(() => {
-                        // Recalcula o SD visual para que o gráfico Gaussiano bata certo com o IC de 95%
-                        const visualSD = Math.max(0.1, (parseFloat(ci95High) - parseFloat(ci95Low)) / (2 * 1.96));
-                        // Garante que o zero absoluto não oculta a bolinha do "Hoje"
+                        // MC-05: Remover visualSD redundante. O motor (monteCarlo.js/projection.js) 
+                        // já retorna o SD inferido do IC de 95% para garantir consistência visual.
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
 
                         return (
                             <GaussianPlot
                                 mean={parseFloat(mean)}
-                                sd={visualSD}
+                                sd={parseFloat(sd)}
                                 low95={parseFloat(ci95Low)}
                                 high95={parseFloat(ci95High)}
                                 targetScore={targetScore}
