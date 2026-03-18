@@ -274,6 +274,9 @@ export default function Header({
 
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
+    const handleOpenTrash = useCallback(() => setTrashOpen(true), []);
+    const handleCloseTrash = useCallback(() => setTrashOpen(false), []);
+
     return (
         <>
             {/* ─── MOBILE HEADER ─── */}
@@ -345,12 +348,12 @@ export default function Header({
                 onLogout={handleLogout}
                 onExport={onExport}
                 onImport={onImport}
-                onOpenTrash={() => setTrashOpen(true)}
+                onOpenTrash={handleOpenTrash}
                 settings={settings}
                 onThemeChange={onThemeChange}
             />
 
-            <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
+            <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
 
             {/* ─── DESKTOP HEADER (unchanged) ─── */}
             <header className="hidden md:flex items-center justify-between z-50 relative">
@@ -461,7 +464,7 @@ export default function Header({
                                         <span>Criar Novo Painel</span>
                                     </button>
                                     <button
-                                        onClick={() => { setTrashOpen(true); setProfileOpen(false); }}
+                                        onClick={() => { handleOpenTrash(); setProfileOpen(false); }}
                                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 transition-colors"
                                     >
                                         <Trash2 size={16} />
