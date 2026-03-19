@@ -92,7 +92,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // BUGFIX MC-01: Recalculate probability analytically using inferredSD 
   // (the SD consistent with the final IC) to avoid contradiction with the visual curve.
   const inferredSD = (finalHigh - finalLow) / 3.92;
-  const zScore = (safeTarget - safeMean) / Math.max(0.1, inferredSD);
+  const zScore = (safeTarget - projectedMean) / Math.max(0.1, inferredSD);
   const correctedProbability = normalCDF_complement(zScore) * 100;
 
   return {

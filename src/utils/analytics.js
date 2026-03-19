@@ -142,8 +142,10 @@ export const analyzeSubjectBalance = (categories) => {
     };
 };
 
-export const analyzeEfficiency = (categories) => {
-    const totalMinutes = categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
+export const analyzeEfficiency = (categories, studyLogs = []) => {
+    const totalMinutes = studyLogs.length > 0
+        ? studyLogs.reduce((sum, l) => sum + (Number(l.minutes) || 0), 0)
+        : categories.reduce((sum, c) => sum + (c.totalMinutes || 0), 0);
     // Bug fix: optional chaining on c.tasks throughout to avoid crash if tasks is undefined
     const totalTasks = categories.reduce((sum, c) => sum + (c.tasks || []).length, 0);
     const completedTasks = categories.reduce((sum, c) =>

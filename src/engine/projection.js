@@ -41,7 +41,7 @@ function weightedRegression(history, lambda = 0.08) {
         const dt = Math.max(1, (new Date(p1.date) - new Date(p0.date)) / (1000 * 60 * 60 * 24));
         const slope = dy / dt;
         const intercept = getSafeScore(p1);
-        return { slope, intercept, slopeStdError: Infinity };
+        return { slope, intercept, slopeStdError: 2.0 };
     }
 
     const now = new Date(sortedHistory[sortedHistory.length - 1].date).getTime();

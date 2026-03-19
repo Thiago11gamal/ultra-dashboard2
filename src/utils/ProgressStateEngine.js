@@ -59,11 +59,12 @@ export function analyzeProgressState(scores, config = {}) {
         acc + Math.pow(score - mean, 2), 0) / (recentScores.length - 1);
 
     // 5.4 Trend (Linear Regression Slope)
-    const xMean = (safeWindowSize - 1) / 2;
+    const n = recentScores.length;
+    const xMean = (n - 1) / 2;
     let numerator = 0;
     let denominator = 0;
 
-    for (let i = 0; i < safeWindowSize; i++) {
+    for (let i = 0; i < n; i++) {
         numerator += (i - xMean) * (recentScores[i] - mean);
         denominator += Math.pow(i - xMean, 2);
     }

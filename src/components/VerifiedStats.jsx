@@ -315,7 +315,7 @@ export default function VerifiedStats({ categories = [], user }) {
             window_size: Math.min(5, dailyScores.length),
             stagnation_threshold: 0.5,
             low_level_limit: 60,
-            high_level_limit: targetScore
+            high_level_limit: statsTarget
         });
 
         // Map to UI-compatible format
@@ -492,7 +492,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     stagnation_threshold: 0.5,
                     low_level_limit: 60,
                     // Bug fix: was hardcoded to 75, ignoring the actual prop targetScore
-                    high_level_limit: targetScore
+                    high_level_limit: statsTarget
                 });
 
                 categoryAnalyses.push(analysis);
@@ -554,7 +554,7 @@ export default function VerifiedStats({ categories = [], user }) {
         // Consolidate for Global Card
         if (categoryAnalyses.length > 0) {
             const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
-            const avgSD = categoryAnalyses.reduce((a, b) => a + Math.sqrt(b.variance), 0) / categoryAnalyses.length;
+            const avgSD = Math.sqrt(categoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / categoryAnalyses.length);
 
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
             // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.

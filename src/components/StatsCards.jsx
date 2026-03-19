@@ -199,7 +199,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                     <div className="relative group/input flex justify-center w-full pointer-events-none">
                         <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center leading-relaxed ${!user.goalDate ? 'border-red-500/50 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'border-white/10 text-slate-200'}`}>
-                            {user.goalDate ? new Date(user.goalDate).toLocaleDateString('pt-BR') : 'ESCOLHER'}
+                            {user.goalDate ? (() => {
+                                const g = new Date(user.goalDate);
+                                const localDate = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+                                return localDate.toLocaleDateString('pt-BR');
+                            })() : 'ESCOLHER'}
                         </div>
                     </div>
 

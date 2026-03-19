@@ -74,9 +74,9 @@ export default function ParetoAnalysis({ categories = [] }) {
         let others = [];
 
         groupedTopics.forEach(t => {
-            cumulative += t.weightedMissed;
-            if (cumulative <= paretoThreshold || enemies.length === 0) {
+            if (cumulative < paretoThreshold || enemies.length === 0) {
                 enemies.push(t);
+                cumulative += t.weightedMissed; 
             } else {
                 others.push(t);
             }

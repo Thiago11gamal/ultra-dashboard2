@@ -33,8 +33,10 @@ export const calculateLevel = (xpInput) => {
 export const getLevelFromXP = calculateLevel;
 
 export const getXpToNextLevel = (currentXP) => {
-    const level = calculateLevel(currentXP);
-    return Math.pow(level, 2) * 100;
+    const xp = Math.max(0, Number(currentXP) || 0);
+    const level = calculateLevel(xp);
+    const nextLevelThreshold = Math.pow(level, 2) * 100;
+    return Math.max(0, nextLevelThreshold - xp);
 };
 
 // Alias for compatibility if needed, or keep distinct

@@ -424,7 +424,7 @@ export default function MonteCarloGauge({
                         />
                         {/* Needle / Pointer (Premium Tip) */}
                         {!isCalculating && (
-                             <g transform={`rotate(${(prob / 100) * 180 - 180}, 70, 65)`}>
+                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
                                 <path d="M 10 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
                              </g>
                         )}
