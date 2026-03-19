@@ -142,6 +142,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 shouldPullCloud = !localWasJustEdited;
             }
 
+            const wasAlreadyValidated = isParityValidatedRef.current;
+            isParityValidatedRef.current = true;
+            setIsParityValidated(true);
+
             if (shouldPullCloud) {
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
                 logger.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
@@ -149,16 +153,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
 
-                if (isParityValidatedRef.current && showToast) {
+                if (!wasAlreadyValidated && showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
-            } else {
                 logger.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
                 setHasConflict(true);
             }
-
-            isParityValidatedRef.current = true;
-            setIsParityValidated(true);
         }, (err) => {
             logger.error("[Sync] Erro no listener:", err);
             setCloudConnected(false);

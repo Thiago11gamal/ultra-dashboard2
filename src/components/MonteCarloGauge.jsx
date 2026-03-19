@@ -69,13 +69,13 @@ export default function MonteCarloGauge({
     }, [goalDate, effectiveSimulateToday]);
 
     const getEqualWeights = useCallback(() => {
-        if (categories.length === 0) return {};
+        if (activeCategories.length === 0) return {};
         const newWeights = {};
-        categories.forEach(cat => {
+        activeCategories.forEach(cat => {
             newWeights[cat.id || cat.name] = 1; // Default to Peso 1
         });
         return newWeights;
-    }, [categories]);
+    }, [activeCategories]);
 
     useEffect(() => {
         if (catCount > 0 && (!weights || Object.keys(weights).length === 0)) {
@@ -89,13 +89,13 @@ export default function MonteCarloGauge({
         if (!weights) return getEqualWeights();
 
         const weightsMap = {};
-        categories.forEach(cat => {
+        activeCategories.forEach(cat => {
             // Default to 1 (Peso 1) if weight is missing or 0
             const w = sanitizeWeightUnit(weights[cat.id || cat.name]);
             weightsMap[cat.id || cat.name] = w > 0 ? w : 1;
         });
         return weightsMap;
-    }, [equalWeightsMode, weights, categories, getEqualWeights]);
+    }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
 
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
     // BUGFIX M4: inicializar como null para aguardar hidratação do Zustand.

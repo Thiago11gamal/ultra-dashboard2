@@ -168,8 +168,8 @@ export function calculateVolatility(history) {
     const sorted = getSortedHistory(history);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
-    // Extrair tendência bruta (não clampeada) para não inflar variância
-    const { slope: rawDrift } = weightedRegression(sorted);
+    // M-02 FIX: Subtrair a tendência bruta de cada par pode inflar a volatilidade se a tendência
+    // mudar ao longo do tempo. Extraímos os resíduos puros e centralizamos no final.
 
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
@@ -189,9 +189,9 @@ export function calculateVolatility(history) {
         // Without this cap, a long hiatus produces tiny dailyVariance, underestimating volatility.
         const daysBetween = Math.min(30, rawDaysBetween);
 
-        // Subtrair o ganho esperado bruto (raw) para reter apenas o ruído estatístico puro
-        const expectedDiff = rawDrift * daysBetween;
-        const residual = (diff - expectedDiff) / Math.sqrt(daysBetween);
+        // M-02 FIX: Resíduo bruto normalizado pelo tempo (raiz quadrada do intervalo).
+        // A tendência (drift) é removida na centralização global (MSSD puro).
+        const residual = diff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
@@ -279,9 +279,9 @@ export function monteCarloSimulation(
         const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(30, rawDays);
 
-        const expectedChange = rawDrift * daysBetween; // Usar raw para garantir resíduo médio = 0
-        // Resíduo diário = (Diferença Efetiva - Diferença Esperada) / sqrt(dias)
-        return (actualChange - expectedChange) / Math.sqrt(daysBetween);
+        // M-02 FIX: Resíduo bruto normalizado pelo tempo.
+        // A média é removida na centralização abaixo (lines 289-291).
+        return actualChange / Math.sqrt(daysBetween);
     }).slice(1) : [];
 
     // Math Fix: Centralizar resíduos para garantir que a média do choque seja rigorosamente zero.

@@ -270,11 +270,11 @@ export default function VerifiedStats({ categories = [], user }) {
                 if (data.user) {
                     data.user.targetProbability = targetScore;
                 }
+                data.lastUpdated = new Date().toISOString(); 
                 if (!showConfig) {
                     logger.log("[MonteCarlo) Final sync of targetScore:", targetScore);
                 }
-                return data; // BUG-A3 FIX: Ensure mutation is committed
-            }, shouldRecordHistory);
+                return data; // committing draft mutation
         }
     }, [targetScore, setUserData, user?.uid, showConfig]); // B-06 FIX: EXCLUDE user?.targetProbability to prevent infinite sync loops
 

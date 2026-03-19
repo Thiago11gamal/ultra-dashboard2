@@ -132,8 +132,8 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
 
     const variance    = (alpha * beta) / (n * n * (n + 1));
     const sd          = Math.sqrt(variance);
-    const MIN_SD      = 0.02; // floor epistêmico: mínimo 2 pontos percentuais de incerteza
-    const effectiveSd = Math.max(sd, MIN_SD);
+    const MIN_SD_PROP = 0.02; // floor epistêmico: mínimo 2 pontos percentuais de incerteza
+    const effectiveSd = Math.max(sd, MIN_SD_PROP);
 
     const ciLow  = Math.max(0,   (p - 1.96 * effectiveSd) * 100);
     const ciHigh = Math.min(100, (p + 1.96 * effectiveSd) * 100);

@@ -12,18 +12,16 @@ export function mulberry32(seed) {
 // Agora: o 2° valor é guardado em closure e retornado na próxima chamada.
 // ⚠️ ATENÇÃO: altera a sequência do RNG — seeds existentes produzirão valores diferentes.
 // Se reprodutibilidade de seeds históricas for crítica, manter o código antigo e comentar esta mudança.
-const _spareNormals = new WeakMap();
-
 export function randomNormal(rng) {
-    if (_spareNormals.has(rng)) {
-        const spare = _spareNormals.get(rng);
-        _spareNormals.delete(rng);
+    if (rng._spareNormal !== undefined) {
+        const spare = rng._spareNormal;
+        delete rng._spareNormal;
         return spare;
     }
     let u = 0, v = 0;
     while (u === 0) u = rng();
     while (v === 0) v = rng();
     const mag = Math.sqrt(-2.0 * Math.log(u));
-    _spareNormals.set(rng, mag * Math.sin(2.0 * Math.PI * v));
+    rng._spareNormal = mag * Math.sin(2.0 * Math.PI * v);
     return mag * Math.cos(2.0 * Math.PI * v);
 }
