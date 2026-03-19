@@ -32,15 +32,17 @@ export const calculateLevel = (xpInput) => {
 // Alias for compatibility
 export const getLevelFromXP = calculateLevel;
 
-export const getXpToNextLevel = (currentXP) => {
+// B-11 FIX: Nomes descritivos e distintos
+// Recebe XP atual → retorna XP RESTANTE para próximo nível
+export const getXpRemainingToNextLevel = (currentXP) => {
     const xp = Math.max(0, Number(currentXP) || 0);
     const level = calculateLevel(xp);
     const nextLevelThreshold = Math.pow(level, 2) * 100;
     return Math.max(0, nextLevelThreshold - xp);
 };
 
-// Alias for compatibility if needed, or keep distinct
-export const getXPForNextLevel = (level) => {
+// Recebe NÍVEL atual → retorna XP TOTAL do próximo nível (threshold)
+export const getXpThresholdForLevel = (level) => {
     return Math.pow(level, 2) * 100;
 };
 

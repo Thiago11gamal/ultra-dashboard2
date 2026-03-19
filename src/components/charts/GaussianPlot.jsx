@@ -20,7 +20,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const vizSdLeft = Math.max(1, sdLeft);
         const vizSdRight = Math.max(1, sdRight);
         const avgSd = (vizSdLeft + vizSdRight) / 2;
-        const heightFactor = Math.min(1.2, 12 / avgSd); // Aumentado ligeiramente para VISUAL-04
+        // B-04 FIX: Limitar heightFactor para que o pico fique sempre dentro do canvas (y >= 8%)
+        const heightFactor = Math.min(0.92, 12 / avgSd);
 
         const xp = (v) => (v - xMin) / range * 100;
         const yp = (yVal) => 100 - (yVal * 100);
@@ -323,12 +324,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             )}
 
             {/* Footer Metrics (Ticks and IC) */}
-            <div className="absolute -bottom-5 inset-x-0 h-4 flex items-center justify-between text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter">
-                <div className="flex gap-4">
-                    <span>{xMin}%</span>
-                    {[25, 50, 75].map(t => <span key={t} style={{ position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)' }}>{t}%</span>)}
-                    <span className="absolute right-0">{xMin + range}%</span>
-                </div>
+            {/* B-10 FIX: Todos absolutos com posição explícita */}
+            <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
+                {[0, 25, 50, 75, 100].map(t => (
+                    <span
+                        key={t}
+                        className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter"
+                        style={{ left: `${t}%`, transform: 'translateX(-50%)' }}
+                    >
+                        {t}%
+                    </span>
+                ))}
             </div>
 
             <div

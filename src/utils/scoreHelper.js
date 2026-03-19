@@ -18,14 +18,15 @@ export function getSafeScore(historyRow) {
         // Normalização legada (entradas antigas sem isPercentage):
         // Escala 0-10: s < total E total <= 10 (exclui s === total para evitar ambiguidade)
         const total = Number(historyRow.total);
-        if (s < 10 && total > 0 && total <= 10 && s < total) {
-            s = (s / total) * 100;
-            } else if (s < 1 && total > 0 && total <= 10 && s < total) {
-                // MC-06 FIX: Só normalizar se o total é pequeno (escala 0-1 para proporção de poucas questões).
-                // Se o total for grande (>10), assumimos que o score de 0.75 é literal (ou erro de entrada)
-                // e não tentamos normalizá-lo para 0.75%.
+        if (total > 0 && total <= 10 && s < total) {
+            if (s < 1) {
+                // Proporção decimal (ex: 0.75 de 10 questões → 75%)
+                s = (s / total) * 100;
+            } else if (s < 10) {
+                // Escala 0–10 (ex: 7 de 10 questões → 70%)
                 s = (s / total) * 100;
             }
+        }
 
         return Number.isFinite(s) ? s : 0;
     }

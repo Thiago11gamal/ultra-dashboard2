@@ -219,7 +219,7 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights, projectDays]);
+    }, [categories, debouncedWeights, effectiveWeights]);
 
     const simulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };

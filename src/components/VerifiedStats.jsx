@@ -212,6 +212,15 @@ export default function VerifiedStats({ categories = [], user }) {
         const userTarget = parseFloat(user?.targetProbability);
         return !isNaN(userTarget) ? userTarget : 70;
     });
+
+    // B-06 FIX: Adicionar efeito de sincronização store → estado local
+    const storeTarget = user?.targetProbability;
+    React.useEffect(() => {
+        const parsed = parseFloat(storeTarget);
+        if (!isNaN(parsed) && Math.abs(parsed - targetScore) > 0.01) {
+            setTargetScore(parsed);
+        }
+    }, [storeTarget]); // eslint-disable-line react-hooks/exhaustive-deps
     const [showConfig, setShowConfig] = React.useState(false);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
@@ -374,7 +383,9 @@ export default function VerifiedStats({ categories = [], user }) {
                     // D-04 FIX: Curva contínua de dificuldade em vez de steps arbitrários.
                     // f(50%)=0.90, f(70%)=0.80, f(80%)=0.74, f(95%)=0.64
                     // Mais justa: não corta 40% da velocidade abruptamente em 80%.
-                    const difficultyFactor = 1 - 0.4 * Math.pow(currentScore / 100, 2);
+                    // B-07 FIX: Fator linear: penalidade proporcional desde o início
+                    // f(0)=1.0, f(50)=0.75, f(80)=0.60, f(100)=0.50
+                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * (currentScore / 100));
 
                     let quality = 0.8;
                     const dailyScoresList = dailyHistory.map(h => h.score);

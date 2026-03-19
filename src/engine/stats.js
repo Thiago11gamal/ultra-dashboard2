@@ -13,12 +13,9 @@ export function standardDeviation(arr) {
 
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
-    // Prior Bayesiano adaptativo: enfraquece proporcionalmente ao volume de dados.
-    // Com n >= 10, KAPPA efetivo cai para 0.1 — dados reais dominam.
-    // Com n = 1 (2 pontos mínimos), KAPPA = 1 — prior ancora suavemente.
-    // POPULATION_SD = 12 representa incerteza inicial razoável para concursos.
     const POPULATION_SD = 12;
-    const KAPPA = Math.max(0.1, 1 / Math.sqrt(n - 1));
+    // B-09 FIX: KAPPA fixo (prior equivalente a 2 simulados "fantasmas")
+    const KAPPA = 2;
 
     const adjustedVar =
         ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
@@ -30,16 +27,21 @@ export function standardDeviation(arr) {
 export function calculateTrend(history) {
     if (!history || history.length < 3) return 0;
 
-    // BUG FIX: Ensure the array contains valid objects with a date property.
-    // If the last item is undefined, accessing .date will crash.
-    const lastValidItem = history[history.length - 1];
+    // B-05 FIX: Ordenar antes de qualquer cálculo
+    const sorted = [...history]
+        .filter(h => h && h.date && !isNaN(new Date(h.date)))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (sorted.length < 3) return 0;
+
+    const lastValidItem = sorted[sorted.length - 1];
     if (!lastValidItem || !lastValidItem.date) return 0;
 
     const lastTime = new Date(lastValidItem.date).getTime();
     if (isNaN(lastTime)) return 0;
     const lastTimeDays = lastTime / (1000 * 60 * 60 * 24);
 
-    const data = history.slice(-10).map(h => {
+    const data = sorted.slice(-10).map(h => {
         if (!h || !h.date) return { x: 0, y: 0 };
         const time = new Date(h.date).getTime();
         return {
