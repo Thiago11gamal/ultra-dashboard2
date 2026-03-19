@@ -127,6 +127,9 @@ export const validateAppState = (data) => {
       coachPlanner: (d.coachPlanner && typeof d.coachPlanner === 'object')
         ? d.coachPlanner
         : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+      pomodoro: (d.pomodoro && typeof d.pomodoro === 'object')
+        ? d.pomodoro
+        : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
       lastUpdated: d.lastUpdated || new Date().toISOString()
     };
 
