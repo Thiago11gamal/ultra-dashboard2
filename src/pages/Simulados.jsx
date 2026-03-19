@@ -151,13 +151,17 @@ export default function Simulados() {
                                 isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
                             });
 
+                            const statsResult = computeCategoryStats(filteredHistory, 1);
                             cat.simuladoStats = {
                                 ...cat.simuladoStats,
                                 history: filteredHistory.slice(-50),
-                                average: Number(((filteredHistory.reduce((acc, h) => acc + (h.score || 0), 0)) / filteredHistory.length).toFixed(1)),
+                                average: Number(statsResult.mean.toFixed(1)),
+                                trend: statsResult.trend || 'stable',
                                 lastAttempt: (finalC / finalQ) * 100,
-                                level: (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
-                                       (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                level: statsResult.level || (
+                                    (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
+                                    (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                )
                             };
                         }
                     }
@@ -196,13 +200,17 @@ export default function Simulados() {
                                 isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
                             });
 
+                            const statsResult = computeCategoryStats(filteredHistory, 1);
                             cat.simuladoStats = {
                                 ...cat.simuladoStats,
                                 history: filteredHistory.slice(-50),
-                                average: Number(((filteredHistory.reduce((acc, h) => acc + (h.score || 0), 0)) / filteredHistory.length).toFixed(1)),
+                                average: Number(statsResult.mean.toFixed(1)),
+                                trend: statsResult.trend || 'stable',
                                 lastAttempt: (finalC / finalQ) * 100,
-                                level: (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
-                                       (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                level: statsResult.level || (
+                                    (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
+                                    (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                )
                             };
                         }
                     }

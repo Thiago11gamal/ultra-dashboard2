@@ -185,7 +185,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // 2. EMISSOR (Auto-save) - Master Mode
     useEffect(() => {
         // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade ou db está ausente
-        if (!currentUser?.uid || !appState || !isParityValidatedRef.current || !db) return;
+        if (!currentUser?.uid || !appState || !isParityValidated || !db) return;
 
         const currentStateString = stateStringForSync(appState);
         if (lastSyncedRef.current === currentStateString) return;

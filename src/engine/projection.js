@@ -405,10 +405,12 @@ export function monteCarloSimulation(
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 
-    // BUGFIX M2: Inferir SD a partir do IC empírico para consistência com o card de Incerteza.
     const inferredSD = (parseFloat(ci95High) - parseFloat(ci95Low)) / 3.92;
+    const zScore = (targetScore - projectedMean) / Math.max(0.1, inferredSD);
+    const correctedProbability = normalCDF_complement(zScore) * 100;
+
     return {
-        probability: (success / safeSimulations) * 100,
+        probability: Math.min(99.9, Math.max(0.1, correctedProbability)),
         mean: Number(projectedMean.toFixed(1)),
         sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
         ci95Low,

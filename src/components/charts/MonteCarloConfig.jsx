@@ -20,7 +20,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
                 {[1, 2, 3].map(p => (
                     <button
                         key={p}
-                        onClick={() => updateWeight(cat.name, p)}
+                        onClick={() => updateWeight(cat.id || cat.name, p)}
                         className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${weight === p ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                     >
                         P{p}
@@ -49,7 +49,7 @@ export const MonteCarloConfig = ({
 
     if (!show) return null;
 
-    const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.name], 10) || 1), 0);
+    const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.id || cat.name], 10) || 1), 0);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
@@ -107,8 +107,6 @@ export const MonteCarloConfig = ({
                                     setLocalTarget(val);
                                     if (setTargetScore) setTargetScore(val);
                                 }}
-                                onMouseUp={() => setTargetScore(localTarget)}
-                                onTouchEnd={() => setTargetScore(localTarget)}
                                 className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-500 transition-all hover:accent-blue-400" 
                             />
                         </div>
@@ -162,7 +160,7 @@ export const MonteCarloConfig = ({
                                     <WeightRow
                                         key={cat.id || cat.name}
                                         cat={cat}
-                                        weight={weights ? (parseInt(weights[cat.name], 10) || 1) : 1}
+                                        weight={weights ? (parseInt(weights[cat.id || cat.name], 10) || 1) : 1}
                                         manualTotal={manualTotal}
                                         updateWeight={updateWeight}
                                     />

@@ -72,7 +72,7 @@ export default function MonteCarloGauge({
         if (categories.length === 0) return {};
         const newWeights = {};
         categories.forEach(cat => {
-            newWeights[cat.name] = 1; // Default to Peso 1
+            newWeights[cat.id || cat.name] = 1; // Default to Peso 1
         });
         return newWeights;
     }, [categories]);
@@ -91,8 +91,8 @@ export default function MonteCarloGauge({
         const weightsMap = {};
         categories.forEach(cat => {
             // Default to 1 (Peso 1) if weight is missing or 0
-            const w = sanitizeWeightUnit(weights[cat.name]);
-            weightsMap[cat.name] = w > 0 ? w : 1;
+            const w = sanitizeWeightUnit(weights[cat.id || cat.name]);
+            weightsMap[cat.id || cat.name] = w > 0 ? w : 1;
         });
         return weightsMap;
     }, [equalWeightsMode, weights, categories, getEqualWeights]);
@@ -126,7 +126,7 @@ export default function MonteCarloGauge({
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.name] ?? 0);
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
                 const stats = computeCategoryStats(history, weight);
                 const bayesian = computeBayesianLevel(history);
 
@@ -161,7 +161,7 @@ export default function MonteCarloGauge({
         let weightedHigh = 0;
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                const weight = (debouncedWeights ?? effectiveWeights)[cat.name] || 0;
+                const weight = (debouncedWeights ?? effectiveWeights)[cat.id || cat.name] || 0;
                 if (weight > 0) {
                     const baye = computeBayesianLevel(cat.simuladoStats.history);
                     weightedLow += baye.ciLow * (weight / totalWeight);
@@ -229,7 +229,7 @@ export default function MonteCarloGauge({
         const uniqueDates = new Set();
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.name] ?? 0);
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
                 if (weight > 0) {
                     cat.simuladoStats.history.forEach(h => {
                         totalPoints++;
