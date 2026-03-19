@@ -20,8 +20,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const vizSdLeft = Math.max(1, sdLeft);
         const vizSdRight = Math.max(1, sdRight);
         const avgSd = (vizSdLeft + vizSdRight) / 2;
-        // B-04 FIX: Limitar heightFactor para que o pico fique sempre dentro do canvas (y >= 8%)
-        const heightFactor = Math.min(0.92, 12 / avgSd);
+        // Adjusted to 0.70 (70% height) for the user's specific vertical aesthetic
+        const heightFactor = Math.min(0.70, 12 / avgSd);
 
         const xp = (v) => (v - xMin) / range * 100;
         const yp = (yVal) => 100 - (yVal * 100);
@@ -113,32 +113,27 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const deltaColor = delta >= 0 ? "text-emerald-400" : "text-rose-400";
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
-    // Ensures they never overlap even if they are all very close.
-    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 14;
-    const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 14;
-    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 14;
+    // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
+    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 20;
+    const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 20;
+    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 20;
 
+    // Resolve Tiers with Projection (Blue) as HIGHEST PRIORITY
+    let tierMean = 1;
     let tierTarget = 1;
-    let tierMean = collisionMetaMean ? 2 : 1;
     let tierHoje = 1;
-    
-    if (collisionHojeMean || collisionHojeTarget) {
-        if (tierMean === 2) {
-            tierHoje = 3; // Hoyt collides with Mean while Mean collides with Meta -> Tier 3
-        } else {
-            tierHoje = 2; // Hoyt collides with either Mean or Meta -> Tier 2
-        }
+
+    // Resolve conflicts
+    if (collisionMetaMean) {
+        tierTarget = 2; // Move Meta (red) down if it hits Projection (blue)
     }
-    // Priority: Mean (Projeção) stays at top if possible
-    let meanLevel = 0;
-    let targetLevel = collisionMetaMean ? 1 : 0;
-    
-    // Resolve Bottom (Hoje)
-    let hojeLevel = 0;
+
     if (collisionHojeMean || collisionHojeTarget) {
-        hojeLevel = 1;
-        // If it's hitting BOTH, or hitting something already moved, go even lower (Level 2)
-        if (collisionHojeMean && collisionHojeTarget) hojeLevel = 2;
+        if (collisionHojeMean && collisionMetaMean) {
+            tierHoje = 3; // Hoyt hits both -> Tier 3
+        } else {
+            tierHoje = 2; // Hoyt hits one -> Tier 2
+        }
     }
 
     return (
@@ -275,7 +270,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     className="absolute flex flex-col items-center transition-all duration-500"
                     style={{
                         left: `${meanPos}%`,
-                        top: tierMean === 2 ? '25%' : '15%',
+                        top: tierMean === 3 ? '18%' : tierMean === 2 ? '10%' : '2%',
                         transform: 'translateX(-50%)',
                         zIndex: 30
                     }}
@@ -293,7 +288,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all duration-500"
                         style={{
                             left: `${targetPos}%`,
-                            top: tierTarget === 2 ? '25%' : '15%',
+                            top: tierTarget === 3 ? '18%' : tierTarget === 2 ? '10%' : '2%',
                             transform: 'translateX(-50%)',
                             zIndex: 20
                         }}
@@ -325,13 +320,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500"
                         style={{ 
                             left: `${currentPos}%`,
-                            top: tierHoje === 3 ? '35%' : tierHoje === 2 ? '25%' : '15%',
+                            top: '45%', // Fixed lower position to avoid clutter with top metrics
                             transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
                     >
                         <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] mb-1" />
-                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-sm border border-white/20 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
+                        <span className="text-[9px] font-black text-white/90 px-1.5 py-0.5 rounded-md bg-white/10 backdrop-blur-sm border border-white/10 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
             </div>
