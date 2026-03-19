@@ -20,8 +20,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const vizSdLeft = Math.max(1, sdLeft);
         const vizSdRight = Math.max(1, sdRight);
         const avgSd = (vizSdLeft + vizSdRight) / 2;
-        // Adjusted to 0.70 (70% height) for the user's specific vertical aesthetic
-        const heightFactor = Math.min(0.70, 12 / avgSd);
+        // B-04 FIX: Maximized to 1.0 for the user's latest "azul mais alto" request
+        const heightFactor = Math.min(1.0, 12 / avgSd);
 
         const xp = (v) => (v - xMin) / range * 100;
         const yp = (yVal) => 100 - (yVal * 100);
@@ -270,7 +270,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     className="absolute flex flex-col items-center transition-all duration-500"
                     style={{
                         left: `${meanPos}%`,
-                        top: tierMean === 3 ? '18%' : tierMean === 2 ? '10%' : '2%',
+                        top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%',
                         transform: 'translateX(-50%)',
                         zIndex: 30
                     }}
@@ -288,7 +288,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all duration-500"
                         style={{
                             left: `${targetPos}%`,
-                            top: tierTarget === 3 ? '18%' : tierTarget === 2 ? '10%' : '2%',
+                            top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%',
                             transform: 'translateX(-50%)',
                             zIndex: 20
                         }}
@@ -320,7 +320,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500"
                         style={{ 
                             left: `${currentPos}%`,
-                            top: '45%', // Fixed lower position to avoid clutter with top metrics
+                            top: '45%', // Keep Hoje lower to avoid clutter
                             transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
