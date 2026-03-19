@@ -488,11 +488,11 @@ export default function MonteCarloGauge({
                     {activeCategories?.slice(0, 8).map((cat) => {
                         const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
                         return (
-                            <div key={cat.id || cat.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight leading-relaxed">
+                            <div key={cat.id || cat.name} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800/60 border border-white/5 text-[9px] text-slate-300 uppercase tracking-tight leading-relaxed">
                                 {catStats?.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
                                 {catStats?.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
                                 {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                                <span className="max-w-[100px] truncate">
+                                <span className="max-w-[120px] truncate">
                                     {cat.name}
                                 </span>
                             </div>

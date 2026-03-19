@@ -102,14 +102,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const delta = mean - (currentMean ?? 0);
     const deltaColor = delta >= 0 ? "text-emerald-400" : "text-rose-400";
 
-    // 3-Tier Collision Logic for Top Labels (Projeção & Target)
+    // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
+    // Ensures they never overlap even if they are all very close.
     const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 14;
-    
-    // Bottom Label Collision (Hoje vs the chart features)
     const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 14;
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 14;
 
-    // Resolve Tier levels (0 = Default, 1 = Mid, 2 = Low)
+    let tierTarget = 1;
+    let tierMean = collisionMetaMean ? 2 : 1;
+    let tierHoje = 1;
+    
+    if (collisionHojeMean || collisionHojeTarget) {
+        if (tierMean === 2) {
+            tierHoje = 3; // Hoyt collides with Mean while Mean collides with Meta -> Tier 3
+        } else {
+            tierHoje = 2; // Hoyt collides with either Mean or Meta -> Tier 2
+        }
+    }
     // Priority: Mean (Projeção) stays at top if possible
     let meanLevel = 0;
     let targetLevel = collisionMetaMean ? 1 : 0;
@@ -230,14 +239,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
             </svg>
 
-            {/* Floating Labels */}
+            {/* Floating Labels (B-13 FIX: 3-Tier Robust Collision Avoidance) */}
             <div className="absolute inset-0 pointer-events-none">
                 {/* Projeção Label */}
                 <div
-                    className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-700 pointer-events-none"
-                    style={{ 
+                    className="absolute transition-all duration-500"
+                    style={{
                         left: `${meanPos}%`,
-                        top: meanLevel === 1 ? '15px' : '-8px',
+                        top: tierMean === 2 ? '25%' : '15%',
+                        transform: 'translateX(-50%)',
                         zIndex: 30
                     }}
                 >
@@ -251,10 +261,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* Target Label */}
                 {isTargetVisible && (
                     <div
-                        className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all duration-700 pointer-events-none"
+                        className="absolute flex flex-col items-center transition-all duration-500"
                         style={{
                             left: `${targetPos}%`,
-                            top: targetLevel === 1 ? '22px' : '-8px',
+                            top: tierTarget === 2 ? '25%' : '15%',
+                            transform: 'translateX(-50%)',
                             zIndex: 20
                         }}
                     >
@@ -266,11 +277,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </div>
                 )}
 
-                {/* Chance Label (VISUAL Performance) */}
+                {/* Chance Label (Visual Indicator for the green area) */}
                 {isTargetVisible && targetPos < 92 && (
                     <div
                         className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-opacity duration-300"
-                        style={{ left: `${targetPos + (100 - targetPos) / 2}%`, top: '35%' }}
+                        style={{ left: `${targetPos + (100 - targetPos) / 2}%`, top: '45%' }}
                     >
                         <span className="text-[16px] font-black text-emerald-400 drop-shadow-lg shadow-emerald-500/50">
                             {prob ? prob.toFixed(1) : '0'}%
@@ -279,13 +290,14 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </div>
                 )}
 
-                {/* Hoje Label (With Stronger Spacing) */}
+                {/* Hoje Label */}
                 {isCurrentVisible && (
                     <div
-                        className="absolute transform -translate-x-1/2 flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500 pointer-events-none"
+                        className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500"
                         style={{ 
                             left: `${currentPos}%`,
-                            bottom: hojeLevel === 2 ? '42px' : (hojeLevel === 1 ? '24px' : '6px'),
+                            top: tierHoje === 3 ? '35%' : tierHoje === 2 ? '25%' : '15%',
+                            transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
                     >

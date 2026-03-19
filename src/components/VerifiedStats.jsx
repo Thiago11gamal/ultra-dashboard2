@@ -156,9 +156,9 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
             <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="relative flex items-center justify-center text-[12px] leading-tight min-h-[14px]">
-                            <span className="text-slate-400 truncate max-w-[70px] font-semibold text-center" title={v.name}>{v.name.length > 15 ? v.name.substring(0, 14) + '…' : v.name}</span>
-                            <span className="absolute right-0 text-red-400 font-mono font-black text-[12px]">±{v.sd.toFixed(0)}</span>
+                        <div key={v.name} className="flex items-center justify-between gap-1 text-[10px] leading-tight min-h-[14px] w-full">
+                            <span className="text-slate-400 truncate font-semibold" title={v.name}>{v.name}</span>
+                            <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
                     ))
                 ) : (
