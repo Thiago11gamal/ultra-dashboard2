@@ -18,34 +18,26 @@ const InfoTooltip = React.memo(({ text }) => (
 ));
 
 const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData }) => (
-    <div className={`glass h-full p-6 rounded-[2rem] relative flex flex-col justify-between border border-white/10 overflow-hidden group transition-all duration-500 hover:scale-[1.02] shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${status === 'excellence' || status === 'good' ? 'bg-purple-500/[0.03] hover:border-purple-500/30' :
-        status === 'warning' ? 'bg-red-500/[0.03] hover:border-red-500/30' :
-            'bg-blue-500/[0.03] hover:border-blue-500/30'
+    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
+        status === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
+            'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
         }`}>
-        {/* Animated Background Mesh */}
-        <div className={`absolute -top-20 -right-20 w-64 h-64 blur-[100px] rounded-full opacity-20 group-hover:opacity-40 transition-all duration-1000 ${status === 'excellence' || status === 'good' ? 'bg-purple-500' : status === 'warning' ? 'bg-red-500' : 'bg-blue-500'}`} />
-        
-        <div className="flex justify-between items-start mb-6 relative z-10">
-            <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-500 group-hover:rotate-12 ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : status === 'warning' ? 'bg-red-500/20 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-blue-500/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]'}`}>
-                    <Target size={20} className={status === 'excellence' || status === 'good' ? "text-purple-400" : status === 'warning' ? "text-red-400" : "text-blue-400"} />
+        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+                    <Target size={18} className={status === 'excellence' || status === 'good' ? "text-purple-400" : status === 'warning' ? "text-red-400" : "text-blue-400"} />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">IA Insight</span>
-                    <span className="text-xs font-bold text-slate-200">Previsão de Alcance</span>
-                </div>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                    Previsão IA
+                    {trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                </span>
             </div>
-            {hasEnoughData && trend !== 'stable' && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 animate-pulse-subtle">
-                    <Activity size={10} className="text-blue-400" />
-                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Calculando...</span>
-                </div>
-            )}
         </div>
-
-        <div className="text-center my-6 relative z-10">
-            <h2 className={`text-2xl md:text-[28px] font-black leading-tight tracking-tighter drop-shadow-2xl ${status === 'excellence' || status === 'good' ? 'text-white' :
-                status === 'warning' ? 'text-red-100' : 'text-blue-50'
+        <div className="text-center my-4 relative z-10">
+            <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500 drop-shadow-[0_0_10px_rgba(168,85,247,0.4)]' :
+                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]' :
+                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
                 }`}>
                 {prediction}
             </h2>
@@ -86,48 +78,41 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
         </div>
     </div>
 ));
+
 const ConsistencyCard = React.memo(({ consistency }) => (
-    <div className={`glass h-full p-6 rounded-[2rem] relative flex flex-col justify-between border border-white/10 group overflow-hidden transition-all duration-500 hover:scale-[1.02] shadow-[0_20px_50px_rgba(0,0,0,0.3)] ${consistency.bgBorder.replace('border-', 'hover:border-').replace('/30', '')}`}>
-        <div className={`absolute -bottom-20 -left-20 w-64 h-64 blur-[100px] rounded-full opacity-10 group-hover:opacity-30 transition-all duration-1000 ${consistency.color.replace('text-', 'bg-')}`} />
-        
-        <div className="flex justify-between items-start mb-6 relative z-10">
-            <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-500 group-hover:-rotate-12 ${consistency.color.replace('text-', 'bg-')}/20 ${consistency.bgBorder}`}>
-                    <Activity size={20} className={consistency.color} />
+    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${consistency.bgBorder}`}>
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${consistency.color.replace('text-', 'bg-')}/20 ${consistency.bgBorder}`}>
+                    <Activity size={18} className={consistency.color} />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Engine Analytics</span>
-                    <span className="text-xs font-bold text-slate-200">Consistência Global</span>
-                </div>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
             </div>
         </div>
-
-        <div className="text-center my-6 relative z-10">
-            <h2 className={`text-2xl md:text-[26px] font-black leading-tight tracking-tighter ${consistency.color} drop-shadow-2xl`}>
+        <div className="text-center my-4 relative z-10">
+            <h2 className={`text-lg md:text-xl font-black leading-tight ${consistency.color} drop-shadow-md`}>
                 {consistency.status}
             </h2>
         </div>
-
-        <div className="grid grid-cols-2 gap-3 w-full mb-4 relative z-10">
-            <div className="bg-white/[0.03] p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center shadow-lg transition-all group-hover:bg-white/[0.06]">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Desvio Padrão</span>
-                <span className={`text-sm font-black tracking-tight ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
+        <div className="grid grid-cols-2 gap-2 w-full mb-3">
+            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
+                <span className={`text-sm font-black ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
                     {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}%` : '---'}
                 </span>
             </div>
-            <div className="bg-white/[0.03] p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center shadow-lg transition-all group-hover:bg-white/[0.06]">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Diagnóstico</span>
-                <span className="text-[11px] font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
+            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
+                <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
                     {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
                         (['EXCELENTE', 'EM EVOLUÇÃO'].includes(consistency.status) ? 'Alta Estabilidade' :
                             (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                 </span>
             </div>
         </div>
-        
-        <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
-            <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold italic">
-                "{consistency.message}"
+        <div className="mt-auto pt-2 border-t border-white/10">
+            <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+                {consistency.message}
             </p>
         </div>
     </div>
@@ -141,55 +126,43 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
 
     return (
-        <div className={`grid grid-cols-12 gap-4 px-5 py-4 rounded-2xl items-center transition-all duration-500 hover:bg-white/[0.05] border border-transparent hover:border-white/5 group/row ${idx % 2 === 0 ? 'bg-white/[0.01]' : ''}`}>
-            <div className="col-span-3 flex items-center gap-3 min-w-0">
-                <div className={`w-1.5 h-10 rounded-full flex-shrink-0 shadow-lg ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
-                <div className="flex flex-col min-w-0">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{cat.category || 'Matéria'}</span>
-                    <span className="text-sm font-black text-slate-100 truncate group-hover/row:text-white transition-colors">{cat.name}</span>
-                </div>
+        <div className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
+            <div className="col-span-3 flex items-center gap-2 min-w-0">
+                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
             </div>
             <div className="col-span-2 flex justify-center">
-                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1.5 rounded-xl border ${cat.color} ${cat.bgBorder} bg-black/40 shadow-sm`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
                     {cat.status}
                 </span>
             </div>
-            <div className="col-span-4 flex items-center gap-4">
-                <div className="flex-1 h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
-                    <div className={`h-full rounded-full ${sdBarColor} shadow-[0_0_15px_rgba(255,255,255,0.1)] ${sdBarGlow} transition-all duration-1000 cubic-bezier(0.34, 1.56, 0.64, 1)`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '6px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/20" style={{ right: `${(5 / maxSdVal) * 100}%` }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} />
+            <div className="col-span-4 flex items-center gap-2">
+                <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
+                    <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} title="SD=15" />
                 </div>
-                <div className="flex flex-col items-end min-w-[45px]">
-                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">SD</span>
-                    <span className={`text-xs font-mono font-black ${cat.color}`}>±{cat.sd}</span>
-                </div>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
             </div>
             <div className="col-span-1 flex justify-center items-center">
                 {deltaNum > 0 ? (
-                    <div className="flex flex-col items-center">
-                        <span className="text-[8px] font-black text-slate-600 uppercase mb-0.5">Δ</span>
-                        <span className="text-[11px] font-black text-emerald-400 flex items-center gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20"><TrendingUp size={10} />{Math.abs(deltaNum).toFixed(0)}</span>
-                    </div>
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
                 ) : deltaNum < 0 ? (
-                    <div className="flex flex-col items-center">
-                        <span className="text-[8px] font-black text-slate-600 uppercase mb-0.5">Δ</span>
-                        <span className="text-[11px] font-black text-rose-400 flex items-center gap-0.5 bg-rose-500/10 px-1.5 py-0.5 rounded-md border border-rose-500/20"><TrendingDown size={10} />{Math.abs(deltaNum).toFixed(0)}</span>
-                    </div>
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
                 ) : (
-                    <span className="text-[10px] font-bold text-slate-700">—</span>
+                    <span className="text-[10px] font-bold text-slate-600">—</span>
                 )}
             </div>
-            <div className="col-span-2 flex flex-col justify-center gap-1 min-w-0 pl-2">
+            <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="flex items-center justify-between gap-2 text-[10px] leading-tight min-h-[16px] w-full bg-white/[0.02] p-1 rounded-md border border-white/[0.03]">
-                            <span className="text-slate-400 truncate font-bold text-[9px]" title={v.name}>{v.name}</span>
-                            <span className="text-rose-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
+                        <div key={v.name} className="relative flex items-center justify-center text-[12px] leading-tight min-h-[14px]">
+                            <span className="text-slate-400 truncate max-w-[70px] font-semibold text-center" title={v.name}>{v.name.length > 15 ? v.name.substring(0, 14) + '…' : v.name}</span>
+                            <span className="absolute right-0 text-red-400 font-mono font-black text-[12px]">±{v.sd.toFixed(0)}</span>
                         </div>
                     ))
                 ) : (
-                    <span className="text-[10px] text-slate-700 text-center italic">Consistente</span>
+                    <span className="text-[10px] text-slate-600 text-center">—</span>
                 )}
             </div>
         </div>
@@ -635,24 +608,24 @@ export default function VerifiedStats({ categories = [], user }) {
                 <ConsistencyCard consistency={stats.consistency} />
             </div>
 
-            {/* Bottom Row: Monte Carlo Side-by-Side (B-15 FIX: Unified Lab Section) */}
-            <div className="mt-12 mb-8 relative">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-4 border-b border-white/5 gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-blue-500/20 flex items-center justify-center border border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-                            <Activity size={24} className="text-indigo-400" />
+            {/* Bottom Row: Monte Carlo Side-by-Side */}
+            <div className="mt-8 mb-4">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                            <Activity size={20} className="text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white tracking-tight">Simulação de Monte Carlo</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Laboratório de Análise Estocástica</p>
+                            <h2 className="text-lg font-bold text-white">Simulação de Monte Carlo</h2>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Análise de Probabilidade de Aprovação</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowConfig(true)}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 rounded-2xl text-xs font-black text-slate-300 transition-all shadow-xl hover:scale-105 active:scale-95 group/btn"
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
                         >
-                            <Settings2 size={16} className="group-hover/btn:rotate-90 transition-transform duration-500" />
+                            <Settings2 size={16} />
                             Configurar Pesos e Meta
                         </button>
                     </div>
@@ -693,25 +666,17 @@ export default function VerifiedStats({ categories = [], user }) {
             />
 
             {/* Subject Consistency Breakdown - Full Width */}
-            <div className="glass p-8 rounded-[2rem] border border-white/5 shadow-2xl relative overflow-hidden group/breakdown">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
-                
-                <div className="flex items-center gap-3 mb-8 relative z-10">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center border border-white/10 shadow-lg">
-                        <Activity size={16} className="text-slate-400" />
-                    </div>
-                    <div>
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">Consistência por Matéria</h3>
-                        {stats.categoryBreakdown.length > 0 && (
-                            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-                                {stats.categoryBreakdown.length} matéria{stats.categoryBreakdown.length > 1 ? 's' : ''} analisada{stats.categoryBreakdown.length > 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
+            <div className="glass col-span-1 lg:col-span-4 p-6 mt-2">
+                <div className="flex items-center gap-2 mb-6 text-slate-400">
+                    <Activity size={16} />
+                    <h3 className="text-xs font-bold uppercase tracking-widest">Detalhe da Consistência por Matéria</h3>
+                    {stats.categoryBreakdown.length > 0 && (
+                        <span className="ml-auto text-[9px] font-bold text-slate-600 uppercase tracking-wider">
+                            {stats.categoryBreakdown.length} matéria{stats.categoryBreakdown.length > 1 ? 's' : ''} analisada{stats.categoryBreakdown.length > 1 ? 's' : ''}
+                        </span>
+                    )}
                 </div>
-                <div className="relative z-10">
-                    <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} />
-                </div>
+                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} />
             </div>
         </div>
     );
