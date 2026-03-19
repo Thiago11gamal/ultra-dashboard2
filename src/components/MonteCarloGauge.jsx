@@ -360,7 +360,11 @@ export default function MonteCarloGauge({
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
 
     return (
-        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl overflow-hidden w-full max-w-full ${isCalculating ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-8 rounded-[2.5rem] relative flex flex-col border border-white/10 group transition-all duration-700 shadow-[0_25px_60px_rgba(0,0,0,0.4)] overflow-hidden w-full max-w-full ${isCalculating ? 'opacity-90 scale-[0.99]' : ''}`}>
+            
+            {/* Background Glow Effect */}
+            <div className={`absolute -top-32 -right-32 w-80 h-80 blur-[130px] rounded-full opacity-10 transition-all duration-1000 ${forcedMode === 'today' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+            <div className={`absolute -bottom-32 -left-32 w-80 h-80 blur-[130px] rounded-full opacity-10 transition-all duration-1000 ${forcedMode === 'today' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
 
             {/* Scanning Overlay Effect */}
             {isCalculating && (
@@ -369,15 +373,19 @@ export default function MonteCarloGauge({
                 </div>
             )}
 
-            <div className="flex justify-between items-center mb-4 relative z-10">
-                <div className="flex items-center gap-2">
-                    {forcedMode && (
-                        <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
-                            {forcedMode === 'today' ? 'Hoje' : 'Futuro'}
+            <div className="flex justify-between items-center mb-8 relative z-10">
+                <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl border transition-all duration-500 group-hover:rotate-6 ${forcedMode === 'today' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/20 border-blue-500/30 text-blue-400'}`}>
+                        <Gauge size={22} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-black text-white tracking-widest uppercase">{forcedTitle || 'Monte Carlo'}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${forcedMode === 'today' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-blue-500/20 border-blue-500/30 text-blue-300'}`}>
+                                {forcedMode === 'today' ? 'Estado Atual' : 'Projeção Receptiva'}
+                            </span>
                         </div>
-                    )}
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{forcedTitle || 'Monte Carlo'}</span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (
@@ -406,59 +414,65 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isCalculating ? 'blur-sm' : ''}`}>
-                <div className="relative mb-6">
-                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isCalculating ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
-                    <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
-                        <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
+            <div className={`w-full bg-white/[0.02] backdrop-blur-3xl rounded-[2rem] p-10 mb-8 border border-white/5 flex flex-col items-center transition-all duration-700 relative overflow-hidden group/gauge shadow-inner ${isCalculating ? 'blur-sm' : ''}`}>
+                <div className="relative mb-8">
+                    {/* Pulsing Core Glow */}
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-[50px] transition-all duration-700 ${isCalculating ? 'scale-150 opacity-40' : 'group-hover/gauge:scale-125 group-hover/gauge:opacity-30'}`}><div className="w-32 h-32 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
+                    
+                    <svg width="240" height="120" viewBox="0 0 140 70" className="overflow-visible relative z-10 drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#ffffff05" strokeWidth="14" strokeLinecap="round" />
                         <path
                             d="M 10 65 A 60 60 0 0 1 130 65"
                             fill="none"
                             stroke={gradientColor}
-                            strokeWidth="12"
+                            strokeWidth="14"
                             strokeLinecap="round"
                             pathLength="100"
                             strokeDasharray={`${prob} 100`}
                             strokeDashoffset={0}
-                            style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
+                            style={{ transition: 'stroke-dasharray 2s cubic-bezier(0.34, 1.56, 0.64, 1)', filter: `drop-shadow(0 0 8px ${gradientColor}50)` }}
                         />
-                        {/* Needle / Pointer (Premium Tip) */}
                         {!isCalculating && (
-                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
-                                <path d="M 10 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`} style={{ transition: 'transform 2s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                                <circle cx="70" cy="65" r="3" fill="#fff" />
+                                <path d="M 5 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.8))' }} />
                              </g>
                         )}
                     </svg>
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
+                    <div className="absolute inset-x-0 -bottom-2 flex items-end justify-center z-20">
+                        <span className={`text-6xl font-black tracking-tighter transition-all duration-700 ${isCalculating ? 'scale-110 blur-sm' : 'drop-shadow-[0_5px_15px_rgba(0,0,0,0.4)]'}`} style={{ color: gradientColor }}>
+                            {prob.toFixed(1)}<span className="text-2xl ml-0.5 opacity-70">%</span>
+                        </span>
+                    </div>
                 </div>
-                <span className={`text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''}`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
-                    {isCalculating ? "RECALCULANDO..." : message}
-                </span>
+                <div className="relative group/msg translate-y-2">
+                   <div className="absolute inset-x-0 -top-4 bottom-0 bg-white/5 blur-xl rounded-full opacity-0 group-hover/msg:opacity-100 transition-opacity" />
+                    <span className={`relative z-10 text-[11px] font-black uppercase tracking-[0.3em] px-8 py-2.5 rounded-full bg-black/40 border border-white/5 shadow-2xl transition-all duration-700 border-b-2`} style={{ borderBottomColor: isCalculating ? '#60a5fa' : gradientColor, color: isCalculating ? '#60a5fa' : gradientColor }}>
+                        {isCalculating ? "RECALCULANDO MOTOR..." : message}
+                    </span>
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 px-1">
                 {[
                     { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
                     { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
                     { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
                     { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`, color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
-                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
+                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-emerald-400" }
                 ].map((m, i) => (
-                    <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
-                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</span>
-                        <span className={`text-sm font-black ${m.color}`}>{m.val}</span>
-                    </div>
-                ))}
-            </div>
-
-            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
-                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
-                <div className="w-full h-44 px-2">
+                    <div key={i} className="bg-white/[0.03] p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center shadow-lg transition-all hover:bg-white/[0.08] hover:-translate-y-1 duration-300">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">{m.label}</span>
+                        <span className={`text-[13px] font-black tracking-tight ${m.color}`}>{m.val}</span>
+                    </d            <div className="w-full bg-white/[0.02] backdrop-blur-3xl rounded-[2rem] p-6 mb-8 border border-white/5 shadow-inner relative overflow-hidden group/gauss">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-[80px] rounded-full pointer-events-none" />
+                <div className="flex items-center gap-2 mb-4 relative z-10">
+                    <TrendingUp size={14} className="text-slate-500" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Curva de Probabilidade</span>
+                </div>
+                <div className="w-full h-44 px-2 relative z-10">
                     {(() => {
-                        // MC-05: Remover visualSD redundante. O motor (monteCarlo.js/projection.js) 
-                        // já retorna o SD inferido do IC de 95% para garantir consistência visual.
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
-
                         return (
                             <GaussianPlot
                                 mean={parseFloat(mean)}
@@ -472,39 +486,42 @@ export default function MonteCarloGauge({
                         );
                     })()}
                 </div>
-                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
-                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                            <div className={`${l.bg} w-2 h-2 rounded-full`}></div>
-                            <span className="text-[9px] text-slate-400">{l.lbl}</span>
+                <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6 pt-5 border-t border-white/5 relative z-10">
+                    {[{ bg: "bg-rose-500", lbl: "Meta" }, { bg: "bg-blue-500/50", lbl: "Média" }, { bg: "bg-emerald-500/30 border border-emerald-500/50", lbl: "Sucesso" }, { bg: "bg-white", lbl: "Hoje" }, { bg: "bg-blue-400", lbl: "Projeção" }].map((l, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <div className={`${l.bg} w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]`}></div>
+                            <span className="text-[10px] text-slate-500 font-bold tracking-tight">{l.lbl}</span>
                         </div>
                     ))}
                 </div>
+            </div>        ))}
+                </div>
             </div>
 
-            <div className="w-full flex flex-col gap-2 mt-4">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
-                <div className="flex flex-wrap justify-center gap-2.5 min-h-[24px]">
+            <div className="w-full flex flex-col gap-4 mt-6">
+                <div className="flex items-center gap-2 justify-center">
+                    <span className="h-px w-8 bg-white/5"></span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Matérias Analisadas</span>
+                    <span className="h-px w-8 bg-white/5"></span>
+                </div>
+                <div className="flex flex-wrap justify-center gap-3">
                     {activeCategories?.slice(0, 8).map((cat) => {
                         const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
                         return (
-                            <div key={cat.id || cat.name} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800/60 border border-white/5 text-[9px] text-slate-300 uppercase tracking-tight leading-relaxed">
-                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
-                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
-                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
-                                <span className="max-w-[120px] truncate">
+                            <div key={cat.id || cat.name} className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] text-slate-300 font-bold tracking-tight hover:bg-white/[0.08] transition-all hover:scale-105 shadow-lg group/tag">
+                                {catStats?.trend === 'up' && <TrendingUp size={12} className="text-emerald-400 group-hover/tag:scale-110 transition-transform" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={12} className="text-rose-400 group-hover/tag:scale-110 transition-transform" />}
+                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={12} className="text-slate-600" />}
+                                <span className="max-w-[130px] truncate">
                                     {cat.name}
                                 </span>
                             </div>
                         );
                     })}
                     {(activeCategories?.length || 0) > 8 && (
-                        <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
+                        <span className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[9px] text-slate-500 font-black flex items-center shadow-lg">
                             +{activeCategories.length - 8}
                         </span>
-                    )}
-                    {activeCategories?.length === 0 && (
-                        <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>
                     )}
                 </div>
             </div>
