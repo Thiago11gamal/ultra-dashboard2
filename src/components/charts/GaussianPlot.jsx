@@ -4,7 +4,7 @@ import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
     const [hover, setHover] = useState(null);
 
-    const { pathData, trendPathData, areaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
+    const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         const xMin = 0;
@@ -47,22 +47,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const path = `M ${curvePoints.join(' L ')}`;
         const trendPath = trendPoints.length > 0 ? `M ${trendPoints.join(' L ')}` : '';
 
-        // 3. Precise Area Path (BUG-06 FIX)
-        const areaPoints = [];
+        // 3. Precise Area Paths (BUG-06 FIX / Enhancement)
+        const areaPoints = []; // Success
+        const failPoints = []; // Failure
         const successStart = Math.max(xMin, targetVal);
 
-        // Find intersection with the curve at exactly successStart
+        // Intersection Y at exactly targetScore
         const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, heightFactor);
-        areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
 
-        // Add points from the curve that are >= successStart
+        // Success Area (x >= target)
+        areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
         curvePoints.forEach(p => {
             const [xPos, yPos] = p.split(',').map(Number);
-            if (xPos > xp(successStart)) {
-                areaPoints.push(p);
-            }
+            if (xPos > xp(successStart)) areaPoints.push(p);
         });
-
         if (areaPoints.length > 0) {
             const lastP = areaPoints[areaPoints.length - 1];
             const firstX = xp(successStart);
@@ -70,7 +68,18 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             areaPoints.push(`${lastX},100`);
             areaPoints.push(`${firstX},100`);
         }
+
+        // Failure Area (x < target)
+        failPoints.push(`${xp(xMin)},100`);
+        curvePoints.forEach(p => {
+            const [xPos, yPos] = p.split(',').map(Number);
+            if (xPos <= xp(successStart)) failPoints.push(p);
+        });
+        failPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
+        failPoints.push(`${xp(successStart)},100`);
+
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
+        const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
         // Added for Ultra-Premium markers
         const median = meanVal;
@@ -81,6 +90,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             pathData: path,
             trendPathData: trendPath,
             areaPathData: areaPath,
+            failAreaPathData: failPath,
             range, xMin, targetVal, xp, yp, heightFactor, curvePoints, 
             asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactor),
             median, p25, p75
@@ -164,6 +174,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <stop offset="0%" stopColor="rgba(34, 197, 94, 0.7)" />
                         <stop offset="100%" stopColor="rgba(34, 197, 94, 0.2)" />
                     </linearGradient>
+                    <linearGradient id="gpFailAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(239, 68, 68, 0.5)" />
+                        <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
+                    </linearGradient>
                     <filter id="gpGlow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="1.2" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -191,6 +205,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="transition-opacity duration-300 group-hover/chart:opacity-80"
                     />
                 )}
+
+                {/* Failure Area (Red) */}
+                <path 
+                    d={failAreaPathData} 
+                    fill="url(#gpFailAreaGradient)" 
+                    stroke="#ef4444" 
+                    strokeWidth="1.2" 
+                    vectorEffect="non-scaling-stroke" 
+                    className={`opacity-70 transition-all duration-1000 ${prob < 30 ? 'animate-pulse' : ''}`} 
+                    style={{ filter: 'url(#gpGlow)' }}
+                />
 
                 {/* BUG-06 FIX: Success Area (With Pulse if High Prob) */}
                 <path 
