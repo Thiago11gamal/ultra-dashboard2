@@ -141,43 +141,55 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
 
     return (
-        <div className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
-            <div className="col-span-3 flex items-center gap-2 min-w-0">
-                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
-                <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
+        <div className={`grid grid-cols-12 gap-4 px-5 py-4 rounded-2xl items-center transition-all duration-500 hover:bg-white/[0.05] border border-transparent hover:border-white/5 group/row ${idx % 2 === 0 ? 'bg-white/[0.01]' : ''}`}>
+            <div className="col-span-3 flex items-center gap-3 min-w-0">
+                <div className={`w-1.5 h-10 rounded-full flex-shrink-0 shadow-lg ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{cat.category || 'Matéria'}</span>
+                    <span className="text-sm font-black text-slate-100 truncate group-hover/row:text-white transition-colors">{cat.name}</span>
+                </div>
             </div>
             <div className="col-span-2 flex justify-center">
-                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
+                <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1.5 rounded-xl border ${cat.color} ${cat.bgBorder} bg-black/40 shadow-sm`}>
                     {cat.status}
                 </span>
             </div>
-            <div className="col-span-4 flex items-center gap-2">
-                <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
-                    <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} title="SD=15" />
+            <div className="col-span-4 flex items-center gap-4">
+                <div className="flex-1 h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/5 relative shadow-inner">
+                    <div className={`h-full rounded-full ${sdBarColor} shadow-[0_0_15px_rgba(255,255,255,0.1)] ${sdBarGlow} transition-all duration-1000 cubic-bezier(0.34, 1.56, 0.64, 1)`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '6px' : '0' }} />
+                    <div className="absolute top-0 h-full w-px bg-white/20" style={{ right: `${(5 / maxSdVal) * 100}%` }} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} />
                 </div>
-                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
+                <div className="flex flex-col items-end min-w-[45px]">
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">SD</span>
+                    <span className={`text-xs font-mono font-black ${cat.color}`}>±{cat.sd}</span>
+                </div>
             </div>
             <div className="col-span-1 flex justify-center items-center">
                 {deltaNum > 0 ? (
-                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
+                    <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black text-slate-600 uppercase mb-0.5">Δ</span>
+                        <span className="text-[11px] font-black text-emerald-400 flex items-center gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20"><TrendingUp size={10} />{Math.abs(deltaNum).toFixed(0)}</span>
+                    </div>
                 ) : deltaNum < 0 ? (
-                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
+                    <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black text-slate-600 uppercase mb-0.5">Δ</span>
+                        <span className="text-[11px] font-black text-rose-400 flex items-center gap-0.5 bg-rose-500/10 px-1.5 py-0.5 rounded-md border border-rose-500/20"><TrendingDown size={10} />{Math.abs(deltaNum).toFixed(0)}</span>
+                    </div>
                 ) : (
-                    <span className="text-[10px] font-bold text-slate-600">—</span>
+                    <span className="text-[10px] font-bold text-slate-700">—</span>
                 )}
             </div>
-            <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
+            <div className="col-span-2 flex flex-col justify-center gap-1 min-w-0 pl-2">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="flex items-center justify-between gap-1 text-[10px] leading-tight min-h-[14px] w-full">
-                            <span className="text-slate-400 truncate font-semibold" title={v.name}>{v.name}</span>
-                            <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
+                        <div key={v.name} className="flex items-center justify-between gap-2 text-[10px] leading-tight min-h-[16px] w-full bg-white/[0.02] p-1 rounded-md border border-white/[0.03]">
+                            <span className="text-slate-400 truncate font-bold text-[9px]" title={v.name}>{v.name}</span>
+                            <span className="text-rose-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
                     ))
                 ) : (
-                    <span className="text-[10px] text-slate-600 text-center">—</span>
+                    <span className="text-[10px] text-slate-700 text-center italic">Consistente</span>
                 )}
             </div>
         </div>

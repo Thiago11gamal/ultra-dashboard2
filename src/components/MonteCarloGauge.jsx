@@ -453,7 +453,7 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 px-1">
+             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 px-1 relative z-10">
                 {[
                     { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
                     { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
@@ -464,7 +464,11 @@ export default function MonteCarloGauge({
                     <div key={i} className="bg-white/[0.03] p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center shadow-lg transition-all hover:bg-white/[0.08] hover:-translate-y-1 duration-300">
                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">{m.label}</span>
                         <span className={`text-[13px] font-black tracking-tight ${m.color}`}>{m.val}</span>
-                    </d            <div className="w-full bg-white/[0.02] backdrop-blur-3xl rounded-[2rem] p-6 mb-8 border border-white/5 shadow-inner relative overflow-hidden group/gauss">
+                    </div>
+                ))}
+            </div>
+
+            <div className="w-full bg-white/[0.02] backdrop-blur-3xl rounded-[2rem] p-6 mb-8 border border-white/5 shadow-inner relative overflow-hidden group/gauss z-10">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-[80px] rounded-full pointer-events-none" />
                 <div className="flex items-center gap-2 mb-4 relative z-10">
                     <TrendingUp size={14} className="text-slate-500" />
@@ -494,11 +498,9 @@ export default function MonteCarloGauge({
                         </div>
                     ))}
                 </div>
-            </div>        ))}
-                </div>
             </div>
 
-            <div className="w-full flex flex-col gap-4 mt-6">
+            <div className="w-full flex flex-col gap-4 mt-6 z-10">
                 <div className="flex items-center gap-2 justify-center">
                     <span className="h-px w-8 bg-white/5"></span>
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Matérias Analisadas</span>
