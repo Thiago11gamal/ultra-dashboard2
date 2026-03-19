@@ -610,8 +610,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     {!isLayoutLocked && (
                         <button
                             onClick={() => {
-                                setUiPosition({ x: 0, y: 0 });
-                                localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
+                                try {
+                                    localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
+                                } catch { /* ignore storage errors */ }
                             }}
                             className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
                             title="Resetar Posição"
