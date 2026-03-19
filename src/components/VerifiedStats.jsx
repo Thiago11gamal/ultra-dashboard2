@@ -276,7 +276,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 return data; // BUG-A3 FIX: Ensure mutation is committed
             }, shouldRecordHistory);
         }
-    }, [targetScore, setUserData, user?.targetProbability, user?.uid, showConfig]);
+    }, [targetScore, setUserData, user?.uid, showConfig]); // B-06 FIX: EXCLUDE user?.targetProbability to prevent infinite sync loops
 
     const stats = useMemo(() => {
         let allHistory = [];
