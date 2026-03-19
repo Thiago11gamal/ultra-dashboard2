@@ -24,10 +24,21 @@ export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
  */
 export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
     const points = [];
+    const stepSize = (xMax - xMin) / steps;
+    
     for (let i = 0; i <= steps; i++) {
-        const x = xMin + (xMax - xMin) * (i / steps);
+        const x = xMin + stepSize * i;
         const y = asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor);
-        points.push(`${xp(x)},${yp(y)}`);
+        points.push({x, y});
     }
-    return points;
+
+    // Ensure the mean (peak) is precisely included
+    if (mean >= xMin && mean <= xMax) {
+        points.push({x: mean, y: asymmetricGaussian(mean, mean, sdLeft, sdRight, heightFactor)});
+    }
+
+    // Sort to maintain chronological path order
+    return points
+        .sort((a, b) => a.x - b.x)
+        .map(p => `${xp(p.x)},${yp(p.y)}`);
 }

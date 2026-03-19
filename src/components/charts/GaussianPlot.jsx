@@ -235,6 +235,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <circle cx={meanPos} cy={yp(heightFactor)} r="3" fill="#3b82f6" stroke="#0f172a" strokeWidth="1.5" style={{ filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.8))' }} />
 
                 {isCurrentVisible && (
+                    <line x1={currentPos} y1="100" x2={currentPos} y2="0" stroke="white" strokeWidth="0.8" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="opacity-20" />
+                )}
+
+                {isCurrentVisible && (
                     <circle cx={currentPos} cy="100" r="2.5" fill="white" stroke="#0f172a" strokeWidth="1" />
                 )}
             </svg>
@@ -243,7 +247,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             <div className="absolute inset-0 pointer-events-none">
                 {/* Projeção Label */}
                 <div
-                    className="absolute transition-all duration-500"
+                    className="absolute flex flex-col items-center transition-all duration-500"
                     style={{
                         left: `${meanPos}%`,
                         top: tierMean === 2 ? '25%' : '15%',
@@ -302,7 +306,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         }}
                     >
                         <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] mb-1" />
-                        <span className="text-[9px] font-black text-white/70 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
+                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-sm border border-white/20 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
             </div>
