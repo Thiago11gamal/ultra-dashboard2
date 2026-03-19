@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { Flame, Trophy, Sparkles } from 'lucide-react';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { calculateStudyStreak } from '../utils/analytics';
