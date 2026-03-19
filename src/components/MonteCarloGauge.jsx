@@ -453,7 +453,7 @@ export default function MonteCarloGauge({
 
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
-                <div className="w-full h-36 px-2">
+                <div className="w-full h-44 px-2">
                     {(() => {
                         // MC-05: Remover visualSD redundante. O motor (monteCarlo.js/projection.js) 
                         // já retorna o SD inferido do IC de 95% para garantir consistência visual.
