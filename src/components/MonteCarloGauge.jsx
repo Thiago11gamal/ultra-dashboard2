@@ -455,10 +455,7 @@ export default function MonteCarloGauge({
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-44 px-2">
                     {(() => {
-                        // MC-05: Remover visualSD redundante. O motor (monteCarlo.js/projection.js) 
-                        // já retorna o SD inferido do IC de 95% para garantir consistência visual.
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
-
                         return (
                             <GaussianPlot
                                 mean={parseFloat(mean)}
@@ -475,7 +472,7 @@ export default function MonteCarloGauge({
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
                     {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
-                            <div className={`${l.bg} w-2 h-2 rounded-full`}></div>
+                            <div className={`${l.bg} w-3 h-1 rounded-full`}></div>
                             <span className="text-[9px] text-slate-400">{l.lbl}</span>
                         </div>
                     ))}

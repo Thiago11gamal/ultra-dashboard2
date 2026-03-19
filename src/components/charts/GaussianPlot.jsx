@@ -91,7 +91,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp, heightFactor, curvePoints, 
+            range, xMin, targetVal, xp, yp, heightFactor, curvePoints,
             asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactor),
             median, p25, p75
         };
@@ -202,26 +202,26 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 {/* Failure Area (Red) */}
-                <path 
-                    d={failAreaPathData} 
-                    fill="url(#gpFailAreaGradient)" 
-                    stroke="#ef4444" 
-                    strokeWidth="1.2" 
-                    vectorEffect="non-scaling-stroke" 
-                    className={`opacity-70 transition-all duration-1000 ${prob < 30 ? 'animate-pulse' : ''}`} 
+                <path
+                    d={failAreaPathData}
+                    fill="url(#gpFailAreaGradient)"
+                    stroke="#ef4444"
+                    strokeWidth="1.2"
+                    vectorEffect="non-scaling-stroke"
+                    className={`opacity-70 transition-all duration-1000 ${prob < 30 ? 'animate-pulse' : ''}`}
                     style={{ filter: 'url(#gpGlow)' }}
                 />
 
                 {/* BUG-06 FIX: Success Area (With Pulse if High Prob) */}
-                <path 
-                    d={areaPathData} 
-                    fill="url(#gpAreaGradient)" 
-                    stroke="#22c55e" 
-                    strokeWidth="1.2" 
-                    strokeDasharray="none" 
-                    vectorEffect="non-scaling-stroke" 
-                    className={`opacity-80 transition-all duration-1000 ${prob > 80 ? 'animate-pulse' : ''}`} 
-                    style={{ filter: 'url(#gpGlow)' }} 
+                <path
+                    d={areaPathData}
+                    fill="url(#gpAreaGradient)"
+                    stroke="#22c55e"
+                    strokeWidth="1.2"
+                    strokeDasharray="none"
+                    vectorEffect="non-scaling-stroke"
+                    className={`opacity-80 transition-all duration-1000 ${prob > 80 ? 'animate-pulse' : ''}`}
+                    style={{ filter: 'url(#gpGlow)' }}
                 />
 
                 {/* Vertical Markers (p25, Median, p75) */}
@@ -233,8 +233,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <path
                         d={trendPathData}
                         fill="none"
-                        stroke="rgba(255,255,255,0.4)"
-                        strokeWidth="1.5"
+                        stroke="rgba(255,255,255,0.7)"
+                        strokeWidth="2.0"
                         strokeDasharray="4,4"
                         vectorEffect="non-scaling-stroke"
                         className="animate-[dash_20s_linear_infinite]"
@@ -242,24 +242,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 {/* VISUAL-05: Gradient Main Curve */}
-                <path d={pathData} fill="none" stroke="url(#gpCurveGradient)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#gpGlow)' }} />
+                <path d={pathData} fill="none" stroke="url(#gpCurveGradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#gpGlow)' }} />
 
                 {/* Markers & Visual Elements */}
                 {isTargetVisible && (
-                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3,2" vectorEffect="non-scaling-stroke" className="opacity-60" />
+                    <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="3.0" vectorEffect="non-scaling-stroke" className="opacity-100" />
                 )}
 
-                <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="1" vectorEffect="non-scaling-stroke" className="opacity-40" />
+                <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="2.2" vectorEffect="non-scaling-stroke" className="opacity-90" />
 
-                {/* VISUAL-04: Peak Dot */}
-                <circle cx={meanPos} cy={yp(heightFactor)} r="3" fill="#3b82f6" stroke="#0f172a" strokeWidth="1.5" style={{ filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.8))' }} />
-
-                {isCurrentVisible && (
-                    <line x1={currentPos} y1="100" x2={currentPos} y2="0" stroke="white" strokeWidth="0.8" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="opacity-20" />
-                )}
+                {/* Visual Markers & Elements */}
+                {/* Meta and Peak indicators are now represented by vertical lines */}
 
                 {isCurrentVisible && (
-                    <circle cx={currentPos} cy="100" r="2.5" fill="white" stroke="#0f172a" strokeWidth="1" />
+                    <line x1={currentPos} y1="100" x2={currentPos} y2="0" stroke="white" strokeWidth="1.5" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="opacity-70" />
                 )}
             </svg>
 
@@ -318,7 +314,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {isCurrentVisible && (
                     <div
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500"
-                        style={{ 
+                        style={{
                             left: `${currentPos}%`,
                             top: '45%', // Keep Hoje lower to avoid clutter
                             transform: 'translateX(-50%)',
@@ -336,15 +332,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <div
                     className="absolute inset-0 pointer-events-none z-50 overflow-hidden"
                 >
-                    <div 
-                        className="absolute h-full w-px bg-white/10" 
+                    <div
+                        className="absolute h-full w-px bg-white/10"
                         style={{ left: `${hover.x}%` }}
                     />
-                    <div 
+                    <div
                         className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white] transition-all duration-75"
                         style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val))}%`, transform: 'translate(-50%, -50%)' }}
                     />
-                    <div 
+                    <div
                         className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px] transition-all duration-150"
                         style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val)) - 10}%`, transform: 'translate(-50%, -100%)' }}
                     >

@@ -126,7 +126,7 @@ export function EvolutionLineChart({
                                 stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2}
                                 strokeLinecap="round" strokeLinejoin="round"
                                 strokeOpacity={isFocused ? 1 : 0.4}
-                                dot={isFocused ? { r: 4, fill: cat.color, stroke: '#0a0f1e', strokeWidth: 2 } : false}
+                                dot={false}
                                 activeDot={false}
                                 connectNulls
                                 style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
