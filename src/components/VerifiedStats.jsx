@@ -275,6 +275,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     logger.log("[MonteCarlo) Final sync of targetScore:", targetScore);
                 }
                 return data; // committing draft mutation
+            }, shouldRecordHistory);
         }
     }, [targetScore, setUserData, user?.uid, showConfig]); // B-06 FIX: EXCLUDE user?.targetProbability to prevent infinite sync loops
 
