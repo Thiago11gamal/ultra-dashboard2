@@ -449,10 +449,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                                         {/* Play Button - Action */}
                                                         <button
                                                             onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
-                                                            className="w-10 h-10 rounded-xl bg-slate-950 border border-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 flex items-center justify-center transition-all shadow-xl group/play hover:border-emerald-500/30"
+                                                            className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-white hover:bg-emerald-500/40 hover:ring-2 hover:ring-emerald-400/50 hover:scale-110 shadow-lg shadow-emerald-500/10 transition-all group/play"
                                                             title="Iniciar Revisão"
                                                         >
-                                                            <Play size={14} className="fill-current opacity-40 group-hover/play:opacity-100" />
+                                                            <Play size={18} className="fill-emerald-400/20 group-hover/play:fill-emerald-400/40 transition-all drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]" />
                                                         </button>
                                                     </div>
                                                 ))}

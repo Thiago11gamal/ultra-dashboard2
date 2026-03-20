@@ -152,10 +152,10 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                         e.stopPropagation();
                         onTriggerPlay();
                     }}
-                    className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse ring-1 ring-purple-500/30' : 'text-slate-200 bg-white/5 hover:text-white hover:bg-purple-500/30 hover:ring-1 hover:ring-purple-500/50'}`}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all group/play ${task.status === 'studying' ? 'text-purple-300 bg-purple-500/40 animate-pulse ring-2 ring-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'text-purple-400 bg-purple-500/10 border border-purple-500/30 hover:text-white hover:bg-purple-500/40 hover:ring-2 hover:ring-purple-400/50 hover:scale-110 shadow-lg shadow-purple-500/10'}`}
                     title={task.status === 'studying' ? "Estudando agora..." : "Estudar agora (Pomodoro)"}
                 >
-                    {task.status === 'studying' ? <BarChart2 size={16} className="animate-spin" /> : <Play size={16} className="group-hover/play:scale-110 transition-transform fill-white/10 group-hover/play:fill-white/20" />}
+                    {task.status === 'studying' ? <BarChart2 size={18} className="animate-spin" /> : <Play size={18} className="group-hover/play:scale-110 transition-transform fill-purple-500/20 group-hover/play:fill-purple-500/40 drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]" />}
                 </button>
 
                 {/* Priority Badge */}
