@@ -116,8 +116,8 @@ export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
             // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 10 questões)
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
-                total = 10;
-                correct = Math.round(pct * 10);
+                total = 5;
+                correct = Math.round(pct * 5);
             }
             
             if (total < 1) continue;

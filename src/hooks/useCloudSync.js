@@ -128,6 +128,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 if (localIsInitial && cloudHasContent) {
                     logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
                     shouldPullCloud = true;
+                } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
+                    // 🛡️ BUG-C2: Nuvem é significativamente mais recente (>5s) — puxar
+                    logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
+                    shouldPullCloud = true;
                 } else {
                     logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
                     shouldPullCloud = false;
@@ -183,9 +187,76 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         setHasConflict(false);
     }, [currentUser?.uid]);
 
+    // -------------------------------------------------------------------------
     // 2. EMISSOR (Auto-save) - Master Mode
+    // -------------------------------------------------------------------------
+    
+    // BUG-M2 FIX: Função de sync estável que usa refs para evitar re-registro de listeners
+    const performEmergencySync = useCallback(async () => {
+        if (!currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
+        
+        const currentStateString = stateStringForSync(appStateRef.current);
+        if (lastSyncedRef.current === currentStateString) return;
+
+        try {
+            const syncState = appStateRef.current;
+            const safeguardContest = (contest) => {
+                if (!contest) return contest;
+                return {
+                    ...contest,
+                    studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
+                    studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
+                    simuladoRows: (contest.simuladoRows || []).slice(-300),
+                };
+            };
+
+            const safeContests = syncState.contests
+                ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                : syncState.contests;
+
+            const stateToSave = JSON.parse(JSON.stringify({
+                ...syncState,
+                contests: safeContests,
+                history: [],
+                _lastBackup: new Date().toISOString()
+            }));
+
+            setIsInternalSyncing(true);
+            logger.debug(`[Sync] [EMERGENCY] Enviando atualização para nuvem...`);
+            await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+            lastSyncedRef.current = currentStateString;
+        } catch (e) {
+            logger.error("[Sync] Erro no emergency-save:", e);
+        } finally {
+            if (isMountedRef.current) setIsInternalSyncing(false);
+        }
+    }, [currentUser?.uid, db]);
+
+    // Registro estável de listeners (BUG-M2)
     useEffect(() => {
-        // BLOQUEIO CRÍTICO: Não envia nada se ainda não validamos a paridade ou db está ausente
+        if (!currentUser?.uid || !db) return;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                performEmergencySync();
+            }
+        };
+
+        const handleBeforeUnload = () => {
+            performEmergencySync();
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [currentUser?.uid, db, performEmergencySync]);
+
+    // Timer de Debounce para auto-save normal
+    useEffect(() => {
         if (!currentUser?.uid || !appState || !isParityValidated || !db) return;
 
         const currentStateString = stateStringForSync(appState);
@@ -199,11 +270,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const syncToCloud = async () => {
             try {
                 if (lastSyncedRef.current === currentStateString) return;
-                if (lastLocalMutationRef.current !== lastMutation) {
-                    logger.debug("[Sync] Abortando upload: mutação local mais recente detectada.");
-                    return;
-                }
+                if (lastLocalMutationRef.current !== lastMutation) return;
 
+                const syncState = appState; // usa o state do closure do efeito
                 const safeguardContest = (contest) => {
                     if (!contest) return contest;
                     return {
@@ -214,18 +283,16 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     };
                 };
 
-                const safeContests = appState.contests
-                    ? Object.fromEntries(Object.entries(appState.contests).map(([id, c]) => [id, safeguardContest(c)]))
-                    : appState.contests;
+                const safeContests = syncState.contests
+                    ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                    : syncState.contests;
 
-                const rawStateToSave = {
-                    ...appState,
+                const stateToSave = JSON.parse(JSON.stringify({
+                    ...syncState,
                     contests: safeContests,
                     history: [],
                     _lastBackup: new Date().toISOString()
-                };
-
-                const stateToSave = JSON.parse(JSON.stringify(rawStateToSave));
+                }));
 
                 setIsInternalSyncing(true);
                 logger.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
@@ -242,38 +309,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         };
 
-        // Bug #1: Emergency Save on Unload / Visibility Change
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') {
-                if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
-                    logger.debug("[Sync] Visibility change (hidden) - triggering emergency sync.");
-                    syncToCloud();
-                }
-            }
-        };
-
-        const handleBeforeUnload = () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-            if (lastLocalMutationRef.current > 0 && lastSyncedRef.current !== currentStateString) {
-                // Last effort (may fail in some browsers if async, but visibilitychange covers most cases)
-                syncToCloud(); 
-            }
-        };
-
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(syncToCloud, 3000);
+
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
-            window.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-        // B-14 FIX: Removed 'currentUser' and 'showToast' from deps to avoid constant refiring of debounce timer due to prop-drilling or React re-renders, causing auto-save to be delayed indefinitely.
-        // Added currentUser?.uid to fix BUG-DEP-1 (prevent old UID on fast account switch).
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appState, isParityValidated, currentUser?.uid]);
+    }, [appState, isParityValidated, currentUser?.uid, db, showToast]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

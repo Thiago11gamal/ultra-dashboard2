@@ -144,7 +144,7 @@ export default function Simulados() {
 
                         if (finalQ > 0) {
                             filteredHistory.push({
-                                date: new Date().toISOString(),
+                                date: getDateKey(new Date()),
                                 correct: finalC,
                                 total: finalQ,
                                 score: (finalC / finalQ) * 100,
@@ -193,7 +193,7 @@ export default function Simulados() {
 
                         if (finalQ > 0) {
                             filteredHistory.push({
-                                date: new Date().toISOString(),
+                                date: getDateKey(new Date()),
                                 correct: finalC,
                                 total: finalQ,
                                 score: (finalC / finalQ) * 100,

@@ -43,7 +43,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const [mode, setMode] = useState(() => getSavedState('mode', 'work'));
     // Default time depends on mode if not saved
-    const defaultTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+    const defaultTime = useMemo(() => 
+        mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60,
+    [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const sessions = useAppStore(state => state.appState.pomodoro.sessions);
@@ -96,7 +98,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             setTimeout(() => {
                                 setMode('work');
                                 setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
-                                setSessions(0);
                                 setIsRunning(false);
                             }, 0);
                             return;

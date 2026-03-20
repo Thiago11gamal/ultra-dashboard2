@@ -96,11 +96,11 @@ const variance = wrss / Math.max(0.001, n - 2);
 // 🎯 calculateSlope (compatível)
 export function calculateSlope(history) {
     if (!history || history.length < 2) return 0;
+    const sorted = getSortedHistory(history);
+    if (sorted.length < 2) return 0;
 
-    const { slope, slopeStdError } =
-        weightedRegression(history);
-
-    const n = history.length;
+    const { slope, slopeStdError } = weightedRegression(sorted);
+    const n = sorted.length;
 
     const confidence =
         1 / (1 + slopeStdError / 0.5);

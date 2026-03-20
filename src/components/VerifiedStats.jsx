@@ -240,15 +240,15 @@ export default function VerifiedStats({ categories = [], user }) {
         if (categories.length === 0) return {};
         const newWeights = {};
         categories.forEach(cat => {
-            newWeights[cat.name] = 1;
+            newWeights[cat.id || cat.name] = 1;
         });
         return newWeights;
     }, [categories]);
 
-    const updateWeight = React.useCallback((catName, value) => {
+    const updateWeight = React.useCallback((catId, value) => {
         const numeric = parseInt(value, 10);
         const sanitize = isNaN(numeric) ? 0 : Math.max(0, Math.min(999, numeric));
-        const updatedWeights = { ...weights, [catName]: sanitize };
+        const updatedWeights = { ...weights, [catId]: sanitize };
         setWeights(updatedWeights);
     }, [weights, setWeights]);
 
@@ -274,7 +274,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 if (!showConfig) {
                     logger.log("[MonteCarlo) Final sync of targetScore:", targetScore);
                 }
-                return data; // committing draft mutation
+                // sem return — padrão correto de mutação Immer
             }, shouldRecordHistory);
         }
     }, [targetScore, setUserData, activeId, showConfig]); // B-06 FIX: use activeId as contest-switch proxy

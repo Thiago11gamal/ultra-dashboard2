@@ -81,8 +81,9 @@ export const validateAppState = (data) => {
 
     // Migração de formato Legado (único concurso) para Multi-Concurso
     if (d.categories && Array.isArray(d.categories) && !d.contests) {
+      const contestData = { ...d };
       d = {
-        contests: { 'default': d },
+        contests: { 'default': contestData },
         activeId: 'default',
         lastUpdated: d.lastUpdated || new Date().toISOString()
       };
@@ -117,7 +118,9 @@ export const validateAppState = (data) => {
       activeId: activeId,
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
-        if (!item || !item.deletedAt) return false;
+        if (!item) return false;
+        // Se não tiver deletedAt, mantém na lixeira mas não aplica expiração de 30 dias (Bug L3)
+        if (!item.deletedAt) return true;
         return (new Date() - new Date(item.deletedAt)) / (1000 * 60 * 60 * 24) <= 30;
       }) : [],
       hasSeenTour: Boolean(d.hasSeenTour),

@@ -219,7 +219,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let srsBoost = 0;
         let srsLabel = null;
 
-        if (hasData) {
+        if (hasData && (daysToExam === null || daysToExam >= 0)) {
             const srsResult = getSRSBoost(daysSinceLastStudy, cfg);
             srsBoost = srsResult.boost;
             srsLabel = srsResult.label;
