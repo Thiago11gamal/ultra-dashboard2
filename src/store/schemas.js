@@ -17,7 +17,9 @@ const sanitizeContest = (data) => {
       goalDate: data.user?.goalDate || null,
       xp: Number(data.user?.xp) || 0,
       level: Number(data.user?.level) || 1,
-      achievements: Array.isArray(data.user?.achievements) ? data.user?.achievements : [],
+      achievements: (Array.isArray(data.user?.achievements) ? data.user.achievements : [])
+        .map(a => typeof a === 'string' ? a : a?.id)
+        .filter(Boolean),
       studiedEarly: Boolean(data.user?.studiedEarly),
       studiedLate: Boolean(data.user?.studiedLate),
       targetProbability: (data.user?.targetProbability != null && Number.isFinite(Number(data.user.targetProbability)))
@@ -60,7 +62,8 @@ const sanitizeContest = (data) => {
       pomodoroWork: Number(data.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(data.settings?.pomodoroBreak) || 5,
     },
-    mcWeights: data.mcWeights || {}
+    mcWeights: data.mcWeights || {},
+    lastUpdated: data.lastUpdated || null, // C3: preservar lastUpdated no nível do concurso
   };
 };
 
@@ -98,18 +101,7 @@ export const validateAppState = (data) => {
 
     let activeId = d.activeId || 'default';
     
-    // Lógica de Foco: Se o concurso ativo estiver vazio, tenta encontrar um que contenha 'Direito'
-    const activeContest = validatedContests[activeId];
-    const currentIsEmpty = !activeContest || !activeContest.categories || activeContest.categories.length === 0;
-    
-    if (currentIsEmpty) {
-      const derechoId = Object.keys(validatedContests).find(id => {
-        const c = validatedContests[id];
-        // Busca otimizada sem JSON.stringify completo
-        return c.categories?.some(cat => cat.name?.toLowerCase().includes('direito'));
-      });
-      if (derechoId) activeId = derechoId;
-    }
+    // C4 FIX: Removed silent auto-redirect to 'Direito' to prevent unexpected focus loss.
 
     if (!validatedContests[activeId]) activeId = Object.keys(validatedContests)[0] || 'default';
 

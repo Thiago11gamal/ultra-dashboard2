@@ -257,27 +257,26 @@ export default function VerifiedStats({ categories = [], user }) {
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        // 1. Sync with global store to keep other components (like Coach.jsx) updated
-        const currentStoreTarget = Number(user?.targetProbability);
-        const storeTargetMissing = user?.targetProbability == null || isNaN(currentStoreTarget);
-        const storeTargetDiffers = !storeTargetMissing && Math.abs(currentStoreTarget - targetScore) > 0.01;
-        
-        if (user && (storeTargetMissing || storeTargetDiffers)) {
-            // Only record history if the modal is closed to avoid flooding undo snapshots
-            const shouldRecordHistory = !showConfig;
-            
+        const parsed = Number(targetScore);
+        if (!Number.isFinite(parsed)) return;
+
+        const timer = setTimeout(() => {
             setUserData(data => {
-                if (data.user) {
-                    data.user.targetProbability = targetScore;
-                }
-                data.lastUpdated = new Date().toISOString(); 
-                if (!showConfig) {
-                    logger.log("[MonteCarlo) Final sync of targetScore:", targetScore);
-                }
-                // sem return — padrão correto de mutação Immer
-            }, shouldRecordHistory);
-        }
-    }, [targetScore, setUserData, activeId, showConfig]); // B-06 FIX: use activeId as contest-switch proxy
+                if (!data?.user) return data;
+                // L1: Não salvar se já é o mesmo valor para evitar loops
+                const currentStoreTarget = Number(data.user.targetProbability);
+                if (Math.abs(currentStoreTarget - parsed) <= 0.01) return data;
+                
+                return { 
+                    ...data, 
+                    user: { ...data.user, targetProbability: parsed },
+                    lastUpdated: new Date().toISOString()
+                };
+            }, false); // don't record history for every debounced keystroke
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [targetScore, setUserData]);
 
     const stats = useMemo(() => {
         let allHistory = [];

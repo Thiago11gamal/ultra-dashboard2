@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const lastSyncedRef = useRef(null);
     const isParityValidatedRef = useRef(false);
-    const [isParityValidated, setIsParityValidated] = useState(false); // Mantemos o estado para trigger de re-render se necessário, mas a lógica lerá do ref
+    const [parityTick, setParityTick] = useState(0); // L2: State just for reactivity, logic uses Ref
     const lastLocalMutationRef = useRef(0);
     const debounceRef = useRef(null);
     const latestCloudDataRef = useRef(null);
@@ -22,6 +22,15 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     useEffect(() => {
         appStateRef.current = appState;
     }, [appState]);
+
+    // L2: Helper unificado para confirmar paridade sem dessincronização ref/state
+    const confirmParity = useCallback(() => {
+        if (!isParityValidatedRef.current) {
+            isParityValidatedRef.current = true;
+            setParityTick(t => t + 1);
+            logger.debug("[Sync] Paridade estabelecida.");
+        }
+    }, []);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -41,8 +50,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     useEffect(() => {
         if (!currentUser?.uid || !setAppState || !db) {
             if (!db && currentUser?.uid) console.warn("[Sync] Firestore (db) is missing. Cloud sync disabled.");
-            isParityValidatedRef.current = true;
-            setIsParityValidated(true);
+            confirmParity();
             return;
         }
 
@@ -54,8 +62,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
                 logger.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
-                isParityValidatedRef.current = true;
-                setIsParityValidated(true);
+                confirmParity();
             }
         }, 5000);
 
@@ -82,8 +89,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 // Nuvem realmente vazia (confirmado pelo servidor ou cache confirmado)
                 if (!isParityValidatedRef.current) {
                     lastSyncedRef.current = stateStringForSync(appStateRef.current);
-                    isParityValidatedRef.current = true;
-                    setIsParityValidated(true);
+                    confirmParity();
                 }
                 return;
             }
@@ -95,8 +101,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             if (!contentsAreDifferent) {
                 setHasConflict(false);
                 lastSyncedRef.current = cloudStateString;
-                isParityValidatedRef.current = true;
-                setIsParityValidated(true);
+                confirmParity();
                 return;
             }
 
@@ -147,8 +152,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
 
             const wasAlreadyValidated = isParityValidatedRef.current;
-            isParityValidatedRef.current = true;
-            setIsParityValidated(true);
+            confirmParity();
 
             if (shouldPullCloud) {
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
@@ -168,8 +172,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             logger.error("[Sync] Erro no listener:", err);
             setCloudConnected(false);
             // Se der erro (ex: offline), liberamos para evitar travar o usuário
-            isParityValidatedRef.current = true;
-            setIsParityValidated(true);
+            confirmParity();
         });
 
         return () => {
@@ -181,7 +184,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     useEffect(() => {
         isParityValidatedRef.current = false;
-        setIsParityValidated(false);
+        setParityTick(t => t + 1);
         lastSyncedRef.current = null;
         lastLocalMutationRef.current = 0;
         setHasConflict(false);
@@ -230,7 +233,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         } finally {
             if (isMountedRef.current) setIsInternalSyncing(false);
         }
-    }, [currentUser?.uid, db]);
+    }, [currentUser?.uid]); // L3: Removido db
 
     // Registro estável de listeners (BUG-M2)
     useEffect(() => {
@@ -253,11 +256,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [currentUser?.uid, db, performEmergencySync]);
+    }, [currentUser?.uid, performEmergencySync]); // L3: Removido db
 
     // Timer de Debounce para auto-save normal
     useEffect(() => {
-        if (!currentUser?.uid || !appState || !isParityValidated || !db) return;
+        if (!currentUser?.uid || !appState || !isParityValidatedRef.current || !db) return;
 
         const currentStateString = stateStringForSync(appState);
         if (lastSyncedRef.current === currentStateString) return;
@@ -315,7 +318,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [appState, isParityValidated, currentUser?.uid, db, showToast]);
+    }, [appState, parityTick, currentUser?.uid, showToast]); // L2: Usa parityTick em vez de isParityValidated. L3: Retirado db.
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

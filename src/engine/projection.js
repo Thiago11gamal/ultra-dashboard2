@@ -342,16 +342,12 @@ export function monteCarloSimulation(
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
         : 0;
     const _bootstrapScale = (useBootstrap && _residualSD > 0)
-        ? Math.min(3, volatility / _residualSD)   // cap reduzido de 10 para 3
+        ? Math.min(1.5, Math.log1p(volatility / _residualSD))  // M2: cap 1.5, log-smoothed to prevent inflation
         : 1;
 
     const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
 
-    // BUGFIX MC-02: Scaling factor to prevent "random walk explosion" in long projections.
-    // Standard random walk variance grows linearly with time (N*SD^2). 
-    // This factor (0.35-0.45) dampens the accumulation to reflect performance reality.
-    const MC_STABILITY_SCALING = 0.4; 
 
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;

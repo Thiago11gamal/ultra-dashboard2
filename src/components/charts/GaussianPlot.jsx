@@ -97,9 +97,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const ciWide = (high95 - low95) >= 95;
     const ciLabel = ciWide ? "Alta incerteza" : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
 
-    // Visual Helpers
     const delta = mean - (currentMean ?? 0);
     const deltaColor = delta >= 0 ? "text-emerald-400" : "text-rose-400";
+
+    // V1 FIX: Position "Hoje" label dynamically above the curve point
+    const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
+    const hojeTop = Math.min(hojeYPercent - 12, 38);
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
@@ -126,7 +129,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     return (
         <div
-            className="relative w-full h-[140px] mb-6 cursor-crosshair group/chart"
+            className="relative w-full h-[140px] mb-10 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -291,7 +294,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500"
                         style={{
                             left: `${currentPos}%`,
-                            top: '45%', // Keep Hoje lower to avoid clutter
+                            top: `${hojeTop}%`, // V1: dinâmico
                             transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
@@ -345,7 +348,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </div>
 
             <div
-                className="absolute -bottom-8 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
+                className="absolute -bottom-6 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
                 style={{ left: `${ciLowPx}%` }}
             >
                 <div className="w-2 h-2 rounded-full bg-blue-500/20 border border-blue-400/40" />
