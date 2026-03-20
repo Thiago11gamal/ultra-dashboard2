@@ -7,12 +7,7 @@ import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
-function normalCDF_complement(z) {
-    const t = 1 / (1 + 0.2316419 * Math.abs(z));
-    const d = 0.3989423 * Math.exp(-z * z / 2);
-    let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-    return z >= 0 ? p : 1 - p;
-}
+import { normalCDF_complement } from './math/gaussian';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
@@ -364,16 +359,16 @@ export function monteCarloSimulation(
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            if (forcedVolatility !== undefined) {
-                // Volatilidade explícita fornecida pelo caller (ex: MonteCarloGauge):
-                // usar distribuição Normal para evitar amplificação de resíduos históricos.
-                shock = randomNormal(rng) * volatility * MC_STABILITY_SCALING;
-            } else if (useBootstrap) {
-                const randomResidual = getRandomElement(residuals, rng);
+            const sigma = volatility / Math.sqrt(simulationDays);
+
+            if (useBootstrap && residuals.length > 5) {
+                const randomResidual = residuals[Math.floor(rng() * residuals.length)];
                 const jitter = (rng() - 0.5) * 0.1;
-                shock = (randomResidual + jitter) * _bootstrapScale * MC_STABILITY_SCALING;
+                // Note: residuals are already "per day", so no sqrt(N) needed for bootstrap if residuals are extracted properly
+                // But to be consistent with normal shock scaling, we apply a similar damping
+                shock = (randomResidual + jitter) * _bootstrapScale * (1 / Math.sqrt(simulationDays));
             } else {
-                shock = randomNormal(rng) * volatility * MC_STABILITY_SCALING;
+                shock = randomNormal(rng) * sigma;
             }
 
             // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
@@ -405,14 +400,27 @@ export function monteCarloSimulation(
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 
-    const inferredSD = (parseFloat(ci95High) - parseFloat(ci95Low)) / 3.92;
+    const ci95LowVal = parseFloat(ci95Low);
+    const ci95HighVal = parseFloat(ci95High);
+    const inferredSD = (ci95HighVal - ci95LowVal) / 3.92;
+    
+    // MC-03: Asymmetric SDs for Bayesian consistency
+    const sdLeft = (projectedMean - ci95LowVal) / 1.96;
+    const sdRight = (ci95HighVal - projectedMean) / 1.96;
+
     const zScore = (targetScore - projectedMean) / Math.max(0.1, inferredSD);
-    const correctedProbability = normalCDF_complement(zScore) * 100;
+    const analyticalProbability = normalCDF_complement(zScore) * 100;
+    
+    // MC-02: Use raw empirical probability
+    const empiricalProbability = (success / safeSimulations) * 100;
 
     return {
-        probability: Math.min(99.9, Math.max(0.1, correctedProbability)),
+        probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
+        analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
         mean: Number(projectedMean.toFixed(1)),
         sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
+        sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
+        sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),

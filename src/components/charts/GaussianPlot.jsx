@@ -77,6 +77,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         return {
             pathData: path,
+            trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
             range, xMin, targetVal, xp, yp, heightFactor, curvePoints,
@@ -117,11 +118,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     }
 
     if (collisionHojeMean || collisionHojeTarget) {
-        if (collisionHojeMean && collisionMetaMean) {
-            tierHoje = 3; // Hoyt hits both -> Tier 3
-        } else {
-            tierHoje = 2; // Hoyt hits one -> Tier 2
-        }
+        // Resolve Tier 3 correctly: if it hits Mean or Target, it must be below whatever is highest there
+        const meanConflictTier = collisionHojeMean ? tierMean : 0;
+        const targetConflictTier = collisionHojeTarget ? tierTarget : 0;
+        tierHoje = Math.max(meanConflictTier, targetConflictTier) + 1;
     }
 
     return (
@@ -288,7 +288,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* Hoje Label */}
                 {isCurrentVisible && (
                     <div
-                        className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-5 duration-500"
+                        className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500"
                         style={{
                             left: `${currentPos}%`,
                             top: '45%', // Keep Hoje lower to avoid clutter

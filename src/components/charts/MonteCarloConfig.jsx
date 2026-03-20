@@ -102,8 +102,8 @@ export const MonteCarloConfig = ({
                         <div className="relative h-6 flex items-center mb-4">
                             <input 
                                 type="range" 
-                                min="60" 
-                                max="90" 
+                                min="10" 
+                                max="100" 
                                 step="1" 
                                 value={localTarget} 
                                 onChange={(e) => {

@@ -333,6 +333,8 @@ export default function MonteCarloGauge({
     const probability = simulationData.data.probability;
     const mean = simulationData.data.mean;
     const sd = simulationData.data.sd;
+    const sdLeft = simulationData.data.sdLeft ?? sd;
+    const sdRight = simulationData.data.sdRight ?? sd;
     const ci95Low = simulationData.data.ci95Low;
     const ci95High = simulationData.data.ci95High;
     const currentMean = simulationData.data.currentMean;
@@ -441,7 +443,13 @@ export default function MonteCarloGauge({
                     { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
                     { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
                     { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
-                    { label: "Incerteza", val: `±${parseFloat(sd).toFixed(1)}%`, color: Math.abs(parseFloat(sd)) <= 5 ? 'text-green-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' },
+                    { 
+                        label: "Incerteza", 
+                        val: Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2 
+                            ? `-${parseFloat(sdLeft).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%`
+                            : `±${parseFloat(sd).toFixed(1)}%`, 
+                        color: Math.abs(parseFloat(sd)) <= 5 ? 'text-emerald-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' 
+                    },
                     { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">

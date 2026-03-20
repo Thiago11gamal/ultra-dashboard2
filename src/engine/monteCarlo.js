@@ -1,16 +1,8 @@
-import { monteCarloSimulation } from './projection.js';
 import { mulberry32, randomNormal } from './random.js';
+import { normalCDF_complement } from './math/gaussian';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
-// Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
-// Implementation using Abramowitz & Stegun approximation (formula 7.1.26)
-function normalCDF_complement(z) {
-  const t = 1 / (1 + 0.2316419 * Math.abs(z));
-  const d = 0.3989423 * Math.exp(-z * z / 2);
-  let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  return z >= 0 ? p : 1 - p;
-}
 
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   let mean = meanOrObj;
