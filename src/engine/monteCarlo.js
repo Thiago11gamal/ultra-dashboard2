@@ -1,5 +1,6 @@
 import { mulberry32, randomNormal } from './random.js';
 import { normalCDF_complement } from './math/gaussian';
+import { monteCarloSimulation } from './projection.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
