@@ -156,6 +156,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 if (!wasAlreadyValidated && showToast) {
                     showToast('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
+            } else {
                 logger.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
                 setHasConflict(true);
             }

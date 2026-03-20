@@ -363,7 +363,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
         return () => cancelAnimationFrame(rafId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed, mode, timeLeft, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]); // Added timeLeft to avoid stale closure in RAF
+    }, [isRunning, speed, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]); // Removed timeLeft to avoid 1fps loop restarts
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
@@ -709,7 +709,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 strokeWidth="10"
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
-                                strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
+                                // 🔒 LOCKED: No direct offset here if high-precision ref is active
+                                style={isRunning ? {} : { strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
@@ -898,7 +899,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                 ? 'bg-sky-400'
                                                 : 'bg-transparent'
                                                 }`}
-                                            style={{ width: `${workProgress}%` }}
+                                            // 🔒 LOCKED: No direct width here if high-precision ref is active
+                                            style={i === sessions && mode === 'work' && isRunning ? {} : { width: `${workProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top */}
@@ -919,7 +921,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             // 🔒 LOCKED: ref only on active break segment — rAF drives height at 60fps, no CSS transition
                                             ref={i === sessions - 1 && mode === 'break' ? sphereRef : null}
                                             className="w-full bg-emerald-500"
-                                            style={{ height: `${breakProgress}%` }}
+                                            // 🔒 LOCKED: No direct height here if high-precision ref is active
+                                            style={i === sessions - 1 && mode === 'break' && isRunning ? {} : { height: `${breakProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top to hide any jagged rendering and clipping from overflow-hidden */}

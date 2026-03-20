@@ -28,24 +28,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         // Uses centralized logic
 
-        // 1. Trend Line (Today -> Peak)
-        const trendPoints = [];
-        if (currentMean != null) {
-            const tSteps = 25;
-            for (let i = 0; i <= tSteps; i++) {
-                const t = i / tSteps;
-                const tWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3));
-                const tx = currentMean + (meanVal - currentMean) * tWeight;
-                const ty = heightFactor * tWeight;
-                trendPoints.push(`${xp(tx)},${yp(ty)}`);
-            }
-        }
+        // 1. Trend Line (Removed as it causes visual artifacts on negative drift)
+        const trendPath = '';
 
         // 2. Main Gaussian Curve (Always full extent) - Uses centralized helper
         const curvePoints = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, heightFactor, xp, yp);
 
         const path = `M ${curvePoints.join(' L ')}`;
-        const trendPath = trendPoints.length > 0 ? `M ${trendPoints.join(' L ')}` : '';
 
         // 3. Precise Area Paths (BUG-06 FIX / Enhancement)
         const areaPoints = []; // Success
@@ -72,7 +61,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         // Failure Area (x < target)
         failPoints.push(`${xp(xMin)},100`);
         curvePoints.forEach(p => {
-            const [xPos, yPos] = p.split(',').map(Number);
+            const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
         });
         failPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
@@ -88,7 +77,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         return {
             pathData: path,
-            trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
             range, xMin, targetVal, xp, yp, heightFactor, curvePoints,
@@ -208,7 +196,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     stroke="#ef4444"
                     strokeWidth="1.2"
                     vectorEffect="non-scaling-stroke"
-                    className={`opacity-70 transition-all duration-1000 ${prob < 30 ? 'animate-pulse' : ''}`}
+                    className="opacity-70 transition-all duration-1000"
                     style={{ filter: 'url(#gpGlow)' }}
                 />
 
@@ -220,26 +208,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     strokeWidth="1.2"
                     strokeDasharray="none"
                     vectorEffect="non-scaling-stroke"
-                    className={`opacity-80 transition-all duration-1000 ${prob > 80 ? 'animate-pulse' : ''}`}
+                    className="opacity-80 transition-all duration-1000"
                     style={{ filter: 'url(#gpGlow)' }}
                 />
 
                 {/* Vertical Markers (p25, Median, p75) */}
                 <line x1={xp(p25)} y1="100" x2={xp(p25)} y2={yp(asymmetricGaussianFn(p25))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
                 <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussianFn(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
-
-                {/* VISUAL-02: Animated Dashed Trend Line */}
-                {trendPathData && (
-                    <path
-                        d={trendPathData}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.7)"
-                        strokeWidth="2.0"
-                        strokeDasharray="4,4"
-                        vectorEffect="non-scaling-stroke"
-                        className="animate-[dash_20s_linear_infinite]"
-                    />
-                )}
 
                 {/* VISUAL-05: Gradient Main Curve */}
                 <path d={pathData} fill="none" stroke="url(#gpCurveGradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#gpGlow)' }} />
@@ -322,7 +297,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         }}
                     >
                         <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] mb-1" />
-                        <span className="text-[9px] font-black text-white/90 px-1.5 py-0.5 rounded-md bg-white/10 backdrop-blur-sm border border-white/10 tracking-tight leading-none whitespace-nowrap drop-shadow-md">Hoje: {currentMean.toFixed(1)}%</span>
+                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/60 backdrop-blur-md border border-white/20 tracking-tighter leading-none whitespace-nowrap shadow-xl">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
             </div>

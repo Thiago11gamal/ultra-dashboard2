@@ -277,7 +277,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 return data; // committing draft mutation
             }, shouldRecordHistory);
         }
-    }, [targetScore, setUserData, user?.uid, showConfig]); // B-06 FIX: EXCLUDE user?.targetProbability to prevent infinite sync loops
+    }, [targetScore, setUserData, activeId, showConfig]); // B-06 FIX: use activeId as contest-switch proxy
 
     const stats = useMemo(() => {
         let allHistory = [];

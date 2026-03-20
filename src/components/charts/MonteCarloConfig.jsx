@@ -47,12 +47,16 @@ export const MonteCarloConfig = ({
         }
     }, [targetScore]);
 
-    if (!show) return null;
+    // 🔒 BUGFIX BUG-4: Não desmontar o componente para preservar o ref savedCustomWeights
+    // if (!show) return null;
 
     const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.id || cat.name], 10) || 1), 0);
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+        <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300"
+            style={{ display: show ? 'flex' : 'none' }}
+        >
             {/* Backdrop com clique para fechar opcional (stopPropagation adicionado para evitar bubbling ao fundo) */}
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(false); }} />
 

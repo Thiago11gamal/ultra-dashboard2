@@ -139,8 +139,8 @@ export default function Simulados() {
                         const todayKey = getDateKey(new Date());
                         const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
                         
-                        const finalC = Number(disc.correct);
-                        const finalQ = Number(disc.total);
+                        const finalC = Number(disc.totalCorrect);
+                        const finalQ = Number(disc.totalQuestions);
 
                         if (finalQ > 0) {
                             filteredHistory.push({
@@ -188,8 +188,8 @@ export default function Simulados() {
                         const todayKey = getDateKey(new Date());
                         const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
                         
-                        const finalC = Number(stats.correct);
-                        const finalQ = Number(stats.total);
+                        const finalC = Number(stats.totalCorrect);
+                        const finalQ = Number(stats.totalQuestions);
 
                         if (finalQ > 0) {
                             filteredHistory.push({
