@@ -152,10 +152,10 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                         e.stopPropagation();
                         onTriggerPlay();
                     }}
-                    className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-purple-500/20'}`}
+                    className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all group/play ${task.status === 'studying' ? 'text-purple-400 bg-purple-500/20 animate-pulse ring-1 ring-purple-500/30' : 'text-slate-200 bg-white/5 hover:text-white hover:bg-purple-500/30 hover:ring-1 hover:ring-purple-500/50'}`}
                     title={task.status === 'studying' ? "Estudando agora..." : "Estudar agora (Pomodoro)"}
                 >
-                    {task.status === 'studying' ? <BarChart2 size={16} className="animate-spin" /> : <Play size={16} className="group-hover/play:scale-125 transition-transform" />}
+                    {task.status === 'studying' ? <BarChart2 size={16} className="animate-spin" /> : <Play size={16} className="group-hover/play:scale-110 transition-transform fill-white/10 group-hover/play:fill-white/20" />}
                 </button>
 
                 {/* Priority Badge */}
