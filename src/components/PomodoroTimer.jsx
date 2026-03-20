@@ -24,8 +24,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             // This ensures that clicking "Play" (which generates a new sessionInstanceId) always starts fresh
             // while preserving state during re-renders or accidental closes if we persist activeSubject later
             if (saved &&
-                saved.activeTaskId === activeSubject?.taskId &&
-                saved.sessionInstanceId === activeSubject?.sessionInstanceId) {
+                activeSubject?.taskId &&
+                saved.activeTaskId === activeSubject.taskId &&
+                saved.sessionInstanceId === activeSubject.sessionInstanceId) {
                 return saved;
             }
         } catch (error) {
