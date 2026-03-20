@@ -10,7 +10,7 @@ import { useToast } from '../hooks/useToast';
 export default function Dashboard() {
     const setAppState = useAppStore(state => state.setAppState);
     const setData = useAppStore(state => state.setData);
-    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority } = useAppStore();
+    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority, startPomodoroSession } = useAppStore();
     const showToast = useToast();
     const navigate = useNavigate();
     const [filter, setFilter] = useState('all');
@@ -30,8 +30,34 @@ export default function Dashboard() {
     const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
 
     const handleStartStudying = (categoryId, taskId) => {
-        // Redireciona para aba Pomodoro passando os params necessários no state do Router
-        navigate('/pomodoro', { state: { categoryId, taskId } });
+        const cat = data.categories?.find(c => c.id === categoryId);
+        const tsk = cat?.tasks?.find(t => t.id === taskId);
+
+        if (cat && tsk) {
+            startPomodoroSession({
+                categoryId: cat.id,
+                taskId: tsk.id,
+                category: cat.name,
+                task: tsk.title,
+                priority: tsk.priority
+            });
+
+            // Set studying status
+            setData(prev => ({
+                ...prev,
+                categories: prev.categories.map(c => ({
+                    ...c,
+                    tasks: c.tasks.map(t => {
+                        if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
+                        if (t.status === 'studying') return { ...t, status: undefined };
+                        return t;
+                    })
+                }))
+            }));
+            showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+        }
+
+        navigate('/pomodoro');
     };
 
 

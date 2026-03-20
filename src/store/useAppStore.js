@@ -626,6 +626,15 @@ export const useAppStore = create(
             }),
 
             setPomodoroActiveSubject: (subject) => set((state) => {
+                const current = state.appState.pomodoro.activeSubject;
+                
+                // If we are setting a NEW subject (not just hydrating from null or same one)
+                // OR if the instance ID changed, reset the progress counters.
+                if (subject && (!current || current.sessionInstanceId !== subject.sessionInstanceId)) {
+                    state.appState.pomodoro.sessions = 0;
+                    state.appState.pomodoro.completedCycles = 0;
+                }
+
                 state.appState.pomodoro.activeSubject = subject;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -642,6 +651,16 @@ export const useAppStore = create(
 
             setPomodoroCompletedCycles: (count) => set((state) => {
                 state.appState.pomodoro.completedCycles = count;
+                state.appState.lastUpdated = new Date().toISOString();
+            }),
+
+            startPomodoroSession: (subject) => set((state) => {
+                state.appState.pomodoro.activeSubject = {
+                    ...subject,
+                    sessionInstanceId: Date.now()
+                };
+                state.appState.pomodoro.sessions = 0;
+                state.appState.pomodoro.completedCycles = 0;
                 state.appState.lastUpdated = new Date().toISOString();
             })
         })),

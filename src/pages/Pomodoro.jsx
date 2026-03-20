@@ -17,42 +17,24 @@ export default function Pomodoro() {
     const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
-    // Handle initial activation from location state
+    // Handle initial activation from location state if we arrive here without a subject (fallback)
     useEffect(() => {
-        if (location.state?.categoryId && location.state?.taskId) {
-            if (activeSubject?.taskId === location.state.taskId) return;
-
+        if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
             const cat = data.categories?.find(c => c.id === location.state.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
 
             if (cat && tsk) {
-                const newSubject = {
+                // FALLBACK: If we arrive via direct navigation with state but NO active subject in store
+                useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
                     taskId: tsk.id,
                     category: cat.name,
                     task: tsk.title,
-                    priority: tsk.priority,
-                    sessionInstanceId: Date.now()
-                };
-                setPomodoroActiveSubject(newSubject);
-
-                if (tsk.status !== 'studying') {
-                    setData(prev => ({
-                        ...prev,
-                        categories: prev.categories.map(c => ({
-                            ...c,
-                            tasks: c.tasks.map(t => {
-                                if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
-                                if (t.status === 'studying') return { ...t, status: undefined };
-                                return t;
-                            })
-                        }))
-                    }));
-                    showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
-                }
+                    priority: tsk.priority
+                });
             }
         }
-    }, [location.state, data.categories, setData, showToast, activeSubject?.taskId, setPomodoroActiveSubject]);
+    }, [location.state, data.categories, activeSubject]);
 
     const handleExit = () => {
         // Clear studying status
