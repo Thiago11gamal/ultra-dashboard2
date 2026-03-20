@@ -45,16 +45,17 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   for (let i = 0; i < safeSimulations; i++) {
     const score = safeMean + randomNormal(rng) * safeSD;
     
+    // Sucesso é baseado no score real (limitado a 0-100 para sanidade do alvo)
     const finalScore = Math.max(0, Math.min(100, score));
     if (finalScore >= safeTarget) success++;
 
-    allScores[i] = finalScore;
+    // BUG-04 FIX: Armazenar score bruto para cálculo de SD sem distorção por clamp
+    allScores[i] = score;
 
     welfordCount++;
-    // CORREÇÃO: Usar finalScore em vez de score bruto para alinhar com o clamping (0-100)
-    const delta = finalScore - welfordMean;
+    const delta = score - welfordMean;
     welfordMean += delta / welfordCount;
-    welfordM2 += delta * (finalScore - welfordMean);
+    welfordM2 += delta * (score - welfordMean);
   }
 
   const projectedMean = welfordMean;
@@ -62,14 +63,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   allScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
   const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-  const p975idx = Math.min(safeSimulations - 1, Math.ceil(safeSimulations * 0.975) - 1);
+  // BUG-09 FIX: round é mais preciso que ceil para índices grandes
+  const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
+
+  const rawLow = allScores[p025idx];
+  const rawHigh = allScores[p975idx];
 
   const result = {
     probability: (success / safeSimulations) * 100,
     mean: Number(projectedMean.toFixed(1)),
     sd: Number(projectedSD.toFixed(1)), // Use projected instead of input
-    ci95Low: Number(Math.max(0, allScores[p025idx]).toFixed(1)),
-    ci95High: Number(Math.min(100, allScores[p975idx]).toFixed(1)),
+    ci95Low: Number(rawLow.toFixed(1)),
+    ci95High: Number(rawHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
@@ -78,13 +83,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
   };
 
-  // Se bayesianCI foi fornecido, usar o mais conservador (IC mais amplo)
-  const finalLow = bayesianCI ? Math.min(result.ci95Low, bayesianCI.ciLow) : result.ci95Low;
-  const finalHigh = bayesianCI ? Math.max(result.ci95High, bayesianCI.ciHigh) : result.ci95High;
+  // BUG-04 FIX: Calcular inferredSD antes do clamp final para evitar compressão artificial da incerteza
+  const finalRawLow = bayesianCI ? Math.min(rawLow, bayesianCI.ciLow) : rawLow;
+  const finalRawHigh = bayesianCI ? Math.max(rawHigh, bayesianCI.ciHigh) : rawHigh;
 
-  // BUGFIX MC-01: Recalculate probability analytically using inferredSD 
-  // (the SD consistent with the final IC) to avoid contradiction with the visual curve.
-  const inferredSD = (finalHigh - finalLow) / 3.92;
+  const inferredSD = (finalRawHigh - finalRawLow) / 3.92;
   const zScore = (safeTarget - projectedMean) / Math.max(0.1, inferredSD);
   const correctedProbability = normalCDF_complement(zScore) * 100;
 
@@ -92,8 +95,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     ...result,
     probability: Math.min(99.9, Math.max(0.1, correctedProbability)),
     sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
-    ci95Low: Number(finalLow.toFixed(1)),
-    ci95High: Number(finalHigh.toFixed(1)),
+    ci95Low: Number(Math.max(0, finalRawLow).toFixed(1)),
+    ci95High: Number(Math.min(100, finalRawHigh).toFixed(1)),
+    mean: Number(Math.max(0, Math.min(100, projectedMean)).toFixed(1)),
   };
 }
 

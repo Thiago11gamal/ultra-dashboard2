@@ -32,12 +32,12 @@ const normalizeDate = (dateInput) => {
     }
 };
 
-// Boost SRS baseado em dias
+// LI-02 Fix: Boost SRS escalonado para priorizar matérias muito antigas (Curva de Ebbinghaus)
 function getSRSBoost(daysSince, cfg) {
-    if (daysSince === 1) return { boost: cfg.SRS_BOOST, label: "Revisão de 24h" };
-    if (daysSince >= 3 && daysSince <= 5) return { boost: cfg.SRS_BOOST, label: "Revisão de 3 dias" };
-    if (daysSince >= 7 && daysSince <= 10) return { boost: cfg.SRS_BOOST, label: "Revisão de 7 dias" };
-    if (daysSince >= 30) return { boost: cfg.SRS_BOOST, label: "Revisão Crítica (30+ dias)" };
+    if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
+    if (daysSince >= 7)  return { boost: cfg.SRS_BOOST * 1.4, label: "Revisão de 7 dias" };
+    if (daysSince >= 3)  return { boost: cfg.SRS_BOOST * 1.0, label: "Revisão de 3 dias" };
+    if (daysSince >= 1)  return { boost: cfg.SRS_BOOST * 0.7, label: "Revisão de 24h" };
     return { boost: 0, label: null };
 }
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getDateKey } from '../utils/dateHelper';
-import { computeCategoryStats, computeBayesianLevel } from '../engine';
+import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS } from '../engine/stats';
 
 function buildCumulativeStatsPerDate(history, sortedDates) {
     const aggregatedHistoryByDateMap = new Map();
@@ -44,8 +44,8 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                 // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
                 if (total === 0 && entry.score != null) {
                     const pct = Math.min(1, Math.max(0, Number(entry.score) / 100));
-                    total = 10;
-                    correct = Math.round(pct * 10);
+                    total = SYNTHETIC_TOTAL_QUESTIONS;
+                    correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
                 }
 
                 if (total >= 5) {

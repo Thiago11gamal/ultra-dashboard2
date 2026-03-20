@@ -90,9 +90,10 @@ export default function MonteCarloGauge({
 
         const weightsMap = {};
         activeCategories.forEach(cat => {
-            // Default to 1 (Peso 1) if weight is missing or 0
-            const w = sanitizeWeightUnit(weights[cat.id || cat.name]);
-            weightsMap[cat.id || cat.name] = w > 0 ? w : 1;
+            // LI-03 FIX: Permitir peso 0 se explicitamente definido para excluir matéria do Monte Carlo
+            const stored = weights[cat.id || cat.name];
+            const w = sanitizeWeightUnit(stored);
+            weightsMap[cat.id || cat.name] = (stored !== undefined && stored !== null) ? Math.max(0, w) : 1;
         });
         return weightsMap;
     }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);

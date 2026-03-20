@@ -40,7 +40,7 @@ const sanitizeContest = (data) => {
         lastStudiedAt: t.lastStudiedAt || null,
         priority: t.priority || "medium"
       })),
-      weight: Number(cat.weight) || 10,
+      weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       totalMinutes: Number(cat.totalMinutes) || 0,
       lastStudiedAt: cat.lastStudiedAt || null,
       simuladoStats: {

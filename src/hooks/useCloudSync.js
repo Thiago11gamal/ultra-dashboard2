@@ -11,6 +11,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const isParityValidatedRef = useRef(false);
     const [parityTick, setParityTick] = useState(0); // L2: State just for reactivity, logic uses Ref
     const lastLocalMutationRef = useRef(0);
+    const isCloudPullRef = useRef(false);
     const debounceRef = useRef(null);
     const latestCloudDataRef = useRef(null);
     const isMountedRef = useRef(true);
@@ -157,6 +158,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             if (shouldPullCloud) {
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
                 logger.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
+                isCloudPullRef.current = true;
                 setAppState(cloudData);
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
@@ -263,6 +265,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         if (!currentUser?.uid || !appState || !isParityValidatedRef.current || !db) return;
 
         const currentStateString = stateStringForSync(appState);
+        
+        // BUG-08 FIX: Se a mudança foi gerada por um PULL da nuvem, não dispare write-back.
+        if (isCloudPullRef.current) {
+            isCloudPullRef.current = false;
+            lastSyncedRef.current = currentStateString;
+            return;
+        }
+
         if (lastSyncedRef.current === currentStateString) return;
 
         // Mutação local detectada

@@ -66,8 +66,8 @@ const calculateLongest = (uniqueDays) => {
     let current = 1;
     // uniqueDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
     for (let i = 1; i < uniqueDays.length; i++) {
-        const dCurrent = new Date(uniqueDays[i]);
-        const dPrev = new Date(uniqueDays[i - 1]);
+        const dCurrent = new Date(`${uniqueDays[i]}T12:00:00`);
+        const dPrev = new Date(`${uniqueDays[i - 1]}T12:00:00`);
         const diff = Math.round((dPrev - dCurrent) / (1000 * 60 * 60 * 24));
         if (diff === 1) {
             current++;

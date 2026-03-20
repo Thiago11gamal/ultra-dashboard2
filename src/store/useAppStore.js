@@ -90,12 +90,10 @@ const processGamification = (state, xpGained) => {
     const finalLevel = calculateLevel(newXP);
     const leveledUp = finalLevel > currentLevel;
 
-    // Bug #12: XP floor for level preservation
-    // If the system prevents level regression (Math.max below), 
-    // we must also ensure XP doesn't drop below that level's floor.
-    activeData.user.level = Math.max(currentLevel, finalLevel);
-    const minXpForCurrentLevel = Math.pow(activeData.user.level - 1, 2) * 100;
-    activeData.user.xp = Math.max(newXP, minXpForCurrentLevel);
+    // LI-01 Fix: Remover o "ratchet" (catraca) que impedia a regressão de nível.
+    // O nível agora reflete a performance real, descendo se o XP cair.
+    activeData.user.level = finalLevel;
+    activeData.user.xp = newXP;
 
     // ✅ No side effects here — return the event detail for the caller to dispatch
     // after set() completes (outside the Immer draft).

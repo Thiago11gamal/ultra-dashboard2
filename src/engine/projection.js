@@ -338,15 +338,19 @@ export function monteCarloSimulation(
     // BUGFIX H1: _bootstrapScale só é relevante quando NÃO há forcedVolatility.
     // Quando forcedVolatility está presente, usamos randomNormal * volatility diretamente
     // para evitar a amplificação (volatility / _residualSD) que pode chegar a 10×.
-    const _residualSD = (useBootstrap && residuals.length > 0)
-        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
-        : 0;
-    const _bootstrapScale = (useBootstrap && _residualSD > 0)
-        ? Math.min(1.5, Math.log1p(volatility / _residualSD))  // M2: cap 1.5, log-smoothed to prevent inflation
+    // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
+    // O bootstrapping original pode ter dispersão diferente da volatilidade paramétrica.
+    // Garantimos que o SD total convirja para 'volatility'.
+    const bootstrapTargetScale = _residualSD > 0
+        ? Math.min(3.0, volatility / _residualSD)
         : 1;
 
     const simulationDays = days;
     const dayDrift = days === 0 ? 0 : drift;
+
+    // BUG-06 FIX: Hoist calculations out of the simulation loops to save Math.sqrt calls
+    const sigma = simulationDays > 0 ? volatility / Math.sqrt(simulationDays) : 0;
+    const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
 
 
     for (let s = 0; s < safeSimulations; s++) {
@@ -355,15 +359,13 @@ export function monteCarloSimulation(
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            const sigma = volatility / Math.sqrt(simulationDays);
-
-            if (useBootstrap && residuals.length > 5) {
+            if (useBootstrap && residuals.length >= 4) {
                 const randomResidual = residuals[Math.floor(rng() * residuals.length)];
                 const jitter = (rng() - 0.5) * 0.1;
-                // Note: residuals are already "per day", so no sqrt(N) needed for bootstrap if residuals are extracted properly
-                // But to be consistent with normal shock scaling, we apply a similar damping
-                shock = (randomResidual + jitter) * _bootstrapScale * (1 / Math.sqrt(simulationDays));
+                // BUG-05/06: Usar escala normalizada e constante hoistada
+                shock = (randomResidual + jitter) * bootstrapTargetScale * bootstrapInvSqrt;
             } else {
+                // BUG-06: Usar sigma hoistado
                 shock = randomNormal(rng) * sigma;
             }
 
@@ -392,7 +394,8 @@ export function monteCarloSimulation(
     // Empirical percentiles — sort then pick P2.5 and P97.5
     allFinalScores.sort(); // Float32Array.sort() é numérico e estável sem comparator
     const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-    const p975idx = Math.min(safeSimulations - 1, Math.ceil(safeSimulations * 0.975) - 1);
+    // BUG-09 FIX: round é semanticamente correto para estatística de amostra
+    const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 

@@ -86,8 +86,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         };
     }, [mean, sd, low95, high95, targetScore, currentMean]);
 
-    const targetPos = useMemo(() => xp(targetVal), [xp, targetVal]);
-    const meanPos = useMemo(() => xp(mean), [xp, mean]);
+    const targetPos = xp(targetVal);
+    const meanPos = xp(mean ?? 0);
     const currentPos = currentMean != null ? xp(currentMean) : 0;
     const ciHighPx = xp(high95);
     const ciLowPx = xp(low95);
