@@ -7,7 +7,7 @@ import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
-import { normalCDF_complement } from './math/gaussian';
+import { normalCDF_complement } from './math/gaussian.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {

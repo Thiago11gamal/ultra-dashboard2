@@ -469,6 +469,8 @@ export default function MonteCarloGauge({
                             <GaussianPlot
                                 mean={parseFloat(mean)}
                                 sd={parseFloat(sd)}
+                                sdLeft={parseFloat(sdLeft)}
+                                sdRight={parseFloat(sdRight)}
                                 low95={parseFloat(ci95Low)}
                                 high95={parseFloat(ci95High)}
                                 targetScore={targetScore}

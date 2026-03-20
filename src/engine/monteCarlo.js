@@ -1,5 +1,5 @@
 import { mulberry32, randomNormal } from './random.js';
-import { normalCDF_complement } from './math/gaussian';
+import { normalCDF_complement } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
@@ -69,35 +69,37 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const rawLow = allScores[p025idx];
   const rawHigh = allScores[p975idx];
 
-  const result = {
-    probability: (success / safeSimulations) * 100,
-    mean: Number(projectedMean.toFixed(1)),
-    sd: Number(projectedSD.toFixed(1)), // Use projected instead of input
-    ci95Low: Number(rawLow.toFixed(1)),
-    ci95High: Number(rawHigh.toFixed(1)),
+  // BUG-04 FIX: Calcular inferredSD e SDs assimétricos antes do clamp final
+  const finalRawLow = bayesianCI ? Math.min(rawLow, bayesianCI.ciLow) : rawLow;
+  const finalRawHigh = bayesianCI ? Math.max(rawHigh, bayesianCI.ciHigh) : rawHigh;
+
+  const empiricalProbability = (success / safeSimulations) * 100;
+  
+  // Consistency with Future panel methodology
+  const inferredSD = (finalRawHigh - finalRawLow) / 3.92;
+  const sdLeft = (projectedMean - finalRawLow) / 1.96;
+  const sdRight = (finalRawHigh - projectedMean) / 1.96;
+
+  // We still keep the analytical one as a reference/correction if needed, 
+  // but the user wants empirical to be "honest".
+  const zScore = (safeTarget - projectedMean) / Math.max(0.1, inferredSD);
+  const analyticalProbability = normalCDF_complement(zScore) * 100;
+
+  return {
+    probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
+    analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
+    mean: Number(Math.max(0, Math.min(100, projectedMean)).toFixed(1)),
+    sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
+    sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
+    sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
+    ci95Low: Number(Math.max(0, finalRawLow).toFixed(1)),
+    ci95High: Number(Math.min(100, finalRawHigh).toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
     drift: 0,
     volatility: safeSD,
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
-  };
-
-  // BUG-04 FIX: Calcular inferredSD antes do clamp final para evitar compressão artificial da incerteza
-  const finalRawLow = bayesianCI ? Math.min(rawLow, bayesianCI.ciLow) : rawLow;
-  const finalRawHigh = bayesianCI ? Math.max(rawHigh, bayesianCI.ciHigh) : rawHigh;
-
-  const inferredSD = (finalRawHigh - finalRawLow) / 3.92;
-  const zScore = (safeTarget - projectedMean) / Math.max(0.1, inferredSD);
-  const correctedProbability = normalCDF_complement(zScore) * 100;
-
-  return {
-    ...result,
-    probability: Math.min(99.9, Math.max(0.1, correctedProbability)),
-    sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
-    ci95Low: Number(Math.max(0, finalRawLow).toFixed(1)),
-    ci95High: Number(Math.min(100, finalRawHigh).toFixed(1)),
-    mean: Number(Math.max(0, Math.min(100, projectedMean)).toFixed(1)),
   };
 }
 

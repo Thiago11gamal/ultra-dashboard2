@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
-export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob }) => {
+export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight }) => {
     const [hover, setHover] = useState(null);
 
     const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
@@ -11,9 +11,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const xMax = 100;
         const range = 100;
 
-        let sdLeft = sd;
-        let sdRight = sd;
-        if (low95 != null && high95 != null) {
+        let sdLeft = propSdLeft ?? sd;
+        let sdRight = propSdRight ?? sd;
+        if (propSdLeft === undefined && propSdRight === undefined && low95 != null && high95 != null) {
             sdLeft = Math.max(0.2, (meanVal - low95) / 1.96);
             sdRight = Math.max(0.2, (high95 - meanVal) / 1.96);
         }
