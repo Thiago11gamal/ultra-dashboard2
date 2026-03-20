@@ -449,10 +449,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                                         {/* Play Button - Action */}
                                                         <button
                                                             onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
-                                                            className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-white hover:bg-emerald-500/40 hover:ring-2 hover:ring-emerald-400/50 hover:scale-110 shadow-lg shadow-emerald-500/10 transition-all group/play"
+                                                            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shadow-lg hover:text-white hover:ring-2 hover:scale-110 group/play ${task.retention.bg}/10 ${task.retention.border} ${task.retention.color} hover:${task.retention.bg}/40 hover:ring-${task.retention.status === 'fresh' || task.retention.status === 'good' ? 'emerald' : task.retention.status === 'warning' ? 'yellow' : 'red'}-400/50 shadow-${task.retention.status === 'fresh' || task.retention.status === 'good' ? 'emerald' : task.retention.status === 'warning' ? 'yellow' : 'red'}-500/10`}
                                                             title="Iniciar Revisão"
                                                         >
-                                                            <Play size={18} className="fill-emerald-400/20 group-hover/play:fill-emerald-400/40 transition-all drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]" />
+                                                            <Play size={18} className={`translate-x-[1px] transition-all drop-shadow-md fill-current opacity-50 group-hover/play:opacity-100`} />
                                                         </button>
                                                     </div>
                                                 ))}
