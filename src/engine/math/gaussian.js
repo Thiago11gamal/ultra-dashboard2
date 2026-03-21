@@ -42,3 +42,85 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
         .sort((a, b) => a.x - b.x)
         .map(p => `${xp(p.x)},${yp(p.y)}`);
 }
+
+/**
+ * Fast Kernel Density Estimation (KDE) using Binning for large Monte Carlo samples.
+ * Returns normalized density points (x, y) for SVG plotting.
+ */
+export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations) {
+    if (!allScores || allScores.length === 0) return [];
+
+    // BUG 2 Corrigido: Índice do p975 com o -1 necessário para não desalinhar a cauda
+    const rawHigh = allScores[Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1)] || 100;
+    
+    // BUG 1 Corrigido: Domínio visual e matemático ancorado rigidamente em 0.
+    const plotMin = 0; 
+    const plotMax = Math.max(110, Math.ceil(rawHigh) + 5); 
+    const plotSteps = 100;
+    const stepSize = (plotMax - plotMin) / plotSteps;
+    
+    const empiricalData = [];
+    
+    // Silverman's Rule of Thumb para suavização ideal do Kernel
+    const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
+    const h = 1.06 * Math.min(projectedSD, iqr / 1.34) * Math.pow(safeSimulations, -0.2);
+    const bandwidth = Math.max(h, 2.0); // Previne picos ruidosos demais
+    
+    // Fast KDE usando Binning
+    const BIN_COUNT = 100;
+    const binWidth = (plotMax - plotMin) / BIN_COUNT;
+    const bins = new Float32Array(BIN_COUNT);
+    
+    // BUG 3 e PONTO 1 Corrigidos: Contabilizar overflow e underflow separadamente
+    let overflowCount = 0;
+    let underflowCount = 0;
+    
+    for (let i = 0; i < safeSimulations; i++) {
+        const s = allScores[i];
+        if (s > plotMax) { 
+            overflowCount++; 
+            continue; 
+        }
+        if (s < plotMin) {
+            underflowCount++;
+            continue;
+        }
+        // Scores garantidamente dentro do domínio visual [plotMin, plotMax]
+        const idx = Math.min(BIN_COUNT - 1, Math.floor((s - plotMin) / binWidth));
+        bins[idx]++;
+    }
+
+    // A normalização divide rigorosamente pelos eventos que entraram nos bins.
+    // Isso garante que a área desenhada de fato integre perfeitamente a 1 (100%).
+    const inDomainCount = safeSimulations - overflowCount - underflowCount;
+    const safeDomainCount = Math.max(1, inDomainCount); // Previne divisão por zero
+    
+    const invBandwidth = 1 / bandwidth;
+    const normFactor = 1 / (safeDomainCount * bandwidth * Math.sqrt(2 * Math.PI));
+
+    let maxY = 0;
+    for (let i = 0; i <= plotSteps; i++) {
+        const x = plotMin + i * stepSize;
+        let density = 0;
+        
+        for (let j = 0; j < BIN_COUNT; j++) {
+            if (bins[j] === 0) continue;
+            const binX = plotMin + (j + 0.5) * binWidth;
+            const dist = (x - binX) * invBandwidth;
+            
+            // Otimização de convolução (descarta interações a > 3.5 sigmas)
+            if (Math.abs(dist) < 3.5) {
+                density += bins[j] * Math.exp(-0.5 * dist * dist);
+            }
+        }
+        density *= normFactor;
+        if (density > maxY) maxY = density;
+        empiricalData.push({ x, y: density });
+    }
+
+    // Normalizando Y para 0-1 e limitando casas decimais para o SVG
+    return empiricalData.map(d => ({
+        x: Number(d.x.toFixed(2)),
+        y: maxY > 0 ? Number((d.y / maxY).toFixed(4)) : 0
+    }));
+}
