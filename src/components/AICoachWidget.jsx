@@ -128,10 +128,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="group/btn relative w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-sm transition-all shadow-xl shadow-purple-900/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden"
+                        className="group/btn relative w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-slate-200 font-black text-sm transition-all shadow-xl shadow-purple-900/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                        {loading ? <Sparkles size={20} className="animate-spin text-white" /> : <Zap size={20} className="text-white fill-white" />}
+                        {loading ? <Sparkles size={20} className="animate-spin text-slate-200" /> : <Zap size={20} className="text-slate-200 fill-slate-200" />}
                         <span className="relative z-10 tracking-widest uppercase">{loading ? 'ALGORITMO PROCESSANDO...' : 'RECALCULAR PLANO INTELIGENTE'}</span>
                     </button>
                 </div>
