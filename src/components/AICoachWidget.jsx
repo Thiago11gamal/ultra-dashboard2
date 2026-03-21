@@ -36,17 +36,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <h2 className="text-xl font-black text-white tracking-tight">AI Coach <span className="text-slate-500 font-bold">Analysis</span></h2>
                         </div>
                     </div>
-
-                    {/* Action Button */}
-                    <button
-                        onClick={onGenerateGoals}
-                        disabled={loading}
-                        className="group/btn relative w-full xl:w-auto px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition-all shadow-lg shadow-purple-900/20 hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                        {loading ? <Sparkles size={16} className="animate-spin text-white" /> : <Zap size={16} className="text-white fill-white" />}
-                        <span className="relative z-10 tracking-widest leading-none">{loading ? 'PROCESSANDO...' : 'RECALCULAR PLANO'}</span>
-                    </button>
                 </div>
 
                 {/* Content Section */}
@@ -133,6 +122,19 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         )}
                     </div>
                 )}
+
+                {/* Action Button - Prominent Bottom Position */}
+                <div className="mt-8 pt-6 border-t border-white/5">
+                    <button
+                        onClick={onGenerateGoals}
+                        disabled={loading}
+                        className="group/btn relative w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-sm transition-all shadow-xl shadow-purple-900/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                        {loading ? <Sparkles size={20} className="animate-spin text-white" /> : <Zap size={20} className="text-white fill-white" />}
+                        <span className="relative z-10 tracking-widest uppercase">{loading ? 'ALGORITMO PROCESSANDO...' : 'RECALCULAR PLANO INTELIGENTE'}</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
