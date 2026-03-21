@@ -67,15 +67,19 @@ function simuladosToHistory(simulados) {
         }));
 }
 
+const mcCache = new Map();
+
 /**
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
 function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
-    if (relevantSimulados.length < cfg.MC_MIN_DATA_POINTS) return null;
-
     const history = simuladosToHistory(relevantSimulados);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
+
+    const sumCorrect = relevantSimulados.reduce((a, s) => a + (Number(s.correct) || 0), 0);
+    const hash = `${history.length}-${sumCorrect}-${targetScore}`;
+    if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
         const result = monteCarloSimulation(
@@ -85,14 +89,19 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
             cfg.MC_SIMULATIONS,
             {}
         );
-        return {
+        const finalResult = {
             probability: result.probability,
             volatility: result.volatility,
             mean: result.mean,
             ci95Low: result.ci95Low,
             ci95High: result.ci95High,
         };
-    } catch {
+        mcCache.set(hash, finalResult);
+        return finalResult;
+    } catch (e) {
+        if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+            console.warn('[CoachMC] Simulação falhou:', e.message, { n: history.length });
+        }
         return null;
     }
 }
@@ -367,7 +376,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Média": `${Math.round(averageScore)}%`,
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${trend.toFixed(1)}` : trend < -0.5 ? `↓ ${trend.toFixed(1)}` : "→ Estável",
-                    "Volatilidade MSSD": `±${mssdVolatility.toFixed(1)} pts`,
+                    "Instabilidade": `±${mssdVolatility.toFixed(1)} pts`,
                     "Probabilidade (MC)": mcHasData ? `${Math.round(mcProbability * 100)}%` : "Dados insuf.",
                     "Peso da Matéria": weightLabel,
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
@@ -556,7 +565,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
 
         // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
-        if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER) {
+        if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE) {
             const probPct = Math.round(mc.probabilityRaw * 100);
             return {
                 id: `${cat.id}-mc-chaos-${new Date().toDateString()}`,
@@ -642,7 +651,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (cat.urgency?.details?.hasData &&
             categorySims.length >= 3 &&
             cat.urgency.details.averageScore < targetScore &&
-            cat.urgency.details.mssdVolatility < 4 &&
+            cat.urgency.details.mssdVolatility < 6 &&
             cat.urgency.details.trend >= -1 && cat.urgency.details.trend <= 1) {
             return {
                 id: `${cat.id}-plateau-${new Date().toDateString()}`,
