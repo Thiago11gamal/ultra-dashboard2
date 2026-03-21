@@ -48,11 +48,12 @@ const TaskCard = ({ task, index, isBacklog }) => {
     );
 };
 
+const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+
 export default function AICoachPlanner({ coachPlan = [] }) {
-    const { coachPlanner, updateCoachPlanner } = useAppStore(state => ({
-        coachPlanner: state.appState.coachPlanner || { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-        updateCoachPlanner: state.updateCoachPlanner
-    }));
+    const coachPlanner = useAppStore(state => state.appState.coachPlanner) || DEFAULT_PLANNER;
+    const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
+
 
     // Local state for the drag-and-drop to be extremely responsive
     const [columns, setColumns] = useState({

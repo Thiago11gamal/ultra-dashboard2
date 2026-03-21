@@ -55,7 +55,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             return;
         }
 
-        const docRef = doc(db, 'backups', currentUser.uid);
+        let docRef;
+        try {
+            docRef = doc(db, 'backups', currentUser.uid);
+        } catch (err) {
+            console.error("[Sync] Firebase initialization error (likely missing Vercel env vars):", err);
+            confirmParity();
+            return;
+        }
 
         logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
 
