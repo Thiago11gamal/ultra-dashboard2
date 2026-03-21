@@ -51,9 +51,9 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                 {/* Content Section */}
                 {!urgency.hasData ? (
-                    <div className="relative z-10 p-8 md:p-12 rounded-2xl bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/5 flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left overflow-hidden group/wait">
+                    <div className="relative z-10 p-8 md:p-12 rounded-2xl bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/5 flex flex-col md:flex-row items-center justify-start gap-6 text-center md:text-left overflow-hidden group/wait">
                         <div className="absolute inset-0 bg-purple-500/5 group-hover/wait:bg-purple-500/10 transition-colors duration-700"></div>
-                        <div className="relative w-20 h-20 rounded-2xl bg-slate-800/80 flex items-center justify-center border border-purple-500/20 ring-4 ring-purple-500/10 shadow-xl shadow-purple-900/20 group-hover/wait:scale-105 transition-transform duration-500">
+                        <div className="relative w-20 h-20 rounded-2xl bg-slate-800/80 flex items-center justify-center border border-purple-500/20 ring-4 ring-purple-500/10 shadow-xl shadow-purple-900/20 group-hover/wait:scale-105 transition-transform duration-500 shrink-0">
                             <Database size={32} className="text-purple-400 animate-pulse" />
                         </div>
                         <div className="relative">
