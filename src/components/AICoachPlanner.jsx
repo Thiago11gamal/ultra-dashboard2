@@ -4,13 +4,13 @@ import { useAppStore } from '../store/useAppStore';
 import { BrainCircuit, Calendar, GripVertical, Info } from 'lucide-react';
 
 const DAYS = [
-    { id: 'mon', label: 'Seg' },
-    { id: 'tue', label: 'Ter' },
-    { id: 'wed', label: 'Qua' },
-    { id: 'thu', label: 'Qui' },
-    { id: 'fri', label: 'Sex' },
-    { id: 'sat', label: 'Sáb' },
-    { id: 'sun', label: 'Dom' }
+    { id: 'mon', label: 'Segunda', color: 'blue' },
+    { id: 'tue', label: 'Terça', color: 'purple' },
+    { id: 'wed', label: 'Quarta', color: 'pink' },
+    { id: 'thu', label: 'Quinta', color: 'orange' },
+    { id: 'fri', label: 'Sexta', color: 'emerald' },
+    { id: 'sat', label: 'Sábado', color: 'cyan' },
+    { id: 'sun', label: 'Domingo', color: 'rose' }
 ];
 
 const TaskCard = ({ task, index, isBacklog }) => {
@@ -29,18 +29,16 @@ const TaskCard = ({ task, index, isBacklog }) => {
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`relative p-3 mb-2 rounded-xl border transition-all shadow-sm ${
+                    className={`relative p-3 mb-3 rounded-xl transition-all shadow-sm group/task flex items-start gap-2 ${
                         snapshot.isDragging 
-                            ? 'bg-slate-800 border-purple-500 shadow-purple-500/20 z-50 scale-105' 
-                            : 'bg-slate-900/60 border-white/5 hover:border-white/10'
+                            ? 'bg-slate-800 border-2 border-purple-500 shadow-xl shadow-purple-500/20 z-50 scale-105 rotate-1' 
+                            : 'bg-slate-900/80 border border-white/5 hover:bg-slate-800 hover:border-white/20 hover:shadow-lg'
                     }`}
                 >
-                    <div className="flex items-start gap-2">
-                        <GripVertical size={14} className="text-slate-600 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-slate-200 truncate">{subject}</h4>
-                            {desc && <p className="text-[10px] text-slate-400 truncate mt-0.5">{desc}</p>}
-                        </div>
+                    <GripVertical size={14} className="text-slate-600 mt-0.5 shrink-0 opacity-0 group-hover/task:opacity-100 transition-opacity" />
+                    <div className="flex-1 min-w-0">
+                        <h4 className="text-[11px] font-black tracking-wide text-slate-200 uppercase leading-snug mb-1">{subject}</h4>
+                        {desc && <p className="text-[10px] text-slate-400 leading-relaxed truncate">{desc}</p>}
                     </div>
                 </div>
             )}
@@ -177,20 +175,23 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                             <div className="ml-auto text-xs text-slate-500 italic hidden sm:block">Arraste as metas para planejar seu estudo</div>
                         </div>
 
-                        <div className="flex gap-4 min-w-[700px] h-full min-h-[350px]">
+                        <div className="flex gap-4 min-w-[900px] h-full min-h-[350px]">
                             {DAYS.map(day => (
-                                <div key={day.id} className="flex-1 flex flex-col min-w-[120px]">
-                                    <h4 className="text-center text-[10px] font-black tracking-widest text-slate-500 uppercase mb-3 bg-slate-950 py-1.5 rounded-lg border border-white/5">
-                                        {day.label}
-                                    </h4>
+                                <div key={day.id} className="flex-1 flex flex-col min-w-[140px]">
+                                    {/* Column Header Design */}
+                                    <div className="text-center py-2 px-1 mb-3 rounded-lg border border-white/5 bg-slate-950/50 shadow-inner">
+                                        <h4 className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                                            {day.label}
+                                        </h4>
+                                    </div>
                                     
                                     <Droppable droppableId={day.id}>
                                         {(provided, snapshot) => (
                                             <div
                                                 ref={provided.innerRef}
                                                 {...provided.droppableProps}
-                                                className={`flex-1 min-h-[150px] p-1.5 rounded-xl border border-dashed transition-all ${
-                                                    snapshot.isDraggingOver ? 'bg-purple-500/10 border-purple-500/50' : 'bg-black/20 border-white/5'
+                                                className={`flex-1 min-h-[200px] p-2 rounded-2xl border-2 border-dashed transition-all ${
+                                                    snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
                                                 }`}
                                             >
                                                 {columns[day.id].map((task, idx) => (

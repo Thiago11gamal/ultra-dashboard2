@@ -184,9 +184,9 @@ export default function AICoachView({
 
                 {/* Right Column: The Plan (8 cols) */}
                 <div className="xl:col-span-8 lg:col-span-7">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
+                        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                            <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center pr-4 border-r border-white/10">
                                 Execução
                             </h2>
                             {coachPlan && coachPlan.length > 0 && (
