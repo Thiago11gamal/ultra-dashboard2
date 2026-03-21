@@ -111,7 +111,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactor),
             median, p25, p75
         };
-    }, [mean, sd, low95, high95, targetScore, currentMean]);
+    // Bug 3: Incluir dependências corretas (prob, propSdLeft, propSdRight)
+    }, [mean, sd, low95, high95, targetScore, currentMean, prob, propSdLeft, propSdRight]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(mean ?? 0);

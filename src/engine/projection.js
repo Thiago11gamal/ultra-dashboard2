@@ -412,7 +412,10 @@ export function monteCarloSimulation(
     const sdLeft = (displayMean - ci95LowVal) / 1.96;
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
-    const zScore = (targetScore - projectedMean) / Math.max(0.1, inferredSD);
+    // Bug 2: Usar sdLeft quando o teto de 100% artificialmente comprime o inferredSD
+    const effectiveSD = (ci95HighVal >= 99.5) ? sdLeft : Math.max(0.1, inferredSD);
+
+    const zScore = (targetScore - projectedMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;
     
     // MC-02: Use raw empirical probability

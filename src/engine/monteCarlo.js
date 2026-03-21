@@ -83,6 +83,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const sdRight = (displayHigh - displayMean) / 1.96;
   const inferredSD = (displayHigh - displayLow) / 3.92;
 
+  // Bug 2: Usar sdLeft quando o teto de 100% artificialmente comprime o inferredSD
+  const effectiveSD = (displayHigh >= 99.5) ? sdLeft : Math.max(0.1, inferredSD);
+
+  // Bug 1: Calcular analyticalProbability corretamente
+  const zScore = (safeTarget - displayMean) / effectiveSD;
+  const analyticalProbability = normalCDF_complement(zScore) * 100;
+
   return {
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),

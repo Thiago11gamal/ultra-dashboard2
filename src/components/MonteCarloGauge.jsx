@@ -341,6 +341,21 @@ export default function MonteCarloGauge({
     const currentMean = simulationData.data.currentMean;
     const prob = parseFloat(probability);
 
+    // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
+    const isClampedHigh = parseFloat(ci95High) >= 99.5;
+    const isClampedLow = parseFloat(ci95Low) <= 0.5;
+    
+    let uncertaintyLabel = `±${parseFloat(sd).toFixed(1)}%`;
+    if (isClampedHigh && !isClampedLow) {
+        uncertaintyLabel = `±${parseFloat(sdLeft).toFixed(1)}%`;
+    } else if (isClampedLow && !isClampedHigh) {
+        uncertaintyLabel = `±${parseFloat(sdRight).toFixed(1)}%`;
+    } else {
+        uncertaintyLabel = Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2 
+            ? `-${parseFloat(sdLeft).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%`
+            : `±${parseFloat(sd).toFixed(1)}%`;
+    }
+
     const getGradientColor = (percentage) => {
         // AUDIT FIX: Alinhamento com padrões institucionais de risco
         // < 60% (Vermelho), 60-80% (Amarelo/Amber), > 80% (Verde)
@@ -446,9 +461,7 @@ export default function MonteCarloGauge({
                     { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
                     { 
                         label: "Incerteza", 
-                        val: Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2 
-                            ? `-${parseFloat(sdLeft).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%`
-                            : `±${parseFloat(sd).toFixed(1)}%`, 
+                        val: uncertaintyLabel, 
                         color: Math.abs(parseFloat(sd)) <= 5 ? 'text-emerald-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' 
                     },
                     { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
