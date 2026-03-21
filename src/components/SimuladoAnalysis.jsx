@@ -280,6 +280,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
 
             } catch (err) {
+                console.error("Analysis Error:", err);
                 setAnalysisData(null);
                 setError("Erro ao processar dados.");
             } finally {
@@ -454,8 +455,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         <div className={`relative px-5 py-4 bg-gradient-to-r ${discCfg.from} to-transparent border-b border-slate-700/50`}>
                                             <div className="flex justify-between items-end mb-2 relative z-10">
                                                 <h3 className="text-xl font-black text-white flex items-center gap-2 drop-shadow-md tracking-tight uppercase">
-                                                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base" style={{ backgroundColor: `${subjectColor}40`, color: subjectColor, border: `1px solid ${subjectColor}60` }}>
-                                                        {disc.name[0]}
+                                                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base uppercase" style={{ backgroundColor: `${subjectColor}40`, color: subjectColor, border: `1px solid ${subjectColor}60` }}>
+                                                        {disc.name ? disc.name[0] : '?'}
                                                     </span>
                                                     {disc.name}
                                                 </h3>
