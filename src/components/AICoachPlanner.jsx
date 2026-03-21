@@ -133,7 +133,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
             <div className="flex flex-col xl:flex-row gap-6">
                 
                 {/* BACKLOG COLUMN */}
-                <div className="w-full xl:w-1/4">
+                <div className="w-full xl:w-72 shrink-0">
                     <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 flex flex-col h-full min-h-[400px]">
                         <div className="flex items-center gap-2 mb-4">
                             <BrainCircuit size={16} className="text-purple-400" />
@@ -167,7 +167,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                 </div>
 
                 {/* WEEK PLANNER */}
-                <div className="w-full xl:w-3/4">
+                <div className="w-full flex-1">
                     <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-5 overflow-x-auto">
                         <div className="flex items-center gap-2 mb-6 text-slate-400">
                             <Calendar size={16} />
@@ -175,7 +175,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                             <div className="ml-auto text-xs text-slate-500 italic hidden sm:block">Arraste as metas para planejar seu estudo</div>
                         </div>
 
-                        <div className="flex gap-4 min-w-[900px] h-full min-h-[350px]">
+                        <div className="flex gap-4 min-w-[1000px] h-full min-h-[500px] lg:min-h-[600px]">
                             {DAYS.map(day => (
                                 <div key={day.id} className="flex-1 flex flex-col min-w-[140px]">
                                     {/* Column Header Design */}
@@ -190,7 +190,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                                             <div
                                                 ref={provided.innerRef}
                                                 {...provided.droppableProps}
-                                                className={`flex-1 min-h-[200px] p-2 rounded-2xl border-2 border-dashed transition-all ${
+                                                className={`flex-1 min-h-[400px] lg:min-h-[500px] p-2 rounded-2xl border-2 border-dashed transition-all ${
                                                     snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
                                                 }`}
                                             >

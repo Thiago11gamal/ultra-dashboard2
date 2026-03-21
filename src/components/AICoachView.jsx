@@ -130,8 +130,8 @@ export default function AICoachView({
             <div className="flex flex-col md:flex-row items-end justify-between gap-6 pt-6 pb-6 border-b border-white/5">
                 <div className="flex-1 md:text-left">
                     <h1 className="text-xl font-black text-white flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                            <BrainCircuit size={16} className="text-purple-400" />
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 shadow-sm">
+                            <Sparkles size={16} className="text-purple-400" />
                         </div>
                         Executive Coach
                         <span className="text-[10px] text-purple-400 uppercase tracking-widest font-bold bg-purple-500/10 px-2 py-1 rounded ml-2">Beta</span>
@@ -155,51 +155,49 @@ export default function AICoachView({
                 </div>
             </div>
 
-            {/* 2. Main Layout Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                {/* Left Column: Widget (4 cols) */}
-                <div className="xl:col-span-4 lg:col-span-5 space-y-6">
-                    <div className="sticky top-8 space-y-6">
-                        {/* The High-End Widget */}
-                        <div className="relative">
-                            {suggestedFocus && (
-                                <AICoachWidget
-                                    suggestion={suggestedFocus}
-                                    onGenerateGoals={onGenerateGoals}
-                                    loading={loading}
-                                />
-                            )}
-                        </div>
-
-                        {/* Empty State Helper - Shows only if no plan */}
-                        {(!coachPlan || coachPlan.length === 0) && (
-                            <div className="p-8 rounded-2xl border border-dashed border-white/10 bg-black text-center">
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-                                    Gere novas metas para iniciar
-                                </p>
-                            </div>
+            {/* 2. Main Layout Stack */}
+            <div className="flex flex-col gap-10">
+                {/* Top Section: Widget */}
+                <div className="w-full">
+                    {/* The High-End Widget */}
+                    <div className="relative">
+                        {suggestedFocus && (
+                            <AICoachWidget
+                                suggestion={suggestedFocus}
+                                onGenerateGoals={onGenerateGoals}
+                                loading={loading}
+                            />
                         )}
                     </div>
+
+                    {/* Empty State Helper - Shows only if no plan */}
+                    {(!coachPlan || coachPlan.length === 0) && (
+                        <div className="p-8 rounded-2xl border border-dashed border-white/10 bg-black text-center">
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                                Gere novas metas para iniciar
+                            </p>
+                        </div>
+                    )}
                 </div>
 
-                {/* Right Column: The Plan (8 cols) */}
-                <div className="xl:col-span-8 lg:col-span-7">
+                {/* Bottom Section: The Plan */}
+                <div className="w-full">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
                         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                             <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center pr-4 border-r border-white/10">
                                 Execução
                             </h2>
                             {coachPlan && coachPlan.length > 0 && (
-                                <div className="flex items-center bg-slate-800 p-1 rounded-lg">
+                                <div className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-xl border border-white/5">
                                     <button
                                         onClick={() => setViewMode('planner')}
-                                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors ${viewMode === 'planner' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'planner' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         Planner
                                     </button>
                                     <button
                                         onClick={() => setViewMode('list')}
-                                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors ${viewMode === 'list' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'list' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         Lista
                                     </button>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity, Sparkles, ChevronRight, AlertCircle } from 'lucide-react';
+import { BrainCircuit, Zap, Target, HelpCircle, TrendingDown, Clock, Activity, Sparkles, ChevronRight, AlertCircle, Cpu, Database } from 'lucide-react';
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
     const [showWhy, setShowWhy] = useState(false);
@@ -24,7 +24,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     <div className="flex items-center gap-4">
                         <div className="relative w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 overflow-hidden group/icon">
                             <div className="absolute inset-0 bg-purple-500/5 group-hover/icon:animate-pulse"></div>
-                            <BrainCircuit size={22} className="text-purple-400 relative z-10" />
+                            <Cpu size={22} className="text-purple-400 relative z-10" />
                         </div>
                         <div>
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -54,7 +54,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     <div className="relative z-10 p-8 md:p-12 rounded-2xl bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/5 flex flex-col md:flex-row items-center justify-center gap-6 text-center md:text-left overflow-hidden group/wait">
                         <div className="absolute inset-0 bg-purple-500/5 group-hover/wait:bg-purple-500/10 transition-colors duration-700"></div>
                         <div className="relative w-20 h-20 rounded-2xl bg-slate-800/80 flex items-center justify-center border border-purple-500/20 ring-4 ring-purple-500/10 shadow-xl shadow-purple-900/20 group-hover/wait:scale-105 transition-transform duration-500">
-                            <Activity size={32} className="text-purple-400 animate-pulse" />
+                            <Database size={32} className="text-purple-400 animate-pulse" />
                         </div>
                         <div className="relative">
                             <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Análise Pendente</h3>
