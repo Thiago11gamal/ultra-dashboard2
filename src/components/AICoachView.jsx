@@ -125,7 +125,7 @@ export default function AICoachView({
     };
 
     return (
-        <div id="ai-coach-container" className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-4 sm:px-8">
+        <div id="ai-coach-container" className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 xl:px-16 pt-4">
             {/* 1. Header & Navigation */}
             <div className="flex flex-col md:flex-row items-end justify-between gap-6 pt-6 pb-6 border-b border-white/5">
                 <div className="flex-1 md:text-left">
