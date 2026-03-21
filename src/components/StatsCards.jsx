@@ -25,10 +25,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         let goal;
         if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
             const g = new Date(user.goalDate);
+            if (isNaN(g.getTime())) return null;
             // ISO strings interpreted as UTC days for the goal
             goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
         } else {
-            const g = new Date(user.goalDate);
+            const rawString = String(user.goalDate);
+            const g = rawString.length === 10 
+                ? new Date(`${rawString}T12:00:00`) 
+                : new Date(rawString);
+            if (isNaN(g.getTime())) return null;
             goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
         }
 
@@ -49,12 +54,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Sequência</span>
                     </div>
                     <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
-                        {streak.current} {streak.current === 1 ? 'dia' : 'dias'}
+                        {streak?.current || 0} {(streak?.current || 0) === 1 ? 'dia' : 'dias'}
                     </div>
                     <div className="text-[10px] sm:text-xs text-slate-500 leading-normal">
-                        Recorde: {streak.longest}d
+                        Recorde: {streak?.longest || 0}d
                     </div>
-                    {streak.isActive && (
+                    {streak?.isActive && (
                         <div className="mt-1 sm:mt-2 flex items-center gap-1 text-orange-400">
                             <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></div>
                             <span className="text-[9px] sm:text-xs font-bold">ATIVA</span>
@@ -73,10 +78,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Eficiência</span>
                     </div>
                     <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
-                        {efficiency.score}%
+                        {efficiency?.score ?? 0}%
                     </div>
                     <div className="text-[10px] sm:text-xs text-slate-500 capitalize leading-normal truncate">
-                        {efficiency.efficiency?.replace(/_/g, ' ') || 'N/A'}
+                        {efficiency?.efficiency?.replace(/_/g, ' ') || 'N/A'}
                     </div>
                 </div>
             </div>
@@ -91,9 +96,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Equilíbrio</span>
                     </div>
                     <div className="text-base sm:text-xl font-black text-white mb-0.5 sm:mb-1 capitalize truncate">
-                        {balance.status?.replace(/_/g, ' ') || 'N/A'}
+                        {balance?.status?.replace(/_/g, ' ') || 'N/A'}
                     </div>
-                    {balance.distribution[0] && (
+                    {balance?.distribution?.[0] && (
                         <div className="text-[10px] sm:text-xs text-slate-500 leading-normal truncate">
                             {balance.distribution[0].subject}: {balance.distribution[0].percentage}%
                         </div>
@@ -200,9 +205,20 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <div className="relative group/input flex justify-center w-full pointer-events-none">
                         <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center leading-relaxed ${!user.goalDate ? 'border-red-500/50 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'border-white/10 text-slate-200'}`}>
                             {user.goalDate ? (() => {
-                                const g = new Date(user.goalDate);
-                                const localDate = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
-                                return localDate.toLocaleDateString('pt-BR');
+                                let g;
+                                if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
+                                    const d = new Date(user.goalDate);
+                                    if (isNaN(d.getTime())) return 'INVÁLIDA';
+                                    g = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+                                } else {
+                                    const rawString = String(user.goalDate);
+                                    const d = rawString.length === 10 
+                                            ? new Date(`${rawString}T12:00:00`)
+                                            : new Date(rawString);
+                                    if (isNaN(d.getTime())) return 'INVÁLIDA';
+                                    g = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                }
+                                return g.toLocaleDateString('pt-BR');
                             })() : 'ESCOLHER'}
                         </div>
                     </div>
