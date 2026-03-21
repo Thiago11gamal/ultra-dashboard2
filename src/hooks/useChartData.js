@@ -29,9 +29,9 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     let accumulated = [];
     let histIdx = 0;
 
-    // Bayesian accumulators — Prior Beta(3,3)
-    let bayAlpha = 3;
-    let bayBeta  = 3;
+    // Bayesian accumulators — Prior Beta(1,1) Neutral Laplace
+    let bayAlpha = 1;
+    let bayBeta  = 1;
 
     for (const date of sortedDates) {
         while (histIdx < aggregatedHistory.length) {
@@ -48,7 +48,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                     correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
                 }
 
-                if (total >= 5) {
+                if (total >= 1) {
                     bayAlpha += Number(correct);
                     bayBeta  += (Number(total) - Number(correct));
                 }

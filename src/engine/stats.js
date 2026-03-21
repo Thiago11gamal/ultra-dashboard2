@@ -101,11 +101,12 @@ export function calculateTrend(history) {
 
 /**
  * Nível Bayesiano Real — Modelo Beta-Binomial Conjugado
- * Prior: Beta(3,3) = 6 questões fantasma centradas em 50%.
+ * Prior: Beta(1,1) = Uniforme (Laplace Smoothing).
+ * Assumimos total desconhecimento do Nível inicial do aluno (mais justo).
  * A cada simulado: alpha += acertos, beta += erros.
  * Retorna média posterior + IC 95%.
  */
-export function computeBayesianLevel(history, alpha0 = 3, beta0 = 3) {
+export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     let alpha = alpha0;
     let beta  = beta0;
 
