@@ -138,7 +138,7 @@ function MainLayout() {
         createNewContest();
       }
     }
-  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest]);
+  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest, contests]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

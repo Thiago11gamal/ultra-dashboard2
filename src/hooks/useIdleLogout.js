@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { logger } from '../utils/logger';
 
 /**
@@ -11,7 +11,7 @@ import { logger } from '../utils/logger';
 export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
     const timerRef = useRef(null);
 
-    const resetTimer = () => {
+    const resetTimer = useCallback(() => {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
@@ -19,7 +19,7 @@ export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
             logout();
         }, timeoutMs);
-    };
+    }, [logout, timeoutMs]);
 
     useEffect(() => {
         // Enforce a minimum safety timeout (e.g., 30s) unless it's explicitly short for testing
@@ -51,5 +51,5 @@ export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
                 window.removeEventListener(event, resetTimer);
             });
         };
-    }, [logout, timeoutMs]);
+    }, [resetTimer]);
 }

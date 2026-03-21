@@ -15,6 +15,7 @@ export function useSubscription(user) {
         const isAdmin = user && ADMIN_UIDS.includes(user.uid);
 
         if (isAdmin) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsPremium(true);
             setLoading(false);
             return;

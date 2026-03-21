@@ -2,7 +2,7 @@
 
 export const SYNC_LOG_CAP = 5000;
 export const MAX_BACKUP_SIZE = 5 * 1024 * 1024; // 5MB limit for JSON backups
-export const DEBUG_MODE = process.env.NODE_ENV === 'development';
+export const DEBUG_MODE = typeof process !== 'undefined' ? process.env.NODE_ENV === 'development' : import.meta.env?.DEV;
 
 export default {
     SYNC_LOG_CAP,

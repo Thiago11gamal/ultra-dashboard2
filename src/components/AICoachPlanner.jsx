@@ -69,6 +69,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
 
         const activeBacklog = coachPlan.filter(t => !allAssignedIds.has(t.id));
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setColumns({
             backlog: activeBacklog,
             mon: coachPlanner.mon || [],

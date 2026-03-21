@@ -9,7 +9,7 @@
  */
 
 async function resgatarBackupDoFirestore() {
-    logger.styled("[Rescue] Iniciando resgate via Firestore...", "color: #a855f7; font-weight: bold;");
+    console.log("[Rescue] Iniciando resgate via Firestore...");
     
     // O ID que você achou no print: 291jO0zyhCeHAM4RylplwFiSOOC3
     const backupId = "291jO0zyhCeHAM4RylplwFiSOOC3";
@@ -31,7 +31,7 @@ async function resgatarBackupDoFirestore() {
         }
 
         const backupData = snap.data();
-        logger.styled("[Rescue] Dados localizados! Tamanho:", "color: #22c55e;", JSON.stringify(backupData).length);
+        console.log("[Rescue] Dados localizados! Tamanho:", JSON.stringify(backupData).length);
 
         // Backup de segurança do que temos agora
         const current = localStorage.getItem('ultra-dashboard-storage');
@@ -46,7 +46,7 @@ async function resgatarBackupDoFirestore() {
         localStorage.setItem('ultra-dashboard-storage', JSON.stringify(stateToInject));
         localStorage.setItem('ultra-dashboard-data', JSON.stringify(backupData));
         
-        logger.styled("[Rescue] SUCESSO! Dados injetados. Recarregando em 2 segundos...", "color: #22c55e; font-weight: bold;");
+        console.log("[Rescue] SUCESSO! Dados injetados. Recarregando em 2 segundos...");
         
         setTimeout(() => {
             window.location.reload();

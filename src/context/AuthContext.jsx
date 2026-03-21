@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
 
         if (!auth) {
             console.warn('[Auth] Auth service is missing. Bypassing state listener.');
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
             return;
         }

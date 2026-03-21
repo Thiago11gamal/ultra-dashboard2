@@ -1,0 +1,221 @@
+﻿
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\App.jsx
+  141:6  warning  React Hook useEffect has a missing dependency: 'contests'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\AICoachPlanner.jsx
+  72:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  70 |         const activeBacklog = coachPlan.filter(t => !allAssignedIds.has(t.id));
+  71 |
+> 72 |         setColumns({
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  73 |             backlog: activeBacklog,
+  74 |             mon: coachPlanner.mon || [],
+  75 |             tue: coachPlanner.tue || [],  react-hooks/set-state-in-effect
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\AICoachView.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\Checklist.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\EvolutionChart.jsx
+  54:17  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  52 |         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
+  53 |             if (categories.length > 0) {
+> 54 |                 setFocusSubjectId(categories[0].id);
+     |                 ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  55 |             }
+  56 |         }
+  57 |     }, [categories, focusSubjectId]);  react-hooks/set-state-in-effect
+  85:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  83 |     const [mcProjection, setMcProjection] = useState(null);
+  84 |     useEffect(() => {
+> 85 |         setMcProjection(null);
+     |         ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  86 |         if (!focusCategory?.simuladoStats?.history) return;
+  87 |         
+  88 |         const hist = [...focusCategory.simuladoStats.history]     react-hooks/set-state-in-effect
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\GamificationComponents.jsx
+  3:10  error  'format' is defined but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+  3:18  error  'subDays' is defined but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  3:27  error  'differenceInDays' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\Header.jsx
+  54:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  52 |     // Sync localName with prop changes
+  53 |     useEffect(() => {
+> 54 |         setLocalName(user.name);
+     |         ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  55 |     }, [user.name]);
+  56 |
+  57 |     const handleLogout = async () => {  react-hooks/set-state-in-effect
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\MonteCarloGauge.jsx
+  6:5  error  'monteCarloSimulation' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\PomodoroTimer.jsx
+    3:10   error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                no-unused-vars
+    6:155  error    'onUpdateSettings' is defined but never used                                                                                                 no-unused-vars
+  304:8    warning  React Hook useCallback has missing dependencies: 'setCompletedCycles' and 'setSessions'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  467:11   error    'displayTime' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\SimuladoAnalysis.jsx
+  282:22  error  'err' is defined but never used  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\StudyHistory.jsx
+  39:31  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  37 |         const earliestTimeArr = studySessions.map(s => {
+  38 |             const t = new Date(s.startTime).getTime();
+> 39 |             return isNaN(t) ? Date.now() : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
+     |                               ^^^^^^^^^^ Cannot call impure function
+  40 |         });
+  41 |         const earliestTime = Math.min(...earliestTimeArr, Date.now());
+  42 |         const firstSession = new Date(earliestTime);  react-hooks/purity
+  41:59  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  39 |             return isNaN(t) ? Date.now() : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
+  40 |         });
+> 41 |         const earliestTime = Math.min(...earliestTimeArr, Date.now());
+     |                                                           ^^^^^^^^^^ Cannot call impure function
+  42 |         const firstSession = new Date(earliestTime);
+  43 |
+  44 |         // Get start of week (Sunday) for both earliest session and now              react-hooks/purity
+  72:15  error  'refWeekStart' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\Toast.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\TopicPerformance.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\VerifiedStats.jsx
+  6:10  error  'logger' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\VolumeRanking.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\charts\EvolutionChart\CompareChart.jsx
+  12:5  error  'categories' is defined but never used  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\charts\GaussianPlot.jsx
+    7:23   error    'trendPathData' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                              no-unused-vars
+    7:102  error    'heightFactor' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                               no-unused-vars
+    7:116  error    'curvePoints' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                no-unused-vars
+    7:151  error    'median' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                     no-unused-vars
+   77:26   error    'yPos' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                       no-unused-vars
+  115:8    warning  React Hook useMemo has unnecessary dependencies: 'currentMean', 'high95', and 'low95'. Either exclude them or remove the dependency array  react-hooks/exhaustive-deps
+  155:9    error    'tierHoje' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                   no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\components\charts\MonteCarloConfig.jsx
+  37:69  error    'user' is defined but never used                                                                                      no-unused-vars
+  48:8   warning  React Hook React.useEffect has a missing dependency: 'localTarget'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\config.js
+  5:27  error  'process' is not defined  no-undef
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\context\AuthContext.jsx
+  17:12  error  'showDebug' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               no-unused-vars
+  54:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  52 |         if (!auth) {
+  53 |             console.warn('[Auth] Auth service is missing. Bypassing state listener.');
+> 54 |             setLoading(false);
+     |             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  55 |             return;
+  56 |         }
+  57 |  react-hooks/set-state-in-effect
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\engine\projection.js
+  262:20  error  'rawDrift' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  396:11  error  'projectedSD' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\hooks\useChartData.js
+    3:32  error  'computeBayesianLevel' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   82:47  error  'targetScore' is assigned a value but never used                                             no-unused-vars
+  135:32  error  'last' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\hooks\useIdleLogout.js
+  26:15  error    'effectiveTimeout' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u               no-unused-vars
+  54:8   warning  React Hook useEffect has a missing dependency: 'resetTimer'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\hooks\useSubscription.js
+  18:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  16 |
+  17 |         if (isAdmin) {
+> 18 |             setIsPremium(true);
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  19 |             setLoading(false);
+  20 |             return;
+  21 |         }  react-hooks/set-state-in-effect
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\pages\Dashboard.jsx
+  11:11  error  'setAppState' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\pages\Pomodoro.jsx
+  1:17  error  'useState' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\services\firebase.js
+  5:83  error  'getFirestore' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\store\useAppStore.js
+  4:10  error  'format' is defined but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+  4:18  error  'subDays' is defined but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  4:27  error  'differenceInDays' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\utils\coachLogic.js
+  30:14  error  'e' is defined but never used  no-unused-vars
+
+C:\Users\antun.BOOK-201QO8FPFE\Downloads\fly\ultra-dashboard2\src\utils\rescueFirestore.js
+  12:5  error  'logger' is not defined  no-undef
+  34:9  error  'logger' is not defined  no-undef
+  49:9  error  'logger' is not defined  no-undef
+
+Ô£û 54 problems (49 errors, 5 warnings)
+

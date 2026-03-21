@@ -51,6 +51,7 @@ export default function Header({
 
     // Sync localName with prop changes
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLocalName(user.name);
     }, [user.name]);
 

@@ -301,7 +301,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 }));
             } catch { /* ignore storage errors */ }
         }
-    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime]);
+    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, setSessions, setCompletedCycles]);
 
     // --- ROBUST TIMER LOGIC ---
     // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK

@@ -28,6 +28,7 @@ const StudyHistory = React.memo(function StudyHistory({
 }) {
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
+    const [currentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
 
     // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
@@ -36,9 +37,9 @@ const StudyHistory = React.memo(function StudyHistory({
         // Find the earliest session
         const earliestTimeArr = studySessions.map(s => {
             const t = new Date(s.startTime).getTime();
-            return isNaN(t) ? Date.now() : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
+            return isNaN(t) ? currentTime : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
         });
-        const earliestTime = Math.min(...earliestTimeArr, Date.now());
+        const earliestTime = Math.min(...earliestTimeArr, currentTime);
         const firstSession = new Date(earliestTime);
 
         // Get start of week (Sunday) for both earliest session and now

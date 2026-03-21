@@ -45,7 +45,7 @@ export const MonteCarloConfig = ({
         if (!isNaN(next) && Math.abs(localTarget - next) > 0.1) {
             setLocalTarget(next);
         }
-    }, [targetScore]);
+    }, [targetScore, localTarget]);
 
     // 🔒 BUGFIX BUG-4: Não desmontar o componente para preservar o ref savedCustomWeights
     // if (!show) return null;

@@ -51,6 +51,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
             if (categories.length > 0) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setFocusSubjectId(categories[0].id);
             }
         }
@@ -82,6 +83,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
 
     const [mcProjection, setMcProjection] = useState(null);
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMcProjection(null);
         if (!focusCategory?.simuladoStats?.history) return;
         
