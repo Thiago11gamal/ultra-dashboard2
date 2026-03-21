@@ -403,13 +403,14 @@ export function monteCarloSimulation(
     const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
     const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
 
+    const displayMean = Math.max(0, Math.min(100, projectedMean));
     const ci95LowVal = parseFloat(ci95Low);
     const ci95HighVal = parseFloat(ci95High);
     const inferredSD = (ci95HighVal - ci95LowVal) / 3.92;
     
-    // MC-03: Asymmetric SDs for Bayesian consistency
-    const sdLeft = (projectedMean - ci95LowVal) / 1.96;
-    const sdRight = (ci95HighVal - projectedMean) / 1.96;
+    // MC-03: Asymmetric SDs for Bayesian consistency (using clamped mean for label consistency)
+    const sdLeft = (displayMean - ci95LowVal) / 1.96;
+    const sdRight = (ci95HighVal - displayMean) / 1.96;
 
     const zScore = (targetScore - projectedMean) / Math.max(0.1, inferredSD);
     const analyticalProbability = normalCDF_complement(zScore) * 100;
@@ -420,7 +421,7 @@ export function monteCarloSimulation(
     return {
         probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
         analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
-        mean: Number(projectedMean.toFixed(1)),
+        mean: Number(displayMean.toFixed(1)),
         sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
         sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
         sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),

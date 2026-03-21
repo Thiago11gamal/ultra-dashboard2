@@ -75,25 +75,23 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   const empiricalProbability = (success / safeSimulations) * 100;
   
-  // Consistency with Future panel methodology
-  const inferredSD = (finalRawHigh - finalRawLow) / 3.92;
-  const sdLeft = (projectedMean - finalRawLow) / 1.96;
-  const sdRight = (finalRawHigh - projectedMean) / 1.96;
+  const displayMean = Math.max(0, Math.min(100, projectedMean));
+  const displayLow = Math.max(0, finalRawLow);
+  const displayHigh = Math.min(100, finalRawHigh);
 
-  // We still keep the analytical one as a reference/correction if needed, 
-  // but the user wants empirical to be "honest".
-  const zScore = (safeTarget - projectedMean) / Math.max(0.1, inferredSD);
-  const analyticalProbability = normalCDF_complement(zScore) * 100;
+  const sdLeft = (displayMean - displayLow) / 1.96;
+  const sdRight = (displayHigh - displayMean) / 1.96;
+  const inferredSD = (displayHigh - displayLow) / 3.92;
 
   return {
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
-    mean: Number(Math.max(0, Math.min(100, projectedMean)).toFixed(1)),
+    mean: Number(displayMean.toFixed(1)),
     sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
     sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
     sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
-    ci95Low: Number(Math.max(0, finalRawLow).toFixed(1)),
-    ci95High: Number(Math.min(100, finalRawHigh).toFixed(1)),
+    ci95Low: Number(displayLow.toFixed(1)),
+    ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,

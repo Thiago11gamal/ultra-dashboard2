@@ -11,14 +11,41 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const xMax = 100;
         const range = 100;
 
-        let sdLeft = propSdLeft ?? sd;
-        let sdRight = propSdRight ?? sd;
-        if (propSdLeft === undefined && propSdRight === undefined && low95 != null && high95 != null) {
-            sdLeft = Math.max(0.2, (meanVal - low95) / 1.96);
-            sdRight = Math.max(0.2, (high95 - meanVal) / 1.96);
+        let vizSdLeft = Math.max(1, propSdLeft ?? sd);
+        let vizSdRight = Math.max(1, propSdRight ?? sd);
+
+        // BUG-03/MC-03 FIX: Calibração visual da área verde para coincidir com a prop 'prob' do Gauge
+        // Isso resolve a discrepância entre a curva Gaussiana suavizada e o "pile-up" em 100% da simulação.
+        if (prob != null && prob > 0 && prob < 100) {
+            const targetProb = prob / 100;
+            const m = meanVal;
+            const t = targetVal;
+            
+            // Probabilidade geométrica simplificada para um Gaussiano Assimétrico (sem considerar o truncamento em 0-100 para o ajuste)
+            const getGeomProb = (tVal, mVal, sl, sr) => {
+                if (tVal >= mVal) {
+                    return (sr * normalCDF_complement((tVal - mVal) / sr)) / ((sl + sr) * 0.5);
+                } else {
+                    const areaLeftSuccess = 0.5 - normalCDF_complement((mVal - tVal) / sl);
+                    return (sl * areaLeftSuccess + sr * 0.5) / ((sl + sr) * 0.5);
+                }
+            };
+
+            const pGeom = getGeomProb(t, m, vizSdLeft, vizSdRight);
+            
+            // Ajustar o SD do lado que contém a fronteira da meta para "forçar" a área visual a casar com o gauge
+            if (Math.abs(targetProb - pGeom) > 0.01) {
+                const ratio = targetProb / Math.max(0.01, pGeom);
+                if (t < m) {
+                    // Meta à esquerda da média: o ajuste do vizSdLeft tem maior impacto na área de sucesso
+                    vizSdLeft = Math.max(1, vizSdLeft * ratio);
+                } else {
+                    // Meta à direita da média: o ajuste do vizSdRight tem maior impacto
+                    vizSdRight = Math.max(1, vizSdRight * ratio);
+                }
+            }
         }
-        const vizSdLeft = Math.max(1, sdLeft);
-        const vizSdRight = Math.max(1, sdRight);
+
         const avgSd = (vizSdLeft + vizSdRight) / 2;
         // B-04 FIX: Maximized to 1.0 for the user's latest "azul mais alto" request
         const heightFactor = Math.min(1.0, 12 / avgSd);
