@@ -248,3 +248,33 @@ svg *,
 .animate-scan-fast {
   animation: scanFast 1s linear infinite;
 }
+
+/* 
+  Otimização extrema para html2canvas: 
+  Desliga filtros pesados e bordas transparentes apenas durante o instante da captura do PDF 
+*/
+.pdf-render-mode * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.pdf-render-mode .glass, 
+.pdf-render-mode .glass-panel {
+  background: var(--gradient-3) !important;
+}
+
+@media print {
+  body {
+    background: #0f172a !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

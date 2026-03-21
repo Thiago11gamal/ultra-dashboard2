@@ -22,8 +22,12 @@ const TaskCard = ({ task, index, isBacklog }) => {
 
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF]/g, '').trim();
 
+    // BUG FIX: react-beautiful-dnd breaks instantly if draggableId changes (e.g. relying on `index` across columns).
+    // If task.id is absent, we generate a stable hash from its content to prevent it from vanishing on drop.
+    const stableId = task.id || `fb-${subject.replace(/\s/g, '').substring(0, 10)}-${fullText.length}`;
+
     return (
-        <Draggable draggableId={task.id || `task-${index}`} index={index}>
+        <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
                 <div
                     ref={provided.innerRef}
