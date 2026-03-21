@@ -15,6 +15,22 @@ export function EvolutionLineChart({
     showOnlyFocus,
     categories 
 }) {
+    // Generate native tuple bands for Recharts Area
+    const enhancedChartData = React.useMemo(() => {
+        if (!filteredChartData || !filteredChartData.length) return [];
+        return filteredChartData.map(d => {
+            const copy = { ...d };
+            activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+                const low = d[`bay_ci_low_${cat.name}`];
+                const high = d[`bay_ci_high_${cat.name}`];
+                if (low != null && high != null) {
+                    copy[`band_${cat.id}`] = [low, high];
+                }
+            });
+            return copy;
+        });
+    }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId]);
+
     // Gather all final points to calculate offsets for labels
     const finalPoints = [];
     activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
@@ -66,7 +82,7 @@ export function EvolutionLineChart({
     return (
         <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full outline-none focus:outline-none focus:ring-0">
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
-                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }} style={{ outline: 'none' }} tabIndex="-1">
+                <ComposedChart data={enhancedChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         {categories.map(cat => (
                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
@@ -93,7 +109,7 @@ export function EvolutionLineChart({
                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45} strokeDasharray="0"
                         label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
-                        content={<ChartTooltip chartData={filteredChartData} isCompare={false} />} />
+                        content={<ChartTooltip chartData={enhancedChartData} isCompare={false} />} />
                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
                     
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
@@ -103,19 +119,11 @@ export function EvolutionLineChart({
                         return [
                             (isFocused && engine.id === 'bayesian') ? (
                                 <Area key={`bay_ci_${cat.id}`} type={engine.style}
-                                    dataKey={`bay_ci_high_${cat.name}`}
-                                    name="IC 95% (sup)" stroke="none"
+                                    dataKey={`band_${cat.id}`}
+                                    name="IC 95%" stroke="none"
                                     fill="url(#bayBandGradient)" legendType="none"
-                                    baseValue="dataMin" connectNulls
+                                    connectNulls
                                     isAnimationActive={false}
-                                />
-                            ) : null,
-                            (isFocused && engine.id === 'bayesian') ? (
-                                <Area key={`bay_ci_low_${cat.id}`} type={engine.style}
-                                    dataKey={`bay_ci_low_${cat.name}`}
-                                    name="IC 95% (inf)" stroke="none"
-                                    fill="#0a0f1e" legendType="none"
-                                    connectNulls isAnimationActive={false}
                                 />
                             ) : null,
                             isFocused ? (

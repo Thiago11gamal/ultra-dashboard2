@@ -8,8 +8,7 @@ import { ChartTooltip } from "../ChartTooltip";
 
 export function CompareChart({ 
     filteredChartData, 
-    targetScore, 
-    categories 
+    targetScore 
 }) {
     // Helper to sweep collisions
     const solveCollisions = (points) => {
@@ -80,12 +79,10 @@ export function CompareChart({
     };
 
     // Calculate base for gain shadow
-    const len = filteredChartData.length;
     let gainBase = 'dataMin';
-    if (len >= 2) {
-        const todayPt = filteredChartData[len - 2];
-        const baseFallback = todayPt ? (todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"]) : 'dataMin';
-        gainBase = todayPt && todayPt["Futuro Provável"] != null ? todayPt["Futuro Provável"] : baseFallback;
+    if (todayIdx >= 0) {
+        const todayPt = filteredChartData[todayIdx];
+        gainBase = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
     }
 
     return (
@@ -134,8 +131,7 @@ export function CompareChart({
                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                     
-                    <Area type="monotone" dataKey="Bay CI High" stroke="none" fill="url(#bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotone" dataKey="Bay CI Low" stroke="none" fill="#0a0f1e" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotone" dataKey="Banda Bayesiana" stroke="none" fill="url(#bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#ff0000" fillOpacity={0.7} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#ff0000" strokeWidth={1} strokeOpacity={0.7} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />

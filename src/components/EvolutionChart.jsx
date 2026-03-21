@@ -201,7 +201,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
         categories.forEach(cat => {
-            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
+            (cat.simuladoStats?.history || []).filter(h => {
+                const rawString = String(h.date);
+                const d = rawString.length === 10 ? new Date(`${rawString}T12:00:00`) : new Date(rawString);
+                return !isNaN(d.getTime()) && d >= rollingLimit;
+            }).forEach(h => {
                 (h.topics || []).forEach(t => {
                     const n = String(t.name || '').trim();
                     const key = n.toLowerCase();
@@ -237,7 +241,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
         const rawData = categories.map(cat => {
             let errors = 0;
-            (cat.simuladoStats?.history || []).filter(h => new Date(h.date) >= rollingLimit).forEach(h => {
+            (cat.simuladoStats?.history || []).filter(h => {
+                const rawString = String(h.date);
+                const d = rawString.length === 10 ? new Date(`${rawString}T12:00:00`) : new Date(rawString);
+                return !isNaN(d.getTime()) && d >= rollingLimit;
+            }).forEach(h => {
                 const total = h.total != null ? parseInt(h.total, 10) : 10;
                 const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
                 errors += Math.max(0, total - correct);
