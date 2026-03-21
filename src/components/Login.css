@@ -131,15 +131,15 @@ canvas {
 .toggle-link {
     margin-top: 20px;
     text-align: center;
-    font-size: 0.9rem;
-    opacity: 0.8;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #cbd5e1;
     cursor: pointer;
-    transition: 0.3s;
+    transition: 0.2s ease-in-out;
 }
 
 .toggle-link:hover {
-    opacity: 1;
-    color: #6366f1;
+    color: #818cf8;
     text-decoration: underline;
 }
 

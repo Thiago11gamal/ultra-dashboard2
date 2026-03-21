@@ -144,8 +144,8 @@ export default function Paywall({ user, onLogout }) {
                     {loading && <p className="mt-4 text-xs text-indigo-400 animate-pulse">Preparando ambiente seguro na nuvem...</p>}
 
                     <div className="mt-4">
-                        <button onClick={onLogout} className="text-xs text-slate-500 hover:text-slate-300 transition-colors uppercase font-bold tracking-wider">
-                            <span>Sair da Conta</span>
+                        <button onClick={onLogout} className="text-sm text-slate-400 hover:text-white transition-colors font-medium">
+                            <span className="flex items-center gap-1"><Zap className="w-3 h-3 opacity-50" /> Sair da conta</span>
                         </button>
                     </div>
                 </div>

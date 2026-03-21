@@ -224,7 +224,7 @@ function MainLayout() {
 
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
 
-      <OnboardingTour />
+      {isPremium && <OnboardingTour />}
 
       {levelUpData && (
         <LevelUpToast
