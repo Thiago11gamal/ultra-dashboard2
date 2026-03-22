@@ -1,4 +1,3 @@
-export const SYNTHETIC_TOTAL_QUESTIONS = 5;
 import { getSafeScore } from '../utils/scoreHelper.js';
 
 export function mean(arr) {
@@ -118,8 +117,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
             // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 10 questões)
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
-                total = SYNTHETIC_TOTAL_QUESTIONS;
-                correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
+                // SYNTHETIC_TOTAL_QUESTIONS = 5
+                total = 5;
+                correct = Math.round(pct * 5);
             }
             
             if (total < 1) continue;
@@ -174,10 +174,11 @@ export function computeCategoryStats(history, weight) {
     return {
         mean: m,
         sd: safeSD,
-        n: historyToUse.length,   // BUGFIX H2: usar historyToUse (validado), não history total
+        n: historyToUse.length,
         weight: weight,
         history: history,
         trend: trendLabel,
-        trendValue: rawTrend
+        trendValue: rawTrend,
+        level: m > 70 ? 'ALTO' : m > 40 ? 'MÉDIO' : 'BAIXO'
     };
 }

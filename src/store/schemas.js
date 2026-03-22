@@ -115,6 +115,9 @@ export const validateAppState = (data) => {
     const finalState = {
       contests: validatedContests,
       activeId: activeId,
+      pomodoro: d.pomodoro && typeof d.pomodoro === 'object' 
+        ? d.pomodoro 
+        : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;
@@ -125,7 +128,7 @@ export const validateAppState = (data) => {
       hasSeenTour: Boolean(d.hasSeenTour),
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
-      mcEqualWeights: d.mcEqualWeights ?? true,
+      mcEqualWeights: d.mcEqualWeights ?? d.mcEqualWeights ?? true,
       lastUpdated: d.lastUpdated || new Date().toISOString()
     };
 

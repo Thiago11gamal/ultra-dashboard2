@@ -32,13 +32,13 @@ if (!derivedProjectId && rawConfig.authDomain) {
 }
 
 const firebaseConfig = {
-    apiKey: clean(rawConfig.apiKey) || "dummy-api-key",
-    authDomain: clean(rawConfig.authDomain) || "dummy-auth-domain",
-    projectId: derivedProjectId || "liquita-67764",
-    storageBucket: clean(rawConfig.storageBucket) || "dummy-bucket",
-    messagingSenderId: clean(rawConfig.messagingSenderId) || "000000000",
-    appId: clean(rawConfig.appId) || "1:000:web:000",
-    measurementId: clean(rawConfig.measurementId) || "G-0000"
+    apiKey: clean(rawConfig.apiKey) || "",
+    authDomain: clean(rawConfig.authDomain) || "",
+    projectId: derivedProjectId || "",
+    storageBucket: clean(rawConfig.storageBucket) || "",
+    messagingSenderId: clean(rawConfig.messagingSenderId) || "",
+    appId: clean(rawConfig.appId) || "",
+    measurementId: clean(rawConfig.measurementId) || ""
 };
 
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
