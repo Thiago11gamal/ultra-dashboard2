@@ -436,7 +436,9 @@ const getWeakestTopic = (category, simulados = []) => {
     const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
     const categorySimuladoCount = relevantSimulados.length;
 
-    relevantSimulados.forEach(entry => {
+    const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
+
+    history.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || 0);
         const topics = entry.topics || [];
@@ -480,7 +482,7 @@ const getWeakestTopic = (category, simulados = []) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = calculateTrend(topicHistory);
+        const trend = topicHistory.length >= 2 ? calculateTrend(topicHistory) : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
@@ -550,7 +552,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
         const categorySimuladoCount = relevantSimulados.length;
 
-        relevantSimulados.forEach(entry => {
+        const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
+
+        history.forEach(entry => {
             if (!entry) return;
             const entryDate = new Date(entry.date || 0);
             const topics = entry.topics || [];
@@ -594,7 +598,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const topics = Object.entries(topicMap).map(([name, data]) => {
             const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
             const topicHistory = data.scores.slice(-3);
-            const trend = calculateTrend(topicHistory);
+            const trend = topicHistory.length >= 2 ? calculateTrend(topicHistory) : 0;
             let daysSince = 0;
             if (data.lastSeen.getTime() === 0) {
                 daysSince = 60;
@@ -633,9 +637,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
         const mc = cat.urgency?.details?.monteCarlo;
         
-        // Loop internally based on how many tasks we need for this category to pad the week
-        // If we run out of weak topics, the fallback catches the remaining iterations and outputs "Revisão Geral"
-        const iterations = tasksPerCategory;
+        // Limita iterações ao número real de tópicos disponíveis (mínimo 1) para evitar spamar "Revisão Geral" duplicada
+        const maxIterations = Math.max(1, Math.min(tasksPerCategory, weakTopics.length || 1));
+        const iterations = maxIterations;
 
         for (let i = 0; i < iterations; i++) {
             const weakTopic = weakTopics[i] || null;
