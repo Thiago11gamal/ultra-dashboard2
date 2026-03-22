@@ -91,7 +91,7 @@ export default function Simulados() {
             // BUG FIX: preserve the 'validated' field
             const validRowsToSave = updatedTodayRows.filter(r => {
                 const hasScore = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
-                return r.isAuto && hasScore;
+                return hasScore;
             }).map(row => ({
                 ...row,
                 createdAt: row.createdAt || new Date().toISOString()
@@ -159,8 +159,8 @@ export default function Simulados() {
                                 trend: statsResult.trend || 'stable',
                                 lastAttempt: (finalC / finalQ) * 100,
                                 level: statsResult.level || (
-                                    (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
-                                    (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                    statsResult.mean > 70 ? 'ALTO' : 
+                                    statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO'
                                 )
                             };
                         }
@@ -208,8 +208,8 @@ export default function Simulados() {
                                 trend: statsResult.trend || 'stable',
                                 lastAttempt: (finalC / finalQ) * 100,
                                 level: statsResult.level || (
-                                    (finalC / finalQ) * 100 > 70 ? 'ALTO' : 
-                                    (finalC / finalQ) * 100 > 40 ? 'MÉDIO' : 'BAIXO'
+                                    statsResult.mean > 70 ? 'ALTO' : 
+                                    statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO'
                                 )
                             };
                         }
@@ -239,16 +239,14 @@ export default function Simulados() {
                 ...prev,
                 categories: newCategories,
                 simuladoRows: validatedRows,
-                lastUpdated: new Date().toISOString(),
-                _rewardXP: capturedCount > 0 ? 500 : 0
+                lastUpdated: new Date().toISOString()
             };
         }, true);
 
-        const reward = useAppStore.getState().appState.contests[useAppStore.getState().appState.activeId]?._rewardXP;
-        if (reward > 0) {
+        if (capturedCount > 0) {
             showToast('Simulado processado com sucesso!', 'success');
-            useAppStore.getState().awardExperience(reward);
-        } else if (capturedCount === 0) {
+            useAppStore.getState().awardExperience(500);
+        } else {
             showToast('Nenhuma matéria correspondente encontrada.', 'warning');
         }
     };

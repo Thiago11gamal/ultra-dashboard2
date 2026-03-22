@@ -36,7 +36,10 @@ function weightedRegression(history, lambda = 0.08) {
         const dt = Math.max(1, (new Date(p1.date) - new Date(p0.date)) / (1000 * 60 * 60 * 24));
         const slope = dy / dt;
         const intercept = getSafeScore(p1);
-        return { slope, intercept, slopeStdError: 2.0 };
+        // BUGFIX M4: Utilizar prior variância estipulada em ~20 em vez de hardcode 2.0
+        // Para dt altos, o standard error cai (mais certeza no slope).
+        const slopeStdError = Math.max(0.2, 4.5 / dt);
+        return { slope, intercept, slopeStdError };
     }
 
     const now = new Date(sortedHistory[sortedHistory.length - 1].date).getTime();
@@ -151,16 +154,20 @@ export function projectScore(history, projectDays = 60) {
 }
 
 export function calculateVolatility(history) {
-    if (!history || history.length < 3) {
-        // D-05 FIX: Volatilidade mínima reduzida para não inflar CIs de alunos consistentes.
-        // Antes: max(3.0, avg*0.08) → aluno de 85% recebia vol=6.8, CI de ±15pts.
-        // Agora: max(1.5, avg*0.05) → aluno de 85% recebe vol=4.25, CI mais justo.
-        const avg = history && history.length > 0 ? getSafeScore(history[history.length - 1]) : 70;
-        return Math.max(1.5, avg * 0.05);
+    if (!history || history.length < 2) {
+        return 1.5;
     }
-
+    
     // Ensure sorted history
     const sorted = getSortedHistory(history);
+    
+    // BUGFIX M1: Para exatamente 2 pontos (1 resíduo), a centralização falha. 
+    // Extraímos a volatilidade empiricamente pelo 'spread normalizado'.
+    if (sorted.length === 2) {
+        const dt = Math.max(1, (new Date(sorted[1].date).getTime() - new Date(sorted[0].date).getTime()) / 86400000);
+        const diff = Math.abs(getSafeScore(sorted[1]) - getSafeScore(sorted[0]));
+        return Math.max(1.5, Math.min(10.0, diff / Math.sqrt(dt)));
+    }
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
     // M-02 FIX: Subtrair a tendência bruta de cada par pode inflar a volatilidade se a tendência

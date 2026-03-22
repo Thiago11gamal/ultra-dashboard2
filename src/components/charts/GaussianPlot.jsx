@@ -23,12 +23,22 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             
             // Probabilidade geométrica simplificada para um Gaussiano Assimétrico (sem considerar o truncamento em 0-100 para o ajuste)
             const getGeomProb = (tVal, mVal, sl, sr) => {
+                const untruncatedTotal = (sl + sr) * 0.5;
+                const overflowRight = sr * normalCDF_complement((100 - mVal) / sr);
+                const overflowLeft = sl * normalCDF_complement(mVal / sl);
+                const truncatedTotal = Math.max(0.01, untruncatedTotal - overflowRight - overflowLeft);
+
+                let successArea;
                 if (tVal >= mVal) {
-                    return (sr * normalCDF_complement((tVal - mVal) / sr)) / ((sl + sr) * 0.5);
+                    const untruncatedSuccess = sr * normalCDF_complement((tVal - mVal) / sr);
+                    successArea = Math.max(0, untruncatedSuccess - overflowRight);
                 } else {
                     const areaLeftSuccess = 0.5 - normalCDF_complement((mVal - tVal) / sl);
-                    return (sl * areaLeftSuccess + sr * 0.5) / ((sl + sr) * 0.5);
+                    const untruncatedSuccess = (sl * areaLeftSuccess) + (sr * 0.5);
+                    successArea = Math.max(0, untruncatedSuccess - overflowRight);
                 }
+                
+                return successArea / truncatedTotal;
             };
 
             const pGeom = getGeomProb(t, m, vizSdLeft, vizSdRight);
@@ -322,7 +332,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500"
                         style={{
                             left: `${currentPos}%`,
-                            top: `${hojeTop}%`, // V1: dinâmico
+                            top: tierHoje > 1 ? `calc(${hojeTop}% + ${(tierHoje - 1) * 16}px)` : `${hojeTop}%`,
                             transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
