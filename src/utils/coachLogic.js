@@ -190,7 +190,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (lastDate.getTime() > 0) {
             const today = normalizeDate(new Date());
-            daysSinceLastStudy = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+            daysSinceLastStudy = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
         }
 
         // 3. Trend
@@ -487,7 +487,7 @@ const getWeakestTopic = (category, simulados = []) => {
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
         } else {
-            daysSince = Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24));
+            daysSince = Math.max(0, Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24)));
         }
         const priorityBoost = data.manualPriority || 0;
         let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
@@ -647,7 +647,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
             
             // Unique ID per topic string to avoid react-beautiful-dnd collisions
-            const uniqueIdSuffix = weakTopic ? weakTopic.name.replace(/\s/g, '').substring(0,6) : `geral-${i}`;
+            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10) + weakTopic.total) : `geral-${i}`;
             const dateStr = new Date().toDateString();
 
             // ─────────────────────────────────────────────────────────
