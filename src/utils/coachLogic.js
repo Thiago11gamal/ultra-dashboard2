@@ -633,9 +633,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
         const mc = cat.urgency?.details?.monteCarlo;
         
-        // Loop internally based on how many weak topics we extracted
-        // If there are no weak topics, we fallback to a general review
-        const iterations = weakTopics.length > 0 ? weakTopics.length : 1;
+        // Loop internally based on how many tasks we need for this category to pad the week
+        // If we run out of weak topics, the fallback catches the remaining iterations and outputs "Revisão Geral"
+        const iterations = tasksPerCategory;
 
         for (let i = 0; i < iterations; i++) {
             const weakTopic = weakTopics[i] || null;
