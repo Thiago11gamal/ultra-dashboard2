@@ -515,10 +515,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         urgency: calculateUrgency(cat, simulados, studyLogs, options)
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
-    // Expandido de 3 (Daily) para 10 (Weekly) para preencher todo o calendário
-    const weeklyBacklog = ranked.slice(0, 10);
+    // Expandido para preencher o calendário: tentamos pegar as 10 categorias mais urgentes
+    // Se o usuário tiver poucas categorias (ex: 3), vamos extrair múltiplos tópicos por categoria
+    const topCategories = ranked.slice(0, 10);
 
     const performDeepCheck = (category) => {
+        // ... (existing logic)
         const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
         const catNormalized = normalize(category.name);
         const categorySims = simulados.filter(s => normalize(s.subject) === catNormalized);
@@ -538,233 +540,259 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
 
-    const suggestedTasks = weeklyBacklog.map((cat, index) => {
-        const weakTopic = getWeakestTopic(cat, simulados);
-        
-        // Vamos dar prioridade decrescente realçada para as primeiras 3 tarefas geradas, rotulando se for prioridade alta ou média
-        const priorityLabel = index < 3 ? '[AÇÃO CRÍTICA] ' : '';
+    // Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
+    const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
+        const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
+        const tasks = category.tasks || [];
+        const topicMap = {};
 
-        const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
+        const catNorm = normalize(category.name);
+        const categorySimuladoCount = simulados.filter(s => normalize(s.subject) === catNorm).length;
+
+        history.forEach(entry => {
+            if (!entry) return;
+            const entryDate = new Date(entry.date || 0);
+            const topics = entry.topics || [];
+            topics.forEach(t => {
+                if (!t) return;
+                let rawName = t.name;
+                if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
+                const name = rawName.trim();
+                if (!topicMap[name]) {
+                    topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
+                }
+                topicMap[name].total += (parseInt(t.total, 10) || 0);
+                topicMap[name].correct += (parseInt(t.correct, 10) || 0);
+                const topicTotal = parseInt(t.total, 10) || 0;
+                const topicCorrect = parseInt(t.correct, 10) || 0;
+                if (topicTotal > 0) {
+                    topicMap[name].scores.push((topicCorrect / topicTotal) * 100);
+                }
+                if (entryDate > topicMap[name].lastSeen) {
+                    topicMap[name].lastSeen = entryDate;
+                }
+            });
+        });
+
+        tasks.forEach(task => {
+            const name = String(task.text || task.title || "").trim();
+            if (!name) return;
+            if (!topicMap[name]) {
+                topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, scores: [] };
+            } else {
+                topicMap[name].completed = !!task.completed;
+            }
+            if (task.priority === 'high') topicMap[name].manualPriority = 40;
+            else if (task.priority === 'medium') topicMap[name].manualPriority = 20;
+        });
+
+        const today = new Date();
+        const topics = Object.entries(topicMap).map(([name, data]) => {
+            const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
+            const topicScores = data.scores.slice(-3);
+            const topicHistory = topicScores.map((val, idx) => ({
+                score: val,
+                date: new Date(Date.now() - (topicScores.length - 1 - idx) * 86400000).toISOString()
+            }));
+            const trend = calculateTrend(topicHistory);
+            let daysSince = 0;
+            if (data.lastSeen.getTime() === 0) {
+                daysSince = 60;
+            } else {
+                daysSince = Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24));
+            }
+            const priorityBoost = data.manualPriority || 0;
+            let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
+            if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
+                urgencyScore *= 0.7;
+            }
+            if (trend < -10) urgencyScore *= 1.2;
+            return {
+                name, total: data.total, percentage, daysSince,
+                trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
+                isUntested: data.total === 0
+            };
+        });
+
+        topics.sort((a, b) => {
+            if (!a.completed && b.completed) return -1;
+            if (a.completed && !b.completed) return 1;
+            return b.urgencyScore - a.urgencyScore;
+        });
+
+        return topics.slice(0, limit);
+    };
+
+    let allGeneratedTasks = [];
+    
+    // Se o usuário tiver poucas matérias (< 5), geramos múltiplas tarefas por matéria
+    const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
+
+    topCategories.forEach((cat, globalIndex) => {
+        const weakTopics = getWeakestTopicsList(cat, simulados, tasksPerCategory);
         const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
         const mc = cat.urgency?.details?.monteCarlo;
+        
+        // Loop internally based on how many weak topics we extracted
+        // If there are no weak topics, we fallback to a general review
+        const iterations = weakTopics.length > 0 ? weakTopics.length : 1;
 
-        // ─────────────────────────────────────────────────────────
-        // MC-07: ALERTAS DE MONTE CARLO (checados primeiro)
-        // ─────────────────────────────────────────────────────────
+        for (let i = 0; i < iterations; i++) {
+            const weakTopic = weakTopics[i] || null;
+            const priorityLabel = allGeneratedTasks.length < 3 ? '[AÇÃO CRÍTICA] ' : '';
+            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
+            
+            // Unique ID per topic string to avoid react-beautiful-dnd collisions
+            const uniqueIdSuffix = weakTopic ? weakTopic.name.replace(/\s/g, '').substring(0,6) : `geral-${i}`;
+            const dateStr = new Date().toDateString();
 
-        // 🚨 Zona de Perigo: Prob < 30%
-        if (mc && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_DANGER) {
-            const probPct = Math.round(mc.probabilityRaw * 100);
-            return {
-                id: `${cat.id}-mc-danger-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🚨 Alerta Vermelho! Projeção Matemática indica ampla reprovação. Medidas drásticas agora!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Monte Carlo — Zona de Perigo",
-                    details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: `Probabilidade crítica detectada (${DEFAULT_CONFIG.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
-                }
-            };
-        }
+            // ─────────────────────────────────────────────────────────
+            // MC-07: ALERTAS DE MONTE CARLO (checados primeiro)
+            // ─────────────────────────────────────────────────────────
 
-        // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
-        if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE) {
-            const probPct = Math.round(mc.probabilityRaw * 100);
-            return {
-                id: `${cat.id}-mc-chaos-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🌪️ Você é estatisticamente imprevisível. Consolide antes de avançar!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Monte Carlo — Caos Estatístico",
-                    details: `Volatilidade MSSD: ${mc.volatility.toFixed(1)} (limiar: ${DEFAULT_CONFIG.MC_VOLATILITY_HIGH}). Probabilidade atual: ${probPct}%.`,
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
-                }
-            };
-        }
-
-        // 🏆 Cruzeiro Seguro: Prob > 90%
-        if (mc && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_SAFE) {
-            const probPct = Math.round(mc.probabilityRaw * 100);
-            return {
-                id: `${cat.id}-mc-safe-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🏆 Sucesso quase certo (${probPct}%). Modo manutenção ativado.`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Monte Carlo — Cruzeiro Seguro",
-                    details: `${probPct}% de probabilidade de atingir ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
-                }
-            };
-        }
-
-        // ─────────────────────────────────────────────────────────
-        // Detectores originais (lógica preservada)
-        // ─────────────────────────────────────────────────────────
-
-        if (cat.urgency?.details?.srsLabel) {
-            return {
-                id: `${cat.id}-srs-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Revisão Espaçada (SRS) Ativada",
-                    label: cat.urgency.details.srsLabel,
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
-                }
-            };
-        }
-
-        const trapCheck = performDeepCheck(cat);
-        if (trapCheck.isTrap) {
-            return {
-                id: `${cat.id}-trap-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Detector de Pseudo-Estudo",
-                    details: "Alta carga horária com baixíssimo volume de exercícios.",
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
-                }
-            };
-        }
-
-        if (cat.urgency?.details?.isBurnoutRisk) {
-            return {
-                id: `${cat.id}-burnout-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🛑 ESTAFA MENTAL DETECTADA. Faça uma pausa e limite-se a leituras leves!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Alerta de Estafa (Burnout)",
-                    details: "Densidade de logs de estudo excessivamente alta sem conversão em acertos.",
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "O cérebro consolidará melhor as informações com uma pausa. Descanse."
-                }
-            };
-        }
-
-        if (cat.urgency?.details?.hasData &&
-            categorySims.length >= 3 &&
-            cat.urgency.details.averageScore < targetScore &&
-            cat.urgency.details.mssdVolatility < 6 &&
-            cat.urgency.details.trend >= -1 && cat.urgency.details.trend <= 1) {
-            return {
-                id: `${cat.id}-plateau-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}🛑 Alerta de Estagnação. Sua nota travou. Revise a teoria!`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Estagnação Detectada",
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Nota estagnada com baixa oscilação (MSSD). Requer revisão teórica profunda ou novo método."
-                }
-            };
-        }
-
-        if (cat.urgency?.details?.mssdVolatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && cat.urgency?.details?.trend > 0) {
-            return {
-                id: `${cat.id}-fragile-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}⚠️ Evolução instável! Consolide seu domínio antes de avançar.`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Evolução Frágil Pós-Trend (MSSD)",
-                    details: `Volatilidade MSSD: ${cat.urgency.details.mssdVolatility} pontos.`,
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: "Sua média subiu, mas a precisão base está altamente volátil. Reveja os erros recentes."
-                }
-            };
-        }
-
-        if (cat.urgency?.details?.trend < -5) {
-            return {
-                id: `${cat.id}-declining-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}📉 Nota em queda profunda! Atenção urgente necessária.`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Desempenho em Queda (Trend)",
-                    metrics: cat.urgency.details.humanReadable,
-                    verdict: cat.urgency.recommendation
-                }
-            };
-        }
-
-        const highPriorityTask = cat.tasks?.find(t => !t.completed && t.priority === 'high');
-
-        if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
-            let taskTitle = "";
-            let reasonStr = "";
-            if (weakTopic.isUntested) {
-                taskTitle = `🚨 (Novo). Comece agora!`;
-                reasonStr = "Tópico Novo / Não Testado";
-            } else if (weakTopic.manualPriority > 0) {
-                taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
-                reasonStr = "Alta Prioridade Manual";
-            } else {
-                taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
-                reasonStr = "Baixa Performance";
-            }
-            return {
-                id: `${cat.id}-weaktopic-${weakTopic.name}-${new Date().toDateString()}`,
-                text: `${cat.name}: ${topicLabel}${taskTitle}`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: `Tópico Selecionado: ${weakTopic.name}`,
-                    details: reasonStr,
-                    metrics: cat.urgency.details.humanReadable,
-                    categoryDetails: {
-                        "Urgência Total": Math.round(cat.urgency.score),
-                        ...cat.urgency.details.components
-                    },
-                    topicDetails: {
-                        "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
-                        "Dias sem Ver": weakTopic.daysSince,
-                        "Tendência": weakTopic.trend > 0 ? `↑ ${weakTopic.trend}` : `↓ ${weakTopic.trend}`,
-                        "Bônus de Prioridade": weakTopic.priorityBoost,
-                        "Urgência Calculada": Math.round(weakTopic.urgencyScore)
+            // 🚨 Zona de Perigo: Prob < 30%
+            if (mc && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_DANGER && i === 0) {
+                const probPct = Math.round(mc.probabilityRaw * 100);
+                allGeneratedTasks.push({
+                    id: `${cat.id}-mc-danger-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}🚨 Alerta Vermelho! Projeção Matemática indica ampla reprovação. Medidas drásticas agora!`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Monte Carlo — Zona de Perigo",
+                        details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
+                        metrics: cat.urgency.details.humanReadable,
+                        verdict: `Probabilidade crítica detectada (${DEFAULT_CONFIG.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
+                });
+                continue;
+            }
+
+            // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
+            if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
+                const probPct = Math.round(mc.probabilityRaw * 100);
+                allGeneratedTasks.push({
+                    id: `${cat.id}-mc-chaos-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}🌪️ Você é estatisticamente imprevisível. Consolide antes de avançar!`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Monte Carlo — Caos Estatístico",
+                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(1)} (limiar: ${DEFAULT_CONFIG.MC_VOLATILITY_HIGH}). Probabilidade atual: ${probPct}%.`,
+                        metrics: cat.urgency.details.humanReadable,
+                        verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
+                    }
+                });
+                continue;
+            }
+
+            // 🏆 Cruzeiro Seguro: Prob > 90%
+            if (mc && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
+                const probPct = Math.round(mc.probabilityRaw * 100);
+                allGeneratedTasks.push({
+                    id: `${cat.id}-mc-safe-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}🏆 Sucesso quase certo (${probPct}%). Modo manutenção ativado.`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Monte Carlo — Cruzeiro Seguro",
+                        details: `${probPct}% de probabilidade de atingir ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
+                        metrics: cat.urgency.details.humanReadable,
+                        verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
+                    }
+                });
+                continue;
+            }
+
+            if (cat.urgency?.details?.srsLabel && i === 0) {
+                allGeneratedTasks.push({
+                    id: `${cat.id}-srs-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Revisão Espaçada (SRS) Ativada",
+                        label: cat.urgency.details.srsLabel,
+                        metrics: cat.urgency.details.humanReadable,
+                        verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
+                    }
+                });
+                continue;
+            }
+
+            const trapCheck = performDeepCheck(cat);
+            if (trapCheck.isTrap && i === 0) {
+                allGeneratedTasks.push({
+                    id: `${cat.id}-trap-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Detector de Pseudo-Estudo",
+                        details: "Alta carga horária com baixíssimo volume de exercícios.",
+                        metrics: cat.urgency.details.humanReadable,
+                        verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
+                    }
+                });
+                continue;
+            }
+
+            if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
+                let taskTitle = "";
+                let reasonStr = "";
+                if (weakTopic.isUntested) {
+                    taskTitle = `🚨 (Novo). Comece agora!`;
+                    reasonStr = "Tópico Novo / Não Testado";
+                } else if (weakTopic.manualPriority > 0) {
+                    taskTitle = `🚨 (Prioridade). Nota: ${Math.round(weakTopic.percentage)}%`;
+                    reasonStr = "Alta Prioridade Manual";
+                } else {
+                    taskTitle = `🚨 (${Math.round(weakTopic.percentage)}% de acerto). Revise agora!`;
+                    reasonStr = "Baixa Performance";
                 }
-            };
-        } else if (highPriorityTask) {
-            return {
-                id: `${cat.id}-priority-${highPriorityTask.id}`,
-                text: `Foco em ${cat.name}: ${topicLabel}${highPriorityTask.title || highPriorityTask.text}`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Tarefa Prioritária (Manual)",
-                    categoryScore: Math.round(cat.urgency.score)
-                }
-            };
-        } else {
-            return {
-                id: `${cat.id}-general-review-${new Date().toDateString()}`,
+                allGeneratedTasks.push({
+                    id: `${cat.id}-weaktopic-${uniqueIdSuffix}-${dateStr}`,
+                    text: `${cat.name}: ${topicLabel}${taskTitle}`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: `Tópico Selecionado: ${weakTopic.name}`,
+                        details: reasonStr,
+                        metrics: cat.urgency.details.humanReadable,
+                        categoryDetails: {
+                            "Urgência Total": Math.round(cat.urgency.score),
+                            ...cat.urgency.details.components
+                        },
+                        topicDetails: {
+                            "Nota do Tópico": Math.round(weakTopic.percentage) + "%",
+                            "Dias sem Ver": weakTopic.daysSince,
+                            "Tendência": weakTopic.trend > 0 ? `↑ ${weakTopic.trend}` : `↓ ${weakTopic.trend}`,
+                            "Bônus de Prioridade": weakTopic.priorityBoost,
+                            "Urgência Calculada": Math.round(weakTopic.urgencyScore)
+                        }
+                    }
+                });
+                continue;
+            }
+
+            // Fallback General Task
+            allGeneratedTasks.push({
+                id: `${cat.id}-general-review-${uniqueIdSuffix}-${dateStr}`,
                 text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                 completed: false,
                 categoryId: cat.id,
                 analysis: {
-                    reason: "Revisão Geral (Sem ponto fraco específico)",
+                    reason: "Revisão Geral Complementar",
                     metrics: cat.urgency.details.humanReadable,
                     categoryDetails: {
                         "Total Urgency": Math.round(cat.urgency.score),
                         ...cat.urgency.details.components
                     }
                 }
-            };
+            });
         }
     });
 
-    return suggestedTasks;
+    // Limita estritamente a 12 tarefas para não engolir a tela inteira do Backlog
+    return allGeneratedTasks.slice(0, 12);
 };
