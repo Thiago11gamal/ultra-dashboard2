@@ -32,12 +32,23 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
     await new Promise(resolve => setTimeout(resolve, 250));
 
     try {
-        await html2pdf().set(opt).from(element).save();
+        await new Promise((resolve, reject) => {
+            html2pdf()
+                .set(opt)
+                .from(element)
+                .save()
+                .then(() => resolve(true))
+                .catch((err) => reject(err));
+        });
         return true;
     } catch (e) {
-        console.error('Erro ao gerar PDF:', e);
+        console.error('Erro Crítico ao gerar PDF (pdfExport):', e);
+        // Desligamos os efeitos mesmo em erro para não deixar a tela travada sem CSS
+        document.body.classList.remove('pdf-render-mode');
         return false;
     } finally {
-        document.body.classList.remove('pdf-render-mode');
+        setTimeout(() => {
+            document.body.classList.remove('pdf-render-mode');
+        }, 500);
     }
 };

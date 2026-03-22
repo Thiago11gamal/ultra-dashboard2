@@ -261,6 +261,13 @@ svg *,
   text-shadow: none !important;
 }
 
+/* Otimização Crítica para o html2canvas conseguir ler containers com scroll */
+.pdf-render-mode .overflow-x-auto,
+.pdf-render-mode .overflow-y-auto,
+.pdf-render-mode .overflow-hidden {
+  overflow: visible !important;
+}
+
 .pdf-render-mode .glass, 
 .pdf-render-mode .glass-panel {
   background: var(--gradient-3) !important;
