@@ -711,8 +711,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 strokeWidth="10"
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
-                                // 🔒 LOCKED: No direct offset here if high-precision ref is active
-                                style={isRunning ? {} : { strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
+                                // BUG FIX: Pass undefined instead of {} to prevent React from wiping out the inline
+                                // strokeDashoffset set by the 60fps requestAnimationFrame loop.
+                                style={isRunning ? undefined : { strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
@@ -901,8 +902,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                 ? 'bg-sky-400'
                                                 : 'bg-transparent'
                                                 }`}
-                                            // 🔒 LOCKED: No direct width here if high-precision ref is active
-                                            style={i === sessions && mode === 'work' && isRunning ? {} : { width: `${workProgress}%` }}
+                                            // BUG FIX: Use 'undefined' instead of '{}' so React completely ignores style difffing, 
+                                            // protecting the physical DOM mutation made by the rAF loop when a re-render fires.
+                                            style={i === sessions && mode === 'work' && isRunning ? undefined : { width: `${workProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top */}
@@ -923,8 +925,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             // 🔒 LOCKED: ref only on active break segment — rAF drives height at 60fps, no CSS transition
                                             ref={i === sessions - 1 && mode === 'break' ? sphereRef : null}
                                             className="w-full bg-emerald-500"
-                                            // 🔒 LOCKED: No direct height here if high-precision ref is active
-                                            style={i === sessions - 1 && mode === 'break' && isRunning ? {} : { height: `${breakProgress}%` }}
+                                            // BUG FIX: Protected style diffing.
+                                            style={i === sessions - 1 && mode === 'break' && isRunning ? undefined : { height: `${breakProgress}%` }}
                                         ></div>
                                     </div>
                                     {/* Border on top to hide any jagged rendering and clipping from overflow-hidden */}
