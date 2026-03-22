@@ -44,12 +44,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
     const stateStringForSync = (state) => {
         if (!state) return '';
-        // BUG-Q2: Incluir hashes ou contagens para detectar mudanças no mesmo timestamp
-        const contestCount = state.contests ? Object.keys(state.contests).length : 0;
-        const catCount = (state.contests && state.activeId && state.contests[state.activeId])
-            ? (state.contests[state.activeId].categories?.length || 0)
-            : 0;
-        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}|${catCount}`;
+        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
@@ -71,14 +66,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
 
-        // Fallback: se o servidor demorar demais (>10s), liberamos o app (previne trava offline)
-        // BUG-M2: Aumentado para 10s para conexões lentas ou cold start do Firestore
+        // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
-                logger.warn("[Firebase-Diag] TIMEOUT de boot (10s)! Liberando paridade local.");
+                logger.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
                 confirmParity();
             }
-        }, 10000);
+        }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             logger.styled(`[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
