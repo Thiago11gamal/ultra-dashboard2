@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import AICoachView from '../components/AICoachView';
 import { useAppStore } from '../store/useAppStore';
 import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
@@ -9,6 +9,13 @@ export default function Coach() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const [coachLoading, setCoachLoading] = useState(false);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
 
     const suggestedFocus = useMemo(() => {
         if (!data.categories) return null;
@@ -35,7 +42,8 @@ export default function Coach() {
 
     const handleGenerateGoals = () => {
         setCoachLoading(true);
-        setTimeout(() => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
             // CACHE BUG FIX: same fix as suggestedFocus — prefer reactive store value.
             const uid = data.user?.uid;
             const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);

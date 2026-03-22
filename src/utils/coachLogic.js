@@ -78,7 +78,7 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + (Number(s.correct) || 0), 0);
-    const hash = `${history.length}-${sumCorrect}-${targetScore}`;
+    const hash = `${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -112,7 +112,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const logger = options.logger;
 
-    const targetScore = options.targetScore ?? 70;
+    const targetScore = options.targetScore ?? 80;
     const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
     const weight = rawWeight * 10;
     const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
@@ -135,7 +135,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const today = normalizeDate(new Date());
             const K = 0.07;
             const PESO_MIN = 0.03;
-            const DELTA = 15.0;
+            const DELTA = 30.0; // Loosened clamp to allow bigger score recoveries
 
             const calculateExponentialScore = (dataset) => {
                 let weightedSum = 0;
@@ -195,11 +195,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Trend
         const validForDev = relevantSimulados.filter(s => s.total > 0);
-        const lastNScores = validForDev.slice(0, 10).map(s => (s.correct / s.total) * 100).reverse();
-        const trendHistory = lastNScores.map((val, idx) => ({
-            score: val,
-            date: new Date(Date.now() - (lastNScores.length - 1 - idx) * 86400000).toISOString()
-        }));
+        const trendHistory = validForDev.slice(0, 10).map(s => ({
+            score: (s.correct / s.total) * 100,
+            date: s.date
+        })).reverse();
+        const lastNScores = trendHistory.map(t => t.score);
         const trend = calculateTrend(trendHistory);
 
         // ─────────────────────────────────────────────────────────
@@ -307,25 +307,28 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
         const RAW_MAX_ACTUAL = RAW_MAX_BASE +
             (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
-            (srsBoost > 0 ? cfg.SRS_BOOST : 0) +
+            (srsBoost > 0 ? cfg.SRS_BOOST * 2.0 : 0) + // headroom para o boost máximo real
             25; // headroom para mcUrgencyBoost
 
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost + mcUrgencyBoost) - rotationPenalty;
 
-        const finalWeightImpact = 1 + ((weight / 100) - 1) * 0.6;
-        const weightedRaw = rawScore * finalWeightImpact;
-        const MAX_POSSIBLE = RAW_MAX_ACTUAL * finalWeightImpact;
-        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / MAX_POSSIBLE) * 100)));
+        const weightBoostFactor = 1 + ((weight / 100) - 1) * 0.4; // Apenas numerador: Boost adicional nos componentes
+        const weightedRaw = rawScore * weightBoostFactor;
+        const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / RAW_MAX_ACTUAL) * 100)));
 
         // --- RECOMMENDATION ---
         let recommendation = "";
         let isBurnoutRisk = false;
 
         if (recentStudyDays >= 5 && trend <= 0) {
-            recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
             isBurnoutRisk = true;
-        } else if (mcHasData && mcRiskLabel === 'critical') {
-            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability * 100)}% de chance de bater a meta. Nível de Risco: Crítico. Intensifique agora!`;
+        }
+
+        if (mcHasData && mcRiskLabel === 'critical') {
+            const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
+            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability * 100)}% de chance. Risco Crítico.${burnoutNote}`;
+        } else if (isBurnoutRisk) {
+            recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
         } else if (mcHasData && mcRiskLabel === 'safe') {
             recommendation = `🏆 Cruzeiro Seguro (${Math.round(mcProbability * 100)}% nas projeções). Modo de manutenção ativado.`;
         } else if (srsBoost > 0) {
@@ -426,14 +429,14 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 };
 
 const getWeakestTopic = (category, simulados = []) => {
-    const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
     const tasks = category.tasks || [];
     const topicMap = {};
 
     const catNorm = normalize(category.name);
-    const categorySimuladoCount = simulados.filter(s => normalize(s.subject) === catNorm).length;
+    const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
+    const categorySimuladoCount = relevantSimulados.length;
 
-    history.forEach(entry => {
+    relevantSimulados.forEach(entry => {
         if (!entry) return;
         const entryDate = new Date(entry.date || 0);
         const topics = entry.topics || [];
@@ -450,7 +453,10 @@ const getWeakestTopic = (category, simulados = []) => {
             const topicTotal = parseInt(t.total, 10) || 0;
             const topicCorrect = parseInt(t.correct, 10) || 0;
             if (topicTotal > 0) {
-                topicMap[name].scores.push((topicCorrect / topicTotal) * 100);
+                topicMap[name].scores.push({
+                    score: (topicCorrect / topicTotal) * 100,
+                    date: entryDate.toISOString()
+                });
             }
             if (entryDate > topicMap[name].lastSeen) {
                 topicMap[name].lastSeen = entryDate;
@@ -473,11 +479,7 @@ const getWeakestTopic = (category, simulados = []) => {
     const today = new Date();
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
-        const topicScores = data.scores.slice(-3);
-        const topicHistory = topicScores.map((val, idx) => ({
-            score: val,
-            date: new Date(Date.now() - (topicScores.length - 1 - idx) * 86400000).toISOString()
-        }));
+        const topicHistory = data.scores.slice(-3);
         const trend = calculateTrend(topicHistory);
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
@@ -508,7 +510,7 @@ const getWeakestTopic = (category, simulados = []) => {
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
-    const targetScore = options.targetScore ?? 70;
+    const targetScore = options.targetScore ?? 80;
 
     const ranked = categories.map(cat => ({
         ...cat,
@@ -526,9 +528,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const categorySims = simulados.filter(s => normalize(s.subject) === catNormalized);
         const totalHours = categoryLogs.reduce((acc, l) => acc + (l.minutes || 0), 0) / 60;
         const totalQuestions = categorySims.reduce((acc, s) => acc + (s.total || 0), 0);
-        const avgScore = categorySims.length > 0
-            ? categorySims.reduce((acc, s) => acc + ((s.total || 0) > 0 ? (s.correct / s.total * 100) : 0), 0) / categorySims.length
-            : 0;
+        const totalCorrect = categorySims.reduce((acc, s) => acc + (s.correct || 0), 0);
+        const avgScore = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
         const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
         if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
@@ -542,14 +543,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     // Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
     const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
-        const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
         const tasks = category.tasks || [];
         const topicMap = {};
 
         const catNorm = normalize(category.name);
-        const categorySimuladoCount = simulados.filter(s => normalize(s.subject) === catNorm).length;
+        const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
+        const categorySimuladoCount = relevantSimulados.length;
 
-        history.forEach(entry => {
+        relevantSimulados.forEach(entry => {
             if (!entry) return;
             const entryDate = new Date(entry.date || 0);
             const topics = entry.topics || [];
@@ -566,7 +567,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 const topicTotal = parseInt(t.total, 10) || 0;
                 const topicCorrect = parseInt(t.correct, 10) || 0;
                 if (topicTotal > 0) {
-                    topicMap[name].scores.push((topicCorrect / topicTotal) * 100);
+                    topicMap[name].scores.push({
+                        score: (topicCorrect / topicTotal) * 100,
+                        date: entryDate.toISOString()
+                    });
                 }
                 if (entryDate > topicMap[name].lastSeen) {
                     topicMap[name].lastSeen = entryDate;
@@ -589,11 +593,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const today = new Date();
         const topics = Object.entries(topicMap).map(([name, data]) => {
             const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
-            const topicScores = data.scores.slice(-3);
-            const topicHistory = topicScores.map((val, idx) => ({
-                score: val,
-                date: new Date(Date.now() - (topicScores.length - 1 - idx) * 86400000).toISOString()
-            }));
+            const topicHistory = data.scores.slice(-3);
             const trend = calculateTrend(topicHistory);
             let daysSince = 0;
             if (data.lastSeen.getTime() === 0) {

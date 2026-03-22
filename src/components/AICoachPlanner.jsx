@@ -20,7 +20,7 @@ const TaskCard = ({ task, index, isBacklog }) => {
     let subject = parts.length > 1 ? parts[0] : fullText;
     let desc = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? "Revisão Geral" : "");
 
-    subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF]/g, '').trim();
+    subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF\-\(\)]/g, '').trim();
 
     // BUG FIX: react-beautiful-dnd breaks instantly if draggableId changes (e.g. relying on `index` across columns).
     // If task.id is absent, we generate a stable hash from its content to prevent it from vanishing on drop.
@@ -72,7 +72,6 @@ export default function AICoachPlanner({ coachPlan = [] }) {
 
         const activeBacklog = coachPlan.filter(t => !allAssignedIds.has(t.id));
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setColumns({
             backlog: activeBacklog,
             mon: coachPlanner.mon || [],
@@ -155,7 +154,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                                     className={`flex-1 transition-colors rounded-xl p-1 -m-1 ${snapshot.isDraggingOver ? 'bg-slate-800/50' : ''}`}
                                 >
                                     {columns.backlog.map((task, idx) => (
-                                        <TaskCard key={task.id} task={task} index={idx} isBacklog={true} />
+                                        <TaskCard key={task.id || `backlog-${idx}`} task={task} index={idx} isBacklog={true} />
                                     ))}
                                     {provided.placeholder}
                                     
@@ -199,7 +198,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                                                 }`}
                                             >
                                                 {columns[day.id].map((task, idx) => (
-                                                    <TaskCard key={task.id} task={task} index={idx} isBacklog={false} />
+                                                    <TaskCard key={task.id || `plan-${day.id}-${idx}`} task={task} index={idx} isBacklog={false} />
                                                 ))}
                                                 {provided.placeholder}
                                             </div>
