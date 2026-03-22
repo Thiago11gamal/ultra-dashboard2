@@ -207,6 +207,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const performEmergencySync = useCallback(async () => {
         if (!currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
         
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        
         const currentStateString = stateStringForSync(appStateRef.current);
         if (lastSyncedRef.current === currentStateString) return;
 

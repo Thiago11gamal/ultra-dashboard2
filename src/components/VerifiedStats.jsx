@@ -7,6 +7,7 @@ import { logger } from '../utils/logger';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
+import { getDateKey } from '../utils/dateHelper';
 
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -299,11 +300,10 @@ export default function VerifiedStats({ categories = [], user }) {
             }
         });
 
-        // 0. Aggregate by Day (Fix Bug 1: Mixed subjects as independent points biased the OLS)
+        // 0. Aggregate by Day
         const dailyMap = {};
         allHistory.forEach(h => {
-            const d = new Date(h.date);
-            const dateStr = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            const dateStr = getDateKey(new Date(h.date));
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }

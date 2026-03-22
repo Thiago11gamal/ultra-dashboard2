@@ -137,7 +137,7 @@ export default function Simulados() {
 
                         const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
                         const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
+                        const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
                         
                         const finalC = Number(disc.totalCorrect);
                         const finalQ = Number(disc.totalQuestions);
@@ -186,7 +186,7 @@ export default function Simulados() {
 
                         const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
                         const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => h && h.date && getDateKey(h.date) !== todayKey);
+                        const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
                         
                         const finalC = Number(stats.totalCorrect);
                         const finalQ = Number(stats.totalQuestions);
@@ -239,14 +239,16 @@ export default function Simulados() {
                 ...prev,
                 categories: newCategories,
                 simuladoRows: validatedRows,
-                lastUpdated: new Date().toISOString()
+                lastUpdated: new Date().toISOString(),
+                _rewardXP: capturedCount > 0 ? 500 : 0
             };
         }, true);
 
-        if (capturedCount > 0) {
+        const reward = useAppStore.getState().appState.contests[useAppStore.getState().appState.activeId]?._rewardXP;
+        if (reward > 0) {
             showToast('Simulado processado com sucesso!', 'success');
-            useAppStore.getState().awardExperience(500);
-        } else {
+            useAppStore.getState().awardExperience(reward);
+        } else if (capturedCount === 0) {
             showToast('Nenhuma matéria correspondente encontrada.', 'warning');
         }
     };

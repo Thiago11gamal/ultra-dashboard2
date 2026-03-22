@@ -129,9 +129,7 @@ export const useAppStore = create(
                 trash: [],
                 lastHistoryTime: 0,
                 version: 0,
-                mcEqualWeights: true,
                 hasSeenTour: false,
-                coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
                 pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
                 lastUpdated: "1970-01-01T00:00:00.000Z"
             },
@@ -153,9 +151,10 @@ export const useAppStore = create(
             }),
 
             updateCoachPlanner: (newPlannerData) => set((state) => {
-                // Guard: simple shallow check if identical reference (often not enough but helps)
-                if (state.appState.coachPlanner === newPlannerData) return;
-                state.appState.coachPlanner = newPlannerData;
+                const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
+                if (activeData.coachPlanner === newPlannerData) return;
+                activeData.coachPlanner = newPlannerData;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -184,7 +183,9 @@ export const useAppStore = create(
 
                 // Guard: If timestamps match and data is actually identical in reference, avoid full update
                 // This is crucial to break loops coming from cloud sync or multiple tabs.
-                if (nextState.lastUpdated === state.appState.lastUpdated && nextState !== state.appState) {
+                if (nextState.lastUpdated === state.appState.lastUpdated && 
+                    nextState.version === state.appState.version && 
+                    nextState !== state.appState) {
                     return;
                 }
 
@@ -380,8 +381,9 @@ export const useAppStore = create(
                     if (!activeData.studySessions) activeData.studySessions = [];
 
                     const logId = generateId('log');
+                    const sessionId = generateId('session');
                     activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
-                    activeData.studySessions.push({ id: logId, startTime: now, duration: minutes, categoryId, taskId });
+                    activeData.studySessions.push({ id: sessionId, startTime: now, duration: minutes, categoryId, taskId, logReferenceId: logId });
 
                     if (activeData.studyLogs.length > LOG_CAP) activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
                     if (activeData.studySessions.length > SESSION_CAP) activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
@@ -429,9 +431,13 @@ export const useAppStore = create(
                 }
 
                 activeData.studySessions.splice(sessionIndex, 1);
-                if (activeData.studyLogs) {
+                if (activeData.studyLogs && session.logReferenceId) {
+                    activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.logReferenceId);
+                } else if (activeData.studyLogs) {
+                    // Fallback para IDs legados que eram idênticos
                     activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -541,6 +547,10 @@ export const useAppStore = create(
 
             switchContest: (contestId) => set((state) => {
                 state.appState.activeId = contestId;
+                const activeData = state.appState.contests[contestId];
+                if (activeData && !activeData.coachPlanner) {
+                    activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                }
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 

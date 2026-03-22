@@ -1,5 +1,7 @@
 import { INITIAL_DATA } from '../data/initialData';
 
+export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
+
 /**
  * Validação Ultra-Resiliente (Sem Zod)
  * Garante que o app sempre tenha uma estrutura válida, mesmo com dados corrompidos.
@@ -15,6 +17,7 @@ const sanitizeContest = (data) => {
       avatar: data.user?.avatar || "👤",
       startDate: data.user?.startDate || new Date().toISOString().split('T')[0],
       goalDate: data.user?.goalDate || null,
+      targetScore: (data.user?.targetScore != null) ? Number(data.user.targetScore) : DEFAULT_TARGET_SCORE,
       xp: Number(data.user?.xp) || 0,
       level: Number(data.user?.level) || 1,
       achievements: (Array.isArray(data.user?.achievements) ? data.user.achievements : [])
@@ -26,6 +29,10 @@ const sanitizeContest = (data) => {
         ? Number(data.user.targetProbability)
         : 70
     },
+    coachPlan: Array.isArray(data.coachPlan) ? data.coachPlan : [],
+    coachPlanner: (data.coachPlanner && typeof data.coachPlanner === 'object')
+      ? data.coachPlanner
+      : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
     categories: (Array.isArray(data.categories) ? data.categories : []).map(cat => ({
       id: cat.id || `cat_${Math.random().toString(36).substr(2, 9)}`,
       name: cat.name || "Sem Nome",
@@ -119,12 +126,6 @@ export const validateAppState = (data) => {
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
       mcEqualWeights: d.mcEqualWeights ?? true,
-      coachPlanner: (d.coachPlanner && typeof d.coachPlanner === 'object')
-        ? d.coachPlanner
-        : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-      pomodoro: (d.pomodoro && typeof d.pomodoro === 'object')
-        ? d.pomodoro
-        : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
       lastUpdated: d.lastUpdated || new Date().toISOString()
     };
 
