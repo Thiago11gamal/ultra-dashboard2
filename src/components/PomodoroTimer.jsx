@@ -827,7 +827,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     <div className={`flex items-center gap-4 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setTargetCycles(prev => Math.max(1, prev - 1))}
+                                onClick={() => setTargetCycles(Math.max(1, targetCycles - 1))}
                                 disabled={!activeSubject}
                                 className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-bold uppercase transition-colors"
                                 title="Remover Ciclo"
@@ -835,7 +835,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 -1 Ciclo
                             </button>
                             <button
-                                onClick={() => setTargetCycles(prev => prev + 1)}
+                                onClick={() => setTargetCycles(targetCycles + 1)}
                                 disabled={!activeSubject}
                                 className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase transition-colors"
                                 title="Adicionar Ciclo"
