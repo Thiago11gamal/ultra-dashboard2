@@ -253,24 +253,17 @@ svg *,
   Otimização extrema para html2canvas: 
   Desliga filtros pesados e bordas transparentes apenas durante o instante da captura do PDF 
 */
-.pdf-render-mode * {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  filter: none !important;
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-
-/* Otimização Crítica para o html2canvas conseguir ler containers com scroll */
+/* Apenas Otimizações Estruturais para a nova engine html-to-image */
 .pdf-render-mode .overflow-x-auto,
 .pdf-render-mode .overflow-y-auto,
 .pdf-render-mode .overflow-hidden {
   overflow: visible !important;
 }
 
+/* Forçamos os painéis com blur pesado a ter um fundo opaco suave para garantir consistência no PDF exportado */
 .pdf-render-mode .glass, 
 .pdf-render-mode .glass-panel {
-  background: var(--gradient-3) !important;
+  background: rgba(15, 23, 42, 0.95) !important; /* slate-900 sólido para contraste perfeito */
 }
 
 @media print {
