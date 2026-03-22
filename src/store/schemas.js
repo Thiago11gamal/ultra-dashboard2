@@ -115,6 +115,9 @@ export const validateAppState = (data) => {
     const finalState = {
       contests: validatedContests,
       activeId: activeId,
+      pomodoro: d.pomodoro && typeof d.pomodoro === 'object' 
+        ? d.pomodoro 
+        : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;
