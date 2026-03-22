@@ -498,7 +498,8 @@ const getWeakestTopic = (category, simulados = []) => {
         return {
             name, total: data.total, percentage, daysSince,
             trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
-            isUntested: data.total === 0
+            isUntested: data.total === 0,
+            manualPriority: data.manualPriority || 0
         };
     });
 
@@ -603,7 +604,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             if (data.lastSeen.getTime() === 0) {
                 daysSince = 60;
             } else {
-                daysSince = Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24));
+                daysSince = Math.max(0, Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24)));
             }
             const priorityBoost = data.manualPriority || 0;
             let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
@@ -614,7 +615,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             return {
                 name, total: data.total, percentage, daysSince,
                 trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
-                isUntested: data.total === 0
+                isUntested: data.total === 0,
+                manualPriority: data.manualPriority || 0
             };
         });
 
@@ -634,7 +636,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     topCategories.forEach((cat, globalIndex) => {
         const weakTopics = getWeakestTopicsList(cat, simulados, tasksPerCategory);
-        const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
         const mc = cat.urgency?.details?.monteCarlo;
         
         // Limita iterações ao número real de tópicos disponíveis (mínimo 1) para evitar spamar "Revisão Geral" duplicada
