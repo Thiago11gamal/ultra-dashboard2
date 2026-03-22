@@ -515,7 +515,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         urgency: calculateUrgency(cat, simulados, studyLogs, options)
     })).sort((a, b) => b.urgency.normalizedScore - a.urgency.normalizedScore);
 
-    const top3 = ranked.slice(0, 3);
+    // Expandido de 3 (Daily) para 10 (Weekly) para preencher todo o calendário
+    const weeklyBacklog = ranked.slice(0, 10);
 
     const performDeepCheck = (category) => {
         const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
@@ -537,9 +538,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
 
-    const suggestedTasks = top3.map(cat => {
+    const suggestedTasks = weeklyBacklog.map((cat, index) => {
         const weakTopic = getWeakestTopic(cat, simulados);
-        const topicLabel = weakTopic ? `[${weakTopic.name}] ` : `[Revisão Geral] `;
+        
+        // Vamos dar prioridade decrescente realçada para as primeiras 3 tarefas geradas, rotulando se for prioridade alta ou média
+        const priorityLabel = index < 3 ? '[AÇÃO CRÍTICA] ' : '';
+
+        const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
         const categorySims = simulados.filter(s => normalize(s.subject) === normalize(cat.name));
         const mc = cat.urgency?.details?.monteCarlo;
 
