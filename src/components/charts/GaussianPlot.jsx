@@ -1,8 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useId } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight }) => {
     const [hover, setHover] = useState(null);
+
+    // VISUAL-01 FIX: IDs únicos por instância para evitar conflito entre múltiplos GaussianPlot
+    const instanceId = useId().replace(/:/g, '');
+    const ID = {
+        curveGrad: `gpCurveGradient_${instanceId}`,
+        areaGrad: `gpAreaGradient_${instanceId}`,
+        failGrad: `gpFailAreaGradient_${instanceId}`,
+        glow: `gpGlow_${instanceId}`,
+        strongGlow: `gpStrongGlow_${instanceId}`,
+    };
 
     const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
@@ -395,12 +405,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </span>
             </div>
 
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @keyframes dash {
-                    to { stroke-dashoffset: -1000; }
-                }
-            ` }} />
         </div>
     );
 };

@@ -130,8 +130,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
                 const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
+                // SYNC-01 FIX: user está em contests[activeId].user, não no root de appState
+                const activeContest = appStateRef.current?.contests?.[appStateRef.current?.activeId];
                 const localIsInitial = localUpdated <= 0 ||
-                    appStateRef.current?.user?.name === "Estudante" ||
+                    activeContest?.user?.name === "Estudante" ||
                     !appStateRef.current?.contests ||
                     Object.values(appStateRef.current.contests).every(c => !c.categories || c.categories.length === 0);
 
