@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
@@ -199,6 +200,7 @@ function MainLayout() {
         />
 
         {/* Router Outlet com carregamento otimizado */}
+        <ErrorBoundary>
         <Suspense fallback={
           <div className="flex items-center justify-center p-20 text-purple-400">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
@@ -220,6 +222,7 @@ function MainLayout() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </main>
 
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />

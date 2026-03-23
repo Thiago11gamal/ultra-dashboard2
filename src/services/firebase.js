@@ -34,7 +34,7 @@ if (!derivedProjectId && rawConfig.authDomain) {
 const firebaseConfig = {
     apiKey: clean(rawConfig.apiKey) || "dummy-api-key",
     authDomain: clean(rawConfig.authDomain) || "dummy-auth-domain",
-    projectId: derivedProjectId || "liquita-67764",
+    projectId: derivedProjectId || null,
     storageBucket: clean(rawConfig.storageBucket) || "dummy-bucket",
     messagingSenderId: clean(rawConfig.messagingSenderId) || "000000000",
     appId: clean(rawConfig.appId) || "1:000:web:000",
@@ -44,6 +44,7 @@ const firebaseConfig = {
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
 if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined') {
     console.error("[Firebase] CRITICAL: projectId is missing! Firestore will crash. Check your .env or Vercel environment variables.");
+    // SILENT FAIL: db will be null, useCloudSync will handle this.
 }
 
 // Initialize Firebase

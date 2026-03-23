@@ -31,24 +31,27 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const m = meanVal;
             const t = targetVal;
             
-            // Probabilidade geométrica simplificada para um Gaussiano Assimétrico (sem considerar o truncamento em 0-100 para o ajuste)
+            // FIX: todas as quantidades em unidade de probabilidade (0-1), não de SD
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                const untruncatedTotal = (sl + sr) * 0.5;
-                const overflowRight = sr * normalCDF_complement((100 - mVal) / sr);
-                const overflowLeft = sl * normalCDF_complement(mVal / sl);
-                const truncatedTotal = Math.max(0.01, untruncatedTotal - overflowRight - overflowLeft);
+                // P(X < 0): cauda esquerda fora do domínio [0,100]
+                const pUnderflow = normalCDF_complement(mVal / sl);          // P(X < 0) no half-normal esquerdo
+                // P(X > 100): cauda direita fora do domínio
+                const pOverflow  = normalCDF_complement((100 - mVal) / sr);  // P(X > 100) no half-normal direito
+                // Massa total dentro de [0, 100] (cada half-normal tem 0.5 de massa antes do truncamento)
+                const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
-                let successArea;
+                let pSuccess;
                 if (tVal >= mVal) {
-                    const untruncatedSuccess = sr * normalCDF_complement((tVal - mVal) / sr);
-                    successArea = Math.max(0, untruncatedSuccess - overflowRight);
+                    // Meta à direita da média: sucesso = P(X >= tVal) no lado direito - overflow
+                    const pRightSuccess = normalCDF_complement((tVal - mVal) / sr);
+                    pSuccess = Math.max(0, pRightSuccess - pOverflow);
                 } else {
-                    const areaLeftSuccess = 0.5 - normalCDF_complement((mVal - tVal) / sl);
-                    const untruncatedSuccess = (sl * areaLeftSuccess) + (sr * 0.5);
-                    successArea = Math.max(0, untruncatedSuccess - overflowRight);
+                    // Meta à esquerda da média: sucesso = toda a metade direita + parte da metade esquerda - overflow
+                    const pLeftFail = normalCDF_complement((mVal - tVal) / sl); // P(X < tVal) no lado esquerdo
+                    pSuccess = Math.max(0, 0.5 - pLeftFail + 0.5 - pOverflow);
                 }
-                
-                return successArea / truncatedTotal;
+
+                return pSuccess / truncatedTotal;
             };
 
             const pGeom = getGeomProb(t, m, vizSdLeft, vizSdRight);

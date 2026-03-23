@@ -14,7 +14,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
-  const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 0.1);
+  // MELHORIA 5: Alinhar floor com os demais módulos (2pp mínimo)
+  const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 2.0);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
@@ -94,9 +95,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
     mean: Number(displayMean.toFixed(1)),
-    sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
-    sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
-    sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
+    sd: Number(Math.max(2.0, inferredSD).toFixed(1)),
+    sdLeft: Number(Math.max(2.0, sdLeft).toFixed(2)),
+    sdRight: Number(Math.max(2.0, sdRight).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),

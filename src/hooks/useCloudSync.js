@@ -44,7 +44,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
     const stateStringForSync = (state) => {
         if (!state) return '';
-        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}`;
+        // MELHORIA 7: Incluir hash leve do número de categorias+sessões para detectar
+        // colisões de timestamp entre dispositivos diferentes.
+        const contestCount = state.contests ? Object.keys(state.contests).length : 0;
+        const activeContest = state.contests?.[state.activeId];
+        const catCount = activeContest?.categories?.length ?? 0;
+        const sessionCount = activeContest?.studySessions?.length ?? 0;
+        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}:${catCount}:${sessionCount}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
