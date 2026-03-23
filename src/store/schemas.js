@@ -121,9 +121,9 @@ export const validateAppState = (data) => {
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;
-        // Se não tiver deletedAt, mantém na lixeira mas não aplica expiração de 30 dias (Bug L3)
-        if (!item.deletedAt) return true;
-        return (new Date() - new Date(item.deletedAt)) / (1000 * 60 * 60 * 24) <= 30;
+        // BUG LOGIC-02 FIX: Se não tiver deletedAt, assume agora para expirar em 30 dias
+        const deletedAt = item.deletedAt ? new Date(item.deletedAt) : new Date();
+        return (new Date() - deletedAt) / (1000 * 60 * 60 * 24) <= 30;
       }) : [],
       hasSeenTour: Boolean(d.hasSeenTour),
       lastHistoryTime: Number(d.lastHistoryTime) || 0,

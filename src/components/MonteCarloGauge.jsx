@@ -436,7 +436,7 @@ export default function MonteCarloGauge({
                             strokeWidth="12"
                             strokeLinecap="round"
                             pathLength="100"
-                            strokeDasharray={`${prob} 100`}
+                            strokeDasharray={`${prob} ${100 - prob}`}
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />

@@ -84,7 +84,8 @@ export function EvolutionLineChart({
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
                 <ComposedChart data={enhancedChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
-                        {categories.map(cat => (
+                        {/* CODE-02 FIX: Only generate gradients for active categories to optimize DOM size */}
+                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map(cat => (
                             <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
                                 <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />

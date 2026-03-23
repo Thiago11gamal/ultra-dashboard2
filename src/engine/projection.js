@@ -390,11 +390,11 @@ export function monteCarloSimulation(
 
         allFinalScores[s] = finalScore;
 
-        // Welford online update
+        // Welford online update (BUG-MATH-01: Usar score bruto, não clampado, para preservar SD real)
         welfordCount++;
-        const delta = finalScore - welfordMean;
+        const delta = score - welfordMean;
         welfordMean += delta / welfordCount;
-        const delta2 = finalScore - welfordMean;
+        const delta2 = score - welfordMean;
         welfordM2 += delta * delta2;
     }
 
