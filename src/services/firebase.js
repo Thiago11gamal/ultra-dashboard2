@@ -42,20 +42,20 @@ const firebaseConfig = {
 };
 
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
-if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined') {
-    console.error("[Firebase] CRITICAL: projectId is missing! Firestore will crash. Check your .env or Vercel environment variables.");
-    // SILENT FAIL: db will be null, useCloudSync will handle this.
+const isFirebaseConfigured = firebaseConfig.projectId && firebaseConfig.projectId !== 'undefined';
+if (!isFirebaseConfigured) {
+    console.error("[Firebase] CRITICAL: projectId is missing! Cloud Sync will be disabled. Check your .env file.");
 }
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistence
-const db = initializeFirestore(app, {
+// Initialize Firestore with persistence (only if configured)
+const db = isFirebaseConfigured ? initializeFirestore(app, {
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
-});
+}) : null;
 
 const auth = getAuth(app);
 

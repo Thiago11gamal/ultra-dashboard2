@@ -298,6 +298,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         setHasConflict(false);
 
         const syncToCloud = async () => {
+            if (!db) return; // MELHORIA: Não tentar sync se o Firebase não estiver configurado
             const currentStateString = stateStringForSync(appState);
             const lastMutation = lastLocalMutationRef.current;
 
