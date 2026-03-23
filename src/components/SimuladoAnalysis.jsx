@@ -57,10 +57,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }
 
-        // 3. Atualização Imutável
+        // 3. Atualização Imutável (BUG LOGIC-01: Recalcular score ao mudar acertos/total)
         const newRows = rows.map((row, i) => {
             if (i === index) {
-                return { ...row, [field]: finalValue };
+                const updatedRow = { ...row, [field]: finalValue };
+                const c = parseFloat(updatedRow.correct) || 0;
+                const t = parseFloat(updatedRow.total) || 0;
+                updatedRow.score = t > 0 ? (c / t) * 100 : 0;
+                return updatedRow;
             }
             return row;
         });

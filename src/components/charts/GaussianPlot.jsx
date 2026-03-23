@@ -243,24 +243,24 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* Failure Area (Red) */}
                 <path
                     d={failAreaPathData}
-                    fill="url(#gpFailAreaGradient)"
+                    fill={`url(#${ID.failGrad})`}
                     stroke="#ef4444"
                     strokeWidth="1.2"
                     vectorEffect="non-scaling-stroke"
                     className="opacity-70 transition-all duration-1000"
-                    style={{ filter: 'url(#gpGlow)' }}
+                    style={{ filter: `url(#${ID.glow})` }}
                 />
 
                 {/* BUG-06 FIX: Success Area (With Pulse if High Prob) */}
                 <path
                     d={areaPathData}
-                    fill="url(#gpAreaGradient)"
+                    fill={`url(#${ID.areaGrad})`}
                     stroke="#22c55e"
                     strokeWidth="1.2"
                     strokeDasharray="none"
                     vectorEffect="non-scaling-stroke"
                     className="opacity-80 transition-all duration-1000"
-                    style={{ filter: 'url(#gpGlow)' }}
+                    style={{ filter: `url(#${ID.glow})` }}
                 />
 
                 {/* Vertical Markers (p25, Median, p75) */}
@@ -268,7 +268,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussianFn(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30" />
 
                 {/* VISUAL-05: Gradient Main Curve */}
-                <path d={pathData} fill="none" stroke="url(#gpCurveGradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: 'url(#gpGlow)' }} />
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: `url(#${ID.glow})` }} />
 
                 {/* Markers & Visual Elements */}
                 {isTargetVisible && (
@@ -342,7 +342,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500"
                         style={{
                             left: `${currentPos}%`,
-                            top: tierHoje > 1 ? `calc(${hojeTop}% + ${(tierHoje - 1) * 16}px)` : `${hojeTop}%`,
+                            // VISUAL-02 FIX: Clampar para evitar corte no topo do container
+                            top: tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`,
                             transform: 'translateX(-50%)',
                             zIndex: 10
                         }}
@@ -351,6 +352,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/60 backdrop-blur-md border border-white/20 tracking-tighter leading-none whitespace-nowrap shadow-xl">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>
                 )}
+            </div>
+
+            {/* Bottom Percent Ticks */}
+            <div className="absolute inset-x-0 bottom-[-22px] h-4">
+                {[0, 25, 50, 75, 100].map(t => (
+                    <span
+                        key={t}
+                        className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter"
+                        style={{
+                            left: `${t}%`,
+                            // VISUAL-03 FIX: translateX adaptativo
+                            transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' 
+                        }}
+                    >
+                        {t}%
+                    </span>
+                ))}
             </div>
 
             {/* Hover Tooltip (Curve-Following Ultra) */}
