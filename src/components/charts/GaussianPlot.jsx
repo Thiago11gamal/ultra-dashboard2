@@ -197,7 +197,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </div>
             )}
 
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" classN                <defs>
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
+                <defs>
                     <linearGradient id={ID.curveGrad} x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="50%" stopColor="#3b82f6" />
@@ -220,7 +221,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
                 </defs>
-                </defs>
 
                 {/* X-Axis and Ticks (VISUAL-01) */}
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
@@ -233,7 +233,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <rect
                         x={ciLowPx}
                         y="0"
-                        width={ciHighPx - ciLowPx}
+                        width={Math.max(0, ciHighPx - ciLowPx)}
                         height="100"
                         fill="rgba(59, 130, 246, 0.05)"
                         className="transition-opacity duration-300 group-hover/chart:opacity-80"
@@ -276,9 +276,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="2.2" vectorEffect="non-scaling-stroke" className="opacity-90" />
-
-                {/* Visual Markers & Elements */}
-                {/* Meta and Peak indicators are now represented by vertical lines */}
 
                 {isCurrentVisible && (
                     <line x1={currentPos} y1="100" x2={currentPos} y2="0" stroke="white" strokeWidth="1.5" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="opacity-70" />
