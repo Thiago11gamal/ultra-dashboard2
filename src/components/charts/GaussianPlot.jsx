@@ -309,10 +309,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <div
                         className="absolute flex flex-col items-center transition-all duration-500"
                         style={{
-                            left: `${targetPos}%`,
+                            left: `${Math.min(targetPos, 90)}%`,
                             top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%',
-                            // VISUAL-02 FIX: Adaptive translateX
-                            transform: targetPos < 10 ? 'translateX(0%)' : targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
+                            // VISUAL-02 FIX: Persistent clamping and adaptive translateX
+                            transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
                             zIndex: 20
                         }}
                     >
@@ -342,11 +342,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <div
                         className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500"
                         style={{
-                            left: `${currentPos}%`,
+                            left: `${Math.min(currentPos, 85)}%`,
                             // VISUAL-02 FIX: Clampar para evitar corte no topo do container
                             top: tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`,
-                            // Adaptive translateX
-                            transform: currentPos < 15 ? 'translateX(0%)' : currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)',
+                            // Persistent clamping and adaptive translateX
+                            transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)',
                             zIndex: 10
                         }}
                     >
