@@ -150,7 +150,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     // V1 FIX: Position "Hoje" label dynamically above the curve point
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
-    const hojeTop = Math.min(hojeYPercent - 12, 38);
+    const hojeTop = Math.max(0, Math.min(hojeYPercent - 12, 38));
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
@@ -197,29 +197,29 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </div>
             )}
 
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
-                <defs>
-                    <linearGradient id="gpCurveGradient" x1="0" y1="0" x2="1" y2="0">
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" classN                <defs>
+                    <linearGradient id={ID.curveGrad} x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="50%" stopColor="#3b82f6" />
                         <stop offset="100%" stopColor="#2dd4bf" />
                     </linearGradient>
-                    <linearGradient id="gpAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={ID.areaGrad} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(34, 197, 94, 0.7)" />
                         <stop offset="100%" stopColor="rgba(34, 197, 94, 0.2)" />
                     </linearGradient>
-                    <linearGradient id="gpFailAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={ID.failGrad} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(239, 68, 68, 0.5)" />
                         <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
                     </linearGradient>
-                    <filter id="gpGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <filter id={ID.glow} x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="1.2" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
-                    <filter id="gpStrongGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <filter id={ID.strongGlow} x="-50%" y="-50%" width="200%" height="200%">
                         <feGaussianBlur stdDeviation="3" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
+                </defs>
                 </defs>
 
                 {/* X-Axis and Ticks (VISUAL-01) */}
@@ -325,10 +325,14 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 {/* Chance Label (Visual Indicator for the green area) */}
-                {isTargetVisible && targetPos < 92 && (
+                {isTargetVisible && (
                     <div
                         className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-opacity duration-300"
-                        style={{ left: `${targetPos + (100 - targetPos) / 2}%`, top: '45%' }}
+                        style={{ 
+                            left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, 
+                            top: '45%',
+                            transform: 'translateX(-50%)' 
+                        }}
                     >
                         <span className="text-[16px] font-black text-emerald-400 drop-shadow-lg shadow-emerald-500/50">
                             {prob ? prob.toFixed(1) : '0'}%
@@ -408,7 +412,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <span
                         key={t}
                         className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter"
-                        style={{ left: `${t}%`, transform: 'translateX(-50%)' }}
+                        style={{ 
+                            left: `${t}%`, 
+                            transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' 
+                        }}
                     >
                         {t}%
                     </span>
