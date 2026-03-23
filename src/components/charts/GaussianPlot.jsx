@@ -291,10 +291,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <div
                     className="absolute flex flex-col items-center transition-all duration-500"
                     style={{
-                        left: `${meanPos}%`,
+                        left: `${Math.min(meanPos, 90)}%`,
                         top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%',
-                        // VISUAL-02 FIX: Adaptive translateX to prevent clipping on edges
-                        transform: meanPos < 10 ? 'translateX(0%)' : meanPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
+                        transform: meanPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
                         zIndex: 30
                     }}
                 >
