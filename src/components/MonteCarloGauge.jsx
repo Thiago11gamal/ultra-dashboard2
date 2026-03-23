@@ -466,9 +466,13 @@ export default function MonteCarloGauge({
                     },
                     { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
                 ].map((m, i) => (
-                    <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center">
-                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{m.label}</span>
-                        <span className={`text-sm font-black ${m.color}`}>{m.val}</span>
+                    <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center overflow-hidden">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 whitespace-nowrap">
+                            {m.label}
+                        </span>
+                        <span className={`text-sm font-black ${m.color} truncate w-full text-center`}>
+                            {m.val}
+                        </span>
                     </div>
                 ))}
             </div>

@@ -293,7 +293,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     style={{
                         left: `${meanPos}%`,
                         top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%',
-                        transform: 'translateX(-50%)',
+                        // VISUAL-02 FIX: Adaptive translateX to prevent clipping on edges
+                        transform: meanPos < 10 ? 'translateX(0%)' : meanPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
                         zIndex: 30
                     }}
                 >
@@ -311,7 +312,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         style={{
                             left: `${targetPos}%`,
                             top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%',
-                            transform: 'translateX(-50%)',
+                            // VISUAL-02 FIX: Adaptive translateX
+                            transform: targetPos < 10 ? 'translateX(0%)' : targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
                             zIndex: 20
                         }}
                     >
@@ -344,7 +346,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                             left: `${currentPos}%`,
                             // VISUAL-02 FIX: Clampar para evitar corte no topo do container
                             top: tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`,
-                            transform: 'translateX(-50%)',
+                            // Adaptive translateX
+                            transform: currentPos < 15 ? 'translateX(0%)' : currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)',
                             zIndex: 10
                         }}
                     >
@@ -415,7 +418,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
             <div
                 className="absolute -bottom-6 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
-                style={{ left: `${ciLowPx}%` }}
+                // VISUAL-02 FIX: Clamp IC label on the right edge
+                style={{ 
+                    left: `${Math.min(ciLowPx, 75)}%`,
+                    maxWidth: '25%'
+                }}
             >
                 <div className="w-2 h-2 rounded-full bg-blue-500/20 border border-blue-400/40" />
                 <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">
