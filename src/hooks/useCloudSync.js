@@ -298,45 +298,66 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         setHasConflict(false);
 
         const syncToCloud = async () => {
-            try {
-                if (lastSyncedRef.current === currentStateString) return;
-                if (lastLocalMutationRef.current !== lastMutation) return;
+            const currentStateString = stateStringForSync(appState);
+            const lastMutation = lastLocalMutationRef.current;
 
-                const syncState = appState; // usa o state do closure do efeito
-                const safeguardContest = (contest) => {
-                    if (!contest) return contest;
-                    return {
-                        ...contest,
-                        studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
-                        studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
-                        simuladoRows: (contest.simuladoRows || []).slice(-300),
+            // MELHORIA 4: Retry com backoff exponencial (3 tentativas: 0s, 2s, 4s)
+            const MAX_RETRIES = 3;
+            let attempt = 0;
+            let lastError = null;
+
+            setIsInternalSyncing(true);
+            while (attempt < MAX_RETRIES) {
+                try {
+                    if (lastSyncedRef.current === currentStateString) break;
+                    if (lastLocalMutationRef.current !== lastMutation) break;
+
+                    const syncState = appState; // usa o state do closure do efeito
+                    const safeguardContest = (contest) => {
+                        if (!contest) return contest;
+                        return {
+                            ...contest,
+                            studyLogs: (contest.studyLogs || []).slice(-SYNC_LOG_CAP),
+                            studySessions: (contest.studySessions || []).slice(-SYNC_LOG_CAP),
+                            simuladoRows: (contest.simuladoRows || []).slice(-300),
+                        };
                     };
-                };
 
-                const safeContests = syncState.contests
-                    ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
-                    : syncState.contests;
+                    const safeContests = syncState.contests
+                        ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                        : syncState.contests;
 
-                const stateToSave = JSON.parse(JSON.stringify({
-                    ...syncState,
-                    contests: safeContests,
-                    history: [],
-                    _lastBackup: new Date().toISOString()
-                }));
+                    const stateToSave = JSON.parse(JSON.stringify({
+                        ...syncState,
+                        contests: safeContests,
+                        history: [],
+                        _lastBackup: new Date().toISOString()
+                    }));
 
-                setIsInternalSyncing(true);
-                logger.debug(`[Sync] Enviando atualização MASTER para nuvem...`);
-                await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                logger.styled("[Firebase-Diag] DADOS SINCRONIZADOS COM SUCESSO! ✅", "color: #22c55e; font-weight: bold;");
-                lastSyncedRef.current = currentStateString;
-            } catch (e) {
-                logger.error("[Sync] Erro no auto-save:", e);
-                if (showToast && e.code !== 'unavailable') {
-                    showToast(`Falha crítica ao salvar: ${e.message}`, 'error');
+                    logger.debug(`[Sync] Tentativa ${attempt + 1}/${MAX_RETRIES} para Master-Save...`);
+                    await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
+                    logger.styled(`[Sync] Sincronização MASTER com sucesso em ${attempt + 1} tentativas.`, "color: #22c55e; font-weight: bold;");
+                    lastSyncedRef.current = currentStateString;
+                    lastError = null;
+                    break; // sucesso
+                } catch (e) {
+                    lastError = e;
+                    attempt++;
+                    logger.error(`[Sync] Erro na tentativa ${attempt}:`, e);
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, attempt * 2000)); // 2s, 4s
+                    }
                 }
-            } finally {
-                if (isMountedRef.current) setIsInternalSyncing(false);
             }
+
+            if (lastError) {
+                logger.error("[Sync] Todas as tentativas falharam:", lastError);
+                if (showToast && lastError.code !== 'unavailable') {
+                    showToast(`Falha ao salvar após ${MAX_RETRIES} tentativas`, 'error');
+                }
+            }
+
+            if (isMountedRef.current) setIsInternalSyncing(false);
         };
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
