@@ -88,23 +88,30 @@ const processGamification = (state, xpGained) => {
     }
 
     const finalLevel = calculateLevel(newXP);
-    const leveledUp = finalLevel > currentLevel;
-
-    // LI-01 Fix: Remover o "ratchet" (catraca) que impedia a regressão de nível.
-    // O nível agora reflete a performance real, descendo se o XP cair.
-    activeData.user.level = finalLevel;
-    activeData.user.xp = newXP;
+    
+    // MELHORIA 6: xpFloor — nível nunca regride por desmarcar tarefas.
+    // XP pode cair (correto), mas o nível exibido é o máximo histórico.
+    // Isso mantém a motivação sem inflar o XP permanentemente.
+    const xpFloorForCurrentLevel = Math.pow(currentLevel - 1, 2) * 100; // XP mínimo do nível atual
+    const protectedXP = Math.max(newXP, xpFloorForCurrentLevel);
+    const protectedLevel = calculateLevel(protectedXP);
+    
+    activeData.user.level = protectedLevel;
+    activeData.user.xp = protectedXP;
+    
+    // Recalcular leveledUp com o XP protegido
+    const leveledUp = protectedLevel > currentLevel;
 
     // ✅ No side effects here — return the event detail for the caller to dispatch
     // after set() completes (outside the Immer draft).
     if (leveledUp) {
         let title;
-        if (finalLevel - currentLevel > 1) {
-            title = `Níveis ${currentLevel + 1} a ${finalLevel} Desbloqueados!`;
+        if (protectedLevel - currentLevel > 1) {
+            title = `Níveis ${currentLevel + 1} a ${protectedLevel} Desbloqueados!`;
         } else {
-            title = `Nível ${finalLevel} Desbloqueado!`;
+            title = `Nível ${protectedLevel} Desbloqueado!`;
         }
-        return { level: finalLevel, title, xpGained: newXP - currentXP };
+        return { level: protectedLevel, title, xpGained: protectedXP - currentXP };
     }
     return null;
 };
