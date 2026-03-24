@@ -100,27 +100,24 @@ export default function Login() {
                     <svg viewBox="0 0 200 200" className="manta-logo" fill="currentColor" style={{
                         width: '320px',
                         height: '320px',
-                        color: '#a5b4fc', // Indigo 300
+                        color: '#a5b4fc',
                         filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }}>
-                        {/* Body & Wings (Jamanta Style: Broad, Triangular, Majestic) */}
-                        <path d="M100,55 
-                                 C145,55 185,75 198,105 
-                                 C180,115 150,122 120,122 
-                                 C115,135 108,148 100,152 
-                                 C92,148 85,135 80,122 
-                                 C50,122 20,115 2,105 
-                                 C15,75 55,55 100,55 Z" />
-                        {/* Cephalic Fins (Jamanta Horns - More curved and prominent) */}
-                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
-                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
-
-                        {/* Internal wing definition/shadow (Subtle) */}
-                        <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.15" />
-
-                        {/* Tail (Long and elegant) */}
-                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
+                        {/* Head crest / horn */}
+                        <path d="M95,42 C97,28 100,20 100,20 C100,20 103,28 105,42 Q105,50 100,52 Q95,50 95,42 Z" opacity="0.85" />
+                        {/* Main body + wings */}
+                        <path d="M100,52 C108,52 118,56 130,64 C148,76 172,88 196,92 C192,98 180,104 160,106 C140,108 124,106 114,102 C108,112 104,126 102,138 L100,138 C100,138 96,126 90,110 L86,102 C76,106 60,108 40,106 C20,104 8,98 4,92 C28,88 52,76 70,64 C82,56 92,52 100,52 Z" />
+                        {/* Wing tips — sharp elegant curves */}
+                        <path d="M196,92 Q200,88 198,82 C195,86 194,90 196,92 Z" opacity="0.6" />
+                        <path d="M4,92 Q0,88 2,82 C5,86 6,90 4,92 Z" opacity="0.6" />
+                        {/* Internal wing definition */}
+                        <path d="M100,62 C125,62 155,76 168,96 C148,104 125,108 100,108 C75,108 52,104 32,96 C45,76 75,62 100,62 Z" opacity="0.12" />
+                        {/* Tail — flowing S-curve */}
+                        <path d="M100,138 C100,148 96,160 88,170 C80,180 72,186 68,192 C66,196 70,198 76,194 C84,188 94,176 100,162 C102,158 102,152 102,148 Z" opacity="0.75" />
+                        {/* Eyes */}
+                        <ellipse cx="90" cy="72" rx="3" ry="2.5" opacity="0.35" />
+                        <ellipse cx="110" cy="72" rx="3" ry="2.5" opacity="0.35" />
                     </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
