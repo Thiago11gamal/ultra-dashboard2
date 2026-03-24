@@ -64,10 +64,14 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
-            <NextGoalCard categories={data.categories} simulados={data.simuladoRows || []} studyLogs={data.studyLogs || []} onStartStudying={handleStartStudying} />
+            <div className="tour-step-4">
+                <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
+            </div>
+            <div className="tour-step-5">
+                <NextGoalCard categories={data.categories} simulados={data.simuladoRows || []} studyLogs={data.studyLogs || []} onStartStudying={handleStartStudying} />
+            </div>
             <PriorityProgress categories={data.categories} />
-            <div className="mt-4">
+            <div className="mt-4 tour-step-6">
                 <Checklist
                     categories={data.categories}
                     onToggleTask={toggleTask}
