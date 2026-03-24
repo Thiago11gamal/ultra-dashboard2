@@ -10,7 +10,7 @@ const steps = [
             <div className="text-center py-2">
                 <div className="text-4xl mb-3">🚀</div>
                 <h2 className="text-xl font-black bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent mb-3">
-                    Bem-vindo ao Método Thi
+                    Bem-vindo ao Método Arraia
                 </h2>
                 <p className="text-sm text-slate-300 leading-relaxed">
                     Seu painel de estudos inteligente. Vou te mostrar

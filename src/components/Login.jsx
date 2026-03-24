@@ -103,7 +103,7 @@ export default function Login() {
                         filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }} />
-                    <h1 suppressHydrationWarning>MÉTODO THI</h1>
+                    <h1 suppressHydrationWarning>MÉTODO ARRAIA</h1>
                 </div>
 
                 <div className="right">

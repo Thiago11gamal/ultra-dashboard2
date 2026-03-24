@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
+import logo from '../assets/logo.png';
 
 export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
     const location = useLocation();
@@ -93,13 +94,8 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
             <div className="flex items-center w-full gap-2 py-2 md:hidden">
                 {/* Brand */}
                 <Link to="/" className="flex items-center gap-1.5 shrink-0" onClick={() => setCollapsed(true)}>
-                    <svg viewBox="0 0 200 200" className="w-6 h-6 text-purple-400" fill="currentColor">
-                        <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
-                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
-                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
-                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
-                    </svg>
-                    <span className="text-[10px] font-black tracking-tighter text-white uppercase opacity-80">Método Thi</span>
+                    <img src={logo} alt="Logo" className="w-6 h-6 object-contain" />
+                    <span className="text-[10px] font-black tracking-tighter text-white uppercase opacity-80">Método Arraia</span>
                 </Link>
 
                 {/* Level Badge */}
@@ -201,13 +197,8 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
                         <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
-                            <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
-                                <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
-                                <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
-                                <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
-                                <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
-                            </svg>
-                            <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO THI</span>
+                            <img src={logo} alt="Logo" className="w-8 h-8 object-contain transition-all group-hover/brand:scale-110" />
+                            <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO ARRAIA</span>
                         </Link>
 
                         {/* Navigation Items */}
