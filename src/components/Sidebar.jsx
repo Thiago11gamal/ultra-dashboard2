@@ -94,10 +94,18 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Brand */}
                 <Link to="/" className="flex items-center gap-1.5 shrink-0" onClick={() => setCollapsed(true)}>
                     <svg viewBox="0 0 200 200" className="w-6 h-6 text-purple-400" fill="currentColor">
-                        <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
-                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
-                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
-                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
+                        {/* Head crest / horn */}
+                        <path d="M95,42 C97,28 100,20 100,20 C100,20 103,28 105,42 Q105,50 100,52 Q95,50 95,42 Z" opacity="0.85" />
+                        {/* Main body + wings */}
+                        <path d="M100,52 C108,52 118,56 130,64 C148,76 172,88 196,92 C192,98 180,104 160,106 C140,108 124,106 114,102 C108,112 104,126 102,138 L100,138 C100,138 96,126 90,110 L86,102 C76,106 60,108 40,106 C20,104 8,98 4,92 C28,88 52,76 70,64 C82,56 92,52 100,52 Z" />
+                        {/* Wing tips — sharp elegant curves */}
+                        <path d="M196,92 Q200,88 198,82 C195,86 194,90 196,92 Z" opacity="0.6" />
+                        <path d="M4,92 Q0,88 2,82 C5,86 6,90 4,92 Z" opacity="0.6" />
+                        {/* Tail — flowing S-curve */}
+                        <path d="M100,138 C100,148 96,160 88,170 C80,180 72,186 68,192 C66,196 70,198 76,194 C84,188 94,176 100,162 C102,158 102,152 102,148 Z" opacity="0.75" />
+                        {/* Eyes */}
+                        <ellipse cx="90" cy="68" rx="2.5" ry="2" opacity="0.4" />
+                        <ellipse cx="110" cy="68" rx="2.5" ry="2" opacity="0.4" />
                     </svg>
                     <span className="text-[10px] font-black tracking-tighter text-white uppercase opacity-80">Método Thi</span>
                 </Link>
@@ -202,10 +210,18 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                         {/* Brand Logo */}
                         <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
                             <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
-                                <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
-                                <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
-                                <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
-                                <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
+                                {/* Head crest / horn */}
+                                <path d="M95,42 C97,28 100,20 100,20 C100,20 103,28 105,42 Q105,50 100,52 Q95,50 95,42 Z" opacity="0.85" />
+                                {/* Main body + wings */}
+                                <path d="M100,52 C108,52 118,56 130,64 C148,76 172,88 196,92 C192,98 180,104 160,106 C140,108 124,106 114,102 C108,112 104,126 102,138 L100,138 C100,138 96,126 90,110 L86,102 C76,106 60,108 40,106 C20,104 8,98 4,92 C28,88 52,76 70,64 C82,56 92,52 100,52 Z" />
+                                {/* Wing tips — sharp elegant curves */}
+                                <path d="M196,92 Q200,88 198,82 C195,86 194,90 196,92 Z" opacity="0.6" />
+                                <path d="M4,92 Q0,88 2,82 C5,86 6,90 4,92 Z" opacity="0.6" />
+                                {/* Tail — flowing S-curve */}
+                                <path d="M100,138 C100,148 96,160 88,170 C80,180 72,186 68,192 C66,196 70,198 76,194 C84,188 94,176 100,162 C102,158 102,152 102,148 Z" opacity="0.75" />
+                                {/* Eyes */}
+                                <ellipse cx="90" cy="68" rx="2.5" ry="2" opacity="0.4" />
+                                <ellipse cx="110" cy="68" rx="2.5" ry="2" opacity="0.4" />
                             </svg>
                             <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO THI</span>
                         </Link>
