@@ -93,9 +93,9 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
             {/* ─── MOBILE HEADER BAR ─────────────────── */}
             <div className="flex items-center w-full gap-2 py-2 md:hidden">
                 {/* Brand */}
-                <Link to="/" className="flex items-center gap-1.5 shrink-0" onClick={() => setCollapsed(true)}>
-                    <img src={logo} alt="Logo" className="w-6 h-6 object-contain" />
-                    <span className="text-[10px] font-black tracking-tighter text-white uppercase opacity-80">Método Arraia</span>
+                <Link to="/" className="flex items-center gap-2 shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10" onClick={() => setCollapsed(true)}>
+                    <img src={logo} alt="Logo" className="w-6 h-6 object-contain brightness-0 invert shadow-sm" />
+                    <span className="text-xs font-black tracking-tighter text-white uppercase">Método Arraia</span>
                 </Link>
 
                 {/* Level Badge */}
@@ -196,9 +196,11 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     // Expanded State: Full Menu
                     <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
-                        <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
-                            <img src={logo} alt="Logo" className="w-8 h-8 object-contain transition-all group-hover/brand:scale-110" />
-                            <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO ARRAIA</span>
+                        <Link to="/" className="shrink-0 flex items-center gap-3 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
+                            <div className="relative">
+                                <img src={logo} alt="Logo" className="w-8 h-8 object-contain brightness-0 invert transition-all group-hover/brand:scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
+                            </div>
+                            <span className="font-black text-sm tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO ARRAIA</span>
                         </Link>
 
                         {/* Navigation Items */}

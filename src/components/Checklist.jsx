@@ -342,7 +342,15 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
     })).filter(() => true); // Always show categories, even if empty
 
     return (
-        <div>
+        <div className="min-h-[300px] w-full">
+            {/* Empty State for New Users */}
+            {categories.length === 0 && (
+                <div className="flex flex-col items-center justify-center p-12 mb-6 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
+                    <div className="text-5xl mb-4 opacity-30">🚀</div>
+                    <h3 className="text-slate-300 font-bold text-lg mb-1">Comece sua jornada!</h3>
+                    <p className="text-slate-500 text-sm">Adicione sua primeira disciplina para começar a estudar.</p>
+                </div>
+            )}
             {/* Filter Tabs */}
             <div className="flex gap-2 mb-6">
                 {filters.map(f => (
