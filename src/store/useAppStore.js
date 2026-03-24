@@ -273,6 +273,7 @@ export const useAppStore = create(
 
                 recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData?.categories) return;
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
                     category.tasks.push({
@@ -492,6 +493,7 @@ export const useAppStore = create(
             resetSimuladoStats: () => set((state) => {
                 recordHistory(state.appState, true);
                 const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData?.categories) return;
                 activeData.categories.forEach(c => {
                     c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                 });
@@ -531,6 +533,7 @@ export const useAppStore = create(
 
             updatePomodoroSettings: (settings) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
                 activeData.settings = { ...(activeData.settings || {}), ...settings };
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -599,6 +602,9 @@ export const useAppStore = create(
                 } else if (contestId === state.appState.activeId) {
                     state.appState.activeId = remainingIds[0];
                 }
+                // BUG-10 FIX: Bump version to ensure sync layer detects the deletion
+                // even if cloud snapshot arrives within the debounce window
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 

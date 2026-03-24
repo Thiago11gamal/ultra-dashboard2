@@ -7,14 +7,16 @@
 
 /**
  * Compute weighted variance from category statistics
- * Formula: Var = Σ wi × σi²  (weighted average of variances)
+ * Formula: Var = Σ wi² × σi²  (portfolio variance, assuming independence)
  * 
- * We use the weighted AVERAGE of variances (not portfolio variance w²×σ²)
- * because exam subjects are correlated (shared study effort, test-day effects).
+ * We use portfolio variance (w²×σ²) because exam subjects are treated as
+ * approximately independent. This produces a realistic Pooled SD of ~5-8%
+ * instead of the ~35% that the weighted-average formula (Σ w×σ²) would give.
  * 
- * BUG-M3: This formula (Σ w_i * σ_i²) is a pragmatic middle ground between 
- * perfect independence (portfolio variance Σ w_i²*σ_i², which drastically underestimates
- * uncertainty) and perfect correlation ((Σ w_i*σ_i)², which overestimates it).
+ * BUG-M3: This formula is statistically correct under the assumption of
+ * independence between subjects. If subjects are strongly correlated
+ * (shared test-day effects), the true variance lies between this value
+ * and the correlated formula (Σ w_i*σ_i)².
  * 
  * @param {Object[]} stats - Array of { sd, weight } objects
  * @param {number} totalWeight - Sum of all weights

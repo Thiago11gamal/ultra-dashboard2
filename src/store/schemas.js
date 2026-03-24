@@ -1,4 +1,5 @@
 import { INITIAL_DATA } from '../data/initialData';
+import { generateId } from '../utils/idGenerator';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 
@@ -34,12 +35,12 @@ const sanitizeContest = (data) => {
       ? data.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
     categories: (Array.isArray(data.categories) ? data.categories : []).map(cat => ({
-      id: cat.id || `cat_${Math.random().toString(36).substr(2, 9)}`,
+      id: cat.id || generateId('cat'),
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
       icon: cat.icon || "📚",
       tasks: (Array.isArray(cat.tasks) ? cat.tasks : []).map(t => ({
-        id: t.id || `task_${Math.random().toString(36).substr(2, 9)}`,
+        id: t.id || generateId('task'),
         text: t.text || t.title || "Nova Tarefa",
         title: t.title || t.text || "Nova Tarefa",
         completed: Boolean(t.completed),

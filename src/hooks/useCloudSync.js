@@ -265,6 +265,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
 
         const handleBeforeUnload = () => {
+            // BUG-9 FIX: Mark dirty in localStorage so next boot can detect unsaved data
+            try {
+                const currentStr = stateStringForSync(appStateRef.current);
+                if (lastSyncedRef.current !== currentStr) {
+                    localStorage.setItem('ultra-sync-dirty', 'true');
+                }
+            } catch (_) { /* ignore */ }
             performEmergencySync();
         };
 
@@ -299,7 +306,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const syncToCloud = async () => {
             if (!db) return; // MELHORIA: Não tentar sync se o Firebase não estiver configurado
-            const currentStateString = stateStringForSync(appState);
+            // BUG-5 FIX: Usar appStateRef.current em vez do closure para evitar dados obsoletos
+            const freshState = appStateRef.current;
+            const currentStateString = stateStringForSync(freshState);
             const lastMutation = lastLocalMutationRef.current;
 
             // MELHORIA 4: Retry com backoff exponencial (3 tentativas: 0s, 2s, 4s)
@@ -313,7 +322,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     if (lastSyncedRef.current === currentStateString) break;
                     if (lastLocalMutationRef.current !== lastMutation) break;
 
-                    const syncState = appState; // usa o state do closure do efeito
+                    const syncState = freshState; // BUG-5 FIX: usa ref em vez do closure
                     const safeguardContest = (contest) => {
                         if (!contest) return contest;
                         return {

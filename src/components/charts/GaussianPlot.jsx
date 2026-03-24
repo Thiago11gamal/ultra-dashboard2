@@ -135,7 +135,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             median, p25, p75
         };
     // Bug 3: Incluir dependências corretas (prob, propSdLeft, propSdRight)
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight]);
+    // BUG-8 FIX: Incluir low95, high95, currentMean para manter marcadores sincronizados
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(mean ?? 0);
