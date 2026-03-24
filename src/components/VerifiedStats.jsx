@@ -121,7 +121,8 @@ const ConsistencyCard = React.memo(({ consistency }) => (
 
 const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdNum = parseFloat(cat.sd);
-    const barWidth = Math.max(0, 100 - (sdNum / maxSdVal) * 100);
+    // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
+    const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / maxSdVal) * 100);
     const deltaNum = parseFloat(cat.delta);
     const sdBarColor = cat.color.replace('text-', 'bg-');
     const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';

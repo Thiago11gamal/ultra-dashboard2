@@ -88,7 +88,14 @@ class ErrorBoundary extends React.Component {
                         <button
                             onClick={() => {
                                 if (window.confirm('ATENÇÃO: Isso apagará seus dados locais para recuperar o app. Certifique-se de ter copiado o backup acima se possível.\n\nContinuar?')) {
-                                    localStorage.removeItem('ultra-dashboard-storage');
+                                    // BUG-24 FIX: Remover TODAS as chaves conhecidas, não apenas uma
+                                    [
+                                        'ultra-dashboard-storage',
+                                        'ultra-dashboard-data',
+                                        'ultra-dashboard-v8',
+                                        'ultra-dashboard-storage-v8',
+                                        'ultra-dashboard-data-backup-safety'
+                                    ].forEach(key => localStorage.removeItem(key));
                                     window.location.reload();
                                 }
                             }}

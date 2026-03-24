@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Lock, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot } from 'firebase/firestore';
 import { logger } from '../utils/logger';
 
-// Insira a chave pública que você forneceu
-const stripePromise = loadStripe("pk_live_51T9dWWFOUB7khZQdScYwgc2kgKeH0gs6kQYqmJN79PHNQoGEWtD6W9yGSQBBrfzZFPfv00lbmZn7n5jhq8vNoYJ800JcXlq3qQ");
+// BUG-18 FIX: Chave Stripe movida para variável de ambiente
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "pk_live_51T9dWWFOUB7khZQdScYwgc2kgKeH0gs6kQYqmJN79PHNQoGEWtD6W9yGSQBBrfzZFPfv00lbmZn7n5jhq8vNoYJ800JcXlq3qQ");
 
 export default function Paywall({ user, onLogout }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    // BUG-22 FIX: Armazenar unsubscribe para limpar listeners
+    const unsubRef = useRef(null);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (unsubRef.current) unsubRef.current();
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
 
     const handleSubscribe = async () => {
         setLoading(true);
         setError(null);
+        // BUG-22 FIX: Limpar listener/timeout anteriores antes de criar novos
+        if (unsubRef.current) unsubRef.current();
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
         try {
             logger.log("[Stripe] Criando sessão para:", user.uid);
 
@@ -37,7 +50,7 @@ export default function Paywall({ user, onLogout }) {
             let isResolved = false;
 
             // Timer de segurança: Se a extensão não funcionar em 12s, desarma a tela.
-            const timeoutId = setTimeout(() => {
+            timeoutRef.current = setTimeout(() => {
                 if (!isResolved) {
                     logger.error("[Stripe] Timeout atingido. A extensão não respondeu.");
                     setError("O servidor de pagamentos não respondeu. Verifique se a extensão 'Run Payments with Stripe' está instalada e configurada para observar a coleção 'customers'.");
@@ -46,7 +59,7 @@ export default function Paywall({ user, onLogout }) {
             }, 12000);
 
             // Aguardar a extensão popular a sessão
-            onSnapshot(docRef, async (snap) => {
+            unsubRef.current = onSnapshot(docRef, async (snap) => {
                 const data = snap.data();
                 if (!data) return;
 
@@ -56,19 +69,19 @@ export default function Paywall({ user, onLogout }) {
 
                 if (error) {
                     isResolved = true;
-                    clearTimeout(timeoutId);
+                    clearTimeout(timeoutRef.current);
                     setError(`Erro da Stripe: ${error.message}`);
                     setLoading(false);
                 }
 
                 if (url) {
                     isResolved = true;
-                    clearTimeout(timeoutId);
+                    clearTimeout(timeoutRef.current);
                     logger.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
-                    clearTimeout(timeoutId);
+                    clearTimeout(timeoutRef.current);
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await stripePromise;
                     stripe.redirectToCheckout({ sessionId });

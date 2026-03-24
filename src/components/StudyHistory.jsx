@@ -56,7 +56,7 @@ const StudyHistory = React.memo(function StudyHistory({
         const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1;
 
         return Math.max(diffWeeks, 1);
-    }, [studySessions]);
+    }, [studySessions, currentTime]); // BUG-23 FIX: currentTime adicionado
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();

@@ -22,8 +22,7 @@ export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
     }, [logout, timeoutMs]);
 
     useEffect(() => {
-        // Enforce a minimum safety timeout (e.g., 30s) unless it's explicitly short for testing
-        const effectiveTimeout = timeoutMs;
+        // BUG-25 FIX: Removed unused effectiveTimeout variable
 
         const events = [
             'mousedown',

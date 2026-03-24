@@ -259,7 +259,14 @@ export const useAppStore = create(
 
                     task.completed = completed;
                     task.completedAt = completed ? new Date().toISOString() : null;
-                    if (completed) task.lastStudiedAt = new Date().toISOString();
+                    if (completed) {
+                        task.lastStudiedAt = new Date().toISOString();
+                        // BUG-12 FIX: Salvar XP concedido para dedução correta ao desmarcar
+                        task.awardedXP = Math.abs(xpChange);
+                    } else {
+                        // Limpar após dedução
+                        delete task.awardedXP;
+                    }
 
                     levelUpDetail = processGamification(state, xpChange);
                     state.appState.lastUpdated = new Date().toISOString();
