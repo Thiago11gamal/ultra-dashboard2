@@ -11,6 +11,16 @@ export default function Coach() {
     const [coachLoading, setCoachLoading] = useState(false);
     const timeoutRef = useRef(null);
 
+    // BUG-17 FIX: Guarda de segurança contra estado vazio
+    if (!data || !data.categories) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            </div>
+        );
+    }
+
     useEffect(() => {
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);

@@ -14,8 +14,10 @@ const DEFAULT_CONFIG = {
     // Monte Carlo Coach config
     MC_SIMULATIONS: 800,
     MC_MIN_DATA_POINTS: 5,
-    MC_PROB_DANGER: 0.30,
-    MC_PROB_SAFE: 0.90,
+    // BUG-19 FIX: monteCarloSimulation retorna probabilidade na escala 0-100,
+    // não 0-1. Limiares corrigidos para escala percentual.
+    MC_PROB_DANGER: 30,
+    MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
     // Instability calibration (MSSD tem escala menor que stdDev — divisor recalibrado)
     INSTABILITY_MSSD_DIVISOR: 5,
@@ -68,6 +70,7 @@ function simuladosToHistory(simulados) {
 }
 
 const mcCache = new Map();
+const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
 
 /**
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
@@ -96,6 +99,11 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
             ci95Low: result.ci95Low,
             ci95High: result.ci95High,
         };
+        // BUG-21 FIX: Evict oldest entries when cache exceeds limit
+        if (mcCache.size >= MC_CACHE_MAX) {
+            const firstKey = mcCache.keys().next().value;
+            mcCache.delete(firstKey);
+        }
         mcCache.set(hash, finalResult);
         return finalResult;
     } catch (e) {
@@ -254,9 +262,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 // < 30%: perigo — boost máximo de 25pts
                 mcUrgencyBoost = 25 * (1 - mcProbability / cfg.MC_PROB_DANGER);
                 mcRiskLabel = 'critical';
-            } else if (mcProbability < 0.55) {
+            } else if (mcProbability < 55) {
                 // 30–55%: risco moderado — boost até 12pts
-                const t = (mcProbability - cfg.MC_PROB_DANGER) / (0.55 - cfg.MC_PROB_DANGER);
+                // BUG-19 FIX: Corrigido de 0.55 para 55 (escala 0-100)
+                const t = (mcProbability - cfg.MC_PROB_DANGER) / (55 - cfg.MC_PROB_DANGER);
                 mcUrgencyBoost = 12 * (1 - t);
                 mcRiskLabel = 'moderate';
             } else if (mcProbability >= cfg.MC_PROB_SAFE) {
@@ -326,11 +335,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
-            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability * 100)}% de chance. Risco Crítico.${burnoutNote}`;
+            // BUG-19 FIX: mcProbability já está em escala 0-100, não multiplicar por 100
+            recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${burnoutNote}`;
         } else if (isBurnoutRisk) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
         } else if (mcHasData && mcRiskLabel === 'safe') {
-            recommendation = `🏆 Cruzeiro Seguro (${Math.round(mcProbability * 100)}% nas projeções). Modo de manutenção ativado.`;
+            // BUG-19 FIX: mcProbability já está em escala 0-100
+            recommendation = `🏆 Cruzeiro Seguro (${Math.round(mcProbability)}% nas projeções). Modo de manutenção ativado.`;
         } else if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
         } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH && trend > 0) {
@@ -366,7 +377,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 isBurnoutRisk,
                 crunchMultiplier: Number(crunchMultiplier.toFixed(1)),
                 monteCarlo: mcHasData ? {
-                    probability: Number((mcProbability * 100).toFixed(1)),
+                    // BUG-19 FIX: mcProbability já está em 0-100, não multiplicar
+                    probability: Number(mcProbability.toFixed(1)),
                     probabilityRaw: mcProbability,
                     riskLabel: mcRiskLabel,
                     volatility: Number(mcResult.volatility.toFixed(2)),
@@ -380,7 +392,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${trend.toFixed(1)}` : trend < -0.5 ? `↓ ${trend.toFixed(1)}` : "→ Estável",
                     "Instabilidade": `±${mssdVolatility.toFixed(1)} pts`,
-                    "Probabilidade (MC)": mcHasData ? `${Math.round(mcProbability * 100)}%` : "Dados insuf.",
+                    // BUG-19 FIX: mcProbability já está em 0-100
+                    "Probabilidade (MC)": mcHasData ? `${Math.round(mcProbability)}%` : "Dados insuf.",
                     "Peso da Matéria": weightLabel,
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
                 },
@@ -657,7 +670,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             // 🚨 Zona de Perigo: Prob < 30%
             if (mc && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_DANGER && i === 0) {
-                const probPct = Math.round(mc.probabilityRaw * 100);
+                // BUG-19 FIX: probabilityRaw já está em 0-100
+                const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-danger-${uniqueIdSuffix}-${dateStr}`,
                     text: `${cat.name}: ${topicLabel}🚨 Alerta Vermelho! Projeção Matemática indica ampla reprovação. Medidas drásticas agora!`,
@@ -675,7 +689,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
             if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
-                const probPct = Math.round(mc.probabilityRaw * 100);
+                // BUG-19 FIX: probabilityRaw já está em 0-100
+                const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-chaos-${uniqueIdSuffix}-${dateStr}`,
                     text: `${cat.name}: ${topicLabel}🌪️ Você é estatisticamente imprevisível. Consolide antes de avançar!`,
@@ -693,7 +708,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             // 🏆 Cruzeiro Seguro: Prob > 90%
             if (mc && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
-                const probPct = Math.round(mc.probabilityRaw * 100);
+                // BUG-19 FIX: probabilityRaw já está em 0-100
+                const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-safe-${uniqueIdSuffix}-${dateStr}`,
                     text: `${cat.name}: ${topicLabel}🏆 Sucesso quase certo (${probPct}%). Modo manutenção ativado.`,

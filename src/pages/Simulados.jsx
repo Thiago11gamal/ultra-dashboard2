@@ -11,6 +11,16 @@ export default function Simulados() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
+    // BUG-11/20 FIX: Guarda de segurança contra estado vazio
+    if (!data || !data.categories) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            </div>
+        );
+    }
+
     // C-01 FIX: usar data local em vez de toISOString (UTC).
     // Em UTC-4 às 21h, toISOString retornava o dia seguinte.
     const todayKey = getDateKey(new Date());
