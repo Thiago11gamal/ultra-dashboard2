@@ -97,27 +97,46 @@ export default function Login() {
             <div className="container">
                 <div className="left">
                     {/* Manta Ray Silhouette Logo (Refined to match image) */}
-                    <svg viewBox="0 0 200 200" className="manta-logo" fill="currentColor" style={{
-                        width: '320px',
-                        height: '320px',
-                        color: '#a5b4fc',
+                    <svg viewBox="0 0 500 400" className="manta-logo" style={{
+                        width: '380px',
+                        height: '310px',
                         filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }}>
-                        {/* Head crest / horn */}
-                        <path d="M95,42 C97,28 100,20 100,20 C100,20 103,28 105,42 Q105,50 100,52 Q95,50 95,42 Z" opacity="0.85" />
-                        {/* Main body + wings */}
-                        <path d="M100,52 C108,52 118,56 130,64 C148,76 172,88 196,92 C192,98 180,104 160,106 C140,108 124,106 114,102 C108,112 104,126 102,138 L100,138 C100,138 96,126 90,110 L86,102 C76,106 60,108 40,106 C20,104 8,98 4,92 C28,88 52,76 70,64 C82,56 92,52 100,52 Z" />
-                        {/* Wing tips — sharp elegant curves */}
-                        <path d="M196,92 Q200,88 198,82 C195,86 194,90 196,92 Z" opacity="0.6" />
-                        <path d="M4,92 Q0,88 2,82 C5,86 6,90 4,92 Z" opacity="0.6" />
-                        {/* Internal wing definition */}
-                        <path d="M100,62 C125,62 155,76 168,96 C148,104 125,108 100,108 C75,108 52,104 32,96 C45,76 75,62 100,62 Z" opacity="0.12" />
-                        {/* Tail — flowing S-curve */}
-                        <path d="M100,138 C100,148 96,160 88,170 C80,180 72,186 68,192 C66,196 70,198 76,194 C84,188 94,176 100,162 C102,158 102,152 102,148 Z" opacity="0.75" />
-                        {/* Eyes */}
-                        <ellipse cx="90" cy="72" rx="3" ry="2.5" opacity="0.35" />
-                        <ellipse cx="110" cy="72" rx="3" ry="2.5" opacity="0.35" />
+                        <defs>
+                            <linearGradient id="mWingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor="#c7d2fe" stopOpacity="1"/>
+                                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.85"/>
+                                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.5"/>
+                            </linearGradient>
+                            <linearGradient id="mBodyGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+                                <stop offset="0%" stopColor="#e0e7ff" stopOpacity="1"/>
+                                <stop offset="100%" stopColor="#a5b4fc" stopOpacity="0.8"/>
+                            </linearGradient>
+                            <filter id="mGlow">
+                                <feGaussianBlur stdDeviation="3" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <g transform="translate(250,160)" filter="url(#mGlow)">
+                            {/* Wings — broad sweeping curves */}
+                            <path d="M-20,-10 C-80,-20 -180,-60 -210,-55 C-230,-50 -200,10 -150,40 C-80,80 -40,100 0,105 C40,100 80,80 150,40 C200,10 230,-50 210,-55 C180,-60 80,-20 20,-10 C10,-5 -10,-5 -20,-10 Z" fill="url(#mWingGrad)"/>
+                            {/* Cephalic fins (horns) */}
+                            <path d="M-15,-10 C-25,-30 -20,-50 -10,-58 C-5,-62 0,-50 0,-38" fill="#a5b4fc" opacity="0.85"/>
+                            <path d="M15,-10 C25,-30 20,-50 10,-58 C5,-62 0,-50 0,-38" fill="#a5b4fc" opacity="0.85"/>
+                            {/* Central body */}
+                            <ellipse cx="0" cy="20" rx="30" ry="45" fill="url(#mBodyGrad)" opacity="0.45"/>
+                            {/* Wing highlight lines */}
+                            <path d="M15,-8 C70,-18 140,-48 195,-52" stroke="#e0e7ff" strokeWidth="0.8" fill="none" opacity="0.2"/>
+                            <path d="M-15,-8 C-70,-18 -140,-48 -195,-52" stroke="#e0e7ff" strokeWidth="0.8" fill="none" opacity="0.2"/>
+                            <path d="M18,0 C80,0 150,-20 190,-35" stroke="#e0e7ff" strokeWidth="0.6" fill="none" opacity="0.12"/>
+                            <path d="M-18,0 C-80,0 -150,-20 -190,-35" stroke="#e0e7ff" strokeWidth="0.6" fill="none" opacity="0.12"/>
+                            {/* Tail — elegant flowing curve */}
+                            <path d="M0,105 C5,140 15,175 5,210 C-5,235 -20,248 -25,255 Q-28,260 -24,258 C-15,250 -5,232 0,210 C5,188 8,160 5,135 C3,120 1,110 0,105 Z" fill="#a5b4fc" opacity="0.6"/>
+                            {/* Eyes */}
+                            <ellipse cx="-10" cy="-2" rx="2.5" ry="1.8" fill="#e0e7ff" opacity="0.45"/>
+                            <ellipse cx="10" cy="-2" rx="2.5" ry="1.8" fill="#e0e7ff" opacity="0.45"/>
+                        </g>
                     </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
