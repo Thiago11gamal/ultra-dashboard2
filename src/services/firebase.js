@@ -34,7 +34,7 @@ if (!derivedProjectId && rawConfig.authDomain) {
 const firebaseConfig = {
     apiKey: clean(rawConfig.apiKey) || "dummy-api-key",
     authDomain: clean(rawConfig.authDomain) || "dummy-auth-domain",
-    projectId: derivedProjectId || null,
+    projectId: derivedProjectId || "liquita-67764",
     storageBucket: clean(rawConfig.storageBucket) || "dummy-bucket",
     messagingSenderId: clean(rawConfig.messagingSenderId) || "000000000",
     appId: clean(rawConfig.appId) || "1:000:web:000",
@@ -42,20 +42,19 @@ const firebaseConfig = {
 };
 
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
-const isFirebaseConfigured = firebaseConfig.projectId && firebaseConfig.projectId !== 'undefined';
-if (!isFirebaseConfigured) {
-    console.error("[Firebase] CRITICAL: projectId is missing! Cloud Sync will be disabled. Check your .env file.");
+if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined') {
+    console.error("[Firebase] CRITICAL: projectId is missing! Firestore will crash. Check your .env or Vercel environment variables.");
 }
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistence (only if configured)
-const db = isFirebaseConfigured ? initializeFirestore(app, {
+// Initialize Firestore with persistence
+const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
     })
-}) : null;
+});
 
 const auth = getAuth(app);
 
