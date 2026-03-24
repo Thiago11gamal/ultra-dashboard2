@@ -93,14 +93,11 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
             <div className="flex items-center w-full gap-2 py-2 md:hidden">
                 {/* Brand */}
                 <Link to="/" className="flex items-center gap-1.5 shrink-0" onClick={() => setCollapsed(true)}>
-                    <svg viewBox="0 0 500 400" className="w-6 h-6 text-purple-400" fill="currentColor">
-                        {/* Wings */}
-                        <path d="M230,150 C170,140 70,100 40,105 C20,110 50,170 100,200 C170,240 210,260 250,265 C290,260 330,240 400,200 C450,170 480,110 460,105 C430,100 330,140 270,150 C260,155 240,155 230,150 Z" />
-                        {/* Cephalic fins */}
-                        <path d="M235,150 C225,130 230,110 240,102 C245,98 250,110 250,122" opacity="0.85" />
-                        <path d="M265,150 C275,130 270,110 260,102 C255,98 250,110 250,122" opacity="0.85" />
-                        {/* Tail */}
-                        <path d="M250,265 C255,300 265,335 255,370 C245,395 230,408 225,415 Q222,420 226,418 C235,410 245,392 250,370 C255,348 258,320 255,295 C253,280 251,270 250,265 Z" opacity="0.7" />
+                    <svg viewBox="0 0 200 200" className="w-6 h-6 text-purple-400" fill="currentColor">
+                        <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
+                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
                     </svg>
                     <span className="text-[10px] font-black tracking-tighter text-white uppercase opacity-80">Método Thi</span>
                 </Link>
@@ -204,14 +201,11 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
                         <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 pr-2 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
-                            <svg viewBox="0 0 500 400" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
-                                {/* Wings */}
-                                <path d="M230,150 C170,140 70,100 40,105 C20,110 50,170 100,200 C170,240 210,260 250,265 C290,260 330,240 400,200 C450,170 480,110 460,105 C430,100 330,140 270,150 C260,155 240,155 230,150 Z" />
-                                {/* Cephalic fins */}
-                                <path d="M235,150 C225,130 230,110 240,102 C245,98 250,110 250,122" opacity="0.85" />
-                                <path d="M265,150 C275,130 270,110 260,102 C255,98 250,110 250,122" opacity="0.85" />
-                                {/* Tail */}
-                                <path d="M250,265 C255,300 265,335 255,370 C245,395 230,408 225,415 Q222,420 226,418 C235,410 245,392 250,370 C255,348 258,320 255,295 C253,280 251,270 250,265 Z" opacity="0.7" />
+                            <svg viewBox="0 0 200 200" className="w-8 h-8 text-purple-400 group-hover/brand:text-purple-300 transition-all group-hover/brand:scale-110" fill="currentColor">
+                                <path d="M100,55 C145,55 185,75 198,105 C180,115 150,122 120,122 C115,135 108,148 100,152 C92,148 85,135 80,122 C50,122 20,115 2,105 C15,75 55,55 100,55 Z" />
+                                <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                                <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+                                <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
                             </svg>
                             <span className="font-black text-xs tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO THI</span>
                         </Link>

@@ -97,46 +97,30 @@ export default function Login() {
             <div className="container">
                 <div className="left">
                     {/* Manta Ray Silhouette Logo (Refined to match image) */}
-                    <svg viewBox="0 0 500 400" className="manta-logo" style={{
-                        width: '380px',
-                        height: '310px',
+                    <svg viewBox="0 0 200 200" className="manta-logo" fill="currentColor" style={{
+                        width: '320px',
+                        height: '320px',
+                        color: '#a5b4fc', // Indigo 300
                         filter: 'drop-shadow(0 0 40px rgba(99, 102, 241, 0.4))',
                         animation: 'float 6s ease-in-out infinite'
                     }}>
-                        <defs>
-                            <linearGradient id="mWingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#c7d2fe" stopOpacity="1"/>
-                                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.85"/>
-                                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.5"/>
-                            </linearGradient>
-                            <linearGradient id="mBodyGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-                                <stop offset="0%" stopColor="#e0e7ff" stopOpacity="1"/>
-                                <stop offset="100%" stopColor="#a5b4fc" stopOpacity="0.8"/>
-                            </linearGradient>
-                            <filter id="mGlow">
-                                <feGaussianBlur stdDeviation="3" result="blur"/>
-                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                            </filter>
-                        </defs>
-                        <g transform="translate(250,160)" filter="url(#mGlow)">
-                            {/* Wings — broad sweeping curves */}
-                            <path d="M-20,-10 C-80,-20 -180,-60 -210,-55 C-230,-50 -200,10 -150,40 C-80,80 -40,100 0,105 C40,100 80,80 150,40 C200,10 230,-50 210,-55 C180,-60 80,-20 20,-10 C10,-5 -10,-5 -20,-10 Z" fill="url(#mWingGrad)"/>
-                            {/* Cephalic fins (horns) */}
-                            <path d="M-15,-10 C-25,-30 -20,-50 -10,-58 C-5,-62 0,-50 0,-38" fill="#a5b4fc" opacity="0.85"/>
-                            <path d="M15,-10 C25,-30 20,-50 10,-58 C5,-62 0,-50 0,-38" fill="#a5b4fc" opacity="0.85"/>
-                            {/* Central body */}
-                            <ellipse cx="0" cy="20" rx="30" ry="45" fill="url(#mBodyGrad)" opacity="0.45"/>
-                            {/* Wing highlight lines */}
-                            <path d="M15,-8 C70,-18 140,-48 195,-52" stroke="#e0e7ff" strokeWidth="0.8" fill="none" opacity="0.2"/>
-                            <path d="M-15,-8 C-70,-18 -140,-48 -195,-52" stroke="#e0e7ff" strokeWidth="0.8" fill="none" opacity="0.2"/>
-                            <path d="M18,0 C80,0 150,-20 190,-35" stroke="#e0e7ff" strokeWidth="0.6" fill="none" opacity="0.12"/>
-                            <path d="M-18,0 C-80,0 -150,-20 -190,-35" stroke="#e0e7ff" strokeWidth="0.6" fill="none" opacity="0.12"/>
-                            {/* Tail — elegant flowing curve */}
-                            <path d="M0,105 C5,140 15,175 5,210 C-5,235 -20,248 -25,255 Q-28,260 -24,258 C-15,250 -5,232 0,210 C5,188 8,160 5,135 C3,120 1,110 0,105 Z" fill="#a5b4fc" opacity="0.6"/>
-                            {/* Eyes */}
-                            <ellipse cx="-10" cy="-2" rx="2.5" ry="1.8" fill="#e0e7ff" opacity="0.45"/>
-                            <ellipse cx="10" cy="-2" rx="2.5" ry="1.8" fill="#e0e7ff" opacity="0.45"/>
-                        </g>
+                        {/* Body & Wings (Jamanta Style: Broad, Triangular, Majestic) */}
+                        <path d="M100,55 
+                                 C145,55 185,75 198,105 
+                                 C180,115 150,122 120,122 
+                                 C115,135 108,148 100,152 
+                                 C92,148 85,135 80,122 
+                                 C50,122 20,115 2,105 
+                                 C15,75 55,55 100,55 Z" />
+                        {/* Cephalic Fins (Jamanta Horns - More curved and prominent) */}
+                        <path d="M82,57 C75,45 82,32 90,34 C94,36 92,48 88,58 Z" />
+                        <path d="M118,57 C125,45 118,32 110,34 C106,36 108,48 112,58 Z" />
+
+                        {/* Internal wing definition/shadow (Subtle) */}
+                        <path d="M100,65 C130,65 160,80 170,105 C150,112 125,115 100,115 C75,115 50,112 30,105 C40,80 70,65 100,65 Z" opacity="0.15" />
+
+                        {/* Tail (Long and elegant) */}
+                        <path d="M100,152 C100,175 80,185 60,192 C55,193 55,195 62,195 C90,195 112,180 112,152 Z" />
                     </svg>
                     <h1 suppressHydrationWarning>MÉTODO THI</h1>
                 </div>
