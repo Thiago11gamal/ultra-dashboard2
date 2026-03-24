@@ -95,9 +95,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
     mean: Number(displayMean.toFixed(1)),
-    sd: Number(Math.max(2.0, inferredSD).toFixed(1)),
-    sdLeft: Number(Math.max(2.0, sdLeft).toFixed(2)),
-    sdRight: Number(Math.max(2.0, sdRight).toFixed(2)),
+    // BUG-27 FIX: Floor unificado com projection.js (0.1 em vez de 2.0)
+    // O floor de 2.0 inflava artificialmente a incerteza para alunos consistentes
+    sd: Number(Math.max(0.1, projectedSD).toFixed(1)),
+    sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
+    sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),

@@ -144,8 +144,9 @@ export default function MonteCarloGauge({
                                 scoresByDate[dk][cat.name] = getSafeScore(h);
                             }
                         });
+                        // BUG-35 FIX: Só incluir stats de matérias com peso > 0
+                        categoryStats.push({ name: cat.name, ...stats });
                     }
-                    categoryStats.push({ name: cat.name, ...stats });
                 }
             }
         });

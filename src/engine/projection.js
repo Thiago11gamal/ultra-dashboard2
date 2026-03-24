@@ -345,8 +345,10 @@ export function monteCarloSimulation(
     // BUGFIX H1: _bootstrapScale só é relevante quando NÃO há forcedVolatility.
     // Quando forcedVolatility está presente, usamos randomNormal * volatility diretamente
     // para evitar a amplificação (volatility / _residualSD) que pode chegar a 10×.
+    // BUG-30 FIX: Resíduos já foram centralizados (L291-293), consumindo 1 DoF.
+    // Usar n (não n-1) para evitar dupla correção de Bessel.
     const _residualSD = (useBootstrap && residuals.length > 0)
-        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
+        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length))
         : 0;
 
     // BUG-05 FIX: Escala de rescaling para igualar volatility alvo

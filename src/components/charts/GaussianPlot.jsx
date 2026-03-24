@@ -58,12 +58,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             
             // Ajustar o SD do lado que contém a fronteira da meta para "forçar" a área visual a casar com o gauge
             if (Math.abs(targetProb - pGeom) > 0.01) {
-                const ratio = targetProb / Math.max(0.01, pGeom);
+                // BUG-33 FIX: Clamp ratio para evitar SD visual absurdo quando pGeom ≈ 0
+                const ratio = Math.min(5, Math.max(0.2, targetProb / Math.max(0.01, pGeom)));
                 if (t < m) {
-                    // Meta à esquerda da média: o ajuste do vizSdLeft tem maior impacto na área de sucesso
                     vizSdLeft = Math.max(1, vizSdLeft * ratio);
                 } else {
-                    // Meta à direita da média: o ajuste do vizSdRight tem maior impacto
                     vizSdRight = Math.max(1, vizSdRight * ratio);
                 }
             }
