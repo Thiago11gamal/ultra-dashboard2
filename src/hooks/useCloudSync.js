@@ -43,6 +43,45 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     // Normalização leve para detecção de mudança em tempo real
     // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
+    // Merge logic: Combine local and cloud contests safely
+    const mergeAppState = (local, cloud) => {
+        if (!cloud) return local;
+        if (!local) return cloud;
+
+        const mergedContests = { ...(local.contests || {}) };
+        const cloudContests = cloud.contests || {};
+
+        Object.entries(cloudContests).forEach(([id, cloudContest]) => {
+            const localContest = mergedContests[id];
+            
+            if (!localContest) {
+                // New contest from cloud
+                mergedContests[id] = cloudContest;
+            } else {
+                // Conflict: Pick the one with the newer lastUpdated
+                const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
+                const localTime = new Date(localContest.lastUpdated || 0).getTime();
+                
+                if (cloudTime > localTime) {
+                    mergedContests[id] = cloudContest;
+                }
+            }
+        });
+
+        // Determine which activeId to keep (most recently updated overall)
+        const cloudUpdated = new Date(cloud.lastUpdated || 0).getTime();
+        const localUpdated = new Date(local.lastUpdated || 0).getTime();
+        const activeId = cloudUpdated > localUpdated ? cloud.activeId : local.activeId;
+
+        return {
+            ...local,
+            ...cloud,
+            contests: mergedContests,
+            activeId: activeId || local.activeId || cloud.activeId,
+            lastUpdated: new Date(Math.max(cloudUpdated, localUpdated)).toISOString()
+        };
+    };
+
     const stateStringForSync = (state) => {
         if (!state) return '';
         // MELHORIA 7: Incluir hash leve do número de categorias+sessões para detectar
@@ -160,14 +199,22 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
                     (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
 
+                const cloudContestIds = Object.keys(cloudData.contests || {});
+                const localContestIds = Object.keys(appStateRef.current?.contests || {});
+                const cloudHasMissingLocalContests = cloudContestIds.some(id => !localContestIds.includes(id));
+
                 if (localIsInitial && cloudHasContent) {
                     logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
+                    shouldPullCloud = true;
+                } else if (cloudHasMissingLocalContests) {
+                    logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge.");
                     shouldPullCloud = true;
                 } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
                     // 🛡️ BUG-C2: Nuvem é significativamente mais recente (>5s) — puxar
                     logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
                     shouldPullCloud = true;
-                } else {
+                }
+ else {
                     logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente ou substancial. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()} | LocalSubstantial: ${localHasSubstantialContent}`);
                     shouldPullCloud = false;
                 }
@@ -188,7 +235,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
                 logger.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 isCloudPullRef.current = true;
-                setAppState(cloudData);
+                setAppState(prev => mergeAppState(prev, cloudData));
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
 
@@ -395,7 +442,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {
-            setAppState(latestCloudDataRef.current);
+            setAppState(prev => mergeAppState(prev, latestCloudDataRef.current));
             lastSyncedRef.current = stateStringForSync(latestCloudDataRef.current);
             setHasConflict(false);
             if (showToast) showToast('Paridade forçada com sucesso! 💎', 'success');
