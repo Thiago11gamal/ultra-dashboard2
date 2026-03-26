@@ -5,7 +5,7 @@ import ThemeSwitcher from './ThemeSwitcher';
 /**
  * ProfileDrawer component for mobile navigation and settings.
  */
-function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash, settings, onThemeChange }) {
+function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash, settings, onThemeChange, forcePullCloud }) {
     return (
         <>
             {/* Backdrop */}
@@ -132,13 +132,25 @@ function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitc
                     )}
 
                     {onImport && (
-                        <label className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-sm font-medium cursor-pointer">
-                            <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                                <Upload size={15} className="text-slate-400" />
-                            </div>
-                            Restaurar Dados
-                            <input type="file" accept=".json" onChange={(e) => { onImport(e); onClose(); }} className="hidden" />
-                        </label>
+                        <>
+                            <button
+                                onClick={() => { if (forcePullCloud) forcePullCloud(); onClose(); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-yellow-300/80 hover:bg-yellow-500/10 hover:text-yellow-300 transition-colors text-sm font-medium border border-yellow-500/10"
+                            >
+                                <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
+                                    <Download size={15} className="text-yellow-400" />
+                                </div>
+                                Resgatar da Nuvem
+                            </button>
+
+                            <label className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-colors text-sm font-medium cursor-pointer">
+                                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                                    <Upload size={15} className="text-slate-400" />
+                                </div>
+                                Restaurar Dados
+                                <input type="file" accept=".json" onChange={(e) => { onImport(e); onClose(); }} className="hidden" />
+                            </label>
+                        </>
                     )}
 
                     <button

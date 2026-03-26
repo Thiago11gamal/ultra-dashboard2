@@ -168,7 +168,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
                     shouldPullCloud = true;
                 } else {
-                    logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()}`);
+                    logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente ou substancial. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()} | LocalSubstantial: ${localHasSubstantialContent}`);
                     shouldPullCloud = false;
                 }
 
@@ -408,6 +408,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         cloudConnected: cloudStatus === 'connected',
         isSyncing: isInternalSyncing,
         hasConflict,
-        forcePull
+        forcePullCloud: forcePull
     };
 }
