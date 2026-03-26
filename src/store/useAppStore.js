@@ -289,7 +289,7 @@ export const useAppStore = create(
                         text: trimmedTitle,
                         title: trimmedTitle,
                         completed: false,
-                        deletedAt: new Date().toISOString()
+                        priority: 'medium'
                     });
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
@@ -486,6 +486,7 @@ export const useAppStore = create(
 
             setMcEqualWeights: (val) => set((state) => {
                 state.appState.mcEqualWeights = val;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -513,6 +514,7 @@ export const useAppStore = create(
                 activeData.categories.forEach(c => {
                     c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                 });
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -544,6 +546,7 @@ export const useAppStore = create(
                         c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
                     }
                 });
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -551,6 +554,7 @@ export const useAppStore = create(
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData) return;
                 activeData.settings = { ...(activeData.settings || {}), ...settings };
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -561,6 +565,7 @@ export const useAppStore = create(
                 // B-16 FIX: Initial undefined resolves logically without double-clicking requirement
                 const currentVal = activeData.settings.darkMode;
                 activeData.settings.darkMode = currentVal === undefined ? false : !currentVal;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -568,6 +573,7 @@ export const useAppStore = create(
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData.user) activeData.user = {};
                 activeData.user.name = name;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -577,6 +583,7 @@ export const useAppStore = create(
                 if (activeData && !activeData.coachPlanner) {
                     activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -593,6 +600,7 @@ export const useAppStore = create(
                 };
                 state.appState.contests[newId] = newContestData;
                 state.appState.activeId = newId;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -675,6 +683,7 @@ export const useAppStore = create(
                 }
 
                 state.appState.pomodoro.activeSubject = subject;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -710,6 +719,34 @@ export const useAppStore = create(
             storage: createJSONStorage(() => ({
                 getItem: (name) => localStorage.getItem(name),
                 setItem: (name, value) => {
+                    // BUG-05: Save ephemeral pomodoro state separately to avoid history bloat
+                    if (name === 'ultra-dashboard-storage') { // Only process main store state here
+                        try {
+                            const state = JSON.parse(value);
+                            const { mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject } = state.state.appState.pomodoro;
+                            const stateToSave = {
+                                mode,
+                                timeLeft,
+                                isRunning,
+                                sessions,
+                                completedCycles,
+                                targetCycles,
+                                sessionHistory,
+                                savedAt: Date.now(),
+                                activeTaskId: activeSubject?.taskId,
+                                sessionInstanceId: activeSubject?.sessionInstanceId
+                            };
+                            // Bug #4: Silently ignore quota errors for the timer (ephemeral state)
+                            try {
+                                localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+                            } catch (err) {
+                                // Silently ignore quota errors for the timer (ephemeral state)
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse state for pomodoro save:", e);
+                        }
+                    }
+
                     try {
                         localStorage.setItem(name, value);
                     } catch (e) {
