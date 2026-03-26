@@ -16,7 +16,8 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         if (existing) {
             existing.correct += correct;
             existing.total += total;
-            existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
+            // BUG-08: Manter o score anterior (legado) se não houver questões/acertos no novo registro
+            existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : existing.score;
         } else {
             const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * 100 : 0);
             aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
