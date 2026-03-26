@@ -46,7 +46,10 @@ const sanitizeContest = (data) => {
         completed: Boolean(t.completed),
         completedAt: t.completedAt || null,
         lastStudiedAt: t.lastStudiedAt || null,
-        priority: t.priority || "medium"
+        priority: t.priority || "medium",
+        // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
+        ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
+        ...(t.status ? { status: t.status } : {})
       })),
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       totalMinutes: Number(cat.totalMinutes) || 0,

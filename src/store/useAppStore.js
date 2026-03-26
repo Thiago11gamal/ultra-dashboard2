@@ -504,6 +504,7 @@ export const useAppStore = create(
                 });
 
                 activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -689,16 +690,19 @@ export const useAppStore = create(
 
             setPomodoroSessions: (count) => set((state) => {
                 state.appState.pomodoro.sessions = count;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
             setPomodoroTargetCycles: (target) => set((state) => {
                 state.appState.pomodoro.targetCycles = target;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
             setPomodoroCompletedCycles: (count) => set((state) => {
                 state.appState.pomodoro.completedCycles = count;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -710,6 +714,7 @@ export const useAppStore = create(
                 state.appState.pomodoro.sessions = 0;
                 state.appState.pomodoro.completedCycles = 0;
                 state.appState.pomodoro.targetCycles = 1;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             })
         })),
