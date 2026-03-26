@@ -360,22 +360,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
             </div>
 
-            {/* Bottom Percent Ticks */}
-            <div className="absolute inset-x-0 bottom-[-22px] h-4">
-                {[0, 25, 50, 75, 100].map(t => (
-                    <span
-                        key={t}
-                        className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter"
-                        style={{
-                            left: `${t}%`,
-                            // VISUAL-03 FIX: translateX adaptativo
-                            transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' 
-                        }}
-                    >
-                        {t}%
-                    </span>
-                ))}
-            </div>
 
             {/* Hover Tooltip (Curve-Following Ultra) */}
             {hover && (
