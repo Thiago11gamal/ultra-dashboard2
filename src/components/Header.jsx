@@ -265,6 +265,14 @@ export default function Header({
                                 </div>
                                 <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
                                     <button
+                                        onClick={() => { if (cloudStatus.forcePull) cloudStatus.forcePull(); setProfileOpen(false); }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-yellow-400 hover:bg-yellow-500/10 transition-colors border border-yellow-500/10"
+                                    >
+                                        <Download size={16} />
+                                        <span>Resgatar da Nuvem</span>
+                                    </button>
+
+                                    <button
                                         onClick={() => { onCreateContest(); setProfileOpen(false); }}
                                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
                                     >
