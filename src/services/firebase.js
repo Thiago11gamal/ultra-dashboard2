@@ -22,14 +22,29 @@ const rawConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Auto-derive projectId if missing but authDomain is present
-// Format: "project-id.firebaseapp.com"
+// Auto-derive projectId if missing
 let derivedProjectId = clean(rawConfig.projectId);
-if (!derivedProjectId && rawConfig.authDomain) {
-    const domain = clean(rawConfig.authDomain);
-    if (domain && domain.includes('.firebaseapp.com')) {
-        derivedProjectId = domain.split('.firebaseapp.com')[0];
-        console.warn(`[Firebase] VITE_FIREBASE_PROJECT_ID missing. Derived from authDomain: ${derivedProjectId}`);
+
+if (!derivedProjectId) {
+    // Try from authDomain (e.g. project-id.firebaseapp.com)
+    const authDom = clean(rawConfig.authDomain);
+    if (authDom && authDom.includes('.firebaseapp.com')) {
+        derivedProjectId = authDom.split('.firebaseapp.com')[0];
+    } 
+    // Try from storageBucket (e.g. project-id.firebasestorage.app or project-id.appspot.com)
+    else if (rawConfig.storageBucket) {
+        const bucket = clean(rawConfig.storageBucket);
+        if (bucket) {
+            if (bucket.includes('.firebasestorage.app')) {
+                derivedProjectId = bucket.split('.firebasestorage.app')[0];
+            } else if (bucket.includes('.appspot.com')) {
+                derivedProjectId = bucket.split('.appspot.com')[0];
+            }
+        }
+    }
+    
+    if (derivedProjectId) {
+        console.warn(`[Firebase] VITE_FIREBASE_PROJECT_ID missing. Derived: ${derivedProjectId}`);
     }
 }
 

@@ -56,12 +56,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
     useEffect(() => {
-        if (!currentUser?.uid || !setAppState || !db) {
-            if (!db && currentUser?.uid) {
-                console.warn("[Sync] Firestore (db) is missing. Cloud sync disabled.");
+        if (!currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
+            if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
+                console.error("[Sync] Erro: Configuração do Firebase incompleta (VITE_FIREBASE_PROJECT_ID ausente).");
                 setCloudStatus('error');
-                setCloudError('Configuração do Firebase ausente');
-            } else {
+                setCloudError('Configuração incompleta (.env)');
+            } else if (!currentUser?.uid) {
                 setCloudStatus('idle');
             }
             confirmParity();
