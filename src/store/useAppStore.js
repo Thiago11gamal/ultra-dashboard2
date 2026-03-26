@@ -269,6 +269,7 @@ export const useAppStore = create(
                     }
 
                     levelUpDetail = processGamification(state, xpChange);
+                    state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
                 });
                 dispatchLevelUp(levelUpDetail);
@@ -288,9 +289,10 @@ export const useAppStore = create(
                         text: trimmedTitle,
                         title: trimmedTitle,
                         completed: false,
-                        priority: 'medium'
+                        deletedAt: new Date().toISOString()
                     });
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -299,6 +301,7 @@ export const useAppStore = create(
                 set((state) => {
                     recordHistory(state.appState);
                     levelUpDetail = processGamification(state, xpAmount);
+                    state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
                 });
                 dispatchLevelUp(levelUpDetail);
@@ -311,6 +314,7 @@ export const useAppStore = create(
                 if (category) {
                     category.tasks = category.tasks.filter(t => t.id !== taskId);
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -325,6 +329,7 @@ export const useAppStore = create(
                 if (task) {
                     task.priority = priorities[(priorities.indexOf(task.priority || 'medium') + 1) % 3];
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -342,6 +347,7 @@ export const useAppStore = create(
                     tasks: [],
                     weight: 10
                 });
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -382,6 +388,7 @@ export const useAppStore = create(
                 if (activeData.studySessions) {
                     activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -425,6 +432,7 @@ export const useAppStore = create(
                     }
 
                     levelUpDetail = processGamification(state, baseXP + bonusXP);
+                    state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
                 });
                 dispatchLevelUp(levelUpDetail);
@@ -472,6 +480,7 @@ export const useAppStore = create(
                         }
                     });
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
@@ -645,11 +654,13 @@ export const useAppStore = create(
                 }
                 
                 state.appState.trash.splice(index, 1);
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
             emptyTrash: () => set((state) => {
                 state.appState.trash = [];
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
 
