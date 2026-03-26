@@ -129,7 +129,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     if (topNorm === 'nenhum') {
                         isTopValid = true;
                     } else if (isSubValid && r.subject && validDataMap[subNorm] instanceof Set) {
-                        isTopValid = validDataMap[subNorm].has(topNorm);
+                        const subjectTopics = validDataMap[subNorm];
+                        // Se a matéria não tem tópicos cadastrados, aceitamos qualquer um (ou tratamos como 'nenhum')
+                        isTopValid = subjectTopics.size === 0 ? true : subjectTopics.has(topNorm);
                     } else if (r.subject) {
                         isTopValid = false;
                     } else {
