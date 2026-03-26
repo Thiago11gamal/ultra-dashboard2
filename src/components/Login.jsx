@@ -82,6 +82,7 @@ export default function Login() {
     return (
         <div suppressHydrationWarning={true} style={{
             fontFamily: "'Segoe UI', sans-serif",
+            backgroundColor: "#0b1120",
             background: "radial-gradient(circle at 20% 20%,#1e3a8a,#0b1120 60%)",
             color: "#fff",
             overflow: "hidden",
