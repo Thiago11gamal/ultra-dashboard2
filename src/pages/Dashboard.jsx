@@ -21,7 +21,7 @@ export default function Dashboard() {
     if (!data || !data.categories) {
         return (
             <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-2xl" />
+                <div className="absolute inset-0 bg-slate-950 backdrop-blur-3xl" />
                 <div className="relative z-10 space-y-6">
                     <div className="relative w-20 h-20 mx-auto">
                         <div className="absolute inset-0 rounded-full border-2 border-purple-500/10" />

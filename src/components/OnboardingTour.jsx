@@ -331,7 +331,7 @@ export default function OnboardingTour() {
                     boxShadow: '0 0 0 4px rgba(139, 92, 246, 0.3), 0 0 15px rgba(139, 92, 246, 0.15)',
                 },
                 overlay: {
-                    mixBlendMode: 'hard-light',
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
                 },
             }}
             locale={TOUR_LOCALE}

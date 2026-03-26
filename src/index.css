@@ -39,7 +39,9 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--bg-main);
+  background-color: #0f172a; /* Fallback crucial para evitar tela branca */
+  background-image: var(--bg-main);
+  background-attachment: fixed;
   min-height: 100vh;
   color: var(--text-primary);
   overflow-x: hidden;
