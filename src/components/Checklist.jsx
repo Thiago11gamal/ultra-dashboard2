@@ -14,13 +14,13 @@ const PerformancePanel = ({ stats, color }) => {
 
     const { average = 0, lastAttempt = 0, trend = 'stable', level = '-', history = [] } = stats;
 
-    let trendIcon = <Minus size={16} className="text-slate-400" />;
+    let trendIcon = <div className="w-5 h-5 flex items-center justify-center rounded-full bg-slate-500/10"><Minus size={14} className="text-slate-400" /></div>;
     let trendText = "Estável";
     if (trend === 'up') {
-        trendIcon = <TrendingUp size={16} className="text-green-400" />;
+        trendIcon = <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]"><TrendingUp size={14} className="text-emerald-400" /></div>;
         trendText = "Subindo";
     } else if (trend === 'down') {
-        trendIcon = <TrendingDown size={16} className="text-red-400" />;
+        trendIcon = <div className="w-5 h-5 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]"><TrendingDown size={14} className="text-rose-400" /></div>;
         trendText = "Caindo";
     }
 
@@ -112,7 +112,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 transition-all group ${task.completed ? 'opacity-60' : ''}`}
+            className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.07] transition-all group shadow-sm hover:shadow-md ${task.completed ? 'opacity-40' : ''}`}
         >
             {/* Checkbox */}
             <input
@@ -204,7 +204,8 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     // Actually, "X de Y" usually implies Total. Let's use Global stats for the header info.
 
     return (
-        <div className="glass relative group">
+        <div className="glass overflow-hidden shadow-lg transition-all duration-500 hover:shadow-purple-500/5 hover:-translate-y-1 relative group border border-white/5">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
             {/* Header */}
             <div className="w-full flex items-center gap-2 p-3 sm:p-5 hover:bg-white/5 transition-colors">
                 {/* Clickable area for accordion toggle */}
@@ -345,10 +346,18 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
         <div className="min-h-[300px] w-full">
             {/* Empty State for New Users */}
             {categories.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-12 mb-6 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
-                    <div className="text-5xl mb-4 opacity-30">🚀</div>
-                    <h3 className="text-slate-300 font-bold text-lg mb-1">Comece sua jornada!</h3>
-                    <p className="text-slate-500 text-sm">Adicione sua primeira disciplina para começar a estudar.</p>
+                <div className="flex flex-col items-center justify-center p-16 mb-6 border-2 border-dashed border-white/10 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-md overflow-hidden relative group">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                    <div className="relative z-10 text-center">
+                        <div className="w-24 h-24 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-6 mx-auto border border-white/10 shadow-2xl relative">
+                            <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-xl animate-pulse" />
+                            <span className="text-5xl animate-bounce">🚀</span>
+                        </div>
+                        <h3 className="text-white font-black text-2xl mb-2 tracking-tight">Prepare-se para o Topo!</h3>
+                        <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
+                            Organize sua rotina. Adicione sua primeira disciplina para <span className="text-purple-400 font-bold">desbloquear o dashboard</span>.
+                        </p>
+                    </div>
                 </div>
             )}
             {/* Filter Tabs */}

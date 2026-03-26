@@ -43,9 +43,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
             {/* Streak */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-orange-500/30 transition-colors shadow-lg">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+                {/* Visual Accent */}
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
@@ -69,7 +72,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Eficiência */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-green-500/30 transition-colors shadow-lg">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-[40px] group-hover:bg-emerald-500/20 transition-all duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
@@ -87,7 +92,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Balanceamento */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-blue-500/30 transition-colors shadow-lg">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
@@ -107,7 +114,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* XP com barra de progresso */}
-            <div className="relative bg-[#151720] border border-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-6 group hover:border-purple-500/30 transition-colors shadow-lg">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
@@ -135,9 +144,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Data da Prova */}
-            <div className={`col-span-2 md:col-span-1 relative bg-[#151720] border rounded-xl sm:rounded-2xl p-3 sm:p-6 transition-all duration-500 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`col-span-2 md:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-4 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'animate-glow-red'
-                : 'border-white/5 hover:border-red-500/30'
+                : 'border-white/10 hover:border-rose-500/30'
                 }`}>
 
                 {/* Background Layer for Glowes & Overflows */}

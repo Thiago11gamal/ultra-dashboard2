@@ -20,9 +20,25 @@ export default function Dashboard() {
     // GUARDA DE SEGURANÇA: Previne crash se o estado mudar rapidamente durante a restauração
     if (!data || !data.categories) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-2xl" />
+                <div className="relative z-10 space-y-6">
+                    <div className="relative w-20 h-20 mx-auto">
+                        <div className="absolute inset-0 rounded-full border-2 border-purple-500/10" />
+                        <div className="absolute inset-0 rounded-full border-t-2 border-purple-400 animate-spin" />
+                        <div className="absolute inset-4 rounded-full border-2 border-blue-500/10" />
+                        <div className="absolute inset-4 rounded-full border-b-2 border-blue-400 animate-spin-slow" />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-xl font-black text-white tracking-widest uppercase">Sincronizando</h3>
+                        <p className="text-purple-300/60 font-mono text-xs animate-pulse">Estabelecendo conexão segura com a nuvem...</p>
+                    </div>
+                    <div className="flex gap-1.5 justify-center">
+                        {[0, 1, 2].map(i => (
+                            <div key={i} className="w-2 h-2 rounded-full bg-purple-500/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

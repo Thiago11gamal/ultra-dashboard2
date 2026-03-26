@@ -58,11 +58,6 @@ const firebaseConfig = {
     measurementId: clean(rawConfig.measurementId) || "G-0000"
 };
 
-// Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
-if (firebaseConfig.projectId === 'config-missing') {
-    console.error("[Firebase] CRITICAL: projectId is missing! Firestore will crash. Check your .env or Vercel environment variables.");
-}
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
@@ -74,6 +69,15 @@ const db = initializeFirestore(app, {
 });
 
 const auth = getAuth(app);
+
+// Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
+if (firebaseConfig.projectId === 'config-missing' || !firebaseConfig.projectId) {
+    console.error("%c[Firebase] ERRO CRÍTICO: projectId ausente!", "color: #f87171; font-weight: bold;");
+    console.error("DICA: Se estiver no Vercel, adicione VITE_FIREBASE_PROJECT_ID nas 'Environment Variables' do projeto e faça um novo Deploy.");
+    console.error("DICA: Se for local, verifique o arquivo .env raiz.");
+} else {
+    console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
+}
 
 const getAppAnalytics = async () => {
     if (typeof window === "undefined") return null;

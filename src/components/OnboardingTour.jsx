@@ -185,15 +185,19 @@ const CustomTooltip = ({ continuous, index, step, backProps, closeProps, primary
         {...tooltipProps}
         style={{
             ...tooltipProps.style,
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
-            borderRadius: '16px',
-            border: '1px solid rgba(139, 92, 246, 0.25)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6), 0 0 40px rgba(139, 92, 246, 0.15)',
-            padding: '20px 24px',
-            maxWidth: '400px',
+            background: 'rgba(15, 23, 42, 0.9)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '24px',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), 0 0 30px rgba(139, 92, 246, 0.2)',
+            padding: '24px 28px',
+            maxWidth: '420px',
             color: '#f8fafc',
+            transform: 'scale(1.02) translateY(-10px)',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
     >
+        <div className="absolute -inset-[1px] rounded-[25px] bg-gradient-to-br from-purple-500/20 via-transparent to-blue-500/20 pointer-events-none" />
         {/* Content */}
         <div style={{ marginBottom: '16px' }}>
             {step.content}

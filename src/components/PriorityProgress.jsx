@@ -41,7 +41,10 @@ export default function PriorityProgress({ categories = [] }) {
                 const conf = priorityColors[p];
 
                 return (
-                    <div key={p} className={`p-4 py-5 rounded-xl border ${conf.border} ${conf.bg} backdrop-blur-sm flex flex-col justify-center gap-3 group hover:bg-white/5 transition-all`}>
+                    <div key={p} className={`p-5 py-6 rounded-2xl border transition-all duration-500 group shadow-lg overflow-hidden relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}>
+                        {/* Mesh Accent */}
+                        <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high' ? 'bg-rose-500' : p === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                        <div className="relative z-10 flex flex-col justify-center gap-4">
                         <div className="flex justify-between items-center px-1">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text}`}>
                                 Prioridade {conf.label}
@@ -66,10 +69,11 @@ export default function PriorityProgress({ categories = [] }) {
                                 <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
                             )}
                         </div>
-                        <span className={`text-xs font-bold self-end ${conf.text}`}>{pct}%</span>
+                        <span className={`text-[11px] font-black self-end ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]`}>{pct}% completado</span>
                     </div>
-                );
-            })}
-        </div>
-    );
+                </div>
+            );
+        })}
+    </div>
+  );
 }

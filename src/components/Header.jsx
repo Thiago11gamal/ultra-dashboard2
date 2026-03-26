@@ -181,25 +181,26 @@ export default function Header({
                     <div className="flex items-center gap-3">
                         <DateDisplay time={clockTime} />
                         {cloudStatus.status !== 'idle' && (
-                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-bold uppercase transition-all ${
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
                                 cloudStatus.status === 'connected' 
-                                    ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
                                     : cloudStatus.status === 'connecting'
-                                        ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
-                                        : 'bg-red-500/10 border-red-500/30 text-red-400'
+                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                                        : 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
                             }`} title={cloudStatus.error || ''}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${
-                                    cloudStatus.status === 'connected' 
-                                        ? 'bg-green-400' 
-                                        : cloudStatus.status === 'connecting'
-                                            ? 'bg-yellow-400 animate-pulse'
-                                            : 'bg-red-400'
-                                } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
-                                <span>
+                                <div className="relative flex items-center justify-center">
+                                    <div className={`absolute w-3 h-3 rounded-full opacity-40 animate-ping ${
+                                        cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                    }`} />
+                                    <div className={`w-1.5 h-1.5 rounded-full z-10 ${
+                                        cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                    } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
+                                </div>
+                                <span className="opacity-90">
                                     {cloudStatus.status === 'connected' 
-                                        ? (cloudStatus.syncing ? 'Sincronizando...' : 'Nuvem Online')
+                                        ? (cloudStatus.syncing ? 'Sincronizando' : 'Nuvem Ativa')
                                         : cloudStatus.status === 'connecting'
-                                            ? 'Conectando...'
+                                            ? 'Conectando'
                                             : 'Nuvem Offline'}
                                 </span>
                             </div>

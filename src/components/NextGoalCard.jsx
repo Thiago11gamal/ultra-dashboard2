@@ -112,12 +112,17 @@ export default function NextGoalCard({ categories = [], simulados = [], studyLog
     // We now proceed to render the task suggestion regardless of simulado data.
 
     return (
-        <div className={`relative rounded-xl border ${urgencyStyle.border} bg-slate-950/80 backdrop-blur-xl transition-all duration-500 group overflow-hidden`}>
+        <div className={`relative rounded-2xl border ${urgencyStyle.border} bg-slate-900/40 backdrop-blur-2xl transition-all duration-700 group overflow-hidden shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}>
             {/* Background Layers */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} pointer-events-none opacity-50`} />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-[80px] rounded-full pointer-events-none" />
+            <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} pointer-events-none opacity-30 group-hover:opacity-50 transition-opacity duration-700`} />
+            <div className={`absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[100px] rounded-full pointer-events-none group-hover:bg-white/10 transition-all duration-1000`} />
+            
+            {/* Scanline Effect */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
+                <div className="w-full h-[2px] bg-white animate-scan-fast" />
+            </div>
 
-            <div className="relative z-10 p-5 md:p-6 flex flex-col md:flex-row items-center gap-6">
+            <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
                 {/* Left: Category Icon */}
                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 border ${urgencyStyle.iconBg}`}>
                     {category.icon || '📚'}
