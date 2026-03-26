@@ -205,15 +205,15 @@ const CustomTooltip = ({ continuous, index, step, backProps, closeProps, primary
                 <div
                     key={i}
                     style={{
-                        width: i === index ? '20px' : '6px',
+                        width: i === index ? '14px' : '6px',
                         height: '6px',
                         borderRadius: '999px',
                         background: i === index
                             ? 'linear-gradient(90deg, #a78bfa, #818cf8)'
                             : i < index
-                                ? 'rgba(139, 92, 246, 0.4)'
-                                : 'rgba(255,255,255,0.1)',
-                        transition: 'all 0.3s ease',
+                                ? 'rgba(139, 92, 246, 0.5)'
+                                : 'rgba(255,255,255,0.15)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                 />
             ))}
@@ -319,15 +319,15 @@ export default function OnboardingTour() {
             styles={{
                 options: {
                     arrowColor: '#1e1b4b',
-                    overlayColor: 'rgba(0, 0, 0, 0.75)',
+                    overlayColor: 'rgba(0, 0, 0, 0.88)',
                     zIndex: 10000,
                 },
                 spotlight: {
                     borderRadius: '16px',
-                    boxShadow: '0 0 0 4px rgba(139, 92, 246, 0.3), 0 0 40px rgba(139, 92, 246, 0.2)',
+                    boxShadow: '0 0 0 4px rgba(139, 92, 246, 0.3), 0 0 15px rgba(139, 92, 246, 0.15)',
                 },
                 overlay: {
-                    mixBlendMode: 'normal',
+                    mixBlendMode: 'hard-light',
                 },
             }}
             locale={TOUR_LOCALE}
