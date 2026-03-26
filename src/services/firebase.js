@@ -7,7 +7,9 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 const clean = (val) => {
     if (typeof val !== 'string') return val;
     // Remove quotes, semicolons and leading/trailing whitespace
-    return val.trim().replace(/['";]/g, '');
+    const cleaned = val.trim().replace(/['";]/g, '');
+    if (cleaned === 'undefined' || cleaned === 'null') return null;
+    return cleaned;
 };
 
 const rawConfig = {
@@ -34,7 +36,7 @@ if (!derivedProjectId && rawConfig.authDomain) {
 const firebaseConfig = {
     apiKey: clean(rawConfig.apiKey) || "dummy-api-key",
     authDomain: clean(rawConfig.authDomain) || "dummy-auth-domain",
-    projectId: derivedProjectId || null,
+    projectId: derivedProjectId || "config-missing",
     storageBucket: clean(rawConfig.storageBucket) || "dummy-bucket",
     messagingSenderId: clean(rawConfig.messagingSenderId) || "000000000",
     appId: clean(rawConfig.appId) || "1:000:web:000",
@@ -42,7 +44,7 @@ const firebaseConfig = {
 };
 
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
-if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined') {
+if (firebaseConfig.projectId === 'config-missing') {
     console.error("[Firebase] CRITICAL: projectId is missing! Firestore will crash. Check your .env or Vercel environment variables.");
 }
 

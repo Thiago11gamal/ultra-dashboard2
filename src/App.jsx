@@ -72,7 +72,7 @@ function MainLayout() {
   const [showHelpGuide, setShowHelpGuide] = useState(false);
 
   // Auto-save pipeline
-  const { cloudConnected, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
+  const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePull } = useCloudSync(currentUser, appState, setAppState, showToast);
 
   // --- THEME SYNC ---
   useThemeSync(data?.settings?.darkMode);
@@ -189,7 +189,8 @@ function MainLayout() {
           currentData={data}
           appState={appState}
           cloudStatus={{
-            connected: cloudConnected,
+            status: cloudStatus,
+            error: cloudError,
             syncing: isCloudSyncing,
             hasConflict,
             forcePull

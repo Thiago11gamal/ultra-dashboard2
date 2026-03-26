@@ -15,7 +15,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const debounceRef = useRef(null);
     const latestCloudDataRef = useRef(null);
     const isMountedRef = useRef(true);
-    const [cloudConnected, setCloudConnected] = useState(false);
+    const [cloudStatus, setCloudStatus] = useState('idle');
+    const [cloudError, setCloudError] = useState(null);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
     const [hasConflict, setHasConflict] = useState(false);
 
@@ -56,10 +57,19 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     // 1. RECEPTOR (onSnapshot) - Slave Mode
     useEffect(() => {
         if (!currentUser?.uid || !setAppState || !db) {
-            if (!db && currentUser?.uid) console.warn("[Sync] Firestore (db) is missing. Cloud sync disabled.");
+            if (!db && currentUser?.uid) {
+                console.warn("[Sync] Firestore (db) is missing. Cloud sync disabled.");
+                setCloudStatus('error');
+                setCloudError('Configuração do Firebase ausente');
+            } else {
+                setCloudStatus('idle');
+            }
             confirmParity();
             return;
         }
+
+        setCloudStatus('connecting');
+        setCloudError(null);
 
         let docRef;
         try {
@@ -82,7 +92,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             logger.styled(`[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
-            setCloudConnected(true);
+            setCloudStatus('connected');
+            setCloudError(null);
             const isFromCache = docSnap.metadata.fromCache;
             if (isFromCache) logger.debug("[Firebase-Diag] Nota: Dado vindo do cache local (ainda sincronizando com servidor...)");
             const exists = docSnap.exists();
@@ -187,14 +198,15 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         }, (err) => {
             logger.error("[Sync] Erro no listener:", err);
-            setCloudConnected(false);
+            setCloudStatus('error');
+            setCloudError(err.message || 'Erro no listener');
             // Se der erro (ex: offline), liberamos para evitar travar o usuário
             confirmParity();
         });
 
         return () => {
             unsubscribe();
-            setCloudConnected(false);
+            setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
     }, [currentUser?.uid, setAppState, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -388,7 +400,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     };
 
     return {
-        cloudConnected,
+        cloudStatus,
+        cloudError,
+        cloudConnected: cloudStatus === 'connected',
         isSyncing: isInternalSyncing,
         hasConflict,
         forcePull
