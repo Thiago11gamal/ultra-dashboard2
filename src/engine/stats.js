@@ -42,7 +42,7 @@ export function calculateTrend(history) {
     if (isNaN(lastTime)) return 0;
     const lastTimeDays = lastTime / (1000 * 60 * 60 * 24);
 
-    const data = sorted.slice(-10).map(h => {
+    const data = sorted.map(h => {
         if (!h || !h.date) return { x: 0, y: 0 };
         const time = new Date(h.date).getTime();
         return {
