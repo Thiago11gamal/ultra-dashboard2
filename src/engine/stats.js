@@ -15,8 +15,9 @@ export function standardDeviation(arr) {
     const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
 
     const POPULATION_SD = 12;
-    // B-09 FIX: KAPPA fixo (prior equivalente a 2 simulados "fantasmas")
-    const KAPPA = 2;
+    // MATH-02 FIX: Reduzir KAPPA para 1.0 (antes era 2.0). 
+    // Prior mais fraco permite que a consistência real do aluno domine o SD mais rápido.
+    const KAPPA = 1;
 
     const adjustedVar =
         ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
@@ -87,11 +88,13 @@ export function calculateTrend(history) {
         const tStat = slope / seSlope;
         const df = n - 2;
 
+        // MATH-03 FIX: Expandir tabela para df=11..15 e fallback 1.96 (distribuição normal Z)
         const tDist95 = {
             1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57,
-            6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23
+            6: 2.45,  7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
+            11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14, 15: 2.13
         };
-        const tCrit = tDist95[df] || 2.0;
+        const tCrit = tDist95[df] || 1.96;
 
         if (Math.abs(tStat) < tCrit) return 0;
     }

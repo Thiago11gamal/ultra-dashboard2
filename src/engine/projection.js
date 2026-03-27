@@ -170,9 +170,9 @@ export function calculateVolatility(history) {
     }
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
-    // M-02 FIX: Subtrair a tendência bruta de cada par pode inflar a volatilidade se a tendência
-    // mudar ao longo do tempo. Extraímos os resíduos puros e centralizamos no final.
-
+    // MATH-01 FIX: Subtrair a tendência (drift) antes do MSSD para evitar inflar volatilidade com crescimento/queda constante.
+    const drift = calculateSlope(sorted);
+    
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
     let sumWeights = 0;
@@ -187,13 +187,11 @@ export function calculateVolatility(history) {
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
         const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
-        // Audit Fix: Cap to 30 days — consistent with Bootstrap residual normalization.
-        // Without this cap, a long hiatus produces tiny dailyVariance, underestimating volatility.
         const daysBetween = Math.min(30, rawDaysBetween);
 
-        // M-02 FIX: Resíduo bruto normalizado pelo tempo (raiz quadrada do intervalo).
-        // A tendência (drift) é removida na centralização global (MSSD puro).
-        const residual = diff / Math.sqrt(daysBetween);
+        // MATH-01 FIX: Subtrair o componente esperado da tendência: drift * daysBetween
+        const detrendedDiff = diff - (drift * rawDaysBetween);
+        const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
@@ -207,8 +205,7 @@ export function calculateVolatility(history) {
 
     if (sumWeights === 0) return 1.5;
 
-    // M-02 FIX: MSSD (Mean Successive Squared Differences)
-    // Bug 1 Fix: Remover a divisão por 2. O dailyVariance já normaliza para variância/dia.
+    // MSSD (Mean Successive Squared Differences)
     const mssdVariance = sumSw / sumWeights;
 
     // Safe sqrt
@@ -382,8 +379,8 @@ export function monteCarloSimulation(
                 shock = randomNormal(rng) * sigma;
             }
 
-            // Apply logarithmic damping to match deterministic effectiveDays = 45 * Math.log(1 + d/45)
-            const dampedDrift = dayDrift * (45 / (45 + d));
+            // MATH-05 FIX: Soma de Riemann centralizada (d + 0.5) para reduzir viés acumulado
+            const dampedDrift = dayDrift * (45 / (45 + d + 0.5));
             score += dampedDrift + shock;
         }
 

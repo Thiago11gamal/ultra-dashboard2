@@ -148,8 +148,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const ciWide = (high95 - low95) >= 95;
     const ciLabel = ciWide ? "Alta incerteza" : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
 
-    const delta = mean - (currentMean ?? 0);
-    const deltaColor = delta >= 0 ? "text-emerald-400" : "text-rose-400";
 
     // V1 FIX: Position "Hoje" label dynamically above the curve point
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
@@ -190,15 +188,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             }}
             onMouseLeave={() => setHover(null)}
         >
-            {/* Delta Badge (B-12 FIX: Remove -top-6 to avoid overlap with summary cards) */}
-            {currentMean != null && (
-                <div className="absolute top-0 right-0 flex items-center gap-1.5 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-slate-700/50 shadow-sm z-10 transition-all group-hover/chart:border-indigo-500/30">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Delta:</span>
-                    <span className={`text-[11px] font-black ${deltaColor}`}>
-                        {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)} pp
-                    </span>
-                </div>
-            )}
 
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
                 <defs>

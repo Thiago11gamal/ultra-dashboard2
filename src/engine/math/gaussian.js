@@ -118,7 +118,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         empiricalData.push({ x, y: density });
     }
 
-    // Normalizando Y para 0-1 e limitando casas decimais para o SVG
+    // MATH-04 FIX: Normalizando Y para que o pico seja 1 (100% da altura visual do SVG).
+    // Nota: A densidade bruta (density) integra a 1 antes desta etapa.
     return empiricalData.map(d => ({
         x: Number(d.x.toFixed(2)),
         y: maxY > 0 ? Number((d.y / maxY).toFixed(4)) : 0

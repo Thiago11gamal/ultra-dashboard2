@@ -13,13 +13,13 @@ const clean = (val) => {
 };
 
 const rawConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_API_KEY || "AIzaSyDAN5u0LZDIBSXGMtkg7cx559pgRwICKD0",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_AUTH_DOMAIN || "liquita-67764.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.ID_DO_PROJETO_VITE_FIREBASE || import.meta.env.ID_DO_PROJETO_VITE || "liquita-67764",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE_FIREBASE_DE_ARMAZENAMENTO || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE || "liquita-67764.firebasestorage.app",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.ID_DO_REMETENTE_DE_MENSAGENS_VITE || import.meta.env.ID_DO_REMETENTE_VITE || "709882079835",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.ID_DO_APLICATIVO_VITE_FIREBASE || import.meta.env.ID_DO_APLICATIVO_VITE || "1:709882079835:web:4742cf60ac1218607d6d7e",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env['ID_DE_MEDIÇÃO_VITE_FIREBASE'] || import.meta.env['ID_DE_MEDIÇÃO_VITE'] || "G-D8NS2BNKD5"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.ID_DO_PROJETO_VITE_FIREBASE || import.meta.env.ID_DO_PROJETO_VITE,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE_FIREBASE_DE_ARMAZENAMENTO || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.ID_DO_REMETENTE_DE_MENSAGENS_VITE || import.meta.env.ID_DO_REMETENTE_VITE,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.ID_DO_APLICATIVO_VITE_FIREBASE || import.meta.env.ID_DO_APLICATIVO_VITE,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env['ID_DE_MEDIÇÃO_VITE_FIREBASE'] || import.meta.env['ID_DE_MEDIÇÃO_VITE']
 };
 
 // Auto-derive projectId if missing

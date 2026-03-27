@@ -396,7 +396,16 @@ export default function MonteCarloGauge({
                         </div>
                     )}
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{forcedTitle || 'Monte Carlo'}</span>
+                    {/* Delta Badge - Only in Future mode and if significant */}
+                    {!effectiveSimulateToday && simulationData.data.currentMean != null && (
+                        <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-2 group-hover:border-blue-500/30">
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Delta</span>
+                            <span className={`text-[10px] font-black ${(simulationData.data.mean - simulationData.data.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {(simulationData.data.mean - simulationData.data.currentMean) > 0 ? `+${(simulationData.data.mean - simulationData.data.currentMean).toFixed(1)}` : (simulationData.data.mean - simulationData.data.currentMean).toFixed(1)}
+                                <span className="text-[8px] ml-0.5 opacity-70">pp</span>
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (

@@ -80,7 +80,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     return dateToStats;
 }
 
-export function useChartData(categories = [], targetScore = 80) {
+export function useChartData(categories = []) {
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
         valid.sort((a, b) => {
