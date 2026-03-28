@@ -232,7 +232,9 @@ export const useAppStore = create(
 
                 state.appState.contests[contestId] = nextData;
                 state.appState.version = (state.appState.version || 0) + 1;
-                state.appState.lastUpdated = nextData?.lastUpdated || new Date().toISOString();
+                state.appState.lastUpdated = new Date().toISOString();
+                // FORTRESS: Mark as dirty for Cloud Sync immediate awareness
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             toggleTask: (categoryId, taskId) => {
@@ -719,6 +721,7 @@ export const useAppStore = create(
                 state.appState.pomodoro.targetCycles = 1;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             })
         })),
         {

@@ -11,6 +11,7 @@ export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
   
+  // FORTRESS-01: Defensive initialization for all top-level keys
   return {
     user: {
       ...(data.user && typeof data.user === 'object' ? data.user : {}),
@@ -50,31 +51,33 @@ const sanitizeContest = (data) => {
         // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
         ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
         ...(t.status ? { status: t.status } : {})
-      })),
+      })).filter(t => t.id && (t.text || t.title)), // Skip Corrupted Tasks
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       totalMinutes: Number(cat.totalMinutes) || 0,
       lastStudiedAt: cat.lastStudiedAt || null,
       simuladoStats: {
-        history: Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : [],
+        // Deep-strip nulls/poison from history
+        history: (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : [])
+          .filter(h => h && typeof h === 'object' && h.date && h.total > 0), 
         average: Number(cat.simuladoStats?.average) || 0,
         lastAttempt: Number(cat.simuladoStats?.lastAttempt) || 0,
         trend: cat.simuladoStats?.trend || "stable",
         level: cat.simuladoStats?.level || "BAIXO"
       }
     })),
-    simuladoRows: Array.isArray(data.simuladoRows) ? data.simuladoRows : [],
-    simulados: Array.isArray(data.simulados) ? data.simulados : [],
-    studyLogs: Array.isArray(data.studyLogs) ? data.studyLogs : [],
-    studySessions: Array.isArray(data.studySessions) ? data.studySessions : [],
-    notes: data.notes || "",
+    simuladoRows: (Array.isArray(data.simuladoRows) ? data.simuladoRows : []).filter(r => r && r.id),
+    simulados: (Array.isArray(data.simulados) ? data.simulados : []).filter(s => s && s.id),
+    studyLogs: (Array.isArray(data.studyLogs) ? data.studyLogs : []).filter(l => l && l.id),
+    studySessions: (Array.isArray(data.studySessions) ? data.studySessions : []).filter(s => s && s.id),
+    notes: typeof data.notes === 'string' ? data.notes : "",
     settings: {
-      darkMode: data.settings?.darkMode ?? 'auto',
+      darkMode: (data.settings?.darkMode === 'auto' || typeof data.settings?.darkMode === 'boolean') ? data.settings.darkMode : 'auto',
       soundEnabled: data.settings?.soundEnabled ?? true,
       pomodoroWork: Number(data.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(data.settings?.pomodoroBreak) || 5,
     },
-    mcWeights: data.mcWeights || {},
-    lastUpdated: data.lastUpdated || null, // C3: preservar lastUpdated no nível do concurso
+    mcWeights: (data.mcWeights && typeof data.mcWeights === 'object') ? data.mcWeights : {},
+    lastUpdated: (data.lastUpdated && !isNaN(new Date(data.lastUpdated).getTime())) ? data.lastUpdated : new Date().toISOString(),
   };
 };
 
