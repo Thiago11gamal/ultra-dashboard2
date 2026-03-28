@@ -182,8 +182,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch { /* ignore storage errors */ }
     };
 
-    // --- ROBUST STATE SAVING (DEBOUNCED) ---
-    useEffect(() => {
+    // --- ROBUST STATE SAVING (DEBOUNCED & MANUAL) ---
+    // Centralized save function to avoid race conditions and stale data
+    const savePomodoroState = useCallback((overrides = {}) => {
         const stateToSave = {
             mode,
             timeLeft,
@@ -194,20 +195,28 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             sessionHistory,
             savedAt: Date.now(),
             activeTaskId: activeSubject?.taskId,
-            sessionInstanceId: activeSubject?.sessionInstanceId
+            sessionInstanceId: activeSubject?.sessionInstanceId,
+            ...overrides
         };
 
+        try {
+            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        } catch (e) {
+            // Silently handle quota errors
+        }
+    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
+
+
+    useEffect(() => {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
-            try {
-                localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-            } catch { /* ignore storage errors */ }
+            savePomodoroState();
         }, 1000);
 
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         };
-    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
+    }, [savePomodoroState]);
 
 
     // Timer complete handler - declared first to be available for useEffect
@@ -228,29 +237,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
             }
 
-            // At the end of a work session, ALWAYS offer a break (even if it's the last one)
-            // The user requested that the 5-minute break shouldn't be skipped.
-
             // Switch to break
             setMode('break');
             const breakTime = safeSettings.pomodoroBreak * 60;
             setTimeLeft(breakTime);
-            // Bug fix: previously did JSON.parse(localStorage.getItem(...))||{} spread —
-            // if the throttled save effect fired concurrently, the stale data would overwrite
-            // the new mode/timeLeft with old work-session values on the next resume.
-            // Write only the fields that change at session transition; the throttled effect
-            // will save all other state on its next scheduled tick.
-            try {
-                const existing = JSON.parse(localStorage.getItem('pomodoroState') || '{}');
-                localStorage.setItem('pomodoroState', JSON.stringify({
-                    ...existing,
-                    mode: 'break',
-                    timeLeft: breakTime,
-                    isRunning: false,
-                    savedAt: Date.now()
-                }));
-            } catch { /* ignore storage errors */ }
-            setIsRunning(false); // Pause here so they can manually start the break
+            setIsRunning(false); 
+
+            // IMMEDIATE SAVE to prevent stale resume if tab closes now
+            savePomodoroState({
+                mode: 'break',
+                timeLeft: breakTime,
+                isRunning: false,
+                sessions: newSessions
+            });
 
             // Sound & Notification
             if (safeSettings.soundEnabled) {
@@ -282,6 +281,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (sessions >= targetCycles) {
                 onFullCycleComplete?.();
                 setIsRunning(false);
+                savePomodoroState({ isRunning: false });
                 return;
             }
 
@@ -289,19 +289,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const workTime = safeSettings.pomodoroWork * 60;
             setTimeLeft(workTime);
             setIsRunning(false);
-            // Bug fix: same race condition as work→break — wrap in try/catch, add savedAt
-            try {
-                const existing = JSON.parse(localStorage.getItem('pomodoroState') || '{}');
-                localStorage.setItem('pomodoroState', JSON.stringify({
-                    ...existing,
-                    mode: 'work',
-                    timeLeft: workTime,
-                    isRunning: false,
-                    savedAt: Date.now()
-                }));
-            } catch { /* ignore storage errors */ }
+            savePomodoroState({
+                mode: 'work',
+                timeLeft: workTime,
+                isRunning: false,
+                completedCycles: newCompletedCycles
+            });
         }
-    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, setSessions, setCompletedCycles]);
+    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, setSessions, setCompletedCycles, savePomodoroState]);
 
     // --- ROBUST TIMER LOGIC ---
     // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
@@ -385,12 +380,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setIsRunning(false);
         const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         setTimeLeft(resetTime);
-        // Force save immediately to clean state
-        try {
-            localStorage.setItem('pomodoroState', JSON.stringify({
-                mode, timeLeft: resetTime, isRunning: false, sessions, completedCycles, targetCycles, sessionHistory, savedAt: Date.now()
-            }));
-        } catch { /* ignore storage errors */ }
+        // Force save immediately to clean state using helper
+        savePomodoroState({
+            timeLeft: resetTime,
+            isRunning: false
+        });
     };
 
     /**
@@ -413,19 +407,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             // ALWAYS offer the final break
             setMode('break');
-            setTimeLeft(safeSettings.pomodoroBreak * 60);
+            const breakTime = safeSettings.pomodoroBreak * 60;
+            setTimeLeft(breakTime);
 
             // Persist state for break
-            try {
-                localStorage.setItem('pomodoroState', JSON.stringify({
-                    mode: 'break', timeLeft: safeSettings.pomodoroBreak * 60,
-                    isRunning: false, sessions: newSessions, completedCycles,
-                    targetCycles, sessionHistory,
-                    savedAt: Date.now(),
-                    activeTaskId: activeSubject?.taskId,
-                    sessionInstanceId: activeSubject?.sessionInstanceId
-                }));
-            } catch { /* ignore storage errors */ }
+            savePomodoroState({
+                mode: 'break',
+                timeLeft: breakTime,
+                isRunning: false,
+                sessions: newSessions
+            });
 
         } else {
             // Treat skip as completion of break
@@ -434,22 +425,28 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             if (sessions >= targetCycles) {
                 onFullCycleComplete?.();
-                // Persist completed state
-                try {
-                    localStorage.setItem('pomodoroState', JSON.stringify({
-                        mode: 'work', timeLeft: safeSettings.pomodoroWork * 60,
-                        isRunning: false, sessions: 0, completedCycles: 0,
-                        targetCycles, sessionHistory: [],
-                        savedAt: Date.now(),
-                        activeTaskId: null,
-                        sessionInstanceId: null
-                    }));
-                } catch { /* ignore storage errors */ }
+                // Reset session state but keep history
+                savePomodoroState({
+                    mode: 'work',
+                    timeLeft: safeSettings.pomodoroWork * 60,
+                    isRunning: false,
+                    sessions: 0,
+                    completedCycles: 0,
+                    activeTaskId: null,
+                    sessionInstanceId: null
+                });
                 return;
             }
 
             setMode('work');
-            setTimeLeft(safeSettings.pomodoroWork * 60);
+            const workTime = safeSettings.pomodoroWork * 60;
+            setTimeLeft(workTime);
+            savePomodoroState({
+                mode: 'work',
+                timeLeft: workTime,
+                isRunning: false,
+                completedCycles: newCompletedCycles
+            });
         }
     };
 

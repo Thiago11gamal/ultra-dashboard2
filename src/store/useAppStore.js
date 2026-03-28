@@ -388,6 +388,12 @@ export const useAppStore = create(
                 if (activeData.studySessions) {
                     activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
                 }
+
+                // BUG-FIX: Se a categoria excluída era o assunto ativo no Pomodoro, limpamos para evitar crash
+                if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
+                    state.appState.pomodoro.activeSubject = null;
+                }
+
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -579,8 +585,11 @@ export const useAppStore = create(
             }),
 
             switchContest: (contestId) => set((state) => {
-                state.appState.activeId = contestId;
-                const activeData = state.appState.contests[contestId];
+                // BUG-FIX: Segurança contra IDs inexistentes (ex: deletados em outra aba)
+                const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
+                
+                state.appState.activeId = targetId;
+                const activeData = state.appState.contests[targetId];
                 if (activeData && !activeData.coachPlanner) {
                     activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                 }
