@@ -94,7 +94,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   return {
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
-    mean: Number(displayMean.toFixed(1)),
+    mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     // REVISION: Floor standardized to 1.0
     sd: Number(Math.max(1.0, projectedSD).toFixed(1)),
     sdLeft: Number(Math.max(1.0, sdLeft).toFixed(2)),

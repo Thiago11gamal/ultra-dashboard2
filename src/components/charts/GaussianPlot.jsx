@@ -84,7 +84,18 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const areaPoints = [];
         const failPoints = [];
         const successStart = Math.max(xMin, targetVal);
-        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF);
+        
+        // BUG-VISUAL FIX: Quando kdeData disponível, interpolar yAtTarget do próprio KDE
+        let yAtTarget;
+        if (kdeData && kdeData.length > 5) {
+            // Interpolar da KDE em vez da Gaussiana paramétrica
+            const nearest = kdeData.reduce((best, p) =>
+                Math.abs(p.x - successStart) < Math.abs(best.x - successStart) ? p : best
+            );
+            yAtTarget = nearest.y * finalHF;
+        } else {
+            yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF);
+        }
 
         areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
         pointsForArea.forEach(p => {
@@ -119,7 +130,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             areaPathData: areaPath,
             failAreaPathData: failPath,
             range, xMin, targetVal, xp, yp, heightFactorFinal: finalHF, curvePointsForArea: pointsForArea,
-            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF),
+            asymmetricGaussianFn: (x) => {
+                if (kdeData && kdeData.length > 5) {
+                    const nearest = kdeData.reduce((best, p) =>
+                        Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
+                    );
+                    return nearest.y * finalHF;
+                }
+                return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
+            },
             median: med, p25: lp25, p75: lp75
         };
     }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean, kdeData]);

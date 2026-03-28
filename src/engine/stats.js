@@ -7,12 +7,15 @@ export function mean(arr) {
 }
 
 export function standardDeviation(arr) {
-    if (!arr || arr.length < 2) return 0;
+    if (!arr || arr.length < 1) return 0;
 
     const n = arr.length;
     const m = mean(arr);
 
-    const sampleVar = arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1);
+    // B-02 FIX: n=1 has no sample variance, use pure prior (shrinkage)
+    const sampleVar = n > 1 
+        ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
+        : 0;
 
     const POPULATION_SD = 12;
     // MATH-02 FIX: Reduzir KAPPA para 1.0 (antes era 2.0). 
@@ -103,7 +106,8 @@ export function calculateTrend(history) {
         } else {
             // MATH-03 FIX: Implement linear interpolation between table nodes
             // Restored 'keys' definition that was missing in previous edit
-            const keys = Object.keys(tDist95).map(Number).filter(k => k > 15).sort((a,b) => a-b);
+            // MATH-03 FIX: Include 15 to allow proper interpolation for df [16-19]
+            const keys = Object.keys(tDist95).map(Number).filter(k => k >= 15).sort((a,b) => a-b);
             
             const lo = keys.filter(k => k <= df).at(-1);
             const hi = keys.find(k => k > df);
