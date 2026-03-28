@@ -36,28 +36,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         let finalValue = value;
 
         if (field === 'correct' || field === 'total') {
-            // Remove tudo que não for dígito
             const rawString = String(value).replace(/\D/g, '');
-            const val = rawString === '' ? '' : parseInt(rawString, 10);
-
-            if (field === 'correct') {
-                const currentTotal = parseInt(rows[index].total, 10) || 0;
-                // Enforce: Correct cannot exceed Total (unless Total is empty/0)
-                if (currentTotal > 0 && val !== '' && val > currentTotal) finalValue = currentTotal;
-                else finalValue = val;
-            } else if (field === 'total') {
-                const currentCorrect = parseInt(rows[index].correct, 10) || 0;
-                // If Total is reduced below Correct, clamp Correct
-                if (val !== '' && val < currentCorrect) {
-                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val, score: 100 } : r);
-                    setRows(newRows);
-                    return;
-                }
-                finalValue = val;
-            }
+            finalValue = rawString === '' ? '' : parseInt(rawString, 10);
+            
+            // UX-01: Removed auto-clamping during typing. 
+            // Blocking "15" when "total is 10" prevented users from changing a row from "5/10" to "15/20".
+            // Validation will now happen during handleAnalyze.
         }
 
-        // 3. Atualização Imutável (BUG LOGIC-01: Recalcular score ao mudar acertos/total)
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 const updatedRow = { ...row, [field]: finalValue };
