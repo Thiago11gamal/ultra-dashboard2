@@ -512,7 +512,8 @@ const getWeakestTopic = (category, simulados = []) => {
             name, total: data.total, percentage, daysSince,
             trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
             isUntested: data.total === 0,
-            manualPriority: data.manualPriority || 0
+            manualPriority: data.manualPriority || 0,
+            completed: data.completed
         };
     });
 
@@ -629,7 +630,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 name, total: data.total, percentage, daysSince,
                 trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
                 isUntested: data.total === 0,
-                manualPriority: data.manualPriority || 0
+                manualPriority: data.manualPriority || 0,
+                completed: data.completed
             };
         });
 
