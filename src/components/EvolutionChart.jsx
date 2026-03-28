@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { monteCarloSimulation, computeCategoryStats, calculateCurrentWeightedMean, computeBayesianLevel, calculateVolatility } from "../engine";
 import { useChartData } from "../hooks/useChartData";
+import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, normalizeDate } from "../utils/dateHelper";
 import { getSafeScore } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
