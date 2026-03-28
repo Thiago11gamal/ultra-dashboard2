@@ -46,12 +46,17 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 return pSuccess / truncatedTotal;
             };
 
-            const pGeom = getGeomProb(t, m, vizSdLeft, vizSdRight);
-            if (Math.abs(targetProb - pGeom) > 0.01) {
-                const ratio = Math.min(5, Math.max(0.2, targetProb / Math.max(0.01, pGeom)));
-                if (t < m) vizSdLeft = Math.max(1, vizSdLeft * ratio);
-                else vizSdRight = Math.max(1, vizSdRight * ratio);
+            // BUG-03/MC-03 FIX: Calibração visual iterativa (3 passos) para maior precisão na concordância
+            // entre a área verde paramétrica e a probabilidade empírica do motor.
+            let sl = vizSdLeft, sr = vizSdRight;
+            for (let i = 0; i < 3; i++) {
+                const pg = getGeomProb(t, m, sl, sr);
+                if (Math.abs(targetProb - pg) <= 0.005) break;
+                const r = Math.min(3, Math.max(0.33, targetProb / Math.max(0.005, pg)));
+                if (t < m) sl = Math.max(1, sl * r);
+                else sr = Math.max(1, sr * r);
             }
+            vizSdLeft = sl; vizSdRight = sr;
         }
 
         const avgSd = (vizSdLeft + vizSdRight) / 2;
