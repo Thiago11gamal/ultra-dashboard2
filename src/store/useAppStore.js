@@ -391,6 +391,15 @@ export const useAppStore = create(
                     state.appState.pomodoro.activeSubject = null;
                 }
 
+                // DATA-07: Cleanup coachPlanner references to avoid Ghost Tasks
+                if (activeData.coachPlanner) {
+                    Object.keys(activeData.coachPlanner).forEach(day => {
+                        if (Array.isArray(activeData.coachPlanner[day])) {
+                            activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item => item.categoryId !== id);
+                        }
+                    });
+                }
+
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
