@@ -138,10 +138,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
-        // Metrics
+        // Metrics: Usar SDs originais para os quartis, não os calibrados para a área visual.
+        const rawSdLeft  = Math.max(1, propSdLeft ?? sd);
+        const rawSdRight = Math.max(1, propSdRight ?? sd);
         const med = meanVal;
-        const lp25 = meanVal - 0.674 * vizSdLeft;
-        const lp75 = meanVal + 0.674 * vizSdRight;
+        const lp25 = meanVal - 0.674 * rawSdLeft;
+        const lp75 = meanVal + 0.674 * rawSdRight;
 
         return {
             pathData: path,
