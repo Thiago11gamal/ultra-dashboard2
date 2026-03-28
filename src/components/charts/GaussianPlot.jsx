@@ -55,9 +55,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         const avgSd = (vizSdLeft + vizSdRight) / 2;
-        const baseHeightFactor = Math.min(1.0, 12 / avgSd);
+        // VISUAL-03 FIX: Aumentar fator de escala de 12 -> 20 para que curvas com alto SD (baixa densidade)
+        // ainda sejam visualmente perceptíveis como 'morros' e não linhas retas.
+        const baseHeightFactor = Math.min(1.0, 20 / avgSd);
 
-        const xp = (v) => (v - xMin) / range * 100;
+        // VISUAL-04 FIX: Adicionar buffer de 2% para evitar que a curva 'cole' no eixo Y/X.
+        const xp = (v) => 2 + ((v - xMin) / range * 96);
         // BUG-04 FIX: Map density 0-1.0 to SVG coordinates 100-5 to leave headroom at the top
         const yp = (yVal) => 100 - (yVal * 95);
 
@@ -165,7 +168,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
     const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 20;
-    const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 20;
+    
+    // VISUAL-05 FIX: Se 'Hoje' e 'Projeção' forem idênticos (nudge), forçar colisão mesmo com abs(0)
+    const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 20 || currentMean === (mean ?? 0));
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 20;
 
     // Resolve Tiers: 1 is top, 2 is middle, 3 is bottom
@@ -292,7 +297,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     style={{
                         left: `${Math.min(meanPos, 90)}%`,
                         top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%',
-                        transform: meanPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)',
+                        // VISUAL-05 nudge: Se houver colisão tierada, aplicar pequeno offset visual
+                        transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'),
                         zIndex: 30
                     }}
                 >
