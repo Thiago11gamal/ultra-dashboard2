@@ -6,23 +6,29 @@ export default function LevelUpToast({ level, title, onClose }) {
 
     const timersRef = React.useRef([]);
     useEffect(() => {
-        // Bug fix: storing all timer IDs in a ref array ensures cleanup always
-        // clears every timer, even if onClose changes identity mid-flight.
+        // Reset visibility when a NEW level enters the same component instance (queue)
+        setVisible(false);
+        
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);
             return id;
         };
-        addTimer(() => setVisible(true), 10);
-        addTimer(() => {
+
+        // Entrance animation
+        addTimer(() => setVisible(true), 50);
+
+        // Auto-close life cycle
+        const hideTimer = addTimer(() => {
             setVisible(false);
-            addTimer(onClose, 500); // Wait for exit animation
-        }, 6000);
+            addTimer(onClose, 800); 
+        }, 5000);
+
         return () => {
             timersRef.current.forEach(clearTimeout);
             timersRef.current = [];
         };
-    }, [onClose]);
+    }, [level, onClose]);
 
     if (!level) return null;
 
@@ -30,8 +36,6 @@ export default function LevelUpToast({ level, title, onClose }) {
         <div className={`fixed inset-0 z-[300] flex items-center justify-center pointer-events-none ${visible ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
             {/* Backdrop Effect */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500" />
-
-            {/* Confetti / particles could go here */}
 
             {/* The Card */}
             <div className={`relative pointer-events-auto bg-slate-900 border-2 border-yellow-500/50 p-8 rounded-2xl shadow-[0_0_50px_-10px_rgba(234,179,8,0.5)] transform transition-all duration-700 ${visible ? 'scale-100 translate-y-0' : 'scale-50 translate-y-10'} flex flex-col items-center gap-4 max-w-sm text-center overflow-hidden`}>

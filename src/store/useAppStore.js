@@ -75,8 +75,8 @@ const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData || !activeData.user) return null;
 
-    let currentXP = activeData.user.xp || 0;
-    let currentLevel = activeData.user.level || 1;
+    const currentXP = activeData.user.xp || 0;
+    const currentMaxLevel = activeData.user.level || 1;
     let newXP = Math.max(0, currentXP + xpGained);
 
     const currentAchievements = activeData.user.achievements || [];
@@ -87,31 +87,25 @@ const processGamification = (state, xpGained) => {
         activeData.user.achievements = [...currentAchievements, ...newlyUnlocked];
     }
 
-    const finalLevel = calculateLevel(newXP);
+    const calculatedLevel = calculateLevel(newXP);
     
-    // MELHORIA 6: xpFloor — nível nunca regride por desmarcar tarefas.
-    // XP pode cair (correto), mas o nível exibido é o máximo histórico.
-    // Isso mantém a motivação sem inflar o XP permanentemente.
-    const xpFloorForCurrentLevel = Math.pow(currentLevel - 1, 2) * 100; // XP mínimo do nível atual
-    const protectedXP = Math.max(newXP, xpFloorForCurrentLevel);
-    const protectedLevel = calculateLevel(protectedXP);
+    // RIGOR-01 FIX: Nível nunca regride (maxLevel), mas o XP é absoluto.
+    const finalLevel = Math.max(currentMaxLevel, calculatedLevel);
     
-    activeData.user.level = protectedLevel;
-    activeData.user.xp = protectedXP;
+    activeData.user.level = finalLevel;
+    activeData.user.xp = newXP;
     
-    // Recalcular leveledUp com o XP protegido
-    const leveledUp = protectedLevel > currentLevel;
+    // Solo disparar evento se o NOVO nível calculado for maior que o máximo anterior
+    const newlyLeveledUp = calculatedLevel > currentMaxLevel;
 
-    // ✅ No side effects here — return the event detail for the caller to dispatch
-    // after set() completes (outside the Immer draft).
-    if (leveledUp) {
+    if (newlyLeveledUp) {
         let title;
-        if (protectedLevel - currentLevel > 1) {
-            title = `Níveis ${currentLevel + 1} a ${protectedLevel} Desbloqueados!`;
+        if (calculatedLevel - currentMaxLevel > 1) {
+            title = `Níveis ${currentMaxLevel + 1} a ${calculatedLevel} Desbloqueados!`;
         } else {
-            title = `Nível ${protectedLevel} Desbloqueado!`;
+            title = `Nível ${calculatedLevel} Desbloqueado!`;
         }
-        return { level: protectedLevel, title, xpGained: protectedXP - currentXP };
+        return { level: calculatedLevel, title, xpGained: newXP - currentXP };
     }
     return null;
 };

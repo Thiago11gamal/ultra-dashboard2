@@ -5,18 +5,21 @@ import { useState, useEffect } from 'react';
  * Escuta o evento 'level-up' e gerencia o estado para exibição do Toast.
  */
 export function useLevelUp() {
-  const [levelUpData, setLevelUpData] = useState(null);
+  const [queue, setQueue] = useState([]);
 
   useEffect(() => {
     const handleLevelUp = (e) => {
-      setLevelUpData(e.detail);
+      setQueue(prev => [...prev, e.detail]);
     };
 
     window.addEventListener('level-up', handleLevelUp);
     return () => window.removeEventListener('level-up', handleLevelUp);
   }, []);
 
-  const clearLevelUp = () => setLevelUpData(null);
+  const clearCurrent = () => setQueue(prev => prev.slice(1));
 
-  return { levelUpData, clearLevelUp };
+  return { 
+    levelUpData: queue[0] || null, 
+    clearLevelUp: clearCurrent 
+  };
 }
