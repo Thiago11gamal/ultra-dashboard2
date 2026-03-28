@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { normalizeDate } from '../utils/dateHelper';
 
 export default function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);
@@ -80,7 +81,11 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             .filter(([key]) => monthKeys.has(key))
             .reduce((acc, [, mins]) => acc + mins, 0);
 
-        return { weeks, totalDays, studiedDays, totalMinutes };
+        const h = Math.floor(totalMinutes / 60);
+        const m = Math.round(totalMinutes % 60);
+        const totalTimeStr = `${h}h${m > 0 ? ` ${m}m` : ''}`;
+
+        return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };
     }, [currentMonth, studyLogs]);
 
     const levelColors = [
@@ -88,7 +93,7 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
         'bg-green-900/50 border-green-800', // 1 - < 30 min
         'bg-green-700/60 border-green-600', // 2 - 30-60 min
         'bg-green-500/70 border-green-400', // 3 - 60-120 min
-        'bg-green-400 border-green-300 shadow-[0_0_8px_rgba(74,222,128,0.5)]', // 4 - > 120 min
+        'bg-green-400 border-green-300', // 4 - > 120 min
     ];
 
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -166,7 +171,7 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                 <div className="text-xs text-slate-400">
                     <span className="text-green-400 font-bold">{calendarData.studiedDays}</span>/{calendarData.totalDays} dias
                     <span className="mx-2">•</span>
-                    <span className="text-white font-bold">{Math.round(calendarData.totalMinutes / 60)}h</span> total
+                    <span className="text-white font-bold">{calendarData.totalTimeStr}</span> total
                 </div>
             </div>
         </div>
