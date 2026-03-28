@@ -6,6 +6,7 @@ import {
     monteCarloSimulation,
     runMonteCarloAnalysis,
     computePooledSD,
+    computeWeightedVariance,
     calculateVolatility
 } from '../engine';
 import { useAppStore } from '../store/useAppStore';
@@ -158,19 +159,25 @@ export default function MonteCarloGauge({
         const pooledSD = computePooledSD(categoryStats, totalWeight, 0); 
         const bayesianMean = weightedBayesianSum / totalWeight;
 
-        // Calculate weighted Bayesian interval
-        let weightedLow = 0;
-        let weightedHigh = 0;
+        // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
+        // Linear summation of ICs was too conservative (noisy) for students with many subjects.
+        const bayesianStats = [];
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const weight = (debouncedWeights ?? effectiveWeights)[cat.id || cat.name] || 0;
                 if (weight > 0) {
                     const baye = computeBayesianLevel(cat.simuladoStats.history);
-                    weightedLow += baye.ciLow * (weight / totalWeight);
-                    weightedHigh += baye.ciHigh * (weight / totalWeight);
+                    bayesianStats.push({ sd: baye.sd, weight });
                 }
             }
         });
+
+        const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
+        const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
+        
+        // Final Bayesian CI for the static Today simulation
+        const weightedLow = Math.max(0, bayesianMean - 1.96 * pooledBayesianSD);
+        const weightedHigh = Math.min(100, bayesianMean + 1.96 * pooledBayesianSD);
 
         // Reconstruct consolidated global history for path simulation
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));

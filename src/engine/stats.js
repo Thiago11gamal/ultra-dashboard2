@@ -147,7 +147,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
 
     const variance    = (alpha * beta) / (n * n * (n + 1));
     const sd          = Math.sqrt(variance);
-    const MIN_SD_PROP = 0.02; // floor epistêmico: mínimo 2 pontos percentuais de incerteza
+    // REVISION: Epistemic floor reduced to 1.0% (0.01) to allow for higher precision
+    const MIN_SD_PROP = 0.01; 
     const effectiveSd = Math.max(sd, MIN_SD_PROP);
 
     const ciLow  = Math.max(0,   (p - 1.96 * effectiveSd) * 100);
@@ -155,6 +156,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
 
     return {
         mean:  Number(mean.toFixed(2)),
+        sd:    Number((effectiveSd * 100).toFixed(2)),
         ciLow:  Number(ciLow.toFixed(2)),
         ciHigh: Number(ciHigh.toFixed(2)),
         alpha,
