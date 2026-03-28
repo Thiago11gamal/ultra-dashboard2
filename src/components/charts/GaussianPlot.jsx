@@ -58,7 +58,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const baseHeightFactor = Math.min(1.0, 12 / avgSd);
 
         const xp = (v) => (v - xMin) / range * 100;
-        const yp = (yVal) => 100 - (yVal * 100);
+        // BUG-04 FIX: Map density 0-1.0 to SVG coordinates 100-5 to leave headroom at the top
+        const yp = (yVal) => 100 - (yVal * 95);
 
         const trendPath = '';
 
@@ -165,21 +166,22 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const collisionHojeMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 20;
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 20;
 
-    // Resolve Tiers with Projection (Blue) as HIGHEST PRIORITY
+    // Resolve Tiers: 1 is top, 2 is middle, 3 is bottom
     let tierMean = 1;
     let tierTarget = 1;
     let tierHoje = 1;
 
-    // Resolve conflicts
+    // BUG-03 FIX: Conflict Resolution Logic
     if (collisionMetaMean) {
-        tierTarget = 2; // Move Meta (red) down if it hits Projection (blue)
+        // If Meta overlaps Mean, Meta drops to Tier 2
+        tierTarget = 2;
     }
 
-    if (collisionHojeMean || collisionHojeTarget) {
-        // Resolve Tier 3 correctly: if it hits Mean or Target, it must be below whatever is highest there
-        const meanConflictTier = collisionHojeMean ? tierMean : 0;
-        const targetConflictTier = collisionHojeTarget ? tierTarget : 0;
-        tierHoje = Math.max(meanConflictTier, targetConflictTier) + 1;
+    if (collisionHojeTarget || collisionHojeMean) {
+        // Hoje drops below whatever is highest at its position
+        const targetImpact = collisionHojeTarget ? tierTarget : 0;
+        const meanImpact   = collisionHojeMean   ? tierMean : 0;
+        tierHoje = Math.max(targetImpact, meanImpact) + 1;
     }
 
     return (

@@ -60,6 +60,12 @@ export function EvolutionLineChart({
                     }
                 }
 
+                // BUG-COLLISION FIX: Clamp stack if it goes out of bounds (below 0%)
+                if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < 0) {
+                    const shift = -yPositions[yPositions.length - 1].yPos;
+                    yPositions.forEach(p => p.yPos += shift);
+                }
+
                 const myAdjPt = yPositions.find(p => p.id === catId);
                 if (myAdjPt && myAdjPt.yPos !== myAdjPt.value) {
                     const pctShift = value - myAdjPt.yPos;

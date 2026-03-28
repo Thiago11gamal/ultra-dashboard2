@@ -147,7 +147,7 @@ export function useChartData(categories = []) {
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total >= 5 ? (correct / total) * 100 : null;
+                const rawDailyScore = total >= 1 ? (correct / total) * 100 : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
