@@ -32,12 +32,13 @@ export function computeWeightedVariance(stats, totalWeight) {
 
     const weights = stats.map(cat => cat.weight / totalWeight);
     
-    // RIGOR-09 FIX: Aumentar o peso da incerteza epistêmica. 
-    // Com penalty=1/n, o efeito era negligível (+2%). Agora usamos prior (~20pp).
-    const SEE_PRIOR = 20; 
     const adjustedSDs = stats.map(cat => {
         const n = Math.max(1, cat.n || 0);
-        const penalty = (SEE_PRIOR * SEE_PRIOR) / n; 
+        // RIGOR-09 FIX: Prior adaptativo (Bayesian Shrinkage dinâmico).
+        // Reduz a penalidade epistêmica à medida que o histórico (n) cresce.
+        // Evita que o IC fique "vago" demais para alunos com apenas 1-2 provas.
+        const seePrior = Math.max(10, 25 - Math.sqrt(n));
+        const penalty = (seePrior * seePrior) / n; 
         return Math.sqrt(Math.pow(cat.sd, 2) + penalty);
     });
 
