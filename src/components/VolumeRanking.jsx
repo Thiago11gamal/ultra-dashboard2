@@ -131,7 +131,8 @@ const VolumeRanking = ({ categories = [] }) => {
                                     <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/[0.02]">
                                         <motion.div
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${percentage}%` }}
+                                            whileInView={{ width: `${percentage}%` }}
+                                            viewport={{ once: true }}
                                             transition={{ duration: 1.5, ease: "easeOut" }}
                                             className={`h-full rounded-full ${styles.barCol} shadow-[0_0_15px_rgba(0,0,0,0.5)] ${styles.glow}`}
                                         />

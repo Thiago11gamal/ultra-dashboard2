@@ -21,12 +21,9 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
         // Create a map of date -> minutes studied
         const studyMap = {};
         studyLogs.forEach(log => {
-            // BUG FIX: ISO date strings without time (e.g. "2024-01-15") are parsed as UTC midnight,
-            // which shifts the day by -N hours in negative UTC timezones (e.g. Brazil -3 → shows prev day).
-            // Appending T12:00:00 forces local noon parsing, preventing off-by-one-day errors.
-            const rawDate = typeof log.date === 'string' && log.date.length === 10
-                ? new Date(`${log.date}T12:00:00`)
-                : new Date(log.date);
+            // PERFORMANCE-02: Use centralized normalizeDate to avoid timezone drift
+            const rawDate = normalizeDate(log.date);
+            if (!rawDate) return;
             const dateKey = format(rawDate, 'yyyy-MM-dd');
             studyMap[dateKey] = (studyMap[dateKey] || 0) + (log.minutes || 0);
         });

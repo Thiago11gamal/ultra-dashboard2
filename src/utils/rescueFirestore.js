@@ -33,18 +33,26 @@ async function resgatarBackupDoFirestore() {
         const backupData = snap.data();
         console.log("[Rescue] Dados localizados! Tamanho:", JSON.stringify(backupData).length);
 
+        // SMART-DETECTION: Detect if user passed the whole Zustand wrap or just the appState
+        let finalAppState = backupData.state?.appState || backupData.appState || backupData;
+        
+        // Basic validation: appState should have 'contests' or 'activeId'
+        if (!finalAppState.contests && !finalAppState.activeId) {
+            console.warn("[Rescue] Formato suspeito. Dados podem estar incompletos.");
+        }
+
         // Backup de segurança do que temos agora
         const current = localStorage.getItem('ultra-dashboard-storage');
         localStorage.setItem('ultra-dashboard-storage-OLD-' + Date.now(), current);
 
-        // Injeção Direta
+        // Injeção Direta no formato esperado pelo Zustand
         const stateToInject = {
-            state: { appState: backupData },
+            state: { appState: finalAppState },
             version: 1
         };
 
         localStorage.setItem('ultra-dashboard-storage', JSON.stringify(stateToInject));
-        localStorage.setItem('ultra-dashboard-data', JSON.stringify(backupData));
+        localStorage.setItem('ultra-dashboard-data', JSON.stringify(finalAppState));
         
         console.log("[Rescue] SUCESSO! Dados injetados. Recarregando em 2 segundos...");
         
