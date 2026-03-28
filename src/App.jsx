@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -45,6 +45,7 @@ import './components/Loading.css';
 function MainLayout() {
   const { currentUser, loading, logout } = useAuth();
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
+  const location = useLocation();
 
   const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
   const appState = useAppStore(state => state.appState);

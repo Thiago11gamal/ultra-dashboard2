@@ -367,13 +367,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         setHasConflict(false);
 
         const syncToCloud = async () => {
-            if (!db) return; // MELHORIA: Não tentar sync se o Firebase não estiver configurado
-            // BUG-5 FIX: Usar appStateRef.current em vez do closure para evitar dados obsoletos
+            if (!db) return;
             const freshState = appStateRef.current;
             const currentStateString = stateStringForSync(freshState);
-            const lastMutation = lastLocalMutationRef.current;
+            const lastMutationAtInvoke = lastLocalMutationRef.current;
 
-            // MELHORIA 4: Retry com backoff exponencial (3 tentativas: 0s, 2s, 4s)
             const MAX_RETRIES = 3;
             let attempt = 0;
             let lastError = null;
@@ -382,9 +380,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             while (attempt < MAX_RETRIES) {
                 try {
                     if (lastSyncedRef.current === currentStateString) break;
-                    if (lastLocalMutationRef.current !== lastMutation) break;
+                    if (lastLocalMutationRef.current !== lastMutationAtInvoke) break;
 
-                    const syncState = freshState; // BUG-5 FIX: usa ref em vez do closure
+                    const syncState = freshState;
                     const safeguardContest = (contest) => {
                         if (!contest) return contest;
                         return {
@@ -408,16 +406,21 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
                     logger.debug(`[Sync] Tentativa ${attempt + 1}/${MAX_RETRIES} para Master-Save...`);
                     await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
-                    logger.styled(`[Sync] Sincronização MASTER com sucesso em ${attempt + 1} tentativas.`, "color: #22c55e; font-weight: bold;");
+                    logger.styled(`[Sync] Sincronização MASTER com sucesso.`, "color: #22c55e; font-weight: bold;");
+                    
                     lastSyncedRef.current = currentStateString;
+                    
+                    // FORTRESS: Limpar flag de "sujo" apenas após confirmação do Firebase
+                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(_) {}
+                    
                     lastError = null;
-                    break; // sucesso
+                    break;
                 } catch (e) {
                     lastError = e;
                     attempt++;
                     logger.error(`[Sync] Erro na tentativa ${attempt}:`, e);
                     if (attempt < MAX_RETRIES) {
-                        await new Promise(r => setTimeout(r, attempt * 2000)); // 2s, 4s
+                        await new Promise(r => setTimeout(r, attempt * 2000));
                     }
                 }
             }
@@ -433,12 +436,17 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(syncToCloud, 3000);
+        
+        // FORTRESS: Se houver flag de "sujo", sincronizar IMEDIATAMENTE (100ms)
+        const isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
+        const delay = isHighPriority ? 100 : 3000;
+        
+        debounceRef.current = setTimeout(syncToCloud, delay);
 
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [appState, parityTick, currentUser?.uid, showToast]); // L2: Usa parityTick em vez de isParityValidated. L3: Retirado db.
+    }, [appState, parityTick, currentUser?.uid, showToast]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

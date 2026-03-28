@@ -233,7 +233,7 @@ export const useAppStore = create(
                 state.appState.contests[contestId] = nextData;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
-                // FORTRESS: Mark as dirty for Cloud Sync immediate awareness
+                // FORTRESS: High priority alert for Cloud Sync
                 localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
@@ -267,6 +267,7 @@ export const useAppStore = create(
                     levelUpDetail = processGamification(state, xpChange);
                     state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
+                    localStorage.setItem('ultra-sync-dirty', 'true');
                 });
                 dispatchLevelUp(levelUpDetail);
             },
