@@ -14,7 +14,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         strongGlow: `gpStrongGlow_${instanceId}`,
     };
 
-    const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactor, curvePoints, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
+    const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactorFinal, curvePointsForArea, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         const xMin = 0;
@@ -25,95 +25,80 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let vizSdRight = Math.max(1, propSdRight ?? sd);
 
         // BUG-03/MC-03 FIX: Calibração visual da área verde para coincidir com a prop 'prob' do Gauge
-        // Isso resolve a discrepância entre a curva Gaussiana suavizada e o "pile-up" em 100% da simulação.
         if (prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
             const t = targetVal;
             
-            // FIX: todas as quantidades em unidade de probabilidade (0-1), não de SD
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                // P(X < 0): cauda esquerda fora do domínio [0,100]
-                const pUnderflow = normalCDF_complement(mVal / sl);          // P(X < 0) no half-normal esquerdo
-                // P(X > 100): cauda direita fora do domínio
-                const pOverflow  = normalCDF_complement((100 - mVal) / sr);  // P(X > 100) no half-normal direito
-                // Massa total dentro de [0, 100] (cada half-normal tem 0.5 de massa antes do truncamento)
+                const pUnderflow = normalCDF_complement(mVal / sl);
+                const pOverflow  = normalCDF_complement((100 - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
                 let pSuccess;
                 if (tVal >= mVal) {
-                    // Meta à direita da média: sucesso = P(X >= tVal) no lado direito - overflow
                     const pRightSuccess = normalCDF_complement((tVal - mVal) / sr);
                     pSuccess = Math.max(0, pRightSuccess - pOverflow);
                 } else {
-                    // Meta à esquerda da média: sucesso = toda a metade direita + parte da metade esquerda - overflow
-                    const pLeftFail = normalCDF_complement((mVal - tVal) / sl); // P(X < tVal) no lado esquerdo
+                    const pLeftFail = normalCDF_complement((mVal - tVal) / sl);
                     pSuccess = Math.max(0, 0.5 - pLeftFail + 0.5 - pOverflow);
                 }
-
                 return pSuccess / truncatedTotal;
             };
 
             const pGeom = getGeomProb(t, m, vizSdLeft, vizSdRight);
-            
-            // Ajustar o SD do lado que contém a fronteira da meta para "forçar" a área visual a casar com o gauge
             if (Math.abs(targetProb - pGeom) > 0.01) {
-                // BUG-33 FIX: Clamp ratio para evitar SD visual absurdo quando pGeom ≈ 0
                 const ratio = Math.min(5, Math.max(0.2, targetProb / Math.max(0.01, pGeom)));
-                if (t < m) {
-                    vizSdLeft = Math.max(1, vizSdLeft * ratio);
-                } else {
-                    vizSdRight = Math.max(1, vizSdRight * ratio);
-                }
+                if (t < m) vizSdLeft = Math.max(1, vizSdLeft * ratio);
+                else vizSdRight = Math.max(1, vizSdRight * ratio);
             }
         }
 
-        }
-        
+        const avgSd = (vizSdLeft + vizSdRight) / 2;
+        const baseHeightFactor = Math.min(1.0, 12 / avgSd);
+
+        const xp = (v) => (v - xMin) / range * 100;
+        const yp = (yVal) => 100 - (yVal * 100);
+
+        const trendPath = '';
+
         // --- DATA SOURCE SELECTION ---
         let path;
-        let curvePointsForArea = [];
-        let heightFactorFinal = heightFactor;
+        let pointsForArea = [];
+        let finalHF = baseHeightFactor;
 
         if (kdeData && kdeData.length > 5) {
             // HIGH FIDELITY: Use empirical KDE from simulation
-            // Points are already normalized by generation (p.y is 0-1)
-            curvePointsForArea = kdeData.map(p => `${xp(p.x)},${yp(p.y)}`);
-            path = `M ${curvePointsForArea.join(' L ')}`;
-            heightFactorFinal = 1.0; // KDE is already peak-normalized
+            pointsForArea = kdeData.map(p => `${xp(p.x)},${yp(p.y)}`);
+            path = `M ${pointsForArea.join(' L ')}`;
+            finalHF = 1.0; 
         } else {
-            // FALLBACK: Use parametric Asymmetric Gaussian (Traditional)
-            const curvePoints = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, heightFactor, xp, yp);
-            path = `M ${curvePoints.join(' L ')}`;
-            curvePointsForArea = curvePoints;
-            heightFactorFinal = heightFactor;
+            // FALLBACK: Use parametric Asymmetric Gaussian
+            const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
+            path = `M ${pts.join(' L ')}`;
+            pointsForArea = pts;
+            finalHF = baseHeightFactor;
         }
 
         // 3. Precise Area Paths
-        const areaPoints = []; // Success
-        const failPoints = []; // Failure
+        const areaPoints = [];
+        const failPoints = [];
         const successStart = Math.max(xMin, targetVal);
+        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF);
 
-        // Intersection Y at exactly targetScore
-        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, heightFactorFinal);
-
-        // Success Area (x >= target)
         areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
-        curvePointsForArea.forEach(p => {
+        pointsForArea.forEach(p => {
             const [xPos, yPos] = p.split(',').map(Number);
             if (xPos > xp(successStart)) areaPoints.push(p);
         });
         if (areaPoints.length > 0) {
             const lastP = areaPoints[areaPoints.length - 1];
-            const firstX = xp(successStart);
-            const lastX = lastP.split(',')[0];
-            areaPoints.push(`${lastX},100`);
-            areaPoints.push(`${firstX},100`);
+            areaPoints.push(`${lastP.split(',')[0]},100`);
+            areaPoints.push(`${xp(successStart)},100`);
         }
 
-        // Failure Area (x < target)
         failPoints.push(`${xp(xMin)},100`);
-        curvePointsForArea.forEach(p => {
+        pointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
         });
@@ -123,22 +108,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
-        // Added for Ultra-Premium markers
-        const median = meanVal;
-        const p25 = meanVal - 0.674 * vizSdLeft;
-        const p75 = meanVal + 0.674 * vizSdRight;
+        // Metrics
+        const med = meanVal;
+        const lp25 = meanVal - 0.674 * vizSdLeft;
+        const lp75 = meanVal + 0.674 * vizSdRight;
 
         return {
             pathData: path,
             trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp, heightFactor: heightFactorFinal, curvePoints: curvePointsForArea,
-            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactorFinal),
-            median, p25, p75
+            range, xMin, targetVal, xp, yp, heightFactorFinal: finalHF, curvePointsForArea: pointsForArea,
+            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF),
+            median: med, p25: lp25, p75: lp75
         };
-    // Bug 3: Incluir dependências corretas (prob, propSdLeft, propSdRight, kdeData)
-    // BUG-8 FIX: Incluir low95, high95, currentMean para manter marcadores sincronizados
     }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean, kdeData]);
 
     const targetPos = xp(targetVal);
