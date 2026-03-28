@@ -201,29 +201,31 @@ function MainLayout() {
         />
 
         {/* Router Outlet com carregamento otimizado */}
-        <ErrorBoundary>
-        <Suspense fallback={
-          <div className="flex items-center justify-center p-20 text-purple-400">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-          </div>
-        }>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/pomodoro" element={<Pomodoro />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/simulados" element={<Simulados />} />
-            <Route path="/stats" element={<Stats />} />
-            <Route path="/evolution" element={<Evolution />} />
-            <Route path="/coach" element={<Coach />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/sessions" element={<Sessions />} />
-            <Route path="/heatmap" element={<Activity />} />
-            <Route path="/retention" element={<Retention />} />
-            <Route path="/notes" element={<Notes />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-        </ErrorBoundary>
+        <div key={location.pathname} className="animate-page-entrance">
+          <ErrorBoundary>
+            <Suspense fallback={
+              <div className="flex items-center justify-center p-20 text-purple-400">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+              </div>
+            }>
+              <Routes location={location}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/pomodoro" element={<Pomodoro />} />
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/simulados" element={<Simulados />} />
+                <Route path="/stats" element={<Stats />} />
+                <Route path="/evolution" element={<Evolution />} />
+                <Route path="/coach" element={<Coach />} />
+                <Route path="/history" element={<History />} />
+                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/heatmap" element={<Activity />} />
+                <Route path="/retention" element={<Retention />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        </div>
       </main>
 
       <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
