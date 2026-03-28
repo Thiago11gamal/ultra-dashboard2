@@ -73,7 +73,19 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         if (kdeData && kdeData.length > 5) {
             // HIGH FIDELITY: Use empirical KDE from simulation
-            pointsForArea = kdeData.map(p => `${xp(p.x)},${yp(p.y)}`);
+            const DOMAIN_MAX = 100;
+            // MC-KDE FIX: Clampar pontos para dentro do domínio visual [0,100]
+            pointsForArea = kdeData
+                .filter(p => p.x >= 0 && p.x <= DOMAIN_MAX)
+                .map(p => `${xp(p.x)},${yp(p.y)}`);
+            
+            // Garantir que a linha fecha visualmente no limite direito
+            if (pointsForArea.length > 0) {
+                const lastX = parseFloat(pointsForArea[pointsForArea.length - 1].split(',')[0]);
+                if (lastX < xp(DOMAIN_MAX)) {
+                    pointsForArea.push(`${xp(DOMAIN_MAX)},100`);
+                }
+            }
             path = `M ${pointsForArea.join(' L ')}`;
             finalHF = 1.0; 
         } else {
