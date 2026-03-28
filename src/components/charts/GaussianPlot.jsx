@@ -102,18 +102,21 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const successStart = Math.max(xMin, targetVal);
         
         // BUG-VISUAL FIX: Quando kdeData disponível, interpolar yAtTarget do próprio KDE
-        let yAtTarget;
-        if (kdeData && kdeData.length > 5) {
-            // Interpolar da KDE em vez da Gaussiana paramétrica
-            const nearest = kdeData.reduce((best, p) =>
-                Math.abs(p.x - successStart) < Math.abs(best.x - successStart) ? p : best
-            );
-            yAtTarget = nearest.y * finalHF;
-        } else {
-            yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF);
-        }
+        const getYAtX = (pts, xTarget) => {
+            let best = null, bestDist = Infinity;
+            pts.forEach(p => {
+                const [px, py] = p.split(',').map(Number);
+                const d = Math.abs(px - xTarget);
+                if (d < bestDist) { bestDist = d; best = py; }
+            });
+            return best;
+        };
 
-        areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
+        const yAtTargetVisual = (kdeData && kdeData.length > 5)
+            ? getYAtX(pointsForArea, xp(successStart))
+            : yp(asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF));
+
+        areaPoints.push(`${xp(successStart)},${yAtTargetVisual}`);
         pointsForArea.forEach(p => {
             const [xPos, yPos] = p.split(',').map(Number);
             if (xPos > xp(successStart)) areaPoints.push(p);
@@ -129,7 +132,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
         });
-        failPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
+        failPoints.push(`${xp(successStart)},${yAtTargetVisual}`);
         failPoints.push(`${xp(successStart)},100`);
 
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
