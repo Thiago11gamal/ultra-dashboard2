@@ -4,7 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  envPrefix: ['VITE_', 'ID_', 'BALDE_'],
+  // REVISION: Added support for Portuguese environment variable names from Vercel screen
+  envPrefix: ['VITE_', 'ID_', 'BALDE_', 'CHAVE_', 'TOKEN_'],
   server: {
     port: 5173,
     strictPort: false,
