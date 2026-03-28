@@ -480,12 +480,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const now = new Date().getTime();
         const diffHours = (now - last) / (1000 * 60 * 60);
         const days = diffHours / 24;
-        // C-03 FIX: S=7 para alinhar com RetentionPanel.jsx (era S=3, inconsistente)
         const val = Math.round(100 * Math.exp(-days / 7));
 
-        if (val >= 90) return { val, label: 'Memória Fresca', color: 'text-emerald-400', border: 'border-emerald-500' };
-        if (val >= 60) return { val, label: 'Risco Médio', color: 'text-yellow-400', border: 'border-yellow-500' };
-        return { val, label: 'Crítico', color: 'text-red-500', border: 'border-red-500' };
+        if (val >= 80) return { val, label: 'Ótimo', color: 'text-emerald-400', border: 'border-emerald-500/30' };
+        if (val >= 60) return { val, label: 'Bom', color: 'text-green-400', border: 'border-green-500/30' };
+        if (val >= 40) return { val, label: 'Atenção', color: 'text-yellow-400', border: 'border-yellow-500/30' };
+        if (val >= 20) return { val, label: 'Crítico', color: 'text-orange-400', border: 'border-orange-500/30' };
+        return { val, label: 'Urgente!', color: 'text-red-400', border: 'border-red-500/30' };
     }, [activeSubject, categories]);
 
     // Layout Variants - Soft / Academic

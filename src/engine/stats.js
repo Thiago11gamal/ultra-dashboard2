@@ -1,4 +1,4 @@
-export const SYNTHETIC_TOTAL_QUESTIONS = 5;
+export const SYNTHETIC_TOTAL_QUESTIONS = 10;
 import { getSafeScore } from '../utils/scoreHelper.js';
 
 export function mean(arr) {
