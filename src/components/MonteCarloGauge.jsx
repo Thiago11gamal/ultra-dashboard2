@@ -505,6 +505,7 @@ export default function MonteCarloGauge({
                                 targetScore={targetScore}
                                 currentMean={safeCurrentMean}
                                 prob={prob}
+                                kdeData={simulationData.data.kdeData}
                             />
                         );
                     })()}
