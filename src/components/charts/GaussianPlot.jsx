@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useId } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
-export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight }) => {
+export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData }) => {
     const [hover, setHover] = useState(null);
 
     // VISUAL-01 FIX: IDs únicos por instância para evitar conflito entre múltiplos GaussianPlot
@@ -68,34 +68,38 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             }
         }
 
-        const avgSd = (vizSdLeft + vizSdRight) / 2;
-        // B-04 FIX: Maximized to 1.0 for the user's latest "azul mais alto" request
-        const heightFactor = Math.min(1.0, 12 / avgSd);
+        }
+        
+        // --- DATA SOURCE SELECTION ---
+        let path;
+        let curvePointsForArea = [];
+        let heightFactorFinal = heightFactor;
 
-        const xp = (v) => (v - xMin) / range * 100;
-        const yp = (yVal) => 100 - (yVal * 100);
+        if (kdeData && kdeData.length > 5) {
+            // HIGH FIDELITY: Use empirical KDE from simulation
+            // Points are already normalized by generation (p.y is 0-1)
+            curvePointsForArea = kdeData.map(p => `${xp(p.x)},${yp(p.y)}`);
+            path = `M ${curvePointsForArea.join(' L ')}`;
+            heightFactorFinal = 1.0; // KDE is already peak-normalized
+        } else {
+            // FALLBACK: Use parametric Asymmetric Gaussian (Traditional)
+            const curvePoints = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, heightFactor, xp, yp);
+            path = `M ${curvePoints.join(' L ')}`;
+            curvePointsForArea = curvePoints;
+            heightFactorFinal = heightFactor;
+        }
 
-        // Uses centralized logic
-
-        // 1. Trend Line (Removed as it causes visual artifacts on negative drift)
-        const trendPath = '';
-
-        // 2. Main Gaussian Curve (Always full extent) - Uses centralized helper
-        const curvePoints = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, heightFactor, xp, yp);
-
-        const path = `M ${curvePoints.join(' L ')}`;
-
-        // 3. Precise Area Paths (BUG-06 FIX / Enhancement)
+        // 3. Precise Area Paths
         const areaPoints = []; // Success
         const failPoints = []; // Failure
         const successStart = Math.max(xMin, targetVal);
 
         // Intersection Y at exactly targetScore
-        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, heightFactor);
+        const yAtTarget = asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, heightFactorFinal);
 
         // Success Area (x >= target)
         areaPoints.push(`${xp(successStart)},${yp(yAtTarget)}`);
-        curvePoints.forEach(p => {
+        curvePointsForArea.forEach(p => {
             const [xPos, yPos] = p.split(',').map(Number);
             if (xPos > xp(successStart)) areaPoints.push(p);
         });
@@ -109,7 +113,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         // Failure Area (x < target)
         failPoints.push(`${xp(xMin)},100`);
-        curvePoints.forEach(p => {
+        curvePointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
         });
@@ -129,13 +133,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp, heightFactor, curvePoints,
-            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactor),
+            range, xMin, targetVal, xp, yp, heightFactor: heightFactorFinal, curvePoints: curvePointsForArea,
+            asymmetricGaussianFn: (x) => asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, heightFactorFinal),
             median, p25, p75
         };
-    // Bug 3: Incluir dependências corretas (prob, propSdLeft, propSdRight)
+    // Bug 3: Incluir dependências corretas (prob, propSdLeft, propSdRight, kdeData)
     // BUG-8 FIX: Incluir low95, high95, currentMean para manter marcadores sincronizados
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean, kdeData]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(mean ?? 0);

@@ -104,6 +104,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
+    kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations),
     drift: 0,
     volatility: safeSD,
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'

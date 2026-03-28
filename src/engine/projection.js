@@ -439,6 +439,9 @@ export function monteCarloSimulation(
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
+        projectedMean,
+        projectedSD,
+        kdeData: generateKDE(allFinalScores, projectedMean, projectedSD, safeSimulations),
         drift,
         volatility,
         method: useBootstrap ? "bootstrap" : "normal"
