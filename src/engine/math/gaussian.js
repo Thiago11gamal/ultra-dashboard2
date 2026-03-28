@@ -66,8 +66,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const h = 1.06 * Math.min(projectedSD, iqr / 1.34) * Math.pow(safeSimulations, -0.2);
     const bandwidth = Math.max(h, 2.0); // Previne picos ruidosos demais
     
-    // Fast KDE usando Binning
-    const BIN_COUNT = 100;
+    // REVISION: KDE using 200 Bins for higher UI resolution
+    const BIN_COUNT = 200;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
     const bins = new Float32Array(BIN_COUNT);
     

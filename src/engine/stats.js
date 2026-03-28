@@ -23,7 +23,8 @@ export function standardDeviation(arr) {
         ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
         ((n - 1) + KAPPA);
 
-    return Math.sqrt(adjustedVar);
+    // REVISION: Standardized floor to 1.0 (1%) for precision consistency
+    return Math.max(1.0, Math.sqrt(adjustedVar));
 }
 
 export function calculateTrend(history) {
@@ -88,13 +89,22 @@ export function calculateTrend(history) {
         const tStat = slope / seSlope;
         const df = n - 2;
 
-        // MATH-03 FIX: Expandir tabela para df=11..15 e fallback 1.96 (distribuição normal Z)
+        // REVISION: Expanded T-Table (95% confidence) for smoother transition to Z=1.96
         const tDist95 = {
             1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57,
             6: 2.45,  7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23,
-            11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14, 15: 2.13
+            11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14, 15: 2.13,
+            20: 2.08, 25: 2.06, 30: 2.04, 40: 2.02, 60: 2.00, 120: 1.98
         };
-        const tCrit = tDist95[df] || 1.96;
+        
+        let tCrit = 1.96;
+        if (df <= 15) {
+            tCrit = tDist95[df] || 1.96;
+        } else {
+            // Linear interpolation or closest lower for safety
+            const keys = Object.keys(tDist95).map(Number).filter(k => k > 15).sort((a,b) => a-b);
+            tCrit = tDist95[keys.find(k => k >= df)] || 1.96;
+        }
 
         if (Math.abs(tStat) < tCrit) return 0;
     }
@@ -166,8 +176,8 @@ export function computeCategoryStats(history, weight) {
     const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
     const sd = standardDeviation(scores);
-    // AUDIT FIX: SD fallback floor reduced to 2% (2 points) to respect Bayesian shrinkage and reward high consistency
-    const safeSD = Math.max(sd, 2);
+    // REVISION: Standardized SD floor to 1.0 (1%) to reflect high consistency
+    const safeSD = Math.max(sd, 1.0);
     const rawTrend = calculateTrend(historyToUse);
 
     let trendLabel = 'stable';

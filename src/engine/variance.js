@@ -22,16 +22,27 @@
  * @param {number} totalWeight - Sum of all weights
  * @returns {number} Weighted variance
  */
+// REVISION: Institutional Correlation Factor (Rho)
+// Represents the shared variance between subjects (e.g. test-day performance).
+// 0.15 is a conservative value that interpolation between independence (0) and full correlation (1).
+const INTER_SUBJECT_CORRELATION = 0.15;
+
 export function computeWeightedVariance(stats, totalWeight) {
     if (totalWeight === 0) return 0;
 
-    return stats.reduce((acc, cat) => {
-        const w = cat.weight / totalWeight;
-        // BUG MATH-02 REFIX: Use portfolio variance (w^2 * sigma^2) 
-        // This is statistically the standard way to combine independent variables 
-        // and it drastically reduces the Pooled SD from ±35% to ±5-8% in typical sets.
-        return acc + (Math.pow(w, 2) * Math.pow(cat.sd, 2));
-    }, 0);
+    const weights = stats.map(cat => cat.weight / totalWeight);
+    const sds = stats.map(cat => cat.sd);
+
+    // 1. Independent Variance Component: Σ (wi² * σi²)
+    const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(sds[i], 2), 0);
+
+    // 2. Coherent Variance Component (Full Correlation): (Σ wi * σi)²
+    const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * sds[i]), 0);
+    const coherentVar = Math.pow(weightedSumSD, 2);
+
+    // 3. Interpolated Variance: Var = (1-ρ)*Var_indep + ρ*Var_coherent
+    // This is mathematically equivalent to: Var = Σ(wi²σi²) + ρ * [ (Σwiσi)² - Σ(wi²σi²) ]
+    return (1 - INTER_SUBJECT_CORRELATION) * independentVar + (INTER_SUBJECT_CORRELATION * coherentVar);
 }
 
 /**

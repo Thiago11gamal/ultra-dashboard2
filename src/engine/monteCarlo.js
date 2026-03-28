@@ -14,8 +14,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
-  // MELHORIA 5: Alinhar floor com os demais módulos (2pp mínimo)
-  const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 2.0);
+  // REVISION: Standardized floor with stats.js (1.0)
+  const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 1.0);
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
@@ -84,8 +84,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const sdRight = (displayHigh - displayMean) / 1.96;
   const inferredSD = (displayHigh - displayLow) / 3.92;
 
-  // Bug 2: Usar sdLeft quando o teto de 100% artificialmente comprime o inferredSD
-  const effectiveSD = (displayHigh >= 99.5) ? sdLeft : Math.max(0.1, inferredSD);
+  // REVISION: Standardized floor to 1.0
+  const effectiveSD = (displayHigh >= 99.5) ? sdLeft : Math.max(1.0, inferredSD);
 
   // Bug 1: Calcular analyticalProbability corretamente
   const zScore = (safeTarget - displayMean) / effectiveSD;
@@ -95,11 +95,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
     analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
     mean: Number(displayMean.toFixed(1)),
-    // BUG-27 FIX: Floor unificado com projection.js (0.1 em vez de 2.0)
-    // O floor de 2.0 inflava artificialmente a incerteza para alunos consistentes
-    sd: Number(Math.max(0.1, projectedSD).toFixed(1)),
-    sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
-    sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
+    // REVISION: Floor standardized to 1.0
+    sd: Number(Math.max(1.0, projectedSD).toFixed(1)),
+    sdLeft: Number(Math.max(1.0, sdLeft).toFixed(2)),
+    sdRight: Number(Math.max(1.0, sdRight).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),

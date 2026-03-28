@@ -166,12 +166,13 @@ export function calculateVolatility(history) {
     if (sorted.length === 2) {
         const dt = Math.max(1, (new Date(sorted[1].date).getTime() - new Date(sorted[0].date).getTime()) / 86400000);
         const diff = Math.abs(getSafeScore(sorted[1]) - getSafeScore(sorted[0]));
-        return Math.max(1.5, Math.min(10.0, diff / Math.sqrt(dt)));
+        // REVISION: Floor standardized to 1.0
+        return Math.max(1.0, Math.min(15.0, diff / Math.sqrt(dt)));
     }
+    // REVISION: Use RAW (unclamped) slope for detrending to avoid biasing volatility
+    // with confidence-weighted or clamped drift.
+    const { slope: rawDrift } = weightedRegression(sorted);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
-
-    // MATH-01 FIX: Subtrair a tendência (drift) antes do MSSD para evitar inflar volatilidade com crescimento/queda constante.
-    const drift = calculateSlope(sorted);
     
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
@@ -189,8 +190,8 @@ export function calculateVolatility(history) {
         const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(30, rawDaysBetween);
 
-        // MATH-01 FIX: Subtrair o componente esperado da tendência: drift * daysBetween
-        const detrendedDiff = diff - (drift * rawDaysBetween);
+        // REVISION: Correct detrending using rawDrift
+        const detrendedDiff = diff - (rawDrift * rawDaysBetween);
         const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -208,8 +209,8 @@ export function calculateVolatility(history) {
     // MSSD (Mean Successive Squared Differences)
     const mssdVariance = sumSw / sumWeights;
 
-    // Safe sqrt
-    return Math.sqrt(Math.max(0, mssdVariance));
+    // REVISION: Standardized SD floor to 1.0
+    return Math.sqrt(Math.max(1.0, mssdVariance));
 }
 
 // -----------------------------
@@ -317,7 +318,8 @@ export function monteCarloSimulation(
             ciLow:  baseline - (volatility * 2),
             ciHigh: baseline + (volatility * 2)
         };
-        const inferredSD = Math.max(0.1, (ciHigh - ciLow) / 3.92);
+        // REVISION: Standardized floor to 1.0
+        const inferredSD = Math.max(1.0, (ciHigh - ciLow) / 3.92);
         const zScore = (targetScore - baseline) / inferredSD;
         const probability = Math.min(99.9, Math.max(0.1, normalCDF_complement(zScore) * 100));
 
@@ -419,7 +421,7 @@ export function monteCarloSimulation(
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
     // Bug 2: Usar sdLeft quando o teto de 100% artificialmente comprime o inferredSD
-    const effectiveSD = (ci95HighVal >= 99.5) ? sdLeft : Math.max(0.1, inferredSD);
+    const effectiveSD = (ci95HighVal >= 99.5) ? sdLeft : Math.max(1.0, inferredSD);
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;
@@ -431,9 +433,9 @@ export function monteCarloSimulation(
         probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
         analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
         mean: Number(displayMean.toFixed(1)),
-        sd: Number(Math.max(0.1, inferredSD).toFixed(1)),
-        sdLeft: Number(Math.max(0.1, sdLeft).toFixed(2)),
-        sdRight: Number(Math.max(0.1, sdRight).toFixed(2)),
+        sd: Number(Math.max(1.0, inferredSD).toFixed(1)),
+        sdLeft: Number(Math.max(1.0, sdLeft).toFixed(2)),
+        sdRight: Number(Math.max(1.0, sdRight).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
