@@ -53,8 +53,9 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // BUG 2 Corrigido: Índice do p975 com o -1 necessário para não desalinhar a cauda
     const rawHigh = allScores[Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1)] || 100;
     
-    // BUG 1 Corrigido: Domínio visual e matemático ancorado rigidamente em 0.
-    const plotMin = 0; 
+    // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
+    // Replace hardcoded plotMin=0 for better centering.
+    const plotMin = Math.max(0, projectedMean - 4 * projectedSD); 
     const plotMax = Math.max(110, Math.ceil(rawHigh) + 5); 
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;

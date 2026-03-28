@@ -102,7 +102,9 @@ export function calculateTrend(history) {
             tCrit = tDist95[df] || 1.96;
         } else {
             // MATH-03 FIX: Implement linear interpolation between table nodes
-            // Previously used keys.find() which picked the 'higher' key, subestimating tCrit
+            // Restored 'keys' definition that was missing in previous edit
+            const keys = Object.keys(tDist95).map(Number).filter(k => k > 15).sort((a,b) => a-b);
+            
             const lo = keys.filter(k => k <= df).at(-1);
             const hi = keys.find(k => k > df);
             

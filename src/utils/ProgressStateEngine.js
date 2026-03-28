@@ -7,7 +7,7 @@
 
 const DEFAULT_CONFIG = {
     window_size: 10,
-    stagnation_threshold: 1.0,  // Aumentado levemente para 1.0 (evita micro-ruídos)
+    stagnation_threshold: 3.0,  // RIGOR-11 FIX: Aumentado para 3.0 para acomodar ruído natural de simulados
     low_level_limit: 60,        // L1
     high_level_limit: 75,       // L2
     mastery_limit: 85,          // L3 (Teto)

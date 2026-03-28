@@ -450,7 +450,7 @@ export const getCompleteReport = (data) => {
         overallScore: Math.round(
             (efficiency.score +
                 procrastination.score +
-                (streak.current > 0 ? 80 : 40) +
+                (Math.min(100, 40 + streak.current * 2)) +
                 (balance.status === 'excelente' ? 100 : balance.status === 'atencao' ? 70 : 40)) / 4
         ),
         recommendations: [
