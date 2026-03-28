@@ -124,30 +124,33 @@ export default function MonteCarloGauge({
         // Group scores by date for BUG-03 (paths)
         const scoresByDate = {};
         const weightsByName = {};
+        const bayesianStats = [];
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
+                
+                // PERFORMANCE-01 FIX: computeBayesianLevel is expensive O(M). Compute once and re-use.
+                const baye = computeBayesianLevel(history);
                 const stats = computeCategoryStats(history, weight);
-                const bayesian = computeBayesianLevel(history);
 
-                if (stats) {
-                    if (weight > 0) {
-                        totalWeight += weight;
-                        weightedBayesianSum += bayesian.mean * weight;
-                        weightsByName[cat.name] = weight;
+                if (stats && weight > 0) {
+                    totalWeight += weight;
+                    weightedBayesianSum += baye.mean * weight;
+                    weightsByName[cat.name] = weight;
 
-                        history.forEach(h => {
-                            const dk = getDateKey(h.date);
-                            if (dk) {
-                                if (!scoresByDate[dk]) scoresByDate[dk] = {};
-                                scoresByDate[dk][cat.name] = getSafeScore(h);
-                            }
-                        });
-                        // BUG-35 FIX: Só incluir stats de matérias com peso > 0
-                        categoryStats.push({ name: cat.name, ...stats });
-                    }
+                    history.forEach(h => {
+                        const dk = getDateKey(h.date);
+                        if (dk) {
+                            if (!scoresByDate[dk]) scoresByDate[dk] = {};
+                            scoresByDate[dk][cat.name] = getSafeScore(h);
+                        }
+                    });
+                    
+                    categoryStats.push({ name: cat.name, ...stats });
+                    // RIGOR: Factor in the volume of data for each category.
+                    bayesianStats.push({ sd: baye.sd, weight, n: baye.n });
                 }
             }
         });
@@ -161,19 +164,6 @@ export default function MonteCarloGauge({
 
         // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
         // Linear summation of ICs was too conservative (noisy) for students with many subjects.
-        const bayesianStats = [];
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history?.length > 0) {
-                const weight = (debouncedWeights ?? effectiveWeights)[cat.id || cat.name] || 0;
-                if (weight > 0) {
-                    const baye = computeBayesianLevel(cat.simuladoStats.history);
-                    // RIGOR: Factor in the volume of data for each category.
-                    // n is the total number of questions (alpha + beta - 2).
-                    bayesianStats.push({ sd: baye.sd, weight, n: baye.n }); 
-                }
-            }
-        });
-
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
         
