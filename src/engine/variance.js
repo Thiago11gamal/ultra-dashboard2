@@ -32,13 +32,12 @@ export function computeWeightedVariance(stats, totalWeight) {
 
     const weights = stats.map(cat => cat.weight / totalWeight);
     
-    // RIGOR-02 FIX: Standard Error of the Estimate.
-    // We adjust the base SD of each category by its sample size (n).
-    // Fewer questions (n) = higher epistemic uncertainty.
-    // The factor (1.0 / n) acts as a penalty for low-volume data.
+    // RIGOR-09 FIX: Aumentar o peso da incerteza epistêmica. 
+    // Com penalty=1/n, o efeito era negligível (+2%). Agora usamos prior (~20pp).
+    const SEE_PRIOR = 20; 
     const adjustedSDs = stats.map(cat => {
         const n = Math.max(1, cat.n || 0);
-        const penalty = 1.0 / n; 
+        const penalty = (SEE_PRIOR * SEE_PRIOR) / n; 
         return Math.sqrt(Math.pow(cat.sd, 2) + penalty);
     });
 

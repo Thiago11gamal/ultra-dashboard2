@@ -15,17 +15,12 @@ export function getSafeScore(historyRow) {
             return Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
         }
 
-        // Normalização legada (entradas antigas sem isPercentage):
-        // Escala 0-10: s < total E total <= 10 (exclui s === total para evitar ambiguidade)
+        // Normalização universal (entradas sem isPercentage):
+        // Se s <= total, tratamos como fração (ex: 15 de 20 = 75%).
+        // Se s > total, assumimos que já é um valor percentual ou erro de input.
         const total = Number(historyRow.total);
-        // BUG-34 FIX: Usar s <= total (não s < total) para incluir score perfeito (10/10 = 100%)
-        if (total > 0 && total <= 10 && s <= total) {
-            if (s < 1) {
-                s = (s / total) * 100;
-            } else {
-                // Escala 0–10 (ex: 7 de 10 → 70%; 10 de 10 → 100%)
-                s = (s / total) * 100;
-            }
+        if (total > 0 && s <= total) {
+            return (s / total) * 100;
         }
 
         return Number.isFinite(s) ? s : 0;

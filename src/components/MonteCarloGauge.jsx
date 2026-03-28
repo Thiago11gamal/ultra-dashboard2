@@ -202,12 +202,15 @@ export default function MonteCarloGauge({
 
         const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
 
-        // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio)
-        const avgCV = categoryStats.length > 0
+        // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
+        // Usar média ponderada pelos pesos das matérias para evitar que matérias irrelevantes
+        // (peso 1) distorçam o score global de consistência.
+        const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
                 // CV = (SD / Mean) * 100
-                return acc + (cat.mean > 0 ? (cat.sd / cat.mean) * 100 : 0);
-            }, 0) / categoryStats.length
+                const catCV = (cat.mean > 0 ? (cat.sd / cat.mean) * 100 : 0);
+                return acc + (catCV * (cat.weight / totalWeight));
+            }, 0)
             : 0;
 
         return {

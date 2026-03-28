@@ -188,7 +188,7 @@ export function calculateVolatility(history) {
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
         const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
-        const daysBetween = Math.min(30, rawDaysBetween);
+        const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
         // REVISION: Correct detrending using rawDrift
         const detrendedDiff = diff - (rawDrift * rawDaysBetween);
