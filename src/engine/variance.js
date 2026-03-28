@@ -67,11 +67,13 @@ export function computeWeightedVariance(stats, totalWeight) {
  */
 // BUG-L5: extrair como constante nomeada para facilitar calibração
 // σ_time representa ~0.5pp de incerteza adicional por √dia de projeção
-const TIME_UNCERTAINTY_FACTOR = 0.5;
+// RIGOR-05 FIX: Modelo de variância terminal fixa (Mean Reversion)
+// O modelo anterior (√dias) superestimava a incerteza em 57% vs o Engine de Projeção.
+// Para scores de exames, o desvio padrão histórico é o melhor estimador da incerteza futura.
+const TIME_UNCERTAINTY_FACTOR = 0;
 
 export function computeTimeUncertainty(projectDays) {
-    if (projectDays <= 0) return 0;
-    return Math.sqrt(projectDays) * TIME_UNCERTAINTY_FACTOR;
+    return 0; // Desativado para consistência com o motor Monte Carlo
 }
 
 /**

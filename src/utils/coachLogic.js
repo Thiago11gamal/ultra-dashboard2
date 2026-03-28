@@ -316,7 +316,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
         const RAW_MAX_ACTUAL = RAW_MAX_BASE +
             (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
-            (srsBoost > 0 ? cfg.SRS_BOOST * 2.0 : 0) + // headroom para o boost máximo real
+            (srsBoost > 0 ? srsBoost : 0) + // RIGOR-06 FIX: Usar boost real em vez de headroom fixo no denominador
             25; // headroom para mcUrgencyBoost
 
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost + mcUrgencyBoost) - rotationPenalty;

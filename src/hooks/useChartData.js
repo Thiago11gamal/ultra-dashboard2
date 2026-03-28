@@ -64,17 +64,16 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
             }
         }
         if (accumulated.length > 0) {
-            const n    = bayAlpha + bayBeta;
-            const p    = bayAlpha / n;
-            const variance = (bayAlpha * bayBeta) / (n * n * (n + 1));
-            const sd   = Math.max(Math.sqrt(variance), 0.02);
+            // RIGOR-07 FIX: Use the official engine to ensure consistent floors (0.01 vs 0.02)
+            // and identical Z-score / CI calculation across all components.
+            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta);
             dateToStats[date] = {
                 stats: computeCategoryStats(accumulated, 100),
                 last:  accumulated[accumulated.length - 1],
                 bayesian: {
-                    mean:   p * 100,
-                    ciLow:  Math.max(0,   (p - 1.96 * sd) * 100),
-                    ciHigh: Math.min(100, (p + 1.96 * sd) * 100),
+                    mean:   bayStats.mean,
+                    ciLow:  bayStats.ciLow,
+                    ciHigh: bayStats.ciHigh,
                     alpha:  bayAlpha,
                     beta:   bayBeta,
                 },

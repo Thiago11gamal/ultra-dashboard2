@@ -101,9 +101,17 @@ export function calculateTrend(history) {
         if (df <= 15) {
             tCrit = tDist95[df] || 1.96;
         } else {
-            // Linear interpolation or closest lower for safety
-            const keys = Object.keys(tDist95).map(Number).filter(k => k > 15).sort((a,b) => a-b);
-            tCrit = tDist95[keys.find(k => k >= df)] || 1.96;
+            // MATH-03 FIX: Implement linear interpolation between table nodes
+            // Previously used keys.find() which picked the 'higher' key, subestimating tCrit
+            const lo = keys.filter(k => k <= df).at(-1);
+            const hi = keys.find(k => k > df);
+            
+            if (lo && hi) {
+                const t = (df - lo) / (hi - lo);
+                tCrit = tDist95[lo] * (1 - t) + tDist95[hi] * t;
+            } else {
+                tCrit = tDist95[hi || lo] || 1.96;
+            }
         }
 
         if (Math.abs(tStat) < tCrit) return 0;
