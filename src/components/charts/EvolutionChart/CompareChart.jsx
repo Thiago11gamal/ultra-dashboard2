@@ -150,6 +150,12 @@ export function CompareChart({
                         dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
+                    
+                    <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={true}>
+                        <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
+                    </Line>
+                    
+                    <Line type="monotone" dataKey="Futuro Provável" stroke="#ef4444" strokeWidth={1.5}
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== filteredChartData.length - 1) return null;

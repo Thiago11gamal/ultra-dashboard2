@@ -99,10 +99,10 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                     return null;
                                 }}
                             />
-                            <Bar dataKey="questoes" name="Questões Resolvidas" fill="url(#gradQuestoes)" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                            <Bar dataKey="questoes" name="Questões Resolvidas" fill="url(#gradQuestoes)" radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                 <LabelList dataKey="questoes" position="top" style={{ fill: '#818cf8', fontSize: 9, fontWeight: 'bold' }} />
                             </Bar>
-                            <Bar dataKey="acertos" name="Número de Acertos" fill="url(#gradAcertos)" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                            <Bar dataKey="acertos" name="Número de Acertos" fill="url(#gradAcertos)" radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                 <LabelList dataKey="acertos" position="top" style={{ fill: '#34d399', fontSize: 9, fontWeight: 'bold' }} />
                             </Bar>
                         </BarChart>

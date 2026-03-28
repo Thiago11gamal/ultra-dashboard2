@@ -23,7 +23,7 @@ export function RadarAnalysis({ radarData }) {
                     <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
                         <PolarGrid stroke="rgba(255,255,255,0.1)" strokeDasharray="0" />
                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#475569', fontSize: 8 }} axisLine={false} />
                         <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeOpacity={0.5} fill="none" />
                         <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: 'url(#lineShadow)' }} />
                         <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
