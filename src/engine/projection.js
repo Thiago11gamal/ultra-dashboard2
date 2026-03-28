@@ -358,7 +358,9 @@ export function monteCarloSimulation(
         : 1;
 
     const simulationDays = days;
-    const dayDrift = days === 0 ? 0 : drift;
+    // MATH-M1 FIX: O 'drift' (slope) vindo de stats.js está normalizado (x10). 
+    // Para o loop diário da simulação, dividimos por 10 para obter a taxa real por dia.
+    const dayDrift = days === 0 ? 0 : (drift / 10);
 
     // BUG-06 FIX: Hoist calculations out of the simulation loops to save Math.sqrt calls
     const sigma = simulationDays > 0 ? volatility / Math.sqrt(simulationDays) : 0;

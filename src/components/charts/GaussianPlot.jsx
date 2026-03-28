@@ -157,8 +157,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
 
     // V1 FIX: Position "Hoje" label dynamically above the curve point
+    // MATH-VISUAL: Remover o clamp de 38% que forçava o rótulo a flutuar no alto quando a nota era baixa.
+    // Agora o rótulo desce até a altura real da densidade da curva.
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
-    const hojeTop = Math.max(0, Math.min(hojeYPercent - 12, 38));
+    const hojeTop = Math.max(0, hojeYPercent - 12); // Posição ancorada à densidade, com offset para o texto
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
