@@ -20,10 +20,16 @@ export const normalize = (str) => {
  * Values are arrays of alternative names (also normalized potentially, but usually raw variations).
  */
 export const aliases = {
-    'informatica': ['noções de informática', 'info', 'computação'],
-    'raciocinio logico': ['rlm', 'raciocínio lógico matemático', 'raciocinio logico quantitativo'],
-    'etica no servico publico': ['etica', 'ética no serviço público', 'ética'],
-    'direito constitucional': ['const', 'constitucional'],
-    'direito administrativo': ['adm', 'administrativo'],
-    'lingua portuguesa': ['portugues', 'português', 'pt'],
+    'informatica': ['noções de informática', 'info', 'computação', 'ti', 'tecnologia da informação', 'informática'],
+    'raciocinio logico': ['rlm', 'raciocínio lógico matemático', 'raciocinio logico quantitativo', 'rl', 'lógica', 'raciocínio'],
+    'etica no servico publico': ['etica', 'ética no serviço público', 'ética', 'ética e cidadania'],
+    'direito constitucional': ['const', 'constitucional', 'dir. const', 'd. const', 'constituição', 'dir const'],
+    'direito administrativo': ['adm', 'administrativo', 'dir. adm', 'd. adm', 'adm pública', 'dir adm'],
+    'lingua portuguesa': ['portugues', 'português', 'pt', 'gramática', 'interpretação de textos', 'port.'],
+    'atualidades': ['conhecimentos gerais', 'mundo atual', 'geopolítica'],
+    'direito penal': ['penal', 'dir. penal', 'd. penal', 'dp', 'dir penal'],
+    'direito processual penal': ['processo penal', 'dpp', 'dir. proc. penal', 'dir proc penal'],
+    'direitos humanos': ['dh', 'humanos', 'd. humanos'],
+    'direito civil': ['civil', 'dir. civil', 'd. civil', 'dc', 'dir civil'],
+    'direito processual civil': ['processo civil', 'dpc', 'dir. proc. civil', 'dir proc civil']
 };

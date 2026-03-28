@@ -1,5 +1,8 @@
 import { INITIAL_DATA } from '../data/initialData';
 import { generateId } from '../utils/idGenerator';
+import { normalize, aliases } from '../utils/normalization';
+import { getDateKey } from '../utils/dateHelper';
+import { computeCategoryStats } from '../engine';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 
@@ -8,34 +11,101 @@ export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 
  * Garante que o app sempre tenha uma estrutura válida, mesmo com dados corrompidos.
  */
 
+/**
+ * REPAIR ENGINE: Rebuilds category history from raw simulation logs
+ * if discrepancies are detected. This is a SILENT repair that happens
+ * during each state update from Firebase or LocalStorage.
+ */
+const repairContestHistory = (data) => {
+  if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
+
+  const rows = data.simuladoRows;
+  let hasRepaired = false;
+
+  data.categories.forEach(cat => {
+    const catNorm = normalize(cat.name);
+    const catAliases = aliases[catNorm] || [];
+    
+    // Find all rows belonging to this category
+    const myRows = rows.filter(r => {
+      const subNorm = normalize(r.subject);
+      return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+    });
+
+    if (myRows.length === 0) return;
+
+    const currentHistory = cat.simuladoStats?.history || [];
+    
+    // SILENT HEAL: If we have logs but the history is empty or too sparse
+    if (currentHistory.length === 0 || (myRows.length > 5 && currentHistory.length < 2)) {
+      hasRepaired = true;
+      
+      const dailyStats = {};
+      myRows.forEach(r => {
+        const dk = getDateKey(new Date(r.createdAt || r.date));
+        if (!dk) return;
+        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
+        dailyStats[dk].correct += (parseInt(r.correct, 10) || 0);
+        dailyStats[dk].total += (parseInt(r.total, 10) || 0);
+      });
+
+      const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => ({
+        date,
+        correct: stats.correct,
+        total: stats.total,
+        score: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+      })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10);
+      
+      cat.simuladoStats = {
+        history: rebuiltHistory.slice(-50),
+        average: Number(statsResult.mean.toFixed(1)),
+        trend: statsResult.trend || 'stable',
+        lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
+        level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
+      };
+    }
+  });
+
+  if (hasRepaired) {
+    console.log(`%c[SchemaRepair] Histórico reconstruído com sucesso de ${rows.length} registros.`, "color: #10b981; font-weight: bold;");
+    data.lastUpdated = new Date().toISOString();
+  }
+  
+  return data;
+};
+
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
+  
+  const source = repairContestHistory(data);
   
   // FORTRESS-01: Defensive initialization for all top-level keys
   return {
     user: {
-      ...(data.user && typeof data.user === 'object' ? data.user : {}),
-      name: data.user?.name || "Estudante",
-      avatar: data.user?.avatar || "👤",
-      startDate: data.user?.startDate || new Date().toISOString().split('T')[0],
-      goalDate: data.user?.goalDate || null,
-      targetScore: (data.user?.targetScore != null) ? Number(data.user.targetScore) : DEFAULT_TARGET_SCORE,
-      xp: Number(data.user?.xp) || 0,
-      level: Number(data.user?.level) || 1,
-      achievements: (Array.isArray(data.user?.achievements) ? data.user.achievements : [])
+      ...(source.user && typeof source.user === 'object' ? source.user : {}),
+      name: source.user?.name || "Estudante",
+      avatar: source.user?.avatar || "👤",
+      startDate: source.user?.startDate || new Date().toISOString().split('T')[0],
+      goalDate: source.user?.goalDate || null,
+      targetScore: (source.user?.targetScore != null) ? Number(source.user.targetScore) : DEFAULT_TARGET_SCORE,
+      xp: Number(source.user?.xp) || 0,
+      level: Number(source.user?.level) || 1,
+      achievements: (Array.isArray(source.user?.achievements) ? source.user.achievements : [])
         .map(a => typeof a === 'string' ? a : a?.id)
         .filter(Boolean),
-      studiedEarly: Boolean(data.user?.studiedEarly),
-      studiedLate: Boolean(data.user?.studiedLate),
-      targetProbability: (data.user?.targetProbability != null && Number.isFinite(Number(data.user.targetProbability)))
-        ? Number(data.user.targetProbability)
+      studiedEarly: Boolean(source.user?.studiedEarly),
+      studiedLate: Boolean(source.user?.studiedLate),
+      targetProbability: (source.user?.targetProbability != null && Number.isFinite(Number(source.user.targetProbability)))
+        ? Number(source.user.targetProbability)
         : 70
     },
-    coachPlan: Array.isArray(data.coachPlan) ? data.coachPlan : [],
-    coachPlanner: (data.coachPlanner && typeof data.coachPlanner === 'object')
-      ? data.coachPlanner
+    coachPlan: Array.isArray(source.coachPlan) ? source.coachPlan : [],
+    coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
+      ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-    categories: (Array.isArray(data.categories) ? data.categories : []).map(cat => ({
+    categories: (Array.isArray(source.categories) ? source.categories : []).map(cat => ({
       id: cat.id || generateId('cat'),
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
@@ -58,26 +128,26 @@ const sanitizeContest = (data) => {
       simuladoStats: {
         // Deep-strip nulls/poison from history
         history: (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : [])
-          .filter(h => h && typeof h === 'object' && h.date && h.total > 0), 
+          .filter(h => h && typeof h === 'object' && h.date && (h.total > 0 || h.score != null)), 
         average: Number(cat.simuladoStats?.average) || 0,
         lastAttempt: Number(cat.simuladoStats?.lastAttempt) || 0,
         trend: cat.simuladoStats?.trend || "stable",
         level: cat.simuladoStats?.level || "BAIXO"
       }
     })),
-    simuladoRows: (Array.isArray(data.simuladoRows) ? data.simuladoRows : []).filter(r => r && r.id),
-    simulados: (Array.isArray(data.simulados) ? data.simulados : []).filter(s => s && s.id),
-    studyLogs: (Array.isArray(data.studyLogs) ? data.studyLogs : []).filter(l => l && l.id),
-    studySessions: (Array.isArray(data.studySessions) ? data.studySessions : []).filter(s => s && s.id),
-    notes: typeof data.notes === 'string' ? data.notes : "",
+    simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : []).filter(r => r && r.id),
+    simulados: (Array.isArray(source.simulados) ? source.simulados : []).filter(s => s && s.id),
+    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : []).filter(l => l && l.id),
+    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : []).filter(s => s && s.id),
+    notes: typeof source.notes === 'string' ? source.notes : "",
     settings: {
-      darkMode: (data.settings?.darkMode === 'auto' || typeof data.settings?.darkMode === 'boolean') ? data.settings.darkMode : 'auto',
-      soundEnabled: data.settings?.soundEnabled ?? true,
-      pomodoroWork: Number(data.settings?.pomodoroWork) || 25,
-      pomodoroBreak: Number(data.settings?.pomodoroBreak) || 5,
+      darkMode: (source.settings?.darkMode === 'auto' || typeof source.settings?.darkMode === 'boolean') ? source.settings.darkMode : 'auto',
+      soundEnabled: source.settings?.soundEnabled ?? true,
+      pomodoroWork: Number(source.settings?.pomodoroWork) || 25,
+      pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
     },
-    mcWeights: (data.mcWeights && typeof data.mcWeights === 'object') ? data.mcWeights : {},
-    lastUpdated: (data.lastUpdated && !isNaN(new Date(data.lastUpdated).getTime())) ? data.lastUpdated : new Date().toISOString(),
+    mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
+    lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };
 };
 
