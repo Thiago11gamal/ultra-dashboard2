@@ -64,6 +64,8 @@ body::before {
   z-index: -1;
   animation: meshMove 30s ease-in-out infinite alternate;
   opacity: var(--mesh-opacity, 1);
+  /* PERFORM-01: GPU acceleration for fixed mesh */
+  will-change: transform; 
 }
 
 .light-mode body::before {
@@ -71,13 +73,8 @@ body::before {
 }
 
 @keyframes meshMove {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  100% {
-    transform: translate(-20px, -20px) scale(1.05);
-  }
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-20px, -20px, 0) scale(1.05); }
 }
 
 /* Glassmorphism utility */
@@ -88,6 +85,8 @@ body::before {
   border: 1px solid var(--glass-border);
   border-radius: 1.25rem;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
 }
 
 .glass-hover {
@@ -108,6 +107,29 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 1.75rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
+}
+
+/* Elastic Hover Effect - PREMIUM */
+.elastic-hover {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.elastic-hover:hover {
+  transform: scale(1.05) translateY(-2px);
+}
+.elastic-hover:active {
+  transform: scale(0.95);
+}
+
+/* Page transitions */
+@keyframes pageEntrance {
+  0% { opacity: 0; transform: scale(0.98); filter: blur(4px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+.animate-page-entrance {
+  animation: pageEntrance 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Neon text effect */
