@@ -20,3 +20,24 @@ export const formatDisplayDate = (dateStr) => {
     if (parts.length < 3) return dateStr;
     return `${parts[2]}/${parts[1]}`;
 };
+
+/**
+ * Normalizes any date input (string or Date) to a JS Date object at Local Noon
+ * to prevent UTC off-by-one errors when comparing YYYY-MM-DD strings.
+ */
+export const normalizeDate = (raw) => {
+    if (!raw) return null;
+    let d;
+    if (typeof raw === 'string') {
+        // Handle YYYY-MM-DD
+        if (raw.length === 10 && raw.includes('-')) {
+            d = new Date(`${raw}T12:00:00`);
+        } else {
+            d = new Date(raw);
+        }
+    } else {
+        d = new Date(raw);
+    }
+    if (isNaN(d.getTime())) return null;
+    return d;
+};

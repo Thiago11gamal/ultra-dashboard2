@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS } from '../engine/stats';
 
 function buildCumulativeStatsPerDate(history, sortedDates) {
@@ -24,7 +24,11 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         }
     }
 
-    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => {
+        const dA = normalizeDate(a.date);
+        const dB = normalizeDate(b.date);
+        return (dA?.getTime() || 0) - (dB?.getTime() || 0);
+    });
 
     const dateToStats = {};
     let accumulated = [];
@@ -103,7 +107,8 @@ export function useChartData(categories = []) {
             });
         });
 
-        const dates = Array.from(allDatesSet).sort();
+        const sortedDates = Array.from(allDatesSet).sort();
+        const dates = sortedDates;
         const dataByDate = {};
 
         dates.forEach((date) => {
@@ -115,7 +120,11 @@ export function useChartData(categories = []) {
         });
 
         activeCategories.forEach(cat => {
-            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => {
+                const dA = normalizeDate(a.date);
+                const dB = normalizeDate(b.date);
+                return (dA?.getTime() || 0) - (dB?.getTime() || 0);
+            });
             if (!history.length) return;
 
             const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
@@ -176,9 +185,10 @@ export function useChartData(categories = []) {
             });
         });
 
-        const sortedDates = Array.from(allDatesSet).sort().slice(-60);
-        const dates = sortedDates.map(dateStr => {
-            const d = new Date(`${dateStr}T12:00:00`);
+        const sortedDates = Array.from(allDatesSet).sort();
+        const datesToUse = sortedDates.slice(-60);
+        const dates = datesToUse.map(dateStr => {
+            const d = normalizeDate(dateStr);
             const [_y, m, day] = dateStr.split('-');
             return {
                 key: dateStr,
@@ -198,7 +208,7 @@ export function useChartData(categories = []) {
                 dayMap[key].total += (Number(h.total) || 0);
             });
 
-            const cells = sortedDates.map(dateStr => {
+            const cells = datesToUse.map(dateStr => {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
                 return {

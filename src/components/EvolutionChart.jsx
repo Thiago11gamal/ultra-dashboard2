@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { monteCarloSimulation, computeCategoryStats, calculateCurrentWeightedMean, computeBayesianLevel, calculateVolatility } from "../engine";
 import { useChartData } from "../hooks/useChartData";
-import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
-import { getDateKey } from "../utils/dateHelper";
+import { getDateKey, normalizeDate } from "../utils/dateHelper";
 import { getSafeScore } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2 } from "lucide-react";
@@ -200,35 +199,50 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const rollingLimit = new Date(now);
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
+
         categories.forEach(cat => {
-            (cat.simuladoStats?.history || []).filter(h => {
-                const rawString = String(h.date);
-                const d = rawString.length === 10 ? new Date(`${rawString}T12:00:00`) : new Date(rawString);
-                return !isNaN(d.getTime()) && d >= rollingLimit;
-            }).forEach(h => {
+            const history = cat.simuladoStats?.history || [];
+            if (!history.length) return;
+
+            // PERFORMANCE-02: Optimized filtering.
+            for (let i = history.length - 1; i >= 0; i--) {
+                const h = history[i];
+                const d = normalizeDate(h.date);
+                if (!d || d < rollingLimit) {
+                   // Since history is usually sorted, we could break here if we were sure.
+                   // But let's stay safe and just skip.
+                   if (d && d < rollingLimit && i < history.length - 20) break; // Heuristic break
+                   continue;
+                }
+
                 (h.topics || []).forEach(t => {
                     const n = String(t.name || '').trim();
+                    if (!n) return;
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
-                    const total = t.total != null ? parseInt(t.total, 10) : 10;
+                    
+                    const total = parseInt(t.total, 10) || 10;
                     const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * 10);
                     topicMap[key].errors += Math.max(0, total - correct);
                 });
-            });
+            }
         });
+
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        return Object.values(topicMap)
+        const result = Object.values(topicMap)
             .filter(d => d.errors > 0)
-            .map(d => {
-                const isLong = d.name.length > 20;
-                return {
-                    name: isLong ? d.name.substring(0, 18) + '...' : d.name,
-                    fullName: d.name,
-                    value: d.errors
-                };
-            })
-            .sort((a, b) => b.value - a.value)
-            .map((item, i, arr) => ({ ...item, fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))] }));
+            .sort((a, b) => b.value - a.value);
+
+        return result.slice(0, 15).map((item, i, arr) => {
+            const isLong = item.name.length > 20;
+            return {
+                ...item,
+                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
+                fullName: item.name,
+                value: item.errors,
+                fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))]
+            };
+        });
     }, [categories]);
 
     const pointLeakageData = useMemo(() => {
@@ -237,24 +251,32 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const rollingLimit = new Date(now);
         rollingLimit.setDate(now.getDate() - 7);
         rollingLimit.setHours(0, 0, 0, 0);
+
         let totalErrors = 0;
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
+        
         const rawData = categories.map(cat => {
             let errors = 0;
-            (cat.simuladoStats?.history || []).filter(h => {
-                const rawString = String(h.date);
-                const d = rawString.length === 10 ? new Date(`${rawString}T12:00:00`) : new Date(rawString);
-                return !isNaN(d.getTime()) && d >= rollingLimit;
-            }).forEach(h => {
-                const total = h.total != null ? parseInt(h.total, 10) : 10;
+            const history = cat.simuladoStats?.history || [];
+            
+            // PERFORMANCE-03: Optimized backwards loop for Point Leakage
+            for (let i = history.length - 1; i >= 0; i--) {
+                const h = history[i];
+                const d = normalizeDate(h.date);
+                if (!d || d < rollingLimit) {
+                    if (d && d < rollingLimit && i < history.length - 20) break;
+                    continue;
+                }
+                const total = parseInt(h.total, 10) || 10;
                 const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
                 errors += Math.max(0, total - correct);
-            });
+            }
             totalErrors += errors;
             return { name: cat.name, value: errors };
         });
+
         const data = rawData.filter(d => d.value > 0).sort((a, b) => b.value - a.value);
-        return data.map((item, i, arr) => {
+        return data.slice(0, 10).map((item, i, arr) => {
             const isLong = item.name.length > 20;
             return {
                 ...item,

@@ -167,7 +167,9 @@ export default function MonteCarloGauge({
                 const weight = (debouncedWeights ?? effectiveWeights)[cat.id || cat.name] || 0;
                 if (weight > 0) {
                     const baye = computeBayesianLevel(cat.simuladoStats.history);
-                    bayesianStats.push({ sd: baye.sd, weight });
+                    // RIGOR: Factor in the volume of data for each category.
+                    // n is the total number of questions (alpha + beta - 2).
+                    bayesianStats.push({ sd: baye.sd, weight, n: baye.n }); 
                 }
             }
         });
