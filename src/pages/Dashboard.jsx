@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import VerifiedStats from '../components/VerifiedStats';
@@ -7,6 +7,9 @@ import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
+import { normalize, aliases } from '../utils/normalization';
+import { getDateKey } from '../utils/dateHelper';
+import { computeCategoryStats } from '../engine';
 
 export default function Dashboard() {
     const setAppState = useAppStore(state => state.setAppState);
@@ -18,6 +21,67 @@ export default function Dashboard() {
 
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     
+    // --- ENGINE DE REPARAÇÃO DE DADOS (MONTE CARLO RESTORE) ---
+    useEffect(() => {
+        if (!data || !data.categories || !data.simuladoRows || data.simuladoRows.length === 0) return;
+
+        // Verificar se há discrepância entre simuladoRows e history
+        const totalRows = data.simuladoRows.length;
+        const totalHistoryPoints = (data.categories || []).reduce((acc, cat) => acc + (cat.simuladoStats?.history?.length || 0), 0);
+
+        // Se temos muitos logs de questões mas o histórico agregado está vazio/baixo, iniciamos o reparo.
+        if (totalRows > 0 && totalHistoryPoints < Math.min(totalRows, 5)) {
+            console.log(`%c[DataRepair] Detectada discrepância: ${totalRows} logs vs ${totalHistoryPoints} pontos de histórico. Iniciando restauração...`, "color: #a855f7; font-weight: bold;");
+            
+            setData(prev => {
+                const newCategories = JSON.parse(JSON.stringify(prev.categories || []));
+                const rows = prev.simuladoRows || [];
+
+                newCategories.forEach(cat => {
+                    const catNorm = normalize(cat.name);
+                    const catAliases = aliases[catNorm] || [];
+                    
+                    // Filtrar logs para esta matéria
+                    const myRows = rows.filter(r => {
+                        const subNorm = normalize(r.subject);
+                        return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+                    });
+
+                    if (myRows.length > 0) {
+                        // Agrupar por data para reconstruir o histórico diário
+                        const dailyStats = {};
+                        myRows.forEach(r => {
+                            const dk = getDateKey(new Date(r.createdAt));
+                            if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
+                            dailyStats[dk].correct += (parseInt(r.correct, 10) || 0);
+                            dailyStats[dk].total += (parseInt(r.total, 10) || 0);
+                        });
+
+                        const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => ({
+                            date,
+                            correct: stats.correct,
+                            total: stats.total,
+                            score: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+                        })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                        // Atualizar estatísticas da categoria
+                        const statsResult = computeCategoryStats(rebuiltHistory, 1);
+                        cat.simuladoStats = {
+                            history: rebuiltHistory.slice(-50),
+                            average: Number(statsResult.mean.toFixed(1)),
+                            trend: statsResult.trend || 'stable',
+                            lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
+                            level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
+                        };
+                    }
+                });
+
+                return { ...prev, categories: newCategories, lastUpdated: new Date().toISOString() };
+            });
+            showToast("Dados de simulados sincronizados e restaurados! 💎", "success");
+        }
+    }, [data, setData, showToast]);
+
     // GUARDA DE SEGURANÇA: Previne crash se o estado mudar rapidamente durante a restauração
     if (!data || !data.categories) {
         return (
@@ -33,11 +97,6 @@ export default function Dashboard() {
                     <div className="space-y-2">
                         <h3 className="text-xl font-black text-white tracking-widest uppercase">Sincronizando</h3>
                         <p className="text-purple-300/60 font-mono text-xs animate-pulse">Estabelecendo conexão segura com a nuvem...</p>
-                    </div>
-                    <div className="flex gap-1.5 justify-center">
-                        {[0, 1, 2].map(i => (
-                            <div key={i} className="w-2 h-2 rounded-full bg-purple-500/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                        ))}
                     </div>
                 </div>
             </div>
