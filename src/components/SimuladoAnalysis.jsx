@@ -98,11 +98,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
             const invalidSubjects = new Set();
             const invalidTopics = new Set();
+            const overflowRows = new Set(); // NEW: correct > total
             let firstInvalidSubject = null;
             let firstInvalidTopic = null;
+            let firstOverflow = null;
             let targetSubject = '';
 
             rows.forEach((r, idx) => {
+                const totalVal = parseInt(r.total, 10) || 0;
+                const correctVal = parseInt(r.correct, 10) || 0;
+                
+                if (correctVal > totalVal) {
+                    overflowRows.add(idx);
+                    if (!firstOverflow) firstOverflow = { c: correctVal, t: totalVal, s: r.subject };
+                }
+
                 if (!r.subject && !r.topic) return;
 
                 const subNorm = normalize(r.subject);
@@ -139,10 +149,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
             });
 
-            if (invalidSubjects.size > 0 || invalidTopics.size > 0) {
-                setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
+            if (overflowRows.size > 0 || invalidSubjects.size > 0 || invalidTopics.size > 0) {
+                setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics, overflow: overflowRows });
 
-                if (firstInvalidSubject && firstInvalidTopic) {
+                if (firstOverflow) {
+                    setError(`Erro em ${firstOverflow.s}: Acertos (${firstOverflow.c}) não podem ser maiores que o Total (${firstOverflow.t}).`);
+                } else if (firstInvalidSubject && firstInvalidTopic) {
                     setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
                 } else if (firstInvalidSubject) {
                     setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
@@ -155,7 +167,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 return;
             }
             // Clear errors if all valid
-            setErrorIndices({ subjects: new Set(), topics: new Set() });
+            setErrorIndices({ subjects: new Set(), topics: new Set(), overflow: new Set() });
         }
 
         const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total, 10) > 0);
@@ -347,7 +359,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                        className={`group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border ${errorIndices.overflow?.has(index) ? 'border-red-500/50 bg-red-500/5' : 'border-transparent hover:border-slate-700/60'}`}>
                                         <input type="text" value={row.subject}
                                             disabled={true}
                                             className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
