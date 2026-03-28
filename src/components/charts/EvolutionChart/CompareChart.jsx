@@ -133,20 +133,12 @@ export function CompareChart({
                     
                     <Area type="monotone" dataKey="Banda Bayesiana" stroke="none" fill="url(#bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#ff0000" fillOpacity={0.7} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#ff0000" strokeWidth={1} strokeOpacity={0.7} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    {/* VISUAL-FIX: Cor do Ganho mudada para ESMERALDA (#10b981) e opacidade reduzida para semântica de progresso positiva */}
+                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#10b981" fillOpacity={0.15} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.3} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
                     <Area type="monotone" dataKey="Cenário Range" fill="url(#cloudGradient)" stroke="none" legendType="none" />
                     
                     <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
-                        strokeLinecap="round" strokeLinejoin="round"
-                        fill="url(#greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
-                        activeDot={false} connectNulls style={{ filter: 'url(#lineShadow)' }} isAnimationActive={true}>
-                        <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
-                    </Area>
-                    
-                    <Line type="monotone" dataKey="Futuro Provável" stroke="#6366f1" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={false} connectNulls isAnimationActive={true} />
-                    
-                    <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2}
                         strokeLinecap="round" strokeLinejoin="round"
                         dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
