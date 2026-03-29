@@ -5,8 +5,14 @@ import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot } from 'firebase/firestore';
 import { logger } from '../utils/logger';
 
-// BUG-18 FIX: Chave Stripe movida para variável de ambiente
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "pk_live_51T9dWWFOUB7khZQdScYwgc2kgKeH0gs6kQYqmJN79PHNQoGEWtD6W9yGSQBBrfzZFPfv00lbmZn7n5jhq8vNoYJ800JcXlq3qQ");
+// BUG-22 FIX: Stripe initialization moved inside the component to avoid module-level DNS errors
+let stripePromise = null;
+const getStripe = () => {
+    if (!stripePromise) {
+        stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "pk_live_51T9dWWFOUB7khZQdScYwgc2kgKeH0gs6kQYqmJN79PHNQoGEWtD6W9yGSQBBrfzZFPfv00lbmZn7n5jhq8vNoYJ800JcXlq3qQ");
+    }
+    return stripePromise;
+};
 
 export default function Paywall({ user, onLogout }) {
     const [loading, setLoading] = useState(false);
@@ -83,7 +89,7 @@ export default function Paywall({ user, onLogout }) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
                     logger.log("[Stripe] Redirecionando via SessionId...");
-                    const stripe = await stripePromise;
+                    const stripe = await getStripe();
                     stripe.redirectToCheckout({ sessionId });
                 }
             });

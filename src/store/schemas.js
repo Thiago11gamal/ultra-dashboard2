@@ -52,7 +52,11 @@ const repairContestHistory = (data) => {
     // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
     const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.createdAt || r.date || r.createdAt?._seconds || r.date?._seconds)).filter(Boolean)).size;
 
-    if (currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
+    // BUG-FIX LETHAL: Força o reparo das propriedades se tivermos registros sem a flag `isPercentage`. 
+    // Isso garante que arquivos de histórico legados ou da reconstrução anterior sejam desfeitos e refeitos do zero.
+    const hasCorruptedHistory = currentHistory.length > 0 && currentHistory.some(h => !h.isPercentage);
+
+    if (hasCorruptedHistory || currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
       console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${uniqueDaysInLogs} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
 
@@ -69,7 +73,8 @@ const repairContestHistory = (data) => {
         date,
         correct: stats.correct,
         total: stats.total,
-        score: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+        score: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0,
+        isPercentage: true
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10);

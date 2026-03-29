@@ -10,6 +10,14 @@ export const getDateKey = (rawDate) => {
     if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
         const secs = rawDate.seconds || rawDate._seconds;
         date = new Date(secs * 1000);
+    } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
+        // Suporte ao padrão DD/MM/YYYY (importação/CSV)
+        const parts = rawDate.split(/[\/\-]/);
+        if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
+             date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+        } else {
+             date = new Date(rawDate);
+        }
     } else {
         date = new Date(rawDate);
     }

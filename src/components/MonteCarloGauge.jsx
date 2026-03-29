@@ -100,10 +100,7 @@ export default function MonteCarloGauge({
     }, [equalWeightsMode, weights, activeCategories, getEqualWeights]);
 
     const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
-    // BUGFIX M4: inicializar como null para aguardar hidratação do Zustand.
-    // Inicializar com effectiveWeights causava um setState com pesos padrão (todos=1)
-    // que sobrescrevia os pesos customizados salvos antes do Zustand reidratar.
-    const [debouncedWeights, setDebouncedWeights] = useState(null);
+    const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedTarget(targetScore), 300);
@@ -244,8 +241,10 @@ export default function MonteCarloGauge({
             }
         });
 
-        if (totalPoints < 5) return { status: 'waiting', missing: 'count', count: totalPoints };
-        if (uniqueDates.size < 3) return { status: 'waiting', missing: 'days', days: uniqueDates.size };
+        if (totalPoints < 1) return { status: 'waiting', missing: 'count', count: totalPoints };
+        // BUG FIX: Removida a exigência restrita de 3 dias diferentes para evitar que
+        // o Monte Carlo fique invisível até o terceiro dia de uso do aplicativo.
+        // Se houver apenas 1 dia, a tendência futura será calculada como 0 (estável).
 
         // 2. Motor de Simulação (BUG-03 paths vs BUG-08 pooled)
         const isFuture = projectDays > 0;
