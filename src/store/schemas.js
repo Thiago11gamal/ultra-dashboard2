@@ -21,23 +21,39 @@ const repairContestHistory = (data) => {
 
   const rows = data.simuladoRows;
   let hasRepaired = false;
+  
+  // DIAGNOSTIC CORE: Log summary of what we are dealing with
+  const rawSubjects = [...new Set(rows.map(r => normalize(r.subject)).filter(Boolean))];
+  console.log("%c[Schema-Diag] Matérias brutas na nuvem:", "color: #3b82f6; font-weight: bold;", rawSubjects);
+  console.log("%c[Schema-Diag] Categorias no Dashboard:", "color: #a855f7; font-weight: bold;", data.categories.map(c => normalize(c.name)));
 
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
     
-    // Find all rows belonging to this category
+    // AGGRESSIVE MATCHING: Use includes() for partial matches (e.g. 'dir adm' matches 'direitoadministrativo')
     const myRows = rows.filter(r => {
       const subNorm = normalize(r.subject);
-      return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+      if (!subNorm) return false;
+      return subNorm === catNorm || 
+             catAliases.some(a => normalize(a) === subNorm) ||
+             catNorm.includes(subNorm) || 
+             subNorm.includes(catNorm);
     });
 
-    if (myRows.length === 0) return;
+    if (myRows.length === 0) {
+      console.warn(`[Schema-Diag] Nenhuma correspondência para: ${cat.name}`);
+      return;
+    }
 
     const currentHistory = cat.simuladoStats?.history || [];
     
-    // SILENT HEAL: If we have logs but the history is empty or too sparse
-    if (currentHistory.length === 0 || (myRows.length > 5 && currentHistory.length < 2)) {
+    // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
+    // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
+    const rowCountsByDate = new Set(myRows.map(r => getDateKey(new Date(r.createdAt || r.date))).filter(Boolean)).size;
+    
+    if (currentHistory.length === 0 || rowCountsByDate > currentHistory.length * 1.5) {
+      console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${rowCountsByDate} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
       
       const dailyStats = {};
@@ -65,11 +81,13 @@ const repairContestHistory = (data) => {
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
         level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
       };
+    } else {
+      console.log(`[Schema-Diag] ${cat.name} está íntegro (${currentHistory.length} pontos).`);
     }
   });
 
   if (hasRepaired) {
-    console.log(`%c[SchemaRepair] Histórico reconstruído com sucesso de ${rows.length} registros.`, "color: #10b981; font-weight: bold;");
+    console.log(`%c[Schema-Repair] Cura letal concluída em ${rows.length} registros.`, "color: #10b981; font-weight: bold; font-size: 1.1em;");
     data.lastUpdated = new Date().toISOString();
   }
   
