@@ -13,57 +13,56 @@ export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 
 
 /**
  * REPAIR ENGINE: Rebuilds category history from raw simulation logs
+ * if discrepancies are detected. This is a SILENT repair that happens
+ * during each state update from Firebase or LocalStorage.
  */
 const repairContestHistory = (data) => {
   if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
 
   const rows = data.simuladoRows;
   let hasRepaired = false;
-  
+
+  // DIAGNOSTIC CORE: Log summary of what we are dealing with
   const rawSubjects = [...new Set(rows.map(r => normalize(r.subject)).filter(Boolean))];
-  const matchedSubjects = new Set();
+  console.log("%c[Schema-Diag] Matérias brutas na nuvem:", "color: #3b82f6; font-weight: bold;", rawSubjects);
+  console.log("%c[Schema-Diag] Categorias no Dashboard:", "color: #a855f7; font-weight: bold;", data.categories.map(c => normalize(c.name)));
 
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
-    const catWords = catNorm.split(' ').filter(w => w.length > 3);
 
+    // AGGRESSIVE MATCHING: Use includes() for partial matches (e.g. 'dir adm' matches 'direitoadministrativo')
     const myRows = rows.filter(r => {
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
-
-      // 1. Direct or Alias Match
-      const isDirect = subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
-      if (isDirect) { matchedSubjects.add(subNorm); return true; }
-
-      // 2. Inclusion Match (Partial mapping)
-      const isIncluded = catNorm.includes(subNorm) || subNorm.includes(catNorm);
-      if (isIncluded) { matchedSubjects.add(subNorm); return true; }
-
-      // 3. ATOMIC MATCH (Word overlap)
-      const subWords = subNorm.split(' ').filter(w => w.length > 3);
-      const hasOverlap = catWords.some(cw => subWords.includes(cw));
-      if (hasOverlap) { matchedSubjects.add(subNorm); return true; }
-
-      return false;
+      return subNorm === catNorm ||
+        catAliases.some(a => normalize(a) === subNorm) ||
+        catNorm.includes(subNorm) ||
+        subNorm.includes(catNorm);
     });
 
-    if (myRows.length === 0) return;
+    if (myRows.length === 0) {
+      console.warn(`[Schema-Diag] Nenhuma correspondência para: ${cat.name}`);
+      return;
+    }
 
     const currentHistory = cat.simuladoStats?.history || [];
+
+    // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
+    // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
     const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.createdAt || r.date || r.createdAt?._seconds || r.date?._seconds)).filter(Boolean)).size;
-    
-    // Always rebuild if we have NO history but HAVE logs, OR if logs have more unique days
-    if (currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length) {
+
+    if (currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
+      console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${uniqueDaysInLogs} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
-      
+
       const dailyStats = {};
       myRows.forEach(r => {
         const dk = getDateKey(r.createdAt || r.date);
         if (!dk) return;
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
-        dailyStats[dk].correct += (Number(r.correct) || 0);
-        dailyStats[dk].total += (Number(r.total) || 0);
+        dailyStats[dk].correct += (parseInt(r.correct, 10) || 0);
+        dailyStats[dk].total += (parseInt(r.total, 10) || 0);
       });
 
       const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => ({
@@ -74,23 +73,24 @@ const repairContestHistory = (data) => {
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10);
+
       cat.simuladoStats = {
         history: rebuiltHistory.slice(-50),
         average: Number(statsResult.mean.toFixed(1)),
         trend: statsResult.trend || 'stable',
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
-        level: statsResult.level || 'MÉDIO'
+        level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
       };
-      
-      console.info(`[Schema-Repair] Matéria "${cat.name}" vinculada a ${myRows.length} registros.`);
+    } else {
+      console.log(`[Schema-Diag] ${cat.name} está íntegro (${currentHistory.length} pontos).`);
     }
   });
 
   if (hasRepaired) {
-    console.info(`[Schema-Repair] Sincronização de histórico concluída.`);
+    console.log(`%c[Schema-Repair] Cura letal concluída em ${rows.length} registros.`, "color: #10b981; font-weight: bold; font-size: 1.1em;");
     data.lastUpdated = new Date().toISOString();
   }
-  
+
   return data;
 };
 
