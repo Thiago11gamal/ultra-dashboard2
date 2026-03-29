@@ -4,7 +4,16 @@
 
 export const getDateKey = (rawDate) => {
     if (!rawDate) return null;
-    const date = new Date(rawDate);
+    let date;
+    
+    // Suporte a Firebase Timestamp (seconds/nanoseconds)
+    if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
+        const secs = rawDate.seconds || rawDate._seconds;
+        date = new Date(secs * 1000);
+    } else {
+        date = new Date(rawDate);
+    }
+
     if (Number.isNaN(date.getTime())) return null;
 
     // Use local date to avoid timezone off-by-one errors (late night simulados)
