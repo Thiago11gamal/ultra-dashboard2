@@ -127,7 +127,7 @@ export default function MonteCarloGauge({
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
-                
+
                 // PERFORMANCE-01 FIX: computeBayesianLevel is expensive O(M). Compute once and re-use.
                 const baye = computeBayesianLevel(history);
                 const stats = computeCategoryStats(history, weight);
@@ -144,7 +144,7 @@ export default function MonteCarloGauge({
                             scoresByDate[dk][cat.name] = getSafeScore(h);
                         }
                     });
-                    
+
                     categoryStats.push({ name: cat.name, ...stats });
                     // RIGOR: Factor in the volume of data for each category.
                     bayesianStats.push({ sd: baye.sd, weight, n: baye.n });
@@ -156,14 +156,14 @@ export default function MonteCarloGauge({
 
         // MC-04 FIX: pooledSD is only used for the "Today" (static) simulation.
         // It shouldn't include future time uncertainty.
-        const pooledSD = computePooledSD(categoryStats, totalWeight, 0); 
+        const pooledSD = computePooledSD(categoryStats, totalWeight, 0);
         const bayesianMean = weightedBayesianSum / totalWeight;
 
         // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
         // Linear summation of ICs was too conservative (noisy) for students with many subjects.
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
-        
+
         // Final Bayesian CI for the static Today simulation
         const weightedLow = Math.max(0, bayesianMean - 1.96 * pooledBayesianSD);
         const weightedHigh = Math.min(100, bayesianMean + 1.96 * pooledBayesianSD);
@@ -346,7 +346,7 @@ export default function MonteCarloGauge({
     // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
     const isClampedHigh = parseFloat(ci95High) >= 99.5;
     const isClampedLow = parseFloat(ci95Low) <= 0.5;
-    
+
     let uncertaintyLabel = `±${parseFloat(sd).toFixed(1)}%`;
     if (isClampedHigh && !isClampedLow) {
         uncertaintyLabel = `±${parseFloat(sdLeft).toFixed(1)}%`;
@@ -356,18 +356,18 @@ export default function MonteCarloGauge({
         // VISUAL-02 FIX: Clampar o limite inferior da incerteza para nunca exibir valores negativos (abaixo de 0%).
         const displayLow = Math.max(0, mean - 1.96 * sdLeft);
         const displayHigh = Math.min(100, mean + 1.96 * sdRight);
-        
-        uncertaintyLabel = Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2 
+
+        uncertaintyLabel = Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2
             ? `${Math.max(0, (mean - sdLeft) - mean).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%` // Ajustado para ser Delta relativo ou absoluto?
             : `±${parseFloat(sd).toFixed(1)}%`;
 
         // RE-REVISION: Display as absolute range if asymmetric, otherwise as relative +/-
         if (Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2) {
-             const lowDelta = parseFloat(sdLeft).toFixed(1);
-             const highDelta = parseFloat(sdRight).toFixed(1);
-             // Se o limite inferior estaria abaixo de zero, mostramos o delta real possível
-             const maxPossibleLowDelta = mean.toFixed(1);
-             uncertaintyLabel = `-${Math.min(parseFloat(lowDelta), parseFloat(maxPossibleLowDelta)).toFixed(1)} / +${highDelta}%`;
+            const lowDelta = parseFloat(sdLeft).toFixed(1);
+            const highDelta = parseFloat(sdRight).toFixed(1);
+            // Se o limite inferior estaria abaixo de zero, mostramos o delta real possível
+            const maxPossibleLowDelta = mean.toFixed(1);
+            uncertaintyLabel = `-${Math.min(parseFloat(lowDelta), parseFloat(maxPossibleLowDelta)).toFixed(1)} / +${highDelta}%`;
         }
     }
 
@@ -466,9 +466,9 @@ export default function MonteCarloGauge({
                         />
                         {/* Needle / Pointer (Premium Tip) */}
                         {!isCalculating && (
-                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
+                            <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
                                 <path d="M 10 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
-                             </g>
+                            </g>
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
@@ -483,10 +483,10 @@ export default function MonteCarloGauge({
                     { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
                     { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
                     { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
-                    { 
-                        label: "Incerteza", 
-                        val: uncertaintyLabel, 
-                        color: Math.abs(parseFloat(sd)) <= 5 ? 'text-emerald-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400' 
+                    {
+                        label: "Incerteza",
+                        val: uncertaintyLabel,
+                        color: Math.abs(parseFloat(sd)) <= 5 ? 'text-emerald-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400'
                     },
                     { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
                 ].map((m, i) => (
