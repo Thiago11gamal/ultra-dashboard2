@@ -139,6 +139,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         failPoints.push(`${xp(xMin)},100`);
+        // Adicionar ponto baseline até onde a KDE começa para evitar faixas diagonais
+        if (kdeData && kdeData.length > 5 && kdeData[0].x > 0) {
+            failPoints.push(`${xp(kdeData[0].x)},100`);
+        }
         pointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
@@ -409,7 +413,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     />
                     <div
                         className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px] transition-all duration-150"
-                        style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val)) - 10}%`, transform: 'translate(-50%, -100%)' }}
+                        style={{ left: `${hover.x}%`, top: `${Math.max(5, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}
                     >
                         <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}%</span>
                         <div className="flex items-center gap-1 mt-0.5">

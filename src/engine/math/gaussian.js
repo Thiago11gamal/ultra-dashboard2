@@ -56,7 +56,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
     // Replace hardcoded plotMin=0 for better centering.
     const plotMin = Math.max(0, projectedMean - 4 * projectedSD); 
-    const plotMax = Math.max(110, Math.ceil(rawHigh) + 5); 
+    // Scores simulados são clamped em [0,100], então plotMax não precisa ultrapassar 100:
+    const plotMax = Math.min(100, Math.max(100, Math.ceil(rawHigh))); 
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
     
