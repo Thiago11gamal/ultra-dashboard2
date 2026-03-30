@@ -54,19 +54,20 @@ export default function Pomodoro() {
     };
 
     const handleFullCycleComplete = () => {
+        console.log('Pomodoro: handleFullCycleComplete triggered', { activeSubject });
         // Automatically check task as completed
         if (activeSubject) {
             const cat = data.categories?.find(c => c.id === activeSubject.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === activeSubject.taskId);
 
             if (tsk && !tsk.completed) {
-                // BUG-FIX: O toggleTask é síncrono no Zustand, mas o setData subsequente no handleExit
-                // pode gerar race condition visual em sistemas de baixa latência como o Vite HMR.
+                console.log('Pomodoro: marking task completed', activeSubject.taskId);
                 toggleTask(activeSubject.categoryId, activeSubject.taskId);
             }
             showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
             
             // Wait 1 second before exiting to let the user see the completion toast
+            console.log('Pomodoro: scheduling exit');
             setTimeout(() => {
                 handleExit();
             }, 1000);
