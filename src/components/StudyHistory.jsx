@@ -371,12 +371,12 @@ const StudyHistory = React.memo(function StudyHistory({
                             // Only show validated rows (rows that passed analysis validation)
                             const todayRows = simuladoRows.filter(r => {
                                 if (!r.createdAt || !r.validated) return false;
-                                return new Date(r.createdAt).toDateString() === todayStr;
+                                return new Date(r.date || r.createdAt).toDateString() === todayStr;
                             });
 
                             const yesterdayRows = simuladoRows.filter(r => {
                                 if (!r.createdAt || !r.validated) return false;
-                                return new Date(r.createdAt).toDateString() === yesterdayStr;
+                                return new Date(r.date || r.createdAt).toDateString() === yesterdayStr;
                             });
 
                             const renderSection = (rows, title, icon, isToday, side = 'left') => {
@@ -457,8 +457,8 @@ const StudyHistory = React.memo(function StudyHistory({
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         // Pass the date of one of the rows. 
-                                                        // Since we group by "Hoje" (today) or "Ontem" (yesterday), any row's createdAt works.
-                                                        const dateToDelete = rows[0]?.createdAt || new Date().toISOString();
+                                                        // Fallback seguro usando date ou createdAt para evitar exclusão de imports.
+                                                        const dateToDelete = rows[0]?.date || rows[0]?.createdAt || new Date().toISOString();
                                                         onDeleteSimulado(dateToDelete);
                                                     }}
                                                     className="absolute bottom-2 left-1/2 -translate-x-1/2 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"

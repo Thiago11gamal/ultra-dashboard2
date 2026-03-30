@@ -552,7 +552,7 @@ export const useAppStore = create(
                     return day === targetDay;
                 };
                 if (activeData.simuladoRows) {
-                    activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.createdAt));
+                    activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.date || r.createdAt));
                 }
                 activeData.categories.forEach(c => {
                     if (c.simuladoStats?.history) {
