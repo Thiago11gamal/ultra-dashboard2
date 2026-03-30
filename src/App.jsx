@@ -65,8 +65,9 @@ function MainLayout() {
   const { levelUpData, clearLevelUp } = useLevelUp();
   const showToast = useToast();
 
-  // --- AUTO-LOGOUT (20 MIN INACTIVITY) ---
-  useIdleLogout(logout, 20 * 60 * 1000);
+  // --- AUTO-LOGOUT (60 MIN INACTIVITY) ---
+  // BUG-FIX: Increased from 20 to 60 to safely handle Pomodoro sessions (25m + break)
+  useIdleLogout(logout, 60 * 60 * 1000);
 
   // Handle cross-tab sync using real-time listener inside sync context
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

@@ -281,10 +281,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             // BUG-PRONE FIX: Ensure we compare numeric values strictly
             const sVal = Number(sessions);
             const tVal = Number(targetCycles);
-            console.log('PomodoroTimer: Break finished, checking completion', { sVal, tVal });
             
             if (sVal >= tVal && tVal > 0) {
-                console.log('PomodoroTimer: Full cycle COMPLETE - calling onFullCycleComplete');
                 onFullCycleComplete?.();
                 setIsRunning(false);
                 savePomodoroState({ 

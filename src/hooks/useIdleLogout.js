@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
  * @param {Function} logout - The logout function to call.
  * @param {number} timeoutMs - Inactivity timeout in milliseconds.
  */
-export default function useIdleLogout(logout, timeoutMs = 20 * 60 * 1000) {
+export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     const timerRef = useRef(null);
 
     const resetTimer = useCallback(() => {
