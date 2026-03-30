@@ -50,19 +50,23 @@ const repairContestHistory = (data) => {
 
     // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
     // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
-    const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.createdAt || r.date || r.createdAt?._seconds || r.date?._seconds)).filter(Boolean)).size;
+    const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.date || r.createdAt || r.date?._seconds || r.createdAt?._seconds)).filter(Boolean)).size;
+    const currentUniqueDays = new Set(currentHistory.map(h => getDateKey(h.date))).size;
 
-    // BUG-FIX LETHAL: Força o reparo das propriedades se tivermos registros sem a flag `isPercentage`. 
-    // Isso garante que arquivos de histórico legados ou da reconstrução anterior sejam desfeitos e refeitos do zero.
+    // BUG-FIX LETHAL: Força o reparo se registros não têm a flag isPercentage. 
     const hasCorruptedHistory = currentHistory.length > 0 && currentHistory.some(h => !h.isPercentage);
+    
+    // BUG-FIX LETHAL 2: Detecta se o histórico atual foi esmagado em 1 único dia, enquanto a base de dados
+    // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).
+    const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
 
-    if (hasCorruptedHistory || currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
+    if (hasCorruptedHistory || dateCompressionBug || currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
       console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${uniqueDaysInLogs} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
 
       const dailyStats = {};
       myRows.forEach(r => {
-        const dk = getDateKey(r.createdAt || r.date);
+        const dk = getDateKey(r.date || r.createdAt);
         if (!dk) return;
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
         dailyStats[dk].correct += (parseInt(r.correct, 10) || 0);
