@@ -149,8 +149,8 @@ export default function MonteCarloGauge({
 
                     categoryStats.push({ name: cat.name, ...stats });
                     // BUG-08 FIX: Previne duplo shrinkage na propagação do SD bayesiano
-                    // Reutilizar o baye.sd que já sofreu shrinkage inflaria gravemente ICs
-                    bayesianStats.push({ sd: stats?.sd ?? baye.sd, weight, n: history.length });
+                    // Usa volatilidade do prior Beta (baye.sd) para isolar Incerteza Bayesiana (Bug 2)
+                    bayesianStats.push({ sd: baye.sd, weight, n: history.length });
                 }
             }
         });

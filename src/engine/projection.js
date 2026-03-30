@@ -191,7 +191,8 @@ export function calculateVolatility(history) {
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
         // REVISION: Correct detrending using rawDrift
-        const detrendedDiff = diff - (rawDrift * rawDaysBetween);
+        // FIX BUG 3: Consistency between detrending and normalization intervals
+        const detrendedDiff = diff - (rawDrift * daysBetween);
         const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -281,7 +282,8 @@ export function monteCarloSimulation(
 
         // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting
         // pois o loop de projeção já injeta o 'dayDrift' em cada iteração a cada passo.
-        const detrendedChange = actualChange - (rawDrift * rawDays);
+        // FIX BUG 3: use daysBetween consistently
+        const detrendedChange = actualChange - (rawDrift * daysBetween);
 
         // M-02 FIX: Resíduo bruto normalizado pelo tempo.
         return detrendedChange / Math.sqrt(daysBetween);
@@ -353,11 +355,16 @@ export function monteCarloSimulation(
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
         : 0;
 
+    // BUG 4 FIX: Incerteza sensível ao tempo (crescimento sublinear)
+    // Evita que provas a 1 ano tenham a mesma incerteza de provas amanhã.
+    const timeHorizonScaling = days > 0 ? Math.pow(days / 30, 0.2) : 1;
+    const adjustedVolatility = volatility * timeHorizonScaling;
+
     // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
     // O bootstrapping original pode ter dispersão diferente da volatilidade paramétrica.
     // Garantimos que o SD total convirja para 'volatility'.
     const bootstrapTargetScale = _residualSD > 0
-        ? Math.min(3.0, volatility / _residualSD)
+        ? Math.min(3.0, adjustedVolatility / _residualSD)
         : 1;
 
     const simulationDays = days;
@@ -369,7 +376,7 @@ export function monteCarloSimulation(
     // com alta volatilidade atira a linha contra as paredes, deixando o gráfico em U-Shape.
     // O desenvolvedor brilhantemente dividiu pela raiz do tempo para que no último dia a 
     // variância total somasse apenas 'volatility', forçando uma curva Gaussiana perfeita.
-    const sigma = simulationDays > 0 ? volatility / Math.sqrt(simulationDays) : 0;
+    const sigma = simulationDays > 0 ? adjustedVolatility / Math.sqrt(simulationDays) : 0;
     const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;

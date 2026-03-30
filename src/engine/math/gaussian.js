@@ -50,14 +50,11 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations) {
     if (!allScores || allScores.length === 0) return [];
 
-    // BUG 2 Corrigido: Índice do p975 com o -1 necessário para não desalinhar a cauda
-    const rawHigh = allScores[Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1)] || 100;
-    
     // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
     // Replace hardcoded plotMin=0 for better centering.
     const plotMin = 0; 
     // Scores simulados são clamped em [0,100], então plotMax não precisa ultrapassar 100:
-    const plotMax = 100; // Simplificado para constante explícita. Antigamente: Math.min(100, Math.max(100, Math.ceil(rawHigh)))
+    const plotMax = 100; // Simplificado para constante explícita.
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
     
