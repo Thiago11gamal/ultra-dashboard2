@@ -60,11 +60,19 @@ export default function Pomodoro() {
             const tsk = cat?.tasks?.find(t => t.id === activeSubject.taskId);
 
             if (tsk && !tsk.completed) {
+                // BUG-FIX: O toggleTask é síncrono no Zustand, mas o setData subsequente no handleExit
+                // pode gerar race condition visual em sistemas de baixa latência como o Vite HMR.
                 toggleTask(activeSubject.categoryId, activeSubject.taskId);
             }
             showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
+            
+            // Wait 1 second before exiting to let the user see the completion toast
+            setTimeout(() => {
+                handleExit();
+            }, 1000);
+        } else {
+            handleExit();
         }
-        handleExit();
     };
 
     const handleSessionComplete = () => {
