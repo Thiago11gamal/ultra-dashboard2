@@ -267,7 +267,7 @@ export function monteCarloSimulation(
     const { slope: rawDrift } = sortedHistory.length > 1 ? weightedRegression(sortedHistory) : { slope: 0 };
     const drift = calculateSlope(sortedHistory); // Tendência clampeada para o path determinístico
 
-    // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO
+    // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
@@ -279,9 +279,12 @@ export function monteCarloSimulation(
         const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(30, rawDays);
 
+        // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting
+        // pois o loop de projeção já injeta o 'dayDrift' em cada iteração a cada passo.
+        const detrendedChange = actualChange - (rawDrift * rawDays);
+
         // M-02 FIX: Resíduo bruto normalizado pelo tempo.
-        // A média é removida na centralização abaixo (lines 289-291).
-        return actualChange / Math.sqrt(daysBetween);
+        return detrendedChange / Math.sqrt(daysBetween);
     }).slice(1) : [];
 
     // Math Fix: Centralizar resíduos para garantir que a média do choque seja rigorosamente zero.
@@ -362,11 +365,11 @@ export function monteCarloSimulation(
     // Para o loop diário da simulação, dividimos por 10 para obter a taxa real por dia.
     const dayDrift = days === 0 ? 0 : (drift / 10);
 
-    // BUG-06 FIX: Hoist calculations out of the simulation loops to save Math.sqrt calls
-    const sigma = simulationDays > 0 ? volatility / Math.sqrt(simulationDays) : 0;
-    const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
-
-
+    // BUG-06 FIX: O desvio diário do Passeio Aleatório (Random Walk) deve ser apenas 'volatility'.
+    // Dividir pela raiz de 'simulationDays' incorretamente esmagava a variância do trajeto todo
+    // limitando o tamanho final da incerteza a 1 único dia.
+    const sigma = simulationDays > 0 ? volatility : 0;
+    const bootstrapInvSqrt = 1; // Shrinkage problem was removed.
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 
