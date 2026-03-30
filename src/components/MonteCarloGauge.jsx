@@ -146,8 +146,9 @@ export default function MonteCarloGauge({
                     });
 
                     categoryStats.push({ name: cat.name, ...stats });
-                    // RIGOR: Factor in the volume of data for each category.
-                    bayesianStats.push({ sd: baye.sd, weight, n: baye.n });
+                    // BUG-08 FIX: Previne duplo shrinkage na propagação do SD bayesiano
+                    // Reutilizar o baye.sd que já sofreu shrinkage inflaria gravemente ICs
+                    bayesianStats.push({ sd: stats?.sd ?? baye.sd, weight, n: history.length });
                 }
             }
         });
@@ -357,17 +358,11 @@ export default function MonteCarloGauge({
         const displayLow = Math.max(0, mean - 1.96 * sdLeft);
         const displayHigh = Math.min(100, mean + 1.96 * sdRight);
 
-        uncertaintyLabel = Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2
-            ? `${Math.max(0, (mean - sdLeft) - mean).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%` // Ajustado para ser Delta relativo ou absoluto?
-            : `±${parseFloat(sd).toFixed(1)}%`;
-
-        // RE-REVISION: Display as absolute range if asymmetric, otherwise as relative +/-
+        // RE-REVISION: Display as absolute range se houver assimetria, senão exibe +/- unificado
         if (Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2) {
-            const lowDelta = parseFloat(sdLeft).toFixed(1);
-            const highDelta = parseFloat(sdRight).toFixed(1);
-            // Se o limite inferior estaria abaixo de zero, mostramos o delta real possível
-            const maxPossibleLowDelta = mean.toFixed(1);
-            uncertaintyLabel = `-${Math.min(parseFloat(lowDelta), parseFloat(maxPossibleLowDelta)).toFixed(1)} / +${highDelta}%`;
+            uncertaintyLabel = `-${parseFloat(sdLeft).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%`;
+        } else {
+            uncertaintyLabel = `±${parseFloat(sd).toFixed(1)}%`;
         }
     }
 

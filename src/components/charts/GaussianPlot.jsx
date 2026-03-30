@@ -114,13 +114,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         
         // BUG-VISUAL FIX: Quando kdeData disponível, interpolar yAtTarget do próprio KDE
         const getYAtX = (pts, xTarget) => {
-            let best = null, bestDist = Infinity;
-            pts.forEach(p => {
+            let lo = null, hi = null;
+            for (const p of pts) {
                 const [px, py] = p.split(',').map(Number);
-                const d = Math.abs(px - xTarget);
-                if (d < bestDist) { bestDist = d; best = py; }
-            });
-            return best;
+                if (px <= xTarget) lo = { px, py };
+                else if (!hi) { hi = { px, py }; break; }
+            }
+            if (!lo) return hi?.py ?? 100;
+            if (!hi) return lo.py;
+            const t = (xTarget - lo.px) / (hi.px - lo.px);
+            return lo.py + t * (hi.py - lo.py);
         };
 
         const yAtTargetVisual = (kdeData && kdeData.length > 5)
@@ -211,6 +214,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     let tierHoje = 1;
 
     // BUG-03 FIX: Conflict Resolution Logic
+    if (collisionHojeMean || collisionMetaMean) {
+        // Só sobe Projeção se houver colisão bilateral (Meta E Hoje contra ela)
+        if (collisionMetaMean && collisionHojeMean) tierMean = 3;
+    }
+
     if (collisionMetaMean) {
         // If Meta overlaps Mean, Meta drops to Tier 2
         tierTarget = 2;
