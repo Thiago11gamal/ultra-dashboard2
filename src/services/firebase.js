@@ -15,11 +15,31 @@ const clean = (val) => {
 const rawConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.ID_DO_PROJETO_VITE_FIREBASE || import.meta.env.ID_DO_PROJETO_VITE,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE_FIREBASE_DE_ARMAZENAMENTO || import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.ID_DO_REMETENTE_DE_MENSAGENS_VITE || import.meta.env.ID_DO_REMETENTE_VITE,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.ID_DO_APLICATIVO_VITE_FIREBASE || import.meta.env.ID_DO_APLICATIVO_VITE,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env['ID_DE_MEDIÇÃO_VITE_FIREBASE'] || import.meta.env['ID_DE_MEDIÇÃO_VITE']
+    projectId: 
+        import.meta.env.VITE_FIREBASE_PROJECT_ID || 
+        import.meta.env.ID_DO_PROJETO_VITE_FIREBASE || 
+        import.meta.env['ID DO PROJETO VITE FIREBASE'] ||
+        import.meta.env.ID_DO_PROJETO_VITE,
+    storageBucket: 
+        import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 
+        import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE_FIREBASE_DE_ARMAMENTO || 
+        import.meta.env['BALDE DE ARMAZENAMENTO VITE_FIREBASE_DE_ARMAMENTO'] ||
+        import.meta.env.BALDE_DE_ARMAZENAMENTO_VITE,
+    messagingSenderId: 
+        import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || 
+        import.meta.env.ID_DO_REMETENTE_DE_MENSAGENS_VITE || 
+        import.meta.env['ID DO REMETENTE DE MENSAGENS VITE'] ||
+        import.meta.env.ID_DO_REMETENTE_VITE,
+    appId: 
+        import.meta.env.VITE_FIREBASE_APP_ID || 
+        import.meta.env.ID_DO_APLICATIVO_VITE_FIREBASE || 
+        import.meta.env['ID DO APLICATIVO VITE FIREBASE'] ||
+        import.meta.env.ID_DO_APLICATIVO_VITE,
+    measurementId: 
+        import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 
+        import.meta.env['ID_DE_MEDIÇÃO_VITE_FIREBASE'] || 
+        import.meta.env['ID DE MEDIÇÃO VITE FIREBASE'] ||
+        import.meta.env['ID_DE_MEDIÇÃO_VITE']
 };
 
 // Auto-derive projectId if missing
