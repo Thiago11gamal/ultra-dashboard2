@@ -95,7 +95,9 @@ export default function Simulados() {
         const todayKey = getDateKey(new Date());
         setData(prev => {
             const existingRows = prev.simuladoRows || [];
-            const nonTodayRows = existingRows.filter(row => !row.createdAt || getDateKey(new Date(row.createdAt)) !== todayKey);
+            // BUGFIX CRITICO: Nao deletar rows legadas só porque seu 'createdAt' na importação foi hoje!
+            // Usa 'row.date' como prioridade para garantir a verdadeira sobreposicao de calendario.
+            const nonTodayRows = existingRows.filter(row => !row.createdAt || getDateKey(row.date || row.createdAt) !== todayKey);
 
             // 2. Filter out untouched auto-generated rows to save space
             // BUG FIX: preserve the 'validated' field
@@ -230,8 +232,9 @@ export default function Simulados() {
             capturedCount = totalProcessedDisciplines;
 
             const todayKey2 = getDateKey(new Date());
+            // BUGFIX CRITICO: Mesmo alerta, salvaguardando a deleção em lote do Lote de Análise
             const nonTodayRows = (prev.simuladoRows || []).filter(
-                r => !r.createdAt || getDateKey(new Date(r.createdAt)) !== todayKey2
+                r => !r.createdAt || getDateKey(r.date || r.createdAt) !== todayKey2
             );
 
             const validatedRows = [
