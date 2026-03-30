@@ -142,13 +142,17 @@ export const useAppStore = create(
                     state.appState.contests = snapshot.contests;
                     state.appState.activeId = snapshot.activeId;
                 }
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setHasSeenTour: (value) => set((state) => {
                 if (state.appState.hasSeenTour === value) return;
                 state.appState.hasSeenTour = value;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             updateCoachPlanner: (newPlannerData) => set((state) => {
@@ -156,7 +160,9 @@ export const useAppStore = create(
                 if (!activeData) return;
                 if (activeData.coachPlanner === newPlannerData) return;
                 activeData.coachPlanner = newPlannerData;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setThemeMode: (mode) => set((state) => {
@@ -175,7 +181,9 @@ export const useAppStore = create(
                 if (activeData.settings.darkMode === val) return;
 
                 activeData.settings.darkMode = val;
+                state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setAppState: (newStateObj) => set((state) => {
@@ -454,8 +462,8 @@ export const useAppStore = create(
                 recordHistory(state.appState);
                 const activeData = state.appState.contests[state.appState.activeId];
                 // B-04 FIX: optional chaining não protege contra null (só undefined).
-                // Guard explícito evita TypeError se studySessions for null.
-                if (!activeData.studySessions) return;
+                // Guard explícito evita TypeError se studySessions for null E valida existence the categories
+                if (!activeData.studySessions || !activeData.categories) return;
                 const sessionIndex = activeData.studySessions.findIndex(s => s.id === sessionId);
                 if (sessionIndex === -1) return;
 
@@ -527,8 +535,12 @@ export const useAppStore = create(
                 activeData.categories.forEach(c => {
                     c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                 });
+                // BUG-03 FIX: Expurgo Zumbi (limpar a raw-data para não reviver stats globais)
+                activeData.simuladoRows = [];
+                activeData.simulados = [];
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             deleteSimulado: (dateInput) => set((state) => {
@@ -691,8 +703,12 @@ export const useAppStore = create(
             setPomodoroActiveSubject: (subject) => set((state) => {
                 const current = state.appState.pomodoro.activeSubject;
                 
+                // Bug #5 FIX: Validar explicitamente a inexistência do ID para forçar reset,
+                // evitando que comparações undefined vs undefined silenciem a limpeza de ciclo.
+                const isNewSession = !current || !subject.sessionInstanceId || (current.sessionInstanceId !== subject.sessionInstanceId);
+                
                 // If we are clearing the subject (Exit) OR starting a DIFFERENT session instance, reset everything.
-                if (!subject || (subject && (!current || current.sessionInstanceId !== subject.sessionInstanceId))) {
+                if (!subject || isNewSession) {
                     state.appState.pomodoro.sessions = 0;
                     state.appState.pomodoro.completedCycles = 0;
                     state.appState.pomodoro.targetCycles = 1;

@@ -663,8 +663,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
             
             // Unique ID per topic string to avoid react-beautiful-dnd collisions
-            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10) + weakTopic.total) : `geral-${i}`;
-            const dateStr = new Date().toDateString();
+            const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
 
             // ─────────────────────────────────────────────────────────
             // MC-07: ALERTAS DE MONTE CARLO (checados primeiro)
@@ -675,7 +674,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-danger-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-mc-danger-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🚨 Alerta Vermelho! Projeção Matemática indica ampla reprovação. Medidas drásticas agora!`,
                     completed: false,
                     categoryId: cat.id,
@@ -694,7 +693,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-chaos-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🌪️ Você é estatisticamente imprevisível. Consolide antes de avançar!`,
                     completed: false,
                     categoryId: cat.id,
@@ -713,7 +712,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
-                    id: `${cat.id}-mc-safe-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🏆 Sucesso quase certo (${probPct}%). Modo manutenção ativado.`,
                     completed: false,
                     categoryId: cat.id,
@@ -729,7 +728,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             if (cat.urgency?.details?.srsLabel && i === 0) {
                 allGeneratedTasks.push({
-                    id: `${cat.id}-srs-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-srs-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}🧠 ${cat.urgency.details.srsLabel}. Revise para não esquecer!`,
                     completed: false,
                     categoryId: cat.id,
@@ -746,7 +745,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const trapCheck = performDeepCheck(cat);
             if (trapCheck.isTrap && i === 0) {
                 allGeneratedTasks.push({
-                    id: `${cat.id}-trap-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-trap-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
                     completed: false,
                     categoryId: cat.id,
@@ -774,7 +773,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     reasonStr = "Baixa Performance";
                 }
                 allGeneratedTasks.push({
-                    id: `${cat.id}-weaktopic-${uniqueIdSuffix}-${dateStr}`,
+                    id: `${cat.id}-weaktopic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}${taskTitle}`,
                     completed: false,
                     categoryId: cat.id,
