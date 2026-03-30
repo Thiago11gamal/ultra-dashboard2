@@ -96,7 +96,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const activeContest = state.contests?.[state.activeId];
         const catCount = activeContest?.categories?.length ?? 0;
         const sessionCount = activeContest?.studySessions?.length ?? 0;
-        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}:${catCount}:${sessionCount}`;
+        const catHash = (activeContest?.categories || [])
+            .reduce((acc, c) => acc + c.id.charCodeAt(0) + (c.name?.length ?? 0), 0);
+        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}:${catCount}:${sessionCount}:${catHash}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode

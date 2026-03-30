@@ -530,6 +530,11 @@ const getWeakestTopic = (category, simulados = []) => {
     return _buildSortedTopics(category, simulados)[0] || null;
 };
 
+// Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
+const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
+    return _buildSortedTopics(category, simulados).slice(0, limit);
+};
+
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
     const targetScore = options.targetScore ?? 80;
@@ -563,10 +568,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
 
-    // Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
-    const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
-    return _buildSortedTopics(category, simulados).slice(0, limit);
-};
 
     let allGeneratedTasks = [];
     
