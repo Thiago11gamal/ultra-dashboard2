@@ -365,11 +365,13 @@ export function monteCarloSimulation(
     // Para o loop diário da simulação, dividimos por 10 para obter a taxa real por dia.
     const dayDrift = days === 0 ? 0 : (drift / 10);
 
-    // BUG-06 FIX: O desvio diário do Passeio Aleatório (Random Walk) deve ser apenas 'volatility'.
-    // Dividir pela raiz de 'simulationDays' incorretamente esmagava a variância do trajeto todo
-    // limitando o tamanho final da incerteza a 1 único dia.
-    const sigma = simulationDays > 0 ? volatility : 0;
-    const bootstrapInvSqrt = 1; // Shrinkage problem was removed.
+    // ROLLBACK (EMERGÊNCIA-UI): O desvio diário precisa ser encolhido de propósito (shrinkage)!
+    // Notas de prova têm tetos estritos de 0 a 100. Simular um passeio aleatório "1 pra 1" 
+    // com alta volatilidade atira a linha contra as paredes, deixando o gráfico em U-Shape.
+    // O desenvolvedor brilhantemente dividiu pela raiz do tempo para que no último dia a 
+    // variância total somasse apenas 'volatility', forçando uma curva Gaussiana perfeita.
+    const sigma = simulationDays > 0 ? volatility / Math.sqrt(simulationDays) : 0;
+    const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 
