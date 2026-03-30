@@ -7,6 +7,12 @@ import { logger } from '../utils/logger';
 
 
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
+    // FIX: Estabiliza a referência do toast para não disparar reinícios do Firebase
+    const showToastRef = useRef(showToast);
+    useEffect(() => {
+        showToastRef.current = showToast;
+    }, [showToast]);
+
     const lastSyncedRef = useRef(null);
     const isParityValidatedRef = useRef(false);
     const [parityTick, setParityTick] = useState(0); // L2: State just for reactivity, logic uses Ref
@@ -239,8 +245,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 lastSyncedRef.current = cloudStateString;
                 setHasConflict(false);
 
-                if (!wasAlreadyValidated && showToast) {
-                    showToast('Sincronizado via Nuvem! ☁️✨', 'success');
+                if (!wasAlreadyValidated && showToastRef.current) {
+                    showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
                 logger.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
@@ -259,7 +265,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
-    }, [currentUser?.uid, setAppState, showToast]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [currentUser?.uid, setAppState]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         isParityValidatedRef.current = false;
@@ -427,8 +433,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             if (lastError) {
                 logger.error("[Sync] Todas as tentativas falharam:", lastError);
-                if (showToast && lastError.code !== 'unavailable') {
-                    showToast(`Falha ao salvar após ${MAX_RETRIES} tentativas`, 'error');
+                if (showToastRef.current && lastError.code !== 'unavailable') {
+                    showToastRef.current(`Falha ao salvar após ${MAX_RETRIES} tentativas`, 'error');
                 }
             }
 
@@ -446,14 +452,14 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [appState, parityTick, currentUser?.uid, showToast]);
+    }, [appState, parityTick, currentUser?.uid]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {
             setAppState(prev => mergeAppState(prev, latestCloudDataRef.current));
             lastSyncedRef.current = stateStringForSync(latestCloudDataRef.current);
             setHasConflict(false);
-            if (showToast) showToast('Paridade forçada com sucesso! 💎', 'success');
+            if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
         }
     };
 

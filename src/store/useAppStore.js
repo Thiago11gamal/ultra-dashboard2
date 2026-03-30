@@ -544,25 +544,19 @@ export const useAppStore = create(
             }),
 
             deleteSimulado: (dateInput) => set((state) => {
-                recordHistory(state.appState, true); // ← LINHA RESTAURADA
+                recordHistory(state.appState, true);
 
-                const dt = new Date(dateInput);
-                const targetDay = dt.getFullYear() + '-' +
-                    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(dt.getDate()).padStart(2, '0'); // ← hora local
+                // Extrai "YYYY-MM-DD" de forma segura sem envolver fuso horário
+                const targetDay = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
 
                 const activeData = state.appState.contests[state.appState.activeId];
                 
-                // Bug #5: Consistency fix using local time methods for UI-storage parity.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
-                    const d = new Date(raw);
-                    if (isNaN(d.getTime())) return false;
-                    const day = d.getFullYear() + '-' +
-                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getDate()).padStart(2, '0'); // ← hora local
-                    return day === targetDay;
+                    const rawDay = raw.includes('T') ? raw.split('T')[0] : raw;
+                    return rawDay === targetDay;
                 };
+
                 if (activeData.simuladoRows) {
                     activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.date || r.createdAt));
                 }
@@ -571,6 +565,7 @@ export const useAppStore = create(
                         c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
                     }
                 });
+                
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -791,9 +786,16 @@ export const useAppStore = create(
                             try {
                                 const state = JSON.parse(value);
                                 if (state.state?.appState) {
-                                    state.state.appState.history = [];
-                                    localStorage.setItem(name, JSON.stringify(state));
-                                    window.dispatchEvent(new CustomEvent('storage-quota-reached'));
+                                    state.state.appState.history = []; // Limpa o histórico
+                                    
+                                    // FIX: Envolver o fallback num try/catch para evitar crash fatal
+                                    try {
+                                        localStorage.setItem(name, JSON.stringify(state));
+                                        window.dispatchEvent(new CustomEvent('storage-quota-reached'));
+                                    } catch (fallbackError) {
+                                        console.error('Falha crítica: Armazenamento cheio mesmo após expurgo.', fallbackError);
+                                        // Aqui poderia disparar um evento para avisar o utilizador que não há mais espaço
+                                    }
                                 }
                             } catch (error) {
                                 console.error('Auto-pruning failed:', error);

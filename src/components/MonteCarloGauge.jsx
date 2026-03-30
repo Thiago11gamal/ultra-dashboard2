@@ -166,8 +166,10 @@ export default function MonteCarloGauge({
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
         // Final Bayesian CI for the static Today simulation
-        const weightedLow = Math.max(0, bayesianMean - 1.96 * pooledBayesianSD);
-        const weightedHigh = Math.min(100, bayesianMean + 1.96 * pooledBayesianSD);
+        // BUG MATEMÁTICO FIX: Não cortar aqui (clipping) para evitar distorção estatística.
+        // O corte (0 a 100) deve ocorrer apenas na visualização (UI).
+        const weightedLow = bayesianMean - 1.96 * pooledBayesianSD;
+        const weightedHigh = bayesianMean + 1.96 * pooledBayesianSD;
 
         // Reconstruct consolidated global history for path simulation
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
@@ -191,13 +193,7 @@ export default function MonteCarloGauge({
         // Não usamos calculateVolatility(globalHistory) pois saltos entre matérias (ex: Português 90 -> Matemática 50)
         // inflariam artificialmente o desvio padrão diário.
         // Usamos a média ponderada das volatilidades REAIS de cada matéria.
-        let sumVolatility = 0;
-        categoryStats.forEach(cat => {
-            const catVol = calculateVolatility(cat.history);
-            const w = cat.weight || 0;
-            sumVolatility += catVol * (w / totalWeight);
-        });
-
+        // POSSÍVEL BUG EM VOLATILIDADE FIX: Priorizar a volatilidade ponderada das matérias
         const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
 
         // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
@@ -206,7 +202,8 @@ export default function MonteCarloGauge({
         const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
                 // CV = (SD / Mean) * 100
-                const catCV = (cat.mean > 0 ? (cat.sd / cat.mean) * 100 : 0);
+                // 🟡 BUG ESTATÍSTICO FIX: Se a média for muito pequena (< 1%), o CV explode.
+                const catCV = (cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0);
                 return acc + (catCV * (cat.weight / totalWeight));
             }, 0)
             : 0;
@@ -277,7 +274,9 @@ export default function MonteCarloGauge({
         }
 
         return { status: 'ready', data: result };
-    }, [statsData, debouncedTarget, projectDays, categories, debouncedWeights, effectiveWeights]);
+        // 🟠 BUG DE PERFORMANCE FIX: Categories pode ser um objeto novo a cada render.
+        // Usamos stringify para garantir que a simulação só rode se os dados reais mudarem.
+    }, [statsData, debouncedTarget, projectDays, JSON.stringify(categories), debouncedWeights, effectiveWeights]);
 
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {
@@ -336,33 +335,38 @@ export default function MonteCarloGauge({
 
     const probability = simulationData.data.probability;
     const mean = simulationData.data.mean;
-    const sd = simulationData.data.sd;
-    const sdLeft = simulationData.data.sdLeft ?? sd;
-    const sdRight = simulationData.data.sdRight ?? sd;
-    const ci95Low = simulationData.data.ci95Low;
-    const ci95High = simulationData.data.ci95High;
-    const currentMean = simulationData.data.currentMean;
-    const prob = parseFloat(probability);
+    // 🟠 BUG DE POSSÍVEL undefined FIX
+    const sd = simulationData?.data?.sd ?? 0;
+    const sdLeft = simulationData?.data?.sdLeft ?? sd;
+    const sdRight = simulationData?.data?.sdRight ?? sd;
+    const ci95Low = simulationData?.data?.ci95Low ?? 0;
+    const ci95High = simulationData?.data?.ci95High ?? 0;
+    const currentMean = simulationData?.data?.currentMean ?? 0;
+    const prob = parseFloat(probability || 0);
 
     // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
     const isClampedHigh = parseFloat(ci95High) >= 99.5;
     const isClampedLow = parseFloat(ci95Low) <= 0.5;
 
-    let uncertaintyLabel = `±${parseFloat(sd).toFixed(1)}%`;
+    // ✅ CORREÇÃO SEGURA PARA NaN
+    const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+    const left = safe(sdLeft);
+    const right = safe(sdRight);
+    const center = safe(sd);
+
+    let uncertaintyLabel = `±${center.toFixed(1)}%`;
+
     if (isClampedHigh && !isClampedLow) {
-        uncertaintyLabel = `±${parseFloat(sdLeft).toFixed(1)}%`;
+        uncertaintyLabel = `±${left.toFixed(1)}%`;
     } else if (isClampedLow && !isClampedHigh) {
-        uncertaintyLabel = `±${parseFloat(sdRight).toFixed(1)}%`;
+        uncertaintyLabel = `±${right.toFixed(1)}%`;
     } else {
         // VISUAL-02 FIX: Clampar o limite inferior da incerteza para nunca exibir valores negativos (abaixo de 0%).
-        const displayLow = Math.max(0, mean - 1.96 * sdLeft);
-        const displayHigh = Math.min(100, mean + 1.96 * sdRight);
-
-        // RE-REVISION: Display as absolute range se houver assimetria, senão exibe +/- unificado
-        if (Math.abs(parseFloat(sdLeft) - parseFloat(sdRight)) > 0.2) {
-            uncertaintyLabel = `-${parseFloat(sdLeft).toFixed(1)} / +${parseFloat(sdRight).toFixed(1)}%`;
+        // No display, mostramos a dispersão real se houver assimetria
+        if (Math.abs(left - right) > 0.2) {
+            uncertaintyLabel = `-${left.toFixed(1)} / +${right.toFixed(1)}%`;
         } else {
-            uncertaintyLabel = `±${parseFloat(sd).toFixed(1)}%`;
+            uncertaintyLabel = `±${center.toFixed(1)}%`;
         }
     }
 

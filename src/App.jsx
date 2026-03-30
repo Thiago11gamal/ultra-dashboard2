@@ -202,7 +202,7 @@ function MainLayout() {
         />
 
         {/* Router Outlet com carregamento otimizado */}
-        <div key={location.pathname} className="animate-page-entrance">
+        <div className="animate-page-entrance">
           <ErrorBoundary>
             <Suspense fallback={
               <div className="flex items-center justify-center p-20 text-purple-400">

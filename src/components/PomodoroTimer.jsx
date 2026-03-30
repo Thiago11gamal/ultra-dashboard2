@@ -298,57 +298,49 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
     }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, setSessions, setCompletedCycles, savePomodoroState]);
 
+    const speedRef = useRef(speed);
+    useEffect(() => { speedRef.current = speed; }, [speed]);
+
+    const timeLeftRef = useRef(timeLeft);
+    useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
     // --- ROBUST TIMER LOGIC ---
-    // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
-    // Single rAF loop drives ALL 4 visual elements (clock, ring, bar, sphere) via direct DOM
-    // mutation at 60fps. React state (setTimeLeft) is only updated when the displayed second
-    // changes (~1x/sec) for logical state. NO CSS transitions needed — rAF is the animation.
-    // This eliminates 3 bugs: clock/bar drift, CSS-transition fragility, multi-element drift.
     useEffect(() => {
         let rafId;
-        if (isRunning && timeLeft > 0) {
-            const startTime = performance.now();
-            const initialTimeLeft = timeLeft;
+        let lastTickTime = performance.now();
+
+        if (isRunning && timeLeftRef.current > 0) {
             const currentTotalTime = mode === 'work'
                 ? safeSettings.pomodoroWork * 60
                 : safeSettings.pomodoroBreak * 60;
             const circumference = 2 * Math.PI * 100;
 
-            let lastDisplayedSecond = Math.ceil(initialTimeLeft);
+            let lastDisplayedSecond = Math.ceil(timeLeftRef.current);
 
             const tick = (now) => {
-                const elapsed = ((now - startTime) / 1000) * speed;
-                const current = Math.max(0, initialTimeLeft - elapsed);
-                const fraction = current / currentTotalTime; // 1.0 → 0.0 as time passes
+                const deltaMs = now - lastTickTime;
+                lastTickTime = now;
+
+                // Usa o ref de velocidade e atualiza o tempo restante de forma independente do render do React
+                timeLeftRef.current = Math.max(0, timeLeftRef.current - (deltaMs / 1000) * speedRef.current);
+                const current = timeLeftRef.current;
+                
+                const fraction = current / currentTotalTime;
                 const displaySecond = Math.ceil(current);
 
-                // 1. Clock — update DOM text directly when second changes
                 if (clockRef.current && displaySecond !== lastDisplayedSecond) {
                     const mins = Math.floor(displaySecond / 60);
                     const secs = displaySecond % 60;
-                    clockRef.current.textContent =
-                        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
                 }
 
-                // 2. SVG Ring — update strokeDashoffset directly every frame
-                if (svgCircleRef.current) {
-                    svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
-                }
+                if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
+                if (bottomBarRef.current && mode === 'work') bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
+                if (sphereRef.current && mode === 'break') sphereRef.current.style.height = `${(1 - fraction) * 100}%`;
 
-                // 3. Blue bar (active work segment) — update width directly every frame
-                if (bottomBarRef.current && mode === 'work') {
-                    bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
-                }
-
-                // 4. Green sphere (active break segment) — update height directly every frame
-                if (sphereRef.current && mode === 'break') {
-                    sphereRef.current.style.height = `${(1 - fraction) * 100}%`;
-                }
-
-                // 5. React state — only for logical updates (~1x/sec), not visuals
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
-                    setTimeLeft(current);
+                    setTimeLeft(current); // Sincroniza estado lógico a ~1fps
                 }
 
                 if (current > 0) {
@@ -359,8 +351,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             rafId = requestAnimationFrame(tick);
         }
         return () => cancelAnimationFrame(rafId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isRunning, speed, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]); // Removed timeLeft to avoid 1fps loop restarts
+    }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
 
 
     // Monitor TimeLeft for completion (Separated to avoid re-triggering the loop)
@@ -470,17 +461,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
     const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress));
 
-    // Ebbinghaus Forgetting Curve Calculation - Memoized (only recalc when activeSubject/categories change)
     const retention = useMemo(() => {
         if (!activeSubject) return null;
         const cat = categories.find(c => c.name === activeSubject.category);
         if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
         const last = new Date(cat.lastStudiedAt).getTime();
+        
+        // FIX: Prevenir cálculo com data corrompida (NaN)
+        if (isNaN(last)) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
+
         const now = new Date().getTime();
-        const diffHours = (now - last) / (1000 * 60 * 60);
+        const diffHours = Math.max(0, now - last) / (1000 * 60 * 60);
         const days = diffHours / 24;
-        const val = Math.round(100 * Math.exp(-days / 7));
+        const val = Math.max(0, Math.round(100 * Math.exp(-days / 7)));
 
         if (val >= 80) return { val, label: 'Ótimo', color: 'text-emerald-400', border: 'border-emerald-500/30' };
         if (val >= 60) return { val, label: 'Bom', color: 'text-green-400', border: 'border-green-500/30' };

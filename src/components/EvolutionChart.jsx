@@ -222,9 +222,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
                     
-                    const total = parseInt(t.total, 10) || 10;
+                    // 🟠 BUG DE DADOS DEFAULT FIX
+                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
                     const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * 10);
-                    topicMap[key].errors += Math.max(0, total - correct);
+                    
+                    // 🟠 BUG DE CÁLCULO DE ERRO FIX
+                    topicMap[key].errors += Math.max(0, Math.min(total, total - correct));
                 });
             }
         });
@@ -241,7 +244,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 name: isLong ? item.name.substring(0, 18) + '...' : item.name,
                 fullName: item.name,
                 value: item.errors,
-                fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))]
+                // 🟠 BUG DE DIVISÃO / NORMALIZAÇÃO FIX
+                fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
     }, [categories]);
@@ -283,7 +287,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 ...item,
                 fullName: item.name,
                 name: isLong ? item.name.substring(0, 18) + '...' : item.name,
-                color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / Math.max(1, arr.length - 1)) * (PALETTE.length - 1)))],
+                // 🟠 BUG DE DIVISÃO / NORMALIZAÇÃO FIX
+                color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))],
                 percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0
             };
         });
