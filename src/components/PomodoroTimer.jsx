@@ -278,10 +278,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
 
             // Check for Task Completion NOW (after the break)
-            if (sessions >= targetCycles) {
+            // BUG-PRONE FIX: Ensure we compare numeric values strictly
+            if (Number(sessions) >= Number(targetCycles)) {
                 onFullCycleComplete?.();
                 setIsRunning(false);
-                savePomodoroState({ isRunning: false });
+                savePomodoroState({ 
+                    isRunning: false,
+                    sessions: 0,
+                    completedCycles: 0,
+                    activeTaskId: null,
+                    sessionInstanceId: null
+                });
                 return;
             }
 
@@ -414,7 +421,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
 
-            if (sessions >= targetCycles) {
+            if (Number(sessions) >= Number(targetCycles)) {
                 onFullCycleComplete?.();
                 // Reset session state but keep history
                 savePomodoroState({
@@ -728,49 +735,64 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     </div>
 
                     {/* Controls - Compact Buttons */}
+                    {/* 🔒 FINISH BUTTON - Appears when all cycles are done but user is still on screen */}
                     <div className={`flex items-center gap-4 z-10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                        {/* RESET */}
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={reset}
-                            disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
-                            title="Reiniciar Timer"
-                        >
-                            <RotateCcw size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
-                        </motion.button>
+                        {Number(sessions) >= Number(targetCycles) && mode === 'break' && timeLeft <= 0 ? (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => onFullCycleComplete?.()}
+                                className="px-8 py-4 rounded-2xl bg-emerald-600 text-white font-black uppercase tracking-widest hover:bg-emerald-500 shadow-2xl shadow-emerald-500/30 border border-emerald-400/30 flex items-center gap-2"
+                            >
+                                <Lock size={20} />
+                                Finalizar & Salvar
+                            </motion.button>
+                        ) : (
+                            <>
+                                {/* RESET */}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={reset}
+                                    disabled={!activeSubject}
+                                    className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
+                                    title="Reiniciar Timer"
+                                >
+                                    <RotateCcw size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
+                                </motion.button>
 
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                                if (mode === 'work' && !activeSubject) {
-                                    setShowWarning(true);
-                                    setTimeout(() => setShowWarning(false), 3000);
-                                    return;
-                                }
-                                setIsRunning(!isRunning);
-                            }}
-                            disabled={!activeSubject}
-                            className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
-                        >
-                            {isRunning
-                                ? <Pause size={36} fill="currentColor" className="text-emerald-400 opacity-100" />
-                                : <Play size={36} fill="currentColor" className="ml-1 text-emerald-400 opacity-100" />}
-                        </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => {
+                                        if (mode === 'work' && !activeSubject) {
+                                            setShowWarning(true);
+                                            setTimeout(() => setShowWarning(false), 3000);
+                                            return;
+                                        }
+                                        setIsRunning(!isRunning);
+                                    }}
+                                    disabled={!activeSubject}
+                                    className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
+                                >
+                                    {isRunning
+                                        ? <Pause size={36} fill="currentColor" className="text-emerald-400 opacity-100" />
+                                        : <Play size={36} fill="currentColor" className="ml-1 text-emerald-400 opacity-100" />}
+                                </motion.button>
 
-                        {/* SKIP */}
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={skip}
-                            disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
-                            title="Pular Etapa"
-                        >
-                            <SkipForward size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
-                        </motion.button>
+                                {/* SKIP */}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={skip}
+                                    disabled={!activeSubject}
+                                    className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
+                                    title="Pular Etapa"
+                                >
+                                    <SkipForward size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
+                                </motion.button>
+                            </>
+                        )}
                     </div>
 
                     {/* Dev Speed Toggle */}
