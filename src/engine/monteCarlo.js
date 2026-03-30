@@ -47,7 +47,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const score = safeMean + randomNormal(rng) * safeSD;
     
     // Sucesso é baseado no score real (limitado a 0-100 para sanidade do alvo)
-    const finalScore = Math.max(0, Math.min(100, score));
+    let s = score;
+    if (s > 100) s = 200 - s;  
+    if (s < 0) s = -s;
+    const finalScore = Math.max(0, Math.min(100, s));
     if (finalScore >= safeTarget) success++;
 
     // BUG-04 FIX: Ajustado para usar finalScore garantindo consistência 0-100 na cauda KDE

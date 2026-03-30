@@ -392,7 +392,10 @@ export function monteCarloSimulation(
             score += dampedDrift + shock;
         }
 
-        const finalScore = Math.max(0, Math.min(100, score));
+        let s_final = score;
+        if (s_final > 100) s_final = 200 - s_final;
+        if (s_final < 0) s_final = -s_final;
+        const finalScore = Math.max(0, Math.min(100, s_final));
         if (finalScore >= targetScore) success++;
 
         allFinalScores[s] = finalScore;

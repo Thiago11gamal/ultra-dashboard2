@@ -62,6 +62,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const timerRef = useRef(null);
     const innerTimerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
+    const isSkippingRef = useRef(false);
 
     // --- VISUAL DOM REFS (rAF drives these directly — no React re-render needed) ---
     const clockRef = useRef(null);
@@ -220,14 +221,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
 
     // Timer complete handler - declared first to be available for useEffect
-    const handleTimerComplete = useCallback(() => {
-        // Timer complete
-        const completedDuration = mode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
-        const newHistoryItem = { type: mode, duration: completedDuration };
+    const transitionSession = useCallback((completedMode, source = 'natural') => {
+        // Prevent double-fires
+        if (source === 'skip') {
+            if (isSkippingRef.current) return;
+            isSkippingRef.current = true;
+            setTimeout(() => { isSkippingRef.current = false; }, 500);
+        }
+
+        const isNatural = source === 'natural';
+        const completedDuration = completedMode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
+        const newHistoryItem = { type: completedMode, duration: completedDuration };
 
         setSessionHistory(prev => [...prev, newHistoryItem]);
 
-        if (mode === 'work') {
+        if (completedMode === 'work') {
             const newSessions = sessions + 1;
             setSessions(newSessions);
             onSessionComplete?.();
@@ -239,11 +247,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             // Switch to break
             setMode('break');
-            const breakTime = safeSettings.pomodoroBreak * 60;
+            const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
             setTimeLeft(breakTime);
-            setIsRunning(false); 
+            setIsRunning(false);
 
-            // IMMEDIATE SAVE to prevent stale resume if tab closes now
+            // IMMEDIATE SAVE
             savePomodoroState({
                 mode: 'break',
                 timeLeft: breakTime,
@@ -251,41 +259,38 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 sessions: newSessions
             });
 
-            // Sound & Notification
-            if (safeSettings.soundEnabled) {
-                try {
-                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                    audio.play().catch(() => { });
-                } catch {
-                    // Silent catch (e.g. browser blocks auto-play without gesture)
+            // Sound & Notification only if natural
+            if (isNatural) {
+                if (safeSettings.soundEnabled) {
+                    try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+                        audio.play().catch(() => { });
+                    } catch { }
                 }
+                sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
             }
-            sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
         } else {
             // Break finished
             const newCompletedCycles = completedCycles + 1;
             setCompletedCycles(newCompletedCycles);
 
-            // Sound & Notification
-            if (safeSettings.soundEnabled) {
-                try {
-                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                    audio.play().catch(() => { });
-                } catch {
-                    // Silent catch (e.g. browser blocks auto-play without gesture)
+            if (isNatural) {
+                if (safeSettings.soundEnabled) {
+                    try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+                        audio.play().catch(() => { });
+                    } catch { }
                 }
+                sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
             }
-            sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
 
-            // Check for Task Completion NOW (after the break)
-            // BUG-PRONE FIX: Ensure we compare numeric values strictly
             const sVal = Number(sessions);
             const tVal = Number(targetCycles);
-            
+
             if (sVal >= tVal && tVal > 0) {
                 onFullCycleComplete?.();
                 setIsRunning(false);
-                savePomodoroState({ 
+                savePomodoroState({
                     isRunning: false,
                     sessions: 0,
                     completedCycles: 0,
@@ -296,7 +301,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             }
 
             setMode('work');
-            const workTime = safeSettings.pomodoroWork * 60;
+            const workTime = (safeSettings.pomodoroWork || 25) * 60;
             setTimeLeft(workTime);
             setIsRunning(false);
             savePomodoroState({
@@ -306,7 +311,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 completedCycles: newCompletedCycles
             });
         }
-    }, [mode, sessions, targetCycles, completedCycles, activeSubject, safeSettings, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, setSessions, setCompletedCycles, savePomodoroState]);
+    }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification]);
+
+    const handleTimerComplete = useCallback(() => {
+        transitionSession(mode, 'natural');
+    }, [transitionSession, mode]);
 
     const speedRef = useRef(speed);
     useEffect(() => { speedRef.current = speed; }, [speed]);
@@ -395,60 +404,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
      */
     const skip = () => {
         setIsRunning(false);
-        if (mode === 'work') {
-            // Treat skip as completion of work session
-            const newSessions = sessions + 1;
-            setSessions(newSessions);
-            onSessionComplete?.();
-
-            // Track Study Time (única fonte de verdade)
-            if (activeSubject && onUpdateStudyTime) {
-                onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
-            }
-
-            // ALWAYS offer the final break
-            setMode('break');
-            const breakTime = safeSettings.pomodoroBreak * 60;
-            setTimeLeft(breakTime);
-
-            // Persist state for break
-            savePomodoroState({
-                mode: 'break',
-                timeLeft: breakTime,
-                isRunning: false,
-                sessions: newSessions
-            });
-
-        } else {
-            // Treat skip as completion of break
-            const newCompletedCycles = completedCycles + 1;
-            setCompletedCycles(newCompletedCycles);
-
-            if (Number(sessions) >= Number(targetCycles)) {
-                onFullCycleComplete?.();
-                // Reset session state but keep history
-                savePomodoroState({
-                    mode: 'work',
-                    timeLeft: safeSettings.pomodoroWork * 60,
-                    isRunning: false,
-                    sessions: 0,
-                    completedCycles: 0,
-                    activeTaskId: null,
-                    sessionInstanceId: null
-                });
-                return;
-            }
-
-            setMode('work');
-            const workTime = safeSettings.pomodoroWork * 60;
-            setTimeLeft(workTime);
-            savePomodoroState({
-                mode: 'work',
-                timeLeft: workTime,
-                isRunning: false,
-                completedCycles: newCompletedCycles
-            });
-        }
+        transitionSession(mode, 'skip');
     };
 
     // Format time as MM:SS
