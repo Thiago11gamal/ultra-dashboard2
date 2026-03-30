@@ -30,7 +30,7 @@ export default function Notes() {
 
             const rowsByDate = {};
             myRows.forEach(r => {
-                const dateKey = getDateKey(new Date(r.createdAt));
+                const dateKey = getDateKey(r.date || r.createdAt);
                 if (!rowsByDate[dateKey]) rowsByDate[dateKey] = [];
                 rowsByDate[dateKey].push({
                     name: r.topic || 'Geral',

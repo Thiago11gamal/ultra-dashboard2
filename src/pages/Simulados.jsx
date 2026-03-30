@@ -25,7 +25,7 @@ export default function Simulados() {
     // Em UTC-4 às 21h, toISOString retornava o dia seguinte.
     const todayKey = getDateKey(new Date());
     const rawTodayRows = (data.simuladoRows || []).filter(
-        r => r.createdAt && getDateKey(new Date(r.createdAt)) === todayKey
+        r => getDateKey(r.date || r.createdAt) === todayKey
     );
 
     // 1. Build the auto-synced rows combined with saved data
