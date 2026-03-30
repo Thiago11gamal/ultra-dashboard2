@@ -50,13 +50,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const finalScore = Math.max(0, Math.min(100, score));
     if (finalScore >= safeTarget) success++;
 
-    // BUG-04 FIX: Armazenar score bruto para cálculo de SD sem distorção por clamp
-    allScores[i] = score;
+    // BUG-04 FIX: Ajustado para usar finalScore garantindo consistência 0-100 na cauda KDE
+    allScores[i] = finalScore;
 
     welfordCount++;
-    const delta = score - welfordMean;
+    const delta = finalScore - welfordMean;
     welfordMean += delta / welfordCount;
-    welfordM2 += delta * (score - welfordMean);
+    welfordM2 += delta * (finalScore - welfordMean);
   }
 
   const projectedMean = welfordMean;

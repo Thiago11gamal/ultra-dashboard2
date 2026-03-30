@@ -31,17 +31,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const t = targetVal;
             
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                const pUnderflow = normalCDF_complement(mVal / sl);
-                const pOverflow  = normalCDF_complement((100 - mVal) / sr);
+                // BUG-VISUAL/MC FIX: Para Gaussiana Assimétrica a normalização difere:
+                // Área E = Área D * (sl / sr). A CDF padrão não sabe disso.
+                const normFactor = 2 / (sl + sr); // Correção Split-Normal
+                const pUnderflow = normFactor * sl * normalCDF_complement(mVal / sl);
+                const pOverflow  = normFactor * sr * normalCDF_complement((100 - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
                 let pSuccess;
                 if (tVal >= mVal) {
-                    const pRightSuccess = normalCDF_complement((tVal - mVal) / sr);
+                    const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
                     pSuccess = Math.max(0, pRightSuccess - pOverflow);
                 } else {
-                    const pLeftFail = normalCDF_complement((mVal - tVal) / sl);
-                    pSuccess = Math.max(0, 0.5 - pLeftFail + 0.5 - pOverflow);
+                    const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
+                    // Sucesso é o Lado Esquerdo Inteiro (menos a falha) + o Lado Direito Inteiro (menos o overflow)
+                    const totalLeftArea = normFactor * sl * 0.5;
+                    const totalRightArea = normFactor * sr * 0.5;
+                    pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
                 }
                 return pSuccess / truncatedTotal;
             };

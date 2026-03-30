@@ -361,9 +361,8 @@ export function monteCarloSimulation(
         : 1;
 
     const simulationDays = days;
-    // MATH-M1 FIX: O 'drift' (slope) vindo de stats.js está normalizado (x10). 
-    // Para o loop diário da simulação, dividimos por 10 para obter a taxa real por dia.
-    const dayDrift = days === 0 ? 0 : (drift / 10);
+    // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
+    const dayDrift = days === 0 ? 0 : drift;
 
     // ROLLBACK (EMERGÊNCIA-UI): O desvio diário precisa ser encolhido de propósito (shrinkage)!
     // Notas de prova têm tetos estritos de 0 a 100. Simular um passeio aleatório "1 pra 1" 
@@ -398,11 +397,11 @@ export function monteCarloSimulation(
 
         allFinalScores[s] = finalScore;
 
-        // Welford online update (BUG-MATH-01: Usar score bruto, não clampado, para preservar SD real)
+        // Welford com score finalScore para manter KDE 100% calibrado
         welfordCount++;
-        const delta = score - welfordMean;
+        const delta = finalScore - welfordMean;
         welfordMean += delta / welfordCount;
-        const delta2 = score - welfordMean;
+        const delta2 = finalScore - welfordMean;
         welfordM2 += delta * delta2;
     }
 

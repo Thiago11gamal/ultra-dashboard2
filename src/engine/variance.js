@@ -34,11 +34,12 @@ export function computeWeightedVariance(stats, totalWeight) {
     
     const adjustedSDs = stats.map(cat => {
         const n = Math.max(1, cat.n || 0);
-        // RIGOR-09 FIX: Prior adaptativo (Bayesian Shrinkage dinâmico).
-        // Reduz a penalidade epistêmica à medida que o histórico (n) cresce.
-        // Evita que o IC fique "vago" demais para alunos com apenas 1-2 provas.
-        const seePrior = Math.max(10, 25 - Math.sqrt(n));
-        const penalty = (seePrior * seePrior) / n; 
+        // RIGOR-09 FIX: Shrinkage Bayesiano em Beta Distribution estabilizado.
+        // Impede que simulados de histórico pequeno (n=1, n=2) deflagrem
+        // falsos alarmes de incerteza explosiva (25pts+).
+        const KAPPA = 3;
+        const PRIOR_VAR = 144; // 12² = prior SD empobrecida mas sã de 12 pts
+        const penalty = (KAPPA * PRIOR_VAR) / (n + KAPPA); 
         return Math.sqrt(Math.pow(cat.sd, 2) + penalty);
     });
 
