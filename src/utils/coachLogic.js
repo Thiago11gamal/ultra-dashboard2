@@ -441,7 +441,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     };
 };
 
-const getWeakestTopic = (category, simulados = []) => {
+const _buildSortedTopics = (category, simulados = []) => {
     const tasks = category.tasks || [];
     const topicMap = {};
 
@@ -523,8 +523,13 @@ const getWeakestTopic = (category, simulados = []) => {
         return b.urgencyScore - a.urgencyScore;
     });
 
-    return topics.length > 0 ? topics[0] : null;
+    return topics;
 };
+
+const getWeakestTopic = (category, simulados = []) => {
+    return _buildSortedTopics(category, simulados)[0] || null;
+};
+
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
     const targetScore = options.targetScore ?? 80;
@@ -560,89 +565,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
     // Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
     const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
-        const tasks = category.tasks || [];
-        const topicMap = {};
-
-        const catNorm = normalize(category.name);
-        const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNorm);
-        const categorySimuladoCount = relevantSimulados.length;
-
-        const history = (category.simuladoStats && category.simuladoStats.history) ? category.simuladoStats.history : [];
-
-        history.forEach(entry => {
-            if (!entry) return;
-            const entryDate = new Date(entry.date || 0);
-            const topics = entry.topics || [];
-            topics.forEach(t => {
-                if (!t) return;
-                let rawName = t.name;
-                if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
-                const name = rawName.trim();
-                if (!topicMap[name]) {
-                    topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
-                }
-                topicMap[name].total += (parseInt(t.total, 10) || 0);
-                topicMap[name].correct += (parseInt(t.correct, 10) || 0);
-                const topicTotal = parseInt(t.total, 10) || 0;
-                const topicCorrect = parseInt(t.correct, 10) || 0;
-                if (topicTotal > 0) {
-                    topicMap[name].scores.push({
-                        score: (topicCorrect / topicTotal) * 100,
-                        date: entryDate.toISOString()
-                    });
-                }
-                if (entryDate > topicMap[name].lastSeen) {
-                    topicMap[name].lastSeen = entryDate;
-                }
-            });
-        });
-
-        tasks.forEach(task => {
-            const name = String(task.text || task.title || "").trim();
-            if (!name) return;
-            if (!topicMap[name]) {
-                topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, scores: [] };
-            } else {
-                topicMap[name].completed = !!task.completed;
-            }
-            if (task.priority === 'high') topicMap[name].manualPriority = 40;
-            else if (task.priority === 'medium') topicMap[name].manualPriority = 20;
-        });
-
-        const today = new Date();
-        const topics = Object.entries(topicMap).map(([name, data]) => {
-            const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
-            const topicHistory = data.scores.slice(-3);
-            const trend = topicHistory.length >= 2 ? calculateTrend(topicHistory) : 0;
-            let daysSince = 0;
-            if (data.lastSeen.getTime() === 0) {
-                daysSince = 60;
-            } else {
-                daysSince = Math.max(0, Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24)));
-            }
-            const priorityBoost = data.manualPriority || 0;
-            let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;
-            if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
-                urgencyScore *= 0.7;
-            }
-            if (trend < -10) urgencyScore *= 1.2;
-            return {
-                name, total: data.total, percentage, daysSince,
-                trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,
-                isUntested: data.total === 0,
-                manualPriority: data.manualPriority || 0,
-                completed: data.completed
-            };
-        });
-
-        topics.sort((a, b) => {
-            if (!a.completed && b.completed) return -1;
-            if (a.completed && !b.completed) return 1;
-            return b.urgencyScore - a.urgencyScore;
-        });
-
-        return topics.slice(0, limit);
-    };
+    return _buildSortedTopics(category, simulados).slice(0, limit);
+};
 
     let allGeneratedTasks = [];
     
@@ -799,7 +723,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
             // Fallback General Task
             allGeneratedTasks.push({
-                id: `${cat.id}-general-review-${uniqueIdSuffix}-${dateStr}`,
+                id: `${cat.id}-general-review-${uniqueIdSuffix}-${Date.now()}`,
                 text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                 completed: false,
                 categoryId: cat.id,

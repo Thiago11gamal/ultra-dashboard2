@@ -158,7 +158,7 @@ export const useAppStore = create(
             updateCoachPlanner: (newPlannerData) => set((state) => {
                 const activeData = state.appState.contests[state.appState.activeId];
                 if (!activeData) return;
-                if (activeData.coachPlanner === newPlannerData) return;
+                if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
                 activeData.coachPlanner = newPlannerData;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -299,6 +299,7 @@ export const useAppStore = create(
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             awardExperience: (xpAmount) => {
@@ -321,6 +322,7 @@ export const useAppStore = create(
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             togglePriority: (categoryId, taskId) => set((state) => {
@@ -336,6 +338,7 @@ export const useAppStore = create(
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             addCategory: (name) => set((state) => {
@@ -354,6 +357,7 @@ export const useAppStore = create(
                 });
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             deleteCategory: (id) => set((state) => {
@@ -410,6 +414,7 @@ export const useAppStore = create(
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             handleUpdateStudyTime: (categoryId, minutes, taskId) => {
@@ -482,6 +487,7 @@ export const useAppStore = create(
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setMonteCarloWeights: (weights) => set((state) => {
@@ -502,6 +508,7 @@ export const useAppStore = create(
                 }
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setMcEqualWeights: (val) => set((state) => {
@@ -526,6 +533,7 @@ export const useAppStore = create(
                 activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             resetSimuladoStats: () => set((state) => {
@@ -568,6 +576,7 @@ export const useAppStore = create(
                 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             updatePomodoroSettings: (settings) => set((state) => {

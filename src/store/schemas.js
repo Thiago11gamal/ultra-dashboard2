@@ -24,8 +24,10 @@ const repairContestHistory = (data) => {
 
   // DIAGNOSTIC CORE: Log summary of what we are dealing with
   const rawSubjects = [...new Set(rows.map(r => normalize(r.subject)).filter(Boolean))];
-  console.log("%c[Schema-Diag] Matérias brutas na nuvem:", "color: #3b82f6; font-weight: bold;", rawSubjects);
-  console.log("%c[Schema-Diag] Categorias no Dashboard:", "color: #a855f7; font-weight: bold;", data.categories.map(c => normalize(c.name)));
+  if (import.meta.env.DEV) {
+    console.log("%c[Schema-Diag] Matérias brutas na nuvem:", "color: #3b82f6; font-weight: bold;", rawSubjects);
+    console.log("%c[Schema-Diag] Categorias no Dashboard:", "color: #a855f7; font-weight: bold;", data.categories.map(c => normalize(c.name)));
+  }
 
   data.categories.forEach(cat => {
     const catNorm = normalize(cat.name);
@@ -91,7 +93,9 @@ const repairContestHistory = (data) => {
         level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
       };
     } else {
-      console.log(`[Schema-Diag] ${cat.name} está íntegro (${currentHistory.length} pontos).`);
+      if (import.meta.env.DEV) {
+        console.log(`[Schema-Diag] ${cat.name} está íntegro (${currentHistory.length} pontos).`);
+      }
     }
   });
 

@@ -74,7 +74,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             }
         });
 
-        // Determine which activeId to keep (most recently updated overall)
         const cloudUpdated = new Date(cloud.lastUpdated || 0).getTime();
         const localUpdated = new Date(local.lastUpdated || 0).getTime();
         const activeId = cloudUpdated > localUpdated ? cloud.activeId : local.activeId;
@@ -84,6 +83,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             ...cloud,
             contests: mergedContests,
             activeId: activeId || local.activeId || cloud.activeId,
+            version: Math.max(local.version ?? 0, cloud.version ?? 0),
             lastUpdated: new Date(Math.max(cloudUpdated, localUpdated)).toISOString()
         };
     };

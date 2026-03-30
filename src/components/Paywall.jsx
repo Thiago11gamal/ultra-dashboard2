@@ -8,8 +8,12 @@ import { logger } from '../utils/logger';
 // BUG-22 FIX: Stripe initialization moved inside the component to avoid module-level DNS errors
 let stripePromise = null;
 const getStripe = () => {
+    if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+        console.error("[Stripe] VITE_STRIPE_PUBLIC_KEY não configurada!");
+        return null;
+    }
     if (!stripePromise) {
-        stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "pk_live_51T9dWWFOUB7khZQdScYwgc2kgKeH0gs6kQYqmJN79PHNQoGEWtD6W9yGSQBBrfzZFPfv00lbmZn7n5jhq8vNoYJ800JcXlq3qQ");
+        stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
     }
     return stripePromise;
 };

@@ -279,7 +279,7 @@ export default function MonteCarloGauge({
         return { status: 'ready', data: result };
         // 🟠 BUG DE PERFORMANCE FIX: Categories pode ser um objeto novo a cada render.
         // Usamos stringify para garantir que a simulação só rode se os dados reais mudarem.
-    }, [statsData, debouncedTarget, projectDays, JSON.stringify(categories), debouncedWeights, effectiveWeights]);
+    }, [statsData, debouncedTarget, projectDays, debouncedWeights, effectiveWeights, categories.map(c => c.simuladoStats?.history?.length).join(',')]);
 
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {
@@ -520,8 +520,7 @@ export default function MonteCarloGauge({
                                 targetScore={safe(targetScore)}
                                 currentMean={safe(currentMean)}
                                 prob={safe(prob)}
-                                kdeData={simulationData?.data?.kdeData}
-                                u78 />
+                                kdeData={simulationData?.data?.kdeData} />
                         );
                     })()}
                 </div>
