@@ -57,7 +57,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // Replace hardcoded plotMin=0 for better centering.
     const plotMin = Math.max(0, projectedMean - 4 * projectedSD); 
     // Scores simulados são clamped em [0,100], então plotMax não precisa ultrapassar 100:
-    const plotMax = Math.min(100, Math.max(100, Math.ceil(rawHigh))); 
+    const plotMax = 100; // Simplificado para constante explícita. Antigamente: Math.min(100, Math.max(100, Math.ceil(rawHigh)))
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
     

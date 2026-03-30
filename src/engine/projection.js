@@ -107,7 +107,7 @@ export function calculateSlope(history) {
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
     const baseLimit = 0.3; // Base conservadora para pouco histórico
-    const absoluteMax = 0.5; // Teto real para dados abundantes
+    const absoluteMax = 0.45; // Teto real para dados abundantes
 
     const dynamicLimit = Math.min(
         absoluteMax,
@@ -277,7 +277,7 @@ export function monteCarloSimulation(
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
         const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
-        const daysBetween = Math.min(30, rawDays);
+        const daysBetween = Math.min(90, rawDays); // Alinhar com calculateVolatility
 
         // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting
         // pois o loop de projeção já injeta o 'dayDrift' em cada iteração a cada passo.
