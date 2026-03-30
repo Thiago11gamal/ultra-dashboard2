@@ -396,8 +396,11 @@ export default function VerifiedStats({ categories = [], user }) {
 
                     quality = Math.max(0.5, 1 - (dailySD / 40));
 
-                    const adjustedSpeed = weeklyBaseSpeed * difficultyFactor * quality;
-                    const weeksEstimated = distance / adjustedSpeed;
+                    const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+                    const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
+                    
+                    // DIV-01 FIX: Prevenir divisão por zero ou velocidade negativa absurda
+                    const weeksEstimated = adjustedSpeed > 0.001 ? (distance / adjustedSpeed) : 999;
                     const daysEstimated = weeksEstimated * 7;
 
                     if (daysEstimated > 365 * 2) {
@@ -409,11 +412,11 @@ export default function VerifiedStats({ categories = [], user }) {
                         // FIX Bug 2: Margin calculated via error propagation
                         // σ_days = σ_scores / pointsPerDay
                         const pointsPerDay = adjustedSpeed / 7;
-                        const sdDays = dailySD / (pointsPerDay || 0.1);
+                        const sdDays = pointsPerDay > 0.001 ? (dailySD / pointsPerDay) : 0;
 
                         // Limit margin to 50% of total time to avoid explosive intervals
                         const sigmaLimit = daysEstimated * 0.5;
-                        const margin = Math.min(sdDays, sigmaLimit);
+                        const margin = Math.min(safe(sdDays), sigmaLimit);
 
                         const daysMin = Math.max(1, daysEstimated - margin);
                         const daysMax = daysEstimated + margin;
@@ -421,7 +424,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
                         const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
 
-                        const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                        const fmt = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
                         prediction = `${fmt(dateMin)} - ${fmt(dateMax)}`;
                         predictionSubtext = `Previsão de alcance (${target}%)`;

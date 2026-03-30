@@ -122,6 +122,7 @@ export default function MonteCarloGauge({
         const scoresByDate = {};
         const weightsByName = {};
         const bayesianStats = [];
+        let weightedVolatilitySum = 0;
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
@@ -135,6 +136,7 @@ export default function MonteCarloGauge({
                 if (stats && weight > 0) {
                     totalWeight += weight;
                     weightedBayesianSum += baye.mean * weight;
+                    weightedVolatilitySum += stats.sd * weight;
                     weightsByName[cat.name] = weight;
 
                     history.forEach(h => {
@@ -194,6 +196,7 @@ export default function MonteCarloGauge({
         // inflariam artificialmente o desvio padrão diário.
         // Usamos a média ponderada das volatilidades REAIS de cada matéria.
         // POSSÍVEL BUG EM VOLATILIDADE FIX: Priorizar a volatilidade ponderada das matérias
+        const sumVolatility = totalWeight > 0 ? weightedVolatilitySum / totalWeight : 0;
         const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
 
         // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
@@ -333,8 +336,8 @@ export default function MonteCarloGauge({
         );
     }
 
-    const probability = simulationData.data.probability;
-    const mean = simulationData.data.mean;
+    const probability = simulationData?.data?.probability ?? 0;
+    const mean = simulationData?.data?.mean ?? 0;
     // 🟠 BUG DE POSSÍVEL undefined FIX
     const sd = simulationData?.data?.sd ?? 0;
     const sdLeft = simulationData?.data?.sdLeft ?? sd;
@@ -342,14 +345,15 @@ export default function MonteCarloGauge({
     const ci95Low = simulationData?.data?.ci95Low ?? 0;
     const ci95High = simulationData?.data?.ci95High ?? 0;
     const currentMean = simulationData?.data?.currentMean ?? 0;
-    const prob = parseFloat(probability || 0);
-
-    // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
-    const isClampedHigh = parseFloat(ci95High) >= 99.5;
-    const isClampedLow = parseFloat(ci95Low) <= 0.5;
 
     // ✅ CORREÇÃO SEGURA PARA NaN
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+    const prob = safe(probability);
+
+    // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
+    const isClampedHigh = safe(ci95High) >= 99.5;
+    const isClampedLow = safe(ci95Low) >= 0.5;
+
     const left = safe(sdLeft);
     const right = safe(sdRight);
     const center = safe(sd);
@@ -470,7 +474,7 @@ export default function MonteCarloGauge({
                             </g>
                         )}
                     </svg>
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{prob.toFixed(1)}%</span></div>
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{safe(prob).toFixed(1)}%</span></div>
                 </div>
                 <span className={`text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''}`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
                     {isCalculating ? "RECALCULANDO..." : message}
@@ -479,15 +483,15 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
-                    { label: "Sua Meta", val: `${targetScore}%`, color: "text-rose-500" },
-                    { label: "Hoje", val: `${parseFloat(currentMean).toFixed(1)}%`, color: "text-white" },
-                    { label: "Projeção", val: `${parseFloat(mean).toFixed(1)}%`, color: "text-blue-400" },
+                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}%`, color: "text-rose-500" },
+                    { label: "Hoje", val: `${safe(currentMean).toFixed(1)}%`, color: "text-white" },
+                    { label: "Projeção", val: `${safe(mean).toFixed(1)}%`, color: "text-blue-400" },
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
-                        color: Math.abs(parseFloat(sd)) <= 5 ? 'text-emerald-400' : Math.abs(parseFloat(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400'
+                        color: Math.abs(safe(sd)) <= 5 ? 'text-emerald-400' : Math.abs(safe(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400'
                     },
-                    { label: "IC 95%", val: `${ci95Low}-${ci95High}%`, color: "text-green-500" }
+                    { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}%`, color: "text-green-500" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center overflow-hidden">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 whitespace-nowrap">
@@ -507,17 +511,17 @@ export default function MonteCarloGauge({
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
                         return (
                             <GaussianPlot
-                                mean={parseFloat(mean)}
-                                sd={parseFloat(sd)}
-                                sdLeft={parseFloat(sdLeft)}
-                                sdRight={parseFloat(sdRight)}
-                                low95={parseFloat(ci95Low)}
-                                high95={parseFloat(ci95High)}
-                                targetScore={targetScore}
-                                currentMean={safeCurrentMean}
-                                prob={prob}
-                                kdeData={simulationData.data.kdeData}
-                            />
+                                mean={safe(mean)}
+                                sd={safe(sd)}
+                                sdLeft={safe(sdLeft)}
+                                sdRight={safe(sdRight)}
+                                low95={safe(ci95Low)}
+                                high95={safe(ci95High)}
+                                targetScore={safe(targetScore)}
+                                currentMean={safe(currentMean)}
+                                prob={safe(prob)}
+                                kdeData={simulationData?.data?.kdeData}
+                                u78 />
                         );
                     })()}
                 </div>
