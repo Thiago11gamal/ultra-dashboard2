@@ -515,6 +515,7 @@ export const useAppStore = create(
                 state.appState.mcEqualWeights = val;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             updateWeights: (weights) => set((state) => {
@@ -604,6 +605,7 @@ export const useAppStore = create(
                 activeData.user.name = name;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             switchContest: (contestId) => set((state) => {

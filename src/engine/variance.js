@@ -32,16 +32,7 @@ export function computeWeightedVariance(stats, totalWeight) {
 
     const weights = stats.map(cat => cat.weight / totalWeight);
     
-    const adjustedSDs = stats.map(cat => {
-        const n = Math.max(1, cat.n || 0);
-        // RIGOR-09 FIX: Shrinkage Bayesiano em Beta Distribution estabilizado.
-        // Impede que simulados de histórico pequeno (n=1, n=2) deflagrem
-        // falsos alarmes de incerteza explosiva (25pts+).
-        const KAPPA = 3;
-        const PRIOR_VAR = 144; // 12² = prior SD empobrecida mas sã de 12 pts
-        const penalty = (KAPPA * PRIOR_VAR) / (n + KAPPA); 
-        return Math.sqrt(Math.pow(cat.sd, 2) + penalty);
-    });
+    const adjustedSDs = stats.map(cat => cat.sd);
 
     // 1. Independent Variance Component: Σ (wi² * σi²)
     const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);

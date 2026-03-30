@@ -221,7 +221,7 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights]);
+    }, [categories, debouncedWeights]);
 
     const simulationData = useMemo(() => {
         if (!statsData) return { status: 'waiting', missing: 'data' };
@@ -279,7 +279,7 @@ export default function MonteCarloGauge({
         return { status: 'ready', data: result };
         // 🟠 BUG DE PERFORMANCE FIX: Categories pode ser um objeto novo a cada render.
         // Usamos stringify para garantir que a simulação só rode se os dados reais mudarem.
-    }, [statsData, debouncedTarget, projectDays, debouncedWeights, effectiveWeights, categories.map(c => c.simuladoStats?.history?.length).join(',')]);
+    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categories.map(c => c.simuladoStats?.history?.length).join(',')]);
 
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {

@@ -38,9 +38,7 @@ const repairContestHistory = (data) => {
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
       return subNorm === catNorm ||
-        catAliases.some(a => normalize(a) === subNorm) ||
-        catNorm.includes(subNorm) ||
-        subNorm.includes(catNorm);
+        catAliases.some(a => normalize(a) === subNorm);
     });
 
     if (myRows.length === 0) {

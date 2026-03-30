@@ -58,9 +58,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             for (let i = 0; i < 3; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
                 if (Math.abs(targetProb - pg) <= 0.005) break;
-                const r = Math.min(3, Math.max(0.33, targetProb / Math.max(0.005, pg)));
-                if (t < m) sl = Math.max(1, sl * r);
-                else sr = Math.max(1, sr * r);
+                const r = Math.min(1.5, Math.max(0.66, targetProb / Math.max(0.005, pg)));
+                if (t < m) sl = Math.min(vizSdLeft * 4, Math.max(1, sl * r));
+                else sr = Math.min(vizSdRight * 4, Math.max(1, sr * r));
             }
             vizSdLeft = sl; vizSdRight = sr;
         }

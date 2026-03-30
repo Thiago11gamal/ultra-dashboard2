@@ -97,7 +97,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         const catCount = activeContest?.categories?.length ?? 0;
         const sessionCount = activeContest?.studySessions?.length ?? 0;
         const catHash = (activeContest?.categories || [])
-            .reduce((acc, c) => acc + c.id.charCodeAt(0) + (c.name?.length ?? 0), 0);
+            .map(c => `${(c.id || '').substring(0, 4)}${c.name?.length ?? 0}`)
+            .join('-');
         return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}:${catCount}:${sessionCount}:${catHash}`;
     };
 
@@ -336,12 +337,25 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         const handleBeforeUnload = () => {
             // BUG-9 FIX: Mark dirty in localStorage so next boot can detect unsaved data
+            let isDirty = false;
             try {
                 const currentStr = stateStringForSync(appStateRef.current);
                 if (lastSyncedRef.current !== currentStr) {
                     localStorage.setItem('ultra-sync-dirty', 'true');
+                    isDirty = true;
                 }
             } catch (_) { /* ignore */ }
+            
+            // Mitigação Real: sendBeacon workflow. Como Firestore Client não suporta beacon
+            // nativamente pela complexidade do formato de documento, disparamos para um Worker 
+            // Vercel Edge customizado caso configurado.
+            if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
+                try {
+                    const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
+                    navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, payload);
+                } catch(e) {}
+            }
+
             performEmergencySync();
         };
 
