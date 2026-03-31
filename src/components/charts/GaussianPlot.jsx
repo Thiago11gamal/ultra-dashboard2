@@ -14,6 +14,26 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         strongGlow: `gpStrongGlow_${instanceId}`,
     };
 
+    // MELHORIA: Cor dinâmica da área de sucesso baseada na probabilidade (semáforo gauge)
+    const successColor = useMemo(() => {
+        const p = prob ?? 0;
+        // Interpolar HSL: vermelho(0°) → âmbar(38°) → verde(142°)
+        if (p < 60) {
+            // Red (#ef4444, H=0) → Amber (#f59e0b, H=38)
+            const t = Math.max(0, p) / 60;
+            const h = 0 + t * 38;
+            return `hsl(${h}, 85%, 55%)`;
+        }
+        if (p < 80) {
+            // Amber (#f59e0b, H=38) → Green (#22c55e, H=142)
+            const t = (p - 60) / 20;
+            const h = 38 + t * 104;
+            return `hsl(${h}, 75%, 50%)`;
+        }
+        // Green zone
+        return '#22c55e';
+    }, [prob]);
+
     const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactorFinal, curvePointsForArea, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
@@ -258,8 +278,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <stop offset="100%" stopColor="#2dd4bf" />
                     </linearGradient>
                     <linearGradient id={ID.areaGrad} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(34, 197, 94, 0.7)" />
-                        <stop offset="100%" stopColor="rgba(34, 197, 94, 0.2)" />
+                        <stop offset="0%" stopColor={successColor} stopOpacity={0.7} />
+                        <stop offset="100%" stopColor={successColor} stopOpacity={0.2} />
                     </linearGradient>
                     <linearGradient id={ID.failGrad} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="rgba(239, 68, 68, 0.5)" />
@@ -304,11 +324,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     style={{ filter: `url(#${ID.glow})` }}
                 />
 
-                {/* BUG-06 FIX: Success Area (With Pulse if High Prob) */}
+                {/* Success Area with dynamic color matching gauge traffic-light */}
                 <path
                     d={areaPathData}
                     fill={`url(#${ID.areaGrad})`}
-                    stroke="#22c55e"
+                    stroke={successColor}
                     strokeWidth="1.2"
                     strokeDasharray="none"
                     vectorEffect="non-scaling-stroke"

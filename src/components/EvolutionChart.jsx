@@ -360,13 +360,38 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             const stats = lastPoint[`stats_${focusCategory.name}`];
             if (stats == null) return "Ainda não existem dados suficientes para esta matéria.";
             const trend = lastPoint[`trend_status_${focusCategory.name}`];
-            if (trend === 'up') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de alta detectada — sua curva de aprendizado está funcionando!`;
-            if (trend === 'down') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de queda detectada. Revise os tópicos mais fracos antes de avançar.`;
-            return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência estável — consistência sólida.`;
+            // MELHORIA: Gap entre média histórica e nível Bayesiano
+            const gap = bayesian != null ? (bayesian - stats) : null;
+            const gapText = gap != null ? ` Gap vs Bayesiano: ${gap > 0 ? '+' : ''}${gap.toFixed(1)}pp.` : '';
+            if (trend === 'up') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de alta detectada — sua curva de aprendizado está funcionando!${gapText}`;
+            if (trend === 'down') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de queda detectada. Revise os tópicos mais fracos.${gapText}`;
+            return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência estável — consistência sólida.${gapText}`;
         }
 
         if (activeEngine === "raw_weekly") {
-            return "📅 O Mapa de Calor mostra sua evolução visual semana a semana. Células verdes indicam acima da meta, vermelhas abaixo. Observe padrões semanais de melhoria.";
+            // MELHORIA: Analisar melhor/pior dia da semana a partir do heatmapData
+            const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+            const dayStats = {};
+            categories.forEach(cat => {
+                (cat.simuladoStats?.history || []).forEach(h => {
+                    const d = normalizeDate(h.date);
+                    if (!d) return;
+                    const dow = d.getDay();
+                    if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
+                    dayStats[dow].correct += (Number(h.correct) || 0);
+                    dayStats[dow].total += (Number(h.total) || 0);
+                });
+            });
+            const dayEntries = Object.entries(dayStats)
+                .filter(([, s]) => s.total >= 5)
+                .map(([dow, s]) => ({ dow: Number(dow), pct: (s.correct / s.total) * 100, total: s.total }));
+            if (dayEntries.length >= 2) {
+                dayEntries.sort((a, b) => b.pct - a.pct);
+                const best = dayEntries[0];
+                const worst = dayEntries[dayEntries.length - 1];
+                return `📅 Melhor dia: ${DAY_NAMES[best.dow]} (${best.pct.toFixed(1)}%, ${best.total}q). Pior dia: ${DAY_NAMES[worst.dow]} (${worst.pct.toFixed(1)}%, ${worst.total}q). Alinhe seus simulados mais densos ao dia de melhor rendimento.`;
+            }
+            return "📅 O Mapa de Calor mostra sua evolução visual semana a semana. Células verdes indicam acima da meta, vermelhas abaixo.";
         }
 
         // Engine "compare" — insight original completo
@@ -486,7 +511,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5 w-full">
                     <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
                         <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
-                        {[{ label: '30d', value: '30' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
+                        {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                             <button key={w.value} onClick={() => setTimeWindow(w.value)}
                                 className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
