@@ -379,7 +379,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                     <KpiCard 
                         value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} 
                         label="Precisão Global" color="#fb923c" icon="⚡"
-                        sub={timeline.length > 1 && timeline[timeline.length - 1].global_pct != null && timeline[timeline.length - 2].global_pct != null ? timeline[timeline.length - 1].global_pct - timeline[timeline.length - 2].global_pct : null} 
                     />
                 </div>
             </div>
