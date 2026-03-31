@@ -63,13 +63,15 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // Silverman's Rule of Thumb para suavização ideal do Kernel
     const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
     const h = 1.06 * Math.min(projectedSD, iqr / 1.34) * Math.pow(safeSimulations, -0.2);
-    // BUG-CRÍTICO FIX: Piso dinâmico proporcional ao SD evita o over-smoothing grave
-    // em alunos muito consistentes que sofriam de "curva gorda" forçada.
-    const bandwidth = Math.max(h, Math.min(1.0, projectedSD * 0.15)); // Previne picos ruidosos demais, mas respeita a consistência
     
     // REVISION: KDE using 200 Bins for higher UI resolution
     const BIN_COUNT = 200;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
+
+    // BUG-CRÍTICO FIX: Piso dinâmico proporcional ao SD evita o over-smoothing grave
+    // em alunos muito consistentes que sofriam de "curva gorda" forçada. 
+    // Garante que o bandwidth nunca seja menor que binWidth (0.5pp)
+    const bandwidth = Math.max(h, binWidth, Math.min(1.0, projectedSD * 0.15)); 
     const bins = new Float32Array(BIN_COUNT);
     
     // BUG 3 e PONTO 1 Corrigidos: Contabilizar overflow e underflow separadamente

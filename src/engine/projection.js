@@ -298,8 +298,8 @@ export function monteCarloSimulation(
 
     // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
     // .slice(1) já removeu 1 elemento: 5 pontos de histórico → 4 resíduos.
-    // Threshold correto para ativar bootstrap com 5 pontos é >= 4.
-    const useBootstrap = residuals.length >= 4;
+    // Exigimos mais amostras para o bootstrap para evitar inflar o SD artificialmente com correção de Bessel em n pequeno (n < 6)
+    const useBootstrap = residuals.length >= 6;
 
     // Calcula volatilidade clássica apenas para fallback
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
@@ -352,7 +352,7 @@ export function monteCarloSimulation(
     // MATH-M3 FIX: Resíduos já foram centralizados (L291-293), consumindo 1 DoF.
     // O estimador imparcial para a variância residual exige n-1.
     const _residualSD = (useBootstrap && residuals.length > 0)
-        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, residuals.length - 1))
+        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / (residuals.length < 8 ? residuals.length : residuals.length - 1))
         : 0;
 
     // BUG 4 FIX: Incerteza sensível ao tempo (crescimento sublinear)
@@ -371,11 +371,12 @@ export function monteCarloSimulation(
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
     const dayDrift = days === 0 ? 0 : drift;
 
-    // ROLLBACK (EMERGÊNCIA-UI): O desvio diário precisa ser encolhido de propósito (shrinkage)!
+    // UI-SAFE DAMPING / ROLLBACK (EMERGÊNCIA-UI): O desvio diário precisa ser encolhido de propósito (shrinkage)!
+    // O uso de (days/30)^0.2 em adjustedVolatility + divisão por Math.sqrt(simulationDays) faz 
+    // com que a incerteza de longo prazo convirja bem mais compactamente que num Random Walk puro.
     // Notas de prova têm tetos estritos de 0 a 100. Simular um passeio aleatório "1 pra 1" 
     // com alta volatilidade atira a linha contra as paredes, deixando o gráfico em U-Shape.
-    // O desenvolvedor brilhantemente dividiu pela raiz do tempo para que no último dia a 
-    // variância total somasse apenas 'volatility', forçando uma curva Gaussiana perfeita.
+    // O cálculo atual é focado no conforto visual (Damping Seguro para UI), não é a variância teórica de um HW pleno.
     const sigma = simulationDays > 0 ? adjustedVolatility / Math.sqrt(simulationDays) : 0;
     const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
     for (let s = 0; s < safeSimulations; s++) {
@@ -399,10 +400,7 @@ export function monteCarloSimulation(
             score += dampedDrift + shock;
         }
 
-        let s_final = score;
-        if (s_final > 100) s_final = 200 - s_final;
-        if (s_final < 0) s_final = -s_final;
-        const finalScore = Math.max(0, Math.min(100, s_final));
+        const finalScore = Math.max(0, Math.min(100, score));
         if (finalScore >= targetScore) success++;
 
         allFinalScores[s] = finalScore;
@@ -436,14 +434,21 @@ export function monteCarloSimulation(
     const sdLeft = (displayMean - ci95LowVal) / 1.96;
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
-    // Bug 2: Usar sdLeft quando o teto de 100% artificialmente comprime o inferredSD
-    const effectiveSD = (ci95HighVal >= 99.5) ? sdLeft : Math.max(1.0, inferredSD);
+    // Bug 2: Usar sdRight quando o teto de 100% artificialmente comprime o lado direito e o alvo está na direita
+    const effectiveSD = (ci95HighVal >= 99.5) 
+        ? (targetScore >= displayMean ? sdRight : sdLeft) 
+        : Math.max(1.0, inferredSD);
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;
     
     // MC-02: Use raw empirical probability
     const empiricalProbability = (success / safeSimulations) * 100;
+    
+    const gap = Math.abs(empiricalProbability - analyticalProbability);
+    if (gap > 3) {
+        console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
+    }
 
     return {
         probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),

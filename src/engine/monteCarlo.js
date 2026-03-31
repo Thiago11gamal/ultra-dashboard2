@@ -47,10 +47,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const score = safeMean + randomNormal(rng) * safeSD;
     
     // Sucesso é baseado no score real (limitado a 0-100 para sanidade do alvo)
-    let s = score;
-    if (s > 100) s = 200 - s;  
-    if (s < 0) s = -s;
-    const finalScore = Math.max(0, Math.min(100, s));
+    // BUG-01 FIX: Clampar em vez de refletir para evitar inflar artificialmente a densidade nos extremos
+    const finalScore = Math.max(0, Math.min(100, score));
     if (finalScore >= safeTarget) success++;
 
     // BUG-04 FIX: Ajustado para usar finalScore garantindo consistência 0-100 na cauda KDE
@@ -88,11 +86,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const inferredSD = (displayHigh - displayLow) / 3.92;
 
   // REVISION: Standardized floor to 1.0
-  const effectiveSD = (displayHigh >= 99.5) ? sdLeft : Math.max(1.0, inferredSD);
+  // BUG-02 FIX: Usar sdRight se o displayHigh estiver comprimido no teto e o alvo também estiver no lado direito
+  const effectiveSD = (displayHigh >= 99.5) 
+    ? (safeTarget >= displayMean ? sdRight : sdLeft) 
+    : Math.max(1.0, inferredSD);
 
   // Bug 1: Calcular analyticalProbability corretamente
   const zScore = (safeTarget - displayMean) / effectiveSD;
   const analyticalProbability = normalCDF_complement(zScore) * 100;
+  
+  const gap = Math.abs(empiricalProbability - analyticalProbability);
+  if (gap > 3) {
+      console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
+  }
 
   return {
     probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),

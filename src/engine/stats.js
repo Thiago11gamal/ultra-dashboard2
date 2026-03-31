@@ -123,7 +123,9 @@ export function calculateTrend(history) {
         if (Math.abs(tStat) < tCrit) return 0;
     }
 
-    return slope * 10; // Normalized slope for UI display
+    // Multiplicar por 30 normaliza o trend para pp/30-dias (mais intuitivo)
+    // Logo, um threshold de 0.5 equivale a +1.5pp em um mês
+    return slope * 30; // pp/30-dias
 }
 
 /**

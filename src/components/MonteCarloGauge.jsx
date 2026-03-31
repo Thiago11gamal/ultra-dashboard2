@@ -158,8 +158,7 @@ export default function MonteCarloGauge({
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
         // MC-04 FIX: pooledSD is only used for the "Today" (static) simulation.
-        // It shouldn't include future time uncertainty.
-        const pooledSD = computePooledSD(categoryStats, totalWeight, 0);
+        const pooledSD = computePooledSD(categoryStats, totalWeight);
         const bayesianMean = weightedBayesianSum / totalWeight;
 
         // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).

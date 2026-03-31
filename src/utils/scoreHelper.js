@@ -16,14 +16,10 @@ export function getSafeScore(historyRow) {
         }
 
         // Normalização universal (entradas sem isPercentage):
-        // Se s <= total, tratamos como fração (ex: 15 de 20 = 75%).
-        // Se s > total, assumimos que já é um valor percentual ou erro de input.
-        const total = Number(historyRow.total);
-        if (total > 0 && s <= total) {
-            return (s / total) * 100;
-        }
-
-        return Number.isFinite(s) ? s : 0;
+        // Removido o comportamento de dividir `s / total` quando `score` já está presente,
+        // pois causava ambiguidade onde scores percentuais como 70% num teste de 80 questões 
+        // viravam 87.5% (70/80). O campo 'score' agora é sempre considerado o valor percentual final.
+        return Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
     }
 
     // Fallback de retrocompatibilidade: provas antigas só tinham .correct e .total.

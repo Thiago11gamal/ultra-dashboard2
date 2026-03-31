@@ -25,7 +25,9 @@
 // REVISION: Institutional Correlation Factor (Rho)
 // Represents the shared variance between subjects (e.g. test-day performance).
 // 0.15 is a conservative value that interpolation between independence (0) and full correlation (1).
-const INTER_SUBJECT_CORRELATION = 0.15;
+// Idealmente seria derivado empiricamente da covariância histórica, 
+// mas 0.15 é mantido como configuração "conservadora" configurável.
+export const INTER_SUBJECT_CORRELATION = 0.15;
 
 export function computeWeightedVariance(stats, totalWeight) {
     if (totalWeight === 0) return 0;
@@ -46,47 +48,20 @@ export function computeWeightedVariance(stats, totalWeight) {
 }
 
 /**
- * Compute time uncertainty using sublinear growth
- * Formula: σ_time = √(days) × 0.5
- * 
- * BUG-M2: Sublinear growth reflects reality: uncertainty doesn't grow
- * linearly with time, it decelerates (diminishing returns).
- * The 0.5 constant is an empirical factor representing ~0.5pp of 
- * additional uncertainty per square root of projected day.
- * 
- * @param {number} projectDays - Days to project forward
- * @returns {number} Time uncertainty SD
- */
-// BUG-L5: extrair como constante nomeada para facilitar calibração
-// σ_time representa ~0.5pp de incerteza adicional por √dia de projeção
-// RIGOR-05 FIX: Modelo de variância terminal fixa (Mean Reversion)
-// O modelo anterior (√dias) superestimava a incerteza em 57% vs o Engine de Projeção.
-// Para scores de exames, o desvio padrão histórico é o melhor estimador da incerteza futura.
-const TIME_UNCERTAINTY_FACTOR = 0;
-
-export function computeTimeUncertainty(projectDays) {
-    return 0; // Desativado para consistência com o motor Monte Carlo
-}
-
-/**
  * ⚠️ ESTATÍSTICA: Esta função combina duas unidades conceituais distintas:
  * 1. σ_weighted (Variabilidade histórica entre provas)
- * 2. σ_time (Incerteza de trajetória/drift)
+ * 2. σ_time (Incerteza de trajetória/drift) - [Desativado para Monte Carlo]
  * 
  * Embora pragmaticamente útil para bandas de confiança, o valor resultante é um
  * estimador composto, não um desvio padrão frequentista puro.
  * 
  * @param {Object[]} stats - Array of category statistics
  * @param {number} totalWeight - Sum of all weights
- * @param {number} projectDays - Days to project forward
  * @returns {number} Pooled SD
  */
-export function computePooledSD(stats, totalWeight, projectDays) {
+export function computePooledSD(stats, totalWeight) {
     const weightedVariance = computeWeightedVariance(stats, totalWeight);
-    const timeUncertainty = computeTimeUncertainty(projectDays);
-    const timeVariance = timeUncertainty * timeUncertainty;
-
-    return Math.sqrt(weightedVariance + timeVariance);
+    return Math.sqrt(weightedVariance);
 }
 
 /**
@@ -94,20 +69,17 @@ export function computePooledSD(stats, totalWeight, projectDays) {
  * 
  * @param {Object[]} stats - Array of category statistics
  * @param {number} totalWeight - Sum of all weights
- * @param {number} projectDays - Days to project forward
  * @returns {Object} Detailed variance breakdown
  */
-export function getVarianceBreakdown(stats, totalWeight, projectDays) {
+export function getVarianceBreakdown(stats, totalWeight) {
     const weightedVariance = computeWeightedVariance(stats, totalWeight);
-    const timeUncertainty = computeTimeUncertainty(projectDays);
-    const timeVariance = timeUncertainty * timeUncertainty;
-    const pooledVariance = weightedVariance + timeVariance;
+    const pooledVariance = weightedVariance;
     const pooledSD = Math.sqrt(pooledVariance);
 
     return {
         weightedVariance: Number(weightedVariance.toFixed(4)),
-        timeUncertainty: Number(timeUncertainty.toFixed(4)),
-        timeVariance: Number(timeVariance.toFixed(4)),
+        timeUncertainty: 0,
+        timeVariance: 0,
         pooledVariance: Number(pooledVariance.toFixed(4)),
         pooledSD: Number(pooledSD.toFixed(4))
     };
@@ -115,7 +87,6 @@ export function getVarianceBreakdown(stats, totalWeight, projectDays) {
 
 export default {
     computeWeightedVariance,
-    computeTimeUncertainty,
     computePooledSD,
     getVarianceBreakdown
 };
