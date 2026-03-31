@@ -49,13 +49,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const targetProb = prob / 100;
             const m = meanVal;
             const t = targetVal;
-            
+
             const getGeomProb = (tVal, mVal, sl, sr) => {
                 // BUG-VISUAL/MC FIX: Para Gaussiana Assimétrica a normalização difere:
                 // Área E = Área D * (sl / sr). A CDF padrão não sabe disso.
                 const normFactor = 2 / (sl + sr); // Correção Split-Normal
                 const pUnderflow = normFactor * sl * normalCDF_complement(mVal / sl);
-                const pOverflow  = normFactor * sr * normalCDF_complement((100 - mVal) / sr);
+                const pOverflow = normFactor * sr * normalCDF_complement((100 - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
                 let pSuccess;
@@ -114,7 +114,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             pointsForArea = kdeData
                 .filter(p => p.x >= 0 && p.x <= DOMAIN_MAX)
                 .map(p => `${xp(p.x)},${yp(p.y)}`);
-            
+
             // Garantir que a linha fecha visualmente no limite direito
             if (pointsForArea.length > 0) {
                 const lastX = parseFloat(pointsForArea[pointsForArea.length - 1].split(',')[0]);
@@ -123,7 +123,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 }
             }
             path = `M ${pointsForArea.join(' L ')}`;
-            finalHF = 1.0; 
+            finalHF = 1.0;
         } else {
             // FALLBACK: Use parametric Asymmetric Gaussian
             const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
@@ -136,7 +136,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const areaPoints = [];
         const failPoints = [];
         const successStart = Math.max(xMin, targetVal);
-        
+
         // BUG-VISUAL FIX: Quando kdeData disponível, interpolar yAtTarget do próprio KDE
         const getYAtX = (pts, xTarget) => {
             let lo = null, hi = null;
@@ -182,7 +182,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
         // Metrics: Usar SDs originais para os quartis, não os calibrados para a área visual.
-        const rawSdLeft  = Math.max(1, propSdLeft ?? sd);
+        const rawSdLeft = Math.max(1, propSdLeft ?? sd);
         const rawSdRight = Math.max(1, propSdRight ?? sd);
         const med = meanVal;
         const lp25 = meanVal - 0.674 * rawSdLeft;
@@ -228,7 +228,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
     const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 20;
-    
+
     // VISUAL-05 FIX: Se 'Hoje' e 'Projeção' forem idênticos (nudge), forçar colisão mesmo com abs(0)
     const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 20 || currentMean === (mean ?? 0));
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 20;
@@ -252,7 +252,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     if (collisionHojeTarget || collisionHojeMean) {
         // Hoje drops below whatever is highest at its position
         const targetImpact = collisionHojeTarget ? tierTarget : 0;
-        const meanImpact   = collisionHojeMean   ? tierMean : 0;
+        const meanImpact = collisionHojeMean ? tierMean : 0;
         tierHoje = Math.max(targetImpact, meanImpact) + 1;
     }
 
@@ -398,8 +398,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {isTargetVisible && (
                     <div
                         className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-all duration-500 scale-90 group-hover/chart:scale-100"
-                        style={{ 
-                            left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, 
+                        style={{
+                            left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`,
                             top: '40%',
                             transform: 'translateX(-50%)',
                             filter: `drop-shadow(0 0 10px ${successColor}44)`
@@ -467,9 +467,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <span
                         key={t}
                         className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter"
-                        style={{ 
-                            left: `${t}%`, 
-                            transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' 
+                        style={{
+                            left: `${t}%`,
+                            transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)'
                         }}
                     >
                         {t}%
@@ -480,7 +480,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             <div
                 className="absolute -bottom-6 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
                 // VISUAL-02 FIX: Clamp IC label on the right edge
-                style={{ 
+                style={{
                     left: `${Math.min(ciLowPx, 75)}%`,
                     maxWidth: '25%'
                 }}

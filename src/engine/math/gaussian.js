@@ -25,16 +25,16 @@ export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
 export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
     const points = [];
     const stepSize = (xMax - xMin) / steps;
-    
+
     for (let i = 0; i <= steps; i++) {
         const x = xMin + stepSize * i;
         const y = asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor);
-        points.push({x, y});
+        points.push({ x, y });
     }
 
     // Ensure the mean (peak) is precisely included
     if (mean >= xMin && mean <= xMax) {
-        points.push({x: mean, y: asymmetricGaussian(mean, mean, sdLeft, sdRight, heightFactor)});
+        points.push({ x: mean, y: asymmetricGaussian(mean, mean, sdLeft, sdRight, heightFactor) });
     }
 
     // Sort to maintain chronological path order
@@ -52,18 +52,18 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
     // Replace hardcoded plotMin=0 for better centering.
-    const plotMin = 0; 
+    const plotMin = 0;
     // Scores simulados são clamped em [0,100], então plotMax não precisa ultrapassar 100:
     const plotMax = 100; // Simplificado para constante explícita.
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
-    
+
     const empiricalData = [];
-    
+
     // Silverman's Rule of Thumb para suavização ideal do Kernel
     const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
     const h = 1.06 * Math.min(projectedSD, iqr / 1.34) * Math.pow(safeSimulations, -0.2);
-    
+
     // REVISION: KDE using 200 Bins for higher UI resolution
     const BIN_COUNT = 200;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
@@ -71,18 +71,18 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // BUG-CRÍTICO FIX: Piso dinâmico proporcional ao SD evita o over-smoothing grave
     // em alunos muito consistentes que sofriam de "curva gorda" forçada. 
     // Garante que o bandwidth nunca seja menor que binWidth (0.5pp)
-    const bandwidth = Math.max(h, binWidth, Math.min(1.0, projectedSD * 0.15)); 
+    const bandwidth = Math.max(h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
-    
+
     // BUG 3 e PONTO 1 Corrigidos: Contabilizar overflow e underflow separadamente
     let overflowCount = 0;
     let underflowCount = 0;
-    
+
     for (let i = 0; i < safeSimulations; i++) {
         const s = allScores[i];
-        if (s > plotMax) { 
-            overflowCount++; 
-            continue; 
+        if (s > plotMax) {
+            overflowCount++;
+            continue;
         }
         if (s < plotMin) {
             underflowCount++;
@@ -97,7 +97,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // Isso garante que a área desenhada de fato integre perfeitamente a 1 (100%).
     const inDomainCount = safeSimulations - overflowCount - underflowCount;
     const safeDomainCount = Math.max(1, inDomainCount); // Previne divisão por zero
-    
+
     const invBandwidth = 1 / bandwidth;
     const normFactor = 1 / (safeDomainCount * bandwidth * Math.sqrt(2 * Math.PI));
 
@@ -105,12 +105,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     for (let i = 0; i <= plotSteps; i++) {
         const x = plotMin + i * stepSize;
         let density = 0;
-        
+
         for (let j = 0; j < BIN_COUNT; j++) {
             if (bins[j] === 0) continue;
             const binX = plotMin + (j + 0.5) * binWidth;
             const dist = (x - binX) * invBandwidth;
-            
+
             // Otimização de convolução (descarta interações a > 3.5 sigmas)
             if (Math.abs(dist) < 3.5) {
                 density += bins[j] * Math.exp(-0.5 * dist * dist);
