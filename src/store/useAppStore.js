@@ -707,14 +707,25 @@ export const useAppStore = create(
             }),
 
             setPomodoroActiveSubject: (subject) => set((state) => {
+                // CRITICAL FIX: Verificar null/undefined ANTES de acessar propriedades.
+                // handleExit() chama setPomodoroActiveSubject(null), e a versão anterior
+                // acessava subject.sessionInstanceId antes do null-check, causando TypeError
+                // que impedia navigate() de executar — travando o usuário na tela do Pomodoro.
+                if (!subject) {
+                    state.appState.pomodoro.sessions = 0;
+                    state.appState.pomodoro.completedCycles = 0;
+                    state.appState.pomodoro.targetCycles = 1;
+                    state.appState.pomodoro.activeSubject = null;
+                    state.appState.version = (state.appState.version || 0) + 1;
+                    state.appState.lastUpdated = new Date().toISOString();
+                    localStorage.removeItem('pomodoroState');
+                    return;
+                }
+
                 const current = state.appState.pomodoro.activeSubject;
-                
-                // Bug #5 FIX: Validar explicitamente a inexistência do ID para forçar reset,
-                // evitando que comparações undefined vs undefined silenciem a limpeza de ciclo.
                 const isNewSession = !current || !subject.sessionInstanceId || (current.sessionInstanceId !== subject.sessionInstanceId);
                 
-                // If we are clearing the subject (Exit) OR starting a DIFFERENT session instance, reset everything.
-                if (!subject || isNewSession) {
+                if (isNewSession) {
                     state.appState.pomodoro.sessions = 0;
                     state.appState.pomodoro.completedCycles = 0;
                     state.appState.pomodoro.targetCycles = 1;
