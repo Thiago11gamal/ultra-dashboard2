@@ -69,7 +69,10 @@ export function EvolutionLineChart({
                 const myAdjPt = yPositions.find(p => p.id === catId);
                 if (myAdjPt && myAdjPt.yPos !== myAdjPt.value) {
                     const pctShift = value - myAdjPt.yPos;
-                    const pxPerPct = viewBox?.height != null ? viewBox.height / 100 : 4.6;
+                    // BUG-09 FIX: Calcular offset em unidades SVG user-space usando viewBox
+                    // viewBox.height é a altura do plot area em user-space coords
+                    // O domínio Y é [0,100], então 1% = viewBox.height / 100 user-space units
+                    const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
                     offsetPx = pctShift * pxPerPct;
                 }
             }
@@ -97,7 +100,7 @@ export function EvolutionLineChart({
                                 <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
                             </linearGradient>
                         ))}
-                        <filter id="lineShadow" height="200%">
+                        <filter id="el_lineShadow" height="200%">
                             <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
                             <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
                             <feMerge>
@@ -105,7 +108,7 @@ export function EvolutionLineChart({
                                 <feMergeNode in="SourceGraphic" />
                             </feMerge>
                         </filter>
-                        <linearGradient id="bayBandGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="el_bayBandGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
                         </linearGradient>
@@ -128,7 +131,7 @@ export function EvolutionLineChart({
                                 <Area key={`bay_ci_${cat.id}`} type={engine.style}
                                     dataKey={`band_${cat.id}`}
                                     name="IC 95%" stroke="none"
-                                    fill="url(#bayBandGradient)" legendType="none"
+                                    fill="url(#el_bayBandGradient)" legendType="none"
                                     connectNulls
                                     isAnimationActive={false}
                                 />
@@ -144,7 +147,7 @@ export function EvolutionLineChart({
                                 dot={false}
                                 activeDot={false}
                                 connectNulls
-                                style={{ filter: isFocused ? 'url(#lineShadow)' : 'none' }}
+                                style={{ filter: isFocused ? 'url(#el_lineShadow)' : 'none' }}
                                 isAnimationActive={true}
                                 animationDuration={1500}
                             >

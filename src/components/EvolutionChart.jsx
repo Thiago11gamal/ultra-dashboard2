@@ -39,10 +39,29 @@ const ENGINES = [
     },
 ];
 
-export default function EvolutionChart({ categories = [], targetScore = 80 }) {
+export default function EvolutionChart({ categories = [], targetScore = 80, goalDate }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
-    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, focusSubjectId);
+    // BUG-05 FIX: useChartData aceita apenas 1 arg — removido focusSubjectId
+    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories);
+
+    // BUG-02 FIX: Derivar projectDays a partir de goalDate (mesma lógica do MonteCarloGauge)
+    const projectDays = useMemo(() => {
+        if (!goalDate) return 30;
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        let goal;
+        if (typeof goalDate === 'string' && goalDate.includes('T')) {
+            const g = new Date(goalDate);
+            goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+        } else {
+            goal = new Date(goalDate);
+        }
+        goal.setHours(0, 0, 0, 0);
+        if (isNaN(goal.getTime())) return 30;
+        const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
+        return diffDays > 0 ? diffDays : 30;
+    }, [goalDate]);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
@@ -104,7 +123,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             try {
                 const bayesian = computeBayesianLevel(hist);
                 const vol = calculateVolatility(hist);
-                const result = monteCarloSimulation(hist, targetScore, 30, 2000, {
+                // BUG-02 FIX: usar projectDays derivado do goalDate em vez de 30 hardcoded
+                const result = monteCarloSimulation(hist, targetScore, projectDays, 2000, {
                     forcedBaseline: bayesian ? bayesian.mean : undefined,
                     forcedVolatility: vol,
                     currentMean: bayesian ? bayesian.mean : undefined
@@ -113,7 +133,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 const lastDate = new Date(hist[hist.length - 1].date);
                 if (Number.isNaN(lastDate.getTime())) return;
                 const nextDate = new Date(lastDate);
-                nextDate.setDate(nextDate.getDate() + 30);
+                nextDate.setDate(nextDate.getDate() + projectDays);
                 const p50 = parseFloat(result.mean);
                 const lo = parseFloat(result.ci95Low);
                 const hi = parseFloat(result.ci95High);
@@ -124,7 +144,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             }
         }, 0);
         return () => { cancelled = true; clearTimeout(timer); };
-    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore]);
+    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore, projectDays]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
@@ -140,7 +160,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         
         if (mcProjection && pts.length > 0) {
             const lastIdx = pts.length - 1;
-            const currentLevel = pts[lastIdx]["Nível Bayesiano"] || pts[lastIdx]["Nota Bruta"] || 0;
+            // BUG-07 FIX: usar ?? em vez de || para não cair em 0 quando o valor é 0 legítimo
+            const currentLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjection?.mc_p50 ?? 0;
             const futurePoints = [];
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
@@ -151,7 +172,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
                 const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * expWeight;
 
                 const interDate = new Date(pts[lastIdx].date);
-                interDate.setDate(interDate.getDate() + Math.round(30 * t));
+                interDate.setDate(interDate.getDate() + Math.round(projectDays * t));
                 const iso = interDate.toISOString().split('T')[0];
 
                 futurePoints.push({
@@ -205,16 +226,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             const history = cat.simuladoStats?.history || [];
             if (!history.length) return;
 
-            // PERFORMANCE-02: Optimized filtering.
-            for (let i = history.length - 1; i >= 0; i--) {
-                const h = history[i];
+            // BUG-06 FIX: Substituir loop com break heurístico por filtro explícito
+            const recentHistory = history.filter(h => {
                 const d = normalizeDate(h.date);
-                if (!d || d < rollingLimit) {
-                   // Since history is usually sorted, we could break here if we were sure.
-                   // But let's stay safe and just skip.
-                   if (d && d < rollingLimit && i < history.length - 20) break; // Heuristic break
-                   continue;
-                }
+                return d && d >= rollingLimit;
+            });
+
+            for (let i = 0; i < recentHistory.length; i++) {
+                const h = recentHistory[i];
 
                 (h.topics || []).forEach(t => {
                     const n = String(t.name || '').trim();
@@ -264,14 +283,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
             let errors = 0;
             const history = cat.simuladoStats?.history || [];
             
-            // PERFORMANCE-03: Optimized backwards loop for Point Leakage
-            for (let i = history.length - 1; i >= 0; i--) {
-                const h = history[i];
+            // BUG-06 FIX: Substituir loop com break heurístico por filtro explícito (Point Leakage)
+            const recentHistory = history.filter(h => {
                 const d = normalizeDate(h.date);
-                if (!d || d < rollingLimit) {
-                    if (d && d < rollingLimit && i < history.length - 20) break;
-                    continue;
-                }
+                return d && d >= rollingLimit;
+            });
+            for (const h of recentHistory) {
                 const total = parseInt(h.total, 10) || 10;
                 const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
                 errors += Math.max(0, total - correct);
@@ -310,11 +327,49 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
     }, [categories, showOnlyFocus, focusSubjectId]);
 
     const getInsightText = () => {
-        if (activeEngine !== "compare") return "Selecione a aba 'Raio-X + Monte Carlo' para que eu possa avaliar detalhadamente a sua evolução nesta matéria.";
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
         const lastPoint = timeline[timeline.length - 1];
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
+
+        // BUG-11 FIX: Insights específicos por engine em vez de mensagem genérica
+        if (activeEngine === "raw") {
+            if (raw == null) return "Ainda não existem dados suficientes para esta matéria.";
+            const history = focusCategory.simuladoStats?.history || [];
+            const scores = history.map(h => getSafeScore(h)).filter(Number.isFinite);
+            if (scores.length < 2) return `📊 Nota atual: ${raw.toFixed(1)}%. Faça mais simulados para analisar a volatilidade.`;
+            const recentScores = scores.slice(-5);
+            const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+            const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
+            if (maxSwing > 25) return `⚠️ Alta volatilidade! Seus últimos resultados oscilam ${maxSwing.toFixed(0)}pp (${Math.min(...recentScores).toFixed(0)}%–${Math.max(...recentScores).toFixed(0)}%). Revise a consistência de estudo.`;
+            if (maxSwing < 8) return `✅ Excelente consistência! Variação de apenas ${maxSwing.toFixed(0)}pp nos últimos simulados. Média recente: ${avg.toFixed(1)}%.`;
+            return `📊 Volatilidade moderada (${maxSwing.toFixed(0)}pp). Média recente: ${avg.toFixed(1)}%. Continue praticando para estabilizar.`;
+        }
+
+        if (activeEngine === "bayesian") {
+            if (bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
+            const ciLow = lastPoint[`bay_ci_low_${focusCategory.name}`];
+            const ciHigh = lastPoint[`bay_ci_high_${focusCategory.name}`];
+            const ciWidth = (ciHigh != null && ciLow != null) ? (ciHigh - ciLow) : null;
+            if (ciWidth != null && ciWidth < 5) return `🧠 Alta confiança! IC 95%: [${ciLow.toFixed(1)}%, ${ciHigh.toFixed(1)}%] (banda de ${ciWidth.toFixed(1)}pp). Seu nível real é ${bayesian.toFixed(1)}% com excelente precisão.`;
+            if (ciWidth != null && ciWidth > 20) return `🧠 Incerteza elevada. IC 95%: [${ciLow.toFixed(1)}%, ${ciHigh.toFixed(1)}%] (banda de ${ciWidth.toFixed(1)}pp). Faça mais simulados para estreitar a estimativa.`;
+            return `🧠 Nível Bayesiano: ${bayesian.toFixed(1)}%. ${ciWidth != null ? `IC 95%: ${ciLow.toFixed(1)}%–${ciHigh.toFixed(1)}% (${ciWidth.toFixed(1)}pp).` : ''} Convergindo bem.`;
+        }
+
+        if (activeEngine === "stats") {
+            const stats = lastPoint[`stats_${focusCategory.name}`];
+            if (stats == null) return "Ainda não existem dados suficientes para esta matéria.";
+            const trend = lastPoint[`trend_status_${focusCategory.name}`];
+            if (trend === 'up') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de alta detectada — sua curva de aprendizado está funcionando!`;
+            if (trend === 'down') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de queda detectada. Revise os tópicos mais fracos antes de avançar.`;
+            return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência estável — consistência sólida.`;
+        }
+
+        if (activeEngine === "raw_weekly") {
+            return "📅 O Mapa de Calor mostra sua evolução visual semana a semana. Células verdes indicam acima da meta, vermelhas abaixo. Observe padrões semanais de melhoria.";
+        }
+
+        // Engine "compare" — insight original completo
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
 
         const nowMs = new Date().getTime();

@@ -306,8 +306,8 @@ export function monteCarloSimulation(
 
     const lastScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
     const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h), 0));
-    // Fix: Enhance seed uniqueness by adding lastScore and better multipliers
-    const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore) * 31;
+    // BUG-10 FIX: Preservar 2 casas decimais na entropia do seed
+    const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore * 100) * 31;
     const rng = mulberry32(seed);
 
     let success = 0;

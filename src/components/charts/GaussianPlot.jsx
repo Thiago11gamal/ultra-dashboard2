@@ -52,15 +52,21 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 return pSuccess / truncatedTotal;
             };
 
-            // BUG-03/MC-03 FIX: Calibração visual iterativa (3 passos) para maior precisão na concordância
-            // entre a área verde paramétrica e a probabilidade empírica do motor.
+            // BUG-04 FIX: Calibração visual iterativa (10 passos) com critério mais estrito (0.002)
+            // Para prob extremas (<10% ou >92%), 3 iterações não convergiam.
             let sl = vizSdLeft, sr = vizSdRight;
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 10; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
-                if (Math.abs(targetProb - pg) <= 0.005) break;
+                if (Math.abs(targetProb - pg) <= 0.002) break;
                 const r = Math.min(1.5, Math.max(0.66, targetProb / Math.max(0.005, pg)));
-                if (t < m) sl = Math.min(vizSdLeft * 4, Math.max(1, sl * r));
-                else sr = Math.min(vizSdRight * 4, Math.max(1, sr * r));
+                // BUG-04 FIX: Para prob > 0.90, ajustar sdLeft (região de falha é menor)
+                if (targetProb > 0.90 && t >= m) {
+                    sl = Math.min(vizSdLeft * 4, Math.max(1, sl * (1 / Math.max(0.66, r))));
+                } else if (t < m) {
+                    sl = Math.min(vizSdLeft * 4, Math.max(1, sl * r));
+                } else {
+                    sr = Math.min(vizSdRight * 4, Math.max(1, sr * r));
+                }
             }
             vizSdLeft = sl; vizSdRight = sr;
         }

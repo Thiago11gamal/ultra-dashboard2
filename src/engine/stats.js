@@ -1,5 +1,7 @@
 export const SYNTHETIC_TOTAL_QUESTIONS = 10;
 import { getSafeScore } from '../utils/scoreHelper.js';
+// BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
+import { calculateSlope } from './projection.js';
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
@@ -196,7 +198,11 @@ export function computeCategoryStats(history, weight) {
     const sd = standardDeviation(scores);
     // REVISION: Standardized SD floor to 1.0 (1%) to reflect high consistency
     const safeSD = Math.max(sd, 1.0);
-    const rawTrend = calculateTrend(historyToUse);
+    // BUG-08 FIX: Usar calculateSlope (weightedRegression) para consistência com Monte Carlo drift
+    // calculateSlope retorna pp/dia (clampeado e atenuado por confiança)
+    const slopePerDay = calculateSlope(historyToUse);
+    // Converter para pp/30-dias para comparação com threshold
+    const rawTrend = slopePerDay * 30;
 
     let trendLabel = 'stable';
     if (rawTrend > 0.5) trendLabel = 'up';

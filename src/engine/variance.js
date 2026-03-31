@@ -29,7 +29,8 @@
 // mas 0.15 é mantido como configuração "conservadora" configurável.
 export const INTER_SUBJECT_CORRELATION = 0.15;
 
-export function computeWeightedVariance(stats, totalWeight) {
+// BUG-12 FIX: Aceitar rho como parâmetro opcional (default INTER_SUBJECT_CORRELATION)
+export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
     if (totalWeight === 0) return 0;
 
     const weights = stats.map(cat => cat.weight / totalWeight);
@@ -44,7 +45,7 @@ export function computeWeightedVariance(stats, totalWeight) {
     const coherentVar = Math.pow(weightedSumSD, 2);
 
     // 3. Interpolated Variance: Var = (1-ρ)*Var_indep + ρ*Var_coherent
-    return (1 - INTER_SUBJECT_CORRELATION) * independentVar + (INTER_SUBJECT_CORRELATION * coherentVar);
+    return (1 - rho) * independentVar + (rho * coherentVar);
 }
 
 /**
@@ -59,8 +60,9 @@ export function computeWeightedVariance(stats, totalWeight) {
  * @param {number} totalWeight - Sum of all weights
  * @returns {number} Pooled SD
  */
-export function computePooledSD(stats, totalWeight) {
-    const weightedVariance = computeWeightedVariance(stats, totalWeight);
+// BUG-12 FIX: Aceitar rho como parâmetro opcional
+export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
+    const weightedVariance = computeWeightedVariance(stats, totalWeight, rho);
     return Math.sqrt(weightedVariance);
 }
 
