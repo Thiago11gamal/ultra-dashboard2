@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info, ChevronDown, Clock } from 'lucide-react';
 import {
     computeCategoryStats,
     computeBayesianLevel,
     monteCarloSimulation,
     runMonteCarloAnalysis,
+    simulateNormalDistribution,
     computePooledSD,
     computeWeightedVariance,
     calculateVolatility
@@ -14,6 +15,7 @@ import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { getSafeScore } from '../utils/scoreHelper';
 import { getDateKey } from '../utils/dateHelper';
+import { useMonteCarloWorker } from '../hooks/useMonteCarloWorker';
 
 const sanitizeWeightUnit = (value) => {
     const numeric = Number.parseInt(value, 10);
@@ -31,6 +33,7 @@ export default function MonteCarloGauge({
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
+    const [showPerSubject, setShowPerSubject] = useState(false);
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
@@ -222,8 +225,15 @@ export default function MonteCarloGauge({
         };
     }, [categories, debouncedWeights]);
 
-    const simulationData = useMemo(() => {
-        if (!statsData) return { status: 'waiting', missing: 'data' };
+    // MELHORIA: Web Worker para offload Monte Carlo da main thread
+    const { runAnalysis } = useMonteCarloWorker();
+    const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
+
+    useEffect(() => {
+        if (!statsData) {
+            setSimulationData({ status: 'waiting', missing: 'data' });
+            return;
+        }
 
         // 1. Contador de prontidão
         let totalPoints = 0;
@@ -241,44 +251,97 @@ export default function MonteCarloGauge({
             }
         });
 
-        if (totalPoints < 1) return { status: 'waiting', missing: 'count', count: totalPoints };
-        // BUG FIX: Removida a exigência restrita de 3 dias diferentes para evitar que
-        // o Monte Carlo fique invisível até o terceiro dia de uso do aplicativo.
-        // Se houver apenas 1 dia, a tendência futura será calculada como 0 (estável).
-
-        // 2. Motor de Simulação (BUG-03 paths vs BUG-08 pooled)
-        const isFuture = projectDays > 0;
-        let result;
-
-        if (isFuture && statsData.globalHistory?.length > 0) {
-            result = runMonteCarloAnalysis({
-                values: statsData.globalHistory.map(h => h.score),
-                dates: statsData.globalHistory.map(h => h.date),
-                meta: debouncedTarget,
-                simulations: 5000,
-                projectionDays: projectDays,
-                forcedVolatility: statsData.dailySD,
-                forcedBaseline: statsData.bayesianMean,
-                currentMean: statsData.bayesianMean,
-            });
-        } else {
-            // Hoje: Simulação estática (Normal) - Usando assinatura posicional para disparar engine correto
-            result = runMonteCarloAnalysis(
-                statsData.bayesianMean,
-                statsData.pooledSD,
-                debouncedTarget,
-                {
-                    simulations: 5000,
-                    currentMean: statsData.bayesianMean,
-                    bayesianCI: statsData.bayesianCI
-                }
-            );
+        if (totalPoints < 1) {
+            setSimulationData({ status: 'waiting', missing: 'count', count: totalPoints });
+            return;
         }
 
-        return { status: 'ready', data: result };
-        // 🟠 BUG DE PERFORMANCE FIX: Categories pode ser um objeto novo a cada render.
-        // Usamos stringify para garantir que a simulação só rode se os dados reais mudarem.
+        // 2. Motor de Simulação via Web Worker (fallback síncrono se indisponível)
+        let cancelled = false;
+        const isFuture = projectDays > 0;
+
+        (async () => {
+            try {
+                let result;
+                if (isFuture && statsData.globalHistory?.length > 0) {
+                    result = await runAnalysis({
+                        values: statsData.globalHistory.map(h => h.score),
+                        dates: statsData.globalHistory.map(h => h.date),
+                        meta: debouncedTarget,
+                        simulations: 5000,
+                        projectionDays: projectDays,
+                        forcedVolatility: statsData.dailySD,
+                        forcedBaseline: statsData.bayesianMean,
+                        currentMean: statsData.bayesianMean,
+                    });
+                } else {
+                    result = await runAnalysis(
+                        statsData.bayesianMean,
+                        statsData.pooledSD,
+                        debouncedTarget,
+                        {
+                            simulations: 5000,
+                            currentMean: statsData.bayesianMean,
+                            bayesianCI: statsData.bayesianCI
+                        }
+                    );
+                }
+                if (!cancelled) {
+                    setSimulationData({ status: 'ready', data: result });
+                }
+            } catch (err) {
+                console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
+                if (!cancelled) {
+                    // Fallback síncrono direto
+                    let result;
+                    if (isFuture && statsData.globalHistory?.length > 0) {
+                        result = runMonteCarloAnalysis({
+                            values: statsData.globalHistory.map(h => h.score),
+                            dates: statsData.globalHistory.map(h => h.date),
+                            meta: debouncedTarget,
+                            simulations: 5000,
+                            projectionDays: projectDays,
+                            forcedVolatility: statsData.dailySD,
+                            forcedBaseline: statsData.bayesianMean,
+                            currentMean: statsData.bayesianMean,
+                        });
+                    } else {
+                        result = runMonteCarloAnalysis(
+                            statsData.bayesianMean,
+                            statsData.pooledSD,
+                            debouncedTarget,
+                            {
+                                simulations: 5000,
+                                currentMean: statsData.bayesianMean,
+                                bayesianCI: statsData.bayesianCI
+                            }
+                        );
+                    }
+                    setSimulationData({ status: 'ready', data: result });
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statsData, debouncedTarget, projectDays, debouncedWeights, categories.map(c => c.simuladoStats?.history?.length).join(',')]);
+
+    // MELHORIA: Probabilidade por matéria individual (mini-tabela)
+    const perSubjectProbs = useMemo(() => {
+        if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
+        return statsData.categoryStats
+            .filter(cat => cat.weight > 0)
+            .map(cat => {
+                const result = simulateNormalDistribution(cat.mean, cat.sd, debouncedTarget, 1000);
+                return {
+                    name: cat.name,
+                    prob: result.probability,
+                    mean: cat.mean,
+                    trend: cat.trend
+                };
+            })
+            .sort((a, b) => a.prob - b.prob);
+    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status]);
 
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {
@@ -422,6 +485,15 @@ export default function MonteCarloGauge({
                             </span>
                         </div>
                     )}
+                    {/* MELHORIA: Badge "dias restantes" para urgência temporal */}
+                    {!effectiveSimulateToday && projectDays > 0 && (
+                        <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-1">
+                            <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
+                            <span className={`text-[10px] font-black ${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                {projectDays}d
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     {!forcedMode && (
@@ -534,7 +606,46 @@ export default function MonteCarloGauge({
             </div>
 
             <div className="w-full flex flex-col gap-2 mt-4">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Matérias Analisadas</span>
+                <button
+                    onClick={() => setShowPerSubject(!showPerSubject)}
+                    className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
+                >
+                    <span>Matérias Analisadas</span>
+                    {perSubjectProbs.length > 0 && (
+                        <ChevronDown size={12} className={`transition-transform duration-300 ${showPerSubject ? 'rotate-180' : ''}`} />
+                    )}
+                </button>
+
+                {/* MELHORIA: Mini-tabela de probabilidade por matéria */}
+                {showPerSubject && perSubjectProbs.length > 0 && (
+                    <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center justify-between px-1 mb-2">
+                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
+                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Prob. Individual</span>
+                        </div>
+                        {perSubjectProbs.map(s => {
+                            const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
+                            const barColor = s.prob < 40 ? 'bg-rose-500' : s.prob < 60 ? 'bg-amber-500' : s.prob < 80 ? 'bg-blue-500' : 'bg-emerald-500';
+                            return (
+                                <div key={s.name} className="flex items-center gap-2 group/row hover:bg-white/5 rounded-lg px-1.5 py-1 transition-colors">
+                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                        {s.trend === 'up' && <TrendingUp size={9} className="text-emerald-400 shrink-0" />}
+                                        {s.trend === 'down' && <TrendingDown size={9} className="text-rose-400 shrink-0" />}
+                                        {(s.trend === 'stable' || !s.trend) && <Minus size={9} className="text-slate-600 shrink-0" />}
+                                        <span className="text-[9px] text-slate-400 truncate">{s.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${Math.min(100, s.prob)}%` }} />
+                                        </div>
+                                        <span className={`text-[10px] font-black w-10 text-right ${probColor}`}>{s.prob.toFixed(0)}%</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 <div className="flex flex-wrap justify-center gap-2.5 min-h-[24px]">
                     {activeCategories?.slice(0, 8).map((cat) => {
                         const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
