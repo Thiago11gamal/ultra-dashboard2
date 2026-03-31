@@ -81,10 +81,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 const r = Math.min(1.5, Math.max(0.66, targetProb / Math.max(0.005, pg)));
                 // BUG-B4 FIX: Para prob > 0.90 && target >= mean, expandir sdRight
                 // (empurra mais massa para al\u00e9m do alvo). Antes ajustava sdLeft com 1/r, oscilando.
+                const currentCap = targetProb > 0.95 ? 8 : 4;
                 if (t < m) {
-                    sl = Math.min(vizSdLeft * 4, Math.max(1, sl * r));
+                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * r));
                 } else {
-                    sr = Math.min(vizSdRight * 4, Math.max(1, sr * r));
+                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * r));
                 }
             }
             vizSdLeft = sl; vizSdRight = sr;

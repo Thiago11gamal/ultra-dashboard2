@@ -140,11 +140,12 @@ export default function MonteCarloGauge({
                 // PERFORMANCE-01 FIX: computeBayesianLevel is expensive O(M). Compute once and re-use.
                 const baye = computeBayesianLevel(history);
                 const stats = computeCategoryStats(history, weight);
+                const vol = calculateVolatility(history);
 
                 if (stats && weight > 0) {
                     totalWeight += weight;
                     weightedBayesianSum += baye.mean * weight;
-                    weightedVolatilitySum += stats.sd * weight;
+                    weightedVolatilitySum += vol * weight;
                     weightsByName[cat.name] = weight;
 
                     history.forEach(h => {

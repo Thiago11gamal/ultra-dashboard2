@@ -1,6 +1,6 @@
 // ==================== CONSTANTES ====================
-import { calculateTrend, standardDeviation as calculateStandardDeviation } from '../engine/stats';
-import { calculateVolatility, monteCarloSimulation } from '../engine/projection';
+import { calculateStandardDeviation } from '../engine/stats';
+import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
 import { normalize } from './normalization';
 
 const DEFAULT_CONFIG = {
@@ -208,7 +208,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             date: s.date
         })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
-        const trend = calculateTrend(trendHistory);
+        const trend = calculateSlope(trendHistory) * 30; // Unify: calculateSlope returns pp/day, result in pp/30d
 
         // ─────────────────────────────────────────────────────────
         // MC-03: MSSD Volatility — substitui standardDeviation cega
@@ -244,9 +244,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // stdDev típica era: 8–15 → output 16–30. Escala equivalente.
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR);
-        if (trend > 0) {
+        if (trend > 0.5) {
             instabilityComponent *= 0.5;
-        } else if (trend < -5) {
+        } else if (trend < -0.5) {
             instabilityComponent *= 1.3;
         }
         instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent);
@@ -348,7 +348,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             recommendation = `Evolução Frágil (Volatilidade MSSD: ±${mssdVolatility.toFixed(1)}). Consolide a base.`;
         } else if (daysSinceLastStudy > 14) {
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
-        } else if (trend < -5) {
+        } else if (trend < -0.5) {
             recommendation = `Nota caindo (${trend.toFixed(1)} pts) - Atenção urgente`;
         } else if (averageScore < targetScore - 20) {
             recommendation = `Nota Crítica: ${Math.round(averageScore)}% (Meta ${targetScore}%)`;
@@ -495,7 +495,7 @@ const _buildSortedTopics = (category, simulados = []) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = topicHistory.length >= 2 ? calculateTrend(topicHistory) : 0;
+        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
@@ -507,7 +507,7 @@ const _buildSortedTopics = (category, simulados = []) => {
         if (percentage === 0 && data.scores.length === 0 && categorySimuladoCount > 3) {
             urgencyScore *= 0.7;
         }
-        if (trend < -10) urgencyScore *= 1.2;
+        if (trend < -0.5) urgencyScore *= 1.2;
         return {
             name, total: data.total, percentage, daysSince,
             trend: Number(trend.toFixed(1)), priorityBoost, urgencyScore,

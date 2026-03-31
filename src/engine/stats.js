@@ -1,4 +1,4 @@
-export const SYNTHETIC_TOTAL_QUESTIONS = 10;
+export const SYNTHETIC_TOTAL_QUESTIONS = 3;
 import { getSafeScore } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
 import { calculateSlope } from './projection.js';

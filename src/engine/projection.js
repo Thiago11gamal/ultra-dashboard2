@@ -351,8 +351,8 @@ export function monteCarloSimulation(
     // para evitar a amplificação (volatility / _residualSD) que pode chegar a 10×.
     // MATH-M3 FIX: Resíduos já foram centralizados (L291-293), consumindo 1 DoF.
     // O estimador imparcial para a variância residual exige n-1.
-    const _residualSD = (useBootstrap && residuals.length > 0)
-        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / (residuals.length < 8 ? residuals.length : residuals.length - 1))
+    const _residualSD = (useBootstrap && residuals.length > 1)
+        ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / (residuals.length - 1))
         : 0;
 
     // BUG 4 FIX: Incerteza sensível ao tempo (crescimento sublinear)

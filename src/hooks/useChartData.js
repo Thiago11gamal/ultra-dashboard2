@@ -10,8 +10,12 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         if (!key) continue;
 
         const existing = aggregatedHistoryByDateMap.get(key);
-        const correct = Number(h.correct) || 0;
+        const rawCorrect = Number(h.correct) || 0;
         const total = Number(h.total) || 0;
+        // BUG-07 FIX: Ao detectar isPercentage, correct é uma porcentagem (ex: 85).
+        // Precisamos normalizar para "contagem bruta" para que a soma de totais diferentes
+        // resulte em uma média ponderada correta.
+        const correct = h.isPercentage ? (rawCorrect / 100) * total : rawCorrect;
 
         if (existing) {
             existing.correct += correct;
