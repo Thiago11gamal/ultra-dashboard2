@@ -166,19 +166,14 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
     const minutesPerTask = totalMinutes / completedTasks;
 
     // Classificação de eficiência
-    let efficiency = 'excelente';
-    let score = 100;
+    // AUDIT-FIX: Interpolação contínua em vez de 4 buckets discretos (50/70/85/100).
+    // Mapeamento: 0 min/task → 100%, 90+ min/task → 50%. Suave e intuitivo.
+    const score = Math.max(50, Math.min(100, Math.round(100 - (minutesPerTask / 90) * 50)));
 
-    if (minutesPerTask > 90) {
-        efficiency = 'precisa_melhorar';
-        score = 50;
-    } else if (minutesPerTask > 60) {
-        efficiency = 'regular';
-        score = 70;
-    } else if (minutesPerTask > 30) {
-        efficiency = 'boa';
-        score = 85;
-    }
+    let efficiency = 'excelente';
+    if (score < 60) efficiency = 'precisa_melhorar';
+    else if (score < 75) efficiency = 'regular';
+    else if (score < 90) efficiency = 'boa';
 
     // Taxa de conclusão geral
     const completionRate = Math.round((completedTasks / totalTasks) * 100);
