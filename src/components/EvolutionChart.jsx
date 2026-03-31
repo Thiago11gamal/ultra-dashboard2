@@ -235,7 +235,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80 }) {
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
         const result = Object.values(topicMap)
             .filter(d => d.errors > 0)
-            .sort((a, b) => b.value - a.value);
+            .sort((a, b) => b.errors - a.errors);
 
         return result.slice(0, 15).map((item, i, arr) => {
             const isLong = item.name.length > 20;
