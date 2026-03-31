@@ -550,9 +550,9 @@ export default function MonteCarloGauge({
                         {/* Leading Edge Glow (Modern replacement for the white line) */}
                         {!isCalculating && (
                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
-                                <circle
-                                    cx="10" cy="65" r="4"
-                                    fill={gradientColor}
+                                <circle 
+                                    cx="10" cy="65" r="4" 
+                                    fill={gradientColor} 
                                     className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                                     style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
                                 />
@@ -561,11 +561,11 @@ export default function MonteCarloGauge({
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
-                        <span
-                            className={`text-5xl font-black tracking-tighter transition-all duration-500 ${isCalculating ? 'scale-110 blur-[1px]' : ''}`}
-                            style={{
-                                color: gradientColor,
-                                filter: `drop-shadow(0 0 12px ${gradientColor}55) drop-shadow(0 0 2px ${gradientColor}aa)`
+                        <span 
+                            className={`text-5xl font-black tracking-tighter transition-all duration-500 ${isCalculating ? 'scale-110 blur-[1px]' : ''}`} 
+                            style={{ 
+                                color: gradientColor, 
+                                filter: `drop-shadow(0 0 12px ${gradientColor}55) drop-shadow(0 0 2px ${gradientColor}aa)` 
                             }}
                         >
                             {safe(prob).toFixed(1)}%

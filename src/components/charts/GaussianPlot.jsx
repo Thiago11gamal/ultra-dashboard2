@@ -398,8 +398,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {isTargetVisible && (
                     <div
                         className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-all duration-500 scale-90 group-hover/chart:scale-100"
-                        style={{
-                            left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`,
+                        style={{ 
+                            left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, 
                             top: '40%',
                             transform: 'translateX(-50%)',
                             filter: `drop-shadow(0 0 10px ${successColor}44)`
