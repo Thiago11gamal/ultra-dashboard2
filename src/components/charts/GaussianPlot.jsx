@@ -397,17 +397,18 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* Chance Label (Visual Indicator for the green area) */}
                 {isTargetVisible && (
                     <div
-                        className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-opacity duration-300"
+                        className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-all duration-500 scale-90 group-hover/chart:scale-100"
                         style={{ 
                             left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, 
-                            top: '45%',
-                            transform: 'translateX(-50%)' 
+                            top: '40%',
+                            transform: 'translateX(-50%)',
+                            filter: `drop-shadow(0 0 10px ${successColor}44)`
                         }}
                     >
-                        <span className="text-[16px] font-black text-emerald-400 drop-shadow-lg shadow-emerald-500/50">
-                            {prob ? prob.toFixed(1) : '0'}%
+                        <span className="text-[20px] font-black drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] leading-none transition-colors duration-500" style={{ color: successColor }}>
+                            {prob ? prob.toFixed(prob < 10 ? 1 : 0) : '0'}%
                         </span>
-                        <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest leading-none">Caminho de Sucesso</span>
+                        <span className="text-[7px] font-black uppercase tracking-[0.2em] leading-none mt-1 opacity-80" style={{ color: successColor }}>Caminho de Sucesso</span>
                     </div>
                 )}
 

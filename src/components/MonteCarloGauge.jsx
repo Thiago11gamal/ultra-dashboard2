@@ -547,18 +547,40 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
-                        {/* BUG-C4 FIX: Needle como raio do centro (70,65) até a borda do arco */}
+                        {/* Leading Edge Glow (Modern replacement for the white line) */}
                         {!isCalculating && (
                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
-                                <line x1="70" y1="65" x2="14" y2="65" stroke="#fff" strokeWidth="2" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
-                                <circle cx="70" cy="65" r="3" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.3))' }} />
+                                <circle 
+                                    cx="10" cy="65" r="4" 
+                                    fill={gradientColor} 
+                                    className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                                    style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+                                />
+                                <circle cx="10" cy="65" r="2" fill="#fff" opacity="0.8" />
                             </g>
                         )}
                     </svg>
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20"><span className={`text-5xl font-black tracking-tighter drop-shadow-md transition-all duration-500 ${isCalculating ? 'scale-110' : ''}`} style={{ color: gradientColor }}>{safe(prob).toFixed(1)}%</span></div>
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
+                        <span 
+                            className={`text-5xl font-black tracking-tighter transition-all duration-500 ${isCalculating ? 'scale-110 blur-[1px]' : ''}`} 
+                            style={{ 
+                                color: gradientColor, 
+                                filter: `drop-shadow(0 0 12px ${gradientColor}55) drop-shadow(0 0 2px ${gradientColor}aa)` 
+                            }}
+                        >
+                            {safe(prob).toFixed(1)}%
+                        </span>
+                    </div>
                 </div>
-                <span className={`text-xs font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''}`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
-                    {isCalculating ? "RECALCULANDO..." : message}
+                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
+                    {isCalculating ? (
+                        <span className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
+                            RECALCULANDO...
+                        </span>
+                    ) : (
+                        message
+                    )}
                 </span>
             </div>
 
