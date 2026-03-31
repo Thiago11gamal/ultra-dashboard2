@@ -49,6 +49,11 @@ export default function MonteCarloGauge({
 
     const catCount = activeCategories.length;
 
+    // BUG-A1 FIX: Memoizar hash do histórico para evitar re-criação a cada render
+    const categoryHistoryHash = useMemo(() =>
+        categories.map(c => c.simuladoStats?.history?.length ?? 0).join(','),
+        [categories]);
+
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
     const projectDays = useMemo(() => {
@@ -223,7 +228,8 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights]);
+    // BUG-D1 FIX: Incluir effectiveWeights nas deps (usado como fallback quando debouncedWeights é null)
+    }, [categories, debouncedWeights, effectiveWeights]);
 
     // MELHORIA: Web Worker para offload Monte Carlo da main thread
     const { runAnalysis } = useMonteCarloWorker();
@@ -324,7 +330,7 @@ export default function MonteCarloGauge({
 
         return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categories.map(c => c.simuladoStats?.history?.length).join(',')]);
+    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categoryHistoryHash]);
 
     // MELHORIA: Probabilidade por matéria individual (mini-tabela)
     const perSubjectProbs = useMemo(() => {
@@ -414,7 +420,8 @@ export default function MonteCarloGauge({
 
     // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
     const isClampedHigh = safe(ci95High) >= 99.5;
-    const isClampedLow = safe(ci95Low) >= 0.5;
+    // BUG-B2 FIX: CI low clampado no floor → valor <= 0.5, não >= 0.5
+    const isClampedLow = safe(ci95Low) <= 0.5;
 
     const left = safe(sdLeft);
     const right = safe(sdRight);
@@ -430,7 +437,8 @@ export default function MonteCarloGauge({
         // VISUAL-02 FIX: Clampar o limite inferior da incerteza para nunca exibir valores negativos (abaixo de 0%).
         // No display, mostramos a dispersão real se houver assimetria
         if (Math.abs(left - right) > 0.2) {
-            uncertaintyLabel = `-${left.toFixed(1)} / +${right.toFixed(1)}%`;
+            // BUG-C2 FIX: Colocar % em ambos os valores para clareza
+            uncertaintyLabel = `-${left.toFixed(1)}% / +${right.toFixed(1)}%`;
         } else {
             uncertaintyLabel = `±${center.toFixed(1)}%`;
         }
@@ -476,11 +484,12 @@ export default function MonteCarloGauge({
                     )}
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
                     {/* Delta Badge - Only in Future mode and if significant */}
-                    {!effectiveSimulateToday && simulationData.data.currentMean != null && (
+                    {/* BUG-A2 FIX: Optional chaining para período async do Worker */}
+                    {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
                         <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-2 group-hover:border-blue-500/30">
                             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Delta</span>
-                            <span className={`text-[10px] font-black ${(simulationData.data.mean - simulationData.data.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {(simulationData.data.mean - simulationData.data.currentMean) > 0 ? `+${(simulationData.data.mean - simulationData.data.currentMean).toFixed(1)}` : (simulationData.data.mean - simulationData.data.currentMean).toFixed(1)}
+                            <span className={`text-[10px] font-black ${(simulationData?.data?.mean - simulationData?.data?.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {(simulationData?.data?.mean - simulationData?.data?.currentMean) > 0 ? `+${(simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}` : (simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}
                                 <span className="text-[8px] ml-0.5 opacity-70">pp</span>
                             </span>
                         </div>
@@ -538,10 +547,11 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
-                        {/* Needle / Pointer (Premium Tip) */}
+                        {/* BUG-C4 FIX: Needle como raio do centro (70,65) até a borda do arco */}
                         {!isCalculating && (
                             <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
-                                <path d="M 10 65 L 15 62 L 15 68 Z" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                                <line x1="70" y1="65" x2="14" y2="65" stroke="#fff" strokeWidth="2" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                                <circle cx="70" cy="65" r="3" fill="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.3))' }} />
                             </g>
                         )}
                     </svg>
@@ -596,9 +606,10 @@ export default function MonteCarloGauge({
                     })()}
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
-                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "bg-green-500/30 border border-green-500/50", lbl: "Sucesso" }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
+                    {/* BUG-B5 FIX: Legenda "Sucesso" usa cor dinâmica em vez de verde fixo */}
+                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "border", lbl: "Sucesso", dynamic: true }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
-                            <div className={`${l.bg} w-3 h-1 rounded-full`}></div>
+                            <div className={`${l.bg} w-3 h-1 rounded-full`} style={l.dynamic ? { backgroundColor: gradientColor, opacity: 0.5 } : undefined}></div>
                             <span className="text-[9px] text-slate-400">{l.lbl}</span>
                         </div>
                     ))}
@@ -616,12 +627,14 @@ export default function MonteCarloGauge({
                     )}
                 </button>
 
-                {/* MELHORIA: Mini-tabela de probabilidade por matéria */}
+                {/* BUG-C5 FIX: Usar transition nativa em vez de classes shadcn inexistentes */}
                 {showPerSubject && perSubjectProbs.length > 0 && (
-                    <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
                         <div className="flex items-center justify-between px-1 mb-2">
                             <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
-                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Prob. Individual</span>
+                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">
+                                Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">(Hoje)</span>}
+                            </span>
                         </div>
                         {perSubjectProbs.map(s => {
                             const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';

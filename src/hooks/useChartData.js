@@ -111,7 +111,7 @@ export function useChartData(categories = []) {
         const dataByDate = {};
 
         dates.forEach((date) => {
-            const [_year, month, day] = date.split("-");
+            const [, month, day] = date.split("-");
             dataByDate[date] = {
                 date,
                 displayDate: `${day}/${month}`

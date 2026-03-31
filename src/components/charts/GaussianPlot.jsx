@@ -79,10 +79,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 const pg = getGeomProb(t, m, sl, sr);
                 if (Math.abs(targetProb - pg) <= 0.002) break;
                 const r = Math.min(1.5, Math.max(0.66, targetProb / Math.max(0.005, pg)));
-                // BUG-04 FIX: Para prob > 0.90, ajustar sdLeft (região de falha é menor)
-                if (targetProb > 0.90 && t >= m) {
-                    sl = Math.min(vizSdLeft * 4, Math.max(1, sl * (1 / Math.max(0.66, r))));
-                } else if (t < m) {
+                // BUG-B4 FIX: Para prob > 0.90 && target >= mean, expandir sdRight
+                // (empurra mais massa para al\u00e9m do alvo). Antes ajustava sdLeft com 1/r, oscilando.
+                if (t < m) {
                     sl = Math.min(vizSdLeft * 4, Math.max(1, sl * r));
                 } else {
                     sr = Math.min(vizSdRight * 4, Math.max(1, sr * r));

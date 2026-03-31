@@ -10,6 +10,20 @@ export function CompareChart({
     filteredChartData, 
     targetScore 
 }) {
+    // BUG-C3 FIX: Pre-computar índices do último ponto válido para cada série
+    // Evita 4× reduce() por chamada de renderLabel (~3200 chamadas/render)
+    const lastValidIdx = React.useMemo(() => {
+        const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
+        for (let i = filteredChartData.length - 1; i >= 0; i--) {
+            const d = filteredChartData[i];
+            if (last.bay < 0 && d["Nível Bayesiano"] != null) last.bay = i;
+            if (last.raw < 0 && d["Nota Bruta"] != null) last.raw = i;
+            if (last.stats < 0 && d["Média Histórica"] != null) last.stats = i;
+            if (last.mc < 0 && d["Futuro Provável"] != null) last.mc = i;
+            if (last.bay >= 0 && last.raw >= 0 && last.stats >= 0 && last.mc >= 0) break;
+        }
+        return last;
+    }, [filteredChartData]);
     // Helper to sweep collisions
     const solveCollisions = (points) => {
         if (!points.length) return [];
@@ -52,7 +66,8 @@ export function CompareChart({
         if (!pts || !pts.length) return 0;
         const pt = pts.find(p => p.name === name);
         if (!pt) return 0;
-        const pxPerPct = viewBox?.height != null ? viewBox.height / 100 : 4.6;
+        // BUG-C1 FIX: Guard viewBox.height > 0 (consistente com EvolutionLineChart)
+        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
         return (value - pt.yPos) * pxPerPct;
     };
 
@@ -65,11 +80,12 @@ export function CompareChart({
         const isRaw = type === 'raw';
         const isStats = type === 'stats';
 
+        // BUG-C3 FIX: Usar índices pre-computados em vez de reduce() por chamada
         let isValid = false;
-        if (isMc) isValid = filteredChartData.reduce((acc, curr, i) => curr["Futuro Provável"] !== null && curr["Futuro Provável"] !== undefined ? i : acc, -1) === index;
-        else if (isBay) isValid = filteredChartData.reduce((acc, curr, i) => curr["Nível Bayesiano"] !== null && curr["Nível Bayesiano"] !== undefined ? i : acc, -1) === index;
-        else if (isRaw) isValid = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] !== null && curr["Nota Bruta"] !== undefined ? i : acc, -1) === index;
-        else if (isStats) isValid = filteredChartData.reduce((acc, curr, i) => curr["Média Histórica"] !== null && curr["Média Histórica"] !== undefined ? i : acc, -1) === index;
+        if (isMc) isValid = lastValidIdx.mc === index;
+        else if (isBay) isValid = lastValidIdx.bay === index;
+        else if (isRaw) isValid = lastValidIdx.raw === index;
+        else if (isStats) isValid = lastValidIdx.stats === index;
 
         if (!isValid) return null;
 

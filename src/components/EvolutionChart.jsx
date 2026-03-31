@@ -183,11 +183,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 });
             }
 
-            pts = [
-                ...pts.slice(0, lastIdx),
-                { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] },
-                ...futurePoints
-            ];
+            // BUG-B3 FIX: Manter o ponto original intacto e adicionar campos MC
+            // Antes: slice(0, lastIdx) removia o ponto original e a Nota Bruta sumia
+            pts[lastIdx] = { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] };
+            pts = [...pts, ...futurePoints];
         }
         return pts;
     }, [timeline, focusCategory, mcProjection]);
