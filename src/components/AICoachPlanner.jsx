@@ -57,7 +57,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
 
 
-    const getInitialColumns = () => {
+    const getInitialColumns = React.useCallback(() => {
         const allAssignedIds = new Set();
         DAYS.forEach(d => {
             (coachPlanner[d.id] || []).forEach(t => allAssignedIds.add(t.id));
@@ -74,7 +74,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
             sat: coachPlanner.sat || [],
             sun: coachPlanner.sun || []
         };
-    };
+    }, [coachPlan, coachPlanner]);
 
     // Local state for the drag-and-drop to be extremely responsive
     const [columns, setColumns] = useState(() => getInitialColumns());
@@ -83,7 +83,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     // If we're already mid-drag or the data is from an internal action, this sync keeps it aligned.
     useEffect(() => {
         setColumns(getInitialColumns());
-    }, [coachPlan, coachPlanner]);
+    }, [getInitialColumns]);
 
     const onDragEnd = (result) => {
         if (!result.destination) return;
