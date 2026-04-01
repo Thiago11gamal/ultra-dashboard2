@@ -38,7 +38,10 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, cu
         const score = safeMean + randomNormal(rng) * safeSD;
         const finalScore = Math.max(0, Math.min(100, score));
         if (finalScore >= safeTarget) success++;
-        allScores[i] = finalScore;
+        
+        // FIX CR\u00cdTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Vari\u00e2ncia.
+        // O corte visual nos 100% ser\u00e1 feito pelo filtro SVG no GaussianPlot.
+        allScores[i] = score;
         welfordCount++;
         // FIX: A Variância DEVE ser calculada na distribuição latente (score) 
         // e não no (finalScore) para evitar o esmagamento do desvio padrão.

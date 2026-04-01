@@ -49,7 +49,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // O finalScore truncado é usado para sucesso e renderização visual
     const finalScore = Math.max(0, Math.min(100, score));
     if (finalScore >= safeTarget) success++;
-    allScores[i] = finalScore;
+
+    // FIX CRÍTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Variância.
+    // O corte visual nos 100% será feito pelo filtro SVG no GaussianPlot.
+    allScores[i] = score;
 
     welfordCount++;
     // FIX: A Variância DEVE ser calculada na distribuição latente (score) 
