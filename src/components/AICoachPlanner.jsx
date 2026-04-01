@@ -57,22 +57,14 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
 
 
-    // Local state for the drag-and-drop to be extremely responsive
-    const [columns, setColumns] = useState({
-        backlog: [],
-        ...coachPlanner
-    });
-
-    useEffect(() => {
-        // Compute backlog: original coachPlan minus items already in week days
+    const getInitialColumns = () => {
         const allAssignedIds = new Set();
         DAYS.forEach(d => {
             (coachPlanner[d.id] || []).forEach(t => allAssignedIds.add(t.id));
         });
+        const activeBacklog = (coachPlan || []).filter(t => t && !allAssignedIds.has(t.id));
 
-        const activeBacklog = coachPlan.filter(t => !allAssignedIds.has(t.id));
-
-        setColumns({
+        return {
             backlog: activeBacklog,
             mon: coachPlanner.mon || [],
             tue: coachPlanner.tue || [],
@@ -81,7 +73,16 @@ export default function AICoachPlanner({ coachPlan = [] }) {
             fri: coachPlanner.fri || [],
             sat: coachPlanner.sat || [],
             sun: coachPlanner.sun || []
-        });
+        };
+    };
+
+    // Local state for the drag-and-drop to be extremely responsive
+    const [columns, setColumns] = useState(() => getInitialColumns());
+
+    // Effect for external sync only: triggered when prop or store changes.
+    // If we're already mid-drag or the data is from an internal action, this sync keeps it aligned.
+    useEffect(() => {
+        setColumns(getInitialColumns());
     }, [coachPlan, coachPlanner]);
 
     const onDragEnd = (result) => {

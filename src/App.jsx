@@ -236,6 +236,7 @@ function MainLayout() {
 
       {levelUpData && (
         <LevelUpToast
+          key={levelUpData.level}
           level={levelUpData.level}
           title={levelUpData.title}
           onClose={clearLevelUp}

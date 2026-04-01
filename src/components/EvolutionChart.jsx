@@ -189,7 +189,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             pts = [...pts, ...futurePoints];
         }
         return pts;
-    }, [timeline, focusCategory, mcProjection]);
+    }, [timeline, focusCategory, mcProjection, categoryLevels, projectDays]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 

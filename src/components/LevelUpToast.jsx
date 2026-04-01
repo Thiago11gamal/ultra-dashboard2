@@ -6,9 +6,7 @@ export default function LevelUpToast({ level, title, onClose }) {
 
     const timersRef = React.useRef([]);
     useEffect(() => {
-        // Reset visibility when a NEW level enters the same component instance (queue)
-        setVisible(false);
-        
+        // Entrance animation starting from initial false state
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);

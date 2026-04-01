@@ -1,5 +1,5 @@
 // ==================== CONSTANTES ====================
-import { calculateStandardDeviation } from '../engine/stats';
+import { standardDeviation } from '../engine/stats';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
 import { normalize } from './normalization';
 
@@ -107,7 +107,7 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
         mcCache.set(hash, finalResult);
         return finalResult;
     } catch (e) {
-        if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+        if (import.meta.env?.DEV) {
             console.warn('[CoachMC] Simulação falhou:', e.message, { n: history.length });
         }
         return null;
@@ -217,7 +217,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcHistory = simuladosToHistory(relevantSimulados.slice(0, 10));
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory)
-            : (lastNScores.length >= 2 ? calculateStandardDeviation(lastNScores) : 0);
+            : (lastNScores.length >= 2 ? standardDeviation(lastNScores) : 0);
 
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
