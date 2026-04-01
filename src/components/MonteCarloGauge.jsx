@@ -592,7 +592,7 @@ export default function MonteCarloGauge({
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
-                        color: Math.abs(safe(sd)) <= 5 ? 'text-emerald-400' : Math.abs(safe(sd)) <= 10 ? 'text-yellow-400' : 'text-red-400'
+                        color: Math.max(left, right) <= 5 ? 'text-emerald-400' : Math.max(left, right) <= 10 ? 'text-yellow-400' : 'text-red-400'
                     },
                     { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}%`, color: "text-green-500" }
                 ].map((m, i) => (

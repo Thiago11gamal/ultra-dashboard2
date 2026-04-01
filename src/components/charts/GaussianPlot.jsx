@@ -34,7 +34,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         return '#22c55e';
     }, [prob]);
 
-    const { pathData, trendPathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, heightFactorFinal, curvePointsForArea, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
+    const { pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
         const xMin = 0;
@@ -194,7 +194,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     const nearest = kdeData.reduce((best, p) =>
                         Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
                     );
-                    return nearest.y * finalHF;
+                    return nearest.y;
                 }
                 return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
             },
@@ -218,7 +218,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // MATH-VISUAL: Remover o clamp de 38% que forçava o rótulo a flutuar no alto quando a nota era baixa.
     // Agora o rótulo desce até a altura real da densidade da curva.
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
-    const hojeTop = Math.max(0, hojeYPercent - 12); // Posição ancorada à densidade, com offset para o texto
+    const hojeTop = Math.min(62, Math.max(0, hojeYPercent - 12)); // Posição ancorada à densidade, com offset para o texto
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
     // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
@@ -253,7 +253,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     return (
         <div
-            className="relative w-full h-[140px] mb-10 cursor-crosshair group/chart"
+            className="relative w-full h-[140px] mb-12 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -473,7 +473,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </div>
 
             <div
-                className="absolute -bottom-6 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
+                className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity"
                 // VISUAL-02 FIX: Clamp IC label on the right edge
                 style={{
                     left: `${Math.min(ciLowPx, 75)}%`,
