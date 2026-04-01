@@ -86,10 +86,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const inferredSD = (displayHigh - displayLow) / 3.92;
 
   // REVISION: Standardized floor to 1.0
-  // BUG-02 FIX: Usar sdRight se o displayHigh estiver comprimido no teto e o alvo também estiver no lado direito
-  const effectiveSD = (displayHigh >= 99.5) 
+  // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
+  // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
+  const effectiveSD = Math.max(1.0, (displayHigh >= 99.5) 
     ? (safeTarget >= displayMean ? sdRight : sdLeft) 
-    : Math.max(1.0, inferredSD);
+    : inferredSD);
 
   // Bug 1: Calcular analyticalProbability corretamente
   const zScore = (safeTarget - displayMean) / effectiveSD;

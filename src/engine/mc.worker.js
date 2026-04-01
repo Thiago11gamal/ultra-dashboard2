@@ -63,9 +63,11 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, cu
     const sdLeft = (displayMean - displayLow) / 1.96;
     const sdRight = (displayHigh - displayMean) / 1.96;
     const inferredSD = (displayHigh - displayLow) / 3.92;
-    const effectiveSD = (displayHigh >= 99.5)
+    // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
+    // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
+    const effectiveSD = Math.max(1.0, (displayHigh >= 99.5)
         ? (safeTarget >= displayMean ? sdRight : sdLeft)
-        : Math.max(1.0, inferredSD);
+        : inferredSD);
 
     const zScore = (safeTarget - displayMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;

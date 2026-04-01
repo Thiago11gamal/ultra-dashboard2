@@ -187,7 +187,9 @@ export function calculateVolatility(history) {
         const time0 = new Date(h0.date).getTime();
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
-        const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        // FIX ESTATÍSTICO: O piso passa a ser 1.0. Simular 2 vezes no mesmo dia 
+        // conta como o esforço/ruído de 1 dia inteiro, evitando dividir por 0.1.
+        const rawDaysBetween = Math.max(1.0, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
         // REVISION: Correct detrending using rawDrift
@@ -387,9 +389,9 @@ export function monteCarloSimulation(
 
             if (useBootstrap && residuals.length >= 4) {
                 const randomResidual = residuals[Math.floor(rng() * residuals.length)];
-                const jitter = (rng() - 0.5) * 0.1;
-                // BUG-05/06: Usar escala normalizada e constante hoistada
-                shock = (randomResidual + jitter) * bootstrapTargetScale * bootstrapInvSqrt;
+                // FIX: Jitter removido. A própria reamostragem massiva e o KDE suavizam
+                // a distribuição. O jitter artificial causava 'drift' matemático.
+                shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
             } else {
                 // BUG-06: Usar sigma hoistado
                 shock = randomNormal(rng) * sigma;
@@ -434,10 +436,11 @@ export function monteCarloSimulation(
     const sdLeft = (displayMean - ci95LowVal) / 1.96;
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
-    // Bug 2: Usar sdRight quando o teto de 100% artificialmente comprime o lado direito e o alvo está na direita
-    const effectiveSD = (ci95HighVal >= 99.5) 
+    // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
+    // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
+    const effectiveSD = Math.max(1.0, (ci95HighVal >= 99.5) 
         ? (targetScore >= displayMean ? sdRight : sdLeft) 
-        : Math.max(1.0, inferredSD);
+        : inferredSD);
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;
