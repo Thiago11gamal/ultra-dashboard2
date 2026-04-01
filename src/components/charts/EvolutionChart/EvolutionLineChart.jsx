@@ -94,10 +94,17 @@ export function EvolutionLineChart({
                     <defs>
                         {/* CODE-02 FIX: Only generate gradients for active categories to optimize DOM size */}
                         {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map(cat => (
-                            <linearGradient key={cat.id} id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
-                                <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
-                            </linearGradient>
+                            <React.Fragment key={`defs_${cat.id}`}>
+                                <linearGradient id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
+                                    <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
+                                </linearGradient>
+                                {/* FIX: Banda de incerteza usando a cor nativa da mat\u00e9ria e n\u00e3o um verde fixo */}
+                                <linearGradient id={`bayBand_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={cat.color} stopOpacity={0.18} />
+                                    <stop offset="100%" stopColor={cat.color} stopOpacity={0.04} />
+                                </linearGradient>
+                            </React.Fragment>
                         ))}
                         <filter id="el_lineShadow" height="200%">
                             <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
@@ -107,10 +114,6 @@ export function EvolutionLineChart({
                                 <feMergeNode in="SourceGraphic" />
                             </feMerge>
                         </filter>
-                        <linearGradient id="el_bayBandGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
-                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
-                        </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
@@ -130,7 +133,7 @@ export function EvolutionLineChart({
                                 <Area key={`bay_ci_${cat.id}`} type={engine.style}
                                     dataKey={`band_${cat.id}`}
                                     name="IC 95%" stroke="none"
-                                    fill="url(#el_bayBandGradient)" legendType="none"
+                                    fill={`url(#bayBand_${cat.id})`} legendType="none"
                                     connectNulls
                                     isAnimationActive={false}
                                 />

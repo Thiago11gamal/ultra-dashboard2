@@ -171,9 +171,18 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * expWeight;
                 const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * expWeight;
 
-                const interDate = new Date(pts[lastIdx].date);
+                // FIX: Evitar o bug nativo do construtor Date(UTC) em fusos locais
+                const [year, month, day] = pts[lastIdx].date.split('-');
+                const interDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+
+                // Adicionar os dias projetados pelo Monte Carlo
                 interDate.setDate(interDate.getDate() + Math.round(projectDays * t));
-                const iso = interDate.toISOString().split('T')[0];
+
+                // Remontar a data estritamente local
+                const yFut = interDate.getFullYear();
+                const mFut = String(interDate.getMonth() + 1).padStart(2, '0');
+                const dFut = String(interDate.getDate()).padStart(2, '0');
+                const iso = `${yFut}-${mFut}-${dFut}`;
 
                 futurePoints.push({
                     date: iso,
@@ -242,7 +251,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                     
                     // 🟠 BUG DE DADOS DEFAULT FIX
                     const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
-                    const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * 10);
+                    const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total);
                     
                     // 🟠 BUG DE CÁLCULO DE ERRO FIX
                     topicMap[key].errors += Math.max(0, Math.min(total, total - correct));
@@ -289,7 +298,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             });
             for (const h of recentHistory) {
                 const total = parseInt(h.total, 10) || 10;
-                const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * 10);
+                const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total);
                 errors += Math.max(0, total - correct);
             }
             totalErrors += errors;
