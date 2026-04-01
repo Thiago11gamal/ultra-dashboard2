@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Settings } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 // Update component signature to accept onExit and defaultTargetCycles
-export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, onUpdateSettings, defaultTargetCycles = 1 }) {
+export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
     // --- STATE PERSISTENCE INITIALIZATION ---
 
@@ -202,7 +201,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         try {
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (e) {
+        } catch (err) {
             // Silently handle quota errors
         }
     }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
@@ -417,8 +416,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-    // Format time once to use consistently for both clock and progress
-    const displayTime = Math.ceil(timeLeft);
 
     // 🔒 LOCKED – DO NOT MODIFY THIS BLOCK
     // The smooth float-based progress is intentional. A previous attempt to use Math.ceil()

@@ -344,7 +344,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     localStorage.setItem('ultra-sync-dirty', 'true');
                     isDirty = true;
                 }
-            } catch (_) { /* ignore */ }
+            } catch (err) { /* ignore */ }
             
             // Mitigação Real: sendBeacon workflow. Como Firestore Client não suporta beacon
             // nativamente pela complexidade do formato de documento, disparamos para um Worker 
@@ -353,7 +353,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 try {
                     const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
                     navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, payload);
-                } catch(e) {}
+                } catch(err) {}
             }
 
             performEmergencySync();
@@ -433,7 +433,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     lastSyncedRef.current = currentStateString;
                     
                     // FORTRESS: Limpar flag de "sujo" apenas após confirmação do Firebase
-                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(_) {}
+                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(err) {}
                     
                     lastError = null;
                     break;

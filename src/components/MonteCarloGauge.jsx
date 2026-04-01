@@ -3,9 +3,6 @@ import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info, ChevronDown, C
 import {
     computeCategoryStats,
     computeBayesianLevel,
-    monteCarloSimulation,
-    runMonteCarloAnalysis,
-    simulateNormalDistribution,
     computePooledSD,
     computeWeightedVariance,
     calculateVolatility
@@ -27,21 +24,18 @@ export default function MonteCarloGauge({
     categories = [],
     goalDate,
     targetScore,
-    onTargetScoreChange, // Callback to update parent state
-    forcedMode = null, // 'today' or 'future'
+    onTargetScoreChange,
+    forcedMode = null,
     forcedTitle = null
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [showPerSubject, setShowPerSubject] = useState(false);
 
-    const activeId = useAppStore(state => state.appState.activeId);
-    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
+    const activeId = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
-    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
-    const activeUser = useAppStore(state => state.appState.contests[activeId]?.user);
 
     const activeCategories = useMemo(() =>
         categories.filter(c => c.simuladoStats?.history?.length > 0),

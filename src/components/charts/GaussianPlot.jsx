@@ -101,12 +101,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         // BUG-04 FIX: Map density 0-1.0 to SVG coordinates 100-5 to leave headroom at the top
         const yp = (yVal) => 100 - (yVal * 95);
 
-        const trendPath = '';
-
         // --- DATA SOURCE SELECTION ---
         let path;
         let pointsForArea = [];
-        let finalHF = baseHeightFactor;
+        const finalHF = baseHeightFactor;
 
         if (kdeData && kdeData.length > 5) {
             // HIGH FIDELITY: Use empirical KDE from simulation
@@ -124,13 +122,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 }
             }
             path = `M ${pointsForArea.join(' L ')}`;
-            finalHF = 1.0;
         } else {
             // FALLBACK: Use parametric Asymmetric Gaussian
             const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
             path = `M ${pts.join(' L ')}`;
             pointsForArea = pts;
-            finalHF = baseHeightFactor;
         }
 
         // 3. Precise Area Paths
@@ -191,11 +187,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         return {
             pathData: path,
-            trendPathData: trendPath,
             areaPathData: areaPath,
             failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp, heightFactorFinal: finalHF, curvePointsForArea: pointsForArea,
-            asymmetricGaussianFn: (x) => {
+            range, xMin, targetVal, xp, yp, asymmetricGaussianFn: (x) => {
                 if (kdeData && kdeData.length > 5) {
                     const nearest = kdeData.reduce((best, p) =>
                         Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
@@ -206,7 +200,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             },
             median: med, p25: lp25, p75: lp75
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, low95, high95, currentMean, kdeData]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(mean ?? 0);

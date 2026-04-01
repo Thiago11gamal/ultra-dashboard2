@@ -12,8 +12,7 @@ export function EvolutionLineChart({
     engine, 
     targetScore, 
     focusSubjectId,
-    showOnlyFocus,
-    categories 
+    showOnlyFocus
 }) {
     // Generate native tuple bands for Recharts Area
     const enhancedChartData = React.useMemo(() => {
