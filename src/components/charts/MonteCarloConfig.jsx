@@ -169,7 +169,7 @@ export const MonteCarloConfig = ({
                                     <WeightRow
                                         key={cat.id || cat.name}
                                         cat={cat}
-                                        weight={weights ? (parseInt(weights[cat.id || cat.name], 10) || 1) : 1}
+                                        weight={weights ? (weights[cat.id || cat.name] !== undefined ? (parseInt(weights[cat.id || cat.name], 10) || 0) : 1) : 1}
                                         manualTotal={manualTotal}
                                         updateWeight={updateWeight}
                                     />
