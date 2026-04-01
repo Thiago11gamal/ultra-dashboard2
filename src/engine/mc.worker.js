@@ -10,7 +10,7 @@
 // Import from leaf modules directly — no circular deps
 import { mulberry32, randomNormal } from './random.js';
 import { normalCDF_complement, generateKDE } from './math/gaussian.js';
-import { monteCarloSimulation, calculateSlope, getSortedHistory } from './projection.js';
+import { monteCarloSimulation } from './projection.js';
 
 // Inline simulateNormalDistribution to avoid monteCarlo.js circular import
 function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
