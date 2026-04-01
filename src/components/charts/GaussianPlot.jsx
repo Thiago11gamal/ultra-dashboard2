@@ -14,20 +14,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         strongGlow: `gpStrongGlow_${instanceId}`,
     };
 
-    // FIX: Sincronização estrita de HSL com os breakpoints do MonteCarloGauge (<60 Red, <80 Amber)
+    // FIX: Sincroniza\u00e7\u00e3o estrita de HSL com os breakpoints do MonteCarloGauge (<60 Red, <80 Amber)
     const successColor = useMemo(() => {
         const p = prob ?? 0;
         if (p < 60) {
-            // HSL para Red (#ef4444) puro até aos 55%, depois transição leve para Âmbar
+            // HSL para Red (#ef4444) puro at\u00e9 aos 55%, depois transi\u00e7\u00e3o leve para \u00c2mbar
             const t = Math.max(0, p - 40) / 20; 
             const h = 0 + t * 38; // 0 a 38
             return `hsl(${h}, 85%, 55%)`;
         }
         if (p < 80) {
-            // HSL forçado perto do Âmbar (#f59e0b) até muito perto dos 80% para não dar falso verde
-            // O verde (142) só começa a aparecer acima de 78%
+            // HSL for\u00e7ado perto do \u00c2mbar (#f59e0b) at\u00e9 muito perto dos 80% para n\u00e3o dar falso verde
+            // O verde (142) s\u00f3 come\u00e7a a aparecer acima de 78%
             const t = Math.max(0, p - 60) / 20;
-            const h = 38 + Math.pow(t, 3) * 104; // Curva cúbica segura a cor laranja por mais tempo
+            const h = 38 + Math.pow(t, 3) * 104; // Curva c\u00fabica segura a cor laranja por mais tempo
             return `hsl(${h}, 75%, 50%)`;
         }
         // Green zone (#22c55e)
@@ -44,16 +44,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let vizSdLeft = Math.max(1, propSdLeft ?? sd);
         let vizSdRight = Math.max(1, propSdRight ?? sd);
 
-        // BUG-03/MC-03 FIX: Calibração visual da área verde para coincidir com a prop 'prob' do Gauge
+        // BUG-03/MC-03 FIX: Calibra\u00e7\u00e3o visual da \u00e1rea verde para coincidir com a prop 'prob' do Gauge
         if (prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
             const t = targetVal;
 
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                // BUG-VISUAL/MC FIX: Para Gaussiana Assimétrica a normalização difere:
-                // Área E = Área D * (sl / sr). A CDF padrão não sabe disso.
-                const normFactor = 2 / (sl + sr); // Correção Split-Normal
+                // BUG-VISUAL/MC FIX: Para Gaussiana Assim\u00e9trica a normaliza\u00e7\u00e3o difere:
+                // \u00c1rea E = \u00c1rea D * (sl / sr). A CDF padr\u00e3o n\u00e3o sabe disso.
+                const normFactor = 2 / (sl + sr); // Corre\u00e7\u00e3o Split-Normal
                 const pUnderflow = normFactor * sl * normalCDF_complement(mVal / sl);
                 const pOverflow = normFactor * sr * normalCDF_complement((100 - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
@@ -64,7 +64,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     pSuccess = Math.max(0, pRightSuccess - pOverflow);
                 } else {
                     const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
-                    // Sucesso é o Lado Esquerdo Inteiro (menos a falha) + o Lado Direito Inteiro (menos o overflow)
+                    // Sucesso \u00e9 o Lado Esquerdo Inteiro (menos a falha) + o Lado Direito Inteiro (menos o overflow)
                     const totalLeftArea = normFactor * sl * 0.5;
                     const totalRightArea = normFactor * sr * 0.5;
                     pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
@@ -72,8 +72,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 return pSuccess / truncatedTotal;
             };
 
-            // BUG-04 FIX: Calibração visual iterativa (10 passos) com critério mais estrito (0.002)
-            // Para prob extremas (<10% ou >92%), 3 iterações não convergiam.
+            // BUG-04 FIX: Calibra\u00e7\u00e3o visual iterativa (10 passos) com crit\u00e9rio mais estrito (0.002)
+            // Para prob extremas (<10% ou >92%), 3 itera\u00e7\u00f5es n\u00e3o convergiam.
             let sl = vizSdLeft, sr = vizSdRight;
             // FIX: Prevenir diverg\u00eancia iterativa invertendo a raz\u00e3o quando t < m
             for (let i = 0; i < 10; i++) {
@@ -99,7 +99,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         const avgSd = (vizSdLeft + vizSdRight) / 2;
         // VISUAL-03 FIX: Aumentar fator de escala de 12 -> 20 para que curvas com alto SD (baixa densidade)
-        // ainda sejam visualmente perceptíveis como 'morros' e não linhas retas.
+        // ainda sejam visualmente percept\u00edveis como 'morros' e n\u00e3o linhas retas.
         const baseHeightFactor = Math.min(1.0, 20 / avgSd);
 
         // VISUAL-04 FIX: Adicionar buffer de 2% para evitar que a curva 'cole' no eixo Y/X.
@@ -115,18 +115,25 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         if (kdeData && kdeData.length > 5) {
             // HIGH FIDELITY: Use empirical KDE from simulation
             const DOMAIN_MAX = 100;
-            // MC-KDE FIX: Clampar pontos para dentro do domínio visual [0,100]
-            pointsForArea = kdeData
-                .filter(p => p.x >= 0 && p.x <= DOMAIN_MAX)
-                .map(p => `${xp(p.x)},${yp(p.y)}`);
-
-            // Garantir que a linha fecha visualmente no limite direito
-            if (pointsForArea.length > 0) {
-                const lastX = parseFloat(pointsForArea[pointsForArea.length - 1].split(',')[0]);
-                if (lastX < xp(DOMAIN_MAX)) {
-                    pointsForArea.push(`${xp(DOMAIN_MAX)},100`);
-                }
+            
+            // FIX: For\u00e7ar \u00e2ncora no X=0 para impedir o artefato "Z-Fold" de pol\u00edgonos invertidos
+            if (kdeData[0].x > 0) {
+                pointsForArea.push(`${xp(0)},100`);
+                pointsForArea.push(`${xp(kdeData[0].x)},100`);
             }
+
+            // Converter KDE points (aplicando achatamento finalHF)
+            kdeData.filter(p => p.x >= 0 && p.x <= DOMAIN_MAX).forEach(p => {
+                pointsForArea.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
+            });
+
+            // FIX: For\u00e7ar \u00e2ncora no X=100
+            const lastDataX = kdeData[kdeData.length - 1].x;
+            if (lastDataX < DOMAIN_MAX) {
+                pointsForArea.push(`${xp(lastDataX)},100`);
+                pointsForArea.push(`${xp(DOMAIN_MAX)},100`);
+            }
+            
             path = `M ${pointsForArea.join(' L ')}`;
         } else {
             // FALLBACK: Use parametric Asymmetric Gaussian
@@ -140,7 +147,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const failPoints = [];
         const successStart = Math.max(xMin, targetVal);
 
-        // BUG-VISUAL FIX: Quando kdeData disponível, interpolar yAtTarget do próprio KDE
+        // BUG-VISUAL FIX: Quando kdeData dispon\u00edvel, interpolar yAtTarget do pr\u00f3prio KDE
         const getYAtX = (pts, xTarget) => {
             let lo = null, hi = null;
             for (const p of pts) {
@@ -170,7 +177,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         failPoints.push(`${xp(xMin)},100`);
-        // Adicionar ponto baseline até onde a KDE começa para evitar faixas diagonais
+        // Adicionar ponto baseline at\u00e9 onde a KDE come\u00e7a para evitar faixas diagonais
         if (kdeData && kdeData.length > 5 && kdeData[0].x > 0) {
             failPoints.push(`${xp(kdeData[0].x)},100`);
         }
@@ -184,7 +191,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
 
-        // Metrics: Usar SDs originais para os quartis, não os calibrados para a área visual.
+        // Metrics: Usar SDs originais para os quartis, n\u00e3o os calibrados para a \u00e1rea visual.
         const rawSdLeft = Math.max(1, propSdLeft ?? sd);
         const rawSdRight = Math.max(1, propSdRight ?? sd);
         const med = meanVal;
@@ -217,20 +224,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
 
     const ciWide = (high95 - low95) >= 95;
-    const ciLabel = ciWide ? "Alta incerteza" : `${low95.toFixed(0)}–${high95.toFixed(0)}%`;
+    const ciLabel = ciWide ? "Alta incerteza" : `${low95.toFixed(0)}\u2013${high95.toFixed(0)}%`;
 
 
     // V1 FIX: Position "Hoje" label dynamically above the curve point
-    // MATH-VISUAL: Remover o clamp de 38% que forçava o rótulo a flutuar no alto quando a nota era baixa.
-    // Agora o rótulo desce até a altura real da densidade da curva.
+    // MATH-VISUAL: Remover o clamp de 38% que for\u00e7ava o r\u00f3tulo a flutuar no alto quando a nota era baixa.
+    // Agora o r\u00f3tulo desce at\u00e9 a altura real da densidade da curva.
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
-    const hojeTop = Math.min(62, Math.max(0, hojeYPercent - 12)); // Posição ancorada à densidade, com offset para o texto
+    const hojeTop = Math.min(62, Math.max(0, hojeYPercent - 12)); // Posi\u00e7\u00e3o ancorada \u00e0 densidade, com offset para o texto
 
-    // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
-    // FIX: Reduzir a zona de colisão de 20% para 8% da largura visual (viewBox)
+    // 3-Tier Collision Logic for Top Labels (Proje\u00e7\u00e3o, Meta, Hoje)
+    // FIX: Reduzir a zona de colis\u00e3o de 20% para 8% da largura visual (viewBox)
     const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
 
-    // VISUAL-05 FIX: Se 'Hoje' e 'Projeção' forem idênticos (nudge), forçar colisão mesmo com abs(0)
+    // VISUAL-05 FIX: Se 'Hoje' e 'Proje\u00e7\u00e3o' forem id\u00eanticos (nudge), for\u00e7ar colis\u00e3o mesmo com abs(0)
     const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 8 || currentMean === (mean ?? 0));
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 8;
 
@@ -241,7 +248,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     // BUG-03 FIX: Conflict Resolution Logic
     if (collisionHojeMean || collisionMetaMean) {
-        // Só sobe Projeção se houver colisão bilateral (Meta E Hoje contra ela)
+        // S\u00f3 sobe Proje\u00e7\u00e3o se houver colis\u00e3o bilateral (Meta E Hoje contra ela)
         if (collisionMetaMean && collisionHojeMean) tierMean = 3;
     }
 
@@ -357,13 +364,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
             {/* Floating Labels (B-13 FIX: 3-Tier Robust Collision Avoidance) */}
             <div className="absolute inset-0 pointer-events-none">
-                {/* Projeção Label */}
+                {/* Proje\u00e7\u00e3o Label */}
                 <div
                     className="absolute flex flex-col items-center transition-all duration-500"
                     style={{
                         left: `${Math.min(meanPos, 90)}%`,
                         top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%',
-                        // VISUAL-05 nudge: Se houver colisão tierada, aplicar pequeno offset visual
+                        // VISUAL-05 nudge: Se houver colis\u00e3o tierada, aplicar pequeno offset visual
                         transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'),
                         zIndex: 30
                     }}
@@ -372,7 +379,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {mean.toFixed(1)}%
                     </span>
-                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5">Projeção</span>
+                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5">Proje\u00e7\u00e3o</span>
                 </div>
 
                 {/* Target Label */}
@@ -462,7 +469,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             )}
 
             {/* Footer Metrics (Ticks and IC) */}
-            {/* B-10 FIX: Todos absolutos com posição explícita */}
+            {/* B-10 FIX: Todos absolutos com posi\u00e7\u00e3o expl\u00edcita */}
             <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
                 {[0, 25, 50, 75, 100].map(t => (
                     <span
