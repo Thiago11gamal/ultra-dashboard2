@@ -17,7 +17,8 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
                 </div>
             </div>
             <div className="flex items-center gap-1 bg-slate-950/40 rounded-xl p-1 border border-white/5">
-                {[1, 2, 3].map(p => (
+                {/* FIX: Adicionar o 0 \u00e0 lista de pesos permitidos */}
+                {[0, 1, 2, 3].map(p => (
                     <button
                         key={p}
                         onClick={() => updateWeight(cat.id || cat.name, p)}
@@ -50,7 +51,11 @@ export const MonteCarloConfig = ({
     // 🔒 BUGFIX BUG-4: Não desmontar o componente para preservar o ref savedCustomWeights
     // if (!show) return null;
 
-    const manualTotal = categories.reduce((acc, cat) => acc + Math.max(1, parseInt(weights?.[cat.id || cat.name], 10) || 1), 0);
+    // FIX: Permitir que o peso manual possa ser 0 sem assumir Math.max(1)
+    const manualTotal = categories.reduce((acc, cat) => {
+        const val = weights?.[cat.id || cat.name];
+        return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
+    }, 0);
 
     return (
         <div 

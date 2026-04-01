@@ -221,12 +221,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const hojeTop = Math.min(62, Math.max(0, hojeYPercent - 12)); // Posição ancorada à densidade, com offset para o texto
 
     // 3-Tier Collision Logic for Top Labels (Projeção, Meta, Hoje)
-    // BUG-B7 FIX: Increased threshold to 20 for more robust spacing
-    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 20;
+    // FIX: Reduzir a zona de colisão de 20% para 8% da largura visual (viewBox)
+    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
 
     // VISUAL-05 FIX: Se 'Hoje' e 'Projeção' forem idênticos (nudge), forçar colisão mesmo com abs(0)
-    const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 20 || currentMean === (mean ?? 0));
-    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 20;
+    const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 8 || currentMean === (mean ?? 0));
+    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 8;
 
     // Resolve Tiers: 1 is top, 2 is middle, 3 is bottom
     let tierMean = 1;

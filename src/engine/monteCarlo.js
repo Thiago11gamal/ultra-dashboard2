@@ -42,22 +42,21 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // PERFORMANCE FIX: Use Float32Array to reduce GC pressure on 2000+ simulations
   const allScores = new Float32Array(safeSimulations);
 
-  // LOOP DA SIMULAÇÃO (agora não é mais ignorado)
+  // LOOP DA SIMULAÇÃO
   for (let i = 0; i < safeSimulations; i++) {
     const score = safeMean + randomNormal(rng) * safeSD;
     
-    // Sucesso é baseado no score real (limitado a 0-100 para sanidade do alvo)
-    // BUG-01 FIX: Clampar em vez de refletir para evitar inflar artificialmente a densidade nos extremos
+    // O finalScore truncado é usado para sucesso e renderização visual
     const finalScore = Math.max(0, Math.min(100, score));
     if (finalScore >= safeTarget) success++;
-
-    // BUG-04 FIX: Ajustado para usar finalScore garantindo consistência 0-100 na cauda KDE
     allScores[i] = finalScore;
 
     welfordCount++;
-    const delta = finalScore - welfordMean;
+    // FIX: A Variância DEVE ser calculada na distribuição latente (score) 
+    // e não no (finalScore) para evitar o esmagamento do desvio padrão.
+    const delta = score - welfordMean;
     welfordMean += delta / welfordCount;
-    welfordM2 += delta * (finalScore - welfordMean);
+    welfordM2 += delta * (score - welfordMean);
   }
 
   const projectedMean = welfordMean;
@@ -71,9 +70,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const rawLow = allScores[p025idx];
   const rawHigh = allScores[p975idx];
 
-  // BUG-04 FIX: Calcular inferredSD e SDs assimétricos antes do clamp final
-  const finalRawLow = bayesianCI ? Math.min(rawLow, bayesianCI.ciLow) : rawLow;
-  const finalRawHigh = bayesianCI ? Math.max(rawHigh, bayesianCI.ciHigh) : rawHigh;
+  // FIX: Remover o Math.min/max com bayesianCI aqui.
+  // O safeSD já injetou a incerteza Bayesiana no próprio Welford. 
+  // Aplicar novamente causa distorção severa ("Alta Incerteza" falsa).
+  const finalRawLow = rawLow;
+  const finalRawHigh = rawHigh;
 
   const empiricalProbability = (success / safeSimulations) * 100;
   

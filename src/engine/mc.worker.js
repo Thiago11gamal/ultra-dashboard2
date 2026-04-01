@@ -40,9 +40,11 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, cu
         if (finalScore >= safeTarget) success++;
         allScores[i] = finalScore;
         welfordCount++;
-        const delta = finalScore - welfordMean;
+        // FIX: A Variância DEVE ser calculada na distribuição latente (score) 
+        // e não no (finalScore) para evitar o esmagamento do desvio padrão.
+        const delta = score - welfordMean;
         welfordMean += delta / welfordCount;
-        welfordM2 += delta * (finalScore - welfordMean);
+        welfordM2 += delta * (score - welfordMean);
     }
 
     const projectedMean = welfordMean;
@@ -54,8 +56,11 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, cu
     const rawLow = allScores[p025idx];
     const rawHigh = allScores[p975idx];
 
-    const finalRawLow = bayesianCI ? Math.min(rawLow, bayesianCI.ciLow) : rawLow;
-    const finalRawHigh = bayesianCI ? Math.max(rawHigh, bayesianCI.ciHigh) : rawHigh;
+    // FIX: Remover o Math.min/max com bayesianCI aqui.
+    // O safeSD já injetou a incerteza Bayesiana no próprio Welford. 
+    // Aplicar novamente causa distorção severa ("Alta Incertesa" falsa).
+    const finalRawLow = rawLow;
+    const finalRawHigh = rawHigh;
     const empiricalProbability = (success / safeSimulations) * 100;
     const displayMean = Math.max(0, Math.min(100, projectedMean));
     const displayLow = Math.max(0, finalRawLow);

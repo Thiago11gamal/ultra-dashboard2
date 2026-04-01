@@ -180,21 +180,32 @@ export default function MonteCarloGauge({
         const weightedLow = bayesianMean - 1.96 * pooledBayesianSD;
         const weightedHigh = bayesianMean + 1.96 * pooledBayesianSD;
 
-        // Reconstruct consolidated global history for path simulation
+        // Reconstruct consolidated global history for path simulation (Carry-Forward Fix)
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
 
-        // C-04 FIX: Só gerar ponto quando pelo menos 1 matéria foi avaliada naquele dia.
-        // BUG-03 RIGOR: Para o histórico visual, mantemos a agregação diária.
+        const lastKnownScores = {}; // Armazena a nota mais recente de cada matéria
+        
         const globalHistory = sortedDates.map(date => {
+            // 1. Atualiza o estado atual APENAS com as matérias feitas neste dia
+            Object.keys(scoresByDate[date]).forEach(name => {
+                lastKnownScores[name] = scoresByDate[date][name];
+            });
+
             let sum = 0;
             let tw = 0;
-            Object.keys(scoresByDate[date]).forEach(name => {
+            
+            // 2. Calcula a média do dia usando o "nível atual" de TODAS as matérias ativas
+            Object.keys(weightsByName).forEach(name => {
                 const w = weightsByName[name];
-                if (w > 0) {
-                    sum += scoresByDate[date][name] * w;
+                const currentScore = lastKnownScores[name];
+                
+                // Só inclui no cálculo se a matéria já tiver pelo menos 1 simulado feito no histórico
+                if (w > 0 && currentScore !== undefined) {
+                    sum += currentScore * w;
                     tw += w;
                 }
             });
+            
             return { date, score: tw > 0 ? sum / tw : 0 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
