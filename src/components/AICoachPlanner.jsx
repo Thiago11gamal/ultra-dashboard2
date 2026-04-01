@@ -20,7 +20,7 @@ const TaskCard = ({ task, index, isBacklog }) => {
     let subject = parts.length > 1 ? parts[0] : fullText;
     let desc = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? "Revisão Geral" : "");
 
-    subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF\-\(\)]/g, '').trim();
+    subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
 
     // BUG FIX: react-beautiful-dnd breaks instantly if draggableId changes (e.g. relying on `index` across columns).
     // If task.id is absent, we generate a stable hash from its content to prevent it from vanishing on drop.
