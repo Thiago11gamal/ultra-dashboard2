@@ -45,10 +45,11 @@ export function EvolutionLineChart({
 
     const renderCustomLabel = (props, catId, catColor) => {
         const { x, y, index, value, viewBox } = props;
-        // Only render at the very last point of the line
+        
         if (index === filteredChartData.length - 1 && value != null) {
             let offsetPx = 0;
             const pt = finalPoints.find(p => p.id === catId);
+            
             if (pt) {
                 const yPositions = [...finalPoints].map(p => ({ ...p, yPos: Number(p.value) || 0 }));
                 const MIN_PCT_DISTANCE = 4.5;
@@ -59,26 +60,27 @@ export function EvolutionLineChart({
                     }
                 }
 
-                // BUG-COLLISION FIX: Clamp stack if it goes out of bounds (below 0%)
                 if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < 0) {
                     const shift = -yPositions[yPositions.length - 1].yPos;
                     yPositions.forEach(p => p.yPos += shift);
                 }
 
+                // FIX FINAL: Prevenir vazamento no teto (Y > 96%) empurrando o stack inteiro para baixo
+                if (yPositions.length > 0 && yPositions[0].yPos > 96) {
+                    const topShift = yPositions[0].yPos - 96;
+                    yPositions.forEach(p => p.yPos -= topShift);
+                }
+
                 const myAdjPt = yPositions.find(p => p.id === catId);
                 if (myAdjPt && myAdjPt.yPos !== myAdjPt.value) {
-                    const pctShift = value - myAdjPt.yPos;
-                    // BUG-09 FIX: Calcular offset em unidades SVG user-space usando viewBox
-                    // viewBox.height é a altura do plot area em user-space coords
-                    // O domínio Y é [0,100], então 1% = viewBox.height / 100 user-space units
                     const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
-                    offsetPx = pctShift * pxPerPct;
+                    offsetPx = (value - myAdjPt.yPos) * pxPerPct;
                 }
             }
 
             return (
-                <g>
-                    <text x={x + 8} y={y + 4 + offsetPx} fill={catColor} fontSize={11} fontWeight="bold">
+                <g style={{ zIndex: 100 }}>
+                    <text x={x + 8} y={y + 4 + offsetPx} fill={catColor} fontSize={11} fontWeight="bold" style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}>
                         {Number(value).toFixed(1)}%
                     </text>
                 </g>
