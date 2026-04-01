@@ -3,6 +3,8 @@ import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info, ChevronDown, C
 import {
     computeCategoryStats,
     computeBayesianLevel,
+    simulateNormalDistribution,
+    runMonteCarloAnalysis,
     computePooledSD,
     computeWeightedVariance,
     calculateVolatility

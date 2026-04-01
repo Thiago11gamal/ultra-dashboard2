@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2 } from 'lucide-react';
+import { Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
