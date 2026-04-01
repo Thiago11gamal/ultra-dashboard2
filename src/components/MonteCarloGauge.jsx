@@ -32,10 +32,13 @@ export default function MonteCarloGauge({
     const [showConfig, setShowConfig] = useState(false);
     const [showPerSubject, setShowPerSubject] = useState(false);
 
-    const activeId = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
+    const activeId = useAppStore(state => state.appState.activeId);
+    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
+    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+    const activeUser = useAppStore(state => state.appState.contests[activeId]?.user);
 
     const activeCategories = useMemo(() =>
         categories.filter(c => c.simuladoStats?.history?.length > 0),
