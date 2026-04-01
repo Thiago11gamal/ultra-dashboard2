@@ -405,13 +405,14 @@ export function monteCarloSimulation(
         const finalScore = Math.max(0, Math.min(100, score));
         if (finalScore >= targetScore) success++;
 
-        allFinalScores[s] = finalScore;
+        // FIX CR\u00cdTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Vari\u00e2ncia.
+        allFinalScores[s] = score;
 
-        // Welford com score finalScore para manter KDE 100% calibrado
+        // Welford com score LATENTE para manter KDE 100% calibrado
         welfordCount++;
-        const delta = finalScore - welfordMean;
+        const delta = score - welfordMean;
         welfordMean += delta / welfordCount;
-        const delta2 = finalScore - welfordMean;
+        const delta2 = score - welfordMean;
         welfordM2 += delta * delta2;
     }
 
@@ -436,10 +437,10 @@ export function monteCarloSimulation(
     const sdLeft = (displayMean - ci95LowVal) / 1.96;
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
-    // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
-    // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
+    // FIX CR\u00cdTICO: Se o teto for atingido (high >= 99.5), o sdRight foi esmagado artificialmente.
+    // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno.
     const effectiveSD = Math.max(1.0, (ci95HighVal >= 99.5) 
-        ? (targetScore >= displayMean ? sdRight : sdLeft) 
+        ? sdLeft 
         : inferredSD);
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
