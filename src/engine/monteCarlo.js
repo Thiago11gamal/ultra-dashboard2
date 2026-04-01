@@ -89,8 +89,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // REVISION: Standardized floor to 1.0
   // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
   // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
+  // FIX: Se o teto for atingido (displayHigh >= 99.5), o sdRight foi esmagado artificialmente.
+  // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno,
+  // caso contrário penalizamos a probabilidade analítica de alunos de topo.
   const effectiveSD = Math.max(1.0, (displayHigh >= 99.5) 
-    ? (safeTarget >= displayMean ? sdRight : sdLeft) 
+    ? sdLeft 
     : inferredSD);
 
   // Bug 1: Calcular analyticalProbability corretamente

@@ -68,10 +68,10 @@ function simulateNormalDistribution(mean, sd, targetScore, simulations, seed, cu
     const sdLeft = (displayMean - displayLow) / 1.96;
     const sdRight = (displayHigh - displayMean) / 1.96;
     const inferredSD = (displayHigh - displayLow) / 3.92;
-    // FIX CRÍTICO: Envolver toda a expressão num Math.max(1.0, ...) para 
-    // prevenir effectiveSD = 0 quando o teto esmaga a variância direita.
-    const effectiveSD = Math.max(1.0, (displayHigh >= 99.5)
-        ? (safeTarget >= displayMean ? sdRight : sdLeft)
+    // FIX: Se o teto for atingido (displayHigh >= 99.5), o sdRight foi esmagado artificialmente.
+    // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno,
+    const effectiveSD = Math.max(1.0, (displayHigh >= 99.5) 
+        ? sdLeft 
         : inferredSD);
 
     const zScore = (safeTarget - displayMean) / effectiveSD;

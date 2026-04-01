@@ -14,23 +14,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         strongGlow: `gpStrongGlow_${instanceId}`,
     };
 
-    // MELHORIA: Cor dinâmica da área de sucesso baseada na probabilidade (semáforo gauge)
+    // FIX: Sincronização estrita de HSL com os breakpoints do MonteCarloGauge (<60 Red, <80 Amber)
     const successColor = useMemo(() => {
         const p = prob ?? 0;
-        // Interpolar HSL: vermelho(0°) → âmbar(38°) → verde(142°)
         if (p < 60) {
-            // Red (#ef4444, H=0) → Amber (#f59e0b, H=38)
-            const t = Math.max(0, p) / 60;
-            const h = 0 + t * 38;
+            // HSL para Red (#ef4444) puro até aos 55%, depois transição leve para Âmbar
+            const t = Math.max(0, p - 40) / 20; 
+            const h = 0 + t * 38; // 0 a 38
             return `hsl(${h}, 85%, 55%)`;
         }
         if (p < 80) {
-            // Amber (#f59e0b, H=38) → Green (#22c55e, H=142)
-            const t = (p - 60) / 20;
-            const h = 38 + t * 104;
+            // HSL forçado perto do Âmbar (#f59e0b) até muito perto dos 80% para não dar falso verde
+            // O verde (142) só começa a aparecer acima de 78%
+            const t = Math.max(0, p - 60) / 20;
+            const h = 38 + Math.pow(t, 3) * 104; // Curva cúbica segura a cor laranja por mais tempo
             return `hsl(${h}, 75%, 50%)`;
         }
-        // Green zone
+        // Green zone (#22c55e)
         return '#22c55e';
     }, [prob]);
 
@@ -75,17 +75,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             // BUG-04 FIX: Calibração visual iterativa (10 passos) com critério mais estrito (0.002)
             // Para prob extremas (<10% ou >92%), 3 iterações não convergiam.
             let sl = vizSdLeft, sr = vizSdRight;
+            // FIX: Prevenir diverg\u00eancia iterativa invertendo a raz\u00e3o quando t < m
             for (let i = 0; i < 10; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
                 if (Math.abs(targetProb - pg) <= 0.002) break;
-                const r = Math.min(1.5, Math.max(0.66, targetProb / Math.max(0.005, pg)));
-                // BUG-B4 FIX: Para prob > 0.90 && target >= mean, expandir sdRight
-                // (empurra mais massa para al\u00e9m do alvo). Antes ajustava sdLeft com 1/r, oscilando.
+                
+                // Se t < m, sucesso est\u00e1 \u00e0 direita. Para REDUZIR probabilidade, 
+                // temos de AUMENTAR o lado esquerdo (empurrar a curva para a zona de falha)
+                const r = targetProb / Math.max(0.005, pg);
+                const adjustment = t < m ? (1 / r) : r;
+                
+                const safeR = Math.min(1.5, Math.max(0.66, adjustment));
                 const currentCap = targetProb > 0.95 ? 8 : 4;
+                
                 if (t < m) {
-                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * r));
+                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
                 } else {
-                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * r));
+                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
                 }
             }
             vizSdLeft = sl; vizSdRight = sr;
