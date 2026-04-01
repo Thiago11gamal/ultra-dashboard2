@@ -32,7 +32,7 @@ export default function Coach() {
             data.studyLogs || [],
             { user: data.user, targetScore }
         );
-    }, [data?.categories, data?.simuladoRows, data?.studyLogs, data?.user]);
+    }, [data.categories, data.simuladoRows, data.studyLogs, data.user]);
 
     useEffect(() => {
         return () => {
