@@ -106,9 +106,9 @@ export function CompareChart({
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
-                        <linearGradient id="cc_projectionGreenGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.15} />
-                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
+                        <linearGradient id="cc_projectionPurpleGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.15} />
+                            <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.01} />
                         </linearGradient>
                         <linearGradient id="cc_cloudGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#6366f1" stopOpacity={0.1} />
@@ -148,7 +148,7 @@ export function CompareChart({
                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                     
                     <Area type="monotone" dataKey="Banda Bayesiana" stroke="none" fill="url(#cc_bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionGreenGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionPurpleGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                     {/* VISUAL-FIX: Cor do Ganho mudada para ESMERALDA (#10b981) e opacidade reduzida para semântica de progresso positiva */}
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#10b981" fillOpacity={0.15} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
                     <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.3} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />

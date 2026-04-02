@@ -44,39 +44,47 @@ export function EvolutionLineChart({
         return pts.sort((a, b) => b.value - a.value);
     }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
 
+    // Compute adjusted Y positions for labels once per render to avoid O(N*M) in renderCustomLabel
+    const yAdjustedMap = React.useMemo(() => {
+        if (!finalPoints.length) return {};
+        
+        const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        const MIN_PCT_DISTANCE = 4.5;
+
+        for (let i = 1; i < yPositions.length; i++) {
+            if (yPositions[i - 1].yPos - yPositions[i].yPos < MIN_PCT_DISTANCE) {
+                yPositions[i].yPos = yPositions[i - 1].yPos - MIN_PCT_DISTANCE;
+            }
+        }
+
+        if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < 0) {
+            const shift = -yPositions[yPositions.length - 1].yPos;
+            yPositions.forEach(p => p.yPos += shift);
+        }
+
+        // FIX FINAL: Prevenir vazamento no teto (Y > 96%) empurrando o stack inteiro para baixo
+        if (yPositions.length > 0 && yPositions[0].yPos > 96) {
+            const topShift = yPositions[0].yPos - 96;
+            yPositions.forEach(p => p.yPos -= topShift);
+        }
+
+        const map = {};
+        yPositions.forEach(p => {
+            map[p.id] = p.yPos;
+        });
+        return map;
+    }, [finalPoints]);
+
     const renderCustomLabel = (props, catId, catColor) => {
         const { x, y, index, value, viewBox } = props;
         
         if (index === filteredChartData.length - 1 && value != null) {
             let offsetPx = 0;
-            const pt = finalPoints.find(p => p.id === catId);
+            const adjustedY = yAdjustedMap[catId];
             
-            if (pt) {
-                const yPositions = [...finalPoints].map(p => ({ ...p, yPos: Number(p.value) || 0 }));
-                const MIN_PCT_DISTANCE = 4.5;
-
-                for (let i = 1; i < yPositions.length; i++) {
-                    if (yPositions[i - 1].yPos - yPositions[i].yPos < MIN_PCT_DISTANCE) {
-                        yPositions[i].yPos = yPositions[i - 1].yPos - MIN_PCT_DISTANCE;
-                    }
-                }
-
-                if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < 0) {
-                    const shift = -yPositions[yPositions.length - 1].yPos;
-                    yPositions.forEach(p => p.yPos += shift);
-                }
-
-                // FIX FINAL: Prevenir vazamento no teto (Y > 96%) empurrando o stack inteiro para baixo
-                if (yPositions.length > 0 && yPositions[0].yPos > 96) {
-                    const topShift = yPositions[0].yPos - 96;
-                    yPositions.forEach(p => p.yPos -= topShift);
-                }
-
-                const myAdjPt = yPositions.find(p => p.id === catId);
-                if (myAdjPt && myAdjPt.yPos !== myAdjPt.value) {
-                    const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
-                    offsetPx = (value - myAdjPt.yPos) * pxPerPct;
-                }
+            if (adjustedY !== undefined && adjustedY !== value) {
+                const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
+                offsetPx = (value - adjustedY) * pxPerPct;
             }
 
             return (
