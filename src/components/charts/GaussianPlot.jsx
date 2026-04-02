@@ -90,10 +90,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        const baseHeightFactor = Number.isFinite(avgSd) ? Math.min(1.0, 20 / avgSd) : 1.0;
+        
+        // VISUAL-FIX: Normalização Dinâmica de Altura.
+        // Em vez de achatar a curva até sumir (baseado em 20/avgSd), garantimos que o pico
+        // tenha sempre uma altura mínima visível no SVG (ocupando ~40-60% do SVG).
+        // Isso permite ver a 'forma' da incerteza mesmo quando o IC é 0-100%.
+        const baseHeightFactor = 0.65; 
 
         const xp = (v) => 2 + ((v - xMin) / range * 96);
-        const yp = (yVal) => 100 - (yVal * 95);
+        const yp = (yVal) => 100 - (yVal * 92); // Aumentado para 92 para melhor headroom
 
         let path;
         let pointsForArea = [];
@@ -107,7 +112,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 points.push(`${xp(0)},100`);
                 points.push(`${xp(kdeData[0].x)},100`);
             }
-            // FIX: Ensure finalHF is inside yp() as requested
+            // Sincronização: y já vem normalizado 0-1 no KDE
             kdeData.filter(p => p.x >= 0 && p.x <= DOMAIN_MAX).forEach(p => {
                 points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
             });
@@ -119,8 +124,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             path = `M ${points.join(' L ')}`;
             pointsForArea = points;
         } else {
-            // FALLBACK: Use parametric Asymmetric Gaussian
-            const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
+            // FALLBACK: Use parametric Asymmetric Gaussian (Pico é 1.0 sem scaling)
+            const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
             path = `M ${pts.join(' L ')}`;
             pointsForArea = pts;
         }
@@ -185,7 +190,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     const nearest = kdeData.reduce((best, p) =>
                         Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
                     );
-                    return nearest.y;
+                    return nearest.y * finalHF; // SYNC: Aplicar o mesmo scaling do path
                 }
                 return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
             },
@@ -275,7 +280,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
                     <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}%</span>
-                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5">Proje\u00e7\u00e3o</span>
+                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5 whitespace-nowrap">Projeção</span>
                 </div>
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
