@@ -31,17 +31,18 @@ export function EvolutionLineChart({
     }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId]);
 
     // Gather all final points to calculate offsets for labels
-    const finalPoints = [];
-    activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
-        const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
-        const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
-        if (lastVal != null && Number.isFinite(Number(lastVal))) {
-            finalPoints.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
-        }
-    });
-
-    // Sort by value descending
-    finalPoints.sort((a, b) => b.value - a.value);
+    const finalPoints = React.useMemo(() => {
+        const pts = [];
+        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+            const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+            const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
+            if (lastVal != null && Number.isFinite(Number(lastVal))) {
+                pts.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
+            }
+        });
+        // Sort by value descending
+        return pts.sort((a, b) => b.value - a.value);
+    }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
 
     const renderCustomLabel = (props, catId, catColor) => {
         const { x, y, index, value, viewBox } = props;
