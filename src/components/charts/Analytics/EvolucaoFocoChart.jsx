@@ -10,10 +10,19 @@ export function EvolucaoFocoChart({ data }) {
         );
     }
 
+    // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines
+    const sortedData = React.useMemo(() => {
+        return [...data].sort((a, b) => {
+            const dateA = a.data ? new Date(a.data).getTime() : 0;
+            const dateB = b.data ? new Date(b.data).getTime() : 0;
+            return dateA - dateB;
+        });
+    }, [data]);
+
     return (
         <div className="h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={sortedData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis 
                         dataKey="data" 
@@ -41,7 +50,7 @@ export function EvolucaoFocoChart({ data }) {
                     />
                     
                     <Area 
-                        type="monotone" 
+                        type="monotoneX" 
                         dataKey="horasEstudadas" 
                         stroke="#8b5cf6" 
                         strokeWidth={3}

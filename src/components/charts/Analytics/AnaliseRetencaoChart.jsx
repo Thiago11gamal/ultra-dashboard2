@@ -64,7 +64,7 @@ export function AnaliseRetencaoChart({ data }) {
                     
                     <Line 
                         yAxisId="right" 
-                        type="monotone" 
+                        type="monotoneX" 
                         dataKey="nivelCritico" 
                         stroke="#ef4444" 
                         strokeWidth={3} 

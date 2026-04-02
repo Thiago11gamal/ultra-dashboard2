@@ -147,31 +147,31 @@ export function CompareChart({
                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
                     <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
                     
-                    <Area type="monotone" dataKey="Banda Bayesiana" stroke="none" fill="url(#cc_bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionPurpleGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill="url(#cc_bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionPurpleGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                     {/* VISUAL-FIX: Cor do Ganho mudada para ESMERALDA (#10b981) e opacidade reduzida para semântica de progresso positiva */}
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#10b981" fillOpacity={0.15} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotone" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.3} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotone" dataKey="Cenário Range" fill="url(#cc_cloudGradient)" stroke="none" legendType="none" />
+                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#10b981" fillOpacity={0.15} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.3} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    <Area type="monotoneX" dataKey="Cenário Range" fill="url(#cc_cloudGradient)" stroke="none" legendType="none" />
                     
-                    <Area type="monotone" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
+                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round"
                         fill="url(#cc_greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
                         activeDot={false} connectNulls style={{ filter: 'url(#cc_lineShadow)' }} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
-                    <Line type="monotone" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2}
+                    <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2}
                         strokeLinecap="round" strokeLinejoin="round"
                         dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotone" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={true}>
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
-                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={1.5}
+                    <Line type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={1.5}
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== filteredChartData.length - 1) return null;

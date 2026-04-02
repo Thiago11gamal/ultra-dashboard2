@@ -17,7 +17,14 @@ export function EvolutionLineChart({
     // Generate native tuple bands for Recharts Area
     const enhancedChartData = React.useMemo(() => {
         if (!filteredChartData || !filteredChartData.length) return [];
-        return filteredChartData.map(d => {
+        // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines if data is unordered
+        const sortedData = [...filteredChartData].sort((a, b) => {
+            const dateA = a.date ? new Date(a.date).getTime() : 0;
+            const dateB = b.date ? new Date(b.date).getTime() : 0;
+            return dateA - dateB;
+        });
+
+        return sortedData.map(d => {
             const copy = { ...d };
             activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                 const low = d[`bay_ci_low_${cat.name}`];
