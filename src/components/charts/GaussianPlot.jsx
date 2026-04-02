@@ -10,8 +10,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         curveGrad: `gpCurveGradient_${instanceId}`,
         areaGrad: `gpAreaGradient_${instanceId}`,
         failGrad: `gpFailAreaGradient_${instanceId}`,
-        glow: `gpGlow_${instanceId}`,
-        strongGlow: `gpStrongGlow_${instanceId}`,
+        glow: `gpGlow_${instanceId}`
     };
 
     // FIX: Sincronização estrita de HSL com os breakpoints do MonteCarloGauge (<60 Red, <80 Amber)
@@ -66,13 +65,21 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             };
 
             let sl = vizSdLeft, sr = vizSdRight;
-            for (let i = 0; i < 10; i++) {
+            // FIX-6: Amortecimento Progressivo (Damping) em 12 itera\u00e7\u00f5es para converg\u00eancia suave
+            for (let i = 0; i < 12; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
                 if (Math.abs(targetProb - pg) <= 0.002) break;
+                
                 const r = targetProb / Math.max(0.005, pg);
                 const adjustment = t < m ? (1 / r) : r;
-                const safeR = Math.min(1.5, Math.max(0.66, adjustment));
+                
+                // Damping Factor: Diminui a cada itera\u00e7\u00e3o para evitar oscila\u00e7\u00f5es (0.85 -> 0.4)
+                const damp = 0.85 * Math.pow(0.93, i);
+                const appliedAdj = 1 + (adjustment - 1) * damp;
+                
+                const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
                 const currentCap = targetProb > 0.95 ? 8 : 4;
+                
                 if (t < m) {
                     sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
                 } else {

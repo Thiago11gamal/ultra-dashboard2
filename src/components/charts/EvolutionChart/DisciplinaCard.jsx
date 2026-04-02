@@ -12,7 +12,7 @@ export function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
             style={{ borderColor: isFocused ? `${cat.color}60` : undefined, backgroundColor: isFocused ? `${cat.color}08` : 'rgba(15,23,42,0.4)' }}>
 
             <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                <div className="absolute bottom-0 left-0 h-1 sm:h-0.5 transition-all duration-500"
+                <div className="absolute bottom-0 left-0 h-1 transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: statusColor, opacity: 0.7 }} />
             </div>
 

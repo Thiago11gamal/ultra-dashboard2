@@ -322,8 +322,8 @@ export function monteCarloSimulation(
     if (days === 0) {
         const baseline = forcedBaseline !== undefined ? forcedBaseline : baselineScore;
         const { ciLow, ciHigh } = options.bayesianCI || {
-            ciLow:  baseline - (volatility * 2),
-            ciHigh: baseline + (volatility * 2)
+            ciLow:  baseline - (volatility * 1.96),
+            ciHigh: baseline + (volatility * 1.96)
         };
         // REVISION: Standardized floor to 1.0
         const inferredSD = Math.max(1.0, (ciHigh - ciLow) / 3.92);

@@ -370,7 +370,7 @@ export default function MonteCarloGauge({
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = simulationData?.missing === 'days'
             ? `Você precisa lançar simulados em pelo menos 3 dias diferentes (tem ${simulationData.days}). Faltam ${3 - simulationData.days} dia(s) para a IA identificar o seu ritmo.`
-            : `Continue fazendo simulados! Você tem ${simulationData?.count || 0} de 5 notas necessárias. Faltam ${5 - (simulationData?.count || 0)} registro(s) para ativar a projeção.`;
+            : `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/20">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Gauge size={80} /></div>

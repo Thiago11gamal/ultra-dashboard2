@@ -171,16 +171,16 @@ export function CompareChart({
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
-                    <Line type="monotone" dataKey="Futuro Provável" stroke="#ef4444" strokeWidth={1.5}
+                    <Line type="monotone" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={1.5}
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== filteredChartData.length - 1) return null;
                             return (
                                 <g>
-                                    <circle cx={cx} cy={cy} r={4} fill="#ef4444" stroke="#ffffff" strokeWidth={1} style={{ filter: 'url(#cc_glow)' }}>
+                                    <circle cx={cx} cy={cy} r={4} fill="#a78bfa" stroke="#ffffff" strokeWidth={1} style={{ filter: 'url(#cc_glow)' }}>
                                         <animate attributeName="opacity" values="1;0.6;1" dur="1s" repeatCount="indefinite" />
                                     </circle>
-                                    <circle cx={cx} cy={cy} r={7} fill="#ef4444" opacity="0.3">
+                                    <circle cx={cx} cy={cy} r={7} fill="#a78bfa" opacity="0.3">
                                         <animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite" />
                                         <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite" />
                                     </circle>
@@ -188,7 +188,7 @@ export function CompareChart({
                             );
                         }}
                         connectNulls strokeOpacity={1} style={{ filter: 'url(#cc_glow)' }} isAnimationActive={false}>
-                        <LabelList content={(props) => renderLabel(props, 'mc', '#ef4444')} />
+                        <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
                     </Line>
                 </ComposedChart>
             </ResponsiveContainer>
