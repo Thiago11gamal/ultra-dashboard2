@@ -363,7 +363,8 @@ export default function MonteCarloGauge({
     const [isCalculating, setIsCalculating] = useState(false);
     useEffect(() => {
         setIsCalculating(true);
-        const timer = setTimeout(() => setIsCalculating(false), 600);
+        // FIX: Sincronizado com a duração do transition CSS (1500ms) em vez de 600ms
+        const timer = setTimeout(() => setIsCalculating(false), 1500);
         return () => clearTimeout(timer);
     }, [simulationData?.data?.probability, debouncedTarget]);
 
@@ -379,7 +380,8 @@ export default function MonteCarloGauge({
                     </div>
                 </div>
                 <div className="relative flex flex-col items-center justify-center py-2 h-full">
-                    <svg width="140" height="70" viewBox="0 0 140 70" className="overflow-visible">
+                    {/* FIX: Igualar viewBox e dimensões para evitar pulo de layout */}
+                    <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                     </svg>
                     <div className="absolute inset-0 flex items-end justify-center pb-2">
@@ -543,7 +545,7 @@ export default function MonteCarloGauge({
             <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isCalculating ? 'blur-sm' : ''}`}>
                 <div className="relative mb-6">
                     <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isCalculating ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
-                    <svg width="200" height="100" viewBox="0 0 140 70" className="overflow-visible relative z-10">
+                    <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
                         <path
                             d="M 10 65 A 60 60 0 0 1 130 65"
@@ -558,7 +560,10 @@ export default function MonteCarloGauge({
                         />
                         {/* Leading Edge Glow (Modern replacement for the white line) */}
                         {!isCalculating && (
-                            <g transform={`rotate(${(prob / 100) * 180}, 70, 65)`}>
+                            <g 
+                                transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
+                                style={{ transition: 'transform 1.5s ease-out' }}
+                            >
                                 <circle 
                                     cx="10" cy="65" r="4" 
                                     fill={gradientColor} 
