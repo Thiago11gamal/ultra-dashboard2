@@ -251,10 +251,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                     
                     // 🟠 BUG DE DADOS DEFAULT FIX
                     const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
-                    const correct = t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total);
+                    
+                    // BUG-C3 FIX: Handle percentage records for subtopics
+                    const correctCount = t.isPercentage && t.total
+                        ? Math.round((parseInt(t.correct, 10) / 100) * parseInt(t.total, 10))
+                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
                     
                     // 🟠 BUG DE CÁLCULO DE ERRO FIX
-                    topicMap[key].errors += Math.max(0, Math.min(total, total - correct));
+                    topicMap[key].errors += Math.max(0, total - correctCount);
                 });
             }
         });
@@ -298,8 +302,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             });
             for (const h of recentHistory) {
                 const total = parseInt(h.total, 10) || 10;
-                const correct = h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total);
-                errors += Math.max(0, total - correct);
+                // BUG-C3 FIX: Handle percentage records for point leakage
+                const correctCount = h.isPercentage && h.total
+                    ? Math.round((parseInt(h.correct, 10) / 100) * parseInt(h.total, 10))
+                    : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total));
+                errors += Math.max(0, total - correctCount);
             }
             totalErrors += errors;
             return { name: cat.name, value: errors };
@@ -326,7 +333,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
                 const totalQ = history.reduce((s, h) => s + (Number(h.total) || 0), 0);
-                const totalCorrect = history.reduce((s, h) => s + (Number(h.correct) || 0), 0);
+                // BUG-C2 FIX: Handle percentage records for total hits
+                const totalCorrect = history.reduce((s, h) => {
+                    const raw = Number(h.correct) || 0;
+                    const tot = Number(h.total) || 0;
+                    return s + (h.isPercentage ? (raw / 100) * tot : raw);
+                }, 0);
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
             })
@@ -558,15 +570,27 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                         categories={categories} 
                     />
                 ) : (
-                    <EvolutionLineChart 
-                        filteredChartData={filteredChartData}
-                        activeCategories={activeCategories}
-                        engine={engine}
-                        targetScore={targetScore}
-                        focusSubjectId={focusSubjectId}
-                        showOnlyFocus={showOnlyFocus}
-                        categories={categories}
-                    />
+                    <>
+                        {/* BUG-M3: Context notice for insufficient MC data */}
+                        {activeEngine === "compare" && focusCategory && (!focusCategory.simuladoStats?.history || focusCategory.simuladoStats.history.length < 5) && (
+                            <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 animate-pulse">
+                                <span className="text-xl">⏳</span>
+                                <p className="text-[10px] sm:text-xs text-amber-200/80 font-medium">
+                                    Esta disciplina possui apenas {focusCategory.simuladoStats?.history?.length || 0} simulados. 
+                                    A projeção "Futuro Provável" (Monte Carlo) exige pelo menos <span className="text-amber-400 font-bold">5 simulados</span> para ser calculada.
+                                </p>
+                            </div>
+                        )}
+                        <EvolutionLineChart 
+                            filteredChartData={filteredChartData}
+                            activeCategories={activeCategories}
+                            engine={engine}
+                            targetScore={targetScore}
+                            focusSubjectId={focusSubjectId}
+                            showOnlyFocus={showOnlyFocus}
+                            categories={categories}
+                        />
+                    </>
                 )}
             </div>
 

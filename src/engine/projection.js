@@ -347,40 +347,30 @@ export function monteCarloSimulation(
     const safeSimulations = Math.max(1, simulations);
     const allFinalScores = new Float32Array(safeSimulations);
 
-    // Hoist: calcular uma única vez antes dos loops
-    // BUGFIX H1: _bootstrapScale só é relevante quando NÃO há forcedVolatility.
-    // Quando forcedVolatility está presente, usamos randomNormal * volatility diretamente
-    // para evitar a amplificação (volatility / _residualSD) que pode chegar a 10×.
+    // BUG 4 FIX: Uncertaintiy follows Random Walk (sqrt of time)
+    // We use volatility directly as the standard deviation of each daily step.
+    const sigma = volatility;
+
     // MATH-M3 FIX: Resíduos já foram centralizados (L291-293), consumindo 1 DoF.
     // O estimador imparcial para a variância residual exige n-1.
     const _residualSD = (useBootstrap && residuals.length > 1)
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / (residuals.length - 1))
         : 0;
 
-    // BUG 4 FIX: Incerteza sensível ao tempo (crescimento sublinear)
-    // Evita que provas a 1 ano tenham a mesma incerteza de provas amanhã.
-    const timeHorizonScaling = days > 0 ? Math.pow(days / 30, 0.2) : 1;
-    const adjustedVolatility = volatility * timeHorizonScaling;
-
     // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
-    // O bootstrapping original pode ter dispersão diferente da volatilidade paramétrica.
-    // Garantimos que o SD total convirja para 'volatility'.
+    // Garantimos que a dispersão do Bootstrap alinhe com a volatilidade medida.
     const bootstrapTargetScale = _residualSD > 0
-        ? Math.min(3.0, adjustedVolatility / _residualSD)
+        ? Math.min(3.0, volatility / _residualSD)
         : 1;
 
     const simulationDays = days;
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
     const dayDrift = days === 0 ? 0 : drift;
 
-    // UI-SAFE DAMPING / ROLLBACK (EMERGÊNCIA-UI): O desvio diário precisa ser encolhido de propósito (shrinkage)!
-    // O uso de (days/30)^0.2 em adjustedVolatility + divisão por Math.sqrt(simulationDays) faz 
-    // com que a incerteza de longo prazo convirja bem mais compactamente que num Random Walk puro.
-    // Notas de prova têm tetos estritos de 0 a 100. Simular um passeio aleatório "1 pra 1" 
-    // com alta volatilidade atira a linha contra as paredes, deixando o gráfico em U-Shape.
-    // O cálculo atual é focado no conforto visual (Damping Seguro para UI), não é a variância teórica de um HW pleno.
-    const sigma = simulationDays > 0 ? adjustedVolatility / Math.sqrt(simulationDays) : 0;
-    const bootstrapInvSqrt = simulationDays > 0 ? (1 / Math.sqrt(simulationDays)) : 0;
+    // BUG-C1 FIX: Removed intentional UI damping that violated random walk theory.
+    // Total SD after T days = daily_volatility * sqrt(T).
+    // The previous formula (adjustedVolatility / sqrt(T)) caused constant total variance.
+    const bootstrapInvSqrt = 1.0; // Daily shocks are now 1:1 with daily volatility
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 

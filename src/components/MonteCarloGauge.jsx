@@ -155,7 +155,12 @@ export default function MonteCarloGauge({
                         }
                     });
 
-                    categoryStats.push({ name: cat.name, ...stats });
+                    categoryStats.push({ 
+                        name: cat.name, 
+                        ...stats,
+                        bayesianMean: baye.mean,
+                        volatility: vol
+                    });
                     // BUG-08 FIX: Previne duplo shrinkage na propagação do SD bayesiano
                     // Usa volatilidade do prior Beta (baye.sd) para isolar Incerteza Bayesiana (Bug 2)
                     bayesianStats.push({ sd: baye.sd, weight, n: history.length });
@@ -209,13 +214,18 @@ export default function MonteCarloGauge({
             return { date, score: tw > 0 ? sum / tw : 0 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
-        // BUG-03 FIX: Volatilidade Inflada.
-        // Não usamos calculateVolatility(globalHistory) pois saltos entre matérias (ex: Português 90 -> Matemática 50)
-        // inflariam artificialmente o desvio padrão diário.
-        // Usamos a média ponderada das volatilidades REAIS de cada matéria.
-        // POSSÍVEL BUG EM VOLATILIDADE FIX: Priorizar a volatilidade ponderada das matérias
-        const sumVolatility = totalWeight > 0 ? weightedVolatilitySum / totalWeight : 0;
-        const dailySD = sumVolatility > 0 ? sumVolatility : calculateVolatility(globalHistory);
+        // BUG-M1 FIX: Volatilidade Inflada (Pooled SD).
+        // A volatilidade ponderada correta para variâncias independentes é √(Σwi²σi²) / Σwi.
+        // Usar média aritmética Σwi×σi superestima a dispersão global.
+        const sumSquaredWeightedVol = totalWeight > 0 
+            ? categoryStats.reduce((acc, cat) => acc + Math.pow(cat.volatility * cat.weight, 2), 0)
+            : 0;
+        
+        const pooledDailySD = totalWeight > 0 
+            ? Math.sqrt(sumSquaredWeightedVol) / totalWeight
+            : 0;
+
+        const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory);
 
         // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
         // Usar média ponderada pelos pesos das matérias para evitar que matérias irrelevantes
@@ -349,11 +359,13 @@ export default function MonteCarloGauge({
         return statsData.categoryStats
             .filter(cat => cat.weight > 0)
             .map(cat => {
-                const result = simulateNormalDistribution(cat.mean, cat.sd, debouncedTarget, 1000);
+                // BUG-M2 FIX: Use cat.bayesianMean (baseline real) instead of sample mean
+                const baseline = cat.bayesianMean ?? cat.mean;
+                const result = simulateNormalDistribution(baseline, cat.sd, debouncedTarget, 1000);
                 return {
                     name: cat.name,
                     prob: result.probability,
-                    mean: cat.mean,
+                    mean: baseline,
                     trend: cat.trend
                 };
             })

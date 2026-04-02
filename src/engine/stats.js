@@ -32,6 +32,11 @@ export function standardDeviation(arr) {
     return Math.max(1.0, Math.sqrt(adjustedVar));
 }
 
+/**
+ * DEPRECATED / UTILITY: Calcula a tendência histórica (slope) usando OLS linear.
+ * Nota: Para o dashboard e Monte Carlo, use calculateSlope de projection.js, 
+ * que implementa Regressão Ponderada Temporal (WLS).
+ */
 export function calculateTrend(history) {
     if (!history || history.length < 3) return 0;
 
@@ -199,7 +204,8 @@ export function computeCategoryStats(history, weight) {
     // REVISION: Standardized SD floor to 1.0 (1%) to reflect high consistency
     const safeSD = Math.max(sd, 1.0);
     // BUG-08 FIX: Usar calculateSlope (weightedRegression) para consistência com Monte Carlo drift
-    // calculateSlope retorna pp/dia (clampeado e atenuado por confiança)
+    // calculateSlope retorna pp/dia (clampeado e atenuado por confiança).
+    // Esta é a função CANÔNICA para tendências no dashboard.
     const slopePerDay = calculateSlope(historyToUse);
     // Converter para pp/30-dias para comparação com threshold
     const rawTrend = slopePerDay * 30;
