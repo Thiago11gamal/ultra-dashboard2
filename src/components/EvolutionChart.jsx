@@ -60,7 +60,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 30;
+        return diffDays > 0 ? diffDays : 0; // FIX BUG-EV-02: consistente com MonteCarloGauge
     }, [goalDate]);
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
@@ -87,7 +87,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
 
         categories.forEach(cat => {
             const fromTimeline = lastPoint?.[`bay_${cat.name}`];
-            if (fromTimeline != null && fromTimeline > 0) {
+            if (fromTimeline != null) { // FIX BUG-EV-03: 0 é um valor válido
                 map[cat.id] = fromTimeline;
                 return;
             }

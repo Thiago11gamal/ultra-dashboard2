@@ -137,8 +137,12 @@ export function useChartData(categories = []) {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0 };
-                exactByDate[key].correct += (Number(h.correct) || 0);
-                exactByDate[key].total += (Number(h.total) || 0);
+                const rawC = Number(h.correct) || 0;
+                const tot  = Number(h.total)   || 0;
+                // FIX BUG-EV-01: normalizar isPercentage igual ao buildCumulativeStatsPerDate
+                const corrNorm = h.isPercentage ? (rawC / 100) * tot : rawC;
+                exactByDate[key].correct += corrNorm;
+                exactByDate[key].total   += tot;
             });
 
             dates.forEach(date => {
