@@ -1,12 +1,16 @@
 import React from 'react';
 
-export const RescueButton = () => {
+export const RescueButton = ({ currentUid }) => {
     const handleRescue = async () => {
+        if (!currentUid) {
+            alert("Erro: Você não está logado no firebase neste dispositivo.");
+            return;
+        }
         try {
-            const { db } = await import('../../services/firebase.js');
+            const { db } = await import('../services/firebase.js');
             const { doc, getDoc } = await import('firebase/firestore');
             
-            const backupId = "291jO0zyhCeHAM4RylplwFiSOOC3";
+            const backupId = currentUid;
             const docRef = doc(db, 'backups', backupId);
             const snap = await getDoc(docRef);
             

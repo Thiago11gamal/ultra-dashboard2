@@ -255,7 +255,7 @@ function MainLayout() {
           </div>
         ))}
       </div>
-      <RescueButton />
+      <RescueButton currentUid={currentUser?.uid} />
 
     </div>
   );
