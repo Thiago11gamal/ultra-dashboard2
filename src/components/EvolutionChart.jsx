@@ -115,7 +115,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             })
             .filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
             
-        if (hist.length < 5) return;
+        if (hist.length < 2) return;
         
         let cancelled = false;
         const timer = setTimeout(() => {
@@ -166,10 +166,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
-                const expWeight = (1 - Math.exp(-3 * t)) / (1 - Math.exp(-3));
-                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * expWeight;
-                const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * expWeight;
-                const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * expWeight;
+                const weight = t; // linear
+                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * weight;
+                const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * weight;
+                const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * weight;
 
                 // FIX: Evitar o bug nativo do construtor Date(UTC) em fusos locais
                 const [year, month, day] = pts[lastIdx].date.split('-');

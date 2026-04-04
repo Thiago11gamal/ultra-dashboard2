@@ -211,8 +211,10 @@ export function useChartData(categories = []) {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                dayMap[key].correct += (Number(h.correct) || 0);
-                dayMap[key].total += (Number(h.total) || 0);
+                const tot = Number(h.total) || 0;
+                const raw = Number(h.correct) || 0;
+                dayMap[key].correct += h.isPercentage ? (raw / 100) * tot : raw;
+                dayMap[key].total += tot;
             });
 
             const cells = datesToUse.map(dateStr => {
@@ -236,8 +238,11 @@ export function useChartData(categories = []) {
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
             (cat.simuladoStats?.history || []).forEach(h => {
-                totalQuestions += (Number(h.total) || 0);
-                totalCorrect += (Number(h.correct) || 0);
+                const tot = Number(h.total) || 0;
+                const raw = Number(h.correct) || 0;
+                const corrNorm = h.isPercentage ? (raw / 100) * tot : raw;
+                totalQuestions += tot;
+                totalCorrect += corrNorm;
             });
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;

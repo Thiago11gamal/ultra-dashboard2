@@ -123,7 +123,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     projectedSD,
     kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations),
     drift: 0,
-    volatility: safeSD,
+    volatility: safeSD, // ⚠️ NOTA: pp/prova — unidade diferente de monteCarloSimulation (pp/√dia)
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
   };
 }

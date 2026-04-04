@@ -90,7 +90,8 @@ export function EvolutionLineChart({
             const adjustedY = yAdjustedMap[catId];
             
             if (adjustedY !== undefined && adjustedY !== value) {
-                const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
+                const domainRange = 100 - 0;
+                const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / domainRange : 4.0;
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
