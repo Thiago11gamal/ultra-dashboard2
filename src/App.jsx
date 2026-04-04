@@ -9,7 +9,6 @@ import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
 import OnboardingTour from './components/OnboardingTour';
 import { lazyWithRetry } from './utils/lazyRetry';
-import { RescueButton } from './components/RescueButton';
 
 import Dashboard from './pages/Dashboard';
 
@@ -255,7 +254,6 @@ function MainLayout() {
           </div>
         ))}
       </div>
-      <RescueButton currentUid={currentUser?.uid} />
 
     </div>
   );
