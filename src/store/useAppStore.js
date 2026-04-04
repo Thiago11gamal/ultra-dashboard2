@@ -309,6 +309,7 @@ export const useAppStore = create(
                     levelUpDetail = processGamification(state, xpAmount);
                     state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
+                    localStorage.setItem('ultra-sync-dirty', 'true');
                 });
                 dispatchLevelUp(levelUpDetail);
             },
@@ -459,6 +460,7 @@ export const useAppStore = create(
                     levelUpDetail = processGamification(state, baseXP + bonusXP);
                     state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
+                    localStorage.setItem('ultra-sync-dirty', 'true');
                 });
                 dispatchLevelUp(levelUpDetail);
             },
@@ -636,6 +638,7 @@ export const useAppStore = create(
                 state.appState.activeId = newId;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             deleteContest: (contestId) => set((state) => {
@@ -664,6 +667,7 @@ export const useAppStore = create(
                 // even if cloud snapshot arrives within the debounce window
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             restoreFromTrash: (trashId) => set((state) => {
@@ -698,12 +702,14 @@ export const useAppStore = create(
                 state.appState.trash.splice(index, 1);
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             emptyTrash: () => set((state) => {
                 state.appState.trash = [];
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             setPomodoroActiveSubject: (subject) => set((state) => {

@@ -69,7 +69,16 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const localTime = new Date(localContest.lastUpdated || 0).getTime();
                 
                 if (cloudTime > localTime) {
-                    mergedContests[id] = cloudContest;
+                    const localCats = localContest.categories || [];
+                    const cloudCats = cloudContest.categories || [];
+                    const mergedCatsMap = {};
+                    localCats.forEach(c => mergedCatsMap[c.id] = c);
+                    cloudCats.forEach(c => mergedCatsMap[c.id] = c);
+                    
+                    mergedContests[id] = { 
+                        ...cloudContest, 
+                        categories: Object.values(mergedCatsMap)
+                    };
                 }
             }
         });

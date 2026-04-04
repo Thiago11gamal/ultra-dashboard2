@@ -25,8 +25,8 @@ export function useThemeSync(darkModeSetting) {
       mediaQuery.addEventListener('change', handler);
       return () => mediaQuery.removeEventListener('change', handler);
     } else {
-      // Explicit true/false (true is default if something else is passed)
-      applyTheme(darkModeSetting !== false);
+      // Explicit true/false
+      applyTheme(darkModeSetting === true);
     }
   }, [darkModeSetting]);
 }

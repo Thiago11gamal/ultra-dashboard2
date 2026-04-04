@@ -48,12 +48,16 @@ function getWorker() {
 
 export function useMonteCarloWorker() {
     const abortRef = useRef(null);
+    const timeoutRef = useRef(null);
 
     useEffect(() => {
         return () => {
             // Cleanup on unmount — don't terminate the shared worker
             if (abortRef.current) {
                 abortRef.current = null;
+            }
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
             }
         };
     }, []);
@@ -89,7 +93,7 @@ export function useMonteCarloWorker() {
             worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
 
             // Timeout safety — if worker hangs for 5s, fallback to main thread
-            setTimeout(() => {
+            timeoutRef.current = setTimeout(() => {
                 if (pendingRequests.has(id)) {
                     pendingRequests.delete(id);
                     console.warn('[MC Worker] Timeout, falling back to main thread');

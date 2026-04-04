@@ -53,8 +53,8 @@ const repairContestHistory = (data) => {
     const uniqueDaysInLogs = new Set(myRows.map(r => getDateKey(r.date || r.createdAt || r.date?._seconds || r.createdAt?._seconds)).filter(Boolean)).size;
     const currentUniqueDays = new Set(currentHistory.map(h => getDateKey(h.date))).size;
 
-    // BUG-FIX LETHAL: Força o reparo se registros não têm a flag isPercentage. 
-    const hasCorruptedHistory = currentHistory.length > 0 && currentHistory.some(h => !h.isPercentage);
+    // Verificação da flag isPercentage desativada como gatilho de perda (gerava falsos positivos)
+    const hasCorruptedHistory = false;
     
     // BUG-FIX LETHAL 2: Detecta se o histórico atual foi esmagado em 1 único dia, enquanto a base de dados
     // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).
@@ -108,7 +108,7 @@ const repairContestHistory = (data) => {
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
-  const source = repairContestHistory(data);
+  const source = repairContestHistory(JSON.parse(JSON.stringify(data)));
 
   // FORTRESS-01: Defensive initialization for all top-level keys
   return {
