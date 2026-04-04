@@ -321,7 +321,7 @@ export function monteCarloSimulation(
 
     if (days === 0) {
         const baseline = forcedBaseline !== undefined ? forcedBaseline : baselineScore;
-        const { ciLow, ciHigh } = options.bayesianCI || {
+        const { ciLow, ciHigh } = (typeof options.bayesianCI === 'object' && options.bayesianCI !== null) ? options.bayesianCI : {
             ciLow:  baseline - (volatility * 1.96),
             ciHigh: baseline + (volatility * 1.96)
         };

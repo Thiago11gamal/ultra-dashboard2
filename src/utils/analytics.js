@@ -357,8 +357,34 @@ export const calculatePomodoroStats = (stats) => {
     // Em UTC-4, toISOString() adiantaria o início do dia em 4h, incluindo sessões de ontem.
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const todaySessions = studySessions.filter(s => new Date(s.startTime) >= startOfDay);
-    const todayMinutes = todaySessions.reduce((total, s) => total + s.duration, 0);
+    // Fix: Filter sessions where the end time crosses into today or later
+    const todaySessions = studySessions.filter(s => {
+        const start = new Date(s.startTime);
+        const end = s.endTime ? new Date(s.endTime) : new Date(start.getTime() + (s.duration || 0) * 60000);
+        return end > startOfDay;
+    });
+
+    let todayMinutes = 0;
+    const todaySubjects = {};
+
+    todaySessions.forEach(session => {
+        const start = new Date(session.startTime);
+        const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + (session.duration || 0) * 60000);
+        
+        let minutesToCount = session.duration || 0;
+        // Dividir a sessão proporcionalmente se atravessar a meia-noite
+        if (start < startOfDay) {
+            minutesToCount = Math.max(0, Math.round((end.getTime() - startOfDay.getTime()) / 60000));
+            minutesToCount = Math.min(session.duration || 0, minutesToCount);
+        }
+
+        todayMinutes += minutesToCount;
+
+        const cat = categories.find(c => c.id === session.categoryId);
+        if (cat) {
+            todaySubjects[cat.name] = (todaySubjects[cat.name] || 0) + minutesToCount;
+        }
+    });
 
     // Calcular a série de dias (streak)
     const logsObj = { studyLogs: studySessions.map(s => ({ date: s.startTime })) };
@@ -366,15 +392,6 @@ export const calculatePomodoroStats = (stats) => {
 
     // Calcular progresso da meta
     const progressPercentage = Math.min(100, Math.round((todayMinutes / DAILY_GOAL_MINUTES) * 100));
-
-    // Determinar matérias mais estudadas hoje
-    const todaySubjects = {};
-    todaySessions.forEach(session => {
-        const cat = categories.find(c => c.id === session.categoryId);
-        if (cat) {
-            todaySubjects[cat.name] = (todaySubjects[cat.name] || 0) + session.duration;
-        }
-    });
 
     return {
         todayMinutes,

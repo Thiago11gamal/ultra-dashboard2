@@ -9,13 +9,7 @@ export function getSafeScore(historyRow) {
     if (historyRow.score != null) {
         let s = Number(historyRow.score);
 
-        // BUGFIX M1: Se a entrada foi salva com isPercentage=true, confiar diretamente no valor.
-        // Isso resolve a ambiguidade de score=10 total=10 (10/10 = 100%, não 10%).
-        if (historyRow.isPercentage) {
-            return Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
-        }
-
-        // Normalização universal (entradas sem isPercentage):
+        // Normalização universal (entradas com ou sem isPercentage):
         // Removido o comportamento de dividir `s / total` quando `score` já está presente,
         // pois causava ambiguidade onde scores percentuais como 70% num teste de 80 questões 
         // viravam 87.5% (70/80). O campo 'score' agora é sempre considerado o valor percentual final.
