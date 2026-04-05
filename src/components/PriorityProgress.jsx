@@ -44,9 +44,9 @@ export default function PriorityProgress({ categories = [] }) {
                     <div key={p} className={`p-5 py-6 rounded-2xl border transition-all duration-500 group shadow-lg overflow-hidden relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}>
                         {/* Mesh Accent */}
                         <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high' ? 'bg-rose-500' : p === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        <div className="relative z-10 flex flex-col justify-center gap-4">
-                        <div className="flex justify-between items-center px-1">
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text}`}>
+                        <div className="relative z-10 flex flex-col justify-center gap-5 px-1">
+                        <div className="flex justify-between items-center pt-2 leading-relaxed">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} py-0.5`}>
                                 Prioridade {conf.label}
                             </span>
                             <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">
@@ -69,7 +69,7 @@ export default function PriorityProgress({ categories = [] }) {
                                 <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
                             )}
                         </div>
-                        <span className={`text-[11px] font-black self-end ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)]`}>{pct}% completado</span>
+                        <span className={`text-[11px] font-black self-end ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)] pr-2 py-0.5`}>{pct}% completado</span>
                     </div>
                 </div>
             );
