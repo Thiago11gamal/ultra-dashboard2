@@ -175,8 +175,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
-                const weight = Math.sqrt(t); // correto para random walk
-                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * weight;
+                const weight = Math.sqrt(t); // correto para a dispersão (incerteza) do random walk
+                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * t;
                 const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * weight;
                 const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * weight;
 

@@ -15,7 +15,9 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         // BUG-07 FIX: Ao detectar isPercentage, correct é uma porcentagem (ex: 85).
         // Precisamos normalizar para "contagem bruta" para que a soma de totais diferentes
         // resulte em uma média ponderada correta.
-        const correct = h.isPercentage ? (rawCorrect / 100) * total : rawCorrect;
+        const correct = (h.isPercentage && h.score != null && total > 0)
+            ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * total)
+            : rawCorrect;
 
         if (existing) {
             existing.correct += correct;
@@ -140,7 +142,9 @@ export function useChartData(categories = []) {
                 const rawC = Number(h.correct) || 0;
                 const tot  = Number(h.total)   || 0;
                 // FIX BUG-EV-01: normalizar isPercentage igual ao buildCumulativeStatsPerDate
-                const corrNorm = h.isPercentage ? (rawC / 100) * tot : rawC;
+                const corrNorm = (h.isPercentage && h.score != null && tot > 0)
+                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
+                    : rawC;
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total   += tot;
             });
@@ -213,7 +217,9 @@ export function useChartData(categories = []) {
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
                 const tot = Number(h.total) || 0;
                 const raw = Number(h.correct) || 0;
-                dayMap[key].correct += h.isPercentage ? (raw / 100) * tot : raw;
+                dayMap[key].correct += (h.isPercentage && h.score != null && tot > 0)
+                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
+                    : raw;
                 dayMap[key].total += tot;
             });
 
@@ -240,7 +246,9 @@ export function useChartData(categories = []) {
             (cat.simuladoStats?.history || []).forEach(h => {
                 const tot = Number(h.total) || 0;
                 const raw = Number(h.correct) || 0;
-                const corrNorm = h.isPercentage ? (raw / 100) * tot : raw;
+                const corrNorm = (h.isPercentage && h.score != null && tot > 0)
+                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
+                    : raw;
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
             });
