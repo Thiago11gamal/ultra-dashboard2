@@ -41,39 +41,48 @@ export default function PriorityProgress({ categories = [] }) {
                 const conf = priorityColors[p];
 
                 return (
-                    <div key={p} className={`p-5 py-6 rounded-2xl border transition-all duration-500 group shadow-lg overflow-hidden relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}>
-                        {/* Mesh Accent */}
-                        <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high' ? 'bg-rose-500' : p === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        <div className="relative z-10 flex flex-col justify-center gap-5 px-1">
-                        <div className="flex justify-between items-center pt-2 leading-relaxed">
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} py-0.5`}>
-                                Prioridade {conf.label}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">
-                                {completed}/{total}
-                            </span>
+                    <div key={p} className={`p-6 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}>
+                        {/* Mesh Accent - Clipped separately to avoid cutting text */}
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                            <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high' ? 'bg-rose-500' : p === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                         </div>
-                        <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative">
-                            {pct > 0 ? (
-                                <div
-                                    className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
-                                    style={{
-                                        width: `${pct}%`,
-                                        boxShadow: p === 'high' ? '0 0 15px rgba(239, 68, 68, 0.4)' :
-                                            p === 'medium' ? '0 0 15px rgba(234, 179, 8, 0.4)' :
-                                                '0 0 15px rgba(34, 197, 94, 0.4)'
-                                    }}
-                                />
-                            ) : (
-                                /* Visual feedback when 0%: show a subtle dot at the start */
-                                <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
-                            )}
+
+                        <div className="relative z-10 flex flex-col gap-5">
+                            <div className="flex justify-between items-center">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} leading-none pt-1`}>
+                                    Prioridade {conf.label}
+                                </span>
+                                <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors">
+                                    {completed}/{total}
+                                </span>
+                            </div>
+                            
+                            <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative">
+                                {pct > 0 ? (
+                                    <div
+                                        className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
+                                        style={{
+                                            width: `${pct}%`,
+                                            boxShadow: p === 'high' ? '0 0 15px rgba(239, 68, 68, 0.4)' :
+                                                p === 'medium' ? '0 0 15px rgba(234, 179, 8, 0.4)' :
+                                                    '0 0 15px rgba(34, 197, 94, 0.4)'
+                                        }}
+                                    />
+                                ) : (
+                                    /* Visual feedback when 0%: show a subtle dot at the start */
+                                    <div className="absolute left-0 top-0 h-full w-1 rounded-full bg-white/10" />
+                                )}
+                            </div>
+                            
+                            <div className="flex justify-end pr-1">
+                                <span className={`text-[11px] font-black ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)] leading-none pb-0.5`}>
+                                    {pct}% completado
+                                </span>
+                            </div>
                         </div>
-                        <span className={`text-[11px] font-black self-end ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)] pr-2 py-0.5`}>{pct}% completado</span>
                     </div>
-                </div>
-            );
-        })}
-    </div>
-  );
+                );
+            })}
+        </div>
+    );
 }
