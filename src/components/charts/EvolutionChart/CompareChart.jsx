@@ -10,8 +10,6 @@ export function CompareChart({
     filteredChartData, 
     targetScore 
 }) {
-    // BUG-C3 FIX: Pre-computar índices do último ponto válido para cada série
-    // Evita 4× reduce() por chamada de renderLabel (~3200 chamadas/render)
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
         for (let i = filteredChartData.length - 1; i >= 0; i--) {
@@ -24,7 +22,7 @@ export function CompareChart({
         }
         return last;
     }, [filteredChartData]);
-    // Helper to sweep collisions
+
     const solveCollisions = (points) => {
         if (!points.length) return [];
         const sorted = [...points].sort((a, b) => b.value - a.value);
@@ -38,7 +36,6 @@ export function CompareChart({
         return yPos;
     };
 
-    // 1. Points for "Hoje"
     const todayIdx = filteredChartData.reduce((acc, curr, i) => curr["Nota Bruta"] != null ? i : acc, -1);
     const todayPoints = [];
     if (todayIdx >= 0) {
@@ -50,7 +47,6 @@ export function CompareChart({
     }
     const todayY = solveCollisions(todayPoints);
 
-    // 2. Points for "Futuro"
     const futureIdx = filteredChartData.length - 1;
     const isFuturePoint = futureIdx > todayIdx;
     const lastPoints = [];
@@ -66,7 +62,6 @@ export function CompareChart({
         if (!pts || !pts.length) return 0;
         const pt = pts.find(p => p.name === name);
         if (!pt) return 0;
-        // BUG-C1 FIX: Guard viewBox.height > 0 (consistente com EvolutionLineChart)
         const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
         return (value - pt.yPos) * pxPerPct;
     };
@@ -80,7 +75,6 @@ export function CompareChart({
         const isRaw = type === 'raw';
         const isStats = type === 'stats';
 
-        // BUG-C3 FIX: Usar índices pre-computados em vez de reduce() por chamada
         let isValid = false;
         if (isMc) isValid = lastValidIdx.mc === index;
         else if (isBay) isValid = lastValidIdx.bay === index;
@@ -90,11 +84,10 @@ export function CompareChart({
         if (!isValid) return null;
 
         const offset = getOffset(type, value, index, viewBox);
-        const xOff = isMc ? 10 : 8;
-        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="bold">{Number(value).toFixed(1)}%</text>;
+        const xOff = isMc ? 12 : 10;
+        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{Number(value).toFixed(1)}%</text>;
     };
 
-    // Calculate base for gain shadow
     let gainBase = 'dataMin';
     if (todayIdx >= 0) {
         const todayPt = filteredChartData[todayIdx];
@@ -104,26 +97,26 @@ export function CompareChart({
     return (
         <div className="h-[220px] sm:h-[360px] md:h-[460px] w-full outline-none focus:outline-none focus:ring-0">
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
-                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                <ComposedChart data={filteredChartData} margin={{ top: 20, right: 75, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id="cc_projectionPurpleGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.15} />
+                            <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
                             <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.01} />
                         </linearGradient>
                         <linearGradient id="cc_cloudGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.1} />
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
                             <stop offset="100%" stopColor="#6366f1" stopOpacity={0.01} />
                         </linearGradient>
                         <linearGradient id="cc_bayBandGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.18} />
-                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.04} />
+                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.2} />
+                            <stop offset="100%" stopColor="#34d399" stopOpacity={0.05} />
                         </linearGradient>
                         <linearGradient id="cc_greenGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.25} />
+                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                         </linearGradient>
                         <filter id="cc_lineShadow" height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
                             <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
                             <feMerge>
                                 <feMergeNode in="offsetBlur" />
@@ -131,58 +124,61 @@ export function CompareChart({
                             </feMerge>
                         </filter>
                         <filter id="cc_glow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="glow" />
+                            <feGaussianBlur stdDeviation="3.5" result="glow" />
                             <feMerge>
                                 <feMergeNode in="glow" />
                                 <feMergeNode in="SourceGraphic" />
                             </feMerge>
                         </filter>
                     </defs>
-                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
-                    <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45}
-                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
-                    <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1 }}
+                    <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
+                    
+                    <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
+                        label={{ value: `META ${targetScore}%`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
+                    
+                    <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
-                    <Legend wrapperStyle={{ paddingTop: '15px', paddingBottom: '10px', fontSize: '11px' }} />
+                    
+                    <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     
                     <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill="url(#cc_bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
                     <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionPurpleGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
-                    {/* VISUAL-FIX: Cor do Ganho mudada para ESMERALDA (#10b981) e opacidade reduzida para semântica de progresso positiva */}
-                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_gain_base" fill="#10b981" fillOpacity={0.15} stroke="none" legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_gain_edge" fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.3} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotoneX" dataKey="Cenário Range" fill="url(#cc_cloudGradient)" stroke="none" legendType="none" />
                     
-                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3}
+                    <Area type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
+                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill="url(#cc_cloudGradient)" stroke="none" legendType="none" />
+                    
+                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
-                        fill="url(#cc_greenGradient)" dot={{ r: 3, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 1.5 }}
+                        fill="url(#cc_greenGradient)" dot={{ r: 4, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 2 }}
                         activeDot={false} connectNulls style={{ filter: 'url(#cc_lineShadow)' }} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
-                    <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2}
+                    <Line type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
                         strokeLinecap="round" strokeLinejoin="round"
-                        dot={{ r: 3 }} activeDot={false} connectNulls strokeOpacity={0.85} isAnimationActive={true}>
+                        dot={{ r: 3.5, fill: '#fb923c', stroke: '#0a0f1e', strokeWidth: 2 }} activeDot={false} connectNulls strokeOpacity={1} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.6} isAnimationActive={true}>
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={1.5}
+                    <Line type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={3}
+                        strokeLinecap="round" strokeDasharray="6 4"
                         dot={(props) => {
                             const { cx, cy, index } = props;
                             if (index !== filteredChartData.length - 1) return null;
                             return (
                                 <g>
-                                    <circle cx={cx} cy={cy} r={4} fill="#a78bfa" stroke="#ffffff" strokeWidth={1} style={{ filter: 'url(#cc_glow)' }}>
-                                        <animate attributeName="opacity" values="1;0.6;1" dur="1s" repeatCount="indefinite" />
+                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#cc_glow)' }}>
+                                        <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
                                     </circle>
-                                    <circle cx={cx} cy={cy} r={7} fill="#a78bfa" opacity="0.3">
-                                        <animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite" />
-                                        <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite" />
+                                    <circle cx={cx} cy={cy} r={8} fill="#a78bfa" opacity="0.3">
+                                        <animate attributeName="r" values="7;12;7" dur="2s" repeatCount="indefinite" />
+                                        <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
                                     </circle>
                                 </g>
                             );

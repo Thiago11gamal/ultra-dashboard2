@@ -1,20 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { 
-    monteCarloSimulation, 
-    computeCategoryStats, 
-    calculateCurrentWeightedMean, 
-    computeBayesianLevel, 
-    calculateVolatility,
-    runMonteCarloAnalysis 
-} from "../engine";
+import { monteCarloSimulation, computeCategoryStats, calculateCurrentWeightedMean, computeBayesianLevel, calculateVolatility } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, normalizeDate } from "../utils/dateHelper";
 import { getSafeScore } from "../utils/scoreHelper";
 import { exportComponentAsPDF } from "../utils/pdfExport";
-import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
-import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
-import { GaussianPlot } from "./charts/GaussianPlot";
+import { Download, Loader2 } from "lucide-react";
 
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
@@ -26,7 +17,6 @@ import { PerformanceBarChart } from "./charts/EvolutionChart/PerformanceBarChart
 import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAnalysis";
 import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
 import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
-
 const ENGINES = [
     {
         id: "raw", label: "Realidade Bruta", emoji: "📊", color: "#fb923c", prefix: "raw_", style: "linear",
@@ -61,10 +51,10 @@ const ENGINES = [
 export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [] }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
+    // BUG-05 FIX: useChartData aceita apenas 1 arg — removido focusSubjectId
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories);
-    const { runAnalysis } = useMonteCarloWorker();
-    const [mcLoading, setMcLoading] = useState(false);
 
+    // BUG-02 FIX: Derivar projectDays a partir de goalDate (mesma lógica do MonteCarloGauge)
     const projectDays = useMemo(() => {
         if (!goalDate) return 30;
         const now = new Date();
@@ -79,9 +69,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 0;
+        return diffDays > 0 ? diffDays : 0; // FIX BUG-EV-02: consistente com MonteCarloGauge
     }, [goalDate]);
-    
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
@@ -90,6 +79,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         if (!categories.length) return;
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
             if (categories.length > 0) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setFocusSubjectId(categories[0].id);
             }
         }
@@ -106,7 +96,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
 
         categories.forEach(cat => {
             const fromTimeline = lastPoint?.[`bay_${cat.name}`];
-            if (fromTimeline != null) { 
+            if (fromTimeline != null) { // FIX BUG-EV-03: 0 é um valor válido
                 map[cat.id] = fromTimeline;
                 return;
             }
@@ -119,12 +109,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         return map;
     }, [categories, timeline]);
 
-    // PREMIUM INTEGRATION - Monte Carlo Data State
-    const [mcResult, setMcResult] = useState(null);
-    const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
-
+    const [mcProjection, setMcProjection] = useState(null);
     useEffect(() => {
-        setMcProjectionSeries(null);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMcProjection(null);
         if (!focusCategory?.simuladoStats?.history) return;
         
         const hist = [...focusCategory.simuladoStats.history]
@@ -139,55 +127,33 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         if (hist.length < 2) return;
         
         let cancelled = false;
-        
-        (async () => {
-            setMcLoading(true);
+        const timer = setTimeout(() => {
+            if (cancelled) return;
             try {
                 const bayesian = computeBayesianLevel(hist);
                 const vol = calculateVolatility(hist);
-                
-                // WORKER UPGRADE: Using parallel worker with 5000 simulations
-                const result = await runAnalysis({
-                    values: hist.map(h => h.score),
-                    dates: hist.map(h => h.date),
-                    meta: targetScore,
-                    simulations: 5000,
-                    projectionDays: projectDays,
-                    forcedVolatility: vol,
-                    currentMean: bayesian ? bayesian.mean : undefined,
+                // BUG-02 FIX: usar projectDays derivado do goalDate em vez de 30 hardcoded
+                const result = monteCarloSimulation(hist, targetScore, projectDays, 2000, {
                     forcedBaseline: bayesian ? bayesian.mean : undefined,
+                    forcedVolatility: vol,
+                    currentMean: bayesian ? bayesian.mean : undefined
                 });
-
-                if (cancelled || !result) return;
-                
-                setMcResult(result);
-
+                if (!result || cancelled) return;
                 const lastDate = new Date(hist[hist.length - 1].date);
                 if (Number.isNaN(lastDate.getTime())) return;
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + projectDays);
-                
-                const p50 = parseFloat(result.projectedMean || result.mean);
+                const p50 = parseFloat(result.mean);
                 const lo = parseFloat(result.ci95Low);
                 const hi = parseFloat(result.ci95High);
-                
                 if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
-                
-                setMcProjectionSeries({ 
-                    date: nextDate.toISOString().split("T")[0], 
-                    mc_p50: p50, 
-                    mc_band: [lo, hi] 
-                });
+                setMcProjection({ date: nextDate.toISOString().split("T")[0], mc_p50: p50, mc_band: [lo, hi] });
             } catch (err) {
-                console.warn('[EvolutionChart] Worker MC falhou, tentando sync:', err);
-                // Sync fallback handled by hook itself, so we just log.
-            } finally {
-                if (!cancelled) setMcLoading(false);
+                console.warn('[EvolutionChart] Monte Carlo falhou:', err);
             }
-        })();
-
-        return () => { cancelled = true; };
-    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore, projectDays, runAnalysis]);
+        }, 0);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore, projectDays]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
@@ -201,22 +167,27 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             "Média Histórica": d[`stats_${focusCategory.name}`] 
         }));
         
-        if (mcProjectionSeries && pts.length > 0) {
+        if (mcProjection && pts.length > 0) {
             const lastIdx = pts.length - 1;
-            const currentLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
+            // BUG-07 FIX: usar ?? em vez de || para não cair em 0 quando o valor é 0 legítimo
+            const currentLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjection?.mc_p50 ?? 0;
             const futurePoints = [];
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
-                const weight = Math.sqrt(t); 
-                const val = currentLevel + (mcProjectionSeries.mc_p50 - currentLevel) * t;
-                const bandLow = currentLevel + (mcProjectionSeries.mc_band[0] - currentLevel) * weight;
-                const bandHigh = currentLevel + (mcProjectionSeries.mc_band[1] - currentLevel) * weight;
+                const weight = Math.sqrt(t); // correto para a dispersão (incerteza) do random walk
+                const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * t;
+                const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * weight;
+                const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * weight;
 
+                // FIX: Evitar o bug nativo do construtor Date(UTC) em fusos locais
                 const [year, month, day] = pts[lastIdx].date.split('-');
                 const interDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+
+                // Adicionar os dias projetados pelo Monte Carlo
                 interDate.setDate(interDate.getDate() + Math.round(projectDays * t));
 
+                // Remontar a data estritamente local
                 const yFut = interDate.getFullYear();
                 const mFut = String(interDate.getMonth() + 1).padStart(2, '0');
                 const dFut = String(interDate.getDate()).padStart(2, '0');
@@ -230,11 +201,13 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 });
             }
 
+            // BUG-B3 FIX: Manter o ponto original intacto e adicionar campos MC
+            // Antes: slice(0, lastIdx) removia o ponto original e a Nota Bruta sumia
             pts[lastIdx] = { ...pts[lastIdx], "Futuro Provável": currentLevel, "Cenário Range": [currentLevel, currentLevel] };
             pts = [...pts, ...futurePoints];
         }
         return pts;
-    }, [timeline, focusCategory, mcProjectionSeries, categoryLevels, projectDays]);
+    }, [timeline, focusCategory, mcProjection, categoryLevels, projectDays]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
@@ -258,6 +231,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         }));
     }, [categories, targetScore, categoryLevels]);
 
+
+
     const subjectAggData = useMemo(() => {
         if (!categories || !categories.length) return [];
         return categories
@@ -265,6 +240,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
                 const totalQ = history.reduce((s, h) => s + (Number(h.total) || 0), 0);
+                // BUG-C2 FIX: Handle percentage records for total hits
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     const raw = Number(h.correct) || 0;
                     const tot = Number(h.total) || 0;
@@ -283,6 +259,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         const raw = lastPoint[`raw_${focusCategory.name}`];
         const bayesian = lastPoint[`bay_${focusCategory.name}`];
 
+        // BUG-11 FIX: Insights específicos por engine em vez de mensagem genérica
         if (activeEngine === "raw") {
             if (raw == null) return "Ainda não existem dados suficientes para esta matéria.";
             const history = focusCategory.simuladoStats?.history || [];
@@ -310,6 +287,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             const stats = lastPoint[`stats_${focusCategory.name}`];
             if (stats == null) return "Ainda não existem dados suficientes para esta matéria.";
             const trend = lastPoint[`trend_status_${focusCategory.name}`];
+            // MELHORIA: Gap entre média histórica e nível Bayesiano
             const gap = bayesian != null ? (bayesian - stats) : null;
             const gapText = gap != null ? ` Gap vs Bayesiano: ${gap > 0 ? '+' : ''}${gap.toFixed(1)}pp.` : '';
             if (trend === 'up') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de alta detectada — sua curva de aprendizado está funcionando!${gapText}`;
@@ -318,6 +296,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         }
 
         if (activeEngine === "raw_weekly") {
+            // MELHORIA: Analisar melhor/pior dia da semana a partir do heatmapData
             const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
             const dayStats = {};
             categories.forEach(cat => {
@@ -342,6 +321,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             return "📅 O Mapa de Calor mostra sua evolução visual semana a semana. Células verdes indicam acima da meta, vermelhas abaixo.";
         }
 
+        // Engine "compare" — insight original completo
         if (raw == null || bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
 
         const nowMs = new Date().getTime();
@@ -367,8 +347,6 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
         setIsExporting(false);
     };
-
-    const isMcEngine = activeEngine === "compare" || activeEngine === "mc_density";
 
     if (categories.length === 0) {
         return (
@@ -400,6 +378,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 .recharts-wrapper { outline: none !important; }
             ` }} />
 
+            {/* ── 1. KPI CARDS ───────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
                 <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
@@ -411,6 +390,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 </div>
             </div>
 
+            {/* ── 2. DISCIPLINA CARDS ───────────────────────────── */}
             <div className="relative z-10">
                 <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-4 mb-0 sm:mb-1 pl-1">
                     Nível Bayesiano por Disciplina • clique para focar
@@ -429,7 +409,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0 transition-all duration-500">
+            {/* ── 3. ENGINE TABS ────────────────────────────────── */}
+            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0">
                 <div className="flex overflow-x-auto pb-2 sm:pb-4 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full mobile-edge-fade">
                     {ENGINES.map((eng) => {
                         const active = activeEngine === eng.id;
@@ -474,6 +455,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                     </button>
                 </div>
 
+                {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : activeEngine === "subtopics" ? (
@@ -496,105 +478,50 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>
                             <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">2 simulados</span> para desbloquear os gráficos de evolução.</p>
                         </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            O Mapa de Calor já funciona com 1 registro
+                        </div>
                     </div>
                 ) : activeEngine === "compare" ? (
-                    <div className="relative">
-                        {mcLoading && (
-                            <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl transition-all duration-300">
-                                <div className="flex flex-col items-center gap-3">
-                                    <Loader2 size={32} className="animate-spin text-indigo-400" />
-                                    <span className="text-[10px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">Sincronizando Monte Carlo...</span>
-                                </div>
+                    <CompareChart 
+                        filteredChartData={filteredChartData} 
+                        targetScore={targetScore} 
+                        categories={categories} 
+                    />
+                ) : (
+                    <>
+                        {/* BUG-M3: Context notice for insufficient MC data */}
+                        {activeEngine === "compare" && focusCategory && (!focusCategory.simuladoStats?.history || focusCategory.simuladoStats.history.length < 5) && (
+                            <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3 animate-pulse">
+                                <span className="text-xl">⏳</span>
+                                <p className="text-[10px] sm:text-xs text-amber-200/80 font-medium">
+                                    Esta disciplina possui apenas {focusCategory.simuladoStats?.history?.length || 0} simulados. 
+                                    A projeção "Futuro Provável" (Monte Carlo) exige pelo menos <span className="text-amber-400 font-bold">5 simulados</span> para ser calculada.
+                                </p>
                             </div>
                         )}
-                        <CompareChart 
-                            filteredChartData={filteredChartData} 
-                            targetScore={targetScore} 
-                            categories={categories} 
+                        <EvolutionLineChart 
+                            filteredChartData={filteredChartData}
+                            activeCategories={activeCategories}
+                            engine={engine}
+                            targetScore={targetScore}
+                            focusSubjectId={focusSubjectId}
+                            showOnlyFocus={showOnlyFocus}
+                            categories={categories}
                         />
-                    </div>
-                ) : (
-                    <EvolutionLineChart 
-                        filteredChartData={filteredChartData}
-                        activeCategories={activeCategories}
-                        engine={engine}
-                        targetScore={targetScore}
-                        focusSubjectId={focusSubjectId}
-                        showOnlyFocus={showOnlyFocus}
-                        categories={categories}
-                    />
+                    </>
                 )}
             </div>
 
-            {/* PREMIUM MC STATS CARD */}
-            {isMcEngine && focusCategory && (
-                <div className="animate-fade-in-up">
-                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-                            <TrendingUp size={120} />
-                        </div>
-                        
-                        <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
-                            {/* Left: Gaussian Plot */}
-                            <div className="w-full md:w-1/2 flex flex-col">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Zap size={16} className="text-indigo-400" />
-                                    <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">
-                                        Foco: {focusCategory.name}
-                                    </span>
-                                </div>
-                                <div className="h-40 w-full mb-2">
-                                    <GaussianPlot 
-                                        mean={mcResult?.projectedMean || mcResult?.mean || 0}
-                                        sd={mcResult?.sd || 0}
-                                        sdLeft={mcResult?.sdLeft || mcResult?.sd}
-                                        sdRight={mcResult?.sdRight || mcResult?.sd}
-                                        low95={mcResult?.ci95Low || 0}
-                                        high95={mcResult?.ci95High || 0}
-                                        targetScore={targetScore}
-                                        prob={mcResult?.probability || 0}
-                                        kdeData={mcResult?.kdeData}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Right: Detailed Metrics */}
-                            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
-                                {[
-                                    { label: 'Caminho Sucesso', val: `${Number(mcResult?.probability || 0).toFixed(1)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                                    { label: 'Nível Projetado', val: `${Number(mcResult?.projectedMean || 0).toFixed(1)}%`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                                    { label: 'Margem de Erro', val: `±${Number(mcResult?.sd || 0).toFixed(1)}%`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                                    { label: 'Confiança 95%', val: `${Math.round(mcResult?.ci95Low || 0)}-${Math.round(mcResult?.ci95High || 0)}%`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
-                                ].map((stat, i) => (
-                                    <div key={i} className="flex flex-col p-3 rounded-xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors">
-                                        <div className="flex items-center gap-1.5 mb-1 opacity-60">
-                                            <span className={stat.color}>{stat.icon}</span>
-                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>
-                                        </div>
-                                        <span className={`text-lg font-black ${stat.color} tracking-tight`}>{stat.val}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {!mcResult && !mcLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-                                <span className="text-2xl mb-2">📉</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Simule pelo menos 2 registros para ver a densidade
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
+            {/* ── 4. AI INSIGHT ─────────────────────────────────── */}
             <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 p-5 shadow-lg group hover:shadow-[0_0_30px_rgba(99,102,241,0.12)] transition-all duration-500">
                 <div className="absolute -top-6 -right-6 text-8xl opacity-[0.06] group-hover:opacity-[0.1] group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 select-none pointer-events-none">🤖</div>
                 <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-2">Análise do sistema</p>
                 <p className="text-slate-300 leading-relaxed text-sm relative z-10">{getInsightText()}</p>
             </div>
 
+            {/* ── 5. GALERIA AVANÇADA ──────────────────────────── */}
             <div className="pt-4">
                 <div className="flex items-center gap-3 mb-5">
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
