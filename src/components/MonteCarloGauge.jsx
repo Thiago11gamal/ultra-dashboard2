@@ -485,57 +485,76 @@ export default function MonteCarloGauge({
                 </div>
             )}
 
-            <div className="flex justify-between items-center mb-4 relative z-10">
-                <div className="flex items-center gap-2">
-                    {forcedMode && (
-                        <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
-                            {forcedMode === 'today' ? 'Hoje' : 'Futuro'}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10">
+                {/* Left: Identity & Info */}
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <Gauge size={16} className="text-white" />
                         </div>
-                    )}
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
-                    {/* Delta Badge - Only in Future mode and if significant */}
-                    {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
-                        <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-2 group-hover:border-blue-500/30">
-                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Delta</span>
-                            <span className={`text-[10px] font-black ${(simulationData?.data?.mean - simulationData?.data?.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {(simulationData?.data?.mean - simulationData?.data?.currentMean) > 0 ? `+${(simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}` : (simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}
-                                <span className="text-[8px] ml-0.5 opacity-70">pp</span>
-                            </span>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-white/90 uppercase tracking-[0.2em] leading-none">Monte Carlo</span>
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">Simulação Probabilística</span>
                         </div>
-                    )}
-                    {/* MELHORIA: Badge "dias restantes" para urgência temporal */}
-                    {!effectiveSimulateToday && projectDays > 0 && (
-                        <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-1">
-                            <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
-                            <span className={`text-[10px] font-black ${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                {projectDays}d
-                            </span>
-                        </div>
-                    )}
+                    </div>
+                    
+                    {/* Technical Badges Sub-row */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                        {forcedMode && (
+                            <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
+                                {forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro'}
+                            </div>
+                        )}
+                        
+                        {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
+                            <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner group-hover:border-blue-500/30 transition-all">
+                                <span className="text-[8px] font-bold text-slate-500 uppercase">Delta</span>
+                                <span className={`text-[9px] font-black ${(simulationData?.data?.mean - simulationData?.data?.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {(simulationData?.data?.mean - simulationData?.data?.currentMean) > 0 ? `+${(simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}` : (simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}pp
+                                </span>
+                            </div>
+                        )}
+                        
+                        {!effectiveSimulateToday && projectDays > 0 && (
+                            <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner">
+                                <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
+                                <span className={`text-[9px] font-black ${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                    {projectDays}d restantes
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 w-full sm:w-auto self-end sm:self-center">
                     {!forcedMode && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowConfig(true); }}
-                                className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all shadow-sm"
+                                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all active:scale-95"
                                 title="Configurar Pesos"
                             >
-                                <Settings2 size={14} />
+                                <Settings2 size={16} />
                             </button>
+                            <div className="w-px h-4 bg-white/10" />
                             <button
                                 onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${simulateToday ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-blue-500/20 border-blue-500/40 text-blue-400'}`}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${simulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
                             >
-                                {simulateToday ? 'Ver Projeção' : 'Ver Agora'}
+                                {simulateToday ? 'Ver Projeção' : 'Ver Estatísticas'}
+                                < ChevronDown size={12} className={`transition-transform duration-300 ${simulateToday ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
                     )}
-                    {/* FIX: mean === currentMean substituído por projectedMean === currentMean */}
+                    
                     {!effectiveSimulateToday && projectedMean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">
-                            <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help"><span className="text-[10px] font-bold text-yellow-500">?</span></div>
-                            <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity text-[9px] text-slate-300 leading-tight"><span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.</div>
+                            <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help ring-2 ring-transparent hover:ring-yellow-500/20 transition-all"><span className="text-[10px] font-bold text-yellow-500">?</span></div>
+                            <div className="absolute top-full right-0 mt-3 w-56 p-3 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all translate-y-2 group-hover/info:translate-y-0 text-[10px] text-slate-300 leading-relaxed backdrop-blur-xl">
+                                <span className="text-yellow-400 font-black block mb-1 uppercase tracking-widest">Nota: Dados do mesmo dia</span>
+                                Para projetar evolução, o algoritmo precisa de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência matemática é considerada neutra.
+                            </div>
                         </div>
                     )}
                 </div>
