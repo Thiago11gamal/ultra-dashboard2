@@ -373,13 +373,14 @@ export default function MonteCarloGauge({
             .sort((a, b) => a.prob - b.prob);
     }, [statsData?.categoryStats, debouncedTarget, simulationData?.status]);
 
-    const [isCalculating, setIsCalculating] = useState(false);
+    const [loading, setLoading] = useState(false);
     useEffect(() => {
-        setIsCalculating(true);
-        // FIX: Sincronizado com a duração do transition CSS (1500ms) em vez de 600ms
-        const timer = setTimeout(() => setIsCalculating(false), 1500);
-        return () => clearTimeout(timer);
-    }, [simulationData?.data?.probability, debouncedTarget]);
+        if (simulationData.status === 'ready') {
+            setLoading(true);
+            const timer = setTimeout(() => setLoading(false), 800);
+            return () => clearTimeout(timer);
+        }
+    }, [simulationData.data?.probability]);
 
     useEffect(() => {
         const prob = Number.isFinite(Number(simulationData?.data?.probability)) ? Number(simulationData?.data?.probability) : 0;
@@ -436,9 +437,11 @@ export default function MonteCarloGauge({
         );
     }
 
+    const formatPercent = (v) => `${v.toFixed(1)}%`;
+    const formatNumber = (v) => v.toFixed(2);
+
     const probability = simulationData?.data?.probability ?? 0;
-    const mean = simulationData?.data?.mean ?? 0;
-    // 🟠 BUG DE POSSÍVEL undefined FIX
+    const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const sd = simulationData?.data?.sd ?? 0;
     const sdLeft = simulationData?.data?.sdLeft ?? sd;
     const sdRight = simulationData?.data?.sdRight ?? sd;
@@ -448,41 +451,14 @@ export default function MonteCarloGauge({
 
     // ✅ CORREÇÃO SEGURA PARA NaN
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-    const propSafety = safe(probability);
-    const prob = safe(propSafety);
+    const prob = safe(probability);
     
-    // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
-    const isClampedHigh = safe(ci95High) >= 99.5;
-    // BUG-B2 FIX: CI low clampado no floor → valor <= 0.5, não >= 0.5
-    const isClampedLow = safe(ci95Low) <= 0.5;
+    const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
-    const left = safe(sdLeft);
-    const right = safe(sdRight);
-    const center = safe(sd);
-
-    let uncertaintyLabel = `±${center.toFixed(1)}%`;
-
-    if (isClampedHigh && !isClampedLow) {
-        uncertaintyLabel = `±${left.toFixed(1)}%`;
-    } else if (isClampedLow && !isClampedHigh) {
-        uncertaintyLabel = `±${right.toFixed(1)}%`;
-    } else {
-        // VISUAL-02 FIX: Clampar o limite inferior da incerteza para nunca exibir valores negativos (abaixo de 0%).
-        // No display, mostramos a dispersão real se houver assimetria
-        if (Math.abs(left - right) > 0.2) {
-            // BUG-C2 FIX: Colocar % em ambos os valores para clareza
-            uncertaintyLabel = `-${left.toFixed(1)}% / +${right.toFixed(1)}%`;
-        } else {
-            uncertaintyLabel = `±${center.toFixed(1)}%`;
-        }
-    }
-
-    const getGradientColor = (percentage) => {
-        // AUDIT FIX: Alinhamento com padrões institucionais de risco
-        // < 60% (Vermelho), 60-80% (Amarelo/Amber), > 80% (Verde)
-        if (percentage < 60) return '#ef4444'; // Red-500
-        if (percentage < 80) return '#f59e0b'; // Amber-500 (Yellow)
-        return '#22c55e'; // Green-500
+    const getGradientColor = (p) => {
+        if (p >= 70) return "#22c55e"; // verde
+        if (p >= 40) return "#f59e0b"; // amarelo
+        return "#ef4444"; // vermelho
     };
 
     const gradientColor = getGradientColor(prob);
@@ -597,22 +573,16 @@ export default function MonteCarloGauge({
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
-                        <span 
-                            className={`text-5xl font-black tracking-tighter transition-all duration-500 ${isCalculating ? 'scale-110 blur-[1px]' : ''}`} 
-                            style={{ 
-                                color: gradientColor, 
-                                filter: `drop-shadow(0 0 12px ${gradientColor}55) drop-shadow(0 0 2px ${gradientColor}aa)` 
-                            }}
-                        >
-                            {safe(prob).toFixed(1)}%
-                        </span>
+                            <span style={{ color: getGradientColor(prob), fontWeight: 'bold' }}>
+                                {formatPercent(prob)}
+                            </span>
                     </div>
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isCalculating ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isCalculating ? '#60a5fa' : gradientColor }}>
-                    {isCalculating ? (
+                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${loading ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: loading ? '#60a5fa' : gradientColor }}>
+                    {loading ? (
                         <span className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
-                            RECALCULANDO...
+                            Simulando cenários...
                         </span>
                     ) : (
                         message
@@ -623,12 +593,12 @@ export default function MonteCarloGauge({
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
                     { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}%`, color: "text-rose-500" },
-                    { label: "Hoje", val: `${safe(currentMean).toFixed(1)}%`, color: "text-white" },
-                    { label: "Projeção", val: `${safe(mean).toFixed(1)}%`, color: "text-blue-400" },
+                    { label: "Hoje", val: formatPercent(safe(currentMean)), color: "text-white" },
+                    { label: "Projeção", val: formatPercent(safe(projectedMean)), color: "text-blue-400" },
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
-                        color: Math.max(left, right) <= 5 ? 'text-emerald-400' : Math.max(left, right) <= 10 ? 'text-yellow-400' : 'text-red-400'
+                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400' : 'text-red-400'
                     },
                     { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}%`, color: "text-green-500" }
                 ].map((m, i) => (
@@ -650,7 +620,7 @@ export default function MonteCarloGauge({
                         const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
                         return (
                             <GaussianPlot
-                                mean={safe(mean)}
+                                mean={safe(projectedMean)}
                                 sd={safe(sd)}
                                 sdLeft={safe(sdLeft)}
                                 sdRight={safe(sdRight)}
@@ -659,7 +629,8 @@ export default function MonteCarloGauge({
                                 targetScore={safe(targetScore)}
                                 currentMean={safe(currentMean)}
                                 prob={safe(prob)}
-                                kdeData={simulationData?.data?.kdeData} />
+                                kdeData={simulationData?.data?.kdeData}
+                                projectedMean={safe(projectedMean)} />
                         );
                     })()}
                 </div>

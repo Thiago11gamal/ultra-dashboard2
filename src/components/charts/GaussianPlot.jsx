@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useId } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
-export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData }) => {
+export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData, projectedMean }) => {
     const [hover, setHover] = useState(null);
+    const clampVisual = (v) => Math.max(0, Math.min(100, v));
 
     // VISUAL-01 FIX: IDs únicos por instância para evitar conflito entre múltiplos GaussianPlot
     const instanceId = useId().replace(/:/g, '');
@@ -199,10 +200,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData]);
 
     const targetPos = xp(targetVal);
-    const meanPos = xp(mean ?? 0);
+    const meanPos = xp(projectedMean ?? mean ?? 0);
     const currentPos = currentMean != null ? xp(currentMean) : 0;
-    const ciHighPx = xp(high95);
-    const ciLowPx = xp(low95);
+    const ciHighPx = xp(clampVisual(high95));
+    const ciLowPx = xp(clampVisual(low95));
     const isTargetVisible = targetPos >= 0 && targetPos <= 100;
     const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
     const ciLabel = (high95 - low95) >= 95 ? "Alta incerteza" : `${low95.toFixed(0)}\u2013${high95.toFixed(0)}%`;
@@ -318,7 +319,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             )}
 
             <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
-                {[0, 25, 50, 75, 100].map(t => (
+                {[0, 20, 40, 60, 80, 100].map(t => (
                     <span key={t} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${t}%`, transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{t}%</span>
                 ))}
             </div>

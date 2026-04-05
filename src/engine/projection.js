@@ -333,7 +333,7 @@ export function monteCarloSimulation(
         // REVISION: Standardized floor to 1.0
         const inferredSD = Math.max(1.0, (ciHigh - ciLow) / 3.92);
         const zScore = (targetScore - baseline) / inferredSD;
-        const probability = Math.min(99.9, Math.max(0.1, normalCDF_complement(zScore) * 100));
+        const probability = normalCDF_complement(zScore) * 100;
 
         return {
             probability: Number(probability.toFixed(1)),

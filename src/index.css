@@ -343,3 +343,22 @@ svg *,
         justify-content: center !important;
     }
 }
+
+.fade-edge {
+  position: absolute;
+  width: 40px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgb(15, 23, 42), transparent);
+}
+
+.fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgb(15, 23, 42), transparent);
+}
