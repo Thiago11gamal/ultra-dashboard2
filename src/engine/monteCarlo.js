@@ -95,9 +95,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // FIX: Se o teto for atingido (displayHigh >= 99.5), o sdRight foi esmagado artificialmente.
   // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno,
   // caso contrário penalizamos a probabilidade analítica de alunos de topo.
-  const effectiveSD = Math.max(1.0, (displayHigh >= 99.5) 
-    ? sdLeft 
-    : inferredSD);
+  const effectiveSD = Math.max(1.0,
+    (displayHigh >= 99.5) ? sdLeft :
+    (displayLow <= 0.5)   ? sdRight :
+    inferredSD
+  );
 
   // Bug 1: Calcular analyticalProbability corretamente
   const zScore = (safeTarget - displayMean) / effectiveSD;

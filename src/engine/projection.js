@@ -429,9 +429,11 @@ export function monteCarloSimulation(
 
     // FIX CR\u00cdTICO: Se o teto for atingido (high >= 99.5), o sdRight foi esmagado artificialmente.
     // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno.
-    const effectiveSD = Math.max(1.0, (ci95HighVal >= 99.5) 
-        ? sdLeft 
-        : inferredSD);
+    const effectiveSD = Math.max(1.0,
+        (ci95HighVal >= 99.5) ? sdLeft :
+        (ci95LowVal <= 0.5) ? sdRight :
+        inferredSD
+    );
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
     const analyticalProbability = normalCDF_complement(zScore) * 100;

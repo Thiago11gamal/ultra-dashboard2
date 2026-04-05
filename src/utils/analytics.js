@@ -8,6 +8,8 @@ const toISODay = (date) => {
         String(d.getDate()).padStart(2, '0');
 };
 
+
+
 export const calculateStudyStreak = (studyLogs) => {
     if (!studyLogs || studyLogs.length === 0) {
         return { current: 0, best: 0, longest: 0, isActive: false };
@@ -346,7 +348,7 @@ export const detectProcrastination = (categories, studyLogs) => {
     };
 };
 
-const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
+export const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
 
 export const calculatePomodoroStats = (stats) => {
     const { studySessions = [], categories = [] } = stats || {};

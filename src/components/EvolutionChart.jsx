@@ -175,7 +175,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
-                const weight = t; // linear
+                const weight = Math.sqrt(t); // correto para random walk
                 const val = currentLevel + (mcProjection.mc_p50 - currentLevel) * weight;
                 const bandLow = currentLevel + (mcProjection.mc_band[0] - currentLevel) * weight;
                 const bandHigh = currentLevel + (mcProjection.mc_band[1] - currentLevel) * weight;
@@ -241,11 +241,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 const history = cat.simuladoStats?.history || [];
                 const totalQ = history.reduce((s, h) => s + (Number(h.total) || 0), 0);
                 // BUG-C2 FIX: Handle percentage records for total hits
-                const totalCorrect = history.reduce((s, h) => {
+                const totalCorrect = Math.round(history.reduce((s, h) => {
                     const raw = Number(h.correct) || 0;
                     const tot = Number(h.total) || 0;
                     return s + (h.isPercentage ? (raw / 100) * tot : raw);
-                }, 0);
+                }, 0));
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
             })
