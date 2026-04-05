@@ -14,21 +14,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         glow: `gpGlow_${instanceId}`
     };
 
-    // FIX: Sincronização estrita de HSL com os breakpoints do MonteCarloGauge (<60 Red, <80 Amber)
-    const successColor = useMemo(() => {
-        const p = prob ?? 0;
-        if (p < 60) {
-            const t = Math.max(0, p - 40) / 20; 
-            const h = 0 + t * 38; // 0 a 38
-            return `hsl(${h}, 85%, 55%)`;
-        }
-        if (p < 80) {
-            const t = Math.max(0, p - 60) / 20;
-            const h = 38 + Math.pow(t, 3) * 104; 
-            return `hsl(${h}, 75%, 50%)`;
-        }
-        return '#22c55e';
-    }, [prob]);
+    // VISUAL-02 FIX: "Paradoxo do Vermelho" Resolvido
+    // A área à direita da meta (Caminho de Sucesso) recebe uma cor positiva fixa.
+    // Assim, contrasta sempre perfeitamente com a zona de falha (vermelha), independentemente da probabilidade atual.
+    const successColor = '#22c55e'; // Verde Esmeralda
 
     const { pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
         const meanVal = mean ?? 0;
@@ -40,7 +29,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let vizSdLeft = Math.max(1, propSdLeft ?? sd);
         let vizSdRight = Math.max(1, propSdRight ?? sd);
 
-        // BUG-03/MC-03 FIX: Calibração visual da área verde para coincidir com a prop 'prob' do Gauge
         if (prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
@@ -66,7 +54,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             };
 
             let sl = vizSdLeft, sr = vizSdRight;
-            // FIX-6: Amortecimento Progressivo (Damping) em 12 itera\u00e7\u00f5es para converg\u00eancia suave
             for (let i = 0; i < 12; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
                 if (Math.abs(targetProb - pg) <= 0.002) break;
@@ -74,7 +61,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 const r = targetProb / Math.max(0.005, pg);
                 const adjustment = t < m ? (1 / r) : r;
                 
-                // Damping Factor: Diminui a cada itera\u00e7\u00e3o para evitar oscila\u00e7\u00f5es (0.85 -> 0.4)
                 const damp = 0.85 * Math.pow(0.93, i);
                 const appliedAdj = 1 + (adjustment - 1) * damp;
                 
@@ -91,29 +77,22 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        
-        // VISUAL-FIX: Normalização Dinâmica de Altura.
-        // Em vez de achatar a curva até sumir (baseado em 20/avgSd), garantimos que o pico
-        // tenha sempre uma altura mínima visível no SVG (ocupando ~40-60% do SVG).
-        // Isso permite ver a 'forma' da incerteza mesmo quando o IC é 0-100%.
         const baseHeightFactor = 0.65; 
 
         const xp = (v) => 2 + ((v - xMin) / range * 96);
-        const yp = (yVal) => 100 - (yVal * 92); // Aumentado para 92 para melhor headroom
+        const yp = (yVal) => 100 - (yVal * 92); 
 
         let path;
         let pointsForArea = [];
         const finalHF = baseHeightFactor;
 
         if (kdeData && kdeData.length > 5) {
-            // HIGH FIDELITY: Use empirical KDE from simulation
             const DOMAIN_MAX = 100;
             const points = [];
             if (kdeData[0].x > 0) {
                 points.push(`${xp(0)},100`);
                 points.push(`${xp(kdeData[0].x)},100`);
             }
-            // Sincronização: y já vem normalizado 0-1 no KDE
             kdeData.filter(p => p.x >= 0 && p.x <= DOMAIN_MAX).forEach(p => {
                 points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
             });
@@ -125,7 +104,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             path = `M ${points.join(' L ')}`;
             pointsForArea = points;
         } else {
-            // FALLBACK: Use parametric Asymmetric Gaussian (Pico é 1.0 sem scaling)
             const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
             path = `M ${pts.join(' L ')}`;
             pointsForArea = pts;
@@ -191,7 +169,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     const nearest = kdeData.reduce((best, p) =>
                         Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
                     );
-                    return nearest.y * finalHF; // SYNC: Aplicar o mesmo scaling do path
+                    return nearest.y * finalHF; 
                 }
                 return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
             },
