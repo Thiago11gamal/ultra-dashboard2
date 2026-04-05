@@ -222,109 +222,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         }));
     }, [categories, targetScore, categoryLevels]);
 
-    const subtopicsData = useMemo(() => {
-        if (!categories || !categories.length) return [];
-        const topicMap = {};
-        const now = new Date();
-        const rollingLimit = new Date(now);
-        rollingLimit.setDate(now.getDate() - 7);
-        rollingLimit.setHours(0, 0, 0, 0);
 
-        categories.forEach(cat => {
-            const history = cat.simuladoStats?.history || [];
-            if (!history.length) return;
-
-            // BUG-06 FIX: Substituir loop com break heurístico por filtro explícito
-            const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
-                return d && d >= rollingLimit;
-            });
-
-            for (let i = 0; i < recentHistory.length; i++) {
-                const h = recentHistory[i];
-
-                (h.topics || []).forEach(t => {
-                    const n = String(t.name || '').trim();
-                    if (!n) return;
-                    const key = n.toLowerCase();
-                    if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
-                    
-                    // 🟠 BUG DE DADOS DEFAULT FIX
-                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
-                    
-                    // BUG-C3 FIX: Handle percentage records for subtopics
-                    const correctCount = t.isPercentage && t.total
-                        ? Math.round((parseInt(t.correct, 10) / 100) * parseInt(t.total, 10))
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
-                    
-                    // 🟠 BUG DE CÁLCULO DE ERRO FIX
-                    topicMap[key].errors += Math.max(0, total - correctCount);
-                });
-            }
-        });
-
-        const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        const result = Object.values(topicMap)
-            .filter(d => d.errors > 0)
-            .sort((a, b) => b.errors - a.errors);
-
-        return result.slice(0, 15).map((item, i, arr) => {
-            const isLong = item.name.length > 20;
-            return {
-                ...item,
-                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
-                fullName: item.name,
-                value: item.errors,
-                // 🟠 BUG DE DIVISÃO / NORMALIZAÇÃO FIX
-                fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
-            };
-        });
-    }, [categories]);
-
-    const pointLeakageData = useMemo(() => {
-        if (!categories || !categories.length) return [];
-        const now = new Date();
-        const rollingLimit = new Date(now);
-        rollingLimit.setDate(now.getDate() - 7);
-        rollingLimit.setHours(0, 0, 0, 0);
-
-        let totalErrors = 0;
-        const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        
-        const rawData = categories.map(cat => {
-            let errors = 0;
-            const history = cat.simuladoStats?.history || [];
-            
-            // BUG-06 FIX: Substituir loop com break heurístico por filtro explícito (Point Leakage)
-            const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
-                return d && d >= rollingLimit;
-            });
-            for (const h of recentHistory) {
-                const total = parseInt(h.total, 10) || 10;
-                // BUG-C3 FIX: Handle percentage records for point leakage
-                const correctCount = h.isPercentage && h.total
-                    ? Math.round((parseInt(h.correct, 10) / 100) * parseInt(h.total, 10))
-                    : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total));
-                errors += Math.max(0, total - correctCount);
-            }
-            totalErrors += errors;
-            return { name: cat.name, value: errors };
-        });
-
-        const data = rawData.filter(d => d.value > 0).sort((a, b) => b.value - a.value);
-        return data.slice(0, 10).map((item, i, arr) => {
-            const isLong = item.name.length > 20;
-            return {
-                ...item,
-                fullName: item.name,
-                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
-                // 🟠 BUG DE DIVISÃO / NORMALIZAÇÃO FIX
-                color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))],
-                percentage: totalErrors > 0 ? Math.round((item.value / totalErrors) * 100) : 0
-            };
-        });
-    }, [categories]);
 
     const subjectAggData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -617,8 +515,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                         focusCategory={focusCategory} 
                     />
                     <CriticalTopicsAnalysis 
-                        pointLeakageData={pointLeakageData} 
-                        subtopicsData={subtopicsData} 
+                        categories={categories} 
                     />
                 </div>
             </div>
