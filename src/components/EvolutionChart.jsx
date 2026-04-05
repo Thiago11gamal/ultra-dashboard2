@@ -16,7 +16,7 @@ import { RadarAnalysis } from "./charts/EvolutionChart/RadarAnalysis";
 import { PerformanceBarChart } from "./charts/EvolutionChart/PerformanceBarChart";
 import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAnalysis";
 import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
-
+import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
 const ENGINES = [
     {
         id: "raw", label: "Realidade Bruta", emoji: "📊", color: "#fb923c", prefix: "raw_", style: "linear",
@@ -42,9 +42,13 @@ const ENGINES = [
         id: "subtopics", label: "Raio-X de Assuntos", emoji: "🔬", color: "#facc15", prefix: null, style: "linear",
         explain: { titulo: "Sua precisão por Assunto (Micro)", simples: "Mergulhe no nível molecular da sua disciplina. Veja o percentual real de acertos em cada subtópico.", dica: "Ideal para descobrir exatamente qual capítulo ou aula específica você precisa revisar, sem perder tempo com a matéria toda." },
     },
+    {
+        id: "mc_density", label: "Densidade MC", emoji: "📉", color: "#60a5fa", prefix: null, style: "monotoneX",
+        explain: { titulo: "Rastreador de Sucesso", simples: "Evolução temporal da sua projeção de Monte Carlo registrada a cada simulado.", dica: "Ideal para ver se a aprovação está chegando cada vez mais perto." },
+    },
 ];
 
-export default function EvolutionChart({ categories = [], targetScore = 80, goalDate }) {
+export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [] }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     // BUG-05 FIX: useChartData aceita apenas 1 arg — removido focusSubjectId
@@ -460,6 +464,11 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                         focusSubjectId={focusSubjectId} 
                         showOnlyFocus={showOnlyFocus} 
                         timeWindow={timeWindow} 
+                        targetScore={targetScore} 
+                    />
+                ) : activeEngine === "mc_density" ? (
+                    <MonteCarloEvolutionChart 
+                        data={monteCarloHistory} 
                         targetScore={targetScore} 
                     />
                 ) : filteredChartData.length < 2 ? (

@@ -176,6 +176,7 @@ const sanitizeContest = (data) => {
       pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
+    monteCarloHistory: Array.isArray(source.monteCarloHistory) ? source.monteCarloHistory : [],
     lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };
 };

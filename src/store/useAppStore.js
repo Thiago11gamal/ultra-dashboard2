@@ -771,7 +771,36 @@ export const useAppStore = create(
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
                 localStorage.setItem('ultra-sync-dirty', 'true');
+            }),
+
+            recordMonteCarloSnapshot: (dateKey, probability) => set((state) => {
+                const activeData = state.appState.contests[state.appState.activeId];
+                if (!activeData) return;
+                
+                if (!Array.isArray(activeData.monteCarloHistory)) {
+                    activeData.monteCarloHistory = [];
+                }
+                
+                const existingIndex = activeData.monteCarloHistory.findIndex(h => h.date === dateKey);
+                if (existingIndex >= 0) {
+                    if (activeData.monteCarloHistory[existingIndex].probability !== probability) {
+                        activeData.monteCarloHistory[existingIndex].probability = probability;
+                        state.appState.version = (state.appState.version || 0) + 1;
+                        state.appState.lastUpdated = new Date().toISOString();
+                        localStorage.setItem('ultra-sync-dirty', 'true');
+                    }
+                } else {
+                    activeData.monteCarloHistory.push({ date: dateKey, probability });
+                    // Keep last 180 days only to protect state size
+                    if (activeData.monteCarloHistory.length > 180) {
+                        activeData.monteCarloHistory.shift(); 
+                    }
+                    state.appState.version = (state.appState.version || 0) + 1;
+                    state.appState.lastUpdated = new Date().toISOString();
+                    localStorage.setItem('ultra-sync-dirty', 'true');
+                }
             })
+
         })),
         {
             name: 'ultra-dashboard-storage',

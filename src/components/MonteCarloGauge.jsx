@@ -40,6 +40,7 @@ export default function MonteCarloGauge({
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
+    const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
     const activeUser = useAppStore(state => state.appState.contests[activeId]?.user);
 
     const activeCategories = useMemo(() =>
@@ -380,6 +381,14 @@ export default function MonteCarloGauge({
         return () => clearTimeout(timer);
     }, [simulationData?.data?.probability, debouncedTarget]);
 
+    useEffect(() => {
+        const prob = Number.isFinite(Number(simulationData?.data?.probability)) ? Number(simulationData?.data?.probability) : 0;
+        if (simulationData?.status === 'ready' && prob > 0 && !effectiveSimulateToday) {
+            const today = getDateKey(new Date());
+            recordMonteCarloSnapshot(today, Number(prob.toFixed(1)));
+        }
+    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot]);
+
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
         return (
@@ -439,8 +448,9 @@ export default function MonteCarloGauge({
 
     // ✅ CORREÇÃO SEGURA PARA NaN
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-    const prob = safe(probability);
-
+    const propSafety = safe(probability);
+    const prob = safe(propSafety);
+    
     // Bug 4 Fix: Lógica de exibição da Incerteza para distribuições truncadas (teto 100%)
     const isClampedHigh = safe(ci95High) >= 99.5;
     // BUG-B2 FIX: CI low clampado no floor → valor <= 0.5, não >= 0.5
