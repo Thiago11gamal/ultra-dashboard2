@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useId } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
@@ -7,6 +7,10 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
+    // FIX: Gerar ID único para o gradiente SVG
+    const rawId = useId();
+    const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
+
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
@@ -63,8 +67,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
         return null;
     };
 
-    const gradientId = "colorMonteCarlo";
-
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
             <div className="flex items-center justify-between mb-4 px-2 relative z-10">
@@ -87,7 +89,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={formattedData}
-                        margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
+                        // FIX: left alterado de -20 para 0
+                        margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
                     >
                         <defs>
                             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

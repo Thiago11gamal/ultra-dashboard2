@@ -475,11 +475,12 @@ export default function MonteCarloGauge({
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
 
     return (
-        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl overflow-hidden w-full max-w-full ${isCalculating ? 'opacity-90 scale-[0.99]' : ''}`}>
+        // FIX: overflow-hidden removido e isCalculating substituído por loading
+        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full max-w-full ${loading ? 'opacity-90 scale-[0.99]' : ''}`}>
 
             {/* Scanning Overlay Effect */}
-            {isCalculating && (
-                <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
+            {loading && (
+                <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
                 </div>
             )}
@@ -493,7 +494,6 @@ export default function MonteCarloGauge({
                     )}
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg"><Gauge size={16} className="text-white" /></div>
                     {/* Delta Badge - Only in Future mode and if significant */}
-                    {/* BUG-A2 FIX: Optional chaining para período async do Worker */}
                     {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
                         <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 shadow-inner transition-all ml-2 group-hover:border-blue-500/30">
                             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Delta</span>
@@ -531,7 +531,8 @@ export default function MonteCarloGauge({
                             </button>
                         </div>
                     )}
-                    {!effectiveSimulateToday && mean === currentMean && projectDays > 0 && (
+                    {/* FIX: mean === currentMean substituído por projectedMean === currentMean */}
+                    {!effectiveSimulateToday && projectedMean === currentMean && projectDays > 0 && (
                         <div className="group/info relative">
                             <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help"><span className="text-[10px] font-bold text-yellow-500">?</span></div>
                             <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-opacity text-[9px] text-slate-300 leading-tight"><span className="text-yellow-400 font-bold block mb-1">Por que igual a hoje?</span>Para projetar evolução, precisamos de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência é neutra.</div>
@@ -540,9 +541,9 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isCalculating ? 'blur-sm' : ''}`}>
+            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${loading ? 'blur-sm' : ''}`}>
                 <div className="relative mb-6">
-                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isCalculating ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${loading ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
                         <path
@@ -556,8 +557,8 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
-                        {/* Leading Edge Glow (Modern replacement for the white line) */}
-                        {!isCalculating && (
+                        {/* Leading Edge Glow */}
+                        {!loading && (
                             <g
                                 transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
                                 style={{ transition: 'transform 1.5s ease-out' }}
@@ -617,7 +618,8 @@ export default function MonteCarloGauge({
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-44 px-2">
                     {(() => {
-                        const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(mean);
+                        // FIX: parseFloat(mean) alterado para parseFloat(projectedMean)
+                        const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(projectedMean);
                         return (
                             <GaussianPlot
                                 mean={safe(projectedMean)}
@@ -627,7 +629,7 @@ export default function MonteCarloGauge({
                                 low95={safe(ci95Low)}
                                 high95={safe(ci95High)}
                                 targetScore={safe(targetScore)}
-                                currentMean={safe(currentMean)}
+                                currentMean={safe(safeCurrentMean)}
                                 prob={safe(prob)}
                                 kdeData={simulationData?.data?.kdeData}
                                 projectedMean={safe(projectedMean)} />
@@ -635,7 +637,6 @@ export default function MonteCarloGauge({
                     })()}
                 </div>
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
-                    {/* BUG-B5 FIX: Legenda "Sucesso" usa cor dinâmica em vez de verde fixo */}
                     {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "border", lbl: "Sucesso", dynamic: true }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
                             <div className={`${l.bg} w-3 h-1 rounded-full`} style={l.dynamic ? { backgroundColor: gradientColor, opacity: 0.5 } : undefined}></div>
@@ -656,7 +657,6 @@ export default function MonteCarloGauge({
                     )}
                 </button>
 
-                {/* BUG-C5 FIX: Usar transition nativa em vez de classes shadcn inexistentes */}
                 {showPerSubject && perSubjectProbs.length > 0 && (
                     <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
                         <div className="flex items-center justify-between px-1 mb-2">
