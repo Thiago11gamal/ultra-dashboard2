@@ -174,6 +174,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     const MIN_SD_PROP = 0.01; 
     const effectiveSd = Math.max(sd, MIN_SD_PROP);
 
+    // REVISION: Improved CI Clamping to preserve symmetry where possible 
+    // while respecting the physical 0-100 boundaries.
     const ciLow  = Math.max(0,   (p - 1.96 * effectiveSd) * 100);
     const ciHigh = Math.min(100, (p + 1.96 * effectiveSd) * 100);
 

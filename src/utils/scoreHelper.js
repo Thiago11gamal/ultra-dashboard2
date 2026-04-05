@@ -20,7 +20,13 @@ export function getSafeScore(historyRow) {
     const total = Number(historyRow.total) || 0;
     const correct = Number(historyRow.correct) || 0;
     if (total > 0) {
-        return (correct / total) * 100;
+        let corr = correct;
+        // BUG-M2 FIX: Se isPercentage é true e correct já parece ser um percentual (ex: 85),
+        // não divida por total para evitar inflar a nota (ex: 85/10*100 = 850%).
+        if (historyRow.isPercentage && corr > total && corr <= 100) {
+            return corr;
+        }
+        return (corr / total) * 100;
     }
 
     return 0; // Prevenção de NaN

@@ -12,18 +12,16 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         const existing = aggregatedHistoryByDateMap.get(key);
         const rawCorrect = Number(h.correct) || 0;
         const total = Number(h.total) || 0;
-        // BUG-07 FIX: Ao detectar isPercentage, correct é uma porcentagem (ex: 85).
-        // Precisamos normalizar para "contagem bruta" para que a soma de totais diferentes
-        // resulte em uma média ponderada correta.
         const correct = (h.isPercentage && h.score != null && total > 0)
             ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * total)
             : rawCorrect;
 
         if (existing) {
+            if (existing.total + total > 0) {
+                existing.score = ((existing.correct + correct) / (existing.total + total)) * 100;
+            }
             existing.correct += correct;
             existing.total += total;
-            // BUG-08: Manter o score anterior (legado) se não houver questões/acertos no novo registro
-            existing.score = existing.total > 0 ? (existing.correct / existing.total) * 100 : existing.score;
         } else {
             const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * 100 : 0);
             aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });

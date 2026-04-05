@@ -30,8 +30,8 @@ const SubtopicsTable = ({ categories = [] }) => {
                     }
 
                     const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
-                    const correctCount = t.isPercentage && t.total
-                        ? Math.round((parseInt(t.correct, 10) / 100) * parseInt(t.total, 10))
+                    const correctCount = (t.isPercentage && t.score != null && total > 0)
+                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
                     
                     const wrongCount = Math.max(0, total - correctCount);
