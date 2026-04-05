@@ -33,9 +33,6 @@ export default function MonteCarloGauge({
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [showPerSubject, setShowPerSubject] = useState(false);
-    
-    // ESTADO DA MÁQUINA DO TEMPO: -1 significa "Tempo Real (Hoje)"
-    const [timeIndex, setTimeIndex] = useState(-1);
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
@@ -52,42 +49,18 @@ export default function MonteCarloGauge({
 
     const catCount = activeCategories.length;
 
+    // BUG-A1 FIX: Memoizar hash do histórico para evitar re-criação a cada render
     const categoryHistoryHash = useMemo(() =>
         categories.map(c => c.simuladoStats?.history?.length ?? 0).join(','),
         [categories]);
 
-    // LÓGICA DA MÁQUINA DO TEMPO: Levantar todas as datas em que houve simulado
-    const timelineDates = useMemo(() => {
-        const dates = new Set();
-        categories.forEach(cat => {
-            if (cat.simuladoStats?.history) {
-                cat.simuladoStats.history.forEach(h => {
-                    const dk = getDateKey(h.date);
-                    if (dk) dates.add(dk);
-                });
-            }
-        });
-        return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
-    }, [categoryHistoryHash]);
-
-    // Reseta o tempo se a base mudar muito (ex: apagou dados)
-    useEffect(() => {
-        setTimeIndex(-1);
-    }, [timelineDates.length]);
-
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
-    // LÓGICA DA MÁQUINA DO TEMPO: Ajustar os dias de projeção com base no "passado"
     const projectDays = useMemo(() => {
         if (effectiveSimulateToday) return 0;
         if (!goalDate) return 30;
-        
-        let currentDate = new Date();
-        currentDate.setHours(0, 0, 0, 0);
-
-        if (timeIndex >= 0 && timeIndex < timelineDates.length) {
-            currentDate = new Date(timelineDates[timeIndex] + 'T12:00:00');
-        }
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
 
         let goal;
         if (typeof goalDate === 'string' && goalDate.includes('T')) {
@@ -99,16 +72,16 @@ export default function MonteCarloGauge({
         goal.setHours(0, 0, 0, 0);
 
         if (isNaN(goal.getTime())) return 30;
-        const diffTime = goal - currentDate;
+        const diffTime = goal - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
-    }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
+    }, [goalDate, effectiveSimulateToday]);
 
     const getEqualWeights = useCallback(() => {
         if (activeCategories.length === 0) return {};
         const newWeights = {};
         activeCategories.forEach(cat => {
-            newWeights[cat.id || cat.name] = 1; 
+            newWeights[cat.id || cat.name] = 1; // Default to Peso 1
         });
         return newWeights;
     }, [activeCategories]);
@@ -126,6 +99,7 @@ export default function MonteCarloGauge({
 
         const weightsMap = {};
         activeCategories.forEach(cat => {
+            // LI-03 FIX: Permitir peso 0 se explicitamente definido para excluir matéria do Monte Carlo
             const stored = weights[cat.id || cat.name];
             const w = sanitizeWeightUnit(stored);
             weightsMap[cat.id || cat.name] = (stored !== undefined && stored !== null) ? Math.max(0, w) : 1;
@@ -152,25 +126,15 @@ export default function MonteCarloGauge({
         let totalWeight = 0;
         let weightedBayesianSum = 0;
 
+        // Group scores by date for BUG-03 (paths)
         const scoresByDate = {};
         const weightsByName = {};
         const bayesianStats = [];
         let weightedVolatilitySum = 0;
 
-        // Limite da Máquina do Tempo
-        const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length) 
-            ? timelineDates[timeIndex] 
-            : null;
-
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                // BUG-03 FIX: Filtra o histórico apagando o "futuro" da perspectiva da máquina do tempo
-                const history = [...cat.simuladoStats.history]
-                    .filter(h => cutoffDate ? getDateKey(h.date) <= cutoffDate : true)
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                if (history.length === 0) return;
-
+                const history = [...cat.simuladoStats.history].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
 
                 // PERFORMANCE-01 FIX: computeBayesianLevel is expensive O(M). Compute once and re-use.
@@ -198,7 +162,6 @@ export default function MonteCarloGauge({
                         bayesianMean: baye.mean,
                         volatility: vol
                     });
-                    
                     // BUG-08 FIX: Previne duplo shrinkage na propagação do SD bayesiano
                     // Usa volatilidade do prior Beta (baye.sd) para isolar Incerteza Bayesiana (Bug 2)
                     bayesianStats.push({ sd: baye.sd, weight, n: history.length });
@@ -213,20 +176,23 @@ export default function MonteCarloGauge({
         const bayesianMean = weightedBayesianSum / totalWeight;
 
         // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
+        // Linear summation of ICs was too conservative (noisy) for students with many subjects.
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
         // Final Bayesian CI for the static Today simulation
         // BUG MATEMÁTICO FIX: Não cortar aqui (clipping) para evitar distorção estatística.
+        // O corte (0 a 100) deve ocorrer apenas na visualização (UI).
         const weightedLow = bayesianMean - 1.96 * pooledBayesianSD;
         const weightedHigh = bayesianMean + 1.96 * pooledBayesianSD;
 
         // Reconstruct consolidated global history for path simulation (Carry-Forward Fix)
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
 
-        const lastKnownScores = {}; 
+        const lastKnownScores = {}; // Armazena a nota mais recente de cada matéria
 
         const globalHistory = sortedDates.map(date => {
+            // 1. Atualiza o estado atual APENAS com as matérias feitas neste dia
             Object.keys(scoresByDate[date]).forEach(name => {
                 lastKnownScores[name] = scoresByDate[date][name];
             });
@@ -234,10 +200,12 @@ export default function MonteCarloGauge({
             let sum = 0;
             let tw = 0;
 
+            // 2. Calcula a média do dia usando o "nível atual" de TODAS as matérias ativas
             Object.keys(weightsByName).forEach(name => {
                 const w = weightsByName[name];
                 const currentScore = lastKnownScores[name];
 
+                // Só inclui no cálculo se a matéria já tiver pelo menos 1 simulado feito no histórico
                 if (w > 0 && currentScore !== undefined) {
                     sum += currentScore * w;
                     tw += w;
@@ -248,6 +216,8 @@ export default function MonteCarloGauge({
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         // BUG-M1 FIX: Volatilidade Inflada (Pooled SD).
+        // A volatilidade ponderada correta para variâncias independentes é √(Σwi²σi²) / Σwi.
+        // Usar média aritmética Σwi×σi superestima a dispersão global.
         const sumSquaredWeightedVol = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => acc + Math.pow(cat.volatility * cat.weight, 2), 0)
             : 0;
@@ -259,8 +229,12 @@ export default function MonteCarloGauge({
         const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory);
 
         // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
+        // Usar média ponderada pelos pesos das matérias para evitar que matérias irrelevantes
+        // (peso 1) distorçam o score global de consistência.
         const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
+                // CV = (SD / Mean) * 100
+                // 🟡 BUG ESTATÍSTICO FIX: Se a média for muito pequena (< 1%), o CV explode.
                 const catCV = (cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0);
                 return acc + (catCV * (cat.weight / totalWeight));
             }, 0)
@@ -276,8 +250,10 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates]);
+        // BUG-D1 FIX: Incluir effectiveWeights nas deps (usado como fallback quando debouncedWeights é null)
+    }, [categories, debouncedWeights, effectiveWeights]);
 
+    // MELHORIA: Web Worker para offload Monte Carlo da main thread
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
@@ -287,14 +263,28 @@ export default function MonteCarloGauge({
             return;
         }
 
+        // 1. Contador de prontidão
         let totalPoints = 0;
-        statsData.categoryStats.forEach(cat => totalPoints += cat.count || 1);
+        const uniqueDates = new Set();
+        categories.forEach(cat => {
+            if (cat.simuladoStats?.history?.length > 0) {
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
+                if (weight > 0) {
+                    cat.simuladoStats.history.forEach(h => {
+                        totalPoints++;
+                        const dk = getDateKey(h.date);
+                        if (dk) uniqueDates.add(dk);
+                    });
+                }
+            }
+        });
 
         if (totalPoints < 1) {
             setSimulationData({ status: 'waiting', missing: 'count', count: totalPoints });
             return;
         }
 
+        // 2. Motor de Simulação via Web Worker (fallback síncrono se indisponível)
         let cancelled = false;
         const isFuture = projectDays > 0;
 
@@ -330,6 +320,7 @@ export default function MonteCarloGauge({
             } catch (err) {
                 console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
                 if (!cancelled) {
+                    // Fallback síncrono direto
                     let result;
                     if (isFuture && statsData.globalHistory?.length > 0) {
                         result = runMonteCarloAnalysis({
@@ -360,14 +351,18 @@ export default function MonteCarloGauge({
         })();
 
         return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statsData, debouncedTarget, projectDays, debouncedWeights, categoryHistoryHash]);
 
+    // MELHORIA: Probabilidade por matéria individual (mini-tabela)
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
         return statsData.categoryStats
             .filter(cat => cat.weight > 0)
             .map(cat => {
+                // BUG-M2 FIX: Use cat.bayesianMean (baseline real) instead of sample mean
                 const baseline = cat.bayesianMean ?? cat.mean;
+                // FIX: O objeto agora é passado corretamente, evitando a clonagem de seeds baseada apenas no SD.
                 const result = simulateNormalDistribution({
                     mean: baseline,
                     sd: cat.sd,
@@ -396,14 +391,11 @@ export default function MonteCarloGauge({
 
     useEffect(() => {
         const prob = Number.isFinite(Number(simulationData?.data?.probability)) ? Number(simulationData?.data?.probability) : 0;
-        // Não salva o histórico se estivermos viajando no tempo
-        const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
-        
-        if (simulationData?.status === 'ready' && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
+        if (simulationData?.status === 'ready' && prob > 0 && !effectiveSimulateToday) {
             const today = getDateKey(new Date());
             recordMonteCarloSnapshot(today, Number(prob.toFixed(1)));
         }
-    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates]);
+    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
@@ -417,6 +409,7 @@ export default function MonteCarloGauge({
                     </div>
                 </div>
                 <div className="relative flex flex-col items-center justify-center py-2 h-full">
+                    {/* FIX: Igualar viewBox e dimensões para evitar pulo de layout */}
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible">
                         <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                     </svg>
@@ -428,11 +421,31 @@ export default function MonteCarloGauge({
                     <p className="text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Aguardando Dados</p>
                     <p className="text-[9px] text-slate-600 leading-tight px-4">{waitingSubtext}</p>
                 </div>
+
+                {/* Subject list visible even in waiting state */}
+                <div className="w-full flex flex-wrap justify-center gap-1.5 mt-6 pt-4 border-t border-white/5">
+                    {activeCategories?.slice(0, 8).map((cat) => {
+                        const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
+                        return (
+                            <div key={cat.id || cat.name} className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight">
+                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-green-400" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-red-400" />}
+                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
+                                <span className="max-w-[70px] truncate">
+                                    {cat.name.length > 12 ? cat.name.slice(0, 10) + '..' : cat.name}
+                                </span>
+                            </div>
+                        );
+                    })}
+                    {(activeCategories?.length || 0) > 8 && <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">+{activeCategories.length - 8}</span>}
+                    {activeCategories?.length === 0 && <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>}
+                </div>
             </div>
         );
     }
 
     const formatPercent = (v) => `${v.toFixed(1)}%`;
+    const formatNumber = (v) => v.toFixed(2);
 
     const probability = simulationData?.data?.probability ?? 0;
     const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
@@ -443,19 +456,21 @@ export default function MonteCarloGauge({
     const ci95High = simulationData?.data?.ci95High ?? 0;
     const currentMean = simulationData?.data?.currentMean ?? 0;
 
+    // ✅ CORREÇÃO SEGURA PARA NaN
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const prob = safe(probability);
 
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
     const getGradientColor = (p) => {
-        if (p >= 70) return "#22c55e"; 
-        if (p >= 40) return "#f59e0b"; 
-        return "#ef4444"; 
+        if (p >= 70) return "#22c55e"; // verde
+        if (p >= 40) return "#f59e0b"; // amarelo
+        return "#ef4444"; // vermelho
     };
 
     const gradientColor = getGradientColor(prob);
 
+    // Premium Status Messages
     let baseMessage = "";
     if (prob > 95) baseMessage = "DOMÍNIO ESTRATÉGICO";
     else if (prob > 80) baseMessage = "A PROMESSA";
@@ -464,14 +479,13 @@ export default function MonteCarloGauge({
     else if (prob > 20) baseMessage = "IMPROVISADOR";
     else baseMessage = "RISCO DE QUEDA";
 
-    const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
-    let timeLabel = effectiveSimulateToday ? " (HOJE)" : " (FUTURO)";
-    if (isTimeTraveling) timeLabel = " (MÁQUINA DO TEMPO)";
-    const message = baseMessage + timeLabel;
+    const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
 
     return (
+        // FIX: overflow-hidden removido e isCalculating substituído por loading
         <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full max-w-full ${loading ? 'opacity-90 scale-[0.99]' : ''}`}>
 
+            {/* Scanning Overlay Effect */}
             {loading && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
@@ -479,6 +493,7 @@ export default function MonteCarloGauge({
             )}
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10">
+                {/* Left: Identity & Info */}
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -490,6 +505,7 @@ export default function MonteCarloGauge({
                         </div>
                     </div>
                     
+                    {/* Technical Badges Sub-row */}
                     <div className="flex items-center gap-1.5 mt-1">
                         {forcedMode && (
                             <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
@@ -510,13 +526,14 @@ export default function MonteCarloGauge({
                             <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner">
                                 <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
                                 <span className={`text-[9px] font-black ${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                    {projectDays}d {isTimeTraveling ? 'na projeção' : 'restantes'}
+                                    {projectDays}d restantes
                                 </span>
                             </div>
                         )}
                     </div>
                 </div>
 
+                {/* Right: Actions */}
                 <div className="flex items-center gap-2 w-full sm:w-auto self-end sm:self-center">
                     {!forcedMode && (
                         <div className="flex items-center gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5">
@@ -530,11 +547,21 @@ export default function MonteCarloGauge({
                             <div className="w-px h-4 bg-white/10" />
                             <button
                                 onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${simulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${simulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
                             >
                                 {simulateToday ? 'Ver Projeção' : 'Ver Estatísticas'}
                                 < ChevronDown size={12} className={`transition-transform duration-300 ${simulateToday ? 'rotate-180' : ''}`} />
                             </button>
+                        </div>
+                    )}
+                    
+                    {!effectiveSimulateToday && projectedMean === currentMean && projectDays > 0 && (
+                        <div className="group/info relative">
+                            <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center cursor-help ring-2 ring-transparent hover:ring-yellow-500/20 transition-all"><span className="text-[10px] font-bold text-yellow-500">?</span></div>
+                            <div className="absolute top-full right-0 mt-3 w-56 p-3 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl z-50 opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all translate-y-2 group-hover/info:translate-y-0 text-[10px] text-slate-300 leading-relaxed backdrop-blur-xl">
+                                <span className="text-yellow-400 font-black block mb-1 uppercase tracking-widest">Nota: Dados do mesmo dia</span>
+                                Para projetar evolução, o algoritmo precisa de simulados em <strong>dias diferentes</strong>. Com dados de apenas um dia, a tendência matemática é considerada neutra.
+                            </div>
                         </div>
                     )}
                 </div>
@@ -556,6 +583,7 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
+                        {/* Leading Edge Glow */}
                         {!loading && (
                             <g
                                 transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
@@ -592,7 +620,7 @@ export default function MonteCarloGauge({
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
                     { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}%`, color: "text-rose-500" },
-                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatPercent(safe(currentMean)), color: "text-white" },
+                    { label: "Hoje", val: formatPercent(safe(currentMean)), color: "text-white" },
                     { label: "Projeção", val: formatPercent(safe(projectedMean)), color: "text-blue-400" },
                     {
                         label: "Incerteza",
@@ -615,81 +643,35 @@ export default function MonteCarloGauge({
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
                 <div className="w-full h-44 px-2">
-                    <GaussianPlot
-                        mean={safe(projectedMean)}
-                        sd={safe(sd)}
-                        sdLeft={safe(sdLeft)}
-                        sdRight={safe(sdRight)}
-                        low95={safe(ci95Low)}
-                        high95={safe(ci95High)}
-                        targetScore={safe(targetScore)}
-                        currentMean={safe((currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(projectedMean))}
-                        prob={safe(prob)}
-                        kdeData={simulationData?.data?.kdeData}
-                        projectedMean={safe(projectedMean)} 
-                    />
+                    {(() => {
+                        // FIX: parseFloat(mean) alterado para parseFloat(projectedMean)
+                        const safeCurrentMean = (currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(projectedMean);
+                        return (
+                            <GaussianPlot
+                                mean={safe(projectedMean)}
+                                sd={safe(sd)}
+                                sdLeft={safe(sdLeft)}
+                                sdRight={safe(sdRight)}
+                                low95={safe(ci95Low)}
+                                high95={safe(ci95High)}
+                                targetScore={safe(targetScore)}
+                                currentMean={safe(safeCurrentMean)}
+                                prob={safe(prob)}
+                                kdeData={simulationData?.data?.kdeData}
+                                projectedMean={safe(projectedMean)} />
+                        );
+                    })()}
                 </div>
-                
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
-                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "border", lbl: "Sucesso", dynamic: true }, { bg: "bg-white/40", lbl: isTimeTraveling ? "Nesse Dia" : "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
+                    {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "border", lbl: "Sucesso", dynamic: true }, { bg: "bg-white/40", lbl: "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
                             <div className={`${l.bg} w-3 h-1 rounded-full`} style={l.dynamic ? { backgroundColor: gradientColor, opacity: 0.5 } : undefined}></div>
                             <span className="text-[9px] text-slate-400">{l.lbl}</span>
                         </div>
                     ))}
                 </div>
-
-                {/* --- MÁQUINA DO TEMPO (SLIDER) --- */}
-                {timelineDates.length > 1 && (
-                    <div className="w-full mt-6 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
-                        <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
-                            ⏳ Máquina do Tempo
-                        </span>
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <span className="text-[9px] text-slate-500 uppercase tracking-widest">Evolução Histórica</span>
-                            <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded backdrop-blur-sm border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition-all duration-300">
-                                {timeIndex === -1 || timeIndex === timelineDates.length - 1 
-                                    ? 'Estado Atual (Hoje)' 
-                                    : new Date(timelineDates[timeIndex] + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                        </div>
-                        <div className="relative w-full flex items-center group-hover/timeline:scale-[1.01] transition-transform">
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max={timelineDates.length - 1} 
-                                value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex} 
-                                onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
-                                }}
-                                className="w-full appearance-none bg-transparent z-10 
-                                [&::-webkit-slider-runnable-track]:h-2 
-                                [&::-webkit-slider-runnable-track]:bg-slate-800 
-                                [&::-webkit-slider-runnable-track]:rounded-full 
-                                [&::-webkit-slider-thumb]:appearance-none 
-                                [&::-webkit-slider-thumb]:w-5 
-                                [&::-webkit-slider-thumb]:h-5 
-                                [&::-webkit-slider-thumb]:bg-indigo-500 
-                                [&::-webkit-slider-thumb]:rounded-full 
-                                [&::-webkit-slider-thumb]:-mt-1.5 
-                                [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(99,102,241,0.8)] 
-                                [&::-webkit-slider-thumb]:border-2 
-                                [&::-webkit-slider-thumb]:border-white
-                                cursor-pointer"
-                            />
-                            {/* Marcadores Visuais (Ticks) */}
-                            <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
-                                {timelineDates.map((_, i) => (
-                                    <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length -1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* Restante do Painel... */}
             <div className="w-full flex flex-col gap-2 mt-4">
                 <button
                     onClick={() => setShowPerSubject(!showPerSubject)}
@@ -706,7 +688,7 @@ export default function MonteCarloGauge({
                         <div className="flex items-center justify-between px-1 mb-2">
                             <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
                             <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">
-                                Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">({isTimeTraveling ? 'Nesse Dia' : 'Hoje'})</span>}
+                                Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">(Hoje)</span>}
                             </span>
                         </div>
                         {perSubjectProbs.map(s => {
@@ -731,6 +713,30 @@ export default function MonteCarloGauge({
                         })}
                     </div>
                 )}
+
+                <div className="flex flex-wrap justify-center gap-2.5 min-h-[24px]">
+                    {activeCategories?.slice(0, 8).map((cat) => {
+                        const catStats = statsData?.categoryStats?.find(s => s.name === cat.name);
+                        return (
+                            <div key={cat.id || cat.name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-300 uppercase tracking-tight leading-relaxed">
+                                {catStats?.trend === 'up' && <TrendingUp size={10} className="text-emerald-400" />}
+                                {catStats?.trend === 'down' && <TrendingDown size={10} className="text-rose-400" />}
+                                {(catStats?.trend === 'stable' || !catStats) && <Minus size={10} className="text-slate-500" />}
+                                <span className="max-w-[100px] truncate">
+                                    {cat.name}
+                                </span>
+                            </div>
+                        );
+                    })}
+                    {(activeCategories?.length || 0) > 8 && (
+                        <span className="px-2 py-1 rounded-lg bg-slate-800/60 border border-white/5 text-[8px] text-slate-500">
+                            +{activeCategories.length - 8}
+                        </span>
+                    )}
+                    {activeCategories?.length === 0 && (
+                        <span className="text-[8px] text-slate-600 uppercase">Sem dados históricos</span>
+                    )}
+                </div>
             </div>
             {!forcedMode && (
                 <MonteCarloConfig
