@@ -167,17 +167,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
     }, [relevantCategories, limitMs]);
 
 
-    if (chartData.length === 0) {
-        return (
-            <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
-                <span className="text-5xl opacity-40">🔬</span>
-                <div className="text-center">
-                    <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto registrado</p>
-                    <p className="text-slate-500 text-sm max-w-xs block">Os simulados analisados neste período não possuem subtópicos listados.</p>
-                </div>
-            </div>
-        );
-    }
+    // Removido o early return daqui para colocá-lo dentro do render principal.
 
     return (
         <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[350px]">
@@ -206,7 +196,15 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 </div>
             </div>
 
-            {viewMode === 'bars' ? (
+            {chartData.length === 0 ? (
+                <div className="h-[280px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 mt-4">
+                    <span className="text-5xl opacity-40">⏳</span>
+                    <div className="text-center">
+                        <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto no período atual</p>
+                        <p className="text-slate-500 text-sm max-w-xs block">Mude o filtro de "Período" ali em cima para <b>Tudo</b> caso seus simulados sejam mais antigos.</p>
+                    </div>
+                </div>
+            ) : viewMode === 'bars' ? (
                 // ── BARS RENDER ──
                 <div className="w-full relative" style={{ height: Math.max(300, chartData.length * 36) }}>
                     <ResponsiveContainer width="100%" height="100%">

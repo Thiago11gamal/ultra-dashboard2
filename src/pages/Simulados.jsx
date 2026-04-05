@@ -160,7 +160,8 @@ export default function Simulados() {
                                 correct: finalC,
                                 total: finalQ,
                                 score: (finalC / finalQ) * 100,
-                                isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
+                                isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
+                                topics: disc.topics || [] 
                             });
 
                             const statsResult = computeCategoryStats(filteredHistory, 1);
@@ -209,7 +210,8 @@ export default function Simulados() {
                                 correct: finalC,
                                 total: finalQ,
                                 score: (finalC / finalQ) * 100,
-                                isPercentage: true  // BUGFIX M1: flag inequívoca para getSafeScore
+                                isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
+                                topics: stats.topics || []
                             });
 
                             const statsResult = computeCategoryStats(filteredHistory, 1);

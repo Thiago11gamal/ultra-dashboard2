@@ -2,6 +2,7 @@ import React from 'react';
 import PersonalRanking from '../components/PersonalRanking';
 import VolumeRanking from '../components/VolumeRanking';
 import PerformanceTable from '../components/PerformanceTable';
+import SubtopicsTable from '../components/SubtopicsTable';
 import { useAppStore } from '../store/useAppStore';
 import { RotateCcw } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
@@ -40,6 +41,7 @@ export default function Tasks() {
                     </button>
                 </h2>
                 <PerformanceTable categories={categories} />
+                <SubtopicsTable categories={categories} />
             </div>
         </div>
     );
