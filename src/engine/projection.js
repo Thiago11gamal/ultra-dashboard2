@@ -360,7 +360,7 @@ export function monteCarloSimulation(
     // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
     // Garantimos que a dispersão do Bootstrap alinhe com a volatilidade medida.
     const bootstrapTargetScale = _residualSD > 0
-        ? Math.min(3.0, volatility / _residualSD)
+        ? Math.min(5.0, volatility / _residualSD) // 🎯 RIGOR-M2: Aumentado para 5.0 (era 3.0) para acomodar volatilidade extrema
         : 1;
 
     const simulationDays = days;
@@ -377,7 +377,7 @@ export function monteCarloSimulation(
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            if (useBootstrap && residuals.length >= 4) {
+            if (useBootstrap && residuals.length >= 6) { // 🎯 BUG-M2 FIX: Sincronizar com threshold useBootstrap (era 4)
                 const randomResidual = residuals[Math.floor(rng() * residuals.length)];
                 // FIX: Jitter removido. A própria reamostragem massiva e o KDE suavizam
                 // a distribuição. O jitter artificial causava 'drift' matemático.
@@ -387,9 +387,10 @@ export function monteCarloSimulation(
                 shock = randomNormal(rng) * sigma;
             }
 
-            // MATH-05 FIX: Soma de Riemann centralizada (d + 0.5) para reduzir viés acumulado
-            const dampedDrift = dayDrift * (45 / (45 + d + 0.5));
-            score += dampedDrift + shock;
+            // 🎯 BUG-D1 FIX: Remoção do amortecimento redundante (45 / (45 + d + 0.5)). 
+            // O drift de 'calculateSlope' já é amortecido por confiança. 
+            // Adicionar aqui causava "double-damping" (projeção excessivamente côncava).
+            score += dayDrift + shock;
         }
 
         const finalScore = Math.max(0, Math.min(100, score));
@@ -427,12 +428,11 @@ export function monteCarloSimulation(
     const sdLeft = (displayMean - ci95LowVal) / 1.96;
     const sdRight = (ci95HighVal - displayMean) / 1.96;
 
-    // FIX CR\u00cdTICO: Se o teto for atingido (high >= 99.5), o sdRight foi esmagado artificialmente.
-    // Usar SEMPRE o sdLeft neste caso para representar a verdadeira volatilidade do aluno.
+    // 🎯 BUG-P1 FIX: Refinar effectiveSD para evitar 'Analytical Probability' subestimada
     const effectiveSD = Math.max(1.0,
-        (ci95HighVal >= 99.5) ? sdLeft :
-        (ci95LowVal <= 0.5) ? sdRight :
-        inferredSD
+        (ci95HighVal >= 99.0) ? sdLeft :  // Aumentada zona de proteção (era 99.5)
+        (ci95LowVal <= 0.5)   ? sdRight :
+        (sdLeft + sdRight) / 2            // Média simples das bandas (mais estável)
     );
 
     const zScore = (targetScore - projectedMean) / effectiveSD;
