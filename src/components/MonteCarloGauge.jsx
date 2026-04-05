@@ -404,7 +404,7 @@ export default function MonteCarloGauge({
                 <div className="relative flex flex-col items-center justify-center py-2 h-full">
                     {/* FIX: Igualar viewBox e dimensões para evitar pulo de layout */}
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible">
-                        <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
+                        <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                     </svg>
                     <div className="absolute inset-0 flex items-end justify-center pb-2">
                         <span className="text-5xl font-black text-slate-600 tracking-tighter opacity-40">--%</span>
@@ -564,12 +564,12 @@ export default function MonteCarloGauge({
                 <div className="relative mb-6">
                     <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${loading ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
-                        <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
+                        <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                         <path
-                            d="M 10 65 A 60 60 0 0 1 130 65"
+                            d="M 4 65 A 66 66 0 0 1 136 65"
                             fill="none"
                             stroke={gradientColor}
-                            strokeWidth="12"
+                            strokeWidth="10"
                             strokeLinecap="round"
                             pathLength="100"
                             strokeDasharray={`${prob} ${100 - prob}`}
@@ -583,12 +583,12 @@ export default function MonteCarloGauge({
                                 style={{ transition: 'transform 1.5s ease-out' }}
                             >
                                 <circle
-                                    cx="10" cy="65" r="4"
+                                    cx="4" cy="65" r="4"
                                     fill={gradientColor}
                                     className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                                     style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
                                 />
-                                <circle cx="10" cy="65" r="2" fill="#fff" opacity="0.8" />
+                                <circle cx="4" cy="65" r="2" fill="#fff" opacity="0.8" />
                             </g>
                         )}
                     </svg>
