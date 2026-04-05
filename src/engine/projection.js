@@ -192,16 +192,17 @@ export function calculateVolatility(history) {
         const rawDaysBetween = Math.max(1.0, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
-        // REVISION: Correct detrending using rawDrift
-        // FIX BUG 3: Consistency between detrending and normalization intervals
         const detrendedDiff = diff - (rawDrift * daysBetween);
         const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
 
-        // O quadrado do resíduo já é a variância diária (diff²/days)
-        const dailyVariance = residual * residual;
+        // 🎯 BUG-V2 FIX: MSSD Robusto (Outlier Clamping).
+        // Resíduos extremos (> 35pp/√dia) após longos gaps distorcem a volatilidade. 
+        // Clampeamos em 3.5 SDs (assumindo sigma médio ~10) para manter robustez.
+        const clampedResidual = Math.max(-35, Math.min(35, residual));
+        const dailyVariance = clampedResidual * clampedResidual;
 
         sumSw += dailyVariance * weight;
         sumWeights += weight;
@@ -266,9 +267,13 @@ export function monteCarloSimulation(
         baselineScore = (currentScore * 0.8) + (ema * 0.2);
     }
 
-    // 1. Calcular Tendência (Drift)
-    const { slope: rawDrift } = sortedHistory.length > 1 ? weightedRegression(sortedHistory) : { slope: 0 };
-    const drift = calculateSlope(sortedHistory); // Tendência clampeada para o path determinístico
+    // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
+    const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1 
+        ? weightedRegression(sortedHistory) 
+        : { slope: 0, slopeStdError: 1.5 };
+        
+    const drift = calculateSlope(sortedHistory); // Tendência clampeada para a média determinística
+    const driftUncertainty = Math.max(0.05, slopeStdError); // Piso de incerteza no drift
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
@@ -374,6 +379,11 @@ export function monteCarloSimulation(
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 
+        // 🎯 BUG-E1 FIX: Drift Sampling (Incerteza Epistêmica).
+        // Cada simulação "sorteia" uma taxa de melhora diferente baseada no erro padrão. 
+        // Isso alarga o cone de incerteza (IC 95%) em projeções longas, o que é estatisticamente correto.
+        const simDrift = drift + (randomNormal(rng) * driftUncertainty);
+
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
@@ -387,16 +397,20 @@ export function monteCarloSimulation(
                 shock = randomNormal(rng) * sigma;
             }
 
-            // 🎯 BUG-D1 FIX: Remoção do amortecimento redundante (45 / (45 + d + 0.5)). 
-            // O drift de 'calculateSlope' já é amortecido por confiança. 
-            // Adicionar aqui causava "double-damping" (projeção excessivamente côncava).
-            score += dayDrift + shock;
+            // 🎯 BUG-H1 FIX: Heterocedasticidade (Volatility Decay).
+            // Conforme a nota sobe, a volatilidade (ruído) tende a diminuir (maior consistência).
+            // Aplicamos um redutor linear de ruído à medida que o score passa de 80%.
+            const consistencyMultiplier = score > 80 
+                ? Math.max(0.5, 1 - (score - 80) / 40) // Reduz até 50% do choque no teto 100%
+                : 1.0;
+
+            score += simDrift + (shock * consistencyMultiplier);
         }
 
-        const finalScore = Math.max(0, Math.min(100, score));
-        if (finalScore >= targetScore) success++;
+        // 🎯 BUG-C1 FIX: Sucesso calculado na nota LATENTE (bruta/score), não na cortada (0-100).
+        if (score >= targetScore) success++;
 
-        // FIX CR\u00cdTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Vari\u00e2ncia.
+        // FIX CRÍTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Variância.
         allFinalScores[s] = score;
 
         // Welford com score LATENTE para manter KDE 100% calibrado
@@ -411,48 +425,40 @@ export function monteCarloSimulation(
     const projectedVariance = welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0;
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
-    // Empirical percentiles — sort then pick P2.5 and P97.5
-    allFinalScores.sort(); // Float32Array.sort() é numérico e estável sem comparator
+    // 🎯 BUG-O7 FIX: Ordenação numérica explícita (a-b).
+    allFinalScores.sort((a, b) => a - b); 
     const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-    // BUG-09 FIX: round é semanticamente correto para estatística de amostra
     const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
-    const ci95Low = Number(Math.max(0, allFinalScores[p025idx]).toFixed(1));
-    const ci95High = Number(Math.min(100, allFinalScores[p975idx]).toFixed(1));
+    
+    // Display stats (Corte visual apenas para a UI)
+    const rawLow = allFinalScores[p025idx];
+    const rawHigh = allFinalScores[p975idx];
+    const ci95Low = Number(Math.max(0, rawLow).toFixed(1));
+    const ci95High = Number(Math.min(100, rawHigh).toFixed(1));
 
     const displayMean = Math.max(0, Math.min(100, projectedMean));
-    const ci95LowVal = parseFloat(ci95Low);
-    const ci95HighVal = parseFloat(ci95High);
-    const inferredSD = (ci95HighVal - ci95LowVal) / 3.92;
     
-    // MC-03: Asymmetric SDs for Bayesian consistency (using clamped mean for label consistency)
-    const sdLeft = (displayMean - ci95LowVal) / 1.96;
-    const sdRight = (ci95HighVal - displayMean) / 1.96;
-
-    // 🎯 BUG-P1 FIX: Refinar effectiveSD para evitar 'Analytical Probability' subestimada
-    const effectiveSD = Math.max(1.0,
-        (ci95HighVal >= 99.0) ? sdLeft :  // Aumentada zona de proteção (era 99.5)
-        (ci95LowVal <= 0.5)   ? sdRight :
-        (sdLeft + sdRight) / 2            // Média simples das bandas (mais estável)
-    );
-
-    const zScore = (targetScore - projectedMean) / effectiveSD;
+    // 🎯 BUG-Z4 FIX: zScore e Analytical Probability calculados sobre os parâmetros REAIS (projected).
+    const zScore = (targetScore - projectedMean) / (projectedSD || 0.0001);
     const analyticalProbability = normalCDF_complement(zScore) * 100;
     
     // MC-02: Use raw empirical probability
     const empiricalProbability = (success / safeSimulations) * 100;
     
     const gap = Math.abs(empiricalProbability - analyticalProbability);
-    if (gap > 3) {
+    if (gap > 3 && projectedSD > 0.1) {
         console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
     }
 
     return {
-        probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
-        analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
+        // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9).
+        probability: empiricalProbability,
+        analyticalProbability: analyticalProbability,
         mean: Number(displayMean.toFixed(1)),
-        sd: Number(Math.max(1.0, inferredSD).toFixed(1)),
-        sdLeft: Number(Math.max(1.0, sdLeft).toFixed(2)),
-        sdRight: Number(Math.max(1.0, sdRight).toFixed(2)),
+        sd: Number(projectedSD.toFixed(1)),
+        // Metadados informativos para UI
+        sdLeft: Number(Math.max(0.1, (displayMean - Math.max(0, rawLow)) / 1.96).toFixed(2)),
+        sdRight: Number(Math.max(0.1, (Math.min(100, rawHigh) - displayMean) / 1.96).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),

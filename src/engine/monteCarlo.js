@@ -8,55 +8,46 @@ import { monteCarloSimulation } from './projection.js';
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   let mean = meanOrObj;
   
-  // BUG-03: Suportar assinatura de objeto para todos os parâmetros
   if (typeof meanOrObj === 'object' && meanOrObj !== null) {
       ({ mean, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI } = meanOrObj);
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
-  // REVISION: Standardized floor with stats.js (1.0)
-  const safeSD = Math.max(Number.isFinite(sd) ? sd : 0, 1.0);
+  // 🎯 BUG-V2 FIX: Piso de SD reduzido para 0.0001 para permitir estabilidade real.
+  const safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0.0001; 
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  // Hash da categoria para manter consistência no gerador de números aleatórios
-  const categoryHash = (categoryName || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  // BUG-L2: incluir safeSimulations no seed para evitar colisão entre chamadas com N diferente
+  // 🎯 BUG-S8 FIX: Seed com maior entropia usando multiplicadores primos e hash de categoria.
+  const categoryHash = (categoryName || '').split('').reduce((acc, char, idx) => acc + char.charCodeAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    Math.round(safeMean * 100) * 100003 +
-    Math.round(safeSD * 100) * 997 +
-    Math.round(safeTarget * 10) +
-    categoryHash +
+    Math.round(safeMean * 179) ^
+    Math.round(safeSD * 997) ^
+    Math.round(safeTarget * 1009) ^
+    (categoryHash * 13) ^
     (safeSimulations * 7)
   );
 
   const rng = mulberry32(stableSeed);
   let success = 0;
 
-  // Variância online de Welford
   let welfordMean = 0;
   let welfordM2 = 0;
   let welfordCount = 0;
 
-  // PERFORMANCE FIX: Use Float32Array to reduce GC pressure on 2000+ simulations
   const allScores = new Float32Array(safeSimulations);
 
-  // LOOP DA SIMULAÇÃO
   for (let i = 0; i < safeSimulations; i++) {
     const score = safeMean + randomNormal(rng) * safeSD;
     
-    // O finalScore truncado é usado para sucesso e renderização visual
-    const finalScore = Math.max(0, Math.min(100, score));
-    if (finalScore >= safeTarget) success++;
+    // 🎯 BUG-C1 FIX: Sucesso calculado na nota LATENTE (bruta/score), não na cortada (0-100).
+    // O corte visual (clipping) só deve acontecer na renderização da UI.
+    if (score >= safeTarget) success++;
 
-    // FIX CRÍTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Variância.
-    // O corte visual nos 100% será feito pelo filtro SVG no GaussianPlot.
     allScores[i] = score;
 
     welfordCount++;
-    // FIX: A Variância DEVE ser calculada na distribuição latente (score) 
-    // e não no (finalScore) para evitar o esmagamento do desvio padrão.
     const delta = score - welfordMean;
     welfordMean += delta / welfordCount;
     welfordM2 += delta * (score - welfordMean);
@@ -65,55 +56,41 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-  allScores.sort(); // Float32Array sort is numerically stable and faster than custom comparator
+  // 🎯 BUG-O7 FIX: Ordenação numérica explícita (a-b) para garantir estabilidade cross-engine.
+  allScores.sort((a, b) => a - b); 
+
   const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-  // BUG-09 FIX: round é mais preciso que ceil para índices grandes
   const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
 
   const rawLow = allScores[p025idx];
   const rawHigh = allScores[p975idx];
 
-  // FIX: Remover o Math.min/max com bayesianCI aqui.
-  // O safeSD já injetou a incerteza Bayesiana no próprio Welford. 
-  // Aplicar novamente causa distorção severa ("Alta Incerteza" falsa).
-  const finalRawLow = rawLow;
-  const finalRawHigh = rawHigh;
-
   const empiricalProbability = (success / safeSimulations) * 100;
   
+  // Display stats (Corte visual apenas para a UI)
   const displayMean = Math.max(0, Math.min(100, projectedMean));
-  const displayLow = Math.max(0, finalRawLow);
-  const displayHigh = Math.min(100, finalRawHigh);
+  const displayLow = Math.max(0, rawLow);
+  const displayHigh = Math.min(100, rawHigh);
 
-  const sdLeft = (displayMean - displayLow) / 1.96;
-  const sdRight = (displayHigh - displayMean) / 1.96;
-  const inferredSD = (displayHigh - displayLow) / 3.92;
-
-  // REVISION: Standardized floor to 1.0
-  // 🎯 BUG-P1 FIX: Refinar effectiveSD para evitar 'Analytical Probability' subestimada
-  const effectiveSD = Math.max(1.0,
-    (displayHigh >= 99.0) ? sdLeft :  // Aumentada zona de proteção (era 99.5)
-    (displayLow <= 0.5)   ? sdRight :
-    (sdLeft + sdRight) / 2            // Média simples das bandas (mais estável)
-  );
-
-  // Bug 1: Calcular analyticalProbability corretamente
-  const zScore = (safeTarget - displayMean) / effectiveSD;
+  // 🎯 BUG-Z4 FIX: zScore e Analytical Probability calculados sobre os parâmetros REAIS (projected).
+  // Remove as heurísticas sdLeft/sdRight que geravam gaps incorretos entre Gauge e Simulação.
+  const zScore = (safeTarget - projectedMean) / (projectedSD || 0.0001);
   const analyticalProbability = normalCDF_complement(zScore) * 100;
   
   const gap = Math.abs(empiricalProbability - analyticalProbability);
-  if (gap > 3) {
+  if (gap > 3 && projectedSD > 0.1) {
       console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
   }
 
   return {
-    probability: Math.min(99.9, Math.max(0.1, empiricalProbability)),
-    analyticalProbability: Math.min(99.9, Math.max(0.1, analyticalProbability)),
+    // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9). Se a probabilidade for 100% ou 0%, exibimos o valor real.
+    probability: empiricalProbability,
+    analyticalProbability: analyticalProbability,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
-    // REVISION: Floor standardized to 1.0
-    sd: Number(Math.max(1.0, projectedSD).toFixed(1)),
-    sdLeft: Number(Math.max(1.0, sdLeft).toFixed(2)),
-    sdRight: Number(Math.max(1.0, sdRight).toFixed(2)),
+    sd: Number(projectedSD.toFixed(1)),
+    // Mantemos sdLeft/sdRight apenas como metadados informativos, mas não mais operacionais.
+    sdLeft: Number(Math.max(0.1, (displayMean - displayLow) / 1.96).toFixed(2)),
+    sdRight: Number(Math.max(0.1, (displayHigh - displayMean) / 1.96).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
@@ -121,7 +98,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     projectedSD,
     kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations),
     drift: 0,
-    volatility: safeSD, // ⚠️ NOTA: pp/prova — unidade diferente de monteCarloSimulation (pp/√dia)
+    volatility: safeSD,
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
   };
 }
