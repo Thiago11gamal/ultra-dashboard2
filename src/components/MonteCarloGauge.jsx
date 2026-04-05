@@ -362,7 +362,14 @@ export default function MonteCarloGauge({
             .map(cat => {
                 // BUG-M2 FIX: Use cat.bayesianMean (baseline real) instead of sample mean
                 const baseline = cat.bayesianMean ?? cat.mean;
-                const result = simulateNormalDistribution(baseline, cat.sd, debouncedTarget, 1000);
+                // FIX: O objeto agora é passado corretamente, evitando a clonagem de seeds baseada apenas no SD.
+                const result = simulateNormalDistribution({
+                    mean: baseline,
+                    sd: cat.sd,
+                    targetScore: debouncedTarget,
+                    simulations: 1000,
+                    categoryName: cat.name
+                });
                 return {
                     name: cat.name,
                     prob: result.probability,

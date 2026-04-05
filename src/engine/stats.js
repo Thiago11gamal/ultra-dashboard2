@@ -1,4 +1,4 @@
-export const SYNTHETIC_TOTAL_QUESTIONS = 10;
+export const SYNTHETIC_TOTAL_QUESTIONS = 100;
 import { getSafeScore } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
 import { calculateSlope } from './projection.js';
@@ -112,8 +112,6 @@ export function calculateTrend(history) {
             tCrit = tDist95[df] || 1.96;
         } else {
             // MATH-03 FIX: Implement linear interpolation between table nodes
-            // Restored 'keys' definition that was missing in previous edit
-            // MATH-03 FIX: Include 15 to allow proper interpolation for df [16-19]
             const keys = Object.keys(tDist95).map(Number).filter(k => k >= 15).sort((a,b) => a-b);
             
             const lo = keys.filter(k => k <= df).at(-1);
@@ -151,7 +149,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
             let total   = Number(h.total)   || 0;
             let correct = Number(h.correct) || 0;
             
-            // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 10 questões)
+            // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 100 questões)
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
                 total = SYNTHETIC_TOTAL_QUESTIONS;
@@ -219,7 +217,7 @@ export function computeCategoryStats(history, weight) {
     return {
         mean: m,
         sd: safeSD,
-        n: historyToUse.length,   // BUGFIX H2: usar historyToUse (validado), não history total
+        n: historyToUse.length,   
         weight: weight,
         history: history,
         trend: trendLabel,

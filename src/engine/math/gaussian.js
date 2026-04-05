@@ -51,8 +51,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     if (!allScores || allScores.length === 0) return [];
 
     // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
-    // Replace hardcoded plotMin=0 for better centering.
-    // Fix BUG-3: Dynamic plotMin/plotMax
     const plotMin = Math.max(0, projectedMean - 3.5 * projectedSD);
     const plotMax = Math.min(100, projectedMean + 3.5 * projectedSD);
     
@@ -70,33 +68,27 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
 
     // BUG-CRÍTICO FIX: Piso dinâmico proporcional ao SD evita o over-smoothing grave
-    // em alunos muito consistentes que sofriam de "curva gorda" forçada. 
-    // Garante que o bandwidth nunca seja menor que binWidth (0.5pp)
     const bandwidth = Math.max(h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
-    // BUG 3 e PONTO 1 Corrigidos: Contabilizar overflow e underflow separadamente
-    let overflowCount = 0;
-    let underflowCount = 0;
-
+    // 🎯 MATH FIX: Remover overflowCount e underflowCount e fazer Data Folding
     for (let i = 0; i < safeSimulations; i++) {
-        const s = allScores[i];
-        if (s > plotMax) {
-            overflowCount++;
-            continue;
-        }
-        if (s < plotMin) {
-            underflowCount++;
-            continue;
-        }
-        // Scores garantidamente dentro do domínio visual [plotMin, plotMax]
+        let s = allScores[i];
+        
+        // Data Folding: Rebater os limites intransponíveis da realidade (0 e 100)
+        if (s < 0) s = Math.abs(s); 
+        if (s > 100) s = 200 - s; 
+
+        // Agora verificamos apenas o enquadramento do plot visual (Zoom do Gráfico)
+        if (s > plotMax || s < plotMin) continue;
+
+        // Scores garantidamente dentro do domínio visual e com a massa preservada
         const idx = Math.min(BIN_COUNT - 1, Math.floor((s - plotMin) / binWidth));
         bins[idx]++;
     }
 
-    // A normalização divide rigorosamente pelos eventos que entraram nos bins.
-    // Isso garante que a área desenhada de fato integre perfeitamente a 1 (100%).
-    const inDomainCount = safeSimulations - overflowCount - underflowCount;
+    // Como os dados foram rebatidos, todos que importam estão no domínio.
+    const inDomainCount = bins.reduce((a, b) => a + b, 0);
     const safeDomainCount = Math.max(1, inDomainCount); // Previne divisão por zero
 
     const invBandwidth = 1 / bandwidth;
@@ -117,7 +109,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
                 density += bins[j] * Math.exp(-0.5 * dist * dist);
                 
                 // BUG-08 FIX: Boundary Reflection (Reflection correction at 0 and 100)
-                // If point is close to 0 or 100, mirror the neighbor density back into it.
                 if (x < bandwidth * 3.5 || x > 100 - bandwidth * 3.5) {
                     const distL = (x + binX) * invBandwidth; // Mirror at A=0
                     if (Math.abs(distL) < 3.5) density += bins[j] * Math.exp(-0.5 * distL * distL);
@@ -133,7 +124,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     }
 
     // MATH-04 FIX: Normalizando Y para que o pico seja 1 (100% da altura visual do SVG).
-    // Nota: A densidade bruta (density) integra a 1 antes desta etapa.
     return empiricalData.map(d => ({
         x: Number(d.x.toFixed(2)),
         y: maxY > 0 ? Number((d.y / maxY).toFixed(4)) : 0
