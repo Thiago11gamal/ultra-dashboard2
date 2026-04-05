@@ -54,7 +54,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                 <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-xl">
                     <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1">{fullDate}</p>
                     <div className="flex items-end gap-2">
-                        <span className={`text-2xl font-black ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
+                        <span className={`text-4xl font-black ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
                             {val.toFixed(1)}%
                         </span>
                         <span className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-wider">

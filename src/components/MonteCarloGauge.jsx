@@ -407,7 +407,7 @@ export default function MonteCarloGauge({
                         <path d="M 10 65 A 60 60 0 0 1 130 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                     </svg>
                     <div className="absolute inset-0 flex items-end justify-center pb-2">
-                        <span className="text-2xl font-black text-slate-600 tracking-tighter">--%</span>
+                        <span className="text-5xl font-black text-slate-600 tracking-tighter opacity-40">--%</span>
                     </div>
                 </div>
                 <div className="text-center w-full mt-2">
@@ -574,7 +574,7 @@ export default function MonteCarloGauge({
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
-                        <span style={{ color: getGradientColor(prob), fontWeight: 'bold' }}>
+                        <span className="text-5xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
                             {formatPercent(prob)}
                         </span>
                     </div>
