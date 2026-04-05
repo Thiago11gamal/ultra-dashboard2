@@ -69,7 +69,8 @@ const SubtopicsTable = ({ categories = [] }) => {
                             <th className="p-5 text-center w-28 md:w-32"><div className="flex items-center justify-center gap-2"><Hash size={12} className="text-slate-600" /> Volume</div></th>
                             <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
                             <th className="p-5 text-center w-32 md:w-36 border-l border-white/5"><div className="flex items-center justify-center gap-2"><Wallet size={12} className="text-slate-600" /> Saldo</div></th>
-                            <th className="p-5 text-center w-24 md:w-28 border-l border-white/5">Taxa</th>
+                            <th className="p-5 text-center w-24 md:w-28">Taxa</th>
+                            <th className="p-5 text-center w-24 md:w-28 lg:w-32 rounded-tr-xl border-l border-white/5">Tendência</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03] text-xs">
@@ -80,11 +81,11 @@ const SubtopicsTable = ({ categories = [] }) => {
 
                             return (
                                 <tr key={item.id} className="group hover:bg-white/[0.02] transition-all duration-300">
-                                    <td className="p-5 pl-8 text-center text-slate-500 font-black">
+                                    <td className="p-5 pl-8 text-center align-middle text-slate-500 font-black">
                                        <span className={rankColor}>{index + 1}º</span>
                                     </td>
-                                    <td className="p-5 border-r border-white/5">
-                                        <div className="flex flex-col min-w-0">
+                                    <td className="p-5 border-r border-white/5 align-middle">
+                                        <div className="flex flex-col justify-center min-w-0">
                                             <span className="font-bold text-sm truncate text-slate-300" title={item.name}>
                                                 {item.name}
                                             </span>
@@ -93,13 +94,13 @@ const SubtopicsTable = ({ categories = [] }) => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="p-5 text-center">
-                                        <div className="flex flex-col items-center">
+                                    <td className="p-5 text-center align-middle">
+                                        <div className="flex flex-col items-center justify-center">
                                             <span className="font-mono text-sm font-black text-slate-300">{totalQuestions}</span>
                                         </div>
                                     </td>
-                                    <td className="p-5">
-                                        <div className="flex flex-col gap-2 px-2">
+                                    <td className="p-5 align-middle">
+                                        <div className="flex flex-col justify-center gap-2 px-2">
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                     {percentCorrect > 0 && (
@@ -118,16 +119,23 @@ const SubtopicsTable = ({ categories = [] }) => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="p-5 text-center border-l border-white/5">
+                                    <td className="p-5 text-center align-middle border-l border-white/5">
                                         <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-black font-mono shadow-xl transition-all duration-500 ${netBalance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                                             netBalance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-slate-800/50 border-white/5 text-slate-500'}`}>
                                             <span className="text-[11px]">{netBalance > 0 ? '+' : ''}{netBalance}</span>
                                         </div>
                                     </td>
-                                    <td className="p-5 text-center border-l border-white/5">
+                                    <td className="p-5 text-center align-middle">
                                         <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400' :
                                             percentCorrect >= 60 ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
                                             <span className="text-sm tracking-tight">{percentCorrect}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-5 text-center align-middle border-l border-white/5">
+                                        <div className="flex justify-center">
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 shadow-inner">
+                                                <Minus size={16} className="text-slate-600 opacity-50" />
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -136,7 +144,7 @@ const SubtopicsTable = ({ categories = [] }) => {
 
                         {subtopics.length === 0 && (
                             <tr>
-                                <td colSpan="6" className="p-20 text-center">
+                                <td colSpan="7" className="p-20 text-center">
                                     <div className="flex flex-col items-center gap-4 opacity-30">
                                         <Target size={48} className="text-slate-500" />
                                         <span className="text-sm font-bold uppercase tracking-widest">Nenhum assunto registrado na base</span>
