@@ -156,8 +156,8 @@ export default function MonteCarloGauge({
                         }
                     });
 
-                    categoryStats.push({ 
-                        name: cat.name, 
+                    categoryStats.push({
+                        name: cat.name,
                         ...stats,
                         bayesianMean: baye.mean,
                         volatility: vol
@@ -190,7 +190,7 @@ export default function MonteCarloGauge({
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
 
         const lastKnownScores = {}; // Armazena a nota mais recente de cada matéria
-        
+
         const globalHistory = sortedDates.map(date => {
             // 1. Atualiza o estado atual APENAS com as matérias feitas neste dia
             Object.keys(scoresByDate[date]).forEach(name => {
@@ -199,30 +199,30 @@ export default function MonteCarloGauge({
 
             let sum = 0;
             let tw = 0;
-            
+
             // 2. Calcula a média do dia usando o "nível atual" de TODAS as matérias ativas
             Object.keys(weightsByName).forEach(name => {
                 const w = weightsByName[name];
                 const currentScore = lastKnownScores[name];
-                
+
                 // Só inclui no cálculo se a matéria já tiver pelo menos 1 simulado feito no histórico
                 if (w > 0 && currentScore !== undefined) {
                     sum += currentScore * w;
                     tw += w;
                 }
             });
-            
+
             return { date, score: tw > 0 ? sum / tw : 0 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         // BUG-M1 FIX: Volatilidade Inflada (Pooled SD).
         // A volatilidade ponderada correta para variâncias independentes é √(Σwi²σi²) / Σwi.
         // Usar média aritmética Σwi×σi superestima a dispersão global.
-        const sumSquaredWeightedVol = totalWeight > 0 
+        const sumSquaredWeightedVol = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => acc + Math.pow(cat.volatility * cat.weight, 2), 0)
             : 0;
-        
-        const pooledDailySD = totalWeight > 0 
+
+        const pooledDailySD = totalWeight > 0
             ? Math.sqrt(sumSquaredWeightedVol) / totalWeight
             : 0;
 
@@ -452,7 +452,7 @@ export default function MonteCarloGauge({
     // ✅ CORREÇÃO SEGURA PARA NaN
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const prob = safe(probability);
-    
+
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
     const getGradientColor = (p) => {
@@ -558,13 +558,13 @@ export default function MonteCarloGauge({
                         />
                         {/* Leading Edge Glow (Modern replacement for the white line) */}
                         {!isCalculating && (
-                            <g 
+                            <g
                                 transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
                                 style={{ transition: 'transform 1.5s ease-out' }}
                             >
-                                <circle 
-                                    cx="10" cy="65" r="4" 
-                                    fill={gradientColor} 
+                                <circle
+                                    cx="10" cy="65" r="4"
+                                    fill={gradientColor}
                                     className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                                     style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
                                 />
@@ -573,9 +573,9 @@ export default function MonteCarloGauge({
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
-                            <span style={{ color: getGradientColor(prob), fontWeight: 'bold' }}>
-                                {formatPercent(prob)}
-                            </span>
+                        <span style={{ color: getGradientColor(prob), fontWeight: 'bold' }}>
+                            {formatPercent(prob)}
+                        </span>
                     </div>
                 </div>
                 <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${loading ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: loading ? '#60a5fa' : gradientColor }}>
