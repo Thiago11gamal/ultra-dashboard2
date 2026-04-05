@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Settings } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { motion } from 'framer-motion';
 // Update component signature to accept onExit and defaultTargetCycles
 export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 

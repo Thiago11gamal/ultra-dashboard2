@@ -15,6 +15,7 @@ import { CompareChart } from "./charts/EvolutionChart/CompareChart";
 import { RadarAnalysis } from "./charts/EvolutionChart/RadarAnalysis";
 import { PerformanceBarChart } from "./charts/EvolutionChart/PerformanceBarChart";
 import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAnalysis";
+import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
 
 const ENGINES = [
     {
@@ -36,6 +37,10 @@ const ENGINES = [
     {
         id: "compare", label: "Raio-X + Monte Carlo", emoji: "⚡", color: "#a78bfa", prefix: null, style: "monotoneX",
         explain: { titulo: "Passado, Presente e Futuro", simples: "A visão mais avançada. Sobrepõe o que fez, seu nível real e projeta o futuro com Monte Carlo.", dica: "Use o seletor 'Focar em' para mergulhar nos detalhes da matéria." },
+    },
+    {
+        id: "subtopics", label: "Raio-X de Assuntos", emoji: "🔬", color: "#facc15", prefix: null, style: "linear",
+        explain: { titulo: "Sua precisão por Assunto (Micro)", simples: "Mergulhe no nível molecular da sua disciplina. Veja o percentual real de acertos em cada subtópico.", dica: "Ideal para descobrir exatamente qual capítulo ou aula específica você precisa revisar, sem perder tempo com a matéria toda." },
     },
 ];
 
@@ -449,6 +454,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 {/* ── CHART AREA ── */}
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
+                ) : activeEngine === "subtopics" ? (
+                    <SubtopicsPerformanceChart 
+                        categories={categories} 
+                        focusSubjectId={focusSubjectId} 
+                        showOnlyFocus={showOnlyFocus} 
+                        timeWindow={timeWindow} 
+                        targetScore={targetScore} 
+                    />
                 ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
