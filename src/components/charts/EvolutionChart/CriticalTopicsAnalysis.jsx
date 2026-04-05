@@ -136,32 +136,30 @@ export function CriticalTopicsAnalysis({ categories = [] }) {
     return (
         <div className="col-span-1 md:col-span-2 pt-6">
             {/* Week Selector Header */}
-            <div className="flex flex-col items-center sm:items-end mb-4 pr-1">
-                <div className="flex items-center gap-1 sm:gap-2 mb-1 overflow-x-auto max-w-full scrollbar-hide py-1">
-                    {WEEKS.map(w => {
+            <div className="flex flex-col items-center sm:items-end mb-5 pr-1">
+                <div className="flex items-center gap-1 sm:gap-2 mb-2 overflow-x-auto max-w-full scrollbar-hide py-2 px-1 bg-slate-900/30 rounded-full border border-slate-800/50 shadow-inner">
+                    {WEEKS.map((w, idx) => {
                         const isActive = selectedWeekOffset === w.offset;
                         return (
-                            <button
-                                key={w.label}
-                                onClick={() => setSelectedWeekOffset(w.offset)}
-                                className={`
-                                    relative px-3 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest rounded-full transition-all shrink-0
-                                    ${isActive 
-                                        ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_15px_rgba(157,78,221,0.5)]' 
-                                        : 'text-slate-500 hover:text-slate-400'
-                                    }
-                                `}
-                            >
-                                {!isActive && <span className="mr-1.5 text-slate-700 font-normal opacity-50">•</span>}
-                                {w.label}
-                                {isActive && (
-                                    <div className="absolute inset-0 rounded-full border border-white/20" />
-                                )}
-                            </button>
+                            <div key={w.label} className="flex items-center">
+                                {!isActive && idx !== 0 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
+                                <button
+                                    onClick={() => setSelectedWeekOffset(w.offset)}
+                                    className={`
+                                        relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
+                                        ${isActive 
+                                            ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_20px_rgba(157,78,221,0.8)] scale-105 border border-purple-400/30 ring-1 ring-purple-500/20' 
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 shadow-sm'
+                                        }
+                                    `}
+                                >
+                                    {w.label}
+                                </button>
+                            </div>
                         );
                     })}
                 </div>
-                <div className="text-[10px] sm:text-xs text-slate-500 font-mono tracking-widest mr-2">{dateLabel}</div>
+                <div className="text-[11px] sm:text-xs text-slate-400 font-mono tracking-widest mr-3 font-bold bg-slate-900/40 px-3 py-1 rounded-md border border-slate-800">{dateLabel}</div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
