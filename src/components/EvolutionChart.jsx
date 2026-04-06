@@ -123,10 +123,10 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
     const [mcResult, setMcResult] = useState(null);
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
-    const historyArray = focusCategory?.simuladoStats?.history ?? [];
+    const historyArray = focusCategory?.simuladoStats?.history ?? EMPTY_ARRAY;
     const historyHash = useMemo(() =>
         historyArray.map(h => `${h.date}:${h.score ?? h.correct}`).join('|'),
-        [focusCategory?.id, historyArray]
+        [focusCategory?.id, focusCategory?.simuladoStats?.history]
     );
 
     useEffect(() => {
