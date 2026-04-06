@@ -7,12 +7,17 @@ import { getDateKey } from '../utils/dateHelper';
 
 export default function Notes() {
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const categories = activeContest?.categories || [];
-    const simuladoRows = activeContest?.simuladoRows || [];
+    
+    // FIX: Evitamos recriar o array `|| []` em cada renderização para não quebrar a memoização do useMemo
+    const categoriesRaw = activeContest?.categories;
+    const simuladoRowsRaw = activeContest?.simuladoRows;
 
     // DATA-INTEGRITY-FIX: Reconstruct categories history by merging 'simuladoRows' (topics) 
     // with existing 'history' (aggregates) to ensure no data is hidden.
     const enhancedCategories = useMemo(() => {
+        const categories = categoriesRaw || [];
+        const simuladoRows = simuladoRowsRaw || [];
+        
         if (!categories.length) return [];
 
         // Clone to avoid mutating store references
@@ -46,11 +51,6 @@ export default function Notes() {
 
             const existingHistory = cat.simuladoStats.history || [];
             
-            // 3. MERGE LOGIC: Rebuild history using existing entries as anchor, 
-            // but enriching them with topics from rowsByDate.
-            // If an entry exists in history but not in rowsByDate, keep it as "Geral".
-            // If an entry exists in rowsByDate but not in history, add it.
-            
             const mergedHistoryMap = {};
 
             // Add from existing history first
@@ -71,11 +71,8 @@ export default function Notes() {
                 const totalQ = topics.reduce((s, t) => s + t.total, 0);
 
                 if (mergedHistoryMap[dateKey]) {
-                    // Enrich existing entry with topics if missing or update them
-                    // We prioritize the rowsByDate topics as they are the source of truth for breakdowns
                     mergedHistoryMap[dateKey].topics = topics;
                 } else {
-                    // New entry found in rows but missing in history
                     mergedHistoryMap[dateKey] = {
                         date: dateKey,
                         correct: totalC,
@@ -104,7 +101,7 @@ export default function Notes() {
         });
 
         return newCats;
-    }, [categories, simuladoRows]);
+    }, [categoriesRaw, simuladoRowsRaw]);
 
     return (
         <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
