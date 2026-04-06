@@ -17,11 +17,22 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
             .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0)) // FIX: Aceita 0 explicitamente
             .sort((a, b) => a.date.localeCompare(b.date))
 
-            .map(d => ({
-                ...d,
-                displayDate: format(parseISO(d.date), 'dd/MM', { locale: ptBR }),
-                fullDate: format(parseISO(d.date), 'dd MMM yyyy', { locale: ptBR })
-            }));
+            .map(d => {
+                let displayDate = d.date;
+                let fullDate = d.date;
+                try {
+                    const parsed = parseISO(d.date);
+                    displayDate = format(parsed, 'dd/MM', { locale: ptBR });
+                    fullDate = format(parsed, 'dd MMM yyyy', { locale: ptBR });
+                } catch (e) {
+                    console.error('[MonteCarloEvolutionChart] Invalid date:', d.date);
+                }
+                return {
+                    ...d,
+                    displayDate,
+                    fullDate
+                };
+            });
     }, [data]);
 
     if(formattedData.length === 0) {

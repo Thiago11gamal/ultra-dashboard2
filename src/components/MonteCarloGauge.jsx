@@ -155,7 +155,6 @@ export default function MonteCarloGauge({
         const scoresByDate = {};
         const weightsByName = {};
         const bayesianStats = [];
-        let weightedVolatilitySum = 0;
 
         // Limite da Máquina do Tempo
         const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length) 
@@ -181,7 +180,6 @@ export default function MonteCarloGauge({
                 if (stats && weight > 0) {
                     totalWeight += weight;
                     weightedBayesianSum += baye.mean * weight;
-                    weightedVolatilitySum += vol * weight;
                     weightsByName[cat.name] = weight;
 
                     history.forEach(h => {
@@ -370,9 +368,9 @@ export default function MonteCarloGauge({
                 const baseline = cat.bayesianMean ?? cat.mean;
                 const result = simulateNormalDistribution({
                     mean: baseline,
-                    sd: cat.sd,
+                    sd: cat.volatility ?? cat.sd,
                     targetScore: debouncedTarget,
-                    simulations: 1000,
+                    simulations: 2000,
                     categoryName: cat.name
                 });
                 return {

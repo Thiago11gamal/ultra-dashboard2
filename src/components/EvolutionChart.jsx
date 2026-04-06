@@ -123,6 +123,12 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
     const [mcResult, setMcResult] = useState(null);
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
+    const historyHash = useMemo(() =>
+        (focusCategory?.simuladoStats?.history ?? [])
+            .map(h => `${h.date}:${h.score ?? h.correct}`).join('|'),
+        [focusCategory?.id, focusCategory?.simuladoStats?.history?.length]
+    );
+
     useEffect(() => {
         setMcProjectionSeries(null);
         if (!focusCategory?.simuladoStats?.history) return;
@@ -187,7 +193,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         })();
 
         return () => { cancelled = true; };
-    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, targetScore, projectDays, runAnalysis]);
+    }, [focusCategory?.id, historyHash, targetScore, projectDays, runAnalysis]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -10,6 +10,16 @@ export function CompareChart({
     filteredChartData, 
     targetScore 
 }) {
+    const baseId = useId().replace(/:/g, '');
+    const CC = React.useMemo(() => ({
+        projectionPurpleGradient: `cc_projPurple-${baseId}`,
+        cloudGradient: `cc_cloud-${baseId}`,
+        bayBandGradient: `cc_bayBand-${baseId}`,
+        greenGradient: `cc_green-${baseId}`,
+        lineShadow: `cc_lineShadow-${baseId}`,
+        glow: `cc_glow-${baseId}`
+    }), [baseId]);
+
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
         for (let i = filteredChartData.length - 1; i >= 0; i--) {
@@ -99,23 +109,23 @@ export function CompareChart({
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
                 <ComposedChart data={filteredChartData} margin={{ top: 20, right: 75, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
-                        <linearGradient id="cc_projectionPurpleGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
                             <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.01} />
                         </linearGradient>
-                        <linearGradient id="cc_cloudGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={CC.cloudGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
                             <stop offset="100%" stopColor="#6366f1" stopOpacity={0.01} />
                         </linearGradient>
-                        <linearGradient id="cc_bayBandGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={CC.bayBandGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.2} />
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.05} />
                         </linearGradient>
-                        <linearGradient id="cc_greenGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={CC.greenGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                         </linearGradient>
-                        <filter id="cc_lineShadow" height="200%">
+                        <filter id={CC.lineShadow} height="200%">
                             <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
                             <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
                             <feMerge>
@@ -123,7 +133,7 @@ export function CompareChart({
                                 <feMergeNode in="SourceGraphic" />
                             </feMerge>
                         </filter>
-                        <filter id="cc_glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id={CC.glow} x="-20%" y="-20%" width="140%" height="140%">
                             <feGaussianBlur stdDeviation="3.5" result="glow" />
                             <feMerge>
                                 <feMergeNode in="glow" />
@@ -143,16 +153,16 @@ export function CompareChart({
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     
-                    <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill="url(#cc_bayBandGradient)" legendType="none" connectNulls isAnimationActive={false} />
-                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill="url(#cc_projectionPurpleGradient)" stroke="none" legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" connectNulls isAnimationActive={false} />
+                    <Area type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" connectNulls isAnimationActive={false} />
                     
                     <Area type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" connectNulls isAnimationActive={false} baseValue={gainBase} />
-                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill="url(#cc_cloudGradient)" stroke="none" legendType="none" />
+                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" />
                     
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
                         strokeLinecap="round" strokeLinejoin="round"
-                        fill="url(#cc_greenGradient)" dot={{ r: 4, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 2 }}
-                        activeDot={false} connectNulls style={{ filter: 'url(#cc_lineShadow)' }} isAnimationActive={true}>
+                        fill={`url(#${CC.greenGradient})`} dot={{ r: 4, fill: '#34d399', stroke: '#0a0f1e', strokeWidth: 2 }}
+                        activeDot={false} connectNulls style={{ filter: `url(#${CC.lineShadow})` }} isAnimationActive={true}>
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
@@ -173,7 +183,7 @@ export function CompareChart({
                             if (index !== filteredChartData.length - 1) return null;
                             return (
                                 <g>
-                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: 'url(#cc_glow)' }}>
+                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: `url(#${CC.glow})` }}>
                                         <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
                                     </circle>
                                     <circle cx={cx} cy={cy} r={8} fill="#a78bfa" opacity="0.3">
@@ -183,7 +193,7 @@ export function CompareChart({
                                 </g>
                             );
                         }}
-                        connectNulls strokeOpacity={1} style={{ filter: 'url(#cc_glow)' }} isAnimationActive={false}>
+                        connectNulls strokeOpacity={1} style={{ filter: `url(#${CC.glow})` }} isAnimationActive={false}>
                         <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
                     </Line>
                 </ComposedChart>
