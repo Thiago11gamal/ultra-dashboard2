@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, Info, ChevronDown, Clock } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, ChevronDown, Clock } from 'lucide-react';
 import {
     computeCategoryStats,
     computeBayesianLevel,
     simulateNormalDistribution,
     runMonteCarloAnalysis,
-    computePooledSD,
     computeWeightedVariance,
     calculateVolatility
 } from '../engine';
@@ -27,14 +26,12 @@ export default function MonteCarloGauge({
     goalDate,
     targetScore,
     onTargetScoreChange,
-    forcedMode = null,
-    forcedTitle = null
+    forcedMode = null
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [showPerSubject, setShowPerSubject] = useState(false);
     
-    // ESTADO DA MÁQUINA DO TEMPO: -1 significa "Tempo Real (Hoje)"
     const [timeIndex, setTimeIndex] = useState(-1);
 
     const activeId = useAppStore(state => state.appState.activeId);
@@ -56,7 +53,6 @@ export default function MonteCarloGauge({
         categories.map(c => c.simuladoStats?.history?.length ?? 0).join(','),
         [categories]);
 
-    // LÓGICA DA MÁQUINA DO TEMPO: Levantar todas as datas em que houve simulado
     const timelineDates = useMemo(() => {
         const dates = new Set();
         categories.forEach(cat => {
@@ -68,16 +64,14 @@ export default function MonteCarloGauge({
             }
         });
         return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
-    }, [categoryHistoryHash]);
+    }, [categoryHistoryHash, categories]);
 
-    // Reseta o tempo se a base mudar muito (ex: apagou dados)
     useEffect(() => {
         setTimeIndex(-1);
     }, [timelineDates.length]);
 
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
-    // LÓGICA DA MÁQUINA DO TEMPO: Ajustar os dias de projeção com base no "passado"
     const projectDays = useMemo(() => {
         if (effectiveSimulateToday) return 0;
         if (!goalDate) return 30;
@@ -146,7 +140,6 @@ export default function MonteCarloGauge({
         return () => clearTimeout(timer);
     }, [effectiveWeights]);
 
-
     const statsData = useMemo(() => {
         let categoryStats = [];
         let totalWeight = 0;
@@ -156,14 +149,12 @@ export default function MonteCarloGauge({
         const weightsByName = {};
         const bayesianStats = [];
 
-        // Limite da Máquina do Tempo
         const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length) 
             ? timelineDates[timeIndex] 
             : null;
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
-                // BUG-03 FIX: Filtra o histórico apagando o "futuro" da perspectiva da máquina do tempo
                 const history = [...cat.simuladoStats.history]
                     .filter(h => cutoffDate ? getDateKey(h.date) <= cutoffDate : true)
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -172,7 +163,6 @@ export default function MonteCarloGauge({
 
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
 
-                // PERFORMANCE-01 FIX: computeBayesianLevel is expensive O(M). Compute once and re-use.
                 const baye = computeBayesianLevel(history);
                 const stats = computeCategoryStats(history, weight);
                 const vol = calculateVolatility(history);
@@ -197,8 +187,6 @@ export default function MonteCarloGauge({
                         volatility: vol
                     });
                     
-                    // BUG-08 FIX: Previne duplo shrinkage na propagação do SD bayesiano
-                    // Usa volatilidade do prior Beta (baye.sd) para isolar Incerteza Bayesiana (Bug 2)
                     bayesianStats.push({ sd: baye.sd, weight, n: history.length });
                 }
             }
@@ -206,7 +194,6 @@ export default function MonteCarloGauge({
 
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-        // 🎯 MATH FIX: Agregação Coesa de Volatilidade
         const pooledVariance = computeWeightedVariance(
             categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })),
             totalWeight
@@ -215,16 +202,12 @@ export default function MonteCarloGauge({
 
         const bayesianMean = weightedBayesianSum / totalWeight;
 
-        // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
-        // Final Bayesian CI for the static Today simulation
-        // BUG MATEMÁTICO FIX: Não cortar aqui (clipping) para evitar distorção estatística.
         const weightedLow = bayesianMean - 1.96 * pooledBayesianSD;
         const weightedHigh = bayesianMean + 1.96 * pooledBayesianSD;
 
-        // Reconstruct consolidated global history for path simulation (Carry-Forward Fix)
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
 
         const lastKnownScores = {}; 
@@ -251,12 +234,8 @@ export default function MonteCarloGauge({
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         const pooledDailySD = pooledSD;
-
-
-
         const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory);
 
-        // BUG-11 FIX: Calcular Consistência Real (100% - Coeficiente de Variação Médio Ponderado)
         const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
                 const catCV = (cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0);
@@ -394,7 +373,6 @@ export default function MonteCarloGauge({
 
     useEffect(() => {
         const prob = Number.isFinite(Number(simulationData?.data?.probability)) ? Number(simulationData?.data?.probability) : 0;
-        // Não salva o histórico se estivermos viajando no tempo
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
         
         if (simulationData?.status === 'ready' && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
@@ -637,7 +615,6 @@ export default function MonteCarloGauge({
                     ))}
                 </div>
 
-                {/* --- MÁQUINA DO TEMPO (SLIDER) --- */}
                 {timelineDates.length > 1 && (
                     <div className="w-full mt-6 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
                         <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
@@ -676,7 +653,6 @@ export default function MonteCarloGauge({
                                 [&::-webkit-slider-thumb]:border-white
                                 cursor-pointer"
                             />
-                            {/* Marcadores Visuais (Ticks) */}
                             <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
                                 {timelineDates.map((_, i) => (
                                     <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length -1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
@@ -687,7 +663,6 @@ export default function MonteCarloGauge({
                 )}
             </div>
 
-            {/* Restante do Painel... */}
             <div className="w-full flex flex-col gap-2 mt-4">
                 <button
                     onClick={() => setShowPerSubject(!showPerSubject)}
