@@ -170,12 +170,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     const p    = alpha / n;
     const mean = p * 100;
 
-    // FIX: Variância Conjugada + Variância Inter-exames Mínima (~3%)
+    // FIX: Removido o Math.pow(0.03, 2) arbitrário que corrompia a Conjugação Bayesiana
     const baseVariance = (alpha * beta) / (n * n * (n + 1));
-    const interTestVariance = Math.pow(0.03, 2); // 3% em escala 0-1
-    
-    const sd = Math.sqrt(baseVariance + interTestVariance);
-    const effectiveSd = sd; // SD já inclui o piso inter-exames
+    const effectiveSd = Math.sqrt(baseVariance); 
 
 
     // REVISION: Improved CI Clamping to preserve symmetry where possible 

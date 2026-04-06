@@ -13,16 +13,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
-  // 🎯 BUG-V2 FIX: Piso de SD reduzido para 0.0001 para permitir estabilidade real.
   const safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0.0001; 
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  // 🎯 BUG-S8 FIX: Seed com maior entropia usando multiplicadores primos e hash de categoria.
+  // FIX: Uso de Math.floor na média para evitar o "Efeito Borboleta" nas sementes
   const categoryHash = (categoryName || '').split('').reduce((acc, char, idx) => acc + char.charCodeAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    Math.round(safeMean * 179) ^
+    Math.floor(safeMean) * 179 ^
     Math.round(safeSD * 997) ^
     Math.round(safeTarget * 1009) ^
     (categoryHash * 13) ^
@@ -39,26 +38,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const allScores = new Float32Array(safeSimulations);
 
   for (let i = 0; i < safeSimulations; i++) {
-    let score;
-    let attempts = 0;
+    // FIX: Remoção da Amostragem de Rejeição e do Clamping para preservar o Desvio Padrão
+    const score = safeMean + randomNormal(rng) * safeSD;
     
-    // FIX: Aumentamos para 40 tentativas para garantir convergência estatística
-    // sem forçar o fallback prematuro, preservando a cauda da distribuição.
-    do {
-        score = safeMean + randomNormal(rng) * safeSD;
-        attempts++;
-    } while ((score < 0 || score > 100) && attempts < 40);
-
-    
-    // Fallback de segurança extrema para evitar travamentos se os parâmetros forem corrompidos
-    if (score < 0) score = 0;
-    if (score > 100) score = 100;
-
-    // Sucesso calculado na nota truncada e viável
     if (score >= safeTarget) success++;
-
     allScores[i] = score;
-
 
     welfordCount++;
     const delta = score - welfordMean;
@@ -69,7 +53,6 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-  // 🎯 BUG-O7 FIX: Ordenação numérica explícita (a-b) para garantir estabilidade cross-engine.
   allScores.sort((a, b) => a - b); 
 
   const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
@@ -80,33 +63,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   const empiricalProbability = (success / safeSimulations) * 100;
   
-  // Display stats (Corte visual apenas para a UI)
   const displayMean = Math.max(0, Math.min(100, projectedMean));
   const displayLow = Math.max(0, rawLow);
   const displayHigh = Math.min(100, rawHigh);
 
-  // 🎯 MATH FIX: Unificação do Modelo Bayesiano
-  // Para que o Gauge (ponteiro) e o Gráfico falem a mesma língua, o cálculo do zScore deve respeitar o parâmetro bayesianCI.
-  const finalMeanForMath = bayesianCI ? safeMean : projectedMean;
-  const finalSDForMath = bayesianCI ? safeSD : (projectedSD || 0.0001);
-
-  const zScore = (safeTarget - finalMeanForMath) / finalSDForMath;
+  // FIX: Probabilidade Analítica agora utiliza os dados puros, não os distorcidos pelos limites físicos
+  const zScore = (safeTarget - safeMean) / safeSD;
   const analyticalProbability = normalCDF_complement(zScore) * 100;
 
-  
-    // REMOVER OU COMENTAR ESTE BLOCO:
-    // const gap = Math.abs(empiricalProbability - analyticalProbability);
-    // if (gap > 3 && projectedSD > 0.1) {
-    //    console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
-    // }
-
   return {
-    // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9). Se a probabilidade for 100% ou 0%, exibimos o valor real.
     probability: empiricalProbability,
     analyticalProbability: analyticalProbability,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    // Mantemos sdLeft/sdRight apenas como metadados informativos, mas não mais operacionais.
     sdLeft: Number(Math.max(0.1, (displayMean - displayLow) / 1.96).toFixed(2)),
     sdRight: Number(Math.max(0.1, (displayHigh - displayMean) / 1.96).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),

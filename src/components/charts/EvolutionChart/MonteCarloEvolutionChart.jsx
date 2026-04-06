@@ -60,7 +60,11 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
         if (active && payload && payload.length) {
             const val = payload[0].value;
             const fullDate = payload[0].payload.fullDate;
-            const isGood = val >= targetScore;
+            
+            // FIX: Parou de comparar "Probabilidade (%)" com "Nota Alvo (pts)". 
+            // Agora usa um limiar matemático justo: 75% de chance de passar é um bom status.
+            const SAFE_PROBABILITY_THRESHOLD = 75.0; 
+            const isGood = val >= SAFE_PROBABILITY_THRESHOLD;
             
             return (
                 <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-xl">
@@ -131,13 +135,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
                         
-                        <ReferenceLine 
-                            y={targetScore} 
-                            stroke="#ef4444" 
-                            strokeDasharray="4 4" 
-                            strokeWidth={2}
-                            label={{ position: 'insideTopLeft', value: 'META', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }} 
-                        />
+                        {/* FIX: ReferenceLine removida, pois 'targetScore' é pontuação e o eixo é Probabilidade */}
                         
                         <Area 
                             type="monotone" 

@@ -29,7 +29,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let vizSdLeft = Math.max(1, propSdLeft ?? sd);
         let vizSdRight = Math.max(1, propSdRight ?? sd);
 
-        if (prob != null && prob > 0 && prob < 100) {
+        // FIX: Ignora a distorção (solver geométrico) caso estejamos usando o KDE verdadeiro
+        const hasValidKDE = kdeData && kdeData.length > 5;
+
+        if (!hasValidKDE && prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
             const t = targetVal;
@@ -77,8 +80,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        const baseHeightFactor = 0.65; 
-
+        // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
+        const baseHeightFactor = 0.95; 
         const xp = (v) => 2 + ((v - xMin) / range * 96);
         const yp = (yVal) => 100 - (yVal * 92); 
 
