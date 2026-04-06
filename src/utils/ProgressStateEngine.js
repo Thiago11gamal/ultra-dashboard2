@@ -7,11 +7,11 @@
 
 const DEFAULT_CONFIG = {
     window_size: 10,
-    stagnation_threshold: 3.0,  // RIGOR-11 FIX: Aumentado para 3.0 para acomodar ruído natural de simulados
-    low_level_limit: 60,        // L1
-    high_level_limit: 75,       // L2
-    mastery_limit: 85,          // L3 (Teto)
-    trend_tolerance: 0.5        // Slope deadzone
+    stagnation_threshold: 4.0, // Aumentado para tolerar mais ruído
+    low_level_limit: 60,
+    high_level_limit: 75,
+    mastery_limit: 85,
+    trend_tolerance: 0.8 // Aumentado para evitar alertas de regressão por flutuações mínimas
 };
 
 export function analyzeProgressState(scores, config = {}) {
@@ -100,16 +100,19 @@ export function analyzeProgressState(scores, config = {}) {
         }
     } else {
         // 7.2 Dynamic States (Not Stagnated) with Trend Tolerance
-        if (slope > trend_tolerance) {
+        // FIX 3: Adicionar peso extra à consistência (Variance) na decisão de estado
+        const isVeryUnstable = variance > 25; // Se a flutuação for gigante, ignorar a tendência linear
+
+        if (slope > trend_tolerance && !isVeryUnstable) {
             state = 'progression';
             label = 'Em evolução';
             severity = 'none';
-        } else if (slope < -trend_tolerance) {
+        } else if (slope < -trend_tolerance && !isVeryUnstable) {
             state = 'regression';
             label = 'Em regressão';
             severity = 'high';
         } else {
-            state = 'unstable';
+            state = 'unstable'; // Flutuações grandes agora caem aqui em vez de Regressão
             label = 'Instável / Flutuação';
             severity = 'medium';
         }

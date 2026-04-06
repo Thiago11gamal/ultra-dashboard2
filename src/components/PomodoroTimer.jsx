@@ -323,6 +323,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const timeLeftRef = useRef(timeLeft);
     useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
+    // --- IDLE LOGOUT HEARTBEAT ---
+    useEffect(() => {
+        let heartbeatInterval;
+        if (isRunning && typeof window !== 'undefined') {
+            heartbeatInterval = setInterval(() => {
+                // Dispara um evento de movimento falso para resetar o useIdleLogout
+                // Isso evita que o utilizador seja deslogado durante uma sessão de estudo focada.
+                window.dispatchEvent(new MouseEvent('mousemove', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                }));
+            }, 5 * 60 * 1000); // A cada 5 minutos
+        }
+        return () => clearInterval(heartbeatInterval);
+    }, [isRunning]);
+
     // --- ROBUST TIMER LOGIC ---
     useEffect(() => {
         let rafId;

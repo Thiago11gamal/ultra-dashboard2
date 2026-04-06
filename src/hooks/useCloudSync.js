@@ -208,52 +208,55 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             // --- LOCKDOWN RULE: CLOUD WINS ON BOOT (WITH TIMESTAMP CHECK) ---
             const isBootSync = !isParityValidatedRef.current;
-
-            // --- CONFLICT RESOLUTION ---
-            // Aumentando a janela de proteção local para 15 segundos.
-            // Se o usuário digitou qualquer coisa nos últimos 15s, a nuvem NÃO deve sobrescrever.
-            const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 15000;
+            const now = Date.now();
+            // FIX 2: Aumentar janela de proteção e validar se o app acabou de ser editado
+            const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
 
             let shouldPullCloud = false;
 
             if (isBootSync) {
-                const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
-                const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? Date.now() : cloudUpdatedRaw.getTime();
-
-                const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
-                const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
-
-                // SYNC-01 FIX: user está em contests[activeId].user, não no root de appState
-                const activeId = appStateRef.current?.activeId;
-                const activeContest = appStateRef.current?.contests?.[activeId];
-                const contestCount = Object.keys(appStateRef.current?.contests || {}).length;
-                const localHasSubstantialContent = contestCount > 1 || 
-                    (activeContest?.categories && activeContest.categories.length > 0) ||
-                    (activeContest?.user?.name && activeContest.user.name !== "Estudante");
-
-                const localIsInitial = localUpdated <= 0 || !localHasSubstantialContent;
-
-                const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
-                    (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
-
-                const cloudContestIds = Object.keys(cloudData.contests || {});
-                const localContestIds = Object.keys(appStateRef.current?.contests || {});
-                const cloudHasMissingLocalContests = cloudContestIds.some(id => !localContestIds.includes(id));
-
-                if (localIsInitial && cloudHasContent) {
-                    logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
-                    shouldPullCloud = true;
-                } else if (cloudHasMissingLocalContests) {
-                    logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge.");
-                    shouldPullCloud = true;
-                } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
-                    // 🛡️ BUG-C2: Nuvem é significativamente mais recente (>5s) — puxar
-                    logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
-                    shouldPullCloud = true;
-                }
- else {
-                    logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente ou substancial. Local: ${new Date(localUpdated).toISOString()} | Cloud: ${new Date(cloudUpdated).toISOString()} | LocalSubstantial: ${localHasSubstantialContent}`);
+                // Se o utilizador já começou a interagir (mesmo no boot), a nuvem perde a prioridade absoluta
+                if (localWasJustEdited) {
+                    logger.warn("[Sync] Bloqueio de Boot: Utilizador já iniciou edições locais.");
                     shouldPullCloud = false;
+                } else {
+                    const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
+                    const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? now : cloudUpdatedRaw.getTime();
+
+                    const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
+                    const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
+
+                    // SYNC-01 FIX: user está em contests[activeId].user, não no root de appState
+                    const activeId = appStateRef.current?.activeId;
+                    const activeContest = appStateRef.current?.contests?.[activeId];
+                    const contestCount = Object.keys(appStateRef.current?.contests || {}).length;
+                    const localHasSubstantialContent = contestCount > 1 || 
+                        (activeContest?.categories && activeContest.categories.length > 0) ||
+                        (activeContest?.user?.name && activeContest.user.name !== "Estudante");
+
+                    const localIsInitial = localUpdated <= 0 || !localHasSubstantialContent;
+
+                    const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
+                        (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
+
+                    const cloudContestIds = Object.keys(cloudData.contests || {});
+                    const localContestIds = Object.keys(appStateRef.current?.contests || {});
+                    const cloudHasMissingLocalContests = cloudContestIds.some(id => !localContestIds.includes(id));
+
+                    if (localIsInitial && cloudHasContent) {
+                        logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
+                        shouldPullCloud = true;
+                    } else if (cloudHasMissingLocalContests) {
+                        logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge.");
+                        shouldPullCloud = true;
+                    } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
+                        // 🛡️ BUG-C2: Nuvem é significativamente mais recente (>5s) — puxar
+                        logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
+                        shouldPullCloud = true;
+                    } else {
+                        logger.warn(`[Sync] RECUSANDO NUVEM! Local é mais recente ou substancial.`);
+                        shouldPullCloud = false;
+                    }
                 }
 
                 // PROTEÇÃO ANTI-SOBRECRITA DE RESGATE

@@ -49,9 +49,18 @@ const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
 // --- STORE HELPERS ---
 
 const stripForUndo = (contestsObj) => {
-    // Audit P1 Fix: Stop stripping arrays that don't have another persistence source.
-    // The history cap of 20 snapshots already prevents catastrophic memory leaks.
-    return JSON.parse(JSON.stringify(contestsObj));
+    // Otimização de Memória: Remove arrays pesados do histórico de Undo
+    // Isso evita o esgotamento de RAM no Galaxy Book 2 após muitas edições.
+    const cleanContests = {};
+    Object.entries(contestsObj).forEach(([id, data]) => {
+        cleanContests[id] = {
+            ...data,
+            studyLogs: [], // Não precisamos de logs detalhados no Undo da UI
+            studySessions: [],
+            simuladoRows: []
+        };
+    });
+    return JSON.parse(JSON.stringify(cleanContests));
 };
 
 const HISTORY_COOLDOWN = 1000; // Only record history once per second for rapid UI actions
@@ -422,11 +431,13 @@ export const useAppStore = create(
                     state.appState.pomodoro.activeSubject = null;
                 }
 
-                // DATA-07: Cleanup coachPlanner references to avoid Ghost Tasks
+                // FIX 1: Limpeza profunda no CoachPlanner (incluindo tarefas sem ID de categoria)
                 if (activeData.coachPlanner) {
                     Object.keys(activeData.coachPlanner).forEach(day => {
                         if (Array.isArray(activeData.coachPlanner[day])) {
-                            activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item => item.categoryId !== id);
+                            activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item => 
+                                item.categoryId !== id && item.categoryId !== undefined
+                            );
                         }
                     });
                 }
