@@ -230,18 +230,13 @@ export const useAppStore = create(
                     ? newDataCallback(currentData)
                     : newDataCallback;
 
-                if (nextData === undefined) {
-                    // CRASH-2: The callback mutated currentData through Immer's draft.
-                    // We must update the metadata so the sync logic detects a change.
-                    state.appState.version = (state.appState.version || 0) + 1;
-                    state.appState.lastUpdated = new Date().toISOString();
-                    return;
+                if (nextData !== undefined) {
+                    state.appState.contests[contestId] = nextData;
                 }
 
-                state.appState.contests[contestId] = nextData;
+                // FIX: Propagate metadata changes even on in-place mutations (Immer draft)
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
-                // FORTRESS: High priority alert for Cloud Sync
                 localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
@@ -830,31 +825,26 @@ export const useAppStore = create(
             storage: createJSONStorage(() => ({
                 getItem: (name) => localStorage.getItem(name),
                 setItem: (name, value) => {
-                    // BUG-05: Save ephemeral pomodoro state separately to avoid history bloat
-                    if (name === 'ultra-dashboard-storage') { // Only process main store state here
+                    if (name === 'ultra-dashboard-storage') {
                         try {
-                            const state = JSON.parse(value);
-                            const { mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject } = state.state.appState.pomodoro;
-                            const stateToSave = {
-                                mode,
-                                timeLeft,
-                                isRunning,
-                                sessions,
-                                completedCycles,
-                                targetCycles,
-                                sessionHistory,
-                                savedAt: Date.now(),
-                                activeTaskId: activeSubject?.taskId,
-                                sessionInstanceId: activeSubject?.sessionInstanceId
-                            };
-                            // Bug #4: Silently ignore quota errors for the timer (ephemeral state)
-                            try {
-                                localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-                            } catch (err) {
-                                // Silently ignore quota errors for the timer (ephemeral state)
+                            const parsed = JSON.parse(value);
+                            // FIX: Aceder corretamente ao caminho do estado no Zustand
+                            const pomodoro = parsed.state.appState.pomodoro;
+                            
+                            // Verificação de existência para evitar undefined
+                            if (pomodoro) {
+                                const stateToSave = {
+                                    sessions: pomodoro.sessions || 0,
+                                    completedCycles: pomodoro.completedCycles || 0,
+                                    targetCycles: pomodoro.targetCycles || 1,
+                                    activeSubject: pomodoro.activeSubject || null,
+                                    savedAt: Date.now()
+                                };
+                                // Bug #4: Silently ignore quota errors for the timer (ephemeral state)
+                                try { localStorage.setItem('pomodoroState', JSON.stringify(stateToSave)); } catch (e) {}
                             }
                         } catch (e) {
-                            console.error("Failed to parse state for pomodoro save:", e);
+                            console.error("Erro ao salvar estado do pomodoro:", e);
                         }
                     }
 

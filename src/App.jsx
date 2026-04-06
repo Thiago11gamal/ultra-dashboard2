@@ -158,81 +158,82 @@ function MainLayout() {
 
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative">
-      {!isPremium && (
+      {!isPremium ? (
         <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
           <Suspense fallback={null}>
             <Paywall user={currentUser} onLogout={logout} />
           </Suspense>
         </div>
+      ) : (
+        <>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+            user={data.user}
+            isMobile={isMobile}
+            onOpenHelp={() => setShowHelpGuide(true)}
+          />
+
+          <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
+            {/* Mobile spacer: pushes content below the fixed top nav bar */}
+            <div className="h-14 md:hidden" aria-hidden="true" />
+            <Header
+              user={data.user}
+              settings={data.settings}
+              contests={appState.contests}
+              activeContestId={appState.activeId}
+              onSwitchContest={switchContest}
+              onCreateContest={createNewContest}
+              onDeleteContest={deleteContest}
+              onUndo={handleUndo}
+              onCloudRestore={handleCloudRestore}
+              onUpdateName={updateUserName}
+              currentData={data}
+              appState={appState}
+              cloudStatus={{
+                status: cloudStatus,
+                error: cloudError,
+                syncing: isCloudSyncing,
+                hasConflict,
+                forcePull: forcePullCloud
+              }}
+              onExport={handleExport}
+              onImport={handleImport}
+              onThemeChange={setThemeMode}
+            />
+
+            {/* Router Outlet com carregamento otimizado */}
+            <div className="animate-page-entrance">
+              <ErrorBoundary>
+                <Suspense fallback={
+                  <div className="flex items-center justify-center p-20 text-purple-400">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                  </div>
+                }>
+                  <Routes location={location}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/pomodoro" element={<Pomodoro />} />
+                    <Route path="/tasks" element={<Tasks />} />
+                    <Route path="/simulados" element={<Simulados />} />
+                    <Route path="/stats" element={<Stats />} />
+                    <Route path="/evolution" element={<Evolution />} />
+                    <Route path="/coach" element={<Coach />} />
+                    <Route path="/history" element={<History />} />
+                    <Route path="/sessions" element={<Sessions />} />
+                    <Route path="/heatmap" element={<Activity />} />
+                    <Route path="/retention" element={<Retention />} />
+                    <Route path="/notes" element={<Notes />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          </main>
+          
+          <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+          <OnboardingTour />
+        </>
       )}
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-        user={data.user}
-        isMobile={isMobile}
-        onOpenHelp={() => setShowHelpGuide(true)}
-      />
-
-      <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
-        {/* Mobile spacer: pushes content below the fixed top nav bar */}
-        <div className="h-14 md:hidden" aria-hidden="true" />
-        {/* Desktop spacer - removed */}
-        <Header
-          user={data.user}
-          settings={data.settings}
-          contests={appState.contests}
-          activeContestId={appState.activeId}
-          onSwitchContest={switchContest}
-          onCreateContest={createNewContest}
-          onDeleteContest={deleteContest}
-          onUndo={handleUndo}
-          onCloudRestore={handleCloudRestore}
-          onUpdateName={updateUserName}
-          currentData={data}
-          appState={appState}
-          cloudStatus={{
-            status: cloudStatus,
-            error: cloudError,
-            syncing: isCloudSyncing,
-            hasConflict,
-            forcePull: forcePullCloud
-          }}
-          onExport={handleExport}
-          onImport={handleImport}
-          onThemeChange={setThemeMode}
-        />
-
-        {/* Router Outlet com carregamento otimizado */}
-        <div className="animate-page-entrance">
-          <ErrorBoundary>
-            <Suspense fallback={
-              <div className="flex items-center justify-center p-20 text-purple-400">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-              </div>
-            }>
-              <Routes location={location}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/pomodoro" element={<Pomodoro />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/simulados" element={<Simulados />} />
-                <Route path="/stats" element={<Stats />} />
-                <Route path="/evolution" element={<Evolution />} />
-                <Route path="/coach" element={<Coach />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/sessions" element={<Sessions />} />
-                <Route path="/heatmap" element={<Activity />} />
-                <Route path="/retention" element={<Retention />} />
-                <Route path="/notes" element={<Notes />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        </div>
-      </main>
-
-      <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
-
-      {isPremium && <OnboardingTour />}
 
       {levelUpData && (
         <LevelUpToast
@@ -254,7 +255,6 @@ function MainLayout() {
           </div>
         ))}
       </div>
-
     </div>
   );
 }

@@ -43,11 +43,11 @@ export function AuthProvider({ children }) {
 
         const loadingTimeout = setTimeout(() => {
             if (!hasResolvedAuth) {
-                console.warn('[Auth] onAuthStateChanged demorou para responder. Liberando app sem sessão.');
+                console.warn('[Auth] O Firebase está a demorar. Por favor, aguarde...');
                 setShowDebug(true);
-                setLoading(false); // Força a liberação do app
+                // FIX: Removido setLoading(false) para evitar bypass de segurança
             }
-        }, 5000);
+        }, 8000);
 
         if (!auth) {
             console.warn('[Auth] Auth service is missing. Bypassing state listener.');
@@ -57,17 +57,11 @@ export function AuthProvider({ children }) {
         }
 
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            const wasImpacient = !hasResolvedAuth && !loading;
             hasResolvedAuth = true;
             clearTimeout(loadingTimeout);
 
             if (user) {
                 console.debug("[Auth] Usuário conectado:", user.email);
-                if (wasImpacient) {
-                    console.warn("[Auth] Firebase resolveu após timeout. Forçando recarregamento para paridade de estado.");
-                    window.location.reload();
-                    return;
-                }
             } else {
                 console.debug("[Auth] Nenhum usuário conectado.");
             }

@@ -21,7 +21,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
-  const safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0.0001; 
+  const safeSD = Number.isFinite(sd) && sd > 0.0001 ? sd : 0.0001; 
   const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
@@ -80,8 +80,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const analyticalProbability = normalCDF_complement(zScore) * 100;
 
   return {
-    probability: empiricalProbability,
-    analyticalProbability: analyticalProbability,
+    probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
+    analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
     sdLeft: Number(Math.max(0.1, (displayMean - displayLow) / 1.96).toFixed(2)),
