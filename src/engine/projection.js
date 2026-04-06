@@ -76,7 +76,7 @@ function weightedRegression(history, lambda = 0.08) {
     // FIX MATEMÁTICO: Calcular o Effective Sample Size (Kish) para variância
     const sumW = data.reduce((a, p) => a + p.w, 0);
     const sumW2 = data.reduce((a, p) => a + p.w * p.w, 0);
-    const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : n;
+    const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : data.length;
     
     const wrss = data.reduce((acc, p) =>
         acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
@@ -373,7 +373,6 @@ export function monteCarloSimulation(
 
     const simulationDays = days;
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
-    const dayDrift = days === 0 ? 0 : drift;
 
     // BUG-C1 FIX: Removed intentional UI damping that violated random walk theory.
     // Total SD after T days = daily_volatility * sqrt(T).
