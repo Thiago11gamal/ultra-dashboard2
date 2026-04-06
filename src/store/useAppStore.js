@@ -133,6 +133,7 @@ export const useAppStore = create(
                 trash: [],
                 lastHistoryTime: 0,
                 version: 0,
+                dashboardFilter: 'all',
                 hasSeenTour: false,
                 pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
                 lastUpdated: "1970-01-01T00:00:00.000Z"
@@ -156,6 +157,12 @@ export const useAppStore = create(
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
                 localStorage.setItem('ultra-sync-dirty', 'true');
+            }),
+
+            setDashboardFilter: (filter) => set((state) => {
+                state.appState.dashboardFilter = filter;
+                state.appState.version = (state.appState.version || 0) + 1;
+                state.appState.lastUpdated = new Date().toISOString();
             }),
 
             updateCoachPlanner: (newPlannerData) => set((state) => {
@@ -428,16 +435,22 @@ export const useAppStore = create(
                     const now = new Date().toISOString();
                     const activeData = state.appState.contests[state.appState.activeId];
 
-                    if (!activeData.studyLogs) activeData.studyLogs = [];
-                    if (!activeData.studySessions) activeData.studySessions = [];
-
                     const logId = generateId('log');
                     const sessionId = generateId('session');
-                    activeData.studyLogs.push({ id: logId, date: now, categoryId, taskId, minutes });
-                    activeData.studySessions.push({ id: sessionId, startTime: now, duration: minutes, categoryId, taskId, logReferenceId: logId });
+                    
+                    const newLog = { id: logId, date: now, categoryId, taskId, minutes };
+                    const newSession = { 
+                        id: sessionId, 
+                        startTime: now, 
+                        duration: minutes, 
+                        categoryId, 
+                        taskId, 
+                        logReferenceId: logId 
+                    };
 
-                    if (activeData.studyLogs.length > LOG_CAP) activeData.studyLogs = activeData.studyLogs.slice(-LOG_CAP);
-                    if (activeData.studySessions.length > SESSION_CAP) activeData.studySessions = activeData.studySessions.slice(-SESSION_CAP);
+                    // FIX: Atomicidade (spread + slice) em transação única
+                    activeData.studyLogs = [...(activeData.studyLogs || []), newLog].slice(-LOG_CAP);
+                    activeData.studySessions = [...(activeData.studySessions || []), newSession].slice(-SESSION_CAP);
 
                     const category = activeData.categories.find(c => c.id === categoryId);
                     if (category) {
@@ -453,9 +466,6 @@ export const useAppStore = create(
                     const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
                     const startHour = new Date(now).getHours();
                     if (activeData.user) {
-                        // BUG-L5: These flags are permanent achievement toggles.
-                        // Once set to true, they unlock the respective achievement and remain true
-                        // to track that the user has performed this habit at least once.
                         if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
                         if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
                     }
@@ -896,3 +906,18 @@ export const useAppStore = create(
         }
     )
 );
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'pomodoroState') {
+            try {
+                const newState = JSON.parse(event.newValue);
+                if (newState) {
+                    // Atualiza o store sem disparar um novo setItem (evita loop)
+                    useAppStore.getState().setPomodoroSessions(newState.sessions);
+                    useAppStore.getState().setPomodoroCompletedCycles(newState.completedCycles);
+                }
+            } catch (e) {}
+        }
+    });
+}
