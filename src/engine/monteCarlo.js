@@ -42,12 +42,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let score;
     let attempts = 0;
     
-    // 🎯 MATH FIX: Amostragem de Rejeição (Normal Truncada)
-    // Impede que o gerador estocástico crie cenários além dos limites da prova [0, 100]
+    // FIX: Aumentamos para 40 tentativas para garantir convergência estatística
+    // sem forçar o fallback prematuro, preservando a cauda da distribuição.
     do {
         score = safeMean + randomNormal(rng) * safeSD;
         attempts++;
-    } while ((score < 0 || score > 100) && attempts < 10);
+    } while ((score < 0 || score > 100) && attempts < 40);
+
     
     // Fallback de segurança extrema para evitar travamentos se os parâmetros forem corrompidos
     if (score < 0) score = 0;
@@ -84,10 +85,14 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const displayLow = Math.max(0, rawLow);
   const displayHigh = Math.min(100, rawHigh);
 
-  // 🎯 BUG-Z4 FIX: zScore e Analytical Probability calculados sobre os parâmetros REAIS (projected).
-  // Remove as heurísticas sdLeft/sdRight que geravam gaps incorretos entre Gauge e Simulação.
-  const zScore = (safeTarget - projectedMean) / (projectedSD || 0.0001);
+  // 🎯 MATH FIX: Unificação do Modelo Bayesiano
+  // Para que o Gauge (ponteiro) e o Gráfico falem a mesma língua, o cálculo do zScore deve respeitar o parâmetro bayesianCI.
+  const finalMeanForMath = bayesianCI ? safeMean : projectedMean;
+  const finalSDForMath = bayesianCI ? safeSD : (projectedSD || 0.0001);
+
+  const zScore = (safeTarget - finalMeanForMath) / finalSDForMath;
   const analyticalProbability = normalCDF_complement(zScore) * 100;
+
   
   const gap = Math.abs(empiricalProbability - analyticalProbability);
   if (gap > 3 && projectedSD > 0.1) {

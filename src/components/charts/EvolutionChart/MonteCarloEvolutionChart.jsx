@@ -14,8 +14,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
-            .filter(d => d.date && typeof d.probability === 'number')
+            .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0)) // FIX: Aceita 0 explicitamente
             .sort((a, b) => a.date.localeCompare(b.date))
+
             .map(d => ({
                 ...d,
                 displayDate: format(parseISO(d.date), 'dd/MM', { locale: ptBR }),

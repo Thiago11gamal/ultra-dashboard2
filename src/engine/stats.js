@@ -171,9 +171,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
 
     const variance    = (alpha * beta) / (n * n * (n + 1));
     const sd          = Math.sqrt(variance);
-    // REVISION: Epistemic floor reduced to 1.0% (0.01) to allow for higher precision
-    const MIN_SD_PROP = 0.01; 
+    // REVISION: Piso epistémico reduzido para 0.1% para premiar consistência absoluta
+    const MIN_SD_PROP = 0.001; 
     const effectiveSd = Math.max(sd, MIN_SD_PROP);
+
 
     // REVISION: Improved CI Clamping to preserve symmetry where possible 
     // while respecting the physical 0-100 boundaries.
