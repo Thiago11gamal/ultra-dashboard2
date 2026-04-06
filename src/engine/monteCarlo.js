@@ -26,12 +26,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  // FIX: Uso de Math.floor na média para evitar o "Efeito Borboleta" nas sementes
+  // FIX 2.2: Multiplicar por 100 antes do Math.floor captura as casas decimais, 
+  // evitando que mudanças fracionárias gerem a mesma semente bitwise.
   const categoryHash = Array.from(categoryName || '').reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    (Math.floor(safeMean) * 179 ^
-    Math.round(safeSD * 997) ^
-    Math.round(safeTarget * 1009) ^
+    (Math.floor(safeMean * 100) * 179 ^
+    Math.floor(safeSD * 100) * 997 ^
+    Math.floor(safeTarget * 100) * 1009 ^
     (categoryHash * 13) ^
     (safeSimulations * 7)) >>> 0
   );
@@ -46,9 +47,19 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const allScores = new Float32Array(safeSimulations);
 
   for (let i = 0; i < safeSimulations; i++) {
-    // FIX: Remoção da Amostragem de Rejeição e do Clamping para preservar o Desvio Padrão
-    const score = safeMean + randomNormal(rng) * safeSD;
+    let score;
+    let attempts = 0;
     
+    // FIX 1.3 & 3.1: Amostragem de Distribuição Normal Truncada (Truncated Normal).
+    // Rejeita notas fora do limite [0, 100] dinamicamente durante a simulação.
+    do {
+      score = safeMean + randomNormal(rng) * safeSD;
+      attempts++;
+    } while ((score < 0 || score > 100) && attempts < 10);
+    
+    // Clamp de segurança caso a curva esteja extrema e ultrapasse 10 tentativas
+    score = Math.max(0, Math.min(100, score));
+
     if (score >= safeTarget) success++;
     allScores[i] = score;
 

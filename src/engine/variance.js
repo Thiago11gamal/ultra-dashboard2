@@ -29,12 +29,14 @@
 // mas 0.15 é mantido como configuração "conservadora" configurável.
 export const INTER_SUBJECT_CORRELATION = 0.15;
 
-// BUG-12 FIX: Aceitar rho como parâmetro opcional (default INTER_SUBJECT_CORRELATION)
+// FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
 export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
     if (totalWeight === 0) return 0;
 
+    // Garantia absoluta de tipo e limite
+    const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
+
     const weights = stats.map(cat => cat.weight / totalWeight);
-    
     const adjustedSDs = stats.map(cat => cat.sd);
 
     // 1. Independent Variance Component: Σ (wi² * σi²)
@@ -44,25 +46,13 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * adjustedSDs[i]), 0);
     const coherentVar = Math.pow(weightedSumSD, 2);
 
-    // 3. Interpolated Variance: Var = (1-ρ)*Var_indep + ρ*Var_coherent
-    return (1 - rho) * independentVar + (rho * coherentVar);
+    // 3. Interpolated Variance: Usar validRho em vez de rho bruto
+    return (1 - validRho) * independentVar + (validRho * coherentVar);
 }
 
-/**
- * ⚠️ ESTATÍSTICA: Esta função combina duas unidades conceituais distintas:
- * 1. σ_weighted (Variabilidade histórica entre provas)
- * 2. σ_time (Incerteza de trajetória/drift) - [Desativado para Monte Carlo]
- * 
- * Embora pragmaticamente útil para bandas de confiança, o valor resultante é um
- * estimador composto, não um desvio padrão frequentista puro.
- * 
- * @param {Object[]} stats - Array of category statistics
- * @param {number} totalWeight - Sum of all weights
- * @returns {number} Pooled SD
- */
-// BUG-12 FIX: Aceitar rho como parâmetro opcional
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    const weightedVariance = computeWeightedVariance(stats, totalWeight, rho);
+    const validRho = Number.isFinite(rho) && rho !== null ? rho : INTER_SUBJECT_CORRELATION;
+    const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }
 

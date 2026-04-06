@@ -100,19 +100,20 @@ export function analyzeProgressState(scores, config = {}) {
         }
     } else {
         // 7.2 Dynamic States (Not Stagnated) with Trend Tolerance
-        // FIX 3: Adicionar peso extra à consistência (Variance) na decisão de estado
-        const isVeryUnstable = variance > 25; // Se a flutuação for gigante, ignorar a tendência linear
+        const isVeryUnstable = variance > 25; 
 
-        if (slope > trend_tolerance && !isVeryUnstable) {
+        // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
+        // Se a inclinação (slope) é fortemente negativa, é regressão, independentemente da variância.
+        if (slope < -trend_tolerance) {
+            state = 'regression';
+            label = isVeryUnstable ? 'Queda Acentuada (Instável)' : 'Em regressão';
+            severity = 'high'; // Alerta vermelho mantido
+        } else if (slope > trend_tolerance && !isVeryUnstable) {
             state = 'progression';
             label = 'Em evolução';
             severity = 'none';
-        } else if (slope < -trend_tolerance && !isVeryUnstable) {
-            state = 'regression';
-            label = 'Em regressão';
-            severity = 'high';
         } else {
-            state = 'unstable'; // Flutuações grandes agora caem aqui em vez de Regressão
+            state = 'unstable'; 
             label = 'Instável / Flutuação';
             severity = 'medium';
         }
@@ -120,6 +121,8 @@ export function analyzeProgressState(scores, config = {}) {
 
     // 8. Standardized Output
     return {
+        // FIX 1.1: O trend_slope está a calcular "pontos/prova". Multiplicamos por uma
+        // estimativa para alinhar a tolerância visual (se necessário) ou passamos o valor cru corrigido.
         state,
         label,
         mean_score: Number(mean.toFixed(2)),

@@ -170,15 +170,25 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     const p    = alpha / n;
     const mean = p * 100;
 
-    // FIX: Removido o Math.pow(0.03, 2) arbitrário que corrompia a Conjugação Bayesiana
     const baseVariance = (alpha * beta) / (n * n * (n + 1));
     const effectiveSd = Math.sqrt(baseVariance); 
 
+    // FIX 1.2: Clamping Inteligente. Ao invés de travar de forma rígida um lado e 
+    // destruir a simetria, garantimos que os limites não ultrapassem a física do teste,
+    // mas reportamos a Incerteza (SD) efetiva inalterada.
+    const marginOfError = 1.96 * effectiveSd * 100;
+    
+    // Calcula os limites teóricos
+    let ciLow  = mean - marginOfError;
+    let ciHigh = mean + marginOfError;
 
-    // REVISION: Improved CI Clamping to preserve symmetry where possible 
-    // while respecting the physical 0-100 boundaries.
-    const ciLow  = Math.max(0,   (p - 1.96 * effectiveSd) * 100);
-    const ciHigh = Math.min(100, (p + 1.96 * effectiveSd) * 100);
+    // Aplica a limitação com "soft bounds"
+    ciLow  = Math.max(0, Math.min(100, ciLow));
+    ciHigh = Math.max(0, Math.min(100, ciHigh));
+
+    // Proteção de segurança: O intervalo alto nunca pode ser menor que a média
+    ciHigh = Math.max(mean, ciHigh);
+    ciLow = Math.min(mean, ciLow);
 
     return {
         mean:  Number(mean.toFixed(2)),
