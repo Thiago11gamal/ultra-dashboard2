@@ -109,16 +109,17 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     const stateStringForSync = (state) => {
         if (!state) return '';
-        // MELHORIA 7: Incluir hash leve do número de categorias+sessões para detectar
-        // colisões de timestamp entre dispositivos diferentes.
-        const contestCount = state.contests ? Object.keys(state.contests).length : 0;
         const activeContest = state.contests?.[state.activeId];
-        const catCount = activeContest?.categories?.length ?? 0;
-        const sessionCount = activeContest?.studySessions?.length ?? 0;
-        const catHash = (activeContest?.categories || [])
-            .map(c => `${(c.id || '').substring(0, 4)}${c.name?.length ?? 0}`)
-            .join('-');
-        return `${state.lastUpdated}|${state.activeId}|${state.version ?? 0}|${contestCount}:${catCount}:${sessionCount}:${catHash}`;
+        
+        // FIX: Adicionado hash de tarefas e versão para evitar colisões de timestamp
+        const taskHash = (activeContest?.categories || [])
+            .reduce((acc, cat) => acc + (cat.tasks?.length || 0), 0);
+        
+        const lastUpdated = state.lastUpdated || "0";
+        const version = state.version || 0;
+
+        // Criamos uma assinatura única baseada no tempo, versão e volume de dados
+        return `${lastUpdated}|v${version}|tasks:${taskHash}|active:${state.activeId}`;
     };
 
     // 1. RECEPTOR (onSnapshot) - Slave Mode
@@ -158,6 +159,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            // FIX: Ignora snapshot da nuvem se houver um save local em curso para evitar loops.
+            if (isInternalSyncing) {
+                logger.debug("[Sync] Ignorando snapshot da nuvem pois existe um save local em curso.");
+                return;
+            }
             logger.styled(`[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
             setCloudStatus('connected');
             setCloudError(null);

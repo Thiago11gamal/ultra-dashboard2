@@ -75,9 +75,12 @@ const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData || !activeData.user) return null;
 
-    const currentXP = activeData.user.xp || 0;
-    const currentMaxLevel = activeData.user.level || 1;
-    let newXP = Math.max(0, currentXP + xpGained);
+    const calculatedLevel = calculateLevel(xpInput);
+    const minXpForCurrentLevel = Math.pow(Math.max(1, currentMaxLevel) - 1, 2) * 100;
+    
+    // RIGOR-XP: O XP pode descer (desmarcar tarefa), mas nunca abaixo do piso do nível conquistado
+    // Isso evita que o utilizador perca níveis que já "deu unlock" (absolutos).
+    let newXP = Math.max(minXpForCurrentLevel, currentXP + xpGained);
 
     const currentAchievements = activeData.user.achievements || [];
     const { newlyUnlocked, xpGained: achievementXp } = checkAndUnlockAchievements(activeData, currentAchievements);
@@ -687,24 +690,31 @@ export const useAppStore = create(
                     if (contest) {
                         if (!contest.categories) contest.categories = [];
                         
-                        const catData = item.data.category || item.data; // Back-compat
+                        const catData = JSON.parse(JSON.stringify(item.data.category || item.data));
+                        const oldId = catData.id;
                         
-                        // Check if ID already exists, if so generate a new one
-                        if (contest.categories.some(c => c.id === catData.id)) {
+                        // FIX: Se o ID já existir, gera novo e atualiza referências nos logs restaurados
+                        if (contest.categories.some(c => c.id === oldId)) {
                             catData.id = generateId('cat');
                         }
+                        const newId = catData.id;
                         contest.categories.push(catData);
 
-                        // RIGOR-RESTORE: Reinstall associated historical metrics
+                        // FIX INTEGRIDADE: Mapeia logs e sessões para o novo ID caso tenha mudado
+                        const fixRef = (arr) => (arr || []).map(entry => 
+                            entry.categoryId === oldId ? { ...entry, categoryId: newId } : entry
+                        );
+
+                        // RIGOR-RESTORE: Reinstall associated historical metrics with ID remapping
                         if (item.data.studyLogs) {
-                            contest.studyLogs = [...(contest.studyLogs || []), ...item.data.studyLogs];
+                            contest.studyLogs = [...(contest.studyLogs || []), ...fixRef(item.data.studyLogs)];
                         }
                         if (item.data.studySessions) {
-                            contest.studySessions = [...(contest.studySessions || []), ...item.data.studySessions];
+                            contest.studySessions = [...(contest.studySessions || []), ...fixRef(item.data.studySessions)];
                         }
                         if (item.data.mcWeight !== undefined) {
                             if (!contest.mcWeights) contest.mcWeights = {};
-                            contest.mcWeights[catData.id] = item.data.mcWeight;
+                            contest.mcWeights[newId] = item.data.mcWeight;
                         }
                     }
                 } else if (item.type === 'contest') {

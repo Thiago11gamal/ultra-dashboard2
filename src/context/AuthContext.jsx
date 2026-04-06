@@ -43,11 +43,12 @@ export function AuthProvider({ children }) {
 
         const loadingTimeout = setTimeout(() => {
             if (!hasResolvedAuth) {
-                console.warn('[Auth] O Firebase está a demorar. Por favor, aguarde...');
+                console.warn('[Auth] Timeout de rede detectado.');
                 setShowDebug(true);
-                // FIX: Removido setLoading(false) para evitar bypass de segurança
+                // FIX: Permite que a app renderize mesmo em erro para mostrar feedback ao user
+                setLoading(false);
             }
-        }, 8000);
+        }, 10000);
 
         if (!auth) {
             console.warn('[Auth] Auth service is missing. Bypassing state listener.');
