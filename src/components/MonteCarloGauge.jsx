@@ -184,6 +184,7 @@ export default function MonteCarloGauge({
                         name: cat.name,
                         ...stats,
                         bayesianMean: baye.mean,
+                        bayesianSd: baye.sd,
                         volatility: vol
                     });
                     
@@ -347,7 +348,7 @@ export default function MonteCarloGauge({
                 const baseline = cat.bayesianMean ?? cat.mean;
                 const result = simulateNormalDistribution({
                     mean: baseline,
-                    sd: cat.volatility ?? cat.sd,
+                    sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
                     targetScore: debouncedTarget,
                     simulations: 2000,
                     categoryName: cat.name
@@ -362,11 +363,11 @@ export default function MonteCarloGauge({
             .sort((a, b) => a.prob - b.prob);
     }, [statsData?.categoryStats, debouncedTarget, simulationData?.status]);
 
-    const [loading, setLoading] = useState(false);
+    const [isFlashing, setIsFlashing] = useState(false);
     useEffect(() => {
         if (simulationData.status === 'ready') {
-            setLoading(true);
-            const timer = setTimeout(() => setLoading(false), 800);
+            setIsFlashing(true);
+            const timer = setTimeout(() => setIsFlashing(false), 800);
             return () => clearTimeout(timer);
         }
     }, [simulationData.data?.probability]);
@@ -554,8 +555,8 @@ export default function MonteCarloGauge({
                         </span>
                     </div>
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${loading ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: loading ? '#60a5fa' : gradientColor }}>
-                    {loading ? (
+                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                    {isFlashing ? (
                         <span className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
                             Simulando cenários...

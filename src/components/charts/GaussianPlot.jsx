@@ -205,6 +205,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const meanImpact = collisionHojeMean ? tierMean : 0;
         tierHoje = Math.max(targetImpact, meanImpact) + 1;
     }
+    
+    // RIGOR-LABEL-FIX: Se o label "Hoje" estiver muito no topo do gráfico (curva alta) 
+    // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
+    const isHighCurve = hojeTop < 22;
+    const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget)) 
+        ? (22 + (tierHoje - 1) * 15 + '%') 
+        : (tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`);
 
     return (
         <div className="relative w-full h-[140px] mb-12 cursor-crosshair group/chart"
@@ -280,7 +287,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </div>
                 )}
                 {isCurrentVisible && (
-                    <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.min(currentPos, 85)}%`, top: tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
+                    <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.min(currentPos, 85)}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-white mb-1" />
                         <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/60 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl">Hoje: {currentMean.toFixed(1)}%</span>
                     </div>

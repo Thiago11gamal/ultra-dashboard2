@@ -71,7 +71,8 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                         topicMap[key] = { name: n, correct: 0, total: 0 };
                     }
                     
-                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
+                    const total = parseInt(t.total, 10) || 0;
+                    if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
                         ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
@@ -127,7 +128,8 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     if (!topicName) return;
                     topTopicSet.add(topicName);
                     
-                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
+                    const total = parseInt(t.total, 10) || 0;
+                    if (total === 0) return;
                     const correct = (t.isPercentage && t.score != null && total > 0)
                         ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));

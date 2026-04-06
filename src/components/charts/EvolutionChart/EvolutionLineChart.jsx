@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -14,6 +14,9 @@ export function EvolutionLineChart({
     focusSubjectId,
     showOnlyFocus
 }) {
+    const instanceId = useId().replace(/:/g, "");
+    const shadowId = `el_lineShadow_${instanceId}`;
+
     // Generate native tuple bands for Recharts Area
     const enhancedChartData = React.useMemo(() => {
         if (!filteredChartData || !filteredChartData.length) return [];
@@ -124,7 +127,7 @@ export function EvolutionLineChart({
                                 </linearGradient>
                             </React.Fragment>
                         ))}
-                        <filter id="el_lineShadow" height="200%">
+                        <filter id={shadowId} height="200%">
                             <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
                             <feOffset in="blur" dx="0" dy="4" result="offsetBlur" />
                             <feMerge>
@@ -167,7 +170,7 @@ export function EvolutionLineChart({
                                 dot={false}
                                 activeDot={false}
                                 connectNulls
-                                style={{ filter: isFocused ? 'url(#el_lineShadow)' : 'none' }}
+                                style={{ filter: isFocused ? `url(#${shadowId})` : 'none' }}
                                 isAnimationActive={true}
                                 animationDuration={1500}
                             >

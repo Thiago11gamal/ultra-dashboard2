@@ -67,7 +67,8 @@ export function CriticalTopicsAnalysis({ categories = [] }) {
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
                     
-                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
+                    const total = parseInt(t.total, 10) || 0;
+                    if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
                         ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
@@ -108,7 +109,8 @@ export function CriticalTopicsAnalysis({ categories = [] }) {
                 return d && d >= startDate && d <= endDate;
             });
             for (const h of recentHistory) {
-                const total = parseInt(h.total, 10) || 10;
+                const total = parseInt(h.total, 10) || 0;
+                if (total === 0) continue;
                 const correctCount = (h.isPercentage && h.score != null && total > 0)
                     ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * total)
                     : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total));
