@@ -69,15 +69,25 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 const localTime = new Date(localContest.lastUpdated || 0).getTime();
                 
                 if (cloudTime > localTime) {
-                    const localCats = localContest.categories || [];
-                    const cloudCats = cloudContest.categories || [];
+                    // Merge Categorias
                     const mergedCatsMap = {};
-                    localCats.forEach(c => mergedCatsMap[c.id] = c);
-                    cloudCats.forEach(c => mergedCatsMap[c.id] = c);
+                    (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
+                    (cloudContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
                     
+                    // Merge Estudo e Simulados (Priorizando IDs únicos para evitar perda de dados locais)
+                    const mergeArrays = (arr1, arr2) => {
+                        const map = new Map();
+                        (arr1 || []).forEach(item => map.set(item.id || item.date || JSON.stringify(item), item));
+                        (arr2 || []).forEach(item => map.set(item.id || item.date || JSON.stringify(item), item));
+                        return Array.from(map.values());
+                    };
+
                     mergedContests[id] = { 
                         ...cloudContest, 
-                        categories: Object.values(mergedCatsMap)
+                        categories: Object.values(mergedCatsMap),
+                        studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
+                        studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
+                        simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows)
                     };
                 }
             }
@@ -350,7 +360,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             try {
                 const currentStr = stateStringForSync(appStateRef.current);
                 if (lastSyncedRef.current !== currentStr) {
-                    localStorage.setItem('ultra-sync-dirty', 'true');
+                    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch (e) {}
                     isDirty = true;
                 }
             } catch (err) { /* ignore */ }
