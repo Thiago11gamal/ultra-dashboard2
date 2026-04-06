@@ -107,15 +107,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             // Otimização de convolução (descarta interações a > 3.5 sigmas)
             if (Math.abs(dist) < 3.5) {
                 density += bins[j] * Math.exp(-0.5 * dist * dist);
-                
-                // BUG-08 FIX: Boundary Reflection (Reflection correction at 0 and 100)
-                if (x < bandwidth * 3.5 || x > 100 - bandwidth * 3.5) {
-                    const distL = (x + binX) * invBandwidth; // Mirror at A=0
-                    if (Math.abs(distL) < 3.5) density += bins[j] * Math.exp(-0.5 * distL * distL);
-                    
-                    const distR = (x - (200 - binX)) * invBandwidth; // Mirror at B=100
-                    if (Math.abs(distR) < 3.5) density += bins[j] * Math.exp(-0.5 * distR * distR);
-                }
             }
         }
         density *= normFactor;

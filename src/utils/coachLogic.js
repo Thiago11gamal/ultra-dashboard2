@@ -1,6 +1,7 @@
 // ==================== CONSTANTES ====================
 import { standardDeviation } from '../engine/stats';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
+import { getSafeScore } from './scoreHelper.js';
 import { normalize } from './normalization';
 
 const DEFAULT_CONFIG = {
@@ -62,9 +63,10 @@ function getCrunchMultiplier(daysToExam) {
  */
 function simuladosToHistory(simulados) {
     return simulados
-        .filter(s => s.total > 0)
+        .filter(s => s.total > 0 || s.score != null)
         .map(s => ({
-            score: (s.correct / s.total) * 100,
+            // FIX: Utilizar o helper seguro para prevenir que notas como 85% virem 170%
+            score: getSafeScore(s),
             date: s.date
         }));
 }
@@ -76,12 +78,13 @@ const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-function runCoachMonteCarlo(relevantSimulados, targetScore, cfg) {
+function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId) {
     const history = simuladosToHistory(relevantSimulados);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + (Number(s.correct) || 0), 0);
-    const hash = `${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
+    // FIX: Injectar categoryId na hash para prevenir colisões entre matérias com a mesma amostra
+    const hash = `${categoryId}-${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -222,7 +225,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
-        const mcResult = runCoachMonteCarlo(relevantSimulados, targetScore, cfg);
+        const mcResult = runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category.id);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
@@ -314,10 +317,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // --- RAW MAX ---
         const effectiveRecencyMax = cfg.RECENCY_MAX * crunchMultiplier;
         const RAW_MAX_BASE = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX;
-        const RAW_MAX_ACTUAL = RAW_MAX_BASE +
-            (hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0) +
-            (srsBoost > 0 ? srsBoost : 0) + // RIGOR-06 FIX: Usar boost real em vez de headroom fixo no denominador
-            25; // headroom para mcUrgencyBoost
+        
+        // FIX: Denominador rígido para garantir ranqueamento justo. 
+        // Bónus (priorityBoost, srsBoost) empurram a nota contra um teto fixo.
+        // Base fixa + Headroom máximo (25 para MC + 30 Priority + 20 SRS)
+        const RAW_MAX_ACTUAL = RAW_MAX_BASE + 75; 
 
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost + mcUrgencyBoost) - rotationPenalty;
 

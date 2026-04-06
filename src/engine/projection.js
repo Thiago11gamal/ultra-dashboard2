@@ -73,13 +73,16 @@ function weightedRegression(history, lambda = 0.08) {
     const slope = (Sw * Sxy - Sx * Sy) / denom;
     const intercept = (Sy - slope * Sx) / Sw;
 
-// WLS: denominations for statistical degrees of freedom should be sample size-based
-// Fix: Use n - 2 for real statistical degrees of freedom instead of Sw - 2
-const n = data.length;
-const wrss = data.reduce((acc, p) =>
-    acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
-);
-const variance = wrss / Math.max(0.001, n - 2);
+    // FIX MATEMÁTICO: Calcular o Effective Sample Size (Kish) para variância
+    const sumW = data.reduce((a, p) => a + p.w, 0);
+    const sumW2 = data.reduce((a, p) => a + p.w * p.w, 0);
+    const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : n;
+    
+    const wrss = data.reduce((acc, p) =>
+        acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
+    );
+    // Variância usa (N_eff - 2)
+    const variance = wrss / Math.max(0.001, effectiveN - 2);
 // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
@@ -407,20 +410,18 @@ export function monteCarloSimulation(
             score += simDrift + (shock * consistencyMultiplier);
         }
 
-        // 🎯 MATH FIX: Sucesso calculado na nota truncada e viável [0, 100]
-        // Garante consistência com o motor de amostragem de rejeição.
+        // FIX CRÍTICO: Armazenar a nota REAL (Viável) para preservar a curva de Gauss e a Variância.
         const viableScore = Math.max(0, Math.min(100, score));
         if (viableScore >= targetScore) success++;
 
-        // FIX CRÍTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Variância.
-        allFinalScores[s] = score;
+        allFinalScores[s] = viableScore; // USAR VIABLESCORE
 
 
-        // Welford com score LATENTE para manter KDE 100% calibrado
+        // Welford com score VIÁVEL para refletir a dispersão real
         welfordCount++;
-        const delta = score - welfordMean;
+        const delta = viableScore - welfordMean;
         welfordMean += delta / welfordCount;
-        const delta2 = score - welfordMean;
+        const delta2 = viableScore - welfordMean;
         welfordM2 += delta * delta2;
     }
 

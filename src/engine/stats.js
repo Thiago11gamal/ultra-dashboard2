@@ -169,11 +169,12 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     const p    = alpha / n;
     const mean = p * 100;
 
-    const variance    = (alpha * beta) / (n * n * (n + 1));
-    const sd          = Math.sqrt(variance);
-    // REVISION: Piso epistémico reduzido para 0.1% para premiar consistência absoluta
-    const MIN_SD_PROP = 0.001; 
-    const effectiveSd = Math.max(sd, MIN_SD_PROP);
+    // FIX: Variância Conjugada + Variância Inter-exames Mínima (~3%)
+    const baseVariance = (alpha * beta) / (n * n * (n + 1));
+    const interTestVariance = Math.pow(0.03, 2); // 3% em escala 0-1
+    
+    const sd = Math.sqrt(baseVariance + interTestVariance);
+    const effectiveSd = sd; // SD já inclui o piso inter-exames
 
 
     // REVISION: Improved CI Clamping to preserve symmetry where possible 
@@ -204,9 +205,21 @@ export function computeCategoryStats(history, weight) {
     const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
     const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
 
-    const sd = standardDeviation(scores);
-    // REVISION: Standardized SD floor to 1.0 (1%) to reflect high consistency
-    const safeSD = Math.max(sd, 1.0);
+    // FIX: Variância Ponderada pelo número de questões por exame
+    let variance = 0;
+    if (totalQ > 0 && historyToUse.length > 1) {
+        let wVarSum = 0;
+        historyToUse.forEach(h => {
+            const w = (Number(h.total) || 1);
+            wVarSum += w * Math.pow(getSafeScore(h) - m, 2);
+        });
+        variance = wVarSum / totalQ;
+    } else {
+        variance = Math.pow(standardDeviation(scores), 2);
+    }
+    
+    const sd = Math.max(Math.sqrt(variance), 1.0);
+    const safeSD = sd;
     // BUG-08 FIX: Usar calculateSlope (weightedRegression) para consistência com Monte Carlo drift
     // calculateSlope retorna pp/dia (clampeado e atenuado por confiança).
     // Esta é a função CANÔNICA para tendências no dashboard.

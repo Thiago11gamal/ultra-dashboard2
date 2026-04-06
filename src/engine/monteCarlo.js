@@ -94,10 +94,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const analyticalProbability = normalCDF_complement(zScore) * 100;
 
   
-  const gap = Math.abs(empiricalProbability - analyticalProbability);
-  if (gap > 3 && projectedSD > 0.1) {
-      console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
-  }
+    // REMOVER OU COMENTAR ESTE BLOCO:
+    // const gap = Math.abs(empiricalProbability - analyticalProbability);
+    // if (gap > 3 && projectedSD > 0.1) {
+    //    console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
+    // }
 
   return {
     // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9). Se a probabilidade for 100% ou 0%, exibimos o valor real.
