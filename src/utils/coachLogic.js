@@ -155,9 +155,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let weightedSum = 0;
                 let totalWeight = 0;
                 dataset.forEach(s => {
-                    const total = s.total || 0;
-                    const correct = s.correct || 0;
-                    const sScore = total > 0 ? (correct / total) * 100 : 0;
+                    const sScore = getSafeScore(s);
                     const simDate = normalizeDate(s.date);
                     const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
                     let peso = Math.exp(-K * days);
@@ -208,9 +206,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // 3. Trend
-        const validForDev = relevantSimulados.filter(s => s.total > 0);
         const trendHistory = validForDev.slice(0, 10).map(s => ({
-            score: (s.correct / s.total) * 100,
+            score: getSafeScore(s),
             date: s.date
         })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
@@ -470,10 +467,14 @@ const _buildSortedTopics = (category, simulados = []) => {
             if (!topicMap[name]) {
                 topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
             }
-            topicMap[name].total += (parseInt(t.total, 10) || 0);
-            topicMap[name].correct += (parseInt(t.correct, 10) || 0);
             const topicTotal = parseInt(t.total, 10) || 0;
-            const topicCorrect = parseInt(t.correct, 10) || 0;
+            const topicCorrect = (t.isPercentage && t.score != null && topicTotal > 0)
+                ? Math.round((getSafeScore(t) / 100) * topicTotal)
+                : (parseInt(t.correct, 10) || 0);
+
+            topicMap[name].total += topicTotal;
+            topicMap[name].correct += topicCorrect;
+
             if (topicTotal > 0) {
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,

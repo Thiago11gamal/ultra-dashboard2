@@ -87,7 +87,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     return dateToStats;
 }
 
-export function useChartData(categories = []) {
+export function useChartData(categories = [], weights = {}) {
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
         valid.sort((a, b) => {
@@ -176,7 +176,24 @@ export function useChartData(categories = []) {
 
         dates.forEach(date => {
             const d = dataByDate[date];
-            d.global_pct = (d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0;
+            
+            // RIGOR-09 FIX: Calcular a média global ponderada real
+            // Se houver pesos definidos e válidos, as matérias sem peso (0) 
+            // não devem influenciar o "Global" do gráfico de evolução.
+            let weightedSum = 0;
+            let totalW = 0;
+
+            activeCategories.forEach(cat => {
+                const score = d[`bay_${cat.name}`] ?? d[`raw_${cat.name}`];
+                const w = weights[cat.id] ?? weights[cat.name] ?? 1; // Fallback 1 se sem pesos
+
+                if (score != null && w > 0) {
+                    weightedSum += score * w;
+                    totalW += w;
+                }
+            });
+
+            d.global_pct = totalW > 0 ? (weightedSum / totalW) : ((d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0);
         });
 
         return dates.map(d => dataByDate[d]);

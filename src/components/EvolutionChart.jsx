@@ -60,10 +60,15 @@ const ENGINES = [
     },
 ];
 
+import { useAppStore } from "../store/useAppStore";
+
 export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [] }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
-    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories);
+    
+    // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
+    const mcWeights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
+    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights);
     const { runAnalysis } = useMonteCarloWorker();
     const [mcLoading, setMcLoading] = useState(false);
 

@@ -51,7 +51,7 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
 }
 
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    const validRho = Number.isFinite(rho) && rho !== null ? rho : INTER_SUBJECT_CORRELATION;
+    const validRho = Number.isFinite(rho) ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }

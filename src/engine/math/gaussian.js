@@ -78,6 +78,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         // Data Folding: Rebater os limites intransponíveis da realidade (0 e 100)
         if (s < 0) s = Math.abs(s); 
         if (s > 100) s = 200 - s; 
+        s = Math.max(0, Math.min(100, s)); 
 
         // Agora verificamos apenas o enquadramento do plot visual (Zoom do Gráfico)
         if (s > plotMax || s < plotMin) continue;

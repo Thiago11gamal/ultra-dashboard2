@@ -36,7 +36,7 @@ export function standardDeviation(arr) {
 }
 
 /**
- * DEPRECATED / UTILITY: Calcula a tendência histórica (slope) usando OLS linear.
+ * @internal DEPRECATED / UTILITY: Calcula a tendência histórica (slope) usando OLS linear.
  * Nota: Para o dashboard e Monte Carlo, use calculateSlope de projection.js, 
  * que implementa Regressão Ponderada Temporal (WLS).
  */
@@ -221,7 +221,9 @@ export function computeCategoryStats(history, weight) {
             const w = (Number(h.total) || 1);
             wVarSum += w * Math.pow(getSafeScore(h) - m, 2);
         });
-        variance = wVarSum / totalQ;
+        // RIGOR-08 FIX: Bessel's Correction (N-1) para variância amostrada.
+        // Evita o viés de subestimar a volatilidade em amostras pequenas.
+        variance = wVarSum / (totalQ - 1);
     } else {
         variance = Math.pow(standardDeviation(scores), 2);
     }
