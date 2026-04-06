@@ -372,10 +372,11 @@ export default function MonteCarloGauge({
     }, [simulationData.data?.probability]);
 
     useEffect(() => {
-        const prob = Number.isFinite(Number(simulationData?.data?.probability)) ? Number(simulationData?.data?.probability) : 0;
+        const rawProb = Number(simulationData?.data?.probability);
+        const prob = Number.isFinite(rawProb) ? rawProb : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
         
-        if (simulationData?.status === 'ready' && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
+        if (simulationData?.status === 'ready' && Number.isFinite(prob) && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             recordMonteCarloSnapshot(today, Number(prob.toFixed(1)));
         }

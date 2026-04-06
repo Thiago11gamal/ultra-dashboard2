@@ -335,8 +335,9 @@ export function monteCarloSimulation(
         };
         // REVISION: Standardized floor to 1.0
         const inferredSD = Math.max(1.0, (ciHigh - ciLow) / 3.92);
-        const zScore = (targetScore - baseline) / inferredSD;
-        const probability = normalCDF_complement(zScore) * 100;
+        const zScore = (targetScore - baseline) / (Number.isFinite(inferredSD) && inferredSD > 0 ? inferredSD : 1.0);
+        const rawProb = normalCDF_complement(Number.isFinite(zScore) ? zScore : 0) * 100;
+        const probability = Number.isFinite(rawProb) ? rawProb : 0;
 
         return {
             probability: Number(probability.toFixed(1)),
@@ -446,7 +447,7 @@ export function monteCarloSimulation(
     const analyticalProbability = normalCDF_complement(zScore) * 100;
     
     // MC-02: Use raw empirical probability
-    const empiricalProbability = (success / safeSimulations) * 100;
+    const empiricalProbability = safeSimulations > 0 ? (success / safeSimulations) * 100 : 0;
     
     const gap = Math.abs(empiricalProbability - analyticalProbability);
     if (gap > 3 && projectedSD > 0.1) {
@@ -455,8 +456,8 @@ export function monteCarloSimulation(
 
     return {
         // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9).
-        probability: empiricalProbability,
-        analyticalProbability: analyticalProbability,
+        probability: Number.isFinite(empiricalProbability) ? empiricalProbability : (Number.isFinite(analyticalProbability) ? analyticalProbability : 0),
+        analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number(displayMean.toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
         // Metadados informativos para UI

@@ -14,7 +14,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
-            .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0))
+            .filter(d => d.date && Number.isFinite(d.probability))
             .sort((a, b) => String(a.date).localeCompare(String(b.date)))
             .map(d => {
                 let displayDate = d.date;
@@ -98,11 +98,18 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 {/* FIX: Alterado de % fixo para aceitar a unidade dinâmica e evitar conflito com a probabilidade */}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
                     <Target size={12} className="text-slate-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Meta: <strong className="text-white">{targetScore} {unit}</strong></span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Target: <strong className="text-white">{targetScore} {unit}</strong></span>
                 </div>
             </div>
 
-            <div className="flex-1 w-full relative">
+            <div className="w-full relative h-[360px] flex items-center justify-center">
+                {formattedData.length === 1 && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/20 backdrop-blur-[1px] rounded-xl text-center p-4">
+                        <TrendingUp size={24} className="text-blue-500/40 mb-2" />
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
+                        <p className="text-[9px] text-slate-600 mt-1">Aguardando mais um dia de simulação para traçar a linha de evolução.</p>
+                    </div>
+                )}
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={formattedData}
@@ -143,7 +150,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             fillOpacity={1} 
                             fill={`url(#${gradientId})`}
                             activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
-                            dot={formattedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
+                            dot={formattedData.length < 15 ? { r: 5, strokeWidth: 3, fill: '#60a5fa', stroke: '#0f172a' } : false}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
