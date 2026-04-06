@@ -160,8 +160,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
             }
             
             if (total < 1) continue;
-            alpha += correct;
-            beta  += (total - correct);
+            const safeCorrect = Math.min(total, correct);
+            alpha += safeCorrect;
+            beta  += (total - safeCorrect);
         }
     }
 

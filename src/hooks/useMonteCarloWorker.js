@@ -93,6 +93,9 @@ export function useMonteCarloWorker() {
             worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
 
             // Timeout safety — if worker hangs for 5s, fallback to main thread
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
             timeoutRef.current = setTimeout(() => {
                 if (pendingRequests.has(id)) {
                     pendingRequests.delete(id);

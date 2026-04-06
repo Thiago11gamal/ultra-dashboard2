@@ -507,7 +507,8 @@ export function calculateCurrentWeightedMean(categoryStats, totalWeight) {
     if (totalWeight === 0) return 0;
 
     return categoryStats.reduce((acc, cat) => {
-        const normalizedWeight = cat.weight / totalWeight;
+        const safeWeight = Number(cat.weight) || 0;
+        const normalizedWeight = safeWeight / totalWeight;
         return acc + (cat.mean * normalizedWeight);
     }, 0);
 }
