@@ -39,13 +39,25 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const allScores = new Float32Array(safeSimulations);
 
   for (let i = 0; i < safeSimulations; i++) {
-    const score = safeMean + randomNormal(rng) * safeSD;
+    let score;
+    let attempts = 0;
     
-    // 🎯 BUG-C1 FIX: Sucesso calculado na nota LATENTE (bruta/score), não na cortada (0-100).
-    // O corte visual (clipping) só deve acontecer na renderização da UI.
+    // 🎯 MATH FIX: Amostragem de Rejeição (Normal Truncada)
+    // Impede que o gerador estocástico crie cenários além dos limites da prova [0, 100]
+    do {
+        score = safeMean + randomNormal(rng) * safeSD;
+        attempts++;
+    } while ((score < 0 || score > 100) && attempts < 10);
+    
+    // Fallback de segurança extrema para evitar travamentos se os parâmetros forem corrompidos
+    if (score < 0) score = 0;
+    if (score > 100) score = 100;
+
+    // Sucesso calculado na nota truncada e viável
     if (score >= safeTarget) success++;
 
     allScores[i] = score;
+
 
     welfordCount++;
     const delta = score - welfordMean;

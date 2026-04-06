@@ -28,8 +28,11 @@ export function standardDeviation(arr) {
         ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
         ((n - 1) + KAPPA);
 
-    // REVISION: Standardized floor to 1.0 (1%) for precision consistency
-    return Math.max(1.0, Math.sqrt(adjustedVar));
+    // 🎯 MATH FIX: Piso dinâmico microscópico. 
+    // Mantém a segurança de Z-Score sem destruir a precisão matemática de um estudo consistente.
+    const MIN_SD_FLOOR = 0.001;
+    return Math.max(MIN_SD_FLOOR, Math.sqrt(adjustedVar));
+
 }
 
 /**

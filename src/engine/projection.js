@@ -407,11 +407,14 @@ export function monteCarloSimulation(
             score += simDrift + (shock * consistencyMultiplier);
         }
 
-        // 🎯 BUG-C1 FIX: Sucesso calculado na nota LATENTE (bruta/score), não na cortada (0-100).
-        if (score >= targetScore) success++;
+        // 🎯 MATH FIX: Sucesso calculado na nota truncada e viável [0, 100]
+        // Garante consistência com o motor de amostragem de rejeição.
+        const viableScore = Math.max(0, Math.min(100, score));
+        if (viableScore >= targetScore) success++;
 
         // FIX CRÍTICO: Armazenar a nota LATENTE para preservar a curva de Gauss e a Variância.
         allFinalScores[s] = score;
+
 
         // Welford com score LATENTE para manter KDE 100% calibrado
         welfordCount++;

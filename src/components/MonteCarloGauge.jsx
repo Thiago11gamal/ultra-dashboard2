@@ -208,8 +208,13 @@ export default function MonteCarloGauge({
 
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
-        // MC-04 FIX: pooledSD is only used for the "Today" (static) simulation.
-        const pooledSD = computePooledSD(categoryStats, totalWeight);
+        // 🎯 MATH FIX: Agregação Coesa de Volatilidade
+        const pooledVariance = computeWeightedVariance(
+            categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })),
+            totalWeight
+        );
+        const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
+
         const bayesianMean = weightedBayesianSum / totalWeight;
 
         // REVISION (Audit-Phase-2): Consolidated Bayesian uncertainty using Quadrature Sum (Pooled Variance).
@@ -247,14 +252,9 @@ export default function MonteCarloGauge({
             return { date, score: tw > 0 ? sum / tw : 0 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
-        // BUG-M1 FIX: Volatilidade Inflada (Pooled SD).
-        const sumSquaredWeightedVol = totalWeight > 0
-            ? categoryStats.reduce((acc, cat) => acc + Math.pow(cat.volatility * cat.weight, 2), 0)
-            : 0;
+        const pooledDailySD = pooledSD;
 
-        const pooledDailySD = totalWeight > 0
-            ? Math.sqrt(sumSquaredWeightedVol) / totalWeight
-            : 0;
+
 
         const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory);
 
