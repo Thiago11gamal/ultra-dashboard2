@@ -1,22 +1,21 @@
 import React, { useMemo, useId } from 'react';
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
-    // FIX: Gerar ID único para o gradiente SVG
+// FIX: Adicionada a propriedade 'unit' para flexibilizar a exibição da meta (ex: pts, %, acertos)
+export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = 'pts' }) => {
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
         return data
-            .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0)) // FIX: Aceita 0 explicitamente
+            .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0))
             .sort((a, b) => a.date.localeCompare(b.date))
-
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
@@ -56,13 +55,12 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
         );
     }
 
-    const CustomTooltip = ({ active, payload, label }) => {
+    const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
             const val = payload[0].value;
             const fullDate = payload[0].payload.fullDate;
             
-            // FIX: Parou de comparar "Probabilidade (%)" com "Nota Alvo (pts)". 
-            // Agora usa um limiar matemático justo: 75% de chance de passar é um bom status.
+            // Limiar justo de segurança estatística
             const SAFE_PROBABILITY_THRESHOLD = 75.0; 
             const isGood = val >= SAFE_PROBABILITY_THRESHOLD;
             
@@ -95,9 +93,10 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Probabilidade Histórica de Aprovação</p>
                     </div>
                 </div>
+                {/* FIX: Alterado de % fixo para aceitar a unidade dinâmica e evitar conflito com a probabilidade */}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
                     <Target size={12} className="text-slate-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Meta: <strong className="text-white">{targetScore}%</strong></span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Meta: <strong className="text-white">{targetScore} {unit}</strong></span>
                 </div>
             </div>
 
@@ -105,7 +104,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={formattedData}
-                        // FIX: left alterado de -20 para 0
                         margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
                     >
                         <defs>
@@ -134,8 +132,6 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75 }) => {
                             tickFormatter={(v) => `${v}%`}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
-                        
-                        {/* FIX: ReferenceLine removida, pois 'targetScore' é pontuação e o eixo é Probabilidade */}
                         
                         <Area 
                             type="monotone" 
