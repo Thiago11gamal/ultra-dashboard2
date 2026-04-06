@@ -768,35 +768,40 @@ export const useAppStore = create(
                 localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
-            setPomodoroActiveSubject: (subject) => set((state) => {
-                // CRITICAL FIX: Verificar null/undefined ANTES de acessar propriedades.
-                // handleExit() chama setPomodoroActiveSubject(null), e a versão anterior
-                // acessava subject.sessionInstanceId antes do null-check, causando TypeError
-                // que impedia navigate() de executar — travando o usuário na tela do Pomodoro.
-                if (!subject) {
-                    state.appState.pomodoro.sessions = 0;
-                    state.appState.pomodoro.completedCycles = 0;
-                    state.appState.pomodoro.targetCycles = 1;
-                    state.appState.pomodoro.activeSubject = null;
+            setPomodoroActiveSubject: (subject) => {
+                // 1. Atualiza o estado
+                set((state) => {
+                    if (!subject) {
+                        state.appState.pomodoro.sessions = 0;
+                        state.appState.pomodoro.completedCycles = 0;
+                        state.appState.pomodoro.targetCycles = 1;
+                        state.appState.pomodoro.activeSubject = null;
+                        state.appState.version = (state.appState.version || 0) + 1;
+                        state.appState.lastUpdated = new Date().toISOString();
+                        return;
+                    }
+
+                    const current = state.appState.pomodoro.activeSubject;
+                    const isNewSession = !current || !subject.sessionInstanceId || (current.sessionInstanceId !== subject.sessionInstanceId);
+                    
+                    if (isNewSession) {
+                        state.appState.pomodoro.sessions = 0;
+                        state.appState.pomodoro.completedCycles = 0;
+                        state.appState.pomodoro.targetCycles = 1;
+                    }
+
+                    state.appState.pomodoro.activeSubject = subject;
                     state.appState.version = (state.appState.version || 0) + 1;
                     state.appState.lastUpdated = new Date().toISOString();
-                    localStorage.removeItem('pomodoroState');
-                    return;
-                }
+                });
 
-                const current = state.appState.pomodoro.activeSubject;
-                const isNewSession = !current || !subject.sessionInstanceId || (current.sessionInstanceId !== subject.sessionInstanceId);
-                
-                if (isNewSession) {
-                    state.appState.pomodoro.sessions = 0;
-                    state.appState.pomodoro.completedCycles = 0;
-                    state.appState.pomodoro.targetCycles = 1;
+                // 2. Executa o side-effect FORA da mutação síncrona
+                if (!subject && typeof window !== 'undefined') {
+                    queueMicrotask(() => {
+                        localStorage.removeItem('pomodoroState');
+                    });
                 }
-
-                state.appState.pomodoro.activeSubject = subject;
-                state.appState.version = (state.appState.version || 0) + 1;
-                state.appState.lastUpdated = new Date().toISOString();
-            }),
+            },
 
             setPomodoroSessions: (count) => set((state) => {
                 state.appState.pomodoro.sessions = count;

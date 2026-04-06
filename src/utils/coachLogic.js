@@ -131,8 +131,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
         const examDate = new Date(options.user.goalDate);
-        const today = new Date();
-        daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+        // FIX: Proteger contra datas inválidas na string
+        if (!isNaN(examDate.getTime())) {
+            const today = new Date();
+            daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+        }
     }
 
     try {
@@ -486,11 +489,15 @@ const _buildSortedTopics = (category, simulados = []) => {
     tasks.forEach(task => {
         const name = String(task.text || task.title || "").trim();
         if (!name) return;
+        
         if (!topicMap[name]) {
+            // Inicializa com o estado da primeira tarefa encontrada
             topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, scores: [] };
         } else {
-            topicMap[name].completed = !!task.completed;
+            // FIX: O tópico só será dado como concluído se TODAS as duplicatas estiverem concluídas
+            topicMap[name].completed = topicMap[name].completed && !!task.completed;
         }
+        
         if (task.priority === 'high') topicMap[name].manualPriority = 40;
         else if (task.priority === 'medium') topicMap[name].manualPriority = 20;
     });
@@ -553,20 +560,28 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const topCategories = ranked.slice(0, 10);
 
     const performDeepCheck = (category) => {
-        // ... (existing logic)
-        const categoryLogs = studyLogs.filter(l => l.categoryId === category.id);
+        // FIX: Limitar o cálculo de burnout aos últimos 30 dias
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const cutoffTime = thirtyDaysAgo.getTime();
+
+        // Filtra logs e simulados recentes
+        const recentLogs = studyLogs.filter(l => l.categoryId === category.id && new Date(l.date || 0).getTime() >= cutoffTime);
         const catNormalized = normalize(category.name);
-        const categorySims = simulados.filter(s => normalize(s.subject) === catNormalized);
-        const totalHours = categoryLogs.reduce((acc, l) => acc + (l.minutes || 0), 0) / 60;
-        const totalQuestions = categorySims.reduce((acc, s) => acc + (s.total || 0), 0);
-        const totalCorrect = categorySims.reduce((acc, s) => acc + (s.correct || 0), 0);
+        const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || 0).getTime() >= cutoffTime);
+
+        const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+        const totalCorrect = recentSims.reduce((acc, s) => acc + (Number(s.correct) || 0), 0);
+        
         const avgScore = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
         const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
+        
         if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
             return {
                 isTrap: true,
-                msg: `⚠️ Alerta de Método: Você estudou ${totalHours.toFixed(1)}h de ${category.name} mas fez poucas questões (${questionsPerHour.toFixed(1)}/h). Meta para seu nível: >${dynamicThreshold}/h.`
+                msg: `⚠️ Alerta de Método: Nos últimos 30 dias você estudou ${totalHours.toFixed(1)}h de ${category.name} mas fez poucas questões (${questionsPerHour.toFixed(1)}/h). Meta para seu nível: >${dynamicThreshold}/h.`
             };
         }
         return { isTrap: false };

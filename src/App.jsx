@@ -132,16 +132,25 @@ function MainLayout() {
   const contestsCount = Object.keys(contests).length;
 
   useEffect(() => {
-    if (currentUser && !data) {
-      if (contestsCount > 0 && Object.keys(contests)[0] !== activeContestId) {
-        console.warn("Store inconsistency detected. Attempting to recover activeId...");
-        switchContest(Object.keys(contests)[0]);
-      } else if (contestsCount === 0) {
-        console.warn("No contests found. Creating default...");
-        createNewContest();
-      }
+    if (currentUser && appState) {
+        // Obter os dados reais correspondentes ao ID ativo
+        const currentData = appState.contests[appState.activeId];
+
+        // Se os dados estiverem em falta completamente, forçar recuperação
+        if (!currentData) {
+            if (contestsCount > 0) {
+                console.warn("Store inconsistency detected: Active contest missing. Attempting to recover activeId...");
+                switchContest(Object.keys(contests)[0]);
+            } else {
+                console.warn("No contests found. Creating default...");
+                createNewContest();
+            }
+        } else if (contestsCount > 0 && Object.keys(contests)[0] !== activeContestId && !contests[activeContestId]) {
+            // Caso o activeId aponte para um ID que não existe nas chaves
+            switchContest(Object.keys(contests)[0]);
+        }
     }
-  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest, contests]);
+  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest, contests, appState]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

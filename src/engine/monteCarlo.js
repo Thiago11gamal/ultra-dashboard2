@@ -27,7 +27,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
   // FIX: Uso de Math.floor na média para evitar o "Efeito Borboleta" nas sementes
-  const categoryHash = (categoryName || '').split('').reduce((acc, char, idx) => acc + char.charCodeAt(0) * (idx + 1), 0);
+  const categoryHash = Array.from(categoryName || '').reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
     (Math.floor(safeMean) * 179 ^
     Math.round(safeSD * 997) ^
