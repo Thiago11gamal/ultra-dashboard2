@@ -57,11 +57,17 @@ export function AuthProvider({ children }) {
         }
 
         const unsubscribe = onAuthStateChanged(auth, (user) => {
+            const wasImpacient = !hasResolvedAuth && !loading;
             hasResolvedAuth = true;
             clearTimeout(loadingTimeout);
 
             if (user) {
                 console.debug("[Auth] Usuário conectado:", user.email);
+                if (wasImpacient) {
+                    console.warn("[Auth] Firebase resolveu após timeout. Forçando recarregamento para paridade de estado.");
+                    window.location.reload();
+                    return;
+                }
             } else {
                 console.debug("[Auth] Nenhum usuário conectado.");
             }

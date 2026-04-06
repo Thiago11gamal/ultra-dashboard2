@@ -374,7 +374,12 @@ export const useAppStore = create(
                         id: generateId('trash'),
                         type: 'category',
                         contestId: state.appState.activeId,
-                        data: JSON.parse(JSON.stringify(category)),
+                        data: JSON.parse(JSON.stringify({
+                            category: category,
+                            studyLogs: activeData.studyLogs?.filter(l => l.categoryId === id) || [],
+                            studySessions: activeData.studySessions?.filter(s => s.categoryId === id) || [],
+                            mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name]
+                        })),
                         deletedAt: new Date().toISOString()
                     });
                 }
@@ -588,6 +593,7 @@ export const useAppStore = create(
                 activeData.settings = { ...(activeData.settings || {}), ...settings };
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             toggleDarkMode: () => set((state) => {
@@ -599,6 +605,7 @@ export const useAppStore = create(
                 activeData.settings.darkMode = currentVal === undefined ? false : !currentVal;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+                localStorage.setItem('ultra-sync-dirty', 'true');
             }),
 
             updateUserName: (name) => set((state) => {
@@ -684,11 +691,26 @@ export const useAppStore = create(
                     const contest = state.appState.contests[targetContestId];
                     if (contest) {
                         if (!contest.categories) contest.categories = [];
+                        
+                        const catData = item.data.category || item.data; // Back-compat
+                        
                         // Check if ID already exists, if so generate a new one
-                        if (contest.categories.some(c => c.id === item.data.id)) {
-                            item.data.id = generateId('cat');
+                        if (contest.categories.some(c => c.id === catData.id)) {
+                            catData.id = generateId('cat');
                         }
-                        contest.categories.push(item.data);
+                        contest.categories.push(catData);
+
+                        // RIGOR-RESTORE: Reinstall associated historical metrics
+                        if (item.data.studyLogs) {
+                            contest.studyLogs = [...(contest.studyLogs || []), ...item.data.studyLogs];
+                        }
+                        if (item.data.studySessions) {
+                            contest.studySessions = [...(contest.studySessions || []), ...item.data.studySessions];
+                        }
+                        if (item.data.mcWeight !== undefined) {
+                            if (!contest.mcWeights) contest.mcWeights = {};
+                            contest.mcWeights[catData.id] = item.data.mcWeight;
+                        }
                     }
                 } else if (item.type === 'contest') {
                     let newId = item.contestId;
