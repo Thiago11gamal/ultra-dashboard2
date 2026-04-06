@@ -4,10 +4,7 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 
-
-
 export function useCloudSync(currentUser, appState, setAppState, showToast) {
-    // FIX: Estabiliza a referência do toast para não disparar reinícios do Firebase
     const showToastRef = useRef(showToast);
     useEffect(() => {
         showToastRef.current = showToast;
@@ -15,7 +12,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
     const lastSyncedRef = useRef(null);
     const isParityValidatedRef = useRef(false);
-    const [parityTick, setParityTick] = useState(0); // L2: State just for reactivity, logic uses Ref
+    const [parityTick, setParityTick] = useState(0); 
     const lastLocalMutationRef = useRef(0);
     const isCloudPullRef = useRef(false);
     const debounceRef = useRef(null);
@@ -31,7 +28,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         appStateRef.current = appState;
     }, [appState]);
 
-    // L2: Helper unificado para confirmar paridade sem dessincronização ref/state
     const confirmParity = useCallback(() => {
         if (!isParityValidatedRef.current) {
             isParityValidatedRef.current = true;
@@ -47,9 +43,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
     }, []);
 
-    // Normalização leve para detecção de mudança em tempo real
-    // Baseado puramente no timestamp e ID ativo para evitar O(n log n) no hot-path.
-    // Merge logic: Combine local and cloud contests safely
     const mergeAppState = (local, cloud) => {
         if (!cloud) return local;
         if (!local) return cloud;
@@ -61,23 +54,18 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             const localContest = mergedContests[id];
             
             if (!localContest) {
-                // New contest from cloud
                 mergedContests[id] = cloudContest;
             } else {
-                // Conflict: Pick the one with the newer lastUpdated
                 const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
                 const localTime = new Date(localContest.lastUpdated || 0).getTime();
                 
                 if (cloudTime > localTime) {
-                    // Merge Categorias
                     const mergedCatsMap = {};
                     (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
                     (cloudContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
                     
-                    // Merge Estudo e Simulados (Priorizando IDs únicos para evitar perda de dados locais)
                     const mergeArrays = (arr1, arr2) => {
                         const map = new Map();
-                        // FIX: Chave de merge mais estável e performática (evita stringify pesado)
                         const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
                         
                         (arr1 || []).forEach(item => map.set(getStableKey(item), item));
@@ -114,18 +102,15 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         if (!state) return '';
         const activeContest = state.contests?.[state.activeId];
         
-        // FIX: Adicionado hash de tarefas e versão para evitar colisões de timestamp
         const taskHash = (activeContest?.categories || [])
             .reduce((acc, cat) => acc + (cat.tasks?.length || 0), 0);
         
         const lastUpdated = state.lastUpdated || "0";
         const version = state.version || 0;
 
-        // Criamos uma assinatura única baseada no tempo, versão e volume de dados
         return `${lastUpdated}|v${version}|tasks:${taskHash}|active:${state.activeId}`;
     };
 
-    // 1. RECEPTOR (onSnapshot) - Slave Mode
     useEffect(() => {
         if (!currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
             if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
@@ -146,14 +131,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         try {
             docRef = doc(db, 'backups', currentUser.uid);
         } catch (err) {
-            console.error("[Sync] Firebase initialization error (likely missing Vercel env vars):", err);
+            console.error("[Sync] Firebase initialization error:", err);
             confirmParity();
             return;
         }
 
         logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
 
-        // Fallback: se o servidor demorar demais (>5s), liberamos o app (previne trava offline)
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
                 logger.warn("[Firebase-Diag] TIMEOUT! Verifique sua internet ou permissões do Firebase.");
@@ -162,7 +146,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // FIX: Ignora snapshot da nuvem se houver um save local em curso para evitar loops.
             if (isInternalSyncing) {
                 logger.debug("[Sync] Ignorando snapshot da nuvem pois existe um save local em curso.");
                 return;
@@ -174,8 +157,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             if (isFromCache) logger.debug("[Firebase-Diag] Nota: Dado vindo do cache local (ainda sincronizando com servidor...)");
             const exists = docSnap.exists();
 
-            // BLOQUEIO SEGURO: Se veio do cache e está vazio, IGNORE.
-            // Isso evita o "envenenamento" onde o dado local antigo sobe pra nuvem antes da nuvem responder o real.
             if (isFromCache && !exists && !isParityValidatedRef.current) {
                 logger.debug("[Sync] Aguardando resposta real do servidor...");
                 return;
@@ -187,7 +168,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             latestCloudDataRef.current = cloudData;
 
             if (!cloudData) {
-                // Nuvem realmente vazia (confirmado pelo servidor ou cache confirmado)
                 if (!isParityValidatedRef.current) {
                     lastSyncedRef.current = stateStringForSync(appStateRef.current);
                     confirmParity();
@@ -206,16 +186,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 return;
             }
 
-            // --- LOCKDOWN RULE: CLOUD WINS ON BOOT (WITH TIMESTAMP CHECK) ---
             const isBootSync = !isParityValidatedRef.current;
             const now = Date.now();
-            // FIX 2: Aumentar janela de proteção e validar se o app acabou de ser editado
             const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
 
             let shouldPullCloud = false;
 
             if (isBootSync) {
-                // Se o utilizador já começou a interagir (mesmo no boot), a nuvem perde a prioridade absoluta
                 if (localWasJustEdited) {
                     logger.warn("[Sync] Bloqueio de Boot: Utilizador já iniciou edições locais.");
                     shouldPullCloud = false;
@@ -226,7 +203,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
                     const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
-                    // SYNC-01 FIX: user está em contests[activeId].user, não no root de appState
                     const activeId = appStateRef.current?.activeId;
                     const activeContest = appStateRef.current?.contests?.[activeId];
                     const contestCount = Object.keys(appStateRef.current?.contests || {}).length;
@@ -250,7 +226,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                         logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge.");
                         shouldPullCloud = true;
                     } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
-                        // 🛡️ BUG-C2: Nuvem é significativamente mais recente (>5s) — puxar
                         logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
                         shouldPullCloud = true;
                     } else {
@@ -259,7 +234,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     }
                 }
 
-                // PROTEÇÃO ANTI-SOBRECRITA DE RESGATE
                 if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
                     logger.warn("[Sync] BLOQUEIO DE RESGATE ATIVO. Recusando pull da nuvem para proteger dados locais.");
                     shouldPullCloud = false;
@@ -273,7 +247,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
             if (shouldPullCloud) {
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
-                logger.debug(`[Sync] Sincronização MASTER aplicada. Motivo: ${isBootSync ? 'Boot' : 'Idle/Verdade Global'}`);
                 isCloudPullRef.current = true;
                 setAppState(prev => mergeAppState(prev, cloudData));
                 lastSyncedRef.current = cloudStateString;
@@ -283,14 +256,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                logger.debug("[Sync] Divergência detectada (edição local ativa). Prioridade local mantida.");
                 setHasConflict(true);
             }
         }, (err) => {
             logger.error("[Sync] Erro no listener:", err);
             setCloudStatus('error');
             setCloudError(err.message || 'Erro no listener');
-            // Se der erro (ex: offline), liberamos para evitar travar o usuário
             confirmParity();
         });
 
@@ -299,7 +270,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
-    }, [currentUser?.uid, setAppState]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [currentUser?.uid, setAppState]);
 
     useEffect(() => {
         isParityValidatedRef.current = false;
@@ -308,12 +279,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         lastLocalMutationRef.current = 0;
         setHasConflict(false);
     }, [currentUser?.uid]);
-
-    // -------------------------------------------------------------------------
-    // 2. EMISSOR (Auto-save) - Master Mode
-    // -------------------------------------------------------------------------
     
-    // BUG-M2 FIX: Função de sync estável que usa refs para evitar re-registro de listeners
     const performEmergencySync = useCallback(async () => {
         if (!currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
         
@@ -338,7 +304,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                 : syncState.contests;
 
-            // FIX: Limpar também o Lixo (Trash) antes de enviar para a nuvem
             const safeTrash = (syncState.trash || [])
                 .slice(-20) 
                 .map(item => ({
@@ -363,9 +328,8 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         } finally {
             if (isMountedRef.current) setIsInternalSyncing(false);
         }
-    }, [currentUser?.uid]); // L3: Removido db
+    }, [currentUser?.uid]);
 
-    // Registro estável de listeners (BUG-M2)
     useEffect(() => {
         if (!currentUser?.uid || !db) return;
 
@@ -376,24 +340,20 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
         };
 
         const handleBeforeUnload = () => {
-            // BUG-9 FIX: Mark dirty in localStorage so next boot can detect unsaved data
             let isDirty = false;
             try {
                 const currentStr = stateStringForSync(appStateRef.current);
                 if (lastSyncedRef.current !== currentStr) {
-                    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch (e) {}
+                    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch (err) { console.debug('Storage error', err); }
                     isDirty = true;
                 }
-            } catch (err) { /* ignore */ }
+            } catch (err) { console.debug('State sync error', err); }
             
-            // Mitigação Real: sendBeacon workflow. Como Firestore Client não suporta beacon
-            // nativamente pela complexidade do formato de documento, disparamos para um Worker 
-            // Vercel Edge customizado caso configurado.
             if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
                 try {
                     const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
                     navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, payload);
-                } catch(err) {}
+                } catch(err) { console.debug('Beacon error', err); }
             }
 
             performEmergencySync();
@@ -406,15 +366,13 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [currentUser?.uid, performEmergencySync]); // L3: Removido db
+    }, [currentUser?.uid, performEmergencySync]);
 
-    // Timer de Debounce para auto-save normal
     useEffect(() => {
         if (!currentUser?.uid || !appState || !isParityValidatedRef.current || !db) return;
 
         const currentStateString = stateStringForSync(appState);
         
-        // BUG-08 FIX: Se a mudança foi gerada por um PULL da nuvem, não dispare write-back.
         if (isCloudPullRef.current) {
             isCloudPullRef.current = false;
             lastSyncedRef.current = currentStateString;
@@ -423,7 +381,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         if (lastSyncedRef.current === currentStateString) return;
 
-        // Mutação local detectada
         const lastMutation = Date.now();
         lastLocalMutationRef.current = lastMutation;
         setHasConflict(false);
@@ -459,7 +416,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                         ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                         : syncState.contests;
 
-                    // FIX: Limpar também o Lixo (Trash) antes de enviar para a nuvem
                     const safeTrash = (syncState.trash || [])
                         .slice(-20)
                         .map(item => ({
@@ -481,8 +437,7 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     
                     lastSyncedRef.current = currentStateString;
                     
-                    // FORTRESS: Limpar flag de "sujo" apenas após confirmação do Firebase
-                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(err) {}
+                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(err) { console.debug('Storage error', err); }
                     
                     lastError = null;
                     break;
@@ -508,7 +463,6 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         
-        // FORTRESS: Se houver flag de "sujo", sincronizar com prioridade (500ms)
         const isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
         const delay = isHighPriority ? 500 : 5000;
         

@@ -5,8 +5,6 @@ import { motion } from 'framer-motion';
 
 export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
-    // --- STATE PERSISTENCE INITIALIZATION ---
-
     const safeSettings = useMemo(() => ({
         pomodoroWork: settings?.pomodoroWork || 25,
         pomodoroBreak: settings?.pomodoroBreak || 5,
@@ -24,8 +22,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 saved.sessionInstanceId === activeSubject.sessionInstanceId) {
                 return saved;
             }
-        } catch {
-            /* ignore storage reading errors */
+        } catch (err) {
+            console.debug('Storage read ignored', err);
         }
         return null;
     }, [activeSubject]);
@@ -105,8 +103,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         localStorage.removeItem('pomodoroState');
                     }
                 }
-            } catch {
-                console.error("Resume logic error");
+            } catch (err) {
+                console.error("Resume logic error", err);
             }
         }
         return () => {
@@ -131,7 +129,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
     }, []);
 
-    // FIX: useCallback para estabilizar dependências do React
     const sendNotification = useCallback((title, body) => {
         if ('Notification' in window && Notification.permission === 'granted') {
             try {
@@ -140,8 +137,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     icon: '🍅',
                     tag: 'pomodoro-timer'
                 });
-            } catch {
-                /* ignored notification error */
+            } catch (err) {
+                console.debug('Notification ignored', err);
             }
         }
     }, []);
@@ -159,7 +156,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setUiPosition(newPos);
         try {
             localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
-        } catch { /* ignore storage errors */ }
+        } catch (err) { console.debug('Storage ignored', err); }
     };
 
     const savePomodoroState = useCallback((overrides = {}) => {
@@ -179,8 +176,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         try {
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch {
-            /* Silently handle quota errors */
+        } catch (err) {
+            console.debug('Quota error', err);
         }
     }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
 
@@ -233,8 +230,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (safeSettings.soundEnabled) {
                     try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                        audio.play().catch(() => { /* ignored playback error */ });
-                    } catch { /* ignored creation error */ }
+                        audio.play().catch((err) => { console.debug('Playback ignored', err); });
+                    } catch (err) { console.debug('Audio error', err); }
                 }
                 sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
             }
@@ -246,8 +243,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (safeSettings.soundEnabled) {
                     try {
                         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                        audio.play().catch(() => { /* ignored */ });
-                    } catch { /* ignored */ }
+                        audio.play().catch((err) => { console.debug('Playback ignored', err); });
+                    } catch (err) { console.debug('Audio error', err); }
                 }
                 sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
             }
@@ -521,7 +518,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             onClick={() => {
                                 try {
                                     localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
-                                } catch { /* ignore */ }
+                                } catch (err) { console.debug("Ignored storage error", err); }
                             }}
                             className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
                             title="Resetar Posição"
