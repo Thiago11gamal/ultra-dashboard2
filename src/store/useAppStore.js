@@ -75,7 +75,9 @@ const processGamification = (state, xpGained) => {
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData || !activeData.user) return null;
 
-    const calculatedLevel = calculateLevel(xpInput);
+    const currentXP = activeData.user.xp || 0;
+    const currentMaxLevel = activeData.user.level || 1;
+    
     const minXpForCurrentLevel = Math.pow(Math.max(1, currentMaxLevel) - 1, 2) * 100;
     
     // RIGOR-XP: O XP pode descer (desmarcar tarefa), mas nunca abaixo do piso do nível conquistado
@@ -921,21 +923,6 @@ if (typeof window !== 'undefined') {
             } catch (e) {
                 console.error("Erro ao sincronizar pomodoro entre abas:", e);
             }
-        }
-    });
-}
-
-if (typeof window !== 'undefined') {
-    window.addEventListener('storage', (event) => {
-        if (event.key === 'pomodoroState') {
-            try {
-                const newState = JSON.parse(event.newValue);
-                if (newState) {
-                    // Atualiza o store sem disparar um novo setItem (evita loop)
-                    useAppStore.getState().setPomodoroSessions(newState.sessions);
-                    useAppStore.getState().setPomodoroCompletedCycles(newState.completedCycles);
-                }
-            } catch (e) {}
         }
     });
 }
