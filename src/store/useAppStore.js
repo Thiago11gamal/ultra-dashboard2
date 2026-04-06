@@ -326,6 +326,12 @@ export const useAppStore = create(
                 const activeData = state.appState.contests[state.appState.activeId];
                 const category = activeData.categories.find(c => c.id === categoryId);
                 if (category) {
+                    const task = category.tasks.find(t => t.id === taskId);
+                    // RIGOR-XP: Se a tarefa estava completa, deduz o XP antes de apagar (evita farming)
+                    if (task && task.completed) {
+                        const xpDeduction = task.awardedXP || 150;
+                        processGamification(state, -xpDeduction);
+                    }
                     category.tasks = category.tasks.filter(t => t.id !== taskId);
                 }
                 state.appState.version = (state.appState.version || 0) + 1;

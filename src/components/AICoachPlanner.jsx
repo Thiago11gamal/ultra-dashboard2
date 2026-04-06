@@ -56,6 +56,8 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const coachPlanner = useAppStore(state => state.appState.coachPlanner) || DEFAULT_PLANNER;
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
 
+    // FIX: Bloquear atualização externa durante o arrasto para evitar saltos na UI
+    const [isDragging, setIsDragging] = useState(false);
 
     const getInitialColumns = React.useCallback(() => {
         const allAssignedIds = new Set();
@@ -80,12 +82,17 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const [columns, setColumns] = useState(() => getInitialColumns());
 
     // Effect for external sync only: triggered when prop or store changes.
-    // If we're already mid-drag or the data is from an internal action, this sync keeps it aligned.
+    // BUG-SYNC: Only update if not mid-drag to prevent items from vanishing
     useEffect(() => {
-        setColumns(getInitialColumns());
-    }, [getInitialColumns]);
+        if (!isDragging) {
+            setColumns(getInitialColumns());
+        }
+    }, [getInitialColumns, isDragging]);
+
+    const onDragStart = () => setIsDragging(true);
 
     const onDragEnd = (result) => {
+        setIsDragging(false);
         if (!result.destination) return;
         const { source, destination } = result;
 
@@ -133,7 +140,7 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     };
 
     return (
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-6">
                 
                 {/* BACKLOG COLUMN */}

@@ -77,8 +77,11 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                     // Merge Estudo e Simulados (Priorizando IDs únicos para evitar perda de dados locais)
                     const mergeArrays = (arr1, arr2) => {
                         const map = new Map();
-                        (arr1 || []).forEach(item => map.set(item.id || item.date || JSON.stringify(item), item));
-                        (arr2 || []).forEach(item => map.set(item.id || item.date || JSON.stringify(item), item));
+                        // FIX: Chave de merge mais estável e performática (evita stringify pesado)
+                        const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
+                        
+                        (arr1 || []).forEach(item => map.set(getStableKey(item), item));
+                        (arr2 || []).forEach(item => map.set(getStableKey(item), item));
                         return Array.from(map.values());
                     };
 
@@ -502,9 +505,9 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         
-        // FORTRESS: Se houver flag de "sujo", sincronizar IMEDIATAMENTE (100ms)
+        // FORTRESS: Se houver flag de "sujo", sincronizar com prioridade (500ms)
         const isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
-        const delay = isHighPriority ? 100 : 3000;
+        const delay = isHighPriority ? 500 : 5000;
         
         debounceRef.current = setTimeout(syncToCloud, delay);
 
