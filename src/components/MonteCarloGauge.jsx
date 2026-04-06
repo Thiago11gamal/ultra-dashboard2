@@ -448,9 +448,9 @@ export default function MonteCarloGauge({
     const message = baseMessage + timeLabel;
 
     return (
-        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full max-w-full ${loading ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
 
-            {loading && (
+            {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
                 </div>
@@ -518,9 +518,9 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${loading ? 'blur-sm' : ''}`}>
+            <div className={`w-full bg-black/30 rounded-xl p-6 mb-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
                 <div className="relative mb-6">
-                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${loading ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
+                    <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isFlashing ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
                         <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                         <path
@@ -534,7 +534,7 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
-                        {!loading && (
+                        {!isFlashing && (
                             <g
                                 transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
                                 style={{ transition: 'transform 1.5s ease-out' }}
