@@ -9,10 +9,12 @@ import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
     const setData = useAppStore(state => state.setData);
-    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority, startPomodoroSession } = useAppStore();
+    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority, startPomodoroSession, setDashboardFilter } = useAppStore();
     const showToast = useToast();
     const navigate = useNavigate();
-    const [filter, setFilter] = useState('all');
+
+    // FIX: Usar o filtro do store em vez do useState local
+    const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
 
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
 
@@ -85,7 +87,7 @@ export default function Dashboard() {
                     onTogglePriority={togglePriority}
                     onPlayContext={handleStartStudying}
                     filter={filter}
-                    setFilter={setFilter}
+                    setFilter={setDashboardFilter}
                 />
             </div>
         </div>

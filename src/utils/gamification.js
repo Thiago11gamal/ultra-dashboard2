@@ -53,12 +53,16 @@ export const getXPProgress = (xpInput) => {
     const nextLevelXP = Math.pow(level, 2) * 100;
     const range = nextLevelXP - currentLevelXP;
 
+    // FIX: Se o progresso for 0 logo após subir de nível, 
+    // retornamos 0.5% para melhor feedback visual na UI.
+    const rawPercentage = range > 0 ? ((xp - currentLevelXP) / range) * 100 : 0;
+    const percentage = Math.round(Math.max(0, Math.min(100, rawPercentage)));
+
     return {
         level,
         current: Math.max(0, xp - currentLevelXP),
         needed: Math.max(0, range),
-        percentage: range > 0 ? Math.round(Math.max(0, Math.min(100, ((xp - currentLevelXP) / range) * 100))) : 0,
-        // Backwards compatibility if needed by StatsCards
+        percentage: (percentage === 0 && xp > 0) ? 0.5 : percentage, // FIX visual
         total: xp,
     };
 };

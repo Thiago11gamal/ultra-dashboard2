@@ -332,15 +332,24 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                 ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                 : syncState.contests;
 
+            // FIX: Limpar também o Lixo (Trash) antes de enviar para a nuvem
+            const safeTrash = (syncState.trash || [])
+                .slice(-20) 
+                .map(item => ({
+                    ...item,
+                    data: item.type === 'contest' ? "{truncated}" : item.data 
+                }));
+
             const stateToSave = JSON.parse(JSON.stringify({
                 ...syncState,
                 contests: safeContests,
+                trash: safeTrash,
                 history: [],
                 _lastBackup: new Date().toISOString()
             }));
 
             setIsInternalSyncing(true);
-            logger.debug(`[Sync] [EMERGENCY] Enviando atualização para nuvem...`);
+            logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
             await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
             lastSyncedRef.current = currentStateString;
         } catch (e) {
@@ -444,9 +453,18 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
                         ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                         : syncState.contests;
 
+                    // FIX: Limpar também o Lixo (Trash) antes de enviar para a nuvem
+                    const safeTrash = (syncState.trash || [])
+                        .slice(-20)
+                        .map(item => ({
+                            ...item,
+                            data: item.type === 'contest' ? "{truncated}" : item.data
+                        }));
+
                     const stateToSave = JSON.parse(JSON.stringify({
                         ...syncState,
                         contests: safeContests,
+                        trash: safeTrash,
                         history: [],
                         _lastBackup: new Date().toISOString()
                     }));

@@ -160,7 +160,7 @@ export const useAppStore = create(
             }),
 
             setDashboardFilter: (filter) => set((state) => {
-                state.appState.dashboardFilter = filter;
+                state.appState.dashboardFilter = filter || 'all';
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
             }),
@@ -448,7 +448,7 @@ export const useAppStore = create(
                         logReferenceId: logId 
                     };
 
-                    // FIX: Atomicidade (spread + slice) em transação única
+                    // FIX ATOMICIDADE: Adicionar ambos de uma vez
                     activeData.studyLogs = [...(activeData.studyLogs || []), newLog].slice(-LOG_CAP);
                     activeData.studySessions = [...(activeData.studySessions || []), newSession].slice(-SESSION_CAP);
 
@@ -906,6 +906,24 @@ export const useAppStore = create(
         }
     )
 );
+
+// FIX: Sincronização de Cronómetro entre Abas
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'pomodoroState') {
+            try {
+                const newState = JSON.parse(event.newValue);
+                if (newState) {
+                    // Atualiza o store sem disparar um novo setItem (evita loop)
+                    useAppStore.getState().setPomodoroSessions(newState.sessions || 0);
+                    useAppStore.getState().setPomodoroCompletedCycles(newState.completedCycles || 0);
+                }
+            } catch (e) {
+                console.error("Erro ao sincronizar pomodoro entre abas:", e);
+            }
+        }
+    });
+}
 
 if (typeof window !== 'undefined') {
     window.addEventListener('storage', (event) => {
