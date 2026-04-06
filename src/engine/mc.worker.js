@@ -26,6 +26,7 @@ self.onmessage = function(e) {
         }
         self.postMessage({ id, type: 'result', result });
     } catch (error) {
-        self.postMessage({ id, type: 'error', error: error.message });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        self.postMessage({ id, type: 'error', error: errorMessage });
     }
 };

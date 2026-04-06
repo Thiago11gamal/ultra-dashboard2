@@ -6,10 +6,18 @@ import { monteCarloSimulation } from './projection.js';
 
 
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
-  let mean = meanOrObj;
+  let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
   
   if (typeof meanOrObj === 'object' && meanOrObj !== null) {
-      ({ mean, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI } = meanOrObj);
+      // Faz o merge: se a propriedade não existir no objeto, mantém o parâmetro posicional original
+      mean = meanOrObj.mean ?? mean;
+      sd = meanOrObj.sd ?? sd;
+      targetScore = meanOrObj.targetScore ?? targetScore;
+      simulations = meanOrObj.simulations ?? simulations;
+      seed = meanOrObj.seed ?? seed;
+      currentMean = meanOrObj.currentMean ?? currentMean;
+      categoryName = meanOrObj.categoryName ?? categoryName;
+      bayesianCI = meanOrObj.bayesianCI ?? bayesianCI;
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
@@ -21,11 +29,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // FIX: Uso de Math.floor na média para evitar o "Efeito Borboleta" nas sementes
   const categoryHash = (categoryName || '').split('').reduce((acc, char, idx) => acc + char.charCodeAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    Math.floor(safeMean) * 179 ^
+    (Math.floor(safeMean) * 179 ^
     Math.round(safeSD * 997) ^
     Math.round(safeTarget * 1009) ^
     (categoryHash * 13) ^
-    (safeSimulations * 7)
+    (safeSimulations * 7)) >>> 0
   );
 
   const rng = mulberry32(stableSeed);
@@ -53,7 +61,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-  allScores.sort((a, b) => a - b); 
+  allScores.sort(); 
 
   const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
   const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);

@@ -15,7 +15,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         if (!data || !Array.isArray(data)) return [];
         return data
             .filter(d => d.date && (typeof d.probability === 'number' || d.probability === 0))
-            .sort((a, b) => a.date.localeCompare(b.date))
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)))
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
@@ -47,7 +47,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 <div className="w-full max-w-md h-32 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={[{ date: '1', probability: 40 }, { date: '2', probability: 60 }, { date: '3', probability: 85 }]}>
-                            <Area type="monotone" dataKey="probability" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} />
+                            <XAxis dataKey="date" hide />
+                            <YAxis hide domain={[0, 100]} />
+                            <Area type="monotone" dataKey="probability" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
