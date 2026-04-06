@@ -16,6 +16,8 @@ import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-re
 import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
 import { GaussianPlot } from "./charts/GaussianPlot";
 
+const EMPTY_ARRAY = [];
+
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
 import { DisciplinaCard } from "./charts/EvolutionChart/DisciplinaCard";
