@@ -282,7 +282,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     const raw = Number(h.correct) || 0;
                     const tot = Number(h.total) || 0;
-                    return s + (h.isPercentage ? (raw / 100) * tot : raw);
+                    return s + (getSafeScore(h) / 100 * tot);
                 }, 0));
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
@@ -340,7 +340,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                     if (!d) return;
                     const dow = d.getDay();
                     if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                    dayStats[dow].correct += (Number(h.correct) || 0);
+                    dayStats[dow].correct += (getSafeScore(h) / 100 * (Number(h.total) || 0));
                     dayStats[dow].total += (Number(h.total) || 0);
                 });
             });

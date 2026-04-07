@@ -117,10 +117,11 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
             for (const h of recentHistory) {
                 const d = normalizeDate(h.date);
                 if (!d) continue;
+                const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 const dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                 
-                if (!dateMap[dateLabel]) {
-                    dateMap[dateLabel] = { dateLabel, originalDate: d.getTime() };
+                if (!dateMap[dateKey]) {
+                    dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
                 }
                 
                 (h.topics || []).forEach(t => {
@@ -137,12 +138,12 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     const totKey = `${topicName}_total`;
                     const corKey = `${topicName}_correct`;
 
-                    if (dateMap[dateLabel][totKey] === undefined) {
-                        dateMap[dateLabel][totKey] = 0;
-                        dateMap[dateLabel][corKey] = 0;
+                    if (dateMap[dateKey][totKey] === undefined) {
+                        dateMap[dateKey][totKey] = 0;
+                        dateMap[dateKey][corKey] = 0;
                     }
-                    dateMap[dateLabel][totKey] += total;
-                    dateMap[dateLabel][corKey] += correct;
+                    dateMap[dateKey][totKey] += total;
+                    dateMap[dateKey][corKey] += correct;
                 });
             }
         });

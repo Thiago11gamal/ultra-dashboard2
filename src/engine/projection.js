@@ -385,7 +385,7 @@ export function monteCarloSimulation(
         // 🎯 BUG-E1 FIX: Drift Sampling (Incerteza Epistêmica).
         // Cada simulação "sorteia" uma taxa de melhora diferente baseada no erro padrão. 
         // Isso alarga o cone de incerteza (IC 95%) em projeções longas, o que é estatisticamente correto.
-        const simDrift = drift + (randomNormal(rng) * driftUncertainty);
+        const simDrift = Math.max(-0.9, Math.min(0.9, drift + (randomNormal(rng) * driftUncertainty)));
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;

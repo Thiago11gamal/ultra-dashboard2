@@ -206,7 +206,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // 3. Trend
-        const trendHistory = validForDev.slice(0, 10).map(s => ({
+        const trendHistory = relevantSimulados.slice(0, 10).map(s => ({
             score: getSafeScore(s),
             date: s.date
         })).reverse();
@@ -325,8 +325,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost + mcUrgencyBoost) - rotationPenalty;
 
-        const weightBoostFactor = 1 + ((weight / 100) - 1) * 0.4; // Apenas numerador: Boost adicional nos componentes
-        const weightedRaw = rawScore * weightBoostFactor;
+        const weightedRaw = rawScore;
         const normalized = Math.max(0, Math.min(100, Math.round((weightedRaw / RAW_MAX_ACTUAL) * 100)));
 
         // --- RECOMMENDATION ---
@@ -594,7 +593,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     // Se o usuário tiver poucas matérias (< 5), geramos múltiplas tarefas por matéria
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
-    topCategories.forEach((cat, globalIndex) => {
+    topCategories.forEach((cat) => {
         const weakTopics = getWeakestTopicsList(cat, simulados, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         

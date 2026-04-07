@@ -197,7 +197,7 @@ export function useChartData(categories = [], weights = {}) {
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories]);
+    }, [activeCategories, weights]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };

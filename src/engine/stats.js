@@ -211,7 +211,9 @@ export function computeCategoryStats(history, weight) {
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
-    const m = totalQ > 0 ? (totalC / totalQ) * 100 : mean(scores);
+    const m = totalQ > 0 
+        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h) * (Number(h.total) || 0), 0) / totalQ
+        : mean(scores);
 
     // FIX: Variância Ponderada pelo número de questões por exame
     let variance = 0;
