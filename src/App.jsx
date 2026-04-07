@@ -47,9 +47,16 @@ function MainLayout() {
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
   const location = useLocation();
 
-  const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+  const activeContestId = useAppStore(state => state.appState.activeId);
+  const contests = useAppStore(state => state.appState.contests);
   const appState = useAppStore(state => state.appState);
-  // BUG 9 FIX: desestruturar setAppState junto com as outras ações para garantir referência estável
+  
+  // Seletores estáveis para evitar re-renderizações excessivas
+  const data = contests[activeContestId];
+  const contestsCount = Object.keys(contests).length;
+  const hasActiveData = !!data;
+  const firstContestId = Object.keys(contests)[0];
+
   const setAppState = useAppStore(state => state.setAppState);
   const switchContest = useAppStore(state => state.switchContest);
   const createNewContest = useAppStore(state => state.createNewContest);
@@ -125,32 +132,25 @@ function MainLayout() {
   }, [setAppState, showToast]);
 
 
-  // Derived States
-  const activeContestId = appState?.activeId || 'default';
-  const contests = React.useMemo(() => appState?.contests || {}, [appState?.contests]);
-
-  const contestsCount = Object.keys(contests).length;
+  // Derived States are now handled by store selectors at the top of the component
 
   useEffect(() => {
-    if (currentUser && appState) {
-        // Obter os dados reais correspondentes ao ID ativo
-        const currentData = appState.contests[appState.activeId];
-
+    if (currentUser) {
         // Se os dados estiverem em falta completamente, forçar recuperação
-        if (!currentData) {
+        if (!hasActiveData) {
             if (contestsCount > 0) {
                 console.warn("Store inconsistency detected: Active contest missing. Attempting to recover activeId...");
-                switchContest(Object.keys(contests)[0]);
+                switchContest(firstContestId);
             } else {
                 console.warn("No contests found. Creating default...");
                 createNewContest();
             }
-        } else if (contestsCount > 0 && Object.keys(contests)[0] !== activeContestId && !contests[activeContestId]) {
+        } else if (contestsCount > 0 && firstContestId !== activeContestId && !hasActiveData) {
             // Caso o activeId aponte para um ID que não existe nas chaves
-            switchContest(Object.keys(contests)[0]);
+            switchContest(firstContestId);
         }
     }
-  }, [currentUser, data, contestsCount, activeContestId, switchContest, createNewContest, contests, appState]);
+  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
@@ -189,8 +189,8 @@ function MainLayout() {
             <Header
               user={data.user}
               settings={data.settings}
-              contests={appState.contests}
-              activeContestId={appState.activeId}
+              contests={contests}
+              activeContestId={activeContestId}
               onSwitchContest={switchContest}
               onCreateContest={createNewContest}
               onDeleteContest={deleteContest}
@@ -198,7 +198,6 @@ function MainLayout() {
               onCloudRestore={handleCloudRestore}
               onUpdateName={updateUserName}
               currentData={data}
-              appState={appState}
               cloudStatus={{
                 status: cloudStatus,
                 error: cloudError,
