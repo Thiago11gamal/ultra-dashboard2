@@ -330,11 +330,11 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // Map to UI-compatible format
         const hasEnoughData = dailyScores.length >= 3;
-        // D-02 FIX: Threshold alinhado ao trend_tolerance do ProgressStateEngine (0.5).
+        // D-02 FIX: Threshold alinhado ao trend_tolerance do ProgressStateEngine (0.8).
         // Antes, slope de 0.01 já mostrava "↑ Alta" — agora exige evidência real.
         const trend = !hasEnoughData ? 'insufficient' :
-            (globalAnalysis.trend_slope > 0.5 ? 'up' :
-                globalAnalysis.trend_slope < -0.5 ? 'down' : 'stable');
+            (globalAnalysis.trend_slope > 0.8 ? 'up' :
+                globalAnalysis.trend_slope < -0.8 ? 'down' : 'stable');
         const trendValue = globalAnalysis.trend_slope;
 
         // 2. Linear Regression & Contextual Prediction

@@ -205,8 +205,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             daysSinceLastStudy = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
         }
 
-        // 3. Trend
-        const trendHistory = relevantSimulados.slice(0, 10).map(s => ({
+        // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
+        const trendHistory = [...relevantSimulados]
+            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+            .slice(0, 10)
+            .map(s => ({
             score: getSafeScore(s),
             date: s.date
         })).reverse();

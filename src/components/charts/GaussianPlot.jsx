@@ -314,7 +314,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 ))}
             </div>
 
-            <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min((low95 / 100) * 100, 75)}%`, maxWidth: '25%' }}>
+            <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min(ciLowPx, 75)}%`, maxWidth: '25%' }}>
                 <div className="w-2 h-2 rounded-full bg-blue-500/20 border border-blue-400/40" />
                 <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
             </div>

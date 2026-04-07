@@ -41,8 +41,7 @@ export default function ParetoAnalysis({ categories = [] }) {
 
             // Find category to get weight
             const cat = categories.find(c => c.name === t.category);
-            const rawWeight = cat?.weight || 10; // Default to 10 if not set
-            const weight = rawWeight / 10; // Normalized
+            const weight = 1.0; // Pareto analysis for knowledge gaps should focus on absolute error frequency
 
             if (!topicMap[key]) topicMap[key] = { ...t, count: 1, weight };
             else {

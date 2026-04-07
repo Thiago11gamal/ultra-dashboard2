@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
+import { getSafeScore } from '../utils/scoreHelper';
 
 const PerformanceTable = ({ categories = [] }) => {
     // Sort by Net Balance (Saldo) descending
@@ -14,7 +15,7 @@ const PerformanceTable = ({ categories = [] }) => {
         for (let i = 0; i < historyA.length; i++) {
             const h = historyA[i];
             const t = parseInt(h.total, 10) || 0;
-            const c = parseInt(h.correct, 10) || 0;
+            const c = (getSafeScore(h) / 100 * t);
             correctA += c;
             wrongA += (t - c);
         }
@@ -24,7 +25,7 @@ const PerformanceTable = ({ categories = [] }) => {
         for (let i = 0; i < historyB.length; i++) {
             const h = historyB[i];
             const t = parseInt(h.total, 10) || 0;
-            const c = parseInt(h.correct, 10) || 0;
+            const c = (getSafeScore(h) / 100 * t);
             correctB += c;
             wrongB += (t - c);
         }
@@ -54,9 +55,9 @@ const PerformanceTable = ({ categories = [] }) => {
                             const history = stats.history || [];
 
                             const totalQuestions = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-                            const totalCorrect = history.reduce((acc, h) => acc + (parseInt(h.correct, 10) || 0), 0);
-                            const totalWrong = totalQuestions - totalCorrect;
-                            const netBalance = totalCorrect - totalWrong;
+                            const totalCorrect = history.reduce((acc, h) => acc + (getSafeScore(h) / 100 * (Number(h.total) || 0)), 0);
+                            const totalWrong = Math.max(0, totalQuestions - totalCorrect);
+                            const netBalance = Math.round(totalCorrect - totalWrong);
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
                             const isTopThree = index < 3 && totalQuestions > 0;
