@@ -49,19 +49,14 @@ const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
 // --- STORE HELPERS ---
 
 const stripForUndo = (contestsObj) => {
-    // Otimização de Memória: Remove arrays pesados do histórico de Undo
-    // Isso evita o esgotamento de RAM no Galaxy Book 2 após muitas edições.
+    // CORREÇÃO: Utilizar Shallow Copy (Cópia Rasa) preserva as referências originais
+    // na memória RAM. Removemos o esvaziamento forçado de arrays que destruía 
+    // irreversivelmente os dados do usuário ao acionar o "Desfazer".
     const cleanContests = {};
-    Object.entries(contestsObj).forEach(([id, data]) => {
-        cleanContests[id] = {
-            ...data,
-            studyLogs: [], // Não precisamos de logs detalhados no Undo da UI
-            studySessions: [],
-            simuladoRows: [],
-            monteCarloHistory: [] // BUG-MEM: Histórico MC é pesado para o Galaxy Book 2
-        };
+    Object.keys(contestsObj).forEach(id => {
+        cleanContests[id] = { ...contestsObj[id] };
     });
-    return JSON.parse(JSON.stringify(cleanContests));
+    return cleanContests;
 };
 
 const HISTORY_COOLDOWN = 1000; // Only record history once per second for rapid UI actions
@@ -88,11 +83,10 @@ const processGamification = (state, xpGained) => {
     const currentXP = activeData.user.xp || 0;
     const currentMaxLevel = activeData.user.level || 1;
     
-    const minXpForCurrentLevel = Math.pow(Math.max(1, currentMaxLevel) - 1, 2) * 100;
-    
-    // RIGOR-XP: O XP pode descer (desmarcar tarefa), mas nunca abaixo do piso do nível conquistado
-    // Isso evita que o utilizador perca níveis que já "deu unlock" (absolutos).
-    let newXP = Math.max(minXpForCurrentLevel, currentXP + xpGained);
+    // CORREÇÃO: Removemos o piso (minXpForCurrentLevel).
+    // O nível máximo atingido nunca regride, mas a carteira de XP flutua livremente,
+    // o que previne a geração de "XP Fantasma" no ciclo de marcar/desmarcar.
+    let newXP = Math.max(0, currentXP + xpGained);
 
     const currentAchievements = activeData.user.achievements || [];
     const { newlyUnlocked, xpGained: achievementXp } = checkAndUnlockAchievements(activeData, currentAchievements);
@@ -509,9 +503,11 @@ export const useAppStore = create(
 
                 const session = activeData.studySessions[sessionIndex];
                 
-                // RIGOR-XP: Dedução de XP proporcional ao tempo removido (ex: 10 XP por cada 25min)
-                // Isso evita o "Farming" onde o user cria sessões fakes e as deleta
-                const xpToDeduct = Math.floor((session.duration / 25) * 100);
+                // CORREÇÃO: Dedução reversa exata do que foi concedido na criação.
+                const baseXP = XP_CONFIG.pomodoro.base;
+                const bonusXP = session.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+                const xpToDeduct = baseXP + bonusXP;
+                
                 processGamification(state, -xpToDeduct);
 
                 const category = activeData.categories.find(c => c.id === session.categoryId);
@@ -601,10 +597,12 @@ export const useAppStore = create(
 
                 const activeData = state.appState.contests[state.appState.activeId];
                 
+                // CORREÇÃO: Verificação exata da String ISO para evitar 
+                // corrupção por conversão de UTC para Timezone local.
                 const matchesDate = (raw) => {
                     if (!raw) return false;
-                    const rawDay = raw.includes('T') ? raw.split('T')[0] : raw;
-                    return rawDay === targetDay;
+                    if (dateInput.includes('T')) return raw === dateInput;
+                    return raw.startsWith(dateInput); 
                 };
 
                 if (activeData.simuladoRows) {

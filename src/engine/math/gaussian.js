@@ -67,8 +67,9 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const BIN_COUNT = 200;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
 
-    // BUG-CRÍTICO FIX: Piso dinâmico proporcional ao SD evita o over-smoothing grave
-    const bandwidth = Math.max(h, binWidth, Math.min(1.0, projectedSD * 0.15));
+    // CORREÇÃO: Adicionado o piso rígido mínimo '0.001' na fórmula de largura de banda.
+    // Isso evita que um desvio padrão de 0 cause divisão por zero (Infinity) e oculte o gráfico.
+    const bandwidth = Math.max(0.001, h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
     // 🎯 MATH FIX: Remover overflowCount e underflowCount e fazer Data Folding

@@ -15,7 +15,10 @@ export const mapRetentionData = (categories = []) => {
         // Add categories with study history
         if (cat.lastStudiedAt) {
             const last = new Date(cat.lastStudiedAt).getTime();
-            const days = (Date.now() - last) / (1000 * 60 * 60 * 24);
+            
+            // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
+            // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
+            const days = Math.max(0, (Date.now() - last) / (1000 * 60 * 60 * 24));
             const retention = Math.round(100 * Math.exp(-days / 7));
             
             data.push({
@@ -30,7 +33,7 @@ export const mapRetentionData = (categories = []) => {
             cat.tasks.forEach(task => {
                 if (task.lastStudiedAt || task.completedAt) {
                     const last = new Date(task.lastStudiedAt || task.completedAt).getTime();
-                    const days = (Date.now() - last) / (1000 * 60 * 60 * 24);
+                    const days = Math.max(0, (Date.now() - last) / (1000 * 60 * 60 * 24));
                     const retention = Math.round(100 * Math.exp(-days / 7));
                     
                     if (days >= 1) { // Only show items that have at least 1 day without revision
