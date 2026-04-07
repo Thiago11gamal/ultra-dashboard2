@@ -24,7 +24,8 @@ const TaskCard = ({ task, index, isBacklog }) => {
 
     // BUG FIX: react-beautiful-dnd breaks instantly if draggableId changes (e.g. relying on `index` across columns).
     // If task.id is absent, we generate a stable hash from its content to prevent it from vanishing on drop.
-    const stableId = task.id || `fb-${subject.replace(/\s/g, '').substring(0, 10)}-${fullText.length}`;
+    // IMPROVEMENT: Added index to ensure uniqueness even with identical texts.
+    const stableId = task.id || `fb-${subject.replace(/\s/g, '')}-${index}-${fullText.length}`;
 
     return (
         <Draggable draggableId={stableId} index={index}>

@@ -3,11 +3,13 @@ import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, ChevronDown, Clock }
 import {
     computeCategoryStats,
     computeBayesianLevel,
-    simulateNormalDistribution,
-    runMonteCarloAnalysis,
     computeWeightedVariance,
     calculateVolatility
 } from '../engine';
+import {
+    simulateNormalDistribution,
+    runMonteCarloAnalysis
+} from '../engine/monteCarlo';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';

@@ -39,7 +39,10 @@ const StudyHistory = React.memo(function StudyHistory({
             const t = new Date(s.startTime).getTime();
             return isNaN(t) ? currentTime : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
         });
-        const earliestTime = Math.min(...earliestTimeArr, currentTime);
+        const earliestTime = useMemo(() => {
+            return Math.min(...earliestTimeArr, currentTime);
+        }, [earliestTimeArr, currentTime]);
+
         const firstSession = new Date(earliestTime);
 
         // Get start of week (Sunday) for both earliest session and now

@@ -93,14 +93,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
+    // B-13 FIX: Previne loops de renderização as dependências
     useEffect(() => {
         if (!categories.length) return;
+        
+        // Só define o foco inicial se ele estiver vazio ou se o ID atual não pertencer à lista (ex: trocou dashboard)
         if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            if (categories.length > 0) {
-                setFocusSubjectId(categories[0].id);
-            }
+            setFocusSubjectId(categories[0].id);
         }
-    }, [categories, focusSubjectId]);
+    }, [categories]); // Removido focusSubjectId das dependências
 
     const focusCategory = useMemo(() => {
         const found = categories.find(c => c.id === focusSubjectId);

@@ -49,11 +49,12 @@ export default function Header({
     const [trashOpen, setTrashOpen] = useState(false);
     const [localName, setLocalName] = useState(user.name);
 
-    // Sync localName with prop changes
+    // Sync localName with prop changes - BUG-FIX: Conditional check to prevent loop
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setLocalName(user.name);
-    }, [user.name]);
+        if (user?.name && localName !== user.name) {
+            setLocalName(user.name);
+        }
+    }, [user?.name]); // Remove localName from dependencies to avoid triggering itself
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {

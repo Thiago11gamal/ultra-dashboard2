@@ -20,11 +20,15 @@ export function AuthProvider({ children }) {
         if (!auth) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
         return createUserWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
+                // BUG-FIX: A atualização de perfil é assíncrona no Firebase
                 await updateProfile(userCredential.user, {
                     displayName: name
                 });
-                setCurrentUser(userCredential.user);
-                return userCredential.user;
+                // Força o reload para que o currentUser local reflita o displayName imediatamente
+                await userCredential.user.reload();
+                const updatedUser = auth.currentUser;
+                setCurrentUser(updatedUser);
+                return updatedUser;
             });
     }
 

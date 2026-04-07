@@ -57,7 +57,8 @@ const stripForUndo = (contestsObj) => {
             ...data,
             studyLogs: [], // Não precisamos de logs detalhados no Undo da UI
             studySessions: [],
-            simuladoRows: []
+            simuladoRows: [],
+            monteCarloHistory: [] // BUG-MEM: Histórico MC é pesado para o Galaxy Book 2
         };
     });
     return JSON.parse(JSON.stringify(cleanContests));
@@ -507,6 +508,12 @@ export const useAppStore = create(
                 if (sessionIndex === -1) return;
 
                 const session = activeData.studySessions[sessionIndex];
+                
+                // RIGOR-XP: Dedução de XP proporcional ao tempo removido (ex: 10 XP por cada 25min)
+                // Isso evita o "Farming" onde o user cria sessões fakes e as deleta
+                const xpToDeduct = Math.floor((session.duration / 25) * 100);
+                processGamification(state, -xpToDeduct);
+
                 const category = activeData.categories.find(c => c.id === session.categoryId);
                 if (category) {
                     category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));

@@ -1,3 +1,5 @@
+import { generateId } from './idGenerator';
+
 const validateFullBackup = (data) => {
     if (!data || typeof data !== 'object') return false;
     // Essential root keys
@@ -16,6 +18,17 @@ const validateFullBackup = (data) => {
 
     return true;
 };
+
+// RIGOR-SEC: Camada de limpeza para remover campos potencialmente perigosos ou inválidos
+const sanitizeCategory = (cat) => ({
+    id: String(cat.id || generateId('cat')),
+    name: String(cat.name || "Sem Nome").substring(0, 50),
+    tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => ({
+        id: String(t.id || generateId('task')),
+        text: String(t.text || "").replace(/<[^>]*>?/gm, ''), // Remove HTML para evitar XSS
+        completed: !!t.completed
+    })) : []
+});
 
 export const parseImportedData = (content, currentAppState) => {
     try {
@@ -42,12 +55,8 @@ export const parseImportedData = (content, currentAppState) => {
                 throw new Error("Formato inválido: 'categories' deve ser um array.");
             }
 
-            // Basic sanitization
-            imported.categories.forEach((cat, i) => {
-                if (!cat.id) cat.id = `cat-import-${i}`;
-                if (!cat.name) cat.name = "Sem Nome";
-                if (!Array.isArray(cat.tasks)) cat.tasks = [];
-            });
+            // RIGOR-RESTORE: Saneamento profundo
+            imported.categories = imported.categories.map(sanitizeCategory);
 
             // Build a new appState wrapping this contest
             const newState = {
