@@ -476,7 +476,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [appState, parityTick, currentUser?.uid]);
+    }, [syncTrigger, parityTick, currentUser?.uid]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {
