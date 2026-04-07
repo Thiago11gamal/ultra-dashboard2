@@ -4,7 +4,9 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { SYNC_LOG_CAP } from '../config';
 import { logger } from '../utils/logger';
 
-export function useCloudSync(currentUser, appState, setAppState, showToast) {
+import { useAppStore } from '../store/useAppStore';
+
+export function useCloudSync(currentUser, initialAppState, setAppState, showToast, syncTrigger) {
     const showToastRef = useRef(showToast);
     useEffect(() => {
         showToastRef.current = showToast;
@@ -23,10 +25,12 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
     const [hasConflict, setHasConflict] = useState(false);
 
-    const appStateRef = useRef(appState);
+    const appStateRef = useRef(initialAppState);
     useEffect(() => {
-        appStateRef.current = appState;
-    }, [appState]);
+        // When syncTrigger changes, it means the state has changed. 
+        // We update our ref to the latest store state.
+        appStateRef.current = useAppStore.getState().appState;
+    }, [syncTrigger]);
 
     const confirmParity = useCallback(() => {
         if (!isParityValidatedRef.current) {
@@ -369,9 +373,10 @@ export function useCloudSync(currentUser, appState, setAppState, showToast) {
     }, [currentUser?.uid, performEmergencySync]);
 
     useEffect(() => {
-        if (!currentUser?.uid || !appState || !isParityValidatedRef.current || !db) return;
+        if (!currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
 
-        const currentStateString = stateStringForSync(appState);
+        const currentState = useAppStore.getState().appState;
+        const currentStateString = stateStringForSync(currentState);
         
         if (isCloudPullRef.current) {
             isCloudPullRef.current = false;

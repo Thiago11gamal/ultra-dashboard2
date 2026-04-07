@@ -49,14 +49,13 @@ const checkAndUnlockAchievements = (data, currentUnlocked = []) => {
 // --- STORE HELPERS ---
 
 const stripForUndo = (contestsObj) => {
-    // CORREÇÃO: Utilizar Shallow Copy (Cópia Rasa) preserva as referências originais
-    // na memória RAM. Removemos o esvaziamento forçado de arrays que destruía 
-    // irreversivelmente os dados do usuário ao acionar o "Desfazer".
-    const cleanContests = {};
-    Object.keys(contestsObj).forEach(id => {
-        cleanContests[id] = { ...contestsObj[id] };
-    });
-    return cleanContests;
+    // FIX: Use deep clone to isolate history snapshots from active mutations
+    try {
+        return structuredClone(contestsObj);
+    } catch (e) {
+        // Fallback for environments where structuredClone might fail on complex drafts
+        return JSON.parse(JSON.stringify(contestsObj));
+    }
 };
 
 const HISTORY_COOLDOWN = 1000; // Only record history once per second for rapid UI actions
@@ -206,27 +205,21 @@ export const useAppStore = create(
                 let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
                 if (!nextState) return;
 
-                // Guard: If timestamps match and data is actually identical in reference, avoid full update
-                // This is crucial to break loops coming from cloud sync or multiple tabs.
                 if (nextState.lastUpdated === state.appState.lastUpdated && 
                     nextState.version === state.appState.version && 
                     nextState !== state.appState) {
                     return;
                 }
 
-                // A mágica da migração acontece aqui para dados externos (ex: Firebase)
                 nextState = validateAppState(nextState);
-
                 recordHistory(state.appState);
 
-                Object.keys(nextState).forEach(key => {
-                    if (key !== 'history') {
-                        state.appState[key] = nextState[key];
-                    }
-                });
+                // Use robust property assignment for top-level keys
+                const { history, ...otherState } = nextState;
+                Object.assign(state.appState, otherState);
 
-                if (nextState.history && nextState.history.length > 0) {
-                    state.appState.history = nextState.history;
+                if (history && history.length > 0) {
+                    state.appState.history = history;
                 }
                 
                 state.appState.lastHistoryTime = 0;
@@ -363,8 +356,11 @@ export const useAppStore = create(
                 recordHistory(state.appState);
                 if (!name || typeof name !== 'string') return;
                 const activeData = state.appState.contests[state.appState.activeId];
-                // BUG-06 FIX: Add guard to ensure categories is a valid array
-                if (!activeData || !Array.isArray(activeData.categories)) return;
+                
+                // FIX: Initialize categories array if missing instead of skipping
+                if (!activeData) return;
+                if (!activeData.categories) activeData.categories = [];
+                
                 activeData.categories.push({
                     id: generateId('cat'),
                     name,
@@ -426,12 +422,12 @@ export const useAppStore = create(
                     state.appState.pomodoro.activeSubject = null;
                 }
 
-                // FIX 1: Limpeza profunda no CoachPlanner (incluindo tarefas sem ID de categoria)
+                // FIX: Only filter out the specific target ID; preserve generic items (undefined categoryId)
                 if (activeData.coachPlanner) {
                     Object.keys(activeData.coachPlanner).forEach(day => {
                         if (Array.isArray(activeData.coachPlanner[day])) {
                             activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item => 
-                                item.categoryId !== id && item.categoryId !== undefined
+                                item.categoryId !== id
                             );
                         }
                     });

@@ -28,7 +28,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   // FIX 2.2: Multiplicar por 100 antes do Math.floor captura as casas decimais, 
   // evitando que mudanças fracionárias gerem a mesma semente bitwise.
-  const categoryHash = Array.from(categoryName || '').reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
+  const categoryHash = Array.from(String(categoryName || '')).reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
     (Math.floor(safeMean * 100) * 179 ^
     Math.floor(safeSD * 100) * 997 ^

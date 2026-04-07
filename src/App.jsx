@@ -29,6 +29,7 @@ const Paywall = lazyWithRetry(() => import('./components/Paywall'));
 import { useAuth } from './context/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 import { useAppStore } from './store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
 import useMobileDetect from './hooks/useMobileDetect';
@@ -48,8 +49,14 @@ function MainLayout() {
   const location = useLocation();
 
   const activeContestId = useAppStore(state => state.appState.activeId);
-  const contests = useAppStore(state => state.appState.contests);
-  const appState = useAppStore(state => state.appState);
+  const contests = useAppStore(useShallow(state => state.appState.contests));
+  
+  // Use a stable reference for cloud sync without forcing re-renders on every state tick
+  // by only selecting the properties that actually need to trigger a sync cycle.
+  const syncTrigger = useAppStore(useShallow(state => ({
+    version: state.appState.version,
+    lastUpdated: state.appState.lastUpdated
+  })));
   
   // Seletores estáveis para evitar re-renderizações excessivas
   const data = contests[activeContestId];
@@ -80,8 +87,15 @@ function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
 
-  // Auto-save pipeline
-  const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(currentUser, appState, setAppState, showToast);
+  // Auto-save pipeline - now uses the full state from the store's internal reference
+  // to avoid re-rendering MainLayout on every minor update (like Pomodoro ticks)
+  const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
+    currentUser, 
+    useAppStore.getState().appState, 
+    setAppState, 
+    showToast,
+    syncTrigger // Pass trigger to notify hook of changes
+  );
 
   // --- THEME SYNC ---
   useThemeSync(data?.settings?.darkMode);
@@ -108,7 +122,8 @@ function MainLayout() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const result = parseImportedData(e.target.result, appState);
+        const currentAppState = useAppStore.getState().appState;
+        const result = parseImportedData(e.target.result, currentAppState);
         setAppState(result.data);
         showToast('Backup restaurado com sucesso!', 'success');
       } catch (err) {
@@ -117,12 +132,12 @@ function MainLayout() {
       }
     };
     reader.readAsText(file);
-  }, [appState, setAppState, showToast]);
+  }, [setAppState, showToast]);
 
   const handleExport = useCallback(() => {
-    exportData(appState);
+    exportData(useAppStore.getState().appState);
     showToast('Backup exportado!', 'success');
-  }, [appState, showToast]);
+  }, [showToast]);
 
   const handleCloudRestore = useCallback((d) => {
     if (d) {
