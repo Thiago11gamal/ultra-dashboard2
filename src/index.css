@@ -31,6 +31,11 @@
   --bg-main: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
 }
 
+.light-mode .glass {
+  background: rgba(255, 255, 255, 0.85) !important; /* Aumentada a opacidade para legibilidade */
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -69,7 +74,7 @@ body::before {
 }
 
 .light-mode body::before {
-  --mesh-opacity: 0.3;
+  --mesh-opacity: 0.15; /* Reduzido de 0.3 para não poluir o fundo claro */
 }
 
 @keyframes meshMove {
@@ -140,16 +145,20 @@ body::before {
   background-clip: text;
 }
 
-/* Custom scrollbar - Hidden but scrollable */
+/* Custom scrollbar - Discreto mas visível para orientação */
 .custom-scrollbar {
-  -ms-overflow-style: none;
-  /* IE and Edge */
-  scrollbar-width: none;
-  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  display: none;
+  display: block;
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
 }
 
 /* Animations */

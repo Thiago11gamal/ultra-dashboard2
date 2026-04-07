@@ -82,12 +82,12 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
     ];
 
     return (
-        <div className={`fixed z-[100]
+        <div className={`fixed z-[101] /* Aumentado de 100 para 101 para ficar sobre o Drawer */
             top-0 left-0 w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 backdrop-blur-xl border-b border-white/8 shadow-[0_4px_32px_rgba(0,0,0,0.5)] px-3 py-0
             md:top-4 md:left-1/2 md:-ml-7 md:w-auto md:bg-transparent md:bg-none md:backdrop-blur-none md:border-none md:shadow-none md:px-0 md:py-0
             ${isVisible
-                ? 'translate-y-0 opacity-100 transition-[transform,opacity] duration-150 ease-out md:top-4'
-                : '-translate-y-full opacity-0 transition-[transform,opacity] duration-100 ease-in md:-top-32'
+                ? 'translate-y-0 opacity-100 transition-[transform,opacity] duration-300 ease-out md:top-4'
+                : '-translate-y-full opacity-0 transition-[transform,opacity] duration-200 ease-in md:-top-32'
             } pointer-events-auto`}>
 
             {/* ─── MOBILE HEADER BAR ─────────────────── */}

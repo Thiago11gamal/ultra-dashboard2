@@ -184,8 +184,8 @@ function MainLayout() {
           />
 
           <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
-            {/* Mobile spacer: pushes content below the fixed top nav bar */}
-            <div className="h-14 md:hidden" aria-hidden="true" />
+            {/* Mobile spacer: pushes content below the fixed top nav bar - BUG-FIX: Aumentado para h-24 */}
+            <div className="h-24 md:hidden" aria-hidden="true" />
             <Header
               user={data.user}
               settings={data.settings}

@@ -116,7 +116,8 @@ export default function Header({
                         onChange={(e) => setLocalName(e.target.value)}
                         onBlur={handleNameBlur}
                         placeholder="Nome do concurso..."
-                        className="w-full bg-transparent text-[22px] font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-tight"
+                        // BUG-FIX: Reduzido de text-[22px] para text-xl para evitar quebra no mobile
+                        className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-tight"
                     />
                     {cloudStatus.hasConflict && (
                         <button
@@ -160,7 +161,8 @@ export default function Header({
                                 onChange={(e) => setLocalName(e.target.value)}
                                 onBlur={handleNameBlur}
                                 placeholder="Digite o nome do concurso..."
-                                className="w-full bg-transparent text-3xl md:text-4xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
+                                // BUG-FIX: Responsividade melhorada (text-xl para lg:text-3xl)
+                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
                             />
                         </div>
                         <div className="flex flex-col items-end gap-1">
