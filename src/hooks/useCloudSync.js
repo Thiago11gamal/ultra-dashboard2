@@ -23,6 +23,11 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
     const [cloudStatus, setCloudStatus] = useState('idle');
     const [cloudError, setCloudError] = useState(null);
     const [isInternalSyncing, setIsInternalSyncing] = useState(false);
+    const isInternalSyncingRef = useRef(false);
+    const setInternalSyncing = useCallback((val) => {
+        setIsInternalSyncing(val);
+        isInternalSyncingRef.current = val;
+    }, []);
     const [hasConflict, setHasConflict] = useState(false);
 
     const appStateRef = useRef(initialAppState);
@@ -150,7 +155,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (isInternalSyncing) {
+            if (isInternalSyncingRef.current) {
                 logger.debug("[Sync] Ignorando snapshot da nuvem pois existe um save local em curso.");
                 return;
             }
@@ -323,14 +328,14 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 _lastBackup: new Date().toISOString()
             }));
 
-            setIsInternalSyncing(true);
+            setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
             await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
             lastSyncedRef.current = currentStateString;
         } catch (e) {
             logger.error("[Sync] Erro no emergency-save:", e);
         } finally {
-            if (isMountedRef.current) setIsInternalSyncing(false);
+            if (isMountedRef.current) setInternalSyncing(false);
         }
     }, [currentUser?.uid]);
 
@@ -391,7 +396,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         setHasConflict(false);
 
         const syncToCloud = async () => {
-            if (!db || isInternalSyncing) return; // FIX: Lock de sincronização para evitar overlaps
+            if (!db || isInternalSyncingRef.current) return; // FIX: Lock de sincronização para evitar overlaps
             
             const freshState = useAppStore.getState().appState; // FIX: Captura o estado real atual do store
             const currentStateString = stateStringForSync(freshState);
@@ -401,7 +406,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             let attempt = 0;
             let lastError = null;
 
-            setIsInternalSyncing(true);
+            setInternalSyncing(true);
             while (attempt < MAX_RETRIES) {
                 try {
                     if (lastSyncedRef.current === currentStateString) break;
@@ -464,7 +469,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 }
             }
 
-            if (isMountedRef.current) setIsInternalSyncing(false);
+            if (isMountedRef.current) setInternalSyncing(false);
         };
 
         if (debounceRef.current) clearTimeout(debounceRef.current);

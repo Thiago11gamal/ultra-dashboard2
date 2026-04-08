@@ -213,7 +213,6 @@ export function computeCategoryStats(history, weight) {
     const scores = historyToUse.map(h => getSafeScore(h));
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
-    const totalC = historyToUse.reduce((acc, h) => acc + (Number(h.correct) || 0), 0);
     const m = totalQ > 0 
         ? historyToUse.reduce((acc, h) => acc + getSafeScore(h) * (Number(h.total) || 0), 0) / totalQ
         : mean(scores);

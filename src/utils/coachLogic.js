@@ -82,7 +82,7 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId) {
     const history = simuladosToHistory(relevantSimulados);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
-    const sumCorrect = relevantSimulados.reduce((a, s) => a + (Number(s.correct) || 0), 0);
+    const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s), 0);
     // FIX: Injectar categoryId na hash para prevenir colisões entre matérias com a mesma amostra
     const hash = `${categoryId}-${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);

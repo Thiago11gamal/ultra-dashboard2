@@ -73,7 +73,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));
 
-  allScores.sort(); 
+  allScores.sort((a, b) => a - b);
 
   const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
   const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
@@ -96,8 +96,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    sdLeft: Number(Math.max(0.1, (projectedMean - rawLow) / 1.96).toFixed(2)),
-    sdRight: Number(Math.max(0.1, (rawHigh - projectedMean) / 1.96).toFixed(2)),
+    sdLeft: Number(Math.max(0.1, projectedSD).toFixed(2)),
+    sdRight: Number(Math.max(0.1, projectedSD).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),

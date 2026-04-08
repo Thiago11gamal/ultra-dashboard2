@@ -461,8 +461,8 @@ export function monteCarloSimulation(
         mean: Number(displayMean.toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
         // Metadados informativos para UI
-        sdLeft: Number(Math.max(0.1, (displayMean - Math.max(0, rawLow)) / 1.96).toFixed(2)),
-        sdRight: Number(Math.max(0.1, (Math.min(100, rawHigh) - displayMean) / 1.96).toFixed(2)),
+        sdLeft: Number(Math.max(0.1, projectedSD).toFixed(2)),
+        sdRight: Number(Math.max(0.1, projectedSD).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),

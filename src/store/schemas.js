@@ -69,8 +69,17 @@ const repairContestHistory = (data) => {
         const dk = getDateKey(r.date || r.createdAt);
         if (!dk) return;
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
-        dailyStats[dk].correct += (parseInt(r.correct, 10) || 0);
-        dailyStats[dk].total += (parseInt(r.total, 10) || 0);
+        
+        const rawTotal = parseInt(r.total, 10) || 0;
+        const rawCorrect = parseInt(r.correct, 10) || 0;
+        
+        // BUG-H2 FIX: Handle legacy isPercentage format where 'correct' is the percentual score
+        const corrNorm = (r.isPercentage && r.score != null && rawTotal > 0)
+          ? Math.round((Math.min(100, Math.max(0, Number(r.score))) / 100) * rawTotal)
+          : rawCorrect;
+          
+        dailyStats[dk].correct += corrNorm;
+        dailyStats[dk].total += rawTotal;
       });
 
       const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => ({
