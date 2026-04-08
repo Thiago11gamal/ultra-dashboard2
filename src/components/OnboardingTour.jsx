@@ -8,28 +8,28 @@ const steps = [
     {
         target: 'body',
         content: (
-            <div className="text-center py-4">
-                <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+            <div className="text-center py-5">
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
                     <Rocket className="w-8 h-8 text-indigo-400" />
                 </div>
                 <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
                     Bem-vindo ao Método Arraia
                 </h2>
                 <p className="text-sm text-slate-400 leading-relaxed mb-6 px-2">
-                    Seu ecossistema inteligente de aprovação. Vamos fazer um tour rápido de 60 segundos para você extrair o máximo das nossas ferramentas.
+                    Seu ecossistema inteligente de aprovação. Vamos fazer um tour rápido de 60 segundos para configurar sua base de estudos.
                 </p>
-                <div className="text-left bg-slate-900/50 rounded-xl p-4 border border-slate-800 mb-2">
+                <div className="text-left bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 mb-2">
                     <ul className="text-sm text-slate-300 space-y-3">
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
                             Planejamento Guiado por IA
                         </li>
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                            Revisões Espaçadas (Ebbinghaus)
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></div>
+                            Revisões Espaçadas Automáticas
                         </li>
                         <li className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>
                             Gamificação e Métricas de Alto Nível
                         </li>
                     </ul>
@@ -46,13 +46,13 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
                         <UserCircle className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Gestão de Conta</h3>
+                    <h3 className="text-lg font-bold text-slate-100">Gestão de Conta</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                    Acesse seu perfil para criar <strong>Múltiplos Painéis</strong>. Estude para concursos diferentes sem misturar suas métricas. Aqui você também gerencia backups e acessa a lixeira de segurança.
+                    Acesse seu perfil para criar <strong>Múltiplos Painéis</strong>. Estude para concursos diferentes sem misturar suas métricas. Gerencie backups e lixeira em um só lugar.
                 </p>
             </div>
         ),
@@ -65,13 +65,13 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
-                        <Compass className="w-5 h-5 text-indigo-400" />
+                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
+                        <Compass className="w-5 h-5 text-cyan-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Navegação Principal</h3>
+                    <h3 className="text-lg font-bold text-slate-100">Navegação Estratégica</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                    Sua central de ferramentas de aprovação. Acesse rapidamente os <strong>Simulados IA</strong>, controle de <strong>Retenção</strong> e analise sua <strong>Evolução</strong> com projeções precisas.
+                    Sua central de ferramentas. Acesse <strong>Simulados IA</strong>, <strong>Retenção</strong> e analise sua <strong>Evolução</strong> com projeções de aprovação precisas.
                 </p>
             </div>
         ),
@@ -84,17 +84,14 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
-                        <Timer className="w-5 h-5 text-indigo-400" />
+                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
+                        <Timer className="w-5 h-5 text-rose-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Foco Sincronizado</h3>
+                    <h3 className="text-lg font-bold text-slate-100">Foco Sincronizado</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed mb-3">
-                    Cronometre suas sessões. Cada ciclo de foco concluído gera <strong>Pontos de Experiência (XP)</strong> e alimenta automaticamente seu mapa de constância.
+                    Cronometre sessões para gerar <strong>XP</strong> e alimentar seu mapa de constância. Sincronização em tempo real entre todos os seus dispositivos.
                 </p>
-                <div className="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs text-slate-500">
-                    Sincroniza em tempo real com seu celular.
-                </div>
             </div>
         ),
         placement: 'bottom',
@@ -106,13 +103,13 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
                         <BarChart3 className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">O Raio-X do Edital</h3>
+                    <h3 className="text-lg font-bold text-slate-100">Visão Executiva</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                    Monitoramento em tempo real dos seus KPIs mais importantes: média de acertos geral, data e contagem regressiva da prova, e o percentual exato de fechamento do seu edital.
+                    Monitoramento contínuo dos seus KPIs: média de acertos, contagem regressiva da prova e o percentual exato de fechamento do edital.
                 </p>
             </div>
         ),
@@ -125,13 +122,13 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                    <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/30 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.2)]">
                         <Target className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Motor de Decisão (IA)</h3>
+                    <h3 className="text-lg font-bold text-indigo-300">Motor de Decisão (IA)</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                    Não perca tempo montando cronogramas estáticos. O <strong>Próximo Foco Inteligente</strong> analisa seus pontos fracos e sugere exatamente qual tópico você deve estudar agora para maximizar sua nota.
+                    Nossa IA analisa seu desempenho e prioridades para sugerir o tópico mais crítico agora. Confie no <strong>Próximo Foco Inteligente</strong> para guiar sua rotina e otimizar cada minuto de estudo.
                 </p>
             </div>
         ),
@@ -144,13 +141,13 @@ const steps = [
         content: (
             <div className="text-left">
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
-                        <CheckSquare className="w-5 h-5 text-indigo-400" />
+                    <div className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl shadow-inner">
+                        <CheckSquare className="w-5 h-5 text-emerald-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Organização de Tarefas</h3>
+                    <h3 className="text-lg font-bold text-slate-100">Gestão de Tarefas</h3>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                    Crie suas matérias, defina prioridades (Alta, Média, Baixa) e marque as tarefas como concluídas para avançar seu progresso e subir de nível na plataforma.
+                    Crie matérias, defina prioridades e marque subtópicos como concluídos. Seu progresso alimenta diretamente o nível da sua conta.
                 </p>
             </div>
         ),
@@ -162,29 +159,29 @@ const steps = [
         target: 'body',
         content: (
             <div className="text-center py-6">
-                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
                     <Trophy className="w-8 h-8 text-emerald-400" />
                 </div>
                 <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
                     Tudo Pronto!
                 </h2>
-                <p className="text-sm text-slate-400 leading-relaxed mb-6">
-                    A inteligência do Método Arraia já está a postos. Agora é com você.
+                <p className="text-sm text-slate-400 leading-relaxed mb-6 px-2">
+                    O motor do Método Arraia está configurado. Inicie sua jornada de alta performance agora mesmo.
                 </p>
-                <div className="text-left bg-slate-900/50 rounded-xl p-4 border border-slate-800">
-                    <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Primeiros Passos</h4>
-                    <ul className="text-sm text-slate-300 space-y-3">
+                <div className="text-left bg-slate-800/50 rounded-xl p-5 border border-slate-700/50">
+                    <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Missão Inicial</h4>
+                    <ul className="text-sm text-slate-300 space-y-4">
                         <li className="flex items-center gap-3">
-                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">1</span>
+                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">1</span>
                             Adicione sua primeira Matéria
                         </li>
                         <li className="flex items-center gap-3">
-                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">2</span>
+                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">2</span>
                             Configure a Data da Prova
                         </li>
                         <li className="flex items-center gap-3">
-                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">3</span>
-                            Inicie um ciclo de Pomodoro
+                            <span className="w-6 h-6 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xs text-indigo-300 font-bold">3</span>
+                            Inicie um ciclo de Foco
                         </li>
                     </ul>
                 </div>
@@ -198,30 +195,33 @@ const steps = [
 const TOUR_LOCALE = {
     back: 'Anterior',
     close: 'Fechar',
-    last: 'Iniciar Estudos',
+    last: 'Acessar Painel',
     next: 'Próximo',
     skip: 'Pular',
 };
 
-// UI Ultra Premium para o Tooltip
+// UI Ultra Premium para o Tooltip (Design SaaS Moderno)
 const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, tooltipProps, isLastStep, size }) => (
     <div
         {...tooltipProps}
-        className="bg-[#0b1120] border border-slate-800 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8),0_0_30px_rgba(99,102,241,0.05)] w-full font-sans"
+        className="bg-slate-900 border border-slate-700/60 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8),0_0_30px_rgba(99,102,241,0.08)] w-full font-sans overflow-hidden relative"
         style={{
             ...tooltipProps.style,
-            maxWidth: '440px',
-            padding: '24px 28px',
-            transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease',
+            maxWidth: '460px',
+            padding: '0', // O padding interno vai separar o corpo do rodapé
+            transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1), opacity 0.3s ease',
         }}
     >
+        {/* Efeito de brilho de fundo super sutil (Glow) */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-12 bg-indigo-500/10 blur-[30px] rounded-full pointer-events-none" />
+
         {/* Conteúdo do Passo */}
-        <div className="mb-6">
+        <div className="p-7 mb-2 relative z-10">
             {step.content}
         </div>
 
-        {/* Rodapé: Controles e Paginação */}
-        <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-800/80">
+        {/* Rodapé: Controles e Paginação (Fundo com contraste) */}
+        <div className="flex items-center justify-between px-7 py-4 bg-slate-800/40 border-t border-slate-700/50">
             {/* Pular / Voltar */}
             <div className="flex items-center min-w-[80px]">
                 {index > 0 ? (
@@ -241,17 +241,17 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
                 )}
             </div>
 
-            {/* Dots de Progresso (Minimalistas) */}
-            <div className="flex items-center gap-1.5">
+            {/* Dots de Progresso (Minimalistas com Neon) */}
+            <div className="flex items-center gap-2">
                 {Array.from({ length: size }, (_, i) => (
                     <div
                         key={i}
                         className={`h-1.5 rounded-full transition-all duration-300 ${
                             i === index 
-                                ? 'w-6 bg-indigo-500' 
+                                ? 'w-6 bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' 
                                 : i < index 
-                                    ? 'w-1.5 bg-slate-600' 
-                                    : 'w-1.5 bg-slate-800'
+                                    ? 'w-1.5 bg-indigo-500/30' 
+                                    : 'w-1.5 bg-slate-700'
                         }`}
                     />
                 ))}
@@ -261,10 +261,10 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
             <div className="flex justify-end min-w-[80px]">
                 <button
                     {...primaryProps}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 shadow-lg outline-none active:scale-95 ${
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 outline-none active:scale-95 ${
                         isLastStep 
-                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/20' 
-                            : 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 shadow-indigo-500/20'
+                            ? 'bg-emerald-500 hover:bg-emerald-400 shadow-[0_4px_15px_rgba(16,185,129,0.3)]' 
+                            : 'bg-indigo-500 hover:bg-indigo-400 shadow-[0_4px_15px_rgba(99,102,241,0.3)]'
                     }`}
                 >
                     {isLastStep ? TOUR_LOCALE.last : TOUR_LOCALE.next}
@@ -276,23 +276,12 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 
 export default function OnboardingTour() {
     
-    // ======== TRAVA DE TESTE ATIVADA ========
-    // Ao finalizar seus testes de design, apague as duas linhas abaixo:
+    // ======== TRAVA DE TESTE ========
+    // A trava ainda está ativada. O tutorial continuará aparecendo em todo F5!
+    // Quando gostar do visual final, volte a usar o useAppStore.
     const hasSeenTour = false; 
     const handleJoyrideCallback = useCallback(() => {}, []);
-    
-    // E descomente as 3 linhas abaixo para voltar a usar o banco de dados oficial:
-    /*
-    const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-    const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
-    const handleJoyrideCallback = useCallback((data) => {
-        const { status } = data;
-        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-            if (setHasSeenTour) setHasSeenTour(true);
-        }
-    }, [setHasSeenTour]);
-    */
-    // =========================================
+    // ================================
 
     if (hasSeenTour) return null;
 
@@ -312,18 +301,20 @@ export default function OnboardingTour() {
                 disableAnimation: false,
                 styles: {
                     floater: {
-                        transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+                        // AQUI ESTÁ A "MOLA" QUE VOCÊ PEDIU - Transição suave com salto
+                        transition: 'opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1)',
                     }
                 }
             }}
             styles={{
                 options: {
-                    overlayColor: 'rgba(5, 8, 16, 0.75)', // Fundo mais elegante e menos pesado
+                    overlayColor: 'rgba(5, 8, 16, 0.85)', // Fundo super escuro e sofisticado
                     zIndex: 10000,
                 },
                 spotlight: {
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     backgroundColor: 'transparent',
+                    boxShadow: '0 0 0 4px rgba(99, 102, 241, 0.2), 0 0 25px rgba(99, 102, 241, 0.1)',
                 },
             }}
             locale={TOUR_LOCALE}
