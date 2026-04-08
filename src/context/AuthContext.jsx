@@ -27,7 +27,10 @@ export function AuthProvider({ children }) {
                 // Força o reload para que o currentUser local reflita o displayName imediatamente
                 await userCredential.user.reload();
                 const updatedUser = auth.currentUser;
-                setCurrentUser(updatedUser);
+                // FIX: Somente atualiza se o usuário ainda for válido (evita race conditions)
+                if (updatedUser) {
+                    setCurrentUser(updatedUser);
+                }
                 return updatedUser;
             });
     }
