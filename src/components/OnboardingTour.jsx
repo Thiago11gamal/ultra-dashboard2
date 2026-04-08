@@ -1,32 +1,38 @@
 import React, { useCallback } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useAppStore } from '../store/useAppStore';
+import { Rocket, UserCircle, Compass, Timer, BarChart3, Target, CheckSquare, Trophy } from 'lucide-react';
 
 const steps = [
-    // ── Step 0: Welcome (centered) ──
+    // ── Step 0: Welcome ──
     {
         target: 'body',
         content: (
-            <div className="text-center py-2">
-                <div className="text-5xl mb-4">🚀</div>
-                <h2 className="text-2xl font-black bg-gradient-to-r from-purple-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+            <div className="text-center py-4">
+                <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+                    <Rocket className="w-8 h-8 text-indigo-400" />
+                </div>
+                <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
                     Bem-vindo ao Método Arraia
                 </h2>
-                <p className="text-sm text-slate-300 leading-relaxed mb-4">
-                    Muito mais que um painel de estudos, este é o seu <strong>ecossistema inteligente de aprovação</strong>. 
-                    Nossa IA e algoritmos avançados vão guiar sua jornada até a posse.
+                <p className="text-sm text-slate-400 leading-relaxed mb-6 px-2">
+                    Seu ecossistema inteligente de aprovação. Vamos fazer um tour rápido de 60 segundos para você extrair o máximo das nossas ferramentas.
                 </p>
-                <div className="text-left bg-white/5 rounded-lg p-3 border border-white/10 mb-4">
-                    <p className="text-xs text-slate-300 font-semibold mb-2">O que você vai encontrar aqui:</p>
-                    <ul className="text-xs text-slate-400 space-y-1.5 pl-4 list-disc marker:text-purple-500">
-                        <li>Planejamento inteligente com base no seu desempenho.</li>
-                        <li>Controle de revisões com a Curva de Ebbinghaus.</li>
-                        <li>Gamificação (XP e Níveis) para manter sua disciplina.</li>
+                <div className="text-left bg-slate-900/50 rounded-xl p-4 border border-slate-800 mb-2">
+                    <ul className="text-sm text-slate-300 space-y-3">
+                        <li className="flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                            Planejamento Guiado por IA
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                            Revisões Espaçadas (Ebbinghaus)
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                            Gamificação e Métricas de Alto Nível
+                        </li>
                     </ul>
-                </div>
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium mt-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-                    Tour detalhado · 2 minutos
                 </div>
             </div>
         ),
@@ -39,18 +45,15 @@ const steps = [
         target: '.tour-step-1',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(168,85,247,0.3)]">👤</div>
-                    <h3 className="text-base font-bold text-purple-400">Seu Perfil & Múltiplos Concursos</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <UserCircle className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Gestão de Conta</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                    Ao clicar no seu avatar, você acessa a central de controle da sua conta. O grande diferencial aqui é a <strong>Criação de Painéis</strong>:
+                <p className="text-sm text-slate-400 leading-relaxed">
+                    Acesse seu perfil para criar <strong>Múltiplos Painéis</strong>. Estude para concursos diferentes sem misturar suas métricas. Aqui você também gerencia backups e acessa a lixeira de segurança.
                 </p>
-                <ul className="text-xs text-slate-400 space-y-2 pl-2 border-l-2 border-purple-500/30">
-                    <li className="pl-2">🎯 <strong>Múltiplos Focos:</strong> Estuda para dois concursos? Crie um painel isolado para cada um, sem misturar métricas.</li>
-                    <li className="pl-2">☁️ <strong>Segurança:</strong> Exporte ou importe backups manuais a qualquer momento.</li>
-                    <li className="pl-2">🗑️ <strong>Lixeira Segura:</strong> Excluiu uma matéria sem querer? Recupere-a na lixeira em até 30 dias.</li>
-                </ul>
             </div>
         ),
         placement: 'bottom',
@@ -61,31 +64,15 @@ const steps = [
         target: '.tour-step-2',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(16,185,129,0.3)]">🧭</div>
-                    <h3 className="text-base font-bold text-emerald-400">Navegação & Ferramentas Essenciais</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <Compass className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Navegação Principal</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                    O menu lateral é o coração da plataforma. Nele você navega entre as principais armas para a sua aprovação:
+                <p className="text-sm text-slate-400 leading-relaxed">
+                    Sua central de ferramentas de aprovação. Acesse rapidamente os <strong>Simulados IA</strong>, controle de <strong>Retenção</strong> e analise sua <strong>Evolução</strong> com projeções precisas.
                 </p>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                    <div className="bg-white/5 p-2 rounded border border-white/5">
-                        <strong className="text-emerald-300">🤖 Simulados IA</strong>
-                        <p className="text-[10px] text-slate-400 mt-1">Cole suas questões e a IA extrai e analisa seus erros.</p>
-                    </div>
-                    <div className="bg-white/5 p-2 rounded border border-white/5">
-                        <strong className="text-blue-300">🧠 Retenção</strong>
-                        <p className="text-[10px] text-slate-400 mt-1">Revisões espaçadas no momento exato de esquecimento.</p>
-                    </div>
-                    <div className="bg-white/5 p-2 rounded border border-white/5">
-                        <strong className="text-orange-300">📈 Evolução</strong>
-                        <p className="text-[10px] text-slate-400 mt-1">Projeções de Monte Carlo para sua nota de corte.</p>
-                    </div>
-                    <div className="bg-white/5 p-2 rounded border border-white/5">
-                        <strong className="text-indigo-300">📝 Anotações</strong>
-                        <p className="text-[10px] text-slate-400 mt-1">Caderno de erros rápido e integrado aos tópicos.</p>
-                    </div>
-                </div>
             </div>
         ),
         placement: 'bottom-start',
@@ -96,19 +83,18 @@ const steps = [
         target: '.tour-step-3',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(239,68,68,0.3)]">⏱️</div>
-                    <h3 className="text-base font-bold text-red-400">Pomodoro Sincronizado e Gamificado</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <Timer className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Foco Sincronizado</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                    Nós transformamos o ato de estudar em um jogo viciante. Não é apenas um cronômetro:
+                <p className="text-sm text-slate-400 leading-relaxed mb-3">
+                    Cronometre suas sessões. Cada ciclo de foco concluído gera <strong>Pontos de Experiência (XP)</strong> e alimenta automaticamente seu mapa de constância.
                 </p>
-                <ul className="text-xs text-slate-400 space-y-1.5 pl-4 list-disc marker:text-red-400">
-                    <li><strong>Ganhe XP:</strong> Cada ciclo concluído (foco de 25, 50 ou 90 min) gera pontos de experiência para o seu Perfil.</li>
-                    <li><strong>Suba de Nível:</strong> Acumule horas líquidas e destrave novas conquistas.</li>
-                    <li><strong>Mapa de Calor:</strong> Cada sessão alimenta automaticamente seu gráfico de constância diária.</li>
-                </ul>
-                <p className="text-[11px] text-slate-500 mt-2 italic">Dica: Inicie o timer no PC e acompanhe a pausa pelo celular. É 100% sincronizado!</p>
+                <div className="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs text-slate-500">
+                    Sincroniza em tempo real com seu celular.
+                </div>
             </div>
         ),
         placement: 'bottom',
@@ -119,27 +105,15 @@ const steps = [
         target: '.tour-step-4',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(6,182,212,0.3)]">📊</div>
-                    <h3 className="text-base font-bold text-cyan-400">Dashboard: O Raio-X da Aprovação</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <BarChart3 className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">O Raio-X do Edital</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                    Nesta área principal, a plataforma condensa milhares de dados dos seus estudos em visões simples:
+                <p className="text-sm text-slate-400 leading-relaxed">
+                    Monitoramento em tempo real dos seus KPIs mais importantes: média de acertos geral, data e contagem regressiva da prova, e o percentual exato de fechamento do seu edital.
                 </p>
-                <div className="space-y-2 mt-3">
-                    <div className="flex items-start gap-2">
-                        <span className="text-cyan-400 mt-0.5">🔹</span>
-                        <p className="text-xs text-slate-300"><strong className="text-white">Média Geral:</strong> Calculada cruzando sua performance em simulados recentes e exercícios pontuais.</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <span className="text-cyan-400 mt-0.5">🔹</span>
-                        <p className="text-xs text-slate-300"><strong className="text-white">Contagem Regressiva:</strong> Configure o dia da sua prova. O algoritmo usará essa data para recalcular a agressividade das suas revisões.</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <span className="text-cyan-400 mt-0.5">🔹</span>
-                        <p className="text-xs text-slate-300"><strong className="text-white">Conclusão do Edital:</strong> Veja visualmente quanto da matéria ainda falta estudar pela primeira vez.</p>
-                    </div>
-                </div>
             </div>
         ),
         placement: 'bottom',
@@ -150,19 +124,15 @@ const steps = [
         target: '.tour-step-5',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(245,158,11,0.3)]">🎯</div>
-                    <h3 className="text-base font-bold text-amber-400">AI Coach: O Fim do "O que eu estudo hoje?"</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <Target className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Motor de Decisão (IA)</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                    Nunca mais perca tempo montando cronogramas estáticos. O <strong className="text-white">Próximo Foco Inteligente</strong> varre seus dados e diz exatamente o que fazer agora.
+                <p className="text-sm text-slate-400 leading-relaxed">
+                    Não perca tempo montando cronogramas estáticos. O <strong>Próximo Foco Inteligente</strong> analisa seus pontos fracos e sugere exatamente qual tópico você deve estudar agora para maximizar sua nota.
                 </p>
-                <div className="bg-amber-950/30 p-2.5 rounded-lg border border-amber-500/20 mt-2">
-                    <p className="text-xs text-amber-200/80 mb-1 font-semibold">Como ele escolhe?</p>
-                    <p className="text-[11px] text-amber-100/60">
-                        O algoritmo prioriza matérias que estão com <span className="text-red-400 font-bold">desempenho crítico</span>, tarefas urgentes atrasadas, ou tópicos que não são revisados há mais tempo. Confie na IA para guiar sua rotina.
-                    </p>
-                </div>
             </div>
         ),
         placement: 'top',
@@ -173,18 +143,15 @@ const steps = [
         target: '.tour-step-6',
         content: (
             <div className="text-left">
-                <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-lg shadow-[0_0_15px_rgba(236,72,153,0.3)]">✅</div>
-                    <h3 className="text-base font-bold text-pink-400">Gestão de Matérias & Tarefas</h3>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-slate-800 border border-slate-700 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">Organização de Tarefas</h3>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                    O centro de operações do seu dia a dia. Aqui você constrói o seu edital e gerencia o que precisa ser feito:
+                <p className="text-sm text-slate-400 leading-relaxed">
+                    Crie suas matérias, defina prioridades (Alta, Média, Baixa) e marque as tarefas como concluídas para avançar seu progresso e subir de nível na plataforma.
                 </p>
-                <ul className="text-xs text-slate-400 space-y-2 pl-2 border-l-2 border-pink-500/30">
-                    <li className="pl-2">📚 <strong>Matérias e Subtópicos:</strong> Adicione Direito Constitucional e, dentro dela, "Direitos Fundamentais". Registre exercícios e acertos por subtópico.</li>
-                    <li className="pl-2">🚦 <strong>Prioridades:</strong> Classifique as tarefas em 🔴 Alta (cai muito), 🟡 Média ou 🟢 Baixa.</li>
-                    <li className="pl-2">⚔️ <strong>Check de Conclusão:</strong> Marcar tarefas como concluídas é a maneira mais rápida de acumular <strong className="text-yellow-400">XP</strong>.</li>
-                </ul>
             </div>
         ),
         placement: 'top',
@@ -194,29 +161,30 @@ const steps = [
     {
         target: 'body',
         content: (
-            <div className="text-center py-4">
-                <div className="text-5xl mb-4 relative">
-                    🏆
-                    <div className="absolute inset-0 bg-yellow-400/20 blur-xl rounded-full z-[-1] animate-pulse"></div>
+            <div className="text-center py-6">
+                <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+                    <Trophy className="w-8 h-8 text-emerald-400" />
                 </div>
-                <h2 className="text-2xl font-black bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-                    Você está pronto!
+                <h2 className="text-2xl font-black text-white mb-3 tracking-tight">
+                    Tudo Pronto!
                 </h2>
-                <p className="text-sm text-slate-300 leading-relaxed mb-5">
-                    O Método Arraia já está preparado para alavancar seu rendimento. Seu próximo passo é alimentar o sistema.
+                <p className="text-sm text-slate-400 leading-relaxed mb-6">
+                    A inteligência do Método Arraia já está a postos. Agora é com você.
                 </p>
-                
-                <div className="text-left bg-white/5 rounded-lg p-4 border border-white/10 w-full mb-2">
-                    <h4 className="text-xs font-bold text-white mb-2 uppercase tracking-wider">Missão Inicial:</h4>
-                    <ul className="text-sm text-slate-300 space-y-2">
-                        <li className="flex items-center gap-2">
-                            <span className="text-emerald-400">1.</span> Adicione sua primeira <strong>Matéria</strong>.
+                <div className="text-left bg-slate-900/50 rounded-xl p-4 border border-slate-800">
+                    <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Primeiros Passos</h4>
+                    <ul className="text-sm text-slate-300 space-y-3">
+                        <li className="flex items-center gap-3">
+                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">1</span>
+                            Adicione sua primeira Matéria
                         </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-emerald-400">2.</span> Ajuste a <strong>Data da Prova</strong> nas Configurações.
+                        <li className="flex items-center gap-3">
+                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">2</span>
+                            Configure a Data da Prova
                         </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-emerald-400">3.</span> Ligue o <strong>Pomodoro</strong> e faça 25 min de foco.
+                        <li className="flex items-center gap-3">
+                            <span className="w-5 h-5 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-indigo-400 font-bold">3</span>
+                            Inicie um ciclo de Pomodoro
                         </li>
                     </ul>
                 </div>
@@ -228,147 +196,103 @@ const steps = [
 ];
 
 const TOUR_LOCALE = {
-    back: '← Anterior',
+    back: 'Anterior',
     close: 'Fechar',
-    last: '🔥 Iniciar os Estudos!',
-    next: 'Próximo →',
+    last: 'Iniciar Estudos',
+    next: 'Próximo',
     skip: 'Pular',
 };
 
-// Custom tooltip component for premium feel
-const CustomTooltip = ({ continuous, index, step, backProps, closeProps, primaryProps, skipProps, tooltipProps, isLastStep, size }) => (
+// UI Ultra Premium para o Tooltip
+const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, tooltipProps, isLastStep, size }) => (
     <div
         {...tooltipProps}
+        className="bg-[#0b1120] border border-slate-800 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8),0_0_30px_rgba(99,102,241,0.05)] w-full font-sans"
         style={{
             ...tooltipProps.style,
-            background: 'rgba(15, 23, 42, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: '24px',
-            border: '1px solid rgba(139, 92, 246, 0.4)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), 0 0 40px rgba(139, 92, 246, 0.25)',
-            padding: '28px 32px',
-            maxWidth: '480px', /* Aumentado para acomodar o texto detalhado confortavelmente */
-            color: '#f8fafc',
-            transform: 'scale(1.02) translateY(-10px)',
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            maxWidth: '440px',
+            padding: '24px 28px',
+            transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease',
         }}
     >
-        <div className="absolute -inset-[1px] rounded-[25px] bg-gradient-to-br from-purple-500/30 via-transparent to-cyan-500/30 pointer-events-none" />
-        
-        {/* Content */}
-        <div style={{ marginBottom: '20px' }}>
+        {/* Conteúdo do Passo */}
+        <div className="mb-6">
             {step.content}
         </div>
 
-        {/* Progress dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
-            {Array.from({ length: size }, (_, i) => (
-                <div
-                    key={i}
-                    style={{
-                        width: i === index ? '20px' : '8px',
-                        height: '8px',
-                        borderRadius: '999px',
-                        background: i === index
-                            ? 'linear-gradient(90deg, #a78bfa, #2dd4bf)'
-                            : i < index
-                                ? 'rgba(139, 92, 246, 0.6)'
-                                : 'rgba(255,255,255,0.1)',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    }}
-                />
-            ))}
-        </div>
+        {/* Rodapé: Controles e Paginação */}
+        <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-800/80">
+            {/* Pular / Voltar */}
+            <div className="flex items-center min-w-[80px]">
+                {index > 0 ? (
+                    <button
+                        {...backProps}
+                        className="text-sm font-medium text-slate-400 hover:text-white transition-colors duration-200 outline-none"
+                    >
+                        {TOUR_LOCALE.back}
+                    </button>
+                ) : (
+                    <button
+                        {...skipProps}
+                        className="text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors duration-200 outline-none"
+                    >
+                        {TOUR_LOCALE.skip}
+                    </button>
+                )}
+            </div>
 
-        {/* Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-            {index > 0 ? (
-                <button
-                    {...backProps}
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: '#cbd5e1',
-                        padding: '10px 18px',
-                        borderRadius: '12px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.05)'}
-                    onMouseOut={(e) => e.target.style.background = 'transparent'}
-                >
-                    {TOUR_LOCALE.back}
-                </button>
-            ) : (
-                <button
-                    {...skipProps}
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#64748b',
-                        padding: '10px 14px',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseOver={(e) => e.target.style.color = '#94a3b8'}
-                    onMouseOut={(e) => e.target.style.color = '#64748b'}
-                >
-                    {TOUR_LOCALE.skip}
-                </button>
-            )}
+            {/* Dots de Progresso (Minimalistas) */}
+            <div className="flex items-center gap-1.5">
+                {Array.from({ length: size }, (_, i) => (
+                    <div
+                        key={i}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                            i === index 
+                                ? 'w-6 bg-indigo-500' 
+                                : i < index 
+                                    ? 'w-1.5 bg-slate-600' 
+                                    : 'w-1.5 bg-slate-800'
+                        }`}
+                    />
+                ))}
+            </div>
 
-            <button
-                {...primaryProps}
-                style={{
-                    background: isLastStep
-                        ? 'linear-gradient(135deg, #10b981, #059669)'
-                        : 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-                    border: 'none',
-                    color: '#fff',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: isLastStep
-                        ? '0 4px 20px rgba(16, 185, 129, 0.4)'
-                        : '0 4px 20px rgba(139, 92, 246, 0.4)',
-                    transition: 'all 0.2s transform, 0.2s box-shadow',
-                    letterSpacing: '0.5px',
-                }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-            >
-                {isLastStep ? TOUR_LOCALE.last : TOUR_LOCALE.next}
-            </button>
+            {/* Botão Próximo / Finalizar */}
+            <div className="flex justify-end min-w-[80px]">
+                <button
+                    {...primaryProps}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-200 shadow-lg outline-none active:scale-95 ${
+                        isLastStep 
+                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/20' 
+                            : 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 shadow-indigo-500/20'
+                    }`}
+                >
+                    {isLastStep ? TOUR_LOCALE.last : TOUR_LOCALE.next}
+                </button>
+            </div>
         </div>
     </div>
 );
 
 export default function OnboardingTour() {
-    // 1. COMENTE A BUSCA DO ESTADO GLOBAL
-    // const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-    // const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
-
-    // 2. FORCE A VARIÁVEL PARA FALSO (O tutorial sempre vai abrir)
-    const hasSeenTour = false;
-
-    // 3. DESATIVE O CALLBACK TEMPORARIAMENTE
+    
+    // ======== TRAVA DE TESTE ATIVADA ========
+    // Ao finalizar seus testes de design, apague as duas linhas abaixo:
+    const hasSeenTour = false; 
+    const handleJoyrideCallback = useCallback(() => {}, []);
+    
+    // E descomente as 3 linhas abaixo para voltar a usar o banco de dados oficial:
+    /*
+    const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
+    const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
     const handleJoyrideCallback = useCallback((data) => {
-        // Deixe vazio para a sincronização não interferir enquanto você testa o design!
-        /* 
         const { status } = data;
         if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-            if (setHasSeenTour) {
-                setHasSeenTour(true);
-            }
+            if (setHasSeenTour) setHasSeenTour(true);
         }
-        */
-    }, []);
+    }, [setHasSeenTour]);
+    */
+    // =========================================
 
     if (hasSeenTour) return null;
 
@@ -378,32 +302,28 @@ export default function OnboardingTour() {
             run={true}
             continuous={true}
             scrollToFirstStep={true}
-            scrollOffset={80}
+            scrollOffset={100}
             showSkipButton={true}
             showProgress={false}
             disableScrollParentFix={true}
             callback={handleJoyrideCallback}
             tooltipComponent={CustomTooltip}
             floaterProps={{
-                styles: {
-                    arrow: {
-                        color: '#0f172a',
-                    },
-                },
                 disableAnimation: false,
+                styles: {
+                    floater: {
+                        transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+                    }
+                }
             }}
             styles={{
                 options: {
-                    arrowColor: '#0f172a',
-                    overlayColor: 'rgba(0, 0, 0, 0.88)',
+                    overlayColor: 'rgba(5, 8, 16, 0.75)', // Fundo mais elegante e menos pesado
                     zIndex: 10000,
                 },
                 spotlight: {
-                    borderRadius: '16px',
-                    boxShadow: '0 0 0 4px rgba(139, 92, 246, 0.4), 0 0 25px rgba(139, 92, 246, 0.3)',
-                },
-                overlay: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    borderRadius: '12px',
+                    backgroundColor: 'transparent',
                 },
             }}
             locale={TOUR_LOCALE}
