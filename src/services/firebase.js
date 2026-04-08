@@ -92,9 +92,10 @@ const auth = getAuth(app);
 
 // Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
 if (firebaseConfig.projectId === 'config-missing' || !firebaseConfig.projectId) {
-    console.error("%c[Firebase] ERRO CRÍTICO: projectId ausente!", "color: #f87171; font-weight: bold;");
-    console.error("DICA: Se estiver no Vercel, adicione VITE_FIREBASE_PROJECT_ID nas 'Environment Variables' do projeto e faça um novo Deploy.");
-    console.error("DICA: Se for local, verifique o arquivo .env raiz.");
+    const errorMsg = "ERRO CRÍTICO: VITE_FIREBASE_PROJECT_ID ausente ou inválido. Verifique seu arquivo .env.";
+    console.error(`%c${errorMsg}`, "color: #f87171; font-weight: bold;");
+    // Lançamos um erro para impedir que o app tente rodar em estado instável
+    throw new Error(errorMsg);
 } else {
     console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
 }

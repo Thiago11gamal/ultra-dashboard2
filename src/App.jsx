@@ -121,16 +121,21 @@ function MainLayout() {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const currentAppState = useAppStore.getState().appState;
-        const result = parseImportedData(e.target.result, currentAppState);
-        setAppState(result.data);
-        showToast('Backup restaurado com sucesso!', 'success');
-      } catch (err) {
-        console.error("Import Error:", err);
-        showToast(err.message, 'error');
-      }
+      // FIX: Pequeno delay para garantir que o toast de "A processar" seja renderizado antes do bloqueio da CPU
+      setTimeout(() => {
+        try {
+          const currentAppState = useAppStore.getState().appState;
+          const result = parseImportedData(e.target.result, currentAppState);
+          setAppState(result.data);
+          showToast('Backup restaurado com sucesso! ✨', 'success');
+        } catch (err) {
+          console.error("Import Error:", err);
+          showToast(`Erro no Backup: ${err.message}`, 'error');
+        }
+      }, 100);
     };
+    
+    showToast('A processar backup... ⏳', 'info');
     reader.readAsText(file);
   }, [setAppState, showToast]);
 
