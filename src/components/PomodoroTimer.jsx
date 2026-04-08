@@ -828,6 +828,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
                 <div className="h-6 w-full"></div>
             </motion.div>
-        </div>
-    );
+        </motion.div>
+    </div>
+);
 }
