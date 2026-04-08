@@ -18,6 +18,7 @@
     "framer-motion": "^12.23.25",
     "html-to-image": "^1.11.13",
     "html2pdf.js": "^0.12.1",
+    "idb-keyval": "^6.2.2",
     "immer": "^11.1.4",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.556.0",
@@ -32,6 +33,7 @@
     "three": "^0.181.2",
     "tsparticles": "^3.9.1",
     "tsparticles-slim": "^2.12.0",
+    "zundo": "^2.3.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

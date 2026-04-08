@@ -1,0 +1,40 @@
+export const createSimuladoSlice = (set, get) => ({
+    resetSimuladoStats: () => set((state) => {
+        const activeData = state.appState.contests[state.appState.activeId];
+        if (!activeData?.categories) return;
+        activeData.categories.forEach(c => {
+            c.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+        });
+        activeData.simuladoRows = [];
+        activeData.simulados = [];
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
+
+    deleteSimulado: (dateInput) => set((state) => {
+        const targetDay = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
+        const activeData = state.appState.contests[state.appState.activeId];
+        
+        const matchesDate = (raw) => {
+            if (!raw) return false;
+            if (dateInput.includes('T')) return raw === dateInput;
+            return raw.startsWith(dateInput); 
+        };
+
+        if (activeData.simuladoRows) {
+            activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.date || r.createdAt));
+        }
+        if (activeData.categories) {
+            activeData.categories.forEach(c => {
+                if (c.simuladoStats?.history) {
+                    c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
+                }
+            });
+        }
+        
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
+});
