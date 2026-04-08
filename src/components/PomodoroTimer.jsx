@@ -459,14 +459,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [mode, completedCycles, targetCycles]);
 
     return (
-        <motion.div
-            drag={!isLayoutLocked}
-            dragMomentum={false}
-            animate={uiPosition}
-            onDragEnd={handleDragEnd}
-            whileDrag={{ scale: 1.01 }}
-            className={`w-full max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        >
+        <div ref={containerRef} className="w-full relative min-h-screen">
+            <motion.div
+                drag={!isLayoutLocked}
+                dragMomentum={false}
+                dragConstraints={containerRef}
+                dragElastic={0.1}
+                animate={uiPosition}
+                onDragEnd={handleDragEnd}
+                whileDrag={{ scale: 1.01 }}
+                className={`w-full max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            >
             <div className="relative flex items-center justify-center py-2 w-full px-4">
                 <div className="flex-1 flex justify-center bg-transparent">
                     {activeSubject ? (
@@ -825,6 +828,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
                 <div className="h-6 w-full"></div>
             </motion.div>
-        </motion.div >
+        </div>
     );
 }
