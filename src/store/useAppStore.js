@@ -13,6 +13,7 @@ import { createGamificationSlice } from './slices/createGamificationSlice';
 import { createSimuladoSlice } from './slices/createSimuladoSlice';
 import { createTrashSlice } from './slices/createTrashSlice';
 import { createSettingsSlice } from './slices/createSettingsSlice';
+import { createMonteCarloSlice } from './slices/createMonteCarloSlice';
 
 // --- IndexedDB Adapter with localStorage Migration ---
 const idbStorage = {
@@ -70,6 +71,7 @@ export const useAppStore = create(
                 ...createSimuladoSlice(set, get),
                 ...createTrashSlice(set, get),
                 ...createSettingsSlice(set, get),
+                ...createMonteCarloSlice(set, get),
             })),
             {
                 // Zundo Options: Limit history to 20 states
