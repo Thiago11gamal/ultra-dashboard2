@@ -27,10 +27,9 @@ const idbStorage = {
         if (localValue) {
             try {
                 const parsed = JSON.parse(localValue);
-                // Migrate to IndexedDB
+                // Migrate to IndexedDB and clear localStorage
                 await idbSet(name, parsed);
-                // Optional: clear localStorage after successful migration
-                // localStorage.removeItem(name); 
+                localStorage.removeItem(name); 
                 return parsed;
             } catch (e) {
                 return null;
