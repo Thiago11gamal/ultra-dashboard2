@@ -350,17 +350,25 @@ const CustomTooltip = ({ continuous, index, step, backProps, closeProps, primary
 );
 
 export default function OnboardingTour() {
-    const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-    const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
+    // 1. COMENTE A BUSCA DO ESTADO GLOBAL
+    // const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
+    // const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
 
+    // 2. FORCE A VARIÁVEL PARA FALSO (O tutorial sempre vai abrir)
+    const hasSeenTour = false;
+
+    // 3. DESATIVE O CALLBACK TEMPORARIAMENTE
     const handleJoyrideCallback = useCallback((data) => {
+        // Deixe vazio para a sincronização não interferir enquanto você testa o design!
+        /* 
         const { status } = data;
         if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
             if (setHasSeenTour) {
                 setHasSeenTour(true);
             }
         }
-    }, [setHasSeenTour]);
+        */
+    }, []);
 
     if (hasSeenTour) return null;
 
