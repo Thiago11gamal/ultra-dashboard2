@@ -182,9 +182,12 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     let ciLow  = mean - marginOfError;
     let ciHigh = mean + marginOfError;
 
-    // Aplica a limitação com "soft bounds"
-    ciLow  = Math.max(0, Math.min(100, ciLow));
-    ciHigh = Math.max(0, Math.min(100, ciHigh));
+    // Aplica a limitação com "soft bounds" para apresentação, mas mantém a física do teste.
+    // RIGOR-FIX: Removido o clamping rígido que destruía a simetria da curva gaussiana.
+    // Os limites agora podem exceder ligeiramente 0-100 na matemática interna para permitir
+    // que o gráfico desenhe a "cauda" residual de forma suave.
+    const softLow = Math.max(-5, ciLow);
+    const softHigh = Math.min(105, ciHigh);
 
     // Proteção de segurança: O intervalo alto nunca pode ser menor que a média
     ciHigh = Math.max(mean, ciHigh);
@@ -193,8 +196,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     return {
         mean:  Number(mean.toFixed(2)),
         sd:    Number((effectiveSd * 100).toFixed(2)),
-        ciLow:  Number(ciLow.toFixed(2)),
-        ciHigh: Number(ciHigh.toFixed(2)),
+        ciLow:  Number(softLow.toFixed(2)),
+        ciHigh: Number(softHigh.toFixed(2)),
         alpha,
         beta,
         n,
@@ -223,9 +226,10 @@ export function computeCategoryStats(history, weight) {
             const w = (Number(h.total) || 1);
             wVarSum += w * Math.pow(getSafeScore(h) - m, 2);
         });
-        // RIGOR-08 FIX: Bessel's Correction (N-1) para variância amostrada.
-        // Evita o viés de subestimar a volatilidade em amostras pequenas.
-        variance = wVarSum / (totalQ - 1);
+        // RIGOR-08 FIX: Bessel's Correction para variância ponderada (baseado em número de exames).
+        // Evita o colapso da variância quando totalQ (questões) é muito maior que nExams.
+        const nExams = historyToUse.length;
+        variance = nExams > 1 ? wVarSum / (totalQ * ((nExams - 1) / nExams)) : 0;
     } else {
         variance = Math.pow(standardDeviation(scores), 2);
     }
