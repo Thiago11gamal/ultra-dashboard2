@@ -107,7 +107,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Nav Icons — scrollable */}
                 <div
                     ref={navScrollRef}
-                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 scroll-smooth"
+                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 py-1 scroll-smooth"
                 >
                     {menuItems.map((item) => {
                         const Icon = item.icon;
@@ -171,25 +171,25 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     // Collapsed State: Simple Level Icon
                     <div className="w-full h-full flex items-center justify-center text-white transition-colors relative">
                         {/* Circular Progress Micro-indicator */}
-                        <svg className="absolute inset-0 w-full h-full -rotate-90 p-0.5 drop-shadow-[0_0_3px_rgba(234,179,8,0.5)]" viewBox="0 0 36 36">
+                        <svg className="absolute inset-0 w-full h-full -rotate-90 p-[3px] drop-shadow-[0_0_3px_rgba(234,179,8,0.5)]" viewBox="0 0 36 36">
                             <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
                                 stroke="#ffffff10"
-                                strokeWidth="3"
+                                strokeWidth="2.5"
                             />
                             <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
                                 stroke="#a855f7"
-                                strokeWidth="3"
+                                strokeWidth="2.5"
                                 strokeDasharray={`${progress}, 100`}
                                 strokeLinecap="round"
                             />
                         </svg>
-                        <div className="flex flex-col items-center justify-center z-10">
-                            <span className="text-[6px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">COL</span>
-                            <span className="text-xl font-black leading-none text-white filter drop-shadow-md">{level}</span>
+                        <div className="flex flex-col items-center justify-center z-10 w-full h-full pt-1">
+                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-[1px]">Nível</span>
+                            <span className="text-xl font-black leading-none text-white drop-shadow-md truncate max-w-full px-1">{level}</span>
                         </div>
                     </div>
                 ) : (

@@ -117,7 +117,7 @@ export default function Header({
                         onBlur={handleNameBlur}
                         placeholder="Nome do concurso..."
                         // BUG-FIX: Reduzido de text-[22px] para text-xl para evitar quebra no mobile
-                        className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-tight"
+                        className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-normal pb-1"
                     />
                     {cloudStatus.hasConflict && (
                         <button
@@ -162,7 +162,7 @@ export default function Header({
                                 onBlur={handleNameBlur}
                                 placeholder="Digite o nome do concurso..."
                                 // BUG-FIX: Responsividade melhorada (text-xl para lg:text-3xl)
-                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1"
+                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 leading-normal"
                             />
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -184,22 +184,22 @@ export default function Header({
                     <div className="flex items-center gap-3">
                         <DateDisplay time={clockTime} />
                         {cloudStatus.status !== 'idle' && (
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
+                            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
                                 cloudStatus.status === 'connected' 
                                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
                                     : cloudStatus.status === 'connecting'
                                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                                         : 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
                             }`} title={cloudStatus.error || ''}>
-                                <div className="relative flex items-center justify-center">
-                                    <div className={`absolute w-3 h-3 rounded-full opacity-40 animate-ping ${
+                                <div className="relative flex items-center justify-center h-full">
+                                    <div className={`absolute w-2.5 h-2.5 rounded-full opacity-40 animate-ping ${
                                         cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
                                     }`} />
                                     <div className={`w-1.5 h-1.5 rounded-full z-10 ${
                                         cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
                                     } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
                                 </div>
-                                <span className="opacity-90">
+                                <span className="opacity-90 mt-[1px]">
                                     {cloudStatus.status === 'connected' 
                                         ? (cloudStatus.syncing ? 'Sincronizando' : 'Nuvem Ativa')
                                         : cloudStatus.status === 'connecting'
