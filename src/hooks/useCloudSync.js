@@ -391,8 +391,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         setHasConflict(false);
 
         const syncToCloud = async () => {
-            if (!db) return;
-            const freshState = appStateRef.current;
+            if (!db || isInternalSyncing) return; // FIX: Lock de sincronização para evitar overlaps
+            
+            const freshState = useAppStore.getState().appState; // FIX: Captura o estado real atual do store
             const currentStateString = stateStringForSync(freshState);
             const lastMutationAtInvoke = lastLocalMutationRef.current;
 
