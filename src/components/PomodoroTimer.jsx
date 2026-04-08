@@ -143,10 +143,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
     }, []);
 
+    const containerRef = useRef(null);
+
     const [uiPosition, setUiPosition] = useState(() => {
         const saved = localStorage.getItem('pomodoroPosition');
         return saved ? JSON.parse(saved) : { x: 0, y: 0 };
     });
+
+    // B-10 & B-11 FIX: Viewport-aware safety reset
+    // Resets widget position if it gets "lost" off-screen (e.g. window resize)
+    useEffect(() => {
+        const checkPos = () => {
+            if (uiPosition.x !== 0 || uiPosition.y !== 0) {
+                // If it's significantly off-screen, bring it back to center (0,0 relative)
+                const threshold = 100;
+                if (Math.abs(uiPosition.x) > window.innerWidth - threshold || 
+                    Math.abs(uiPosition.y) > window.innerHeight - threshold) {
+                    setUiPosition({ x: 0, y: 0 });
+                    localStorage.removeItem('pomodoroPosition');
+                }
+            }
+        };
+        window.addEventListener('resize', checkPos);
+        return () => window.removeEventListener('resize', checkPos);
+    }, [uiPosition]);
 
     const handleDragEnd = (event, info) => {
         const newPos = {

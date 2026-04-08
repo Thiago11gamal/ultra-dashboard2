@@ -10,6 +10,40 @@ const toISODay = (date) => {
 
 
 
+/**
+ * Distributes a rounding remainder across items based on their decimal parts.
+ * Uses the "Largest Remainder Method" to ensure percentages sum to exactly 100%.
+ */
+const distributeRoundingRemainder = (items, targetSum = 100) => {
+    if (!items.length) return items;
+
+    // 1. Calculate floor percentages and track remainders
+    const withRemainders = items.map(item => {
+        const value = item.rawPercentage || 0;
+        const floor = Math.floor(value);
+        return {
+            ...item,
+            percentage: floor,
+            remainder: value - floor
+        };
+    });
+
+    const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
+    const diff = targetSum - currentSum;
+
+    if (diff > 0) {
+        // 2. Sort by remainder descending and pick the top 'diff' items to increment
+        withRemainders
+            .sort((a, b) => b.remainder - a.remainder)
+            .slice(0, diff)
+            .forEach(item => {
+                item.percentage += 1;
+            });
+    }
+
+    return withRemainders;
+};
+
 export const calculateStudyStreak = (studyLogs) => {
     if (!studyLogs || studyLogs.length === 0) {
         return { current: 0, best: 0, longest: 0, isActive: false };
@@ -93,14 +127,22 @@ export const analyzeSubjectBalance = (categories) => {
         };
     }
 
-    const distribution = categories.map(c => ({
-        subject: c.name,
-        minutes: c.totalMinutes || 0,
-        percentage: Math.round(((c.totalMinutes || 0) / totalMinutes) * 100),
-        // Bug fix: optional chaining — categories without tasks array crash here
-        tasks: (c.tasks || []).length,
-        completed: (c.tasks || []).filter(t => t.completed).length
-    })).sort((a, b) => b.minutes - a.minutes);
+    // Distribution with Rounding Protection (B-05 FIX)
+    let distribution = categories.map(c => {
+        const rawPercentage = totalMinutes > 0 ? ((c.totalMinutes || 0) / totalMinutes) * 100 : 0;
+        return {
+            subject: c.name,
+            minutes: c.totalMinutes || 0,
+            rawPercentage,
+            // Bug fix: optional chaining — categories without tasks array crash here
+            tasks: (c.tasks || []).length,
+            completed: (c.tasks || []).filter(t => t.completed).length
+        };
+    });
+
+    // Apply Largest Remainder Method
+    distribution = distributeRoundingRemainder(distribution)
+        .sort((a, b) => b.minutes - a.minutes);
 
     // Detectar problemas
     const maxPercentage = distribution[0]?.percentage || 0;
@@ -350,8 +392,18 @@ export const detectProcrastination = (categories, studyLogs) => {
 
 export const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
 
+/**
+ * Calculates current day stats for Pomodoro and Study Progress.
+ * G-01 FIX: Integrates calculateDailyPomodoroGoal for dynamic daily goals.
+ * G-02 FIX: Recovers duration from startTime/endTime if duration field is 0.
+ */
 export const calculatePomodoroStats = (stats) => {
-    const { studySessions = [], categories = [] } = stats || {};
+    const { studySessions = [], categories = [], user = {} } = stats || {};
+
+    // Get dynamic goal (B-11 FIX: Link dashboard UI to dynamic goal engine)
+    const dynamicGoal = calculateDailyPomodoroGoal(categories, user);
+    const dailyGoalPomodoros = dynamicGoal.daily;
+    const dailyGoalMinutes = dailyGoalPomodoros * 25; // Standard 25m pomodoro sessions
 
     const now = new Date();
 
@@ -371,13 +423,21 @@ export const calculatePomodoroStats = (stats) => {
 
     todaySessions.forEach(session => {
         const start = new Date(session.startTime);
-        const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + (session.duration || 0) * 60000);
         
-        let minutesToCount = session.duration || 0;
+        // G-02 Duration Recovery Fallback
+        let sessionDuration = Number(session.duration) || 0;
+        if (sessionDuration === 0 && session.startTime && session.endTime) {
+            const end = new Date(session.endTime);
+            sessionDuration = Math.round((end.getTime() - start.getTime()) / 60000);
+        }
+
+        const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + sessionDuration * 60000);
+        
+        let minutesToCount = sessionDuration;
         // Dividir a sessão proporcionalmente se atravessar a meia-noite
         if (start < startOfDay) {
             minutesToCount = Math.max(0, Math.round((end.getTime() - startOfDay.getTime()) / 60000));
-            minutesToCount = Math.min(session.duration || 0, minutesToCount);
+            minutesToCount = Math.min(sessionDuration, minutesToCount);
         }
 
         todayMinutes += minutesToCount;
@@ -392,13 +452,13 @@ export const calculatePomodoroStats = (stats) => {
     const logsObj = { studyLogs: studySessions.map(s => ({ date: s.startTime })) };
     const streak = calculateStudyStreak(logsObj.studyLogs);
 
-    // Calcular progresso da meta
-    const progressPercentage = Math.min(100, Math.round((todayMinutes / DAILY_GOAL_MINUTES) * 100));
+    // Calcular progresso da meta (G-01: Used dynamic goal minutes)
+    const progressPercentage = Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100));
 
     return {
         todayMinutes,
         todayPomodoros: todaySessions.length,
-        dailyGoalMinutes: DAILY_GOAL_MINUTES,
+        dailyGoalMinutes: dailyGoalMinutes,
         progressPercentage,
         streak: streak.current,
         totalSubjectsToday: Object.keys(todaySubjects).length,
