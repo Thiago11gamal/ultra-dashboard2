@@ -178,7 +178,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             },
             median: meanVal, p25: lp25, p75: lp75
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(projectedMean ?? mean ?? 0);
@@ -189,8 +189,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
     const ciLabel = (high95 - low95) >= 95 ? "Alta incerteza" : `${low95.toFixed(0)}\u2013${high95.toFixed(0)}%`;
 
-    const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean));
-    const hojeTop = Math.min(62, Math.max(0, hojeYPercent - 12));
+    const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean ?? 0));
+    const hojeTop = Math.max(0, hojeYPercent - 12);
     const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
     const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 8 || currentMean === (mean ?? 0));
     const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 8;
@@ -211,7 +211,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const isHighCurve = hojeTop < 22;
     const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget)) 
         ? (22 + (tierHoje - 1) * 15 + '%') 
-        : (tierHoje > 1 ? `calc(${Math.max(0, hojeTop)}% + ${(tierHoje - 1) * 16}px)` : `${Math.max(0, hojeTop)}%`);
+        : (tierHoje > 1 ? `calc(${hojeTop}% + ${(tierHoje - 1) * 16}px)` : `${hojeTop}%`);
 
     return (
         <div className="relative w-full h-[140px] mb-12 cursor-crosshair group/chart"
@@ -286,12 +286,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-none mt-1 opacity-80" style={{ color: successColor }}>Caminho de Sucesso</span>
                     </div>
                 )}
-                {isCurrentVisible && (
-                    <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.min(currentPos, 85)}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white mb-1" />
-                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/60 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl">Hoje: {currentMean.toFixed(1)}%</span>
+                    <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.max(2, Math.min(currentPos, 90))}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white mb-1 shadow-[0_0_8px_white]" />
+                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}%</span>
                     </div>
-                )}
             </div>
 
             {hover && (
