@@ -6,6 +6,17 @@ import { logger } from '../utils/logger';
 
 import { useAppStore } from '../store/useAppStore';
 
+// Remove propriedades nulas/indefinidas de forma segura sem travar a main thread
+const cleanUndefined = (obj) => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(cleanUndefined).filter(i => i !== undefined);
+    return Object.fromEntries(
+        Object.entries(obj)
+            .filter(([_, v]) => v !== undefined)
+            .map(([k, v]) => [k, cleanUndefined(v)])
+    );
+};
+
 export function useCloudSync(currentUser, initialAppState, setAppState, showToast, syncTrigger) {
     const showToastRef = useRef(showToast);
     useEffect(() => {
@@ -187,19 +198,21 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 return;
             }
 
-            const cloudStateString = stateStringForSync(cloudData);
-            const currentStateString = stateStringForSync(appStateRef.current);
-            const contentsAreDifferent = currentStateString !== cloudStateString;
+            // [Adicionar este bloco para resolver a Race Condition]
+            const now = Date.now();
+            const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
+            const cloudUpdatedTime = isNaN(cloudUpdatedRaw.getTime()) ? 0 : cloudUpdatedRaw.getTime();
 
-            if (!contentsAreDifferent) {
-                setHasConflict(false);
-                lastSyncedRef.current = cloudStateString;
-                confirmParity();
+            const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
+            const localUpdatedTime = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
+
+            // Se o estado local foi atualizado DEPOIS do estado que a nuvem está mandando, ignoramos a nuvem.
+            if (localUpdatedTime > cloudUpdatedTime || isInternalSyncingRef.current) {
+                logger.debug("[Sync] Rejeitando snapshot: O estado local é mais recente ou há um save em curso.");
                 return;
             }
 
             const isBootSync = !isParityValidatedRef.current;
-            const now = Date.now();
             const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
 
             let shouldPullCloud = false;
@@ -323,13 +336,13 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     data: item.type === 'contest' ? "{truncated}" : item.data 
                 }));
 
-            const stateToSave = JSON.parse(JSON.stringify({
+            const stateToSave = cleanUndefined({
                 ...syncState,
                 contests: safeContests,
                 trash: safeTrash,
                 history: [],
                 _lastBackup: new Date().toISOString()
-            }));
+            });
 
             setInternalSyncing(true);
             logger.debug(`[Sync] Iniciando conexão segura com a nuvem...`);
@@ -437,13 +450,13 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                             data: item.type === 'contest' ? "{truncated}" : item.data
                         }));
 
-                    const stateToSave = JSON.parse(JSON.stringify({
+                    const stateToSave = cleanUndefined({
                         ...syncState,
                         contests: safeContests,
                         trash: safeTrash,
                         history: [],
                         _lastBackup: new Date().toISOString()
-                    }));
+                    });
 
                     logger.debug(`[Sync] Tentativa ${attempt + 1}/${MAX_RETRIES} para Master-Save...`);
                     await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);

@@ -69,14 +69,21 @@ if (!derivedProjectId) {
 }
 
 const firebaseConfig = {
-    apiKey: clean(rawConfig.apiKey) || "dummy-api-key",
-    authDomain: clean(rawConfig.authDomain) || "dummy-auth-domain",
-    projectId: derivedProjectId || "config-missing",
-    storageBucket: clean(rawConfig.storageBucket) || "dummy-bucket",
-    messagingSenderId: clean(rawConfig.messagingSenderId) || "000000000",
-    appId: clean(rawConfig.appId) || "1:000:web:000",
-    measurementId: clean(rawConfig.measurementId) || "G-0000"
+    apiKey: clean(rawConfig.apiKey),
+    authDomain: clean(rawConfig.authDomain),
+    projectId: derivedProjectId,
+    storageBucket: clean(rawConfig.storageBucket),
+    messagingSenderId: clean(rawConfig.messagingSenderId),
+    appId: clean(rawConfig.appId),
+    measurementId: clean(rawConfig.measurementId)
 };
+
+// Verifica imediatamente se as credenciais base existem
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    const errorMsg = "ERRO CRÍTICO: Chaves do Firebase ausentes no arquivo .env (Verifique VITE_FIREBASE_API_KEY ou VITE_FIREBASE_PROJECT_ID).";
+    console.error(`%c${errorMsg}`, "color: #f87171; font-weight: bold; background: #222; padding: 4px;");
+    throw new Error(errorMsg); // Para a execução antes de causar bugs na interface
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -90,15 +97,7 @@ const db = initializeFirestore(app, {
 
 const auth = getAuth(app);
 
-// Critical validation to prevent Firestore Internal Assertion Failure (projects//databases)
-if (firebaseConfig.projectId === 'config-missing' || !firebaseConfig.projectId) {
-    const errorMsg = "ERRO CRÍTICO: VITE_FIREBASE_PROJECT_ID ausente ou inválido. Verifique seu arquivo .env.";
-    console.error(`%c${errorMsg}`, "color: #f87171; font-weight: bold;");
-    // Lançamos um erro para impedir que o app tente rodar em estado instável
-    throw new Error(errorMsg);
-} else {
-    console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
-}
+console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
 
 const getAppAnalytics = async () => {
     if (typeof window === "undefined") return null;
