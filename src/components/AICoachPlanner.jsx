@@ -56,6 +56,7 @@ const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], 
 export default function AICoachPlanner({ coachPlan = [] }) {
     const coachPlanner = useAppStore(state => state.appState.coachPlanner) || DEFAULT_PLANNER;
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
+    const setData = useAppStore(state => state.setData);
 
     // FIX: Bloquear atualização externa durante o arrasto para evitar saltos na UI
     const [isDragging, setIsDragging] = useState(false);
@@ -111,10 +112,17 @@ export default function AICoachPlanner({ coachPlan = [] }) {
             const newCols = { ...columns, [source.droppableId]: newColList };
             setColumns(newCols);
 
-            // Save to store only if it's a week day
+            // Save to store
             if (source.droppableId !== 'backlog') {
                 const updatedPlanner = { ...coachPlanner, [source.droppableId]: newColList };
                 updateCoachPlanner(updatedPlanner);
+            } else {
+                // BUG-4 FIX: Persistir ordem do backlog no store global
+                // Reconstruímos o coachPlan mantendo a nova ordem do backlog
+                const assignedIds = new Set();
+                Object.values(coachPlanner).forEach(day => day.forEach(t => t?.id && assignedIds.add(t.id)));
+                const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(t.id));
+                setData(prev => ({ ...prev, coachPlan: [...newColList, ...assignedTasks] }));
             }
             return;
         }

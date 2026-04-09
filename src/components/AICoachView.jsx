@@ -3,6 +3,7 @@ import { Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, T
 import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
+import { useAppStore } from '../store/useAppStore';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 
 function AICoachCard({ task, idx }) {
@@ -31,7 +32,7 @@ function AICoachCard({ task, idx }) {
     }
 
     const displayAssunto = topicPart || (actionPart.length > 50 ? actionPart.substring(0, 47) + '...' : actionPart);
-    const displayMeta = topicPart ? actionPart : "Foco em exercícios e revisão";
+    const displayMeta = topicPart ? actionPart : (actionPart !== "Revisão Geral" ? actionPart : "Foco em exercícios e revisão");
 
     return (
         <motion.div
@@ -229,9 +230,19 @@ export default function AICoachView({
                         <AICoachPlanner coachPlan={coachPlan} />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {coachPlan.map((task, idx) => (
-                                <AICoachCard key={task.id || idx} task={task} idx={idx} />
-                            ))}
+                            {(() => {
+                                // BUG-5 FIX: Filtrar metas que já estão no Planner para não duplicar na visão de Lista
+                                const coachPlanner = useAppStore.getState().appState.coachPlanner || {};
+                                const allAssignedIds = new Set();
+                                Object.values(coachPlanner).forEach(dayTasks => {
+                                    (dayTasks || []).forEach(t => t?.id && allAssignedIds.add(t.id));
+                                });
+                                return coachPlan
+                                    .filter(task => !allAssignedIds.has(task.id))
+                                    .map((task, idx) => (
+                                        <AICoachCard key={task.id || idx} task={task} idx={idx} />
+                                    ));
+                            })()}
                         </div>
                     )}
                 </div>
