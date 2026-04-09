@@ -373,49 +373,64 @@ export function monteCarloSimulation(
     const simulationDays = days;
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
 
-    // BUG-C1 FIX: Removed intentional UI damping that violated random walk theory.
-    // Total SD after T days = daily_volatility * sqrt(T).
-    // The previous formula (adjustedVolatility / sqrt(T)) caused constant total variance.
-    const bootstrapInvSqrt = 1.0; // Daily shocks are now 1:1 with daily volatility
+    // 🎯 CALIBRAÇÃO ORNSTEIN-UHLENBECK (OU)
+    // 1. Velocidade de reversão (θ - Theta). 
+    // Um aluno consistente (baixa volatilidade) corrige erros mais rápido.
+    const theta = Math.max(0.02, 0.1 - (volatility * 0.005));
+
+    // 2. O Atrator (μ - Mu).
+    // Até onde o aluno naturalmente chegaria com a tendência de aprendizagem atual.
+    const longTermMu = Math.min(100, Math.max(0, baselineScore + (drift * simulationDays)));
+
+    const bootstrapInvSqrt = 1.0; 
+    
+    // Início do Monte Carlo
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
 
-        // 🎯 BUG-E1 FIX: Drift Sampling (Incerteza Epistêmica).
-        // Cada simulação "sorteia" uma taxa de melhora diferente baseada no erro padrão. 
-        // Isso alarga o cone de incerteza (IC 95%) em projeções longas, o que é estatisticamente correto.
-        const simDrift = Math.max(-0.9, Math.min(0.9, drift + (randomNormal(rng) * driftUncertainty)));
+        // 🎯 Incerteza Epistêmica sobre o Potencial (Atrator)
+        // Cada universo paralelo (simulação) tem um "Teto de Vidro" levemente diferente,
+        // gerado pelo erro padrão da regressão linear.
+        const simMu = Math.max(
+            0, 
+            Math.min(100, longTermMu + (randomNormal(rng) * driftUncertainty * Math.sqrt(simulationDays)))
+        );
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
-            if (useBootstrap && residuals.length >= 6) { // 🎯 BUG-M2 FIX: Sincronizar com threshold useBootstrap (era 4)
+            // Extração do Ruído (Empírico ou Teórico)
+            if (useBootstrap && residuals.length >= 6) { 
                 const randomResidual = residuals[Math.floor(rng() * residuals.length)];
-                // FIX: Jitter removido. A própria reamostragem massiva e o KDE suavizam
-                // a distribuição. O jitter artificial causava 'drift' matemático.
                 shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
             } else {
-                // BUG-06: Usar sigma hoistado
                 shock = randomNormal(rng) * sigma;
             }
 
-            // 🎯 BUG-H1 FIX: Heterocedasticidade (Volatility Decay).
-            // Conforme a nota sobe, a volatilidade (ruído) tende a diminuir (maior consistência).
-            // Aplicamos um redutor linear de ruído à medida que o score passa de 80%.
-            const consistencyMultiplier = score > 80 
-                ? Math.max(0.5, 1 - (score - 80) / 40) // Reduz até 50% do choque no teto 100%
-                : 1.0;
+            // 🧲 1. A Tração Determinística (Ornstein-Uhlenbeck)
+            // Se a nota cai muito num dia ruim, o elástico puxa ela de volta com força no dia seguinte.
+            // Se ela já está colada no limite potencial (simMu), o ganho diminui (rendimentos decrescentes).
+            const deterministicPull = theta * (simMu - score);
 
-            score += simDrift + (shock * consistencyMultiplier);
+            // 📊 2. Heterocedasticidade (Fator Binomial)
+            // Transforma a nota em probabilidade [0, 1].
+            // A variância é gigante nos 50% de acerto, mas despenca matematicamente quando o aluno
+            // se aproxima do 100% ou do 0%. O multiplicador '* 2' força o pico ser igual a 1.0.
+            const p = Math.max(0.001, Math.min(0.999, score / 100));
+            const binomialVolatility = Math.sqrt(p * (1 - p)) * 2;
+
+            // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
+            score += deterministicPull + (shock * binomialVolatility);
         }
 
-        // FIX CRÍTICO: Armazenar a nota REAL (Viável) para preservar a curva de Gauss e a Variância.
+        // Não há mais necessidade de loops de tentativas obscuras ou clamping violento.
+        // O próprio modelo gravita suavemente, mas garantimos os limites físicos reais da prova.
         const viableScore = Math.max(0, Math.min(100, score));
         if (viableScore >= targetScore) success++;
 
-        allFinalScores[s] = viableScore; // USAR VIABLESCORE
+        allFinalScores[s] = viableScore; 
 
-
-        // Welford com score VIÁVEL para refletir a dispersão real
+        // O algoritmo de Welford continua idêntico para estabilidade numérica
         welfordCount++;
         const delta = viableScore - welfordMean;
         welfordMean += delta / welfordCount;
