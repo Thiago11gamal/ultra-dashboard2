@@ -634,7 +634,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: `Probabilidade crítica detectada (${DEFAULT_CONFIG.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
                 });
-                continue;
             }
 
             // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
@@ -653,7 +652,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
                 });
-                continue;
             }
 
             // 🏆 Cruzeiro Seguro: Prob > 90%
@@ -672,7 +670,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
                     }
                 });
-                continue;
             }
 
             if (cat.urgency?.details?.srsLabel && i === 0) {
@@ -688,7 +685,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
-                continue;
             }
 
             const trapCheck = performDeepCheck(cat);
@@ -705,7 +701,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
-                continue;
             }
 
             if (weakTopic && (weakTopic.percentage < 70 || weakTopic.isUntested || weakTopic.priorityBoost > 0)) {
@@ -743,24 +738,23 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         }
                     }
                 });
-                continue;
-            }
-
-            // Fallback General Task
-            allGeneratedTasks.push({
-                id: `${cat.id}-general-review-${uniqueIdSuffix}-${Date.now()}`,
-                text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
-                completed: false,
-                categoryId: cat.id,
-                analysis: {
-                    reason: "Revisão Geral Complementar",
-                    metrics: cat.urgency.details.humanReadable,
-                    categoryDetails: {
-                        "Total Urgency": Math.round(cat.urgency.score),
-                        ...cat.urgency.details.components
+            } else {
+                // Fallback General Task - Only if no specific weak topic task was added for this iteration
+                allGeneratedTasks.push({
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${Date.now()}`,
+                    text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
+                    completed: false,
+                    categoryId: cat.id,
+                    analysis: {
+                        reason: "Revisão Geral Complementar",
+                        metrics: cat.urgency.details.humanReadable,
+                        categoryDetails: {
+                            "Total Urgency": Math.round(cat.urgency.score),
+                            ...cat.urgency.details.components
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     });
 
