@@ -123,3 +123,52 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         y: maxY > 0 ? Number((d.y / maxY).toFixed(4)) : 0
     }));
 }
+
+/**
+ * Inversa da CDF Normal (Função Probit)
+ * Método: Aproximação Racional de Beasley-Springer-Moro
+ * Converte uma probabilidade (p entre 0 e 1) de volta para um Z-score na curva de Gauss.
+ */
+export function inverseNormalCDF(p) {
+    if (p <= 0) return -8; // Limite estatístico prático inferior
+    if (p >= 1) return 8;  // Limite estatístico prático superior
+
+    const a = [2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637];
+    const b = [-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833];
+    const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 
+               0.0276438810333863, 0.0038405729373609, 0.0003951896511919, 
+               0.0000321767881768, 0.0000002888167364, 0.0000003960315187];
+
+    let x = p - 0.5;
+    if (Math.abs(x) < 0.42) {
+        let r = x * x;
+        return x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) / 
+                   ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1.0);
+    } else {
+        let r = p;
+        if (x > 0) r = 1.0 - p;
+        r = Math.log(-Math.log(r));
+        let z = c[0] + r * (c[1] + r * (c[2] + r * (c[3] + r * (c[4] + r * (c[5] + r * (c[6] + r * (c[7] + r * c[8])))))));
+        return x < 0 ? -z : z;
+    }
+}
+
+/**
+ * Amostragem Estrita para Normal Truncada
+ * Garante números exclusivamente entre [min, max] mantendo a suavidade da curva.
+ */
+export function sampleTruncatedNormal(mean, sd, min, max, rng) {
+    if (sd <= 0.0001) return Math.max(min, Math.min(max, mean)); 
+    
+    // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
+    const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
+    const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
+
+    // Sorteia um número uniforme restrito APENAS ao espaço válido da curva
+    const u = rng(); 
+    const p = cdfMin + u * (cdfMax - cdfMin);
+
+    const zScore = inverseNormalCDF(p);
+
+    return mean + (zScore * sd);
+}

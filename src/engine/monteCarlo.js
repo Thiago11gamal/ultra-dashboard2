@@ -1,5 +1,5 @@
 import { mulberry32, randomNormal } from './random.js';
-import { normalCDF_complement, generateKDE } from './math/gaussian.js';
+import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
@@ -47,17 +47,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const allScores = new Float32Array(safeSimulations);
 
   for (let i = 0; i < safeSimulations; i++) {
-    let score;
-    let attempts = 0;
-    
-    // FIX 1.3 & 3.1: Amostragem de Distribuição Normal Truncada (Truncated Normal).
-    // Rejeita notas fora do limite [0, 100] dinamicamente durante a simulação.
-    do {
-      score = safeMean + randomNormal(rng) * safeSD;
-      attempts++;
-    } while ((score < 0 || score > 100) && attempts < 10);
-    
-    score = Math.max(0, Math.min(100, score));
+    // FIX APLICADO: Amostragem de Distribuição Normal Truncada via Transformada Inversa
+    let score = sampleTruncatedNormal(safeMean, safeSD, 0, 100, rng);
     
     if (score >= safeTarget) success++;
     allScores[i] = score;
@@ -73,11 +64,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   allScores.sort((a, b) => a - b);
 
-  const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-  const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
+  // FIX APLICADO: Interpolação Linear para o Intervalo de Confiança
+  const getPercentile = (arr, p) => {
+      const idx = (arr.length - 1) * p;
+      const lower = Math.floor(idx);
+      const upper = Math.ceil(idx);
+      if (lower === upper) return arr[lower];
+      const weight = idx - lower;
+      return arr[lower] * (1 - weight) + arr[upper] * weight;
+  };
 
-  const rawLow = allScores[p025idx];
-  const rawHigh = allScores[p975idx];
+  const rawLow = getPercentile(allScores, 0.025);
+  const rawHigh = getPercentile(allScores, 0.975);
 
   const empiricalProbability = (success / safeSimulations) * 100;
   
