@@ -182,16 +182,16 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
     let ciLow  = mean - marginOfError;
     let ciHigh = mean + marginOfError;
 
+    // Proteção de segurança: O intervalo alto nunca pode ser menor que a média
+    ciHigh = Math.max(mean, ciHigh);
+    ciLow = Math.min(mean, ciLow);
+
     // Aplica a limitação com "soft bounds" para apresentação, mas mantém a física do teste.
     // RIGOR-FIX: Removido o clamping rígido que destruía a simetria da curva gaussiana.
     // Os limites agora podem exceder ligeiramente 0-100 na matemática interna para permitir
     // que o gráfico desenhe a "cauda" residual de forma suave.
     const softLow = Math.max(-5, ciLow);
     const softHigh = Math.min(105, ciHigh);
-
-    // Proteção de segurança: O intervalo alto nunca pode ser menor que a média
-    ciHigh = Math.max(mean, ciHigh);
-    ciLow = Math.min(mean, ciLow);
 
     return {
         mean:  Number(mean.toFixed(2)),

@@ -32,10 +32,13 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
     const appStateRef = useRef(initialAppState);
     useEffect(() => {
-        // When syncTrigger changes, it means the state has changed. 
-        // We update our ref to the latest store state.
-        appStateRef.current = useAppStore.getState().appState;
-    }, [syncTrigger]);
+        // Subscribe to store changes to keep the ref always up to date
+        // and eliminate stale closures from syncTrigger dependencies.
+        const unsubscribe = useAppStore.subscribe(
+            state => { appStateRef.current = state.appState; }
+        );
+        return () => unsubscribe();
+    }, []);
 
     const confirmParity = useCallback(() => {
         if (!isParityValidatedRef.current) {

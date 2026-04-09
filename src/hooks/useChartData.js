@@ -230,11 +230,18 @@ export function useChartData(categories = [], weights = {}) {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                const tot = Number(h.total) || 0;
-                const raw = Number(h.correct) || 0;
-                dayMap[key].correct += (h.isPercentage && h.score != null && tot > 0)
-                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
-                    : raw;
+                let tot = Number(h.total) || 0;
+                let raw = Number(h.correct) || 0;
+                let corrNorm;
+                if (h.isPercentage && h.score != null && tot > 0) {
+                    corrNorm = Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot);
+                } else if (h.isPercentage && h.score != null && tot === 0) {
+                    tot = SYNTHETIC_TOTAL_QUESTIONS;
+                    corrNorm = Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot);
+                } else {
+                    corrNorm = raw;
+                }
+                dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
             });
 

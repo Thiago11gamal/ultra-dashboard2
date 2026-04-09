@@ -85,9 +85,17 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const displayLow = Math.max(0, rawLow);
   const displayHigh = Math.min(100, rawHigh);
 
-  // FIX: Probabilidade Analítica agora utiliza os dados puros, não os distorcidos pelos limites físicos
-  const zScore = (safeTarget - safeMean) / safeSD;
-  const analyticalProbability = normalCDF_complement(zScore) * 100;
+    // FIX 3.2: Probabilidade Analítica Normalizada para Truncamento [0,100].
+    // P(X >= target | X in [0,100]) = [Φ(target') - Φ(100')] / [Φ(0') - Φ(100')]
+    // onde Φ(z) é normalCDF_complement(z).
+    const phi0   = normalCDF_complement(-safeMean / safeSD);      // P(X >= 0)
+    const phi100  = normalCDF_complement((100 - safeMean) / safeSD); // P(X >= 100)
+    const phiTarget = normalCDF_complement((safeTarget - safeMean) / safeSD); // P(X >= target)
+    
+    const truncNormFactor = phi0 - phi100;
+    const analyticalProbability = truncNormFactor > 0.001 
+        ? ((phiTarget - phi100) / truncNormFactor) * 100 
+        : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
 
   return {
     probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,

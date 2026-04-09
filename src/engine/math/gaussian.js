@@ -61,7 +61,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
     const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
-    const h = 0.9 * Math.min(projectedSD, iqr / 1.34) * Math.pow(safeSimulations, -0.2);
+    const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
+    const h = 0.9 * scottFactor * Math.pow(safeSimulations, -0.2);
 
     // REVISION: KDE using 200 Bins for higher UI resolution
     const BIN_COUNT = 200;

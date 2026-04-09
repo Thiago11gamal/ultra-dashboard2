@@ -172,9 +172,7 @@ export function calculateVolatility(history) {
         // REVISION: Floor standardized to 1.0
         return Math.max(1.0, Math.min(15.0, diff / Math.sqrt(dt)));
     }
-    // REVISION: Use RAW (unclamped) slope for detrending to avoid biasing volatility
-    // with confidence-weighted or clamped drift.
-    const { slope: rawDrift } = weightedRegression(sorted);
+    const drift = calculateSlope(sorted);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
     
     // Calculate weighted sum of squared differences (MSSD)
@@ -195,7 +193,7 @@ export function calculateVolatility(history) {
         const rawDaysBetween = Math.max(1.0, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
-        const detrendedDiff = diff - (rawDrift * daysBetween);
+        const detrendedDiff = diff - (drift * daysBetween);
         const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -293,7 +291,7 @@ export function monteCarloSimulation(
         // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting
         // pois o loop de projeção já injeta o 'dayDrift' em cada iteração a cada passo.
         // FIX BUG 3: use daysBetween consistently
-        const detrendedChange = actualChange - (rawDrift * daysBetween);
+        const detrendedChange = actualChange - (drift * daysBetween);
 
         // M-02 FIX: Resíduo bruto normalizado pelo tempo.
         return detrendedChange / Math.sqrt(daysBetween);

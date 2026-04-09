@@ -60,7 +60,7 @@ const repairContestHistory = (data) => {
     // original possui vários dias (causado pelo bug antigo de priorizar o createdAt do DB em vez do date do usuário).
     const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
 
-    if (hasCorruptedHistory || dateCompressionBug || currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.5) {
+    if (hasCorruptedHistory || dateCompressionBug || currentHistory.length === 0 || uniqueDaysInLogs > currentHistory.length * 1.2) {
       console.log(`%c[Schema-Diag] REPARANDO ${cat.name}: ${uniqueDaysInLogs} dias vs ${currentHistory.length} no histórico.`, "color: #f59e0b;");
       hasRepaired = true;
 
