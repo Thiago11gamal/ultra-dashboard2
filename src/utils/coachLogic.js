@@ -265,8 +265,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcProbability !== null) {
             if (mcProbability < cfg.MC_PROB_DANGER) {
-                // < 30%: perigo — boost máximo de 25pts
-                mcUrgencyBoost = 25 * (1 - mcProbability / cfg.MC_PROB_DANGER);
+                // CORREÇÃO: Ancorar o piso desta zona ao teto da zona moderada (12 pts)
+                // A equação agora transita suavemente do limite de 25 para 12.
+                mcUrgencyBoost = 12 + 13 * (1 - mcProbability / cfg.MC_PROB_DANGER);
                 mcRiskLabel = 'critical';
             } else if (mcProbability < 55) {
                 // 30–55%: risco moderado — boost até 12pts
