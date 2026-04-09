@@ -57,10 +57,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
       attempts++;
     } while ((score < 0 || score > 100) && attempts < 10);
     
-    // CORREÇÃO: A linha 'score = Math.max(0, Math.min(100, score))' foi REMOVIDA DAQUI.
-    // O valor bruto é preservado para o KDE realizar o 'Data Folding' matematicamente 
-    // correto e o gráfico visual perder os "espinhos" anômalos.
-
+    score = Math.max(0, Math.min(100, score));
+    
     if (score >= safeTarget) success++;
     allScores[i] = score;
 

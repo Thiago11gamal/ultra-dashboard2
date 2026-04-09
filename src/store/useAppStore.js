@@ -26,11 +26,10 @@ const idbStorage = {
         const localValue = localStorage.getItem(name);
         if (localValue) {
             try {
-                const parsed = JSON.parse(localValue);
-                // Migrate to IndexedDB and clear localStorage
-                await idbSet(name, parsed);
+                // Migrate the raw string to IndexedDB and clear localStorage
+                await idbSet(name, localValue);
                 localStorage.removeItem(name); 
-                return parsed;
+                return localValue; // createJSONStorage expects the string
             } catch (e) {
                 return null;
             }
