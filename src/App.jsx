@@ -203,9 +203,7 @@ function MainLayout() {
             onOpenHelp={() => setShowHelpGuide(true)}
           />
 
-          <main className="px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
-            {/* Mobile spacer: pushes content below the fixed top nav bar - BUG-FIX: Aumentado para h-24 */}
-            <div className="h-24 md:hidden" aria-hidden="true" />
+          <main className="pt-24 md:pt-0 px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
             <Header
               user={data.user}
               settings={data.settings}
@@ -273,7 +271,7 @@ function MainLayout() {
       )}
 
       {/* Global Event Driven Toast Container */}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-[100000] flex flex-col gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto">
             <Toast

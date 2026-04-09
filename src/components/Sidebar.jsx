@@ -6,8 +6,6 @@ import {
     Timer,
     FileText,
     Settings,
-    Download,
-    Upload,
     ChevronUp,
     BrainCircuit,
     Sparkles,
@@ -16,8 +14,7 @@ import {
     HelpCircle,
     Brain,
     TrendingUp,
-    Clock,
-    ChevronDown
+    Clock
 } from 'lucide-react';
 import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
@@ -42,18 +39,25 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
 
     useEffect(() => {
         let lastScrollY = window.scrollY;
+        let ticking = false;
 
         const handleScroll = () => {
-            const currentScrollY = window.scrollY;
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    const currentScrollY = window.scrollY;
 
-            // Oculta ao rolar para baixo, mostra ao rolar para cima
-            if (currentScrollY > 50 && currentScrollY > lastScrollY) {
-                setIsVisible(false);
-            } else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
-                setIsVisible(true);
+                    // Oculta ao rolar para baixo, mostra ao rolar para cima
+                    if (currentScrollY > 50 && currentScrollY > lastScrollY) {
+                        setIsVisible(false);
+                    } else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
+                        setIsVisible(true);
+                    }
+
+                    lastScrollY = currentScrollY;
+                    ticking = false;
+                });
+                ticking = true;
             }
-
-            lastScrollY = currentScrollY;
         };
 
         window.addEventListener('scroll', handleScroll, { passive: true });
@@ -84,7 +88,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
     return (
         <div className={`fixed z-[101] /* Aumentado de 100 para 101 para ficar sobre o Drawer */
             top-0 left-0 w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 backdrop-blur-xl border-b border-white/8 shadow-[0_4px_32px_rgba(0,0,0,0.5)] px-3 py-0
-            md:top-4 md:left-1/2 md:-ml-7 md:w-auto md:bg-transparent md:bg-none md:backdrop-blur-none md:border-none md:shadow-none md:px-0 md:py-0
+            md:top-4 md:left-1/2 md:-translate-x-1/2 md:w-auto md:bg-transparent md:bg-none md:backdrop-blur-none md:border-none md:shadow-none md:px-0 md:py-0
             ${isVisible
                 ? 'translate-y-0 opacity-100 transition-[transform,opacity] duration-300 ease-out md:top-4'
                 : '-translate-y-full opacity-0 transition-[transform,opacity] duration-200 ease-in md:-top-32'
@@ -196,7 +200,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                     // Expanded State: Full Menu
                     <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
                         {/* Brand Logo */}
-                        <Link to="/" className="shrink-0 flex items-center gap-3 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (window.innerWidth < 768) setCollapsed(true); }}>
+                        <Link to="/" className="shrink-0 flex items-center gap-3 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isMobile) setCollapsed(true); }}>
                             <div className="relative">
                                 <img src={logo} alt="Logo" className="w-8 h-8 object-contain transition-all group-hover/brand:scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]" />
                             </div>
@@ -227,7 +231,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (onOpenHelp) onOpenHelp();
-                                                if (window.innerWidth < 768) setCollapsed(true);
+                                                if (isMobile) setCollapsed(true);
                                             }}
                                             className={className}
                                             title={item.label}
