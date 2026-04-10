@@ -47,12 +47,20 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
  * Fast Kernel Density Estimation (KDE) using Binning for large Monte Carlo samples.
  * Returns normalized density points (x, y) for SVG plotting.
  */
-export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations) {
+/**
+ * @param {Float32Array} allScores - sorted simulation output scores
+ * @param {number} projectedMean
+ * @param {number} projectedSD
+ * @param {number} safeSimulations
+ * @param {number} [minScore=0]  - Dynamic lower bound (e.g. 0 pts)
+ * @param {number} [maxScore=100] - Dynamic upper bound (e.g. 150 pts)
+ */
+export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
     if (!allScores || allScores.length === 0) return [];
 
-    // RIGOR-10 FIX: Anchor domain dynamically to projectedMean to avoid excessive whitespace.
-    const plotMin = Math.max(0, projectedMean - 3.5 * projectedSD);
-    const plotMax = Math.min(100, projectedMean + 3.5 * projectedSD);
+    // SCALE-BOUNDS FIX: Anchor domain dynamically using the injected scale bounds.
+    const plotMin = Math.max(minScore, projectedMean - 3.5 * projectedSD);
+    const plotMax = Math.min(maxScore, projectedMean + 3.5 * projectedSD);
     
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
@@ -73,14 +81,14 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const bandwidth = Math.max(0.001, h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
-    // 🎯 MATH FIX: Remover overflowCount e underflowCount e fazer Data Folding
+    // SCALE-BOUNDS FIX: Data Folding genérico — rebate nos limites reais (minScore, maxScore)
     for (let i = 0; i < safeSimulations; i++) {
         let s = allScores[i];
         
-        // Data Folding: Rebater os limites intransponíveis da realidade (0 e 100)
-        if (s < 0) s = Math.abs(s); 
-        if (s > 100) s = 200 - s; 
-        s = Math.max(0, Math.min(100, s)); 
+        // Data Folding: reflect samples that escaped the bounds back into the domain
+        if (s < minScore) s = 2 * minScore - s;
+        if (s > maxScore) s = 2 * maxScore - s;
+        s = Math.max(minScore, Math.min(maxScore, s));
 
         // Agora verificamos apenas o enquadramento do plot visual (Zoom do Gráfico)
         if (s > plotMax || s < plotMin) continue;

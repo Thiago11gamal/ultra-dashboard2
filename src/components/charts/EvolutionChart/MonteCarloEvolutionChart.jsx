@@ -138,7 +138,10 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             axisLine={false}
                             dx={-10}
                             domain={[0, 100]}
+                            // SCALE-BOUNDS NOTE: Y-axis is ALWAYS probability (0-100%), never the score.
+                            // The 'unit' prop only affects the Target display above, not this axis.
                             tickFormatter={(v) => `${v}%`}
+                            label={{ value: 'Prob.', angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 8, fill: '#475569', textAnchor: 'middle' } }}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
                         

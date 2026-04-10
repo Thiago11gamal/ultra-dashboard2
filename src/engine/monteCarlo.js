@@ -7,7 +7,10 @@ import { monteCarloSimulation } from './projection.js';
 
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
-  
+  // SCALE-BOUNDS: default to [0, 100] for full backward-compatibility
+  let minScore = 0;
+  let maxScore = 100;
+
   if (typeof meanOrObj === 'object' && meanOrObj !== null) {
       // Faz o merge: se a propriedade não existir no objeto, mantém o parâmetro posicional original
       mean = meanOrObj.mean ?? mean;
@@ -18,6 +21,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
       currentMean = meanOrObj.currentMean ?? currentMean;
       categoryName = meanOrObj.categoryName ?? categoryName;
       bayesianCI = meanOrObj.bayesianCI ?? bayesianCI;
+      // SCALE-BOUNDS: extract dynamic bounds from the object call form
+      minScore = meanOrObj.minScore ?? minScore;
+      maxScore = meanOrObj.maxScore ?? maxScore;
   }
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
@@ -47,8 +53,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const allScores = new Float32Array(safeSimulations);
 
   for (let i = 0; i < safeSimulations; i++) {
-    // FIX APLICADO: Amostragem de Distribuição Normal Truncada via Transformada Inversa
-    let score = sampleTruncatedNormal(safeMean, safeSD, 0, 100, rng);
+    // SCALE-BOUNDS FIX: Amostragem de Distribuição Normal Truncada com limites dinâmicos
+    let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);
     
     if (score >= safeTarget) success++;
     allScores[i] = score;
@@ -78,21 +84,21 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const rawHigh = getPercentile(allScores, 0.975);
 
   const empiricalProbability = (success / safeSimulations) * 100;
-  
-  const displayMean = Math.max(0, Math.min(100, projectedMean));
-  const displayLow = Math.max(0, rawLow);
-  const displayHigh = Math.min(100, rawHigh);
 
-    // FIX 3.2: Probabilidade Analítica Normalizada para Truncamento [0,100].
-    // P(X >= target | X in [0,100]) = [Φ(target') - Φ(100')] / [Φ(0') - Φ(100')]
-    // onde Φ(z) é normalCDF_complement(z).
-    const phi0   = normalCDF_complement(-safeMean / safeSD);      // P(X >= 0)
-    const phi100  = normalCDF_complement((100 - safeMean) / safeSD); // P(X >= 100)
+  // SCALE-BOUNDS FIX: Sem clamp destrutivo — os valores reais podem estar acima de 100
+  const displayMean = projectedMean;
+  const displayLow = rawLow;
+  const displayHigh = rawHigh;
+
+    // SCALE-BOUNDS FIX: Probabilidade Analítica Normalizada para Truncamento [minScore, maxScore].
+    // P(X >= target | X in [min, max]) = [Φ(target') - Φ(max')] / [Φ(min') - Φ(max')]
+    const phiMin    = normalCDF_complement((minScore - safeMean) / safeSD); // P(X >= min)
+    const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); // P(X >= max)
     const phiTarget = normalCDF_complement((safeTarget - safeMean) / safeSD); // P(X >= target)
     
-    const truncNormFactor = phi0 - phi100;
+    const truncNormFactor = phiMin - phiMax;
     const analyticalProbability = truncNormFactor > 0.001 
-        ? ((phiTarget - phi100) / truncNormFactor) * 100 
+        ? ((phiTarget - phiMax) / truncNormFactor) * 100 
         : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
 
   return {
@@ -107,9 +113,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
-    kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations),
+    kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore, maxScore),
     drift: 0,
     volatility: safeSD,
+    minScore,
+    maxScore,
     method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
   };
 }
@@ -157,16 +165,19 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
     return Number.isFinite(n) ? n : 0;
   };
 
-  return simulateNormalDistribution(
-    sanitize(inputOrMean),
-    sanitize(pooledSD),
-    sanitize(targetScore),
-    options.simulations,
-    options.seed,
-    options.currentMean,
-    options.categoryName,
-    options.bayesianCI
-  );
+  // SCALE-BOUNDS: wrap into object call so minScore/maxScore are propagated
+  return simulateNormalDistribution({
+    mean: sanitize(inputOrMean),
+    sd: sanitize(pooledSD),
+    targetScore: sanitize(targetScore),
+    simulations: options.simulations,
+    seed: options.seed,
+    currentMean: options.currentMean,
+    categoryName: options.categoryName,
+    bayesianCI: options.bayesianCI,
+    minScore: options.minScore ?? 0,
+    maxScore: options.maxScore ?? 100,
+  });
 }
 
 export default {

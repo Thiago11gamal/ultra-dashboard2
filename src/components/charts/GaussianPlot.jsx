@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useId } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian';
 
-export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData, projectedMean }) => {
+export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData, projectedMean, minScore = 0, maxScore = 100, unit = '%' }) => {
     const [hover, setHover] = useState(null);
     const clampVisual = (v) => Math.max(0, Math.min(100, v));
 
@@ -19,12 +19,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // Assim, contrasta sempre perfeitamente com a zona de falha (vermelha), independentemente da probabilidade atual.
     const successColor = '#22c55e'; // Verde Esmeralda
 
-    const { pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, asymmetricGaussianFn, median, p25, p75 } = useMemo(() => {
+    const { pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, asymmetricGaussianFn, median, p25, p75, domainMin, domainMax } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
-        const xMin = 0;
-        const xMax = 100;
-        const range = 100;
+
+        // SCALE-BOUNDS FIX: Dynamic domain — adds 10% right-margin so target line is never cut off
+        const domainMin = Math.min(minScore, meanVal, targetVal);
+        const rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
+        const domainMax = rawMax;
+        const xMin = domainMin;
+        const range = domainMax - domainMin;
 
         let vizSdLeft = Math.max(1, propSdLeft ?? sd);
         let vizSdRight = Math.max(1, propSdRight ?? sd);
@@ -40,7 +44,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const getGeomProb = (tVal, mVal, sl, sr) => {
                 const normFactor = 2 / (sl + sr);
                 const pUnderflow = normFactor * sl * normalCDF_complement(mVal / sl);
-                const pOverflow = normFactor * sr * normalCDF_complement((100 - mVal) / sr);
+                // SCALE-BOUNDS FIX: overflow uses domainMax instead of hardcoded 100
+                const pOverflow = normFactor * sr * normalCDF_complement((domainMax - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
                 let pSuccess;
@@ -82,6 +87,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
         // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
         const baseHeightFactor = 0.95; 
+        // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
         const xp = (v) => 2 + ((v - xMin) / range * 96);
         const yp = (yVal) => 100 - (yVal * 92); 
 
@@ -90,13 +96,15 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const finalHF = baseHeightFactor;
 
         if (kdeData && kdeData.length > 5) {
-            const DOMAIN_MAX = 100;
+            // SCALE-BOUNDS FIX: Use domainMin/domainMax for KDE clip boundaries
+            const DOMAIN_MIN = domainMin;
+            const DOMAIN_MAX = domainMax;
             const points = [];
-            if (kdeData[0].x > 0) {
-                points.push(`${xp(0)},100`);
+            if (kdeData[0].x > DOMAIN_MIN) {
+                points.push(`${xp(DOMAIN_MIN)},100`);
                 points.push(`${xp(kdeData[0].x)},100`);
             }
-            kdeData.filter(p => p.x >= 0 && p.x <= DOMAIN_MAX).forEach(p => {
+            kdeData.filter(p => p.x >= DOMAIN_MIN && p.x <= DOMAIN_MAX).forEach(p => {
                 points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
             });
             const lastDataX = kdeData[kdeData.length - 1].x;
@@ -107,7 +115,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             path = `M ${points.join(' L ')}`;
             pointsForArea = points;
         } else {
-            const pts = generateGaussianPoints(xMin, xMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
+            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
             path = `M ${pts.join(' L ')}`;
             pointsForArea = pts;
         }
@@ -176,18 +184,21 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 }
                 return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
             },
-            median: meanVal, p25: lp25, p75: lp75
+            median: meanVal, p25: lp25, p75: lp75,
+            // expose domain for use outside useMemo
+            domainMin, domainMax,
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean, minScore, maxScore]);
 
     const targetPos = xp(targetVal);
     const meanPos = xp(projectedMean ?? mean ?? 0);
     const currentPos = currentMean != null ? xp(currentMean) : 0;
-    const ciHighPx = xp(clampVisual(high95));
-    const ciLowPx = xp(clampVisual(low95));
-    const isTargetVisible = targetPos >= 0 && targetPos <= 100;
-    const isCurrentVisible = currentMean != null && currentPos >= 0 && currentPos <= 100;
-    const ciLabel = (high95 - low95) >= 95 ? "Alta incerteza" : `${low95.toFixed(0)}\u2013${high95.toFixed(0)}%`;
+    const ciHighPx = xp(Math.max(domainMin, Math.min(domainMax, high95)));
+    const ciLowPx  = xp(Math.max(domainMin, Math.min(domainMax, low95)));
+    // SCALE-BOUNDS FIX: visibility check uses SVG coordinate space (2..98)
+    const isTargetVisible = targetPos >= 2 && targetPos <= 98;
+    const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
+    const ciLabel = (high95 - low95) >= (domainMax - domainMin) * 0.95 ? "Alta incerteza" : `${low95.toFixed(0)}–${high95.toFixed(0)}${unit}`;
 
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean ?? 0));
     const hojeTop = Math.max(0, hojeYPercent - 12);
@@ -270,13 +281,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
-                    <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}%</span>
+                    <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
                     <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5 whitespace-nowrap">Projeção</span>
                 </div>
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
-                        <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{targetVal}%</span>
+                        <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
                         <span className="text-[7px] font-black text-rose-500/50 uppercase tracking-tighter mt-0.5">Meta</span>
                     </div>
                 )}
@@ -288,7 +299,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
                     <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.max(2, Math.min(currentPos, 90))}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-white mb-1 shadow-[0_0_8px_white]" />
-                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}%</span>
+                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}{unit}</span>
                     </div>
             </div>
 
@@ -297,7 +308,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                     <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
                     <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(5, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
-                        <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}%</span>
+                        <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}{unit}</span>
                         <div className="flex items-center gap-1 mt-0.5">
                             <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
                             <span className={`text-[8px] font-black uppercase tracking-widest ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-400'}`}>{hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}</span>
@@ -307,9 +318,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             )}
 
             <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
-                {[0, 20, 40, 60, 80, 100].map(t => (
-                    <span key={t} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${t}%`, transform: t === 0 ? 'translateX(0%)' : t === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{t}%</span>
-                ))}
+                {/* SCALE-BOUNDS FIX: Dynamic X-axis ticks based on actual domain */}
+                {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
+                    const tickVal = domainMin + f * (domainMax - domainMin);
+                    const pct = f * 100;
+                    return (
+                        <span key={f} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: pct === 0 ? 'translateX(0%)' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                            {Number.isInteger(tickVal) ? tickVal : tickVal.toFixed(1)}{unit}
+                        </span>
+                    );
+                })}
             </div>
 
             <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min(ciLowPx, 75)}%`, maxWidth: '25%' }}>

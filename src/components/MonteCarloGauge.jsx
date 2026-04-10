@@ -28,7 +28,11 @@ export default function MonteCarloGauge({
     goalDate,
     targetScore,
     onTargetScoreChange,
-    forcedMode = null
+    forcedMode = null,
+    // SCALE-BOUNDS: unit label and scoring bounds for non-percentage exams
+    unit = '%',
+    minScore = 0,
+    maxScore = 100,
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
@@ -291,6 +295,9 @@ export default function MonteCarloGauge({
                         forcedVolatility: statsData.dailySD,
                         forcedBaseline: statsData.bayesianMean,
                         currentMean: statsData.bayesianMean,
+                        // SCALE-BOUNDS: propagate to engine
+                        minScore,
+                        maxScore,
                     });
                 } else {
                     result = await runAnalysis(
@@ -300,7 +307,10 @@ export default function MonteCarloGauge({
                         {
                             simulations: 5000,
                             currentMean: statsData.bayesianMean,
-                            bayesianCI: statsData.bayesianCI
+                            bayesianCI: statsData.bayesianCI,
+                            // SCALE-BOUNDS: propagate to engine
+                            minScore,
+                            maxScore,
                         }
                     );
                 }
@@ -321,6 +331,9 @@ export default function MonteCarloGauge({
                             forcedVolatility: statsData.dailySD,
                             forcedBaseline: statsData.bayesianMean,
                             currentMean: statsData.bayesianMean,
+                            // SCALE-BOUNDS: propagate to engine
+                            minScore,
+                            maxScore,
                         });
                     } else {
                         result = runMonteCarloAnalysis(
@@ -330,7 +343,10 @@ export default function MonteCarloGauge({
                             {
                                 simulations: 5000,
                                 currentMean: statsData.bayesianMean,
-                                bayesianCI: statsData.bayesianCI
+                                bayesianCI: statsData.bayesianCI,
+                                // SCALE-BOUNDS: propagate to engine
+                                minScore,
+                                maxScore,
                             }
                         );
                     }
@@ -412,7 +428,8 @@ export default function MonteCarloGauge({
         );
     }
 
-    const formatPercent = (v) => `${v.toFixed(1)}%`;
+    // SCALE-BOUNDS: formatScore uses the injected unit instead of hardcoded %
+    const formatScore = (v) => `${v.toFixed(1)}${unit}`;
 
     const probability = simulationData?.data?.probability ?? 0;
     const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
@@ -553,7 +570,7 @@ export default function MonteCarloGauge({
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
                         <span className="text-5xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
-                            {formatPercent(prob)}
+                            {formatScore(prob)}
                         </span>
                     </div>
                 </div>
@@ -571,15 +588,15 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
-                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}%`, color: "text-rose-500" },
-                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatPercent(safe(currentMean)), color: "text-white" },
-                    { label: "Projeção", val: formatPercent(safe(projectedMean)), color: "text-blue-400" },
+                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500" },
+                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white" },
+                    { label: "Projeção", val: formatScore(safe(projectedMean)), color: "text-blue-400" },
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
                         color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400' : 'text-red-400'
                     },
-                    { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}%`, color: "text-green-500" }
+                    { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}${unit}`, color: "text-green-500" }
                 ].map((m, i) => (
                     <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center overflow-hidden">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 whitespace-nowrap">
@@ -606,7 +623,11 @@ export default function MonteCarloGauge({
                         currentMean={safe((currentMean !== undefined && currentMean !== null) ? parseFloat(currentMean) : parseFloat(projectedMean))}
                         prob={safe(prob)}
                         kdeData={simulationData?.data?.kdeData}
-                        projectedMean={safe(projectedMean)} 
+                        projectedMean={safe(projectedMean)}
+                        // SCALE-BOUNDS: pass down unit and scale bounds
+                        unit={unit}
+                        minScore={minScore}
+                        maxScore={maxScore}
                     />
                 </div>
                 
