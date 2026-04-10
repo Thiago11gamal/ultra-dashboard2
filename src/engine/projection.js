@@ -77,13 +77,13 @@ function weightedRegression(history, lambda = 0.08) {
     const sumW = data.reduce((a, p) => a + p.w, 0);
     const sumW2 = data.reduce((a, p) => a + p.w * p.w, 0);
     const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : data.length;
-    
+
     const wrss = data.reduce((acc, p) =>
         acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
     );
     // Variância usa (N_eff - 2)
     const variance = wrss / Math.max(0.001, effectiveN - 2);
-// Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
+    // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
     // Sxx_centered = \\sum w_i (x_i - \\bar{x})^2 = Sxx - Sx^2 / Sw
@@ -160,10 +160,10 @@ export function calculateVolatility(history) {
     if (!history || history.length < 2) {
         return 1.5;
     }
-    
+
     // Ensure sorted history
     const sorted = getSortedHistory(history);
-    
+
     // BUGFIX M1: Para exatamente 2 pontos (1 resíduo), a centralização falha. 
     // Extraímos a volatilidade empiricamente pelo 'spread normalizado'.
     if (sorted.length === 2) {
@@ -174,7 +174,7 @@ export function calculateVolatility(history) {
     }
     const drift = calculateSlope(sorted);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
-    
+
     // Calculate weighted sum of squared differences (MSSD)
     let sumSw = 0;
     let sumWeights = 0;
@@ -240,7 +240,7 @@ export function monteCarloSimulation(
     // (the proper weighted mean passed from MonteCarloGauge) was silently dropped,
     // causing the returned currentMean to always use the last raw score from the
     // composite global history instead of the caller-computed weighted mean.
-    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean } = options;
+    const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100 } = options;
     const sortedHistory = getSortedHistory(history);
 
     // Safety check - allow at least 1 point for a flat projection
@@ -269,10 +269,10 @@ export function monteCarloSimulation(
     }
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
-    const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1 
-        ? weightedRegression(sortedHistory) 
+    const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
+        ? weightedRegression(sortedHistory)
         : { slope: 0, slopeStdError: 1.5 };
-        
+
     const drift = calculateSlope(sortedHistory); // Tendência clampeada para a média determinística
     const driftUncertainty = Math.max(0.05, slopeStdError); // Piso de incerteza no drift
 
@@ -328,7 +328,7 @@ export function monteCarloSimulation(
     if (days === 0) {
         const baseline = forcedBaseline !== undefined ? forcedBaseline : baselineScore;
         const { ciLow, ciHigh } = (typeof options.bayesianCI === 'object' && options.bayesianCI !== null) ? options.bayesianCI : {
-            ciLow:  baseline - (volatility * 1.96),
+            ciLow: baseline - (volatility * 1.96),
             ciHigh: baseline + (volatility * 1.96)
         };
         // REVISION: Standardized floor to 1.0
@@ -341,8 +341,8 @@ export function monteCarloSimulation(
             probability: Number(probability.toFixed(1)),
             mean: Number(baseline.toFixed(1)),
             sd: Number(inferredSD.toFixed(1)),
-            ci95Low: Number(Math.max(0, ciLow).toFixed(1)),
-            ci95High: Number(Math.min(100, ciHigh).toFixed(1)),
+            ci95Low: Number(Math.max(minScore, ciLow).toFixed(1)),
+            ci95High: Number(Math.min(maxScore, ciHigh).toFixed(1)),
             currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
             drift: 0,
             volatility,
@@ -380,10 +380,11 @@ export function monteCarloSimulation(
 
     // 2. O Atrator (μ - Mu).
     // Até onde o aluno naturalmente chegaria com a tendência de aprendizagem atual.
-    const longTermMu = Math.min(100, Math.max(0, baselineScore + (drift * simulationDays)));
+    // SCALE-BOUNDS: use dynamic bounds instead of hardcoded [0, 100]
+    const longTermMu = Math.min(maxScore, Math.max(minScore, baselineScore + (drift * simulationDays)));
 
-    const bootstrapInvSqrt = 1.0; 
-    
+    const bootstrapInvSqrt = 1.0;
+
     // Início do Monte Carlo
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
@@ -391,16 +392,17 @@ export function monteCarloSimulation(
         // 🎯 Incerteza Epistêmica sobre o Potencial (Atrator)
         // Cada universo paralelo (simulação) tem um "Teto de Vidro" levemente diferente,
         // gerado pelo erro padrão da regressão linear.
+        // SCALE-BOUNDS: clamp to dynamic domain
         const simMu = Math.max(
-            0, 
-            Math.min(100, longTermMu + (randomNormal(rng) * driftUncertainty * Math.sqrt(simulationDays)))
+            minScore,
+            Math.min(maxScore, longTermMu + (randomNormal(rng) * driftUncertainty * Math.sqrt(simulationDays)))
         );
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;
 
             // Extração do Ruído (Empírico ou Teórico)
-            if (useBootstrap && residuals.length >= 6) { 
+            if (useBootstrap && residuals.length >= 6) {
                 const randomResidual = residuals[Math.floor(rng() * residuals.length)];
                 shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
             } else {
@@ -408,27 +410,34 @@ export function monteCarloSimulation(
             }
 
             // 🧲 1. A Tração Determinística (Ornstein-Uhlenbeck)
-            // Se a nota cai muito num dia ruim, o elástico puxa ela de volta com força no dia seguinte.
-            // Se ela já está colada no limite potencial (simMu), o ganho diminui (rendimentos decrescentes).
             const deterministicPull = theta * (simMu - score);
 
             // 📊 2. Heterocedasticidade (Fator Binomial)
-            // Transforma a nota em probabilidade [0, 1].
-            // A variância é gigante nos 50% de acerto, mas despenca matematicamente quando o aluno
-            // se aproxima do 100% ou do 0%. O multiplicador '* 2' força o pico ser igual a 1.0.
-            const p = Math.max(0.001, Math.min(0.999, score / 100));
+            // SCALE-BOUNDS FIX: Normalizar pela escala real da prova em vez de 100 fixo.
+            // Mapeia score para [0, 1] relativo ao domínio real da prova.
+            const scoreRange = maxScore - minScore;
+            const p = Math.max(0.001, Math.min(0.999, (score - minScore) / scoreRange));
             const binomialVolatility = Math.sqrt(p * (1 - p)) * 2;
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
             score += deterministicPull + (shock * binomialVolatility);
+
+            // 🎯 ABSORBING BARRIER (Barreira Absorvente por Passo)
+            // A truncatura é aplicada A CADA PASSO DIÁRIO, não pós-hoc.
+            // Motivo matemático: numa prova de 0–100, um score de 102 não existe — o aluno tirou 100.
+            // Ao clampar aqui, o loop OU continua no próximo dia com score=100 (teto real),
+            // e a tração de reversão à média (theta * (mu - 100)) puxa-o naturalmente para baixo.
+            // Resultado: nenhuma acumulação artificial de massa na fronteira (fim do pico espurio bimodal)
+            // e nenhuma ficção (reflexão 102→98 que nunca aconteceu na realidade).
+            score = Math.max(minScore, Math.min(maxScore, score));
         }
 
-        // Não há mais necessidade de loops de tentativas obscuras ou clamping violento.
-        // O próprio modelo gravita suavemente, mas garantimos os limites físicos reais da prova.
-        const viableScore = Math.max(0, Math.min(100, score));
+        // Score já está no domínio [minScore, maxScore] graças ao step-clamping acima.
+        // Safety net redundante para defesa em profundidade.
+        const viableScore = score;
         if (viableScore >= targetScore) success++;
 
-        allFinalScores[s] = viableScore; 
+        allFinalScores[s] = viableScore;
 
         // O algoritmo de Welford continua idêntico para estabilidade numérica
         welfordCount++;
@@ -443,25 +452,25 @@ export function monteCarloSimulation(
     const projectedSD = Math.sqrt(Math.max(projectedVariance, 0));
 
     // 🎯 BUG-O7 FIX: Ordenação numérica explícita (a-b).
-    allFinalScores.sort((a, b) => a - b); 
+    allFinalScores.sort((a, b) => a - b);
     const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
     const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
-    
+
     // Display stats (Corte visual apenas para a UI)
     const rawLow = allFinalScores[p025idx];
     const rawHigh = allFinalScores[p975idx];
-    const ci95Low = Number(Math.max(0, rawLow).toFixed(1));
-    const ci95High = Number(Math.min(100, rawHigh).toFixed(1));
+    const ci95Low = Number(Math.max(minScore, rawLow).toFixed(1));
+    const ci95High = Number(Math.min(maxScore, rawHigh).toFixed(1));
 
-    const displayMean = Math.max(0, Math.min(100, projectedMean));
-    
+    const displayMean = Math.max(minScore, Math.min(maxScore, projectedMean));
+
     // 🎯 BUG-Z4 FIX: zScore e Analytical Probability calculados sobre os parâmetros REAIS (projected).
     const zScore = (targetScore - projectedMean) / (projectedSD || 0.0001);
     const analyticalProbability = normalCDF_complement(zScore) * 100;
-    
+
     // MC-02: Use raw empirical probability
     const empiricalProbability = safeSimulations > 0 ? (success / safeSimulations) * 100 : 0;
-    
+
     const gap = Math.abs(empiricalProbability - analyticalProbability);
     if (gap > 3 && projectedSD > 0.1) {
         console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
@@ -481,9 +490,11 @@ export function monteCarloSimulation(
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
         projectedMean,
         projectedSD,
-        kdeData: generateKDE(allFinalScores, projectedMean, projectedSD, safeSimulations),
+        kdeData: generateKDE(allFinalScores, projectedMean, projectedSD, safeSimulations, minScore, maxScore),
         drift,
         volatility,
+        minScore,
+        maxScore,
         method: useBootstrap ? "bootstrap" : "normal"
     };
 }
