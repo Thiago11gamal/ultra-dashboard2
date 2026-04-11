@@ -109,8 +109,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    sdLeft: Number(Math.max(0.1, projectedSD).toFixed(2)),
-    sdRight: Number(Math.max(0.1, projectedSD).toFixed(2)),
+    // BUG 6 FIX: sdLeft/sdRight from empirical p16/p84 percentiles
+    // to capture asymmetry of the truncated normal distribution.
+    sdLeft: Number(Math.max(0.1, projectedMean - getPercentile(allScores, 0.16)).toFixed(2)),
+    sdRight: Number(Math.max(0.1, getPercentile(allScores, 0.84) - projectedMean).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),
@@ -146,6 +148,10 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         forcedVolatility: objForcedVolatility,
         forcedBaseline: objForcedBaseline,
         currentMean: objCurrentMean,
+        // BUG 7 FIX: Destructure minScore/maxScore from the object call form.
+        // Previously these were silently dropped, defaulting to [0, 100].
+        minScore: objMinScore,
+        maxScore: objMaxScore,
     } = inputOrMean;
 
     // 4° argumento tem prioridade sobre opções do objeto:
@@ -153,6 +159,8 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         forcedVolatility: objForcedVolatility,
         forcedBaseline: objForcedBaseline,
         currentMean: objCurrentMean,
+        minScore: objMinScore,
+        maxScore: objMaxScore,
         ...options,
     };
 

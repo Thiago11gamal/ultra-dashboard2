@@ -222,11 +222,10 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     logger.warn("[Sync] Bloqueio de Boot: Utilizador já iniciou edições locais.");
                     shouldPullCloud = false;
                 } else {
-                    const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
-                    const cloudUpdated = isNaN(cloudUpdatedRaw.getTime()) ? now : cloudUpdatedRaw.getTime();
-
-                    const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
-                    const localUpdated = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
+                    // BUG 2 FIX: Reusar cloudUpdatedTime/localUpdatedTime do escopo externo
+                    // em vez de redeclarar variáveis shadow que criam Date duplicados.
+                    const cloudUpdated = cloudUpdatedTime || now;
+                    const localUpdated = localUpdatedTime;
 
                     const activeId = appStateRef.current?.activeId;
                     const activeContest = appStateRef.current?.contests?.[activeId];
@@ -274,7 +273,10 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
                 isCloudPullRef.current = true;
                 setAppState(prev => mergeAppState(prev, cloudData));
-                lastSyncedRef.current = cloudStateString;
+                // BUG 1 FIX: cloudStateString was undefined — caused infinite sync loop.
+                // lastSyncedRef was set to undefined, making every comparison false,
+                // triggering re-uploads on every syncTrigger tick.
+                lastSyncedRef.current = stateStringForSync(cloudData);
                 setHasConflict(false);
 
                 if (!wasAlreadyValidated && showToastRef.current) {

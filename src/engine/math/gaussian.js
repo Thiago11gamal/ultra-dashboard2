@@ -59,8 +59,15 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     if (!allScores || allScores.length === 0) return [];
 
     // SCALE-BOUNDS FIX: Anchor domain dynamically using the injected scale bounds.
-    const plotMin = Math.max(minScore, projectedMean - 3.5 * projectedSD);
-    const plotMax = Math.min(maxScore, projectedMean + 3.5 * projectedSD);
+    let plotMin = Math.max(minScore, projectedMean - 3.5 * projectedSD);
+    let plotMax = Math.min(maxScore, projectedMean + 3.5 * projectedSD);
+
+    // BUG 4 FIX: When projectedSD ≈ 0, plotMin equals plotMax → division by zero
+    // in binWidth calculation and Infinity index in bin assignment.
+    if (plotMax - plotMin < 1) {
+        plotMin = Math.max(minScore, projectedMean - 0.5);
+        plotMax = Math.min(maxScore, projectedMean + 0.5);
+    }
     
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
