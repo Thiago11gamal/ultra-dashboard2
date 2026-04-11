@@ -78,20 +78,22 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // FIX 5: Upgrade para Float64Array para precisão absoluta nas caudas
     const allScores = new Float64Array(safeSimulations);
 
-  for (let i = 0; i < safeSimulations; i++) {
-    // SCALE-BOUNDS FIX: Amostragem de Distribuição Normal Truncada com limites dinâmicos
-    let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);
-    
-    // Use rawTarget here to correctly count 'success' if the target is outside [min, max]
-    // If target = 105 and max = 100, success should remain 0.
-    if (score >= rawTarget) success++;
-    allScores[i] = score;
+    // FIX 1: Target Consistente (Effective Target) para contagem de sucesso rigorosa
+    const effectiveTarget = Math.max(minScore, Math.min(maxScore, rawTarget));
 
-    welfordCount++;
-    const delta = score - welfordMean;
-    welfordMean += delta / welfordCount;
-    welfordM2 += delta * (score - welfordMean);
-  }
+    for (let i = 0; i < safeSimulations; i++) {
+        // SCALE-BOUNDS FIX: Amostragem de Distribuição Normal Truncada com limites dinâmicos
+        let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);
+        
+        // FIX 1: Usar effectiveTarget para garantir contagem correta em limites absolutos
+        if (score >= effectiveTarget) success++;
+        allScores[i] = score;
+
+        welfordCount++;
+        const delta = score - welfordMean;
+        welfordMean += delta / welfordCount;
+        welfordM2 += delta * (score - welfordMean);
+    }
 
   const projectedMean = welfordMean;
   const projectedSD = Math.sqrt(Math.max(0, welfordCount > 1 ? welfordM2 / (welfordCount - 1) : 0));

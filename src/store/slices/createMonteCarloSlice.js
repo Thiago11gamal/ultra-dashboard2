@@ -4,29 +4,28 @@ export const createMonteCarloSlice = (set, get) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
 
+        // FIX: Imutabilidade profunda para o React detectar mudanças garantidamente
+        const currentHistory = [...(activeData.monteCarloHistory || [])];
         const snapshot = { date, probability: prob, mean: metadata.mean, target: metadata.target };
         
-        // FIX: Criar nova referência de array (Imutabilidade) para garantir gatilhos de renderização
-        const history = [...(activeData.monteCarloHistory || [])];
-        const index = history.findIndex(h => h.date === date);
-
+        const index = currentHistory.findIndex(h => h.date === date);
         if (index >= 0) {
-            history[index] = { ...history[index], ...snapshot };
+            currentHistory[index] = { ...currentHistory[index], ...snapshot };
         } else {
-            history.push(snapshot);
+            currentHistory.push(snapshot);
         }
 
         // Política de retenção com slice imutável
-        const finalHistory = history.length > 30 ? history.slice(-30) : history;
+        const finalHistory = currentHistory.length > 30 ? currentHistory.slice(-30) : currentHistory;
 
         return {
             appState: {
                 ...state.appState,
                 contests: {
                     ...state.appState.contests,
-                    [activeId]: {
-                        ...activeData,
-                        monteCarloHistory: finalHistory
+                    [activeId]: { 
+                        ...activeData, 
+                        monteCarloHistory: finalHistory 
                     }
                 },
                 lastUpdated: new Date().toISOString()
