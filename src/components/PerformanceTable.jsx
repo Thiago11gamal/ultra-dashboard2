@@ -69,6 +69,9 @@ const PerformanceTable = ({ categories = [] }) => {
                             const trendValue = history.length >= 3 ? calculateSlope(trendHistory) : 0;
                             const currentTrend = trendValue > 0.05 ? 'up' : trendValue < -0.05 ? 'down' : 'stable';
 
+                            const isTopThree = index < 3 && totalQuestions > 0;
+                            const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
+
                             let trendIcon = <Minus size={16} className="text-slate-600 opacity-50" />;
                             if (currentTrend === 'up') trendIcon = <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />;
                             if (currentTrend === 'down') trendIcon = <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />;
