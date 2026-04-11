@@ -419,6 +419,7 @@ export const calculatePomodoroStats = (stats) => {
     });
 
     let todayMinutes = 0;
+    let fractionalPomodoros = 0; // FIX: Contagem baseada no esforço real/proporcional
     const todaySubjects = {};
 
     todaySessions.forEach(session => {
@@ -441,6 +442,8 @@ export const calculatePomodoroStats = (stats) => {
         }
 
         todayMinutes += minutesToCount;
+        // FIX: Adiciona apenas a fração do pomodoro que pertence a "hoje"
+        fractionalPomodoros += (minutesToCount / Math.max(1, sessionDuration));
 
         const cat = categories.find(c => c.id === session.categoryId);
         if (cat) {
@@ -457,7 +460,7 @@ export const calculatePomodoroStats = (stats) => {
 
     return {
         todayMinutes,
-        todayPomodoros: todaySessions.length,
+        todayPomodoros: Math.round(fractionalPomodoros), // Arredondamento justo por esforço
         dailyGoalMinutes: dailyGoalMinutes,
         progressPercentage,
         streak: streak.current,
