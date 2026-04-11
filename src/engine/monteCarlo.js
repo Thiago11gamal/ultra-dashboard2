@@ -129,10 +129,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (rawTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        // FIXED: Using epsilon 1e-6 for better precision with thin distributions
+        // MATH FIX: Se a massa estiver fora do domínio (factor < 1e-6), 
+        // a simulação empírica é mais estável que a aproximação analítica.
         analyticalProbability = truncNormFactor > 1e-6 
             ? ((phiTarget - phiMax) / truncNormFactor) * 100 
-            : normalCDF_complement((rawTarget - safeMean) / safeSD) * 100;
+            : empiricalProbability; 
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 

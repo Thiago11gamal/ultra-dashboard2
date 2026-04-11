@@ -76,9 +76,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, vMin + 1);
     }
     
-    const plotSteps = 100;
+    const plotSteps = 120; // Aumento de resolução visual
     const stepSize = (plotMax - plotMin) / plotSteps;
-
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
     const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
@@ -94,22 +93,15 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const bandwidth = Math.max(0.001, h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
-    // REVISION: KDE no longer uses Data Folding (reflection) as allScores 
-    // are already truncated at sampling time. Normalization is handled by maxY.
     for (let i = 0; i < safeSimulations; i++) {
         let s = Math.max(minScore, Math.min(maxScore, allScores[i]));
-
-        // Agora verificamos apenas o enquadramento do plot visual (Zoom do Gráfico)
         if (s > plotMax || s < plotMin) continue;
-
-        // Scores garantidamente dentro do domínio visual e com a massa preservada
         const idx = Math.min(BIN_COUNT - 1, Math.floor((s - plotMin) / binWidth));
         bins[idx]++;
     }
 
-    // Como os dados foram rebatidos, todos que importam estão no domínio.
     const inDomainCount = bins.reduce((a, b) => a + b, 0);
-    const safeDomainCount = Math.max(1, inDomainCount); // Previne divisão por zero
+    const safeDomainCount = Math.max(1, inDomainCount);
 
     const invBandwidth = 1 / bandwidth;
     const normFactor = 1 / (safeDomainCount * bandwidth * Math.sqrt(2 * Math.PI));
@@ -119,7 +111,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // FASE 1: Calcular e encontrar o maxY (sem criar objetos descartáveis)
     for (let i = 0; i <= plotSteps; i++) {
-        const x = plotMin + i * stepSize;
+        let x = plotMin + i * stepSize;
+        
+        // VISUAL FIX: No step mais próximo da média, forçar o valor exato da média 
+        // para garantir que o pico da Gaussiana seja capturado no gráfico.
+        if (Math.abs(x - projectedMean) < stepSize / 2) x = projectedMean;
+
         let density = 0;
 
         for (let j = 0; j < BIN_COUNT; j++) {
@@ -141,7 +138,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             const distMax = (x - (2 * maxScore - binX)) * invBand;
             localDensity += Math.exp(-0.5 * distMax * distMax);
 
-            if (Math.abs(dist) < 3.5 || Math.abs(distMin) < 3.5 || Math.abs(distMax) < 3.5) {
+            // RIGOR FIX: Increased Z-cutoff to 4.0 to avoid tail steps in high volatility
+            if (Math.abs(dist) < 4.0 || Math.abs(distMin) < 4.0 || Math.abs(distMax) < 4.0) {
                 density += bins[j] * localDensity;
             }
         }
