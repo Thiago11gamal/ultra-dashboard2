@@ -83,7 +83,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const plotSteps = 100;
     const stepSize = (plotMax - plotMin) / plotSteps;
 
-    const empiricalData = [];
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
     const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
@@ -120,6 +119,9 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const normFactor = 1 / (safeDomainCount * bandwidth * Math.sqrt(2 * Math.PI));
 
     let maxY = 0;
+    const rawData = [];
+
+    // FASE 1: Calcular e encontrar o maxY (sem criar objetos descartáveis)
     for (let i = 0; i <= plotSteps; i++) {
         const x = plotMin + i * stepSize;
         let density = 0;
@@ -129,20 +131,20 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             const binX = plotMin + (j + 0.5) * binWidth;
             const dist = (x - binX) * invBandwidth;
 
-            // Otimização de convolução (descarta interações a > 3.5 sigmas)
             if (Math.abs(dist) < 3.5) {
                 density += bins[j] * Math.exp(-0.5 * dist * dist);
             }
         }
         density *= normFactor;
         if (density > maxY) maxY = density;
-        empiricalData.push({ x, y: density });
+        
+        rawData.push({ x, density }); // Guarda temporariamente
     }
 
-    // MATH-04 FIX: Normalizando Y para que o pico seja 1 (100% da altura visual do SVG).
-    return empiricalData.map(d => ({
+    // FASE 2: Formatar diretamente para o array final devolvido
+    return rawData.map(d => ({
         x: Number(d.x.toFixed(2)),
-        y: maxY > 0 ? Number((d.y / maxY).toFixed(4)) : 0
+        y: maxY > 0 ? Number((d.density / maxY).toFixed(4)) : 0
     }));
 }
 
