@@ -291,7 +291,8 @@ export default function EvolutionChart({
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     const raw = Number(h.correct) || 0;
                     const tot = Number(h.total) || 0;
-                    return s + (getSafeScore(h) / 100 * tot);
+                    // BUG 4b FIX: Use maxScore instead of hardcoded 100
+                    return s + (getSafeScore(h) / maxScore * tot);
                 }, 0));
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
@@ -645,9 +646,12 @@ export default function EvolutionChart({
                         subjectAggData={subjectAggData} 
                         showOnlyFocus={showOnlyFocus} 
                         focusCategory={focusCategory} 
+                        unit={unit}
+                        maxScore={maxScore}
                     />
                     <CriticalTopicsAnalysis 
-                        categories={categories} 
+                        categories={categories}
+                        maxScore={maxScore}
                     />
                 </div>
             </div>

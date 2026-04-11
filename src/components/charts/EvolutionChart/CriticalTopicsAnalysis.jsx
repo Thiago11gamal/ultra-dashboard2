@@ -15,7 +15,7 @@ const CustomTooltipStyle = {
     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };
 
-export function CriticalTopicsAnalysis({ categories = [] }) {
+export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     // Calc time window
@@ -70,8 +70,8 @@ export function CriticalTopicsAnalysis({ categories = [] }) {
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
+                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / maxScore) * total));
                     
                     topicMap[key].errors += Math.max(0, total - correctCount);
                 });
@@ -112,8 +112,8 @@ export function CriticalTopicsAnalysis({ categories = [] }) {
                 const total = parseInt(h.total, 10) || 0;
                 if (total === 0) continue;
                 const correctCount = (h.isPercentage && h.score != null && total > 0)
-                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * total)
-                    : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / 100) * total));
+                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * total)
+                    : (h.correct != null ? parseInt(h.correct, 10) : Math.round((getSafeScore(h) / maxScore) * total));
                 errors += Math.max(0, total - correctCount);
             }
             totalErrors += errors;

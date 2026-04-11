@@ -21,7 +21,7 @@ export function getSortedHistory(history) {
 // -----------------------------
 // Regressão ponderada temporal
 // -----------------------------
-function weightedRegression(history, lambda = 0.08) {
+function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     // Ensure sorted history for correct time calculations
     const sortedHistory = getSortedHistory(history);
 
@@ -33,10 +33,10 @@ function weightedRegression(history, lambda = 0.08) {
     if (sortedHistory.length === 2) {
         const p0 = sortedHistory[0];
         const p1 = sortedHistory[1];
-        const dy = getSafeScore(p1) - getSafeScore(p0);
+        const dy = getSafeScore(p1, maxScore) - getSafeScore(p0, maxScore);
         const dt = Math.max(1, (new Date(p1.date) - new Date(p0.date)) / (1000 * 60 * 60 * 24));
         const slope = dy / dt;
-        const intercept = getSafeScore(p1);
+        const intercept = getSafeScore(p1, maxScore);
         // BUGFIX M4: Utilizar prior variância estipulada em ~20 em vez de hardcode 2.0
         // Para dt altos, o standard error cai (mais certeza no slope).
         const slopeStdError = Math.max(0.2, 4.5 / dt);
@@ -54,7 +54,7 @@ function weightedRegression(history, lambda = 0.08) {
             x: -daysAgo,
             // Bug fix: h.score can be undefined when score is stored in other fields
             // (percentage, or computed from correct/total). getSafeScore() normalizes all formats.
-            y: getSafeScore(h),
+            y: getSafeScore(h, maxScore),
             w: weight
         };
     });
@@ -96,12 +96,12 @@ function weightedRegression(history, lambda = 0.08) {
 }
 
 // 🎯 calculateSlope (compatível)
-export function calculateSlope(history) {
+export function calculateSlope(history, maxScore = 100) {
     if (!history || history.length < 2) return 0;
     const sorted = getSortedHistory(history);
     if (sorted.length < 2) return 0;
 
-    const { slope, slopeStdError } = weightedRegression(sorted);
+    const { slope, slopeStdError } = weightedRegression(sorted, 0.08, maxScore);
     const n = sorted.length;
 
     const confidence =
@@ -129,19 +129,19 @@ export function calculateSlope(history) {
 export const calculateAdaptiveSlope = calculateSlope; // Alias
 
 // 📈 projectScore (inalterado externamente)
-export function projectScore(history, projectDays = 60, minBound = 0, maxBound = 100) {
+export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100) {
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return 0;
 
-    const slope = calculateSlope(sortedHistory);
+    const slope = calculateSlope(sortedHistory, maxScore);
 
-    const lastRawScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
+    const lastRawScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
     let currentScore = lastRawScore;
 
     if (sortedHistory.length > 2) {
-        let ema = getSafeScore(sortedHistory[0]);
+        let ema = getSafeScore(sortedHistory[0], maxScore);
         for (let i = 1; i < sortedHistory.length; i++) {
-            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
+            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
         // Consistent blended baseline: 80% raw, 20% EMA
         currentScore = (lastRawScore * 0.8) + (ema * 0.2);
@@ -157,10 +157,10 @@ export function projectScore(history, projectDays = 60, minBound = 0, maxBound =
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
     // with maxScore > 100 (e.g. concurso 0-120).
-    return Math.max(minBound, Math.min(maxBound, projected));
+    return Math.max(minScore, Math.min(maxScore, projected));
 }
 
-export function calculateVolatility(history) {
+export function calculateVolatility(history, maxScore = 100) {
     if (!history || history.length < 2) {
         return 1.5;
     }
@@ -172,14 +172,14 @@ export function calculateVolatility(history) {
     // Extraímos a volatilidade empiricamente pelo 'spread normalizado'.
     if (sorted.length === 2) {
         const dt = Math.max(1, (new Date(sorted[1].date).getTime() - new Date(sorted[0].date).getTime()) / 86400000);
-        const diff = Math.abs(getSafeScore(sorted[1]) - getSafeScore(sorted[0]));
+        const diff = Math.abs(getSafeScore(sorted[1], maxScore) - getSafeScore(sorted[0], maxScore));
         // REVISION: Floor standardized to 1.0
-        return Math.max(1.0, Math.min(15.0, diff / Math.sqrt(dt)));
+        return Math.max(1.0, Math.min(maxScore * 0.15, diff / Math.sqrt(dt)));
     }
     // C2 FIX: Use rawDrift (unbiased WLS slope) for detrending instead of clamped calculateSlope.
     // calculateSlope applies confidence attenuation + dynamic limits — correct for deterministic
     // projection but biases statistical detrending, leaving systematic trend in residuals.
-    const { slope: rawDriftVol } = weightedRegression(sorted);
+    const { slope: rawDriftVol } = weightedRegression(sorted, 0.08, maxScore);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
     // Calculate weighted sum of squared differences (MSSD)
@@ -190,7 +190,7 @@ export function calculateVolatility(history) {
         const h0 = sorted[i - 1];
         const h1 = sorted[i];
 
-        const diff = getSafeScore(h1) - getSafeScore(h0);
+        const diff = getSafeScore(h1, maxScore) - getSafeScore(h0, maxScore);
         const time1 = new Date(h1.date).getTime();
         const time0 = new Date(h0.date).getTime();
 
@@ -264,23 +264,23 @@ export function monteCarloSimulation(
 
     // Fix: Baseline uses a more responsive EMA or forced value (Bayesian) to avoid anchoring.
     // BUG-04 FIX: Priority to forcedBaseline for stability as requested.
-    const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
+    const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : currentScore;
 
     if (forcedBaseline === undefined && sortedHistory.length > 2) {
-        let ema = getSafeScore(sortedHistory[0]);
+        let ema = getSafeScore(sortedHistory[0], maxScore);
         for (let i = 1; i < sortedHistory.length; i++) {
-            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i]), ema, i + 1);
+            ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
         baselineScore = (currentScore * 0.8) + (ema * 0.2);
     }
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
-        ? weightedRegression(sortedHistory)
+        ? weightedRegression(sortedHistory, 0.08, maxScore)
         : { slope: 0, slopeStdError: 1.5 };
 
-    const drift = calculateSlope(sortedHistory); // Tendência clampeada para a média determinística
+    const drift = calculateSlope(sortedHistory, maxScore); // Tendência clampeada para a média determinística
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
     // For 2-point history with dt=1, slopeStdError=4.5 → simMu perturbation ±42.7pp
@@ -293,8 +293,8 @@ export function monteCarloSimulation(
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
-        const prev = getSafeScore(sortedHistory[i - 1]);
-        const actualChange = getSafeScore(h) - prev;
+        const prev = getSafeScore(sortedHistory[i - 1], maxScore);
+        const actualChange = getSafeScore(h, maxScore) - prev;
 
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
@@ -326,10 +326,10 @@ export function monteCarloSimulation(
     const useBootstrap = residuals.length >= 6;
 
     // Calcula volatilidade clássica apenas para fallback
-    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory);
+    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore);
 
-    const lastScore = getSafeScore(sortedHistory[sortedHistory.length - 1]);
-    const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h), 0));
+    const lastScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
+    const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h, maxScore), 0));
     // BUG-10 FIX: Preservar 2 casas decimais na entropia do seed
     const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore * 100) * 31;
     const rng = mulberry32(seed);
