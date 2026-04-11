@@ -446,7 +446,14 @@ export default function MonteCarloGauge({
     const sdRight = simulationData?.data?.sdRight ?? sd;
     const ci95Low = simulationData?.data?.ci95Low ?? 0;
     const ci95High = simulationData?.data?.ci95High ?? 0;
-    const currentMean = simulationData?.data?.currentMean ?? 0;
+    // BUG-A FIX: If currentMean is 0 but projectedMean is a valid non-zero value,
+    // use projectedMean as fallback. currentMean = 0.0% is implausible when
+    // projections show 45%+ — it means bayesianMean was undefined/0 in the
+    // options chain, causing the engine to return currentScore = 0.
+    const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
+    const currentMean = (rawCurrentMean === 0 && projectedMean > 0)
+        ? projectedMean
+        : rawCurrentMean;
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const prob = safe(probability);

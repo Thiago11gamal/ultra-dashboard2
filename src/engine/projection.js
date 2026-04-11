@@ -129,7 +129,7 @@ export function calculateSlope(history) {
 export const calculateAdaptiveSlope = calculateSlope; // Alias
 
 // 📈 projectScore (inalterado externamente)
-export function projectScore(history, projectDays = 60) {
+export function projectScore(history, projectDays = 60, minBound = 0, maxBound = 100) {
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return 0;
 
@@ -154,7 +154,10 @@ export function projectScore(history, projectDays = 60) {
     const projected =
         currentScore + slope * effectiveDays;
 
-    return Math.max(0, Math.min(100, projected));
+    // BUG-E FIX: projectScore must respect dynamic scoring bounds.
+    // Previously hardcoded [0, 100] which truncated projections for exams
+    // with maxScore > 100 (e.g. concurso 0-120).
+    return Math.max(minBound, Math.min(maxBound, projected));
 }
 
 export function calculateVolatility(history) {
@@ -377,13 +380,14 @@ export function monteCarloSimulation(
         ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / (residuals.length - 1))
         : 0;
 
-    // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
-    // Garantimos que a dispersão do Bootstrap alinhe com a volatilidade medida.
-    // A1 FIX: Increased cap from 5× to 15× to prevent bootstrap underestimation
-    // when MSSD (exponentially-weighted) and sample-variance (uniform) diverge.
-    // With cap=5, erratic students could see 20× narrower CI than warranted.
+    // BUG-B FIX: Adaptive cap based on residual sample size.
+    // With few residuals (2-3 points), the ratio volatility/_residualSD can be
+    // highly unstable (e.g. 10-15×), causing shock amplification that pushes
+    // simulations to absorbing barriers → bimodal KDE and CI=[0,100%].
+    // Cap grows with √n: 2 res→4.4×, 5→5.2×, 25→8×, 144+→15×.
+    const adaptiveMaxScale = Math.min(15.0, 3.0 + Math.sqrt(Math.max(1, residuals.length)));
     const bootstrapTargetScale = _residualSD > 0
-        ? Math.min(15.0, volatility / _residualSD)
+        ? Math.min(adaptiveMaxScale, volatility / _residualSD)
         : 1;
 
     // simulationDays hoisted to line ~277 for C1 drift uncertainty cap
@@ -499,9 +503,11 @@ export function monteCarloSimulation(
         analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number(displayMean.toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
-        // Metadados informativos para UI
-        sdLeft: Number(Math.max(0.1, projectedSD).toFixed(2)),
-        sdRight: Number(Math.max(0.1, projectedSD).toFixed(2)),
+        // BUG-D FIX: sdLeft/sdRight from empirical p16/p84 percentiles
+        // to capture asymmetry of the truncated OU distribution.
+        // Previously both were projectedSD — always symmetric, hiding skewness.
+        sdLeft: Number(Math.max(0.1, projectedMean - getPercentile(allFinalScores, 0.16)).toFixed(2)),
+        sdRight: Number(Math.max(0.1, getPercentile(allFinalScores, 0.84) - projectedMean).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
