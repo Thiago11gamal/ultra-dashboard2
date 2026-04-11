@@ -49,6 +49,10 @@ function getWorker() {
 export function useMonteCarloWorker() {
     const abortRef = useRef(null);
     const timeoutRef = useRef(null);
+    // FIX 6: Track the latest request ID to prevent race conditions.
+    // If the user triggers multiple simulations rapidly, only the result
+    // from the most recent request will be resolved — stale results are discarded.
+    const requestIdRef = useRef(0);
 
     useEffect(() => {
         return () => {
@@ -71,6 +75,7 @@ export function useMonteCarloWorker() {
         }
 
         const id = ++requestId;
+        requestIdRef.current = id; // Track which request is the latest
         
         // Build payload based on argument signature
         let payload;
@@ -87,7 +92,16 @@ export function useMonteCarloWorker() {
         }
 
         return new Promise((resolve, reject) => {
-            pendingRequests.set(id, { resolve, reject });
+            pendingRequests.set(id, { 
+                resolve: (data) => {
+                    // FIX 6: Only resolve if this is still the most recent request.
+                    // Stale results from older simulations are silently discarded.
+                    if (id === requestIdRef.current) {
+                        resolve(data);
+                    }
+                }, 
+                reject 
+            });
             abortRef.current = id;
 
             worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });

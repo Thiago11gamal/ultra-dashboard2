@@ -36,6 +36,7 @@ self.onmessage = function(e) {
                 minScore: payload.minScore,
                 maxScore: payload.maxScore,
             });
+        }
         self.postMessage({ id, type: 'result', result });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
