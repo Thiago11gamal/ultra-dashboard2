@@ -116,7 +116,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // P(X >= target | X in [min, max]) = [Φ(target') - Φ(max')] / [Φ(min') - Φ(max')]
     const phiMin    = normalCDF_complement((minScore - safeMean) / safeSD); // P(X >= min)
     const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); // P(X >= max)
-    const phiTarget = normalCDF_complement((safeTarget - safeMean) / safeSD); // P(X >= target)
+    const phiTarget = normalCDF_complement((rawTarget - safeMean) / safeSD); // P(X >= target)
     
     const truncNormFactor = phiMin - phiMax;
     // FIX 1: Probabilidade Analítica forçada a 0% ou 100% se a meta estiver fora do domínio.
@@ -134,14 +134,31 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
-    // garantindo consistência visual entre o gráfico e o valor exibido.
-    kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
-    drift: 0,
-    volatility: safeSD,
-    minScore,
-    maxScore,
-    method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
-  };
+    // FIX 6: sdLeft/Right rigidamente ancorados na Média Visual (acaba com o shift no Gauge)
+    const rawLeft = getPercentile(allScores, 0.16);
+    const rawRight = getPercentile(allScores, 0.84);
+
+    return {
+        probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
+        analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
+        mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
+        sd: Number(projectedSD.toFixed(1)),
+        sdLeft: Number(Math.max(0.1, displayMean - rawLeft).toFixed(2)),
+        sdRight: Number(Math.max(0.1, rawRight - displayMean).toFixed(2)),
+        ci95Low: Number(displayLow.toFixed(1)),
+        ci95High: Number(displayHigh.toFixed(1)),
+        currentMean: Number((currentMean || safeMean).toFixed(1)),
+        projectedMean,
+        projectedSD,
+        // FIX 3: Passar displayMean (que segue Bayesian quando aplicável) para o KDE
+        // garantindo consistência visual entre o gráfico e o valor exibido.
+        kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
+        drift: 0,
+        volatility: safeSD,
+        minScore,
+        maxScore,
+        method: bayesianCI ? 'bayesian_static_hybrid' : 'normal'
+    };
 }
 
 

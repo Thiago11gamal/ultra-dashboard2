@@ -125,10 +125,24 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         for (let j = 0; j < BIN_COUNT; j++) {
             if (bins[j] === 0) continue;
             const binX = plotMin + (j + 0.5) * binWidth;
-            const dist = (x - binX) * invBandwidth;
+            
+            // FIX 2 & 13: KDE Boundary Correction (Data Folding Method)
+            const invBand = invBandwidth;
+            
+            // Densidade normal da distância
+            const dist = (x - binX) * invBand;
+            let localDensity = Math.exp(-0.5 * dist * dist);
+            
+            // Rebatimento na borda inferior (minScore)
+            const distMin = (x - (2 * minScore - binX)) * invBand;
+            localDensity += Math.exp(-0.5 * distMin * distMin);
+            
+            // Rebatimento na borda superior (maxScore)
+            const distMax = (x - (2 * maxScore - binX)) * invBand;
+            localDensity += Math.exp(-0.5 * distMax * distMax);
 
-            if (Math.abs(dist) < 3.5) {
-                density += bins[j] * Math.exp(-0.5 * dist * dist);
+            if (Math.abs(dist) < 3.5 || Math.abs(distMin) < 3.5 || Math.abs(distMax) < 3.5) {
+                density += bins[j] * localDensity;
             }
         }
         density *= normFactor;
