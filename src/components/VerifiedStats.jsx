@@ -388,7 +388,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     // Mais justa: não corta 40% da velocidade abruptamente em 80%.
                     // B-07 FIX: Fator linear: penalidade proporcional desde o início
                     // f(0)=1.0, f(50)=0.75, f(80)=0.60, f(100)=0.50
-                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * (currentScore / 100));
+                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * (currentScore / maxScore));
 
                     let quality = 0.8;
                     const dailyScoresList = dailyHistory.map(h => h.score);

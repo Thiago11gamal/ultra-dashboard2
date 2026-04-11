@@ -12,6 +12,7 @@ export default function TopicPerformance({ categories = [] }) {
 
         const category = categories.find(c => c.id === selectedCategoryId);
         if (!category) return [];
+        const maxScore = category.maxScore ?? 100;
 
         const stats = category.simuladoStats || { history: [] };
         const history = stats.history || [];
@@ -27,13 +28,16 @@ export default function TopicPerformance({ categories = [] }) {
                     topicMap[name] = { total: 0, correct: 0 };
                 }
                 topicMap[name].total += (parseInt(t.total, 10) || 0);
-                topicMap[name].correct += (parseInt(t.correct, 10) || 0);
+                const correctCount = (t.isPercentage && t.score != null && (parseInt(t.total, 10) || 0) > 0)
+                    ? Math.round((getSafeScore(t, maxScore) / maxScore) * (parseInt(t.total, 10) || 0))
+                    : (parseInt(t.correct, 10) || 0);
+                topicMap[name].correct += correctCount;
             });
         });
 
         // Convert to array and calculate stats
         const topicList = Object.entries(topicMap).map(([name, data]) => {
-            const percentage = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+            const percentage = data.total > 0 ? Math.round((data.correct / data.total) * maxScore) : 0;
             const missed = data.total - data.correct;
             const balance = data.correct - missed;
             return {

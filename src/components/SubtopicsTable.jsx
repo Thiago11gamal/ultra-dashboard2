@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Target, Hash, Wallet, Minus } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
 
-const SubtopicsTable = ({ categories = [] }) => {
+const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
     const subtopics = useMemo(() => {
         const topicMap = {};
@@ -31,8 +31,8 @@ const SubtopicsTable = ({ categories = [] }) => {
 
                     const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
+                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
                     
                     const wrongCount = Math.max(0, total - correctCount);
 
@@ -47,7 +47,7 @@ const SubtopicsTable = ({ categories = [] }) => {
             .filter(t => t.total > 0)
             .map(t => {
                 const balance = t.correct - t.wrong;
-                const percent = t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0;
+                const percent = t.total > 0 ? Math.round((t.correct / t.total) * maxScore) : 0;
                 return { ...t, balance, percent };
             })
             .sort((a, b) => b.balance - a.balance);
@@ -104,10 +104,10 @@ const SubtopicsTable = ({ categories = [] }) => {
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                     {percentCorrect > 0 && (
-                                                        <div className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${percentCorrect}%` }} />
+                                                        <div className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${(percentCorrect / maxScore) * 100}%` }} />
                                                     )}
-                                                    {percentCorrect < 100 && (
-                                                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80" style={{ width: `${100 - percentCorrect}%` }} />
+                                                    {percentCorrect < maxScore && (
+                                                        <div className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80" style={{ width: `${100 - (percentCorrect / maxScore) * 100}%` }} />
                                                     )}
                                                 </div>
                                             ) : (
@@ -126,9 +126,9 @@ const SubtopicsTable = ({ categories = [] }) => {
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400' :
-                                            percentCorrect >= 60 ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                                            <span className="text-sm tracking-tight">{percentCorrect}%</span>
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (maxScore * 0.8) ? 'text-green-400' :
+                                            percentCorrect >= (maxScore * 0.6) ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                            <span className="text-sm tracking-tight">{percentCorrect}{maxScore === 100 ? '%' : ''}</span>
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle border-l border-white/5">

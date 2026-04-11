@@ -155,16 +155,17 @@ export default function Simulados() {
                         const finalQ = Number(disc.totalQuestions);
 
                         if (finalQ > 0) {
+                            const maxScore = cat.maxScore ?? 100;
                             filteredHistory.push({
                                 date: getDateKey(new Date()),
                                 correct: finalC,
                                 total: finalQ,
-                                score: (finalC / finalQ) * 100,
+                                score: (finalC / finalQ) * maxScore,
                                 isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
                                 topics: disc.topics || [] 
                             });
 
-                            const statsResult = computeCategoryStats(filteredHistory, 1);
+                            const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
                             cat.simuladoStats = {
                                 ...cat.simuladoStats,
                                 history: filteredHistory.slice(-50),
@@ -205,16 +206,17 @@ export default function Simulados() {
                         const finalQ = Number(stats.totalQuestions);
 
                         if (finalQ > 0) {
+                            const maxScore = cat.maxScore ?? 100;
                             filteredHistory.push({
                                 date: getDateKey(new Date()),
                                 correct: finalC,
                                 total: finalQ,
-                                score: (finalC / finalQ) * 100,
+                                score: (finalC / finalQ) * maxScore,
                                 isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
                                 topics: stats.topics || []
                             });
 
-                            const statsResult = computeCategoryStats(filteredHistory, 1);
+                            const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
                             cat.simuladoStats = {
                                 ...cat.simuladoStats,
                                 history: filteredHistory.slice(-50),

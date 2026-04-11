@@ -61,12 +61,12 @@ function getCrunchMultiplier(daysToExam) {
 /**
  * MC-01: Mapper simulados → history para monteCarloSimulation
  */
-function simuladosToHistory(simulados) {
+function simuladosToHistory(simulados, maxScore = 100) {
     return simulados
         .filter(s => s.total > 0 || s.score != null)
         .map(s => ({
             // FIX: Utilizar o helper seguro para prevenir que notas como 85% virem 170%
-            score: getSafeScore(s),
+            score: getSafeScore(s, maxScore),
             date: s.date
         }));
 }
@@ -78,11 +78,11 @@ const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId) {
-    const history = simuladosToHistory(relevantSimulados);
+function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100) {
+    const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
-    const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s), 0);
+    const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
     // FIX: Injectar categoryId na hash para prevenir colisões entre matérias com a mesma amostra
     const hash = `${categoryId}-${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
@@ -222,7 +222,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // MC-03: MSSD Volatility — substitui standardDeviation cega
         // Não castiga crescimento legítimo (50→60→70).
         // ─────────────────────────────────────────────────────────
-        const mcHistory = simuladosToHistory(relevantSimulados.slice(0, 10));
+        const mcHistory = simuladosToHistory(relevantSimulados.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory)
             : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : 0);
@@ -230,7 +230,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id);
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 

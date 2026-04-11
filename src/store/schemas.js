@@ -47,6 +47,7 @@ const repairContestHistory = (data) => {
     }
 
     const currentHistory = cat.simuladoStats?.history || [];
+    const maxScore = cat.maxScore ?? 100;
 
     // LETHAL OVERRIDE: If raw logs have significantly more data than aggregated history, rebuild it.
     // Even if history is not 0, we rebuild if discrepancy is high (>50% difference)
@@ -75,7 +76,7 @@ const repairContestHistory = (data) => {
         
         // BUG-H2 FIX: Handle legacy isPercentage format where 'correct' is the percentual score
         const corrNorm = (r.isPercentage && r.score != null && rawTotal > 0)
-          ? Math.round((Math.min(100, Math.max(0, Number(r.score))) / 100) * rawTotal)
+          ? Math.round((Math.min(maxScore, Math.max(0, Number(r.score))) / maxScore) * rawTotal)
           : rawCorrect;
           
         dailyStats[dk].correct += corrNorm;
@@ -86,11 +87,11 @@ const repairContestHistory = (data) => {
         date,
         correct: stats.correct,
         total: stats.total,
-        score: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0,
+        score: stats.total > 0 ? (stats.correct / stats.total) * maxScore : 0,
         isPercentage: true
       })).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10);
+      const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);
 
       cat.simuladoStats = {
         history: rebuiltHistory.slice(-50),

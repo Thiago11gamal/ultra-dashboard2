@@ -192,7 +192,7 @@ export default function MonteCarloGauge({
                         const dk = getDateKey(h.date);
                         if (dk) {
                             if (!scoresByDate[dk]) scoresByDate[dk] = {};
-                            scoresByDate[dk][cat.name] = getSafeScore(h);
+                            scoresByDate[dk][cat.name] = getSafeScore(h, maxScore);
                         }
                     });
 
