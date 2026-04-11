@@ -7,7 +7,8 @@ export default function ParetoAnalysis({ categories = [] }) {
     const { topEnemies, totalLostPoints } = useMemo(() => {
         let allTopics = [];
 
-        if (!Array.isArray(categories)) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
+        if (!Array.isArray(categories) || categories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
+        const maxScore = categories[0]?.maxScore ?? 100;
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {

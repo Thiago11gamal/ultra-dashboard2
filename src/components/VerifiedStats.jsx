@@ -502,7 +502,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                const scores = sortedHistory.slice(-5).map(h => getSafeScore(h));
+                const scores = sortedHistory.slice(-5).map(h => getSafeScore(h, maxScore));
 
                 const analysis = analyzeProgressState(scores, {
                     window_size: Math.min(5, scores.length),

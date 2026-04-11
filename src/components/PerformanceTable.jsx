@@ -65,7 +65,7 @@ const PerformanceTable = ({ categories = [] }) => {
 
                             // Dynamic Trend calculation instead of relying on static store value
                             const trendHistory = history.slice(-10).map(h => ({
-                                score: getSafeScore(h),
+                                score: getSafeScore(h, maxScore),
                                 date: h.date
                             }));
                             const trendValue = history.length >= 3 ? calculateSlope(trendHistory) : 0;

@@ -444,13 +444,14 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const top = ranked[0];
     if (!top) return null;
 
+    const maxScore = options.maxScore ?? 100;
     return {
         ...top,
-        weakestTopic: getWeakestTopic(top, simulados)
+        weakestTopic: getWeakestTopic(top, simulados, maxScore)
     };
 };
 
-const _buildSortedTopics = (category, simulados = []) => {
+const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
     const tasks = category.tasks || [];
     const topicMap = {};
 
@@ -544,18 +545,19 @@ const _buildSortedTopics = (category, simulados = []) => {
     return topics;
 };
 
-const getWeakestTopic = (category, simulados = []) => {
-    return _buildSortedTopics(category, simulados)[0] || null;
+const getWeakestTopic = (category, simulados = [], maxScore = 100) => {
+    return _buildSortedTopics(category, simulados, maxScore)[0] || null;
 };
 
 // Helper customizado para pegar os N tópicos mais fracos em vez de apenas 1
-const getWeakestTopicsList = (category, simulados = [], limit = 3) => {
-    return _buildSortedTopics(category, simulados).slice(0, limit);
+const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3) => {
+    return _buildSortedTopics(category, simulados, maxScore).slice(0, limit);
 };
 
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
     const targetScore = options.targetScore ?? 80;
+    const maxScore = options.maxScore ?? 100;
 
     const ranked = categories.map(cat => ({
         ...cat,
@@ -601,7 +603,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
 
     topCategories.forEach((cat) => {
-        const weakTopics = getWeakestTopicsList(cat, simulados, tasksPerCategory);
+        const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         
         // Limita iterações ao número real de tópicos disponíveis (mínimo 1) para evitar spamar "Revisão Geral" duplicada
