@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { 
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell 
+    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush 
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle } from 'lucide-react';
 import { getSafeScore } from "../../../utils/scoreHelper";
@@ -23,14 +23,13 @@ const formatWeek = (isoString) => {
 };
 
 export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId, maxScore = 100, unit = '%' }) => {
-    // Estado para alternar entre Linha (Evolução) e Barra (Variação)
     const [viewMode, setViewMode] = useState('evolution'); // 'evolution' | 'variation'
+    const [hiddenKeys, setHiddenKeys] = useState({});
 
-    // 2. PROCESSAMENTO: O SEGREDO (Adaptado do seu modelo para dados dinâmicos)
+    // 2. PROCESSAMENTO DOMINADO
     const { chartData, activeKeys } = useMemo(() => {
-        let itemsMap = {}; // Para guardar nome e cor das linhas/barras
+        let itemsMap = {}; 
         
-        // A. Definir o que estamos mapeando (Matérias Gerais ou Assuntos)
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 itemsMap[cat.id] = { name: cat.name.replace(/Direito /gi, 'D. ').substring(0, 12), color: cat.color };
@@ -52,8 +51,7 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {} };
 
-        // B. Agrupar dados brutos por Semana
-        const weeksTemp = {}; // { '2026-04-01': { id1: { correct, total }, id2: { correct, total } } }
+        const weeksTemp = {}; 
         
         const processHistory = (historyArray, itemId) => {
             historyArray.forEach(h => {
@@ -86,34 +84,41 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
             }
         }
 
-        // C. Converter para o FORMATO FINAL DOS DADOS (Seu array cronológico)
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
         
-        const finalData = sortedWeeks.map((weekObj, index) => {
-            const prev = sortedWeeks[index - 1];
+        // 🌟 SOLUÇÃO 1: BURACO TEMPORAL VENCIDO
+        const memoryByItem = {}; // { [id]: { pct, total } }
+
+        const finalData = sortedWeeks.map((weekObj) => {
             const dataPoint = { week: weekObj.week, displayDate: formatWeek(weekObj.week) };
             
             validIds.forEach(id => {
-                // Cálculo da % na semana atual
                 const currentData = weekObj[id];
-                let currentPct = null;
+                
                 if (currentData && currentData.total > 0) {
-                    currentPct = Number(((currentData.correct / currentData.total) * maxScore).toFixed(1));
-                }
-                dataPoint[id] = currentPct;
-
-                // Cálculo do Delta com base na semana anterior
-                const prevData = prev?.[id];
-                let prevPct = null;
-                if (prevData && prevData.total > 0) {
-                    prevPct = Number(((prevData.correct / prevData.total) * maxScore).toFixed(1));
-                }
-
-                // Só calcula delta se teve prova nas duas semanas
-                if (currentPct !== null && prevPct !== null) {
-                    dataPoint[`delta_${id}`] = Number((currentPct - prevPct).toFixed(1));
+                    const currentPct = Number(((currentData.correct / currentData.total) * maxScore).toFixed(1));
+                    dataPoint[id] = currentPct;
+                    
+                    // Pega o Delta contra a memória passada
+                    if (memoryByItem[id]) {
+                        dataPoint[`delta_${id}`] = Number((currentPct - memoryByItem[id].pct).toFixed(1));
+                        
+                        // 🌟 SOLUÇÃO 2: METADADOS NO TOOLTIP
+                        dataPoint[`meta_${id}`] = { 
+                            currTot: currentData.total, 
+                            prevPct: memoryByItem[id].pct,
+                            prevTot: memoryByItem[id].total 
+                        };
+                    } else {
+                        dataPoint[`delta_${id}`] = null;
+                        dataPoint[`meta_${id}`] = { currTot: currentData.total, prevPct: null, prevTot: 0 };
+                    }
+                    
+                    // Atualiza a memória viva
+                    memoryByItem[id] = { pct: currentPct, total: currentData.total };
                 } else {
-                    dataPoint[`delta_${id}`] = null; // Sem dados suficientes para comparar
+                    dataPoint[id] = null;
+                    dataPoint[`delta_${id}`] = null;
                 }
             });
 
@@ -135,34 +140,83 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
         );
     }
 
-    // 6. MELHORIA VISUAL DO TOOLTIP
+    const keys = Object.keys(activeKeys);
+
+    // 🌟 LÓGICA DO CLIQUE NA LEGENDA (Solução 4)
+    const handleLegendClick = (e) => {
+        const { dataKey } = e;
+        const keyID = String(dataKey).replace('delta_', '');
+        setHiddenKeys(prev => ({
+            ...prev,
+            [keyID]: !prev[keyID]
+        }));
+    };
+
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-xl shadow-2xl backdrop-blur-md">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-800 pb-1">
+                <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-lg shadow-2xl backdrop-blur-md min-w-[220px]">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">
                         Semana de {label}
                     </p>
-                    <div className="space-y-1.5">
+                    <div className="space-y-3">
                         {payload.map((entry, idx) => {
                             const isDelta = entry.dataKey.startsWith('delta_');
+                            const baseKey = isDelta ? entry.dataKey.replace('delta_', '') : entry.dataKey;
+                            
+                            // Se a key tá oculta no click, pula no Tooltip pra manter sincro visual
+                            if (hiddenKeys[baseKey]) return null;
+                            
                             const val = entry.value;
-                            if (val == null) return null; // Ignora se não teve simulado
+                            if (val == null) return null;
                             
-                            const color = isDelta ? (val >= 0 ? '#10b981' : '#ef4444') : entry.color;
-                            const prefix = isDelta && val > 0 ? '+' : '';
+                            const meta = entry.payload[`meta_${baseKey}`];
                             
-                            return (
-                                <div key={idx} className="flex justify-between items-center gap-4 text-[10px]">
-                                    <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></span>
-                                        {entry.name}
-                                    </span>
-                                    <span className={`font-mono font-bold ${isDelta ? (val >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-white'}`}>
-                                        {prefix}{val}{unit}
-                                    </span>
-                                </div>
-                            );
+                            if (isDelta) {
+                                // Design para Variação
+                                const color = val >= 0 ? '#10b981' : '#ef4444';
+                                const prefix = val > 0 ? '+' : '';
+                                
+                                return (
+                                    <div key={idx} className="flex flex-col gap-1">
+                                        <div className="flex justify-between items-center text-[10px]">
+                                            <span style={{ color: activeKeys[baseKey]?.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}></span>
+                                                {entry.name.replace(' (Var.)', '')}
+                                            </span>
+                                            <span className={`font-mono font-black ${val >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {prefix}{val}{unit}
+                                            </span>
+                                        </div>
+                                        {meta && meta.prevPct !== null && (
+                                            <div className="flex justify-between text-[9px] text-slate-500 font-medium pl-3">
+                                                <span>De: {meta.prevPct}{unit} ({meta.prevTot}q)</span>
+                                                <span>Para: {(meta.prevPct + val).toFixed(1)}{unit} ({meta.currTot}q)</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            } else {
+                                // Design para Evolução
+                                return (
+                                    <div key={idx} className="flex flex-col gap-0.5">
+                                        <div className="flex justify-between items-center text-[10px]">
+                                            <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                                {entry.name}
+                                            </span>
+                                            <span className="font-mono font-bold text-white text-xs">
+                                                {val}{unit}
+                                            </span>
+                                        </div>
+                                        {meta && meta.currTot > 0 && (
+                                            <span className="text-[8px] text-slate-500 pl-3.5 italic">
+                                                Volume: {meta.currTot} questões
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            }
                         })}
                     </div>
                 </div>
@@ -171,22 +225,16 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
         return null;
     };
 
-    const keys = Object.keys(activeKeys);
-    // Limita a 5 linhas/barras para não poluir demais o gráfico se houver muitos assuntos
-    const renderKeys = keys.slice(0, 7); 
-
     return (
-        <div className="w-full pt-4 animate-fade-in">
-            {/* Header e Toggle */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4">
+        <div className="w-full pt-4 animate-fade-in relative flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
                 <div>
-                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Raio-X Temporal</h4>
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Raio-X Temporal Avançado</h4>
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
                         {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                 </div>
                 
-                {/* Switcher de Gráficos */}
                 <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
                     <button 
                         onClick={() => setViewMode('evolution')}
@@ -203,18 +251,44 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                 </div>
             </div>
 
-            <div className="h-[340px] w-full mt-2">
+            <div className="h-[380px] w-full mt-2 relative">
                 <ResponsiveContainer width="100%" height="100%">
                     {viewMode === 'evolution' ? (
-                        // 3. GRÁFICO DE EVOLUÇÃO (LINHA)
                         <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                            <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}${unit}`} />
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
-                            <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }} iconType="circle" />
                             
-                            {renderKeys.map(key => (
+                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                            <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}${unit}`} />
+                            
+                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
+                            
+                            <Legend 
+                                onClick={handleLegendClick}
+                                wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
+                                iconType="circle"
+                                formatter={(value, entry) => (
+                                    <span style={{ 
+                                        color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff', 
+                                        textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
+                                        transition: 'all 0.3s'
+                                    }}>
+                                        {value}
+                                    </span>
+                                )} 
+                            />
+                            
+                            {/* 🌟 SOLUÇÃO 3: BRUSH NA LINHA */}
+                            <Brush 
+                                dataKey="displayDate" 
+                                height={20} 
+                                stroke="#4f46e5" 
+                                fill="#0f172a" 
+                                tickFormatter={() => ''}
+                                className="opacity-80"
+                                travellerWidth={8}
+                            />
+
+                            {keys.map(key => (
                                 <Line 
                                     key={key}
                                     type="monotone" 
@@ -222,33 +296,62 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                     name={activeKeys[key].name}
                                     stroke={activeKeys[key].color} 
                                     strokeWidth={3}
-                                    dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
-                                    activeDot={{ r: 6, strokeWidth: 0 }}
-                                    connectNulls={true} // Conecta linhas mesmo se pular uma semana
+                                    strokeOpacity={hiddenKeys[key] ? 0 : 1}
+                                    dot={hiddenKeys[key] ? false : { r: 4, strokeWidth: 2, fill: '#0f172a' }}
+                                    activeDot={hiddenKeys[key] ? false : { r: 6, strokeWidth: 0 }}
+                                    connectNulls={true} 
                                 />
                             ))}
                         </LineChart>
                     ) : (
-                        // 4. GRÁFICO DE VARIAÇÃO (BARRAS)
                         <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                            
+                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                             <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit}`} />
+                            
                             <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
                             <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
-                            <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }} iconType="circle" />
                             
-                            {renderKeys.map(key => (
+                            <Legend 
+                                onClick={handleLegendClick}
+                                wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
+                                iconType="circle" 
+                                formatter={(value, entry) => {
+                                    const baseKey = entry.dataKey.replace('delta_', '');
+                                    return (
+                                        <span style={{ 
+                                            color: hiddenKeys[baseKey] ? '#475569' : '#fff', 
+                                            textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
+                                            transition: 'all 0.3s'
+                                        }}>
+                                            {value.replace(' (Var.)', '')}
+                                        </span>
+                                    );
+                                }}
+                            />
+                            
+                            {/* 🌟 SOLUÇÃO 3: BRUSH NA BARRA */}
+                            <Brush 
+                                dataKey="displayDate" 
+                                height={20} 
+                                stroke="#4f46e5" 
+                                fill="#0f172a" 
+                                tickFormatter={() => ''}
+                                className="opacity-80"
+                                travellerWidth={8}
+                            />
+
+                            {keys.map(key => !hiddenKeys[key] && (
                                 <Bar 
                                     key={`delta_${key}`}
                                     dataKey={`delta_${key}`} 
                                     name={`${activeKeys[key].name} (Var.)`}
-                                    fill={activeKeys[key].color} // A cor da legenda fica a da matéria, mas a barra será formatada no Cell
+                                    fill={activeKeys[key].color} 
                                     radius={[4, 4, 4, 4]}
                                 >
                                     {chartData.map((entry, index) => {
                                         const val = entry[`delta_${key}`];
-                                        // Verde para +, Vermelho para -
                                         return <Cell key={`cell-${index}`} fill={val >= 0 ? '#10b981' : '#ef4444'} fillOpacity={0.85} />;
                                     })}
                                 </Bar>
@@ -258,14 +361,11 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                 </ResponsiveContainer>
             </div>
             
-            {/* Dica de leitura da variação */}
-            {viewMode === 'variation' && (
-                <div className="flex justify-center mt-4 opacity-60">
-                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                         Comparação com a semana anterior (Barras vazias = Sem histórico para comparar)
-                     </p>
-                </div>
-            )}
+            <div className="flex justify-center mt-3 opacity-60">
+                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 shrink-0 select-none">
+                     💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
+                 </p>
+            </div>
         </div>
     );
 };
