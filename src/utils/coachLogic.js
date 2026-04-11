@@ -123,7 +123,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const logger = options.logger;
 
-    const targetScore = options.targetScore ?? 80;
+    const maxScore = options.maxScore ?? 100;
+    const targetScore = options.targetScore ?? (maxScore * 0.8);
     const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
     const weight = rawWeight * 10;
     const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
@@ -142,7 +143,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(category.name);
         const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNormalized);
-        relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        const simuladosWithMaxScore = relevantSimulados.map(s => ({ ...s, maxScore }));
+        simuladosWithMaxScore.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
         let averageScore = 0;
         if (relevantSimulados.length > 0) {
@@ -155,7 +157,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 let weightedSum = 0;
                 let totalWeight = 0;
                 dataset.forEach(s => {
-                    const sScore = getSafeScore(s);
+                    const sScore = getSafeScore(s, maxScore);
                     const simDate = normalizeDate(s.date);
                     const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
                     let peso = Math.exp(-K * days);
@@ -206,11 +208,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
-        const trendHistory = [...relevantSimulados]
+        const trendHistory = [...simuladosWithMaxScore]
             .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
             .slice(0, 10)
             .map(s => ({
-            score: getSafeScore(s),
+            score: getSafeScore(s, maxScore),
             date: s.date
         })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
@@ -223,19 +225,19 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcHistory = simuladosToHistory(relevantSimulados.slice(0, 10));
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory)
-            : (lastNScores.length >= 2 ? standardDeviation(lastNScores) : 0);
+            : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : 0);
 
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
-        const mcResult = runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category.id);
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
         // --- COMPONENTS ---
 
         // A. Performance Score
-        const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - averageScore) * (cfg.SCORE_MAX / 100));
+        const scoreComponent = Math.min(cfg.SCORE_MAX, (maxScore - averageScore) * (cfg.SCORE_MAX / maxScore));
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
@@ -472,7 +474,7 @@ const _buildSortedTopics = (category, simulados = []) => {
             }
             const topicTotal = parseInt(t.total, 10) || 0;
             const topicCorrect = (t.isPercentage && t.score != null && topicTotal > 0)
-                ? Math.round((getSafeScore(t) / 100) * topicTotal)
+                ? Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal)
                 : (parseInt(t.correct, 10) || 0);
 
             topicMap[name].total += topicTotal;
@@ -578,7 +580,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
         const avgScore = recentSims.length > 0
-            ? recentSims.reduce((acc, s) => acc + getSafeScore(s), 0) / recentSims.length
+            ? recentSims.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0) / recentSims.length
             : 0;
         const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;

@@ -209,6 +209,8 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
 });
 
 export default function VerifiedStats({ categories = [], user }) {
+    const maxScore = categories[0]?.maxScore ?? 100;
+
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {
         const userTarget = parseFloat(user?.targetProbability);
@@ -288,7 +290,7 @@ export default function VerifiedStats({ categories = [], user }) {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
                 cat.simuladoStats.history.forEach(h => {
-                    const safeScore = getSafeScore(h);
+                    const safeScore = getSafeScore(h, maxScore);
                     if (h.date && safeScore >= 0) {
                         allHistory.push({
                             date: new Date(h.date).getTime(),
@@ -523,11 +525,11 @@ export default function VerifiedStats({ categories = [], user }) {
                         h.topics.forEach(t => {
                             const total = Number(t.total) || 0;
                             const correct = (t.isPercentage && t.score != null && total > 0)
-                                ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
+                                ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
                                 : (Number(t.correct) || 0);
 
                             if (total > 0) {
-                                const topicScore = (correct / total) * 100;
+                                const topicScore = (correct / total) * maxScore;
                                 if (!topicMap[t.name]) topicMap[t.name] = [];
                                 topicMap[t.name].push(topicScore);
                             }

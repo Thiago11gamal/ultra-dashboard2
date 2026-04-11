@@ -8,7 +8,7 @@ export function mean(arr) {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-export function standardDeviation(arr) {
+export function standardDeviation(arr, maxScore = 100) {
     if (!arr || arr.length < 1) return 0;
 
     const n = arr.length;
@@ -19,9 +19,10 @@ export function standardDeviation(arr) {
         ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
-    // MATH FIX: Estimar escala máxima para ajustar o prior (SD População)
-    const maxDetected = Math.max(...arr, 10); 
-    const POPULATION_SD = maxDetected * 0.12; // 12% da escala dinâmica
+    // MATH FIX: O prior de incerteza (POPULATION_SD) deve ser ancorado na escala do concurso (maxScore),
+    // não na nota máxima detectada no array, para evitar que alunos com notas altas
+    // tenham uma incerteza "inflada" artificialmente.
+    const POPULATION_SD = maxScore * 0.12; // 12% da escala total
     const KAPPA = 1;
 
     const adjustedVar =

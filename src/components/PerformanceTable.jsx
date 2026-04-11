@@ -4,6 +4,8 @@ import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
 
 const PerformanceTable = ({ categories = [] }) => {
+    const maxScore = categories[0]?.maxScore ?? 100;
+
     // Sort by Net Balance (Saldo) descending
     const sortedCategories = [...categories].sort((a, b) => {
         const statsA = a.simuladoStats || { history: [] };
@@ -16,7 +18,7 @@ const PerformanceTable = ({ categories = [] }) => {
         for (let i = 0; i < historyA.length; i++) {
             const h = historyA[i];
             const t = parseInt(h.total, 10) || 0;
-            const c = (getSafeScore(h) / 100 * t);
+            const c = (getSafeScore(h, maxScore) / maxScore * t);
             correctA += c;
             wrongA += (t - c);
         }
@@ -26,7 +28,7 @@ const PerformanceTable = ({ categories = [] }) => {
         for (let i = 0; i < historyB.length; i++) {
             const h = historyB[i];
             const t = parseInt(h.total, 10) || 0;
-            const c = (getSafeScore(h) / 100 * t);
+            const c = (getSafeScore(h, maxScore) / maxScore * t);
             correctB += c;
             wrongB += (t - c);
         }
@@ -56,10 +58,10 @@ const PerformanceTable = ({ categories = [] }) => {
                             const history = stats.history || [];
 
                             const totalQuestions = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-                            const totalCorrect = history.reduce((acc, h) => acc + (getSafeScore(h) / 100 * (Number(h.total) || 0)), 0);
+                            const totalCorrect = history.reduce((acc, h) => acc + (getSafeScore(h, maxScore) / maxScore * (Number(h.total) || 0)), 0);
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
                             const netBalance = Math.round(totalCorrect - totalWrong);
-                            const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+                            const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * maxScore) : 0;
 
                             // Dynamic Trend calculation instead of relying on static store value
                             const trendHistory = history.slice(-10).map(h => ({
@@ -150,13 +152,13 @@ const PerformanceTable = ({ categories = [] }) => {
 
                                     {/* Taxa Badge */}
                                     <td className="p-5 text-center">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 scale-110' :
-                                            percentCorrect >= 60 ? 'text-yellow-400' :
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (maxScore * 0.8) ? 'text-green-400 scale-110' :
+                                            percentCorrect >= (maxScore * 0.6) ? 'text-yellow-400' :
                                                 percentCorrect > 0 ? 'text-red-500' :
                                                     'text-slate-500'
                                             }`}>
-                                            <span className="text-sm tracking-tight">{percentCorrect}%</span>
-                                            {percentCorrect >= 80 && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}
+                                            <span className="text-sm tracking-tight">{percentCorrect}{maxScore === 100 ? '%' : ''}</span>
+                                            {percentCorrect >= (maxScore * 0.8) && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}
                                         </div>
                                     </td>
 

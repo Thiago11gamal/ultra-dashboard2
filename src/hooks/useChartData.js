@@ -187,7 +187,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
 
             activeCategories.forEach(cat => {
                 const score = d[`bay_${cat.name}`] ?? d[`raw_${cat.name}`];
-                const w = weights[cat.id] ?? weights[cat.name] ?? 1; // Fallback 1 se sem pesos
+                const w = weights[cat.id] ?? weights[cat.name] ?? 0; // Fallback 0 se sem pesos
 
                 if (score != null && w > 0) {
                     weightedSum += score * w;
