@@ -77,7 +77,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, vMin + 1);
     }
     
-    const plotSteps = 120; // Aumento de resolução visual
+    const plotSteps = 200; // Aumento de resolução visual
     const stepSize = (plotMax - plotMin) / plotSteps;
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
@@ -85,8 +85,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
     const h = 0.9 * scottFactor * Math.pow(safeSimulations, -0.2);
 
-    // REVISION: KDE using 200 Bins for higher UI resolution
-    const BIN_COUNT = 200;
+    // REVISION: KDE using 300 Bins for higher UI resolution
+    const BIN_COUNT = 300;
     const binWidth = (plotMax - plotMin) / BIN_COUNT;
 
     // CORREÇÃO: Adicionado o piso rígido mínimo '0.001' na fórmula de largura de banda.

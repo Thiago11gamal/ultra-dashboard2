@@ -320,10 +320,10 @@ export function monteCarloSimulation(
         residuals = residuals.map(r => r - resMean);
     }
 
-    // Fallback: Se histórico for muito curto (< 5), Bootstrap é perigoso. 
-    // .slice(1) já removeu 1 elemento: 5 pontos de histórico → 4 resíduos.
-    // Exigimos mais amostras para o bootstrap para evitar inflar o SD artificialmente com correção de Bessel em n pequeno (n < 6)
-    const useBootstrap = residuals.length >= 6;
+    // Fallback: Se histórico for muito curto (< 15), Bootstrap é perigoso 
+    // e gerará curvas com "ondas" (artefato discreto no KDE) devido ao pool de amostras ínfimo.
+    // Exigimos n >= 15 para o bootstrap representar uma distribuição minimamente rica.
+    const useBootstrap = residuals.length >= 15;
 
     // Calcula volatilidade clássica apenas para fallback
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore);
@@ -448,9 +448,9 @@ export function monteCarloSimulation(
             // BUG 2 FIX: Gentle power-law boundary damping instead of linear compression.
             // Previously: sqrt(p(1-p))*2 peaked at 1.0 (center) but dropped to 0.44 at
             // extremes, systematically compressing shocks by ~50% for non-centered scores.
-            // New: 4p(1-p) raised to 0.15 gives range [0.85, 1.0] — mild boundary
-            // effect without systematic underestimation of volatility.
-            const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.15);
+            // New: 4p(1-p) raised to 0.25 gives smoother bounds dampening, preventing
+            // harsh density piling at exact 0% and 100% barriers under massive volatility.
+            const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.25);
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
             score += deterministicPull + (shock * binomialVolatility);

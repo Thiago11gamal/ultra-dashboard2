@@ -50,92 +50,86 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 let pSuccess;
                 if (tVal >= mVal) {
-                    const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
-                    pSuccess = Math.max(0, pRightSuccess - pOverflow);
-                } else {
-                    const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
-                    const totalLeftArea = normFactor * sl * 0.5;
-                    const totalRightArea = normFactor * sr * 0.5;
-                    pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
-                }
-                return pSuccess / truncatedTotal;
-            };
-
-            let sl = vizSdLeft, sr = vizSdRight;
-            for (let i = 0; i < 12; i++) {
-                const pg = getGeomProb(t, m, sl, sr);
-                if (Math.abs(targetProb - pg) <= 0.002) break;
-                
-                const r = targetProb / Math.max(0.005, pg);
-                const adjustment = t < m ? (1 / r) : r;
-                
-                const damp = 0.85 * Math.pow(0.93, i);
-                const appliedAdj = 1 + (adjustment - 1) * damp;
-                
-                const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
-                const currentCap = targetProb > 0.95 ? 8 : 4;
-                
-                if (t < m) {
-                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
-                } else {
-                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
-                }
+                const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
+                pSuccess = Math.max(0, pRightSuccess - pOverflow);
+            } else {
+                const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
+                const totalLeftArea = normFactor * sl * 0.5;
+                const totalRightArea = normFactor * sr * 0.5;
+                pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
             }
-            vizSdLeft = sl; vizSdRight = sr;
-        }
-
-        const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
-        const baseHeightFactor = 0.95; 
-        // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
-        const xp = (v) => 2 + ((v - xMin) / range * 96);
-        const yp = (yVal) => 100 - (yVal * 92); 
-
-        let path;
-        let pointsForArea = [];
-        const finalHF = baseHeightFactor;
-
-        if (kdeData && kdeData.length > 5) {
-            // SCALE-BOUNDS FIX: Use domainMin/domainMax for KDE clip boundaries
-            const DOMAIN_MIN = domainMin;
-            const DOMAIN_MAX = domainMax;
-            const points = [];
-            if (kdeData[0].x > DOMAIN_MIN) {
-                points.push(`${xp(DOMAIN_MIN)},100`);
-                points.push(`${xp(kdeData[0].x)},100`);
-            }
-            kdeData.filter(p => p.x >= DOMAIN_MIN && p.x <= DOMAIN_MAX).forEach(p => {
-                points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
-            });
-            const lastDataX = kdeData[kdeData.length - 1].x;
-            if (lastDataX < DOMAIN_MAX) {
-                points.push(`${xp(lastDataX)},100`);
-                points.push(`${xp(DOMAIN_MAX)},100`);
-            }
-            path = `M ${points.join(' L ')}`;
-            pointsForArea = points;
-        } else {
-            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
-            path = `M ${pts.join(' L ')}`;
-            pointsForArea = pts;
-        }
-
-        const areaPoints = [];
-        const failPoints = [];
-        const successStart = Math.max(xMin, targetVal);
-
-        const getYAtX = (pts, xTarget) => {
-            let lo = null, hi = null;
-            for (const p of pts) {
-                const [px, py] = p.split(',').map(Number);
-                if (px <= xTarget) lo = { px, py };
-                else if (!hi) { hi = { px, py }; break; }
-            }
-            if (!lo) return hi?.py ?? 100;
-            if (!hi) return lo.py;
-            const t = (xTarget - lo.px) / (hi.px - lo.px);
-            return lo.py + t * (hi.py - lo.py);
+            return pSuccess / truncatedTotal;
         };
+
+        let sl = vizSdLeft, sr = vizSdRight;
+        for (let i = 0; i < 12; i++) {
+            const pg = getGeomProb(t, m, sl, sr);
+            if (Math.abs(targetProb - pg) <= 0.002) break;
+            
+            const r = targetProb / Math.max(0.005, pg);
+            const adjustment = t < m ? (1 / r) : r;
+            
+            const damp = 0.85 * Math.pow(0.93, i);
+            const appliedAdj = 1 + (adjustment - 1) * damp;
+            
+            const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
+            const currentCap = targetProb > 0.95 ? 8 : 4;
+            
+            if (t < m) {
+                sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
+            } else {
+                sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
+            }
+        }
+        vizSdLeft = sl; vizSdRight = sr;
+    }
+
+    const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
+    // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
+    const baseHeightFactor = 0.95; 
+    // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
+    const xp = (v) => 2 + ((v - xMin) / range * 96);
+    const yp = (yVal) => 100 - (yVal * 92); 
+
+    let path;
+    let pointsForArea = [];
+    const finalHF = baseHeightFactor;
+
+    if (kdeData && kdeData.length > 5) {
+        // VISUAL FIX 2: Deixar a curva fluir para ALÉM do Viewport `<svg>`
+        // Ocultado o corte artificial (DOMAIN_MIN/MAX) que causava as 'paredes verticais'.
+        // O `preserveAspectRatio="none"` do CSS vai naturalmente e perfeitamente cortar 
+        // a linha onde a tela acaba, enquanto a linha segue linear fora dela.
+        const points = [];
+        points.push(`${xp(kdeData[0].x)},100`);
+        kdeData.forEach(p => {
+            points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
+        });
+        points.push(`${xp(kdeData[kdeData.length - 1].x)},100`);
+        path = `M ${points.join(' L ')}`;
+        pointsForArea = points;
+    } else {
+        const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
+        path = `M ${pts.join(' L ')}`;
+        pointsForArea = pts;
+    }
+
+    const areaPoints = [];
+    const failPoints = [];
+    const successStart = Math.max(xMin, targetVal);
+
+    const getYAtX = (pts, xTarget) => {
+        let lo = null, hi = null;
+        for (const p of pts) {
+            const [px, py] = p.split(',').map(Number);
+            if (px <= xTarget) lo = { px, py };
+            else if (!hi) { hi = { px, py }; break; }
+        }
+        if (!lo) return hi?.py ?? 100;
+        if (!hi) return lo.py;
+        const t = (xTarget - lo.px) / (hi.px - lo.px);
+        return lo.py + t * (hi.py - lo.py);
+    };
 
         const yAtTargetVisual = (kdeData && kdeData.length > 5)
             ? getYAtX(pointsForArea, xp(successStart))
@@ -152,10 +146,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             areaPoints.push(`${xp(successStart)},100`);
         }
 
-        failPoints.push(`${xp(xMin)},100`);
-        if (kdeData && kdeData.length > 5 && kdeData[0].x > 0) {
-            failPoints.push(`${xp(kdeData[0].x)},100`);
-        }
+        // Ancora no infinito/ponto final disponível
+        failPoints.push(`${pointsForArea[0].split(',')[0]},100`);
+        
         pointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
