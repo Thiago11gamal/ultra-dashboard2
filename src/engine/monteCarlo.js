@@ -34,7 +34,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   const safeMean = Number.isFinite(mean) ? mean : 0;
   const safeSD = Number.isFinite(sd) && sd > 0.0001 ? sd : 0.0001; 
-  const safeTarget = Number.isFinite(targetScore) ? targetScore : 0;
+  const rawTarget = Number.isFinite(targetScore) ? targetScore : 0;
+  // SCALE-BOUNDS HARDENING: Clamp target within domain for CDF calculation
+  // to prevent negative probabilities or domain leakage.
+  const safeTarget = Math.max(minScore, Math.min(maxScore, rawTarget));
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
@@ -62,7 +65,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // SCALE-BOUNDS FIX: Amostragem de Distribuição Normal Truncada com limites dinâmicos
     let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);
     
-    if (score >= safeTarget) success++;
+    // Use rawTarget here to correctly count 'success' if the target is outside [min, max]
+    // If target = 105 and max = 100, success should remain 0.
+    if (score >= rawTarget) success++;
     allScores[i] = score;
 
     welfordCount++;
@@ -97,11 +102,18 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const phiTarget = normalCDF_complement((safeTarget - safeMean) / safeSD); // P(X >= target)
     
     const truncNormFactor = phiMin - phiMax;
-    // FIX 1: Clamp analytical probability to [0, 100] to prevent impossible values
-    // from floating-point edge cases in truncated normal calculation.
-    let analyticalProbability = truncNormFactor > 0.001 
-        ? ((phiTarget - phiMax) / truncNormFactor) * 100 
-        : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
+    // FIX 1: Probabilidade Analítica forçada a 0% ou 100% se a meta estiver fora do domínio.
+    // P(X >= target | X in [min, max]) = [Φ(target') - Φ(max')] / [Φ(min') - Φ(max')]
+    let analyticalProbability;
+    if (rawTarget >= maxScore) {
+        analyticalProbability = 0;
+    } else if (rawTarget <= minScore) {
+        analyticalProbability = 100;
+    } else {
+        analyticalProbability = truncNormFactor > 0.001 
+            ? ((phiTarget - phiMax) / truncNormFactor) * 100 
+            : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
+    }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
   const empMedian = getPercentile(allScores, 0.5);

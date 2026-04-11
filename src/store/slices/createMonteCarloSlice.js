@@ -1,22 +1,25 @@
 export const createMonteCarloSlice = (set, get) => ({
-    recordMonteCarloSnapshot: (date, prob) => set((state) => {
+    recordMonteCarloSnapshot: (date, prob, metadata = {}) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
 
-        // FIX 2: Garantir que o array de histórico é sempre uma referência nova
-        // para que o React / Immer detecte a mudança e re-renderize os gráficos.
         if (!activeData.monteCarloHistory) {
             activeData.monteCarloHistory = [];
         }
 
         const index = activeData.monteCarloHistory.findIndex(h => h.date === date);
+        const snapshot = { 
+            date, 
+            probability: prob,
+            mean: metadata.mean,
+            target: metadata.target
+        };
+
         if (index >= 0) {
-            // Substituir o objeto inteiro (não apenas a propriedade) para garantir
-            // que o Immer marque o item como alterado na árvore de drafts.
-            activeData.monteCarloHistory[index] = { ...activeData.monteCarloHistory[index], probability: prob };
+            activeData.monteCarloHistory[index] = { ...activeData.monteCarloHistory[index], ...snapshot };
         } else {
-            activeData.monteCarloHistory.push({ date, probability: prob });
+            activeData.monteCarloHistory.push(snapshot);
         }
 
         // Retention policy: Keep last 30 snapshots

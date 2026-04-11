@@ -212,8 +212,8 @@ export default function MonteCarloGauge({
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
-        const weightedLow = bayesianMean - 1.96 * pooledBayesianSD;
-        const weightedHigh = bayesianMean + 1.96 * pooledBayesianSD;
+        const weightedLow = Math.max(minScore, bayesianMean - 1.96 * pooledBayesianSD);
+        const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
 
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
 
@@ -405,7 +405,10 @@ export default function MonteCarloGauge({
         // causing spurious drops to 0% in the "Hoje & Futuro" evolution chart.
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
-            recordMonteCarloSnapshot(today, Number(prob.toFixed(1)));
+            recordMonteCarloSnapshot(today, Number(prob.toFixed(1)), {
+                mean: Number(currentMean.toFixed(1)),
+                target: Number(debouncedTarget.toFixed(1))
+            });
         }
     }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates]);
 

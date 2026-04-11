@@ -15,7 +15,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         if (!data || !Array.isArray(data)) return [];
         return data
             .filter(d => d.date && Number.isFinite(d.probability))
-            .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
@@ -59,12 +59,16 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
-            const val = payload[0].value;
-            const fullDate = payload[0].payload.fullDate;
+            // DYNAMIC SAFETY THRESHOLD: Derived from relationship between currentMean and targetScore.
+            // If the user's mean is already above target, any probability >= 50% is considered Good (sustaining level).
+            // If the user's mean is below target, they need a high probability (>= 70%) to be considered Good (strong success trend).
+            const pointMean = payload[0].payload.mean;
+            const pointTarget = payload[0].payload.target;
             
-            // Limiar justo de segurança estatística
-            const SAFE_PROBABILITY_THRESHOLD = 75.0; 
-            const isGood = val >= SAFE_PROBABILITY_THRESHOLD;
+            let isGood = val >= 70.0; // Default safety fallback
+            if (pointMean != null && pointTarget != null) {
+                isGood = (pointMean >= pointTarget) ? (val >= 50.0) : (val >= 70.0);
+            }
             
             return (
                 <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-xl">
@@ -104,13 +108,20 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {formattedData.length === 1 && (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/20 backdrop-blur-[1px] rounded-xl text-center p-4">
-                        <TrendingUp size={24} className="text-blue-500/40 mb-2" />
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
-                        <p className="text-[9px] text-slate-600 mt-1">Aguardando mais um dia de simulação para traçar a linha de evolução.</p>
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md rounded-2xl text-center p-6 border border-white/5">
+                        <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+                            <TrendingUp size={32} className="text-blue-500/60" />
+                        </div>
+                        <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
+                        <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
+                            Aguardando o próximo registro para traçar sua linha de evolução. 
+                            <strong> Probabilidade Atual: {formattedData[0].probability.toFixed(1)}%</strong>
+                        </p>
                     </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                
+                {formattedData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={formattedData}
                         margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
@@ -157,6 +168,15 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         />
                     </AreaChart>
                 </ResponsiveContainer>
+                ) : formattedData.length === 0 ? null : (
+                    <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
+                         <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={[{probability: 0}, {probability: formattedData[0].probability}, {probability: 0}]}>
+                                <Area type="monotone" dataKey="probability" stroke="#60a5fa" fill="#60a5fa" />
+                            </AreaChart>
+                         </ResponsiveContainer>
+                    </div>
+                )}
             </div>
             
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-50 px-2">

@@ -62,11 +62,14 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     let plotMin = Math.max(minScore, projectedMean - 3.5 * projectedSD);
     let plotMax = Math.min(maxScore, projectedMean + 3.5 * projectedSD);
 
-    // BUG 4 FIX: When projectedSD ≈ 0, plotMin equals plotMax → division by zero
-    // in binWidth calculation and Infinity index in bin assignment.
+    // BUG 4 FIX: Ensure a minimum plot width of 1.0 even at domain boundaries.
+    // If mean is 100 (maxScore), range becomes 99-100 instead of 99.5-100.
     if (plotMax - plotMin < 1) {
         plotMin = Math.max(minScore, projectedMean - 0.5);
         plotMax = Math.min(maxScore, projectedMean + 0.5);
+        // Correct asymmetric squeeze at boundaries
+        if (plotMax === maxScore && maxScore - minScore >= 1) plotMin = maxScore - 1;
+        if (plotMin === minScore && maxScore - minScore >= 1) plotMax = minScore + 1;
     }
     
     const plotSteps = 100;
@@ -88,14 +91,10 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const bandwidth = Math.max(0.001, h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
-    // SCALE-BOUNDS FIX: Data Folding genérico — rebate nos limites reais (minScore, maxScore)
+    // REVISION: KDE no longer uses Data Folding (reflection) as allScores 
+    // are already truncated at sampling time. Normalization is handled by maxY.
     for (let i = 0; i < safeSimulations; i++) {
-        let s = allScores[i];
-        
-        // Data Folding: reflect samples that escaped the bounds back into the domain
-        if (s < minScore) s = 2 * minScore - s;
-        if (s > maxScore) s = 2 * maxScore - s;
-        s = Math.max(minScore, Math.min(maxScore, s));
+        let s = Math.max(minScore, Math.min(maxScore, allScores[i]));
 
         // Agora verificamos apenas o enquadramento do plot visual (Zoom do Gráfico)
         if (s > plotMax || s < plotMin) continue;
