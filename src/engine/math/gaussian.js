@@ -58,8 +58,9 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
     if (!allScores || allScores.length === 0) return [];
 
-    // FIX: Margem de 5% para o KDE não "bater na parede" do gráfico
-    const slack = maxScore * 0.05;
+    // FIX VISUAL: Margem dinâmica inteligente que respeita tanto a amplitude
+    // do gráfico quanto o desvio padrão, com um piso mínimo (1.0).
+    const slack = Math.max(maxScore * 0.05, projectedSD * 0.5, 1.0);
     let plotMin = Math.max(minScore - slack, projectedMean - 3.5 * projectedSD);
     let plotMax = Math.min(maxScore + slack, projectedMean + 3.5 * projectedSD);
 
@@ -100,11 +101,11 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         bins[idx]++;
     }
 
-    const inDomainCount = bins.reduce((a, b) => a + b, 0);
-    const safeDomainCount = Math.max(1, inDomainCount);
-
     const invBandwidth = 1 / bandwidth;
-    const normFactor = 1 / (safeDomainCount * bandwidth * Math.sqrt(2 * Math.PI));
+    
+    // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
+    // evitar inflar o pico visual quando há muitos outliers fora da tela.
+    const normFactor = 1 / (safeSimulations * bandwidth * Math.sqrt(2 * Math.PI));
 
     let maxY = 0;
     const rawData = [];

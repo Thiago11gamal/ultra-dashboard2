@@ -35,6 +35,10 @@ const repairContestHistory = (data) => {
 
     // AGGRESSIVE MATCHING: Use includes() for partial matches (e.g. 'dir adm' matches 'direitoadministrativo')
     const myRows = rows.filter(r => {
+      // 1. Defesa Primária: Match absoluto pelo ID único
+      if (r.categoryId && r.categoryId === cat.id) return true;
+      
+      // 2. Defesa Secundária (Fallback Legado): Tenta string match
       const subNorm = normalize(r.subject);
       if (!subNorm) return false;
       return subNorm === catNorm ||

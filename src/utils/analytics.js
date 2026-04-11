@@ -212,7 +212,9 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
     // Classificação de eficiência
     // AUDIT-FIX: Interpolação contínua em vez de 4 buckets discretos (50/70/85/100).
     // Mapeamento: 0 min/task → 100%, 90+ min/task → 50%. Suave e intuitivo.
-    const score = Math.max(50, Math.min(100, Math.round(100 - (minutesPerTask / 90) * 50)));
+    // FIX LÓGICO: Substituição pela fórmula de decaimento exponencial.
+    // Assim, uma tarefa de 4 horas não recebe o mesmo score punitivo que uma de 1.5 horas.
+    const score = Math.max(10, Math.min(100, Math.round(100 * Math.exp(-minutesPerTask / 180))));
 
     let efficiency = 'excelente';
     if (score < 60) efficiency = 'precisa_melhorar';
@@ -460,7 +462,7 @@ export const calculatePomodoroStats = (stats) => {
 
     return {
         todayMinutes,
-        todayPomodoros: Math.round(fractionalPomodoros), // Arredondamento justo por esforço
+        todayPomodoros: Number(fractionalPomodoros.toFixed(1)),
         dailyGoalMinutes: dailyGoalMinutes,
         progressPercentage,
         streak: streak.current,

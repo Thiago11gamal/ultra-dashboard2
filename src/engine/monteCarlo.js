@@ -46,8 +46,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             analyticalProbability: prob,
             mean: Number(safeMean.toFixed(1)),
             sd: 0,
-            sdLeft: 0.1, // Evita divisões por zero na renderização SVG
-            sdRight: 0.1,
+            sdLeft: 0, // FIX: Removido o spread artificial de 0.1
+            sdRight: 0, // FIX: Removido o spread artificial de 0.1
             ci95Low: Number(safeMean.toFixed(1)),
             ci95High: Number(safeMean.toFixed(1)),
             currentMean: Number((currentMean || safeMean).toFixed(1)),
