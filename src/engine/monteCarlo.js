@@ -157,6 +157,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         values = [],
         dates = [],
         meta = 0,
+        targetScore: objTargetScore, // FIX: Extrair a meta real do objeto
         simulations = 5000,
         projectionDays = 90,
         // Aceitar opções embutidas no objeto (forma mais intuitiva de chamar):
@@ -164,10 +165,11 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         forcedBaseline: objForcedBaseline,
         currentMean: objCurrentMean,
         // BUG 7 FIX: Destructure minScore/maxScore from the object call form.
-        // Previously these were silently dropped, defaulting to [0, 100].
         minScore: objMinScore,
         maxScore: objMaxScore,
     } = inputOrMean;
+
+    const resolvedTarget = objTargetScore ?? Number(meta) ?? 0;
 
     // 4° argumento tem prioridade sobre opções do objeto:
     const mergedOptions = {
@@ -184,7 +186,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
       date: dates[index] || new Date().toISOString().slice(0, 10)
     }));
 
-    return monteCarloSimulation(history, Number(meta) || 0, projectionDays, simulations, mergedOptions);
+    return monteCarloSimulation(history, resolvedTarget, projectionDays, simulations, mergedOptions);
   }
 
   // STABILITY FIX: Hard sanitization before invoking simulation to prevent NaN/Infinity propagating

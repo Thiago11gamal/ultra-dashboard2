@@ -111,6 +111,9 @@ export function useMonteCarloWorker() {
                     // ONLY resolve if this is still the most recent request
                     if (id === requestIdRef.current) {
                         resolve(data);
+                    } else {
+                        // BUG FIX: Prevent Zombie Promises. Free memory and event loop.
+                        reject(new Error('AbortError: Superseded by a newer request'));
                     }
                 }, 
                 reject: (err) => {

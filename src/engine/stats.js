@@ -19,9 +19,10 @@ export function standardDeviation(arr) {
         ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
-    const POPULATION_SD = 12;
-    // MATH-02 FIX: Reduzir KAPPA para 1.0 (antes era 2.0). 
-    // Prior mais fraco permite que a consistência real do aluno domine o SD mais rápido.
+    // MATH FIX: Tornar o SD da população proporcional aos dados (aprox. 12% da escala máxima presente)
+    // Se arr tiver valores até 10, o prior SD será 1.2. Se for até 100, será 12.
+    const maxVal = Math.max(...arr, 10); // Assume escala mínima de 10
+    const POPULATION_SD = maxVal * 0.12; 
     const KAPPA = 1;
 
     const adjustedVar =
