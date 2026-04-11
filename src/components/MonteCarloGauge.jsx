@@ -260,7 +260,12 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates]);
+    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, maxScore]);
+
+    // PASS 1: Create an atomic hash to prevent infinite render loops when using objects in useEffect.
+    const statsHash = statsData 
+        ? `${statsData.bayesianMean.toFixed(4)}-${statsData.pooledSD.toFixed(4)}-${statsData.globalHistory.length}` 
+        : 'null';
 
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
@@ -356,9 +361,8 @@ export default function MonteCarloGauge({
         })();
 
         return () => { cancelled = true; };
-    // M1 FIX: minScore/maxScore used internally but were missing from deps.
-    // Without them, changing contest bounds wouldn't re-trigger simulation.
-    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categoryHistoryHash, minScore, maxScore]);
+    // PASS 2: Use stable statsHash and add missing runAnalysis dependency to avoid linter warnings and ref-loops.
+    }, [statsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore]);
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];

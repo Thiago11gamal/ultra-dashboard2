@@ -183,6 +183,8 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     const p = cdfMin + u * (cdfMax - cdfMin);
 
     const zScore = inverseNormalCDF(p);
+    const rawScore = mean + (zScore * sd);
 
-    return mean + (zScore * sd);
+    // FIX NUMÉRICO: Clamp garantindo que o retorno jamais quebre os bounds por erro do IEEE 754
+    return Math.max(min, Math.min(max, rawScore));
 }

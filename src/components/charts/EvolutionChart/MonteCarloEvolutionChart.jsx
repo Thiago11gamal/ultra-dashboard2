@@ -59,13 +59,14 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
-            // DYNAMIC SAFETY THRESHOLD: Derived from relationship between currentMean and targetScore.
-            // If the user's mean is already above target, any probability >= 50% is considered Good (sustaining level).
-            // If the user's mean is below target, they need a high probability (>= 70%) to be considered Good (strong success trend).
+            // Extraia os valores do payload primeiro para evitar ReferenceError
+            const val = payload[0].value || payload[0].payload.probability;
+            const fullDate = payload[0].payload.fullDate;
+            
             const pointMean = payload[0].payload.mean;
             const pointTarget = payload[0].payload.target;
-            
-            let isGood = val >= 70.0; // Default safety fallback
+
+            let isGood = val >= 70.0;
             if (pointMean != null && pointTarget != null) {
                 isGood = (pointMean >= pointTarget) ? (val >= 50.0) : (val >= 70.0);
             }
