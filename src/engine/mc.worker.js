@@ -22,8 +22,20 @@ self.onmessage = function(e) {
         } else if (type === 'monteCarloSimulation') {
             result = monteCarloSimulation(payload.history, payload.targetScore, payload.projectionDays, payload.simulations, payload.options);
         } else if (type === 'simulateNormalDistribution') {
-            result = simulateNormalDistribution(payload.mean, payload.sd, payload.targetScore, payload.simulations, payload.seed, payload.currentMean, payload.categoryName, payload.bayesianCI);
-        }
+            // FIX 5: Convert positional args to object form to support minScore/maxScore
+            // and any future properties through the worker boundary.
+            result = simulateNormalDistribution({
+                mean: payload.mean,
+                sd: payload.sd,
+                targetScore: payload.targetScore,
+                simulations: payload.simulations,
+                seed: payload.seed,
+                currentMean: payload.currentMean,
+                categoryName: payload.categoryName,
+                bayesianCI: payload.bayesianCI,
+                minScore: payload.minScore,
+                maxScore: payload.maxScore,
+            });
         self.postMessage({ id, type: 'result', result });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

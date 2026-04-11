@@ -38,13 +38,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
   const safeCurrentMean = Number.isFinite(currentMean) ? currentMean : safeMean;
 
-  // FIX 2.2: Multiplicar por 100 antes do Math.floor captura as casas decimais, 
-  // evitando que mudanças fracionárias gerem a mesma semente bitwise.
+  // FIX 4: Multiplicar por 1000 (era 100) para capturar 3 casas decimais,
+  // evitando colisões de seed em mudanças fracionárias pequenas.
   const categoryHash = Array.from(String(categoryName || '')).reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    (Math.floor(safeMean * 100) * 179 ^
-    Math.floor(safeSD * 100) * 997 ^
-    Math.floor(safeTarget * 100) * 1009 ^
+    (Math.floor(safeMean * 1000) * 179 ^
+    Math.floor(safeSD * 1000) * 997 ^
+    Math.floor(safeTarget * 1000) * 1009 ^
     (categoryHash * 13) ^
     (safeSimulations * 7)) >>> 0
   );
@@ -84,7 +84,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   const empiricalProbability = (success / safeSimulations) * 100;
 
   // SCALE-BOUNDS FIX: Sem clamp destrutivo — os valores reais podem estar acima de 100
-  const displayMean = projectedMean;
+  // FIX 3: displayMean segue a média Bayesiana quando em modo Bayesiano
+  // para alinhar visualmente o KDE com o valor exibido na UI.
+  const displayMean = bayesianCI ? safeMean : projectedMean;
   const displayLow = rawLow;
   const displayHigh = rawHigh;
 
@@ -95,9 +97,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const phiTarget = normalCDF_complement((safeTarget - safeMean) / safeSD); // P(X >= target)
     
     const truncNormFactor = phiMin - phiMax;
-    const analyticalProbability = truncNormFactor > 0.001 
+    // FIX 1: Clamp analytical probability to [0, 100] to prevent impossible values
+    // from floating-point edge cases in truncated normal calculation.
+    let analyticalProbability = truncNormFactor > 0.001 
         ? ((phiTarget - phiMax) / truncNormFactor) * 100 
         : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
+    analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
   return {
     probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
@@ -111,7 +116,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     currentMean: Number(safeCurrentMean.toFixed(1)),
     projectedMean,
     projectedSD,
-    kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore, maxScore),
+    // FIX 3: Passar displayMean (que segue Bayesian quando aplicável) para o KDE
+    // garantindo consistência visual entre o gráfico e o valor exibido.
+    kdeData: generateKDE(allScores, displayMean, projectedSD, safeSimulations, minScore, maxScore),
     drift: 0,
     volatility: safeSD,
     minScore,
