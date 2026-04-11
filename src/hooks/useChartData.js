@@ -199,7 +199,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         });
 
         return dates.map(d => dataByDate[d]);
-    }, [activeCategories, weights]);
+    }, [activeCategories, weights, maxScore]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
@@ -261,7 +261,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         });
 
         return { dates, rows };
-    }, [activeCategories]);
+    }, [activeCategories, maxScore]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
@@ -279,7 +279,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * maxScore : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories]);
+    }, [activeCategories, maxScore]);
 
     return {
         activeCategories,

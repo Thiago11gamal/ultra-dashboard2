@@ -24,7 +24,7 @@ const MEGA_PALETTE = [
     "#f43f5e", "#fb7185", "#34d399", "#fbbf24", "#a3e635"
 ];
 
-export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, showOnlyFocus, timeWindow, targetScore = 80 }) {
+export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, showOnlyFocus, timeWindow, targetScore = 80, maxScore = 100 }) {
     
     const [viewMode, setViewMode] = useState('lines'); // 'bars' | 'lines'
 
@@ -74,8 +74,8 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
+                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
                     
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -132,8 +132,8 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correct = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t) / 100) * total));
+                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
                     
                     const totKey = `${topicName}_total`;
                     const corKey = `${topicName}_correct`;
