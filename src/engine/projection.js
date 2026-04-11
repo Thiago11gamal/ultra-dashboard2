@@ -5,6 +5,7 @@
 
 import { mulberry32, randomNormal } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
+import { getPercentile } from './math/percentile.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
 import { normalCDF_complement, generateKDE } from './math/gaussian.js';
@@ -172,7 +173,10 @@ export function calculateVolatility(history) {
         // REVISION: Floor standardized to 1.0
         return Math.max(1.0, Math.min(15.0, diff / Math.sqrt(dt)));
     }
-    const drift = calculateSlope(sorted);
+    // C2 FIX: Use rawDrift (unbiased WLS slope) for detrending instead of clamped calculateSlope.
+    // calculateSlope applies confidence attenuation + dynamic limits — correct for deterministic
+    // projection but biases statistical detrending, leaving systematic trend in residuals.
+    const { slope: rawDriftVol } = weightedRegression(sorted);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
     // Calculate weighted sum of squared differences (MSSD)
@@ -193,7 +197,7 @@ export function calculateVolatility(history) {
         const rawDaysBetween = Math.max(1.0, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
-        const detrendedDiff = diff - (drift * daysBetween);
+        const detrendedDiff = diff - (rawDriftVol * daysBetween);
         const residual = detrendedDiff / Math.sqrt(daysBetween);
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -274,7 +278,13 @@ export function monteCarloSimulation(
         : { slope: 0, slopeStdError: 1.5 };
 
     const drift = calculateSlope(sortedHistory); // Tendência clampeada para a média determinística
-    const driftUncertainty = Math.max(0.05, slopeStdError); // Piso de incerteza no drift
+    const simulationDays = days; // Hoisted for C1 cap below
+    // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
+    // For 2-point history with dt=1, slopeStdError=4.5 → simMu perturbation ±42.7pp
+    // over 90 days, causing bimodal clamping artifacts. Cap ensures attractor noise
+    // ≤ 1.5σ over the projection horizon.
+    const rawDriftUncertainty = Math.max(0.05, slopeStdError);
+    const driftUncertainty = Math.min(rawDriftUncertainty, 1.5 / Math.sqrt(Math.max(1, simulationDays)));
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
@@ -291,7 +301,10 @@ export function monteCarloSimulation(
         // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting
         // pois o loop de projeção já injeta o 'dayDrift' em cada iteração a cada passo.
         // FIX BUG 3: use daysBetween consistently
-        const detrendedChange = actualChange - (drift * daysBetween);
+        // C2 FIX: Use rawDrift (unbiased WLS slope) for detrending residuals.
+        // The clamped 'drift' applies confidence attenuation — correct for deterministic
+        // projection but biases statistical detrending, leaving systematic trend in residuals.
+        const detrendedChange = actualChange - (rawDrift * daysBetween);
 
         // M-02 FIX: Resíduo bruto normalizado pelo tempo.
         return detrendedChange / Math.sqrt(daysBetween);
@@ -366,11 +379,14 @@ export function monteCarloSimulation(
 
     // BUG-05 FIX: Escala de rescaling para igualar volatility alvo
     // Garantimos que a dispersão do Bootstrap alinhe com a volatilidade medida.
+    // A1 FIX: Increased cap from 5× to 15× to prevent bootstrap underestimation
+    // when MSSD (exponentially-weighted) and sample-variance (uniform) diverge.
+    // With cap=5, erratic students could see 20× narrower CI than warranted.
     const bootstrapTargetScale = _residualSD > 0
-        ? Math.min(5.0, volatility / _residualSD) // 🎯 RIGOR-M2: Aumentado para 5.0 (era 3.0) para acomodar volatilidade extrema
+        ? Math.min(15.0, volatility / _residualSD)
         : 1;
 
-    const simulationDays = days;
+    // simulationDays hoisted to line ~277 for C1 drift uncertainty cap
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
 
     // 🎯 CALIBRAÇÃO ORNSTEIN-UHLENBECK (OU)
@@ -453,12 +469,13 @@ export function monteCarloSimulation(
 
     // 🎯 BUG-O7 FIX: Ordenação numérica explícita (a-b).
     allFinalScores.sort((a, b) => a - b);
-    const p025idx = Math.min(safeSimulations - 1, Math.floor(safeSimulations * 0.025));
-    const p975idx = Math.min(safeSimulations - 1, Math.round(safeSimulations * 0.975) - 1);
+    // B1 FIX: Use shared getPercentile (linear interpolation) instead of raw index.
+    // Previously used asymmetric floor/round that created 0.02pp CI asymmetry.
+    // Now consistent with simulateNormalDistribution's percentile calculation.
+    const rawLow = getPercentile(allFinalScores, 0.025);
+    const rawHigh = getPercentile(allFinalScores, 0.975);
 
     // Display stats (Corte visual apenas para a UI)
-    const rawLow = allFinalScores[p025idx];
-    const rawHigh = allFinalScores[p975idx];
     const ci95Low = Number(Math.max(minScore, rawLow).toFixed(1));
     const ci95High = Number(Math.min(maxScore, rawHigh).toFixed(1));
 

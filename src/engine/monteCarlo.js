@@ -4,6 +4,12 @@ import { monteCarloSimulation } from './projection.js';
 
 // Removed createSeededRandom and randomNormal - using unified random.js versions
 
+// B1 FIX: Import shared getPercentile from math/percentile.js and re-export for
+// backward compatibility. Both simulateNormalDistribution and monteCarloSimulation
+// (in projection.js) use this for consistent interpolated CI percentile calculation.
+import { getPercentile } from './math/percentile.js';
+export { getPercentile };
+
 
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
   let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
@@ -70,15 +76,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
   allScores.sort((a, b) => a - b);
 
-  // FIX APLICADO: Interpolação Linear para o Intervalo de Confiança
-  const getPercentile = (arr, p) => {
-      const idx = (arr.length - 1) * p;
-      const lower = Math.floor(idx);
-      const upper = Math.ceil(idx);
-      if (lower === upper) return arr[lower];
-      const weight = idx - lower;
-      return arr[lower] * (1 - weight) + arr[upper] * weight;
-  };
+  // B1 FIX: Uses shared module-level getPercentile (exported above)
 
   const rawLow = getPercentile(allScores, 0.025);
   const rawHigh = getPercentile(allScores, 0.975);

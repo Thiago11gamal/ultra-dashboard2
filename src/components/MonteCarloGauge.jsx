@@ -356,7 +356,9 @@ export default function MonteCarloGauge({
         })();
 
         return () => { cancelled = true; };
-    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categoryHistoryHash]);
+    // M1 FIX: minScore/maxScore used internally but were missing from deps.
+    // Without them, changing contest bounds wouldn't re-trigger simulation.
+    }, [statsData, debouncedTarget, projectDays, debouncedWeights, categoryHistoryHash, minScore, maxScore]);
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
@@ -369,7 +371,10 @@ export default function MonteCarloGauge({
                     sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
                     targetScore: debouncedTarget,
                     simulations: 2000,
-                    categoryName: cat.name
+                    categoryName: cat.name,
+                    // C3 FIX: Propagate scoring bounds for non-percentage exams (e.g. OAB 0-10)
+                    minScore,
+                    maxScore,
                 });
                 return {
                     name: cat.name,
@@ -395,7 +400,10 @@ export default function MonteCarloGauge({
         const prob = Number.isFinite(rawProb) ? rawProb : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
         
-        if (simulationData?.status === 'ready' && Number.isFinite(prob) && !effectiveSimulateToday && !isTimeTraveling) {
+        // A2 FIX: Guard against prob === 0. P(X >= target) = 0 is mathematically implausible
+        // for a continuous distribution within domain. Recording 0% overwrites valid snapshots
+        // causing spurious drops to 0% in the "Hoje & Futuro" evolution chart.
+        if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             recordMonteCarloSnapshot(today, Number(prob.toFixed(1)));
         }
@@ -700,6 +708,7 @@ export default function MonteCarloGauge({
                 </button>
 
                 {showPerSubject && perSubjectProbs.length > 0 && (
+                    <>
                     <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
                         <div className="flex items-center justify-between px-1 mb-2">
                             <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
@@ -728,6 +737,14 @@ export default function MonteCarloGauge({
                             );
                         })}
                     </div>
+                    {/* M2 FIX: Disclaimer when in future mode — per-subject probs use today's
+                        static snapshot via simulateNormalDistribution, not the projection engine */}
+                    {!effectiveSimulateToday && !isTimeTraveling && (
+                        <p className="text-[8px] text-slate-600 text-center mt-2 italic">
+                            Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
+                        </p>
+                    )}
+                    </>
                 )}
             </div>
             {!forcedMode && (

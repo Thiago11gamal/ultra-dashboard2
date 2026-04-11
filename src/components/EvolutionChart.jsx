@@ -62,7 +62,7 @@ const ENGINES = [
 
 import { useAppStore } from "../store/useAppStore";
 
-export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [] }) {
+export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [], unit = '%' }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
@@ -502,6 +502,7 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                     <MonteCarloEvolutionChart 
                         data={monteCarloHistory} 
                         targetScore={targetScore} 
+                        unit={unit}
                     />
                 ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
