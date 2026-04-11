@@ -39,10 +39,14 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
             if (cat) {
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => { itemsMap[t.id] = { name: t.name.substring(0, 12), color: cat.color }; });
+                        h.topics.forEach(t => { 
+                            const tName = String(t.name || '').trim();
+                            if (!tName) return;
+                            itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color }; 
+                        });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        itemsMap[h.taskId] = { name: tName.substring(0, 12), color: cat.color };
+                        itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color };
                     }
                 });
             }
@@ -76,9 +80,14 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
             if (cat) {
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => processHistory([{...t, date: h.date}], t.id));
+                        h.topics.forEach(t => {
+                            const tName = String(t.name || '').trim();
+                            if (!tName) return;
+                            processHistory([{...t, date: h.date}], tName.toLowerCase());
+                        });
                     } else if (h.taskId) {
-                        processHistory([{...h}], h.taskId);
+                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        processHistory([{...h}], tName.toLowerCase());
                     }
                 });
             }
@@ -86,10 +95,27 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
 
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
         
+        // 🌟 SOLUÇÃO 3: BURACO DO EIXO X (Preenchimento das semanas sem estudo)
+        const filledWeeks = [];
+        if (sortedWeeks.length > 0) {
+            const firstWeek = new Date(sortedWeeks[0].week);
+            const lastWeek = new Date(sortedWeeks[sortedWeeks.length - 1].week);
+            
+            // Corrige o timezone previnindo deslocamentos no preenchimento
+            const curr = new Date(firstWeek.getTime() + firstWeek.getTimezoneOffset() * 60000);
+            const end = new Date(lastWeek.getTime() + lastWeek.getTimezoneOffset() * 60000);
+            
+            while (curr <= end) {
+                const weekStr = curr.toISOString().split('T')[0];
+                filledWeeks.push(weeksTemp[weekStr] || { week: weekStr });
+                curr.setDate(curr.getDate() + 7);
+            }
+        }
+        
         // 🌟 SOLUÇÃO 1: BURACO TEMPORAL VENCIDO
         const memoryByItem = {}; // { [id]: { pct, total } }
 
-        const finalData = sortedWeeks.map((weekObj) => {
+        const finalData = filledWeeks.map((weekObj) => {
             const dataPoint = { week: weekObj.week, displayDate: formatWeek(weekObj.week) };
             
             validIds.forEach(id => {
@@ -174,7 +200,7 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                             
                             if (isDelta) {
                                 // Design para Variação
-                                const color = val >= 0 ? '#10b981' : '#ef4444';
+                                const color = val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8';
                                 const prefix = val > 0 ? '+' : '';
                                 
                                 return (
@@ -184,7 +210,7 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}></span>
                                                 {entry.name.replace(' (Var.)', '')}
                                             </span>
-                                            <span className={`font-mono font-black ${val >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <span className={`font-mono font-black`} style={{ color }}>
                                                 {prefix}{val}{unit}
                                             </span>
                                         </div>
@@ -296,9 +322,9 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                     name={activeKeys[key].name}
                                     stroke={activeKeys[key].color} 
                                     strokeWidth={3}
-                                    strokeOpacity={hiddenKeys[key] ? 0 : 1}
-                                    dot={hiddenKeys[key] ? false : { r: 4, strokeWidth: 2, fill: '#0f172a' }}
-                                    activeDot={hiddenKeys[key] ? false : { r: 6, strokeWidth: 0 }}
+                                    hide={hiddenKeys[key]}
+                                    dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
+                                    activeDot={{ r: 6, strokeWidth: 0 }}
                                     connectNulls={true} 
                                 />
                             ))}
@@ -342,17 +368,19 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                 travellerWidth={8}
                             />
 
-                            {keys.map(key => !hiddenKeys[key] && (
+                            {keys.map(key => (
                                 <Bar 
                                     key={`delta_${key}`}
                                     dataKey={`delta_${key}`} 
                                     name={`${activeKeys[key].name} (Var.)`}
                                     fill={activeKeys[key].color} 
                                     radius={[4, 4, 4, 4]}
+                                    hide={hiddenKeys[key]}
                                 >
                                     {chartData.map((entry, index) => {
                                         const val = entry[`delta_${key}`];
-                                        return <Cell key={`cell-${index}`} fill={val >= 0 ? '#10b981' : '#ef4444'} fillOpacity={0.85} />;
+                                        const barColor = val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8';
+                                        return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={0.85} />;
                                     })}
                                 </Bar>
                             ))}
