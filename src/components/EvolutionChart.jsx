@@ -62,13 +62,21 @@ const ENGINES = [
 
 import { useAppStore } from "../store/useAppStore";
 
-export default function EvolutionChart({ categories = [], targetScore = 80, goalDate, monteCarloHistory = [], unit = '%' }) {
+export default function EvolutionChart({ 
+    categories = [], 
+    targetScore = 80, 
+    goalDate, 
+    monteCarloHistory = [], 
+    unit = '%',
+    minScore = 0,
+    maxScore = 100
+}) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
-    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights);
+    const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
     const { runAnalysis } = useMonteCarloWorker();
     const [mcLoading, setMcLoading] = useState(false);
 
@@ -157,7 +165,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         (async () => {
             setMcLoading(true);
             try {
-                const bayesian = computeBayesianLevel(hist);
+                // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
+                const bayesian = computeBayesianLevel(hist, 1, 1, maxScore);
                 const vol = calculateVolatility(hist);
                 
                 // WORKER UPGRADE: Using parallel worker with 5000 simulations
@@ -503,6 +512,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                         data={monteCarloHistory} 
                         targetScore={targetScore} 
                         unit={unit}
+                        minScore={0}
+                        maxScore={100}
                     />
                 ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
@@ -537,6 +548,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                         focusSubjectId={focusSubjectId}
                         showOnlyFocus={showOnlyFocus}
                         categories={categories}
+                        minScore={0}
+                        maxScore={100}
                     />
                 )}
             </div>
@@ -562,8 +575,8 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
                                     <GaussianPlot 
                                         mean={mcResult?.projectedMean || mcResult?.mean || 0}
                                         sd={mcResult?.sd || 0}
-                                        sdLeft={mcResult?.sdLeft || mcResult?.sd}
-                                        sdRight={mcResult?.sdRight || mcResult?.sd}
+                                        sdLeft={mcResult?.sdLeft || mcResult?.sd || 0}
+                                        sdRight={mcResult?.sdRight || mcResult?.sd || 0}
                                         low95={mcResult?.ci95Low || 0}
                                         high95={mcResult?.ci95High || 0}
                                         targetScore={targetScore}

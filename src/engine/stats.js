@@ -143,7 +143,7 @@ export function calculateTrend(history) {
  * A cada simulado: alpha += acertos, beta += erros.
  * Retorna média posterior + IC 95%.
  */
-export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
+export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100) {
     let alpha = alpha0;
     let beta  = beta0;
 
@@ -153,8 +153,10 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1) {
             let correct = Number(h.correct) || 0;
             
             // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 100 questões)
+            // BUG 4 FIX: Use maxScore instead of hardcoded 100 for score-to-proportion conversion.
+            // Previously h.score/100 broke for scales like OAB (0-10): score=7 -> pct=0.07 (7%) instead of 0.7 (70%).
             if (total === 0 && h.score != null) {
-                const pct = Math.min(1, Math.max(0, Number(h.score) / 100));
+                const pct = Math.min(1, Math.max(0, Number(h.score) / maxScore));
                 total = SYNTHETIC_TOTAL_QUESTIONS;
                 correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
             }

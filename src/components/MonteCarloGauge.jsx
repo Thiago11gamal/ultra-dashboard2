@@ -169,7 +169,7 @@ export default function MonteCarloGauge({
 
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
 
-                const baye = computeBayesianLevel(history);
+                const baye = computeBayesianLevel(history, 1, 1, maxScore);
                 const stats = computeCategoryStats(history, weight);
                 const vol = calculateVolatility(history);
 
@@ -272,7 +272,7 @@ export default function MonteCarloGauge({
         }
 
         let totalPoints = 0;
-        statsData.categoryStats.forEach(cat => totalPoints += cat.count || 1);
+        statsData.categoryStats.forEach(cat => totalPoints += cat.n || 1);
 
         if (totalPoints < 1) {
             setSimulationData({ status: 'waiting', missing: 'count', count: totalPoints });

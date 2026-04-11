@@ -357,9 +357,15 @@ export function monteCarloSimulation(
             probability: Number(probability.toFixed(1)),
             mean: Number(baseline.toFixed(1)),
             sd: Number(inferredSD.toFixed(1)),
+            // BUG 3 FIX: Return all fields that the UI expects so GaussianPlot
+            // doesn't fall back to the geometric solver when in "Hoje" mode.
+            sdLeft: Number(inferredSD.toFixed(2)),
+            sdRight: Number(inferredSD.toFixed(2)),
             ci95Low: Number(Math.max(minScore, ciLow).toFixed(1)),
             ci95High: Number(Math.min(maxScore, ciHigh).toFixed(1)),
             currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
+            projectedMean: baseline,
+            projectedSD: inferredSD,
             drift: 0,
             volatility,
             method: options.bayesianCI ? "bayesian_static" : "normal_static"
@@ -393,10 +399,12 @@ export function monteCarloSimulation(
     // simulationDays hoisted to line ~277 for C1 drift uncertainty cap
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
 
-    // 🎯 CALIBRAÇÃO ORNSTEIN-UHLENBECK (OU)
-    // 1. Velocidade de reversão (θ - Theta). 
-    // Um aluno consistente (baixa volatilidade) corrige erros mais rápido.
-    const theta = Math.max(0.02, 0.1 - (volatility * 0.005));
+    // BUG 1 FIX: Hyperbolic decay for theta (OU mean-reversion speed).
+    // Previously linear: theta = 0.1 - vol*0.005, which created a plateau where
+    // vol=17 and vol=50 both mapped to theta=0.02 (the floor).
+    // Hyperbolic: monotonic decay without plateau, higher-vol students have
+    // proportionally slower reversion. vol=5→0.08, vol=20→0.05, vol=50→0.029.
+    const theta = Math.max(0.005, 0.1 / (1 + volatility * 0.05));
 
     // 2. O Atrator (μ - Mu).
     // Até onde o aluno naturalmente chegaria com a tendência de aprendizagem atual.
@@ -437,7 +445,12 @@ export function monteCarloSimulation(
             // Mapeia score para [0, 1] relativo ao domínio real da prova.
             const scoreRange = maxScore - minScore;
             const p = Math.max(0.001, Math.min(0.999, (score - minScore) / scoreRange));
-            const binomialVolatility = Math.sqrt(p * (1 - p)) * 2;
+            // BUG 2 FIX: Gentle power-law boundary damping instead of linear compression.
+            // Previously: sqrt(p(1-p))*2 peaked at 1.0 (center) but dropped to 0.44 at
+            // extremes, systematically compressing shocks by ~50% for non-centered scores.
+            // New: 4p(1-p) raised to 0.15 gives range [0.85, 1.0] — mild boundary
+            // effect without systematic underestimation of volatility.
+            const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.15);
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
             score += deterministicPull + (shock * binomialVolatility);
@@ -497,17 +510,21 @@ export function monteCarloSimulation(
         console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
     }
 
+    // BUG 5 FIX: Compute median for asymmetric sdLeft/sdRight anchoring
+    const empMedian = getPercentile(allFinalScores, 0.5);
+
     return {
         // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9).
         probability: Number.isFinite(empiricalProbability) ? empiricalProbability : (Number.isFinite(analyticalProbability) ? analyticalProbability : 0),
         analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number(displayMean.toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
-        // BUG-D FIX: sdLeft/sdRight from empirical p16/p84 percentiles
-        // to capture asymmetry of the truncated OU distribution.
-        // Previously both were projectedSD — always symmetric, hiding skewness.
-        sdLeft: Number(Math.max(0.1, projectedMean - getPercentile(allFinalScores, 0.16)).toFixed(2)),
-        sdRight: Number(Math.max(0.1, getPercentile(allFinalScores, 0.84) - projectedMean).toFixed(2)),
+        // BUG-D + BUG 5 FIX: sdLeft/sdRight from empirical p16/p84 percentiles
+        // anchored on MEDIAN (not mean). With skewed OU distributions, mean can
+        // fall outside [p16, p84], producing misleading or clamped-to-floor values.
+        // Median is always between p16 and p84 by definition.
+        sdLeft: Number(Math.max(0.1, empMedian - getPercentile(allFinalScores, 0.16)).toFixed(2)),
+        sdRight: Number(Math.max(0.1, getPercentile(allFinalScores, 0.84) - empMedian).toFixed(2)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),

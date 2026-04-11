@@ -104,15 +104,17 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
+  const empMedian = getPercentile(allScores, 0.5);
+
   return {
     probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
     analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
     mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
     sd: Number(projectedSD.toFixed(1)),
-    // BUG 6 FIX: sdLeft/sdRight from empirical p16/p84 percentiles
-    // to capture asymmetry of the truncated normal distribution.
-    sdLeft: Number(Math.max(0.1, projectedMean - getPercentile(allScores, 0.16)).toFixed(2)),
-    sdRight: Number(Math.max(0.1, getPercentile(allScores, 0.84) - projectedMean).toFixed(2)),
+    // BUG 5 + BUG 6 FIX: sdLeft/sdRight from empirical p16/p84 percentiles
+    // anchored on MEDIAN (not mean) to handle truncated distribution skewness.
+    sdLeft: Number(Math.max(0.1, empMedian - getPercentile(allScores, 0.16)).toFixed(2)),
+    sdRight: Number(Math.max(0.1, getPercentile(allScores, 0.84) - empMedian).toFixed(2)),
     ci95Low: Number(displayLow.toFixed(1)),
     ci95High: Number(displayHigh.toFixed(1)),
     currentMean: Number(safeCurrentMean.toFixed(1)),

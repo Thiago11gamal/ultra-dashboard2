@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS } from '../engine/stats';
 
-function buildCumulativeStatsPerDate(history, sortedDates) {
+function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     const aggregatedHistoryByDateMap = new Map();
 
     for (const h of history) {
@@ -51,8 +51,9 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
                 let correct = Number(entry.correct) || 0;
                 
                 // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
+                // BUG 4 FIX: Use maxScore instead of hardcoded 100.
                 if (total === 0 && entry.score != null) {
-                    const pct = Math.min(1, Math.max(0, Number(entry.score) / 100));
+                    const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
                     total = SYNTHETIC_TOTAL_QUESTIONS;
                     correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
                 }
@@ -70,7 +71,8 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
         if (accumulated.length > 0) {
             // RIGOR-07 FIX: Use the official engine to ensure consistent floors (0.01 vs 0.02)
             // and identical Z-score / CI calculation across all components.
-            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta);
+            // BUG 4b FIX: Propagate maxScore to computeBayesianLevel.
+            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta, maxScore);
             dateToStats[date] = {
                 stats: computeCategoryStats(accumulated, 100),
                 last:  accumulated[accumulated.length - 1],
@@ -87,7 +89,7 @@ function buildCumulativeStatsPerDate(history, sortedDates) {
     return dateToStats;
 }
 
-export function useChartData(categories = [], weights = {}) {
+export function useChartData(categories = [], weights = {}, maxScore = 100) {
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
         valid.sort((a, b) => {
@@ -130,7 +132,7 @@ export function useChartData(categories = [], weights = {}) {
             });
             if (!history.length) return;
 
-            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates);
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, maxScore);
 
             const exactByDate = {};
             history.forEach(h => {
