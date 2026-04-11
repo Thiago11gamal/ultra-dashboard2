@@ -24,14 +24,14 @@ export function AuthProvider({ children }) {
                 await updateProfile(userCredential.user, {
                     displayName: name
                 });
-                // Força o reload para que o currentUser local reflita o displayName imediatamente
+                // Força o reload para que o token reflita o displayName
                 await userCredential.user.reload();
-                const updatedUser = auth.currentUser;
-                // FIX: Somente atualiza se o usuário ainda for válido (evita race conditions)
-                if (updatedUser) {
-                    setCurrentUser(updatedUser);
-                }
-                return updatedUser;
+                // BUG 4 FIX: Não chamar setCurrentUser manualmente aqui.
+                // O listener onAuthStateChanged já vai receber o evento de criação
+                // de conta e atualizar o currentUser como single source of truth.
+                // Chamar setCurrentUser aqui cria race condition: o estado é setado
+                // com um objeto user que pode ficar stale quando o listener dispara.
+                return auth.currentUser;
             });
     }
 

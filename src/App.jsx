@@ -156,21 +156,26 @@ function MainLayout() {
 
   useEffect(() => {
     if (currentUser) {
-        // Se os dados estiverem em falta completamente, forçar recuperação
         if (!hasActiveData) {
+            // Cenário 1: activeId aponta para um contest inexistente
             if (contestsCount > 0) {
                 console.warn("Store inconsistency detected: Active contest missing. Attempting to recover activeId...");
                 switchContest(firstContestId);
             } else {
+                // Cenário 2: Nenhum contest existe — criar default
                 console.warn("No contests found. Creating default...");
                 createNewContest();
             }
-        } else if (contestsCount > 0 && firstContestId !== activeContestId && !hasActiveData) {
-            // Caso o activeId aponte para um ID que não existe nas chaves
+        } else if (contestsCount > 1 && !contests[activeContestId]) {
+            // BUG 3 FIX: Cenário 3 (antes inalcançável): Dados existem em contests,
+            // mas o activeId aponta para uma chave que não existe mais (ex: contest deletado).
+            // hasActiveData pode ser true se 'data' foi derivado antes do re-render limpá-lo.
+            // Corrigir apontando para o primeiro contest válido.
+            console.warn("ActiveId points to deleted contest. Switching to first available...");
             switchContest(firstContestId);
         }
     }
-  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest]);
+  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

@@ -74,12 +74,12 @@ export const useAppStore = create(
             {
                 // Zundo Options: Limit history to 20 states
                 limit: 20,
-                // Only track changes to appState.contests and appState.activeId for undo/redo
+                // BUG 1 FIX: Partialize must include the entire appState tree.
+                // Previously only contests + activeId were saved, so undo() replaced
+                // the root appState with a partial object — wiping trash, version,
+                // dashboardFilter, hasSeenTour, pomodoro, and lastUpdated to undefined.
                 partialize: (state) => ({
-                    appState: {
-                        contests: state.appState.contests,
-                        activeId: state.appState.activeId
-                    }
+                    appState: state.appState
                 }),
             }
         ),
