@@ -28,6 +28,7 @@ import { PerformanceBarChart } from "./charts/EvolutionChart/PerformanceBarChart
 import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAnalysis";
 import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
 import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
+import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
 
 const ENGINES = [
     {
@@ -57,6 +58,10 @@ const ENGINES = [
     {
         id: "mc_density", label: "Densidade MC", emoji: "📉", color: "#60a5fa", prefix: null, style: "monotoneX",
         explain: { titulo: "Rastreador de Sucesso", simples: "Evolução temporal da sua projeção de Monte Carlo registrada a cada simulado.", dica: "Ideal para ver se a aprovação está chegando cada vez mais perto." },
+    },
+    {
+        id: "weekly_diff", label: "Semanal", emoji: "📆", color: "#10b981", prefix: null, style: "linear",
+        explain: { titulo: "Evolução Semanal de Desempenho", simples: "Compara diretamente o seu desempenho (delta) de uma semana para a outra.", dica: "Foque nas semanas com regressão (valores negativos em vermelho) para entender quais matérias exigem revisão urgente." },
     },
 ];
 
@@ -517,6 +522,14 @@ export default function EvolutionChart({
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}
+                    />
+                ) : activeEngine === "weekly_diff" ? (
+                    <WeeklyEvolutionView 
+                        categories={categories}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                        maxScore={maxScore}
+                        unit={unit}
                     />
                 ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
