@@ -128,12 +128,12 @@ export default function EvolutionChart({
             }
             const history = cat.simuladoStats?.history || [];
             if (!history.length) { map[cat.id] = 0; return; }
-            const stats = computeCategoryStats(history, 100);
+            const stats = computeCategoryStats(history, 100, 60, maxScore);
             if (!stats) { map[cat.id] = 0; return; }
             map[cat.id] = calculateCurrentWeightedMean([{ ...stats, weight: 100 }], 100);
         });
         return map;
-    }, [categories, timeline]);
+    }, [categories, timeline, maxScore]);
 
     // PREMIUM INTEGRATION - Monte Carlo Data State
     const [mcResult, setMcResult] = useState(null);
@@ -447,6 +447,8 @@ export default function EvolutionChart({
                             target={targetScore} 
                             isFocused={focusSubjectId === cat.id} 
                             onClick={() => setFocusSubjectId(cat.id)} 
+                            unit={unit}
+                            maxScore={maxScore}
                         />
                     ))}
                 </div>
@@ -512,8 +514,8 @@ export default function EvolutionChart({
                         data={monteCarloHistory} 
                         targetScore={targetScore} 
                         unit={unit}
-                        minScore={0}
-                        maxScore={100}
+                        minScore={minScore}
+                        maxScore={maxScore}
                     />
                 ) : filteredChartData.length < 2 ? (
                     <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
@@ -536,7 +538,10 @@ export default function EvolutionChart({
                         <CompareChart 
                             filteredChartData={filteredChartData} 
                             targetScore={targetScore} 
-                            categories={categories} 
+                            categories={categories}
+                            minScore={minScore}
+                            maxScore={maxScore}
+                            unit={unit}
                         />
                     </div>
                 ) : (
@@ -548,8 +553,9 @@ export default function EvolutionChart({
                         focusSubjectId={focusSubjectId}
                         showOnlyFocus={showOnlyFocus}
                         categories={categories}
-                        minScore={0}
-                        maxScore={100}
+                        minScore={minScore}
+                        maxScore={maxScore}
+                        unit={unit}
                     />
                 )}
             </div>
@@ -582,6 +588,9 @@ export default function EvolutionChart({
                                         targetScore={targetScore}
                                         prob={mcResult?.probability || 0}
                                         kdeData={mcResult?.kdeData}
+                                        minScore={minScore}
+                                        maxScore={maxScore}
+                                        unit={unit}
                                     />
                                 </div>
                             </div>
@@ -590,9 +599,9 @@ export default function EvolutionChart({
                             <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
                                 {[
                                     { label: 'Caminho Sucesso', val: `${Number(mcResult?.probability || 0).toFixed(1)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                                    { label: 'Nível Projetado', val: `${Number(mcResult?.projectedMean || 0).toFixed(1)}%`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                                    { label: 'Margem de Erro', val: `±${Number(mcResult?.sd || 0).toFixed(1)}%`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                                    { label: 'Confiança 95%', val: `${Math.round(mcResult?.ci95Low || 0)}-${Math.round(mcResult?.ci95High || 0)}%`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
+                                    { label: 'Nível Projetado', val: `${Number(mcResult?.projectedMean || 0).toFixed(1)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                                    { label: 'Margem de Erro', val: `±${Number(mcResult?.sd || 0).toFixed(1)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                                    { label: 'Confiança 95%', val: `${Math.round(mcResult?.ci95Low || 0)}-${Math.round(mcResult?.ci95High || 0)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
                                 ].map((stat, i) => (
                                     <div key={i} className="flex flex-col p-3 rounded-xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-1.5 mb-1 opacity-60">

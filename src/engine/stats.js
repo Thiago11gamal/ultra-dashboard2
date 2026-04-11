@@ -170,34 +170,31 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
     const n    = alpha + beta;
     const p    = alpha / n;
-    const mean = p * 100;
+    const mean = p * maxScore;
 
     const baseVariance = (alpha * beta) / (n * n * (n + 1));
     const effectiveSd = Math.sqrt(baseVariance); 
 
-    // FIX 1.2: Clamping Inteligente. Ao invés de travar de forma rígida um lado e 
-    // destruir a simetria, garantimos que os limites não ultrapassem a física do teste,
-    // mas reportamos a Incerteza (SD) efetiva inalterada.
-    const marginOfError = 1.96 * effectiveSd * 100;
+    // FIX 1.2: Clamping Inteligente.
+    // BUG 4b FIX: Scaling by maxScore.
+    const marginOfError = 1.96 * effectiveSd * maxScore;
     
     // Calcula os limites teóricos
     let ciLow  = mean - marginOfError;
     let ciHigh = mean + marginOfError;
 
-    // Proteção de segurança: O intervalo alto nunca pode ser menor que a média
+    // Proteção de segurança
     ciHigh = Math.max(mean, ciHigh);
     ciLow = Math.min(mean, ciLow);
 
-    // Aplica a limitação com "soft bounds" para apresentação, mas mantém a física do teste.
-    // RIGOR-FIX: Removido o clamping rígido que destruía a simetria da curva gaussiana.
-    // Os limites agora podem exceder ligeiramente 0-100 na matemática interna para permitir
-    // que o gráfico desenhe a "cauda" residual de forma suave.
-    const softLow = Math.max(-5, ciLow);
-    const softHigh = Math.min(105, ciHigh);
+    // BUG 4b FIX: Soft bounds proportional to maxScore. 
+    // Previously hardcoded -5/105 broke for OAB (0-10) correctly showing -0.5/10.5.
+    const softLow = Math.max(-(maxScore * 0.05), ciLow);
+    const softHigh = Math.min(maxScore * 1.05, ciHigh);
 
     return {
         mean:  Number(mean.toFixed(2)),
-        sd:    Number((effectiveSd * 100).toFixed(2)),
+        sd:    Number((effectiveSd * maxScore).toFixed(2)),
         ciLow:  Number(softLow.toFixed(2)),
         ciHigh: Number(softHigh.toFixed(2)),
         alpha,
@@ -206,17 +203,18 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     };
 }
 
-export function computeCategoryStats(history, weight) {
+export function computeCategoryStats(history, weight, daysValue = 60, maxScore = 100) {
     if (!history || history.length === 0) return null;
 
     const validHistory = history.filter(h => (Number(h.total) || 0) > 0);
     const historyToUse = validHistory.length > 0 ? validHistory : history;
 
-    const scores = historyToUse.map(h => getSafeScore(h));
+    // BUG 4b FIX: Pass maxScore to getSafeScore
+    const scores = historyToUse.map(h => getSafeScore(h, maxScore));
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     const m = totalQ > 0 
-        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h) * (Number(h.total) || 0), 0) / totalQ
+        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, maxScore) * (Number(h.total) || 0), 0) / totalQ
         : mean(scores);
 
     // FIX: Variância Ponderada pelo número de questões por exame
@@ -225,28 +223,27 @@ export function computeCategoryStats(history, weight) {
         let wVarSum = 0;
         historyToUse.forEach(h => {
             const w = (Number(h.total) || 1);
-            wVarSum += w * Math.pow(getSafeScore(h) - m, 2);
+            wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
-        // RIGOR-08 FIX: Bessel's Correction para variância ponderada (baseado em número de exames).
-        // Evita o colapso da variância quando totalQ (questões) é muito maior que nExams.
+        // RIGOR-08 FIX
         const nExams = historyToUse.length;
         variance = nExams > 1 ? wVarSum / (totalQ * ((nExams - 1) / nExams)) : 0;
     } else {
         variance = Math.pow(standardDeviation(scores), 2);
     }
     
-    const sd = Math.max(Math.sqrt(variance), 1.0);
+    const sd = Math.max(Math.sqrt(variance), 0.01 * maxScore);
     const safeSD = sd;
-    // BUG-08 FIX: Usar calculateSlope (weightedRegression) para consistência com Monte Carlo drift
-    // calculateSlope retorna pp/dia (clampeado e atenuado por confiança).
-    // Esta é a função CANÔNICA para tendências no dashboard.
+
     const slopePerDay = calculateSlope(historyToUse);
     // Converter para pp/30-dias para comparação com threshold
+    // Threshold de 0.5% (base 100) -> proportional limit
+    const trendThreshold = 0.005 * maxScore;
     const rawTrend = slopePerDay * 30;
 
     let trendLabel = 'stable';
-    if (rawTrend > 0.5) trendLabel = 'up';
-    else if (rawTrend < -0.5) trendLabel = 'down';
+    if (rawTrend > trendThreshold) trendLabel = 'up';
+    else if (rawTrend < -trendThreshold) trendLabel = 'down';
 
     return {
         mean: m,

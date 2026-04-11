@@ -170,7 +170,7 @@ export default function MonteCarloGauge({
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
 
                 const baye = computeBayesianLevel(history, 1, 1, maxScore);
-                const stats = computeCategoryStats(history, weight);
+                const stats = computeCategoryStats(history, weight, 60, maxScore);
                 const vol = calculateVolatility(history);
 
                 if (stats && weight > 0) {

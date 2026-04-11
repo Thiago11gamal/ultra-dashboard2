@@ -12,7 +12,10 @@ export function EvolutionLineChart({
     engine, 
     targetScore, 
     focusSubjectId,
-    showOnlyFocus
+    showOnlyFocus,
+    minScore = 0,
+    maxScore = 100,
+    unit = '%'
 }) {
     const instanceId = useId().replace(/:/g, "");
     const shadowId = `el_lineShadow_${instanceId}`;
@@ -93,14 +96,15 @@ export function EvolutionLineChart({
             const adjustedY = yAdjustedMap[catId];
             
             if (adjustedY !== undefined && adjustedY !== value) {
-                const pxPerPct = (viewBox?.height > 0) ? viewBox.height / 100 : 2.5;
+                // BUG 4b FIX: Use maxScore instead of hardcoded 100
+                const pxPerPct = (viewBox?.height > 0) ? viewBox.height / maxScore : 2.5;
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
             return (
                 <g style={{ zIndex: 100 }}>
                     <text x={x + 8} y={y + 4 + offsetPx} fill={catColor} fontSize={11} fontWeight="bold" style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}>
-                        {Number(value).toFixed(1)}%
+                        {Number(value).toFixed(1)}{unit}
                     </text>
                 </g>
             );
@@ -138,9 +142,9 @@ export function EvolutionLineChart({
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[minScore, maxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45} strokeDasharray="0"
-                        label={{ value: `Meta ${targetScore}%`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
+                        label={{ value: `Meta ${targetScore}${unit}`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                         content={<ChartTooltip chartData={enhancedChartData} isCompare={false} />} />
                     <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />

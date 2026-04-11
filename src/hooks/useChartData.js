@@ -12,18 +12,19 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         const existing = aggregatedHistoryByDateMap.get(key);
         const rawCorrect = Number(h.correct) || 0;
         const total = Number(h.total) || 0;
+        // BUG 4b FIX: Use maxScore instead of hardcoded 100
         const correct = (h.isPercentage && h.score != null && total > 0)
-            ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * total)
+            ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * total)
             : rawCorrect;
 
         if (existing) {
             if (existing.total + total > 0) {
-                existing.score = ((existing.correct + correct) / (existing.total + total)) * 100;
+                existing.score = ((existing.correct + correct) / (existing.total + total)) * maxScore;
             }
             existing.correct += correct;
             existing.total += total;
         } else {
-            const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * 100 : 0);
+            const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * maxScore : 0);
             aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
         }
     }
@@ -69,12 +70,10 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
             }
         }
         if (accumulated.length > 0) {
-            // RIGOR-07 FIX: Use the official engine to ensure consistent floors (0.01 vs 0.02)
-            // and identical Z-score / CI calculation across all components.
-            // BUG 4b FIX: Propagate maxScore to computeBayesianLevel.
+            // BUG 4b FIX: Propagate maxScore to computeCategoryStats and computeBayesianLevel
             const bayStats = computeBayesianLevel([], bayAlpha, bayBeta, maxScore);
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100),
+                stats: computeCategoryStats(accumulated, 100, 60, maxScore),
                 last:  accumulated[accumulated.length - 1],
                 bayesian: {
                     mean:   bayStats.mean,
@@ -142,8 +141,9 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 const rawC = Number(h.correct) || 0;
                 const tot  = Number(h.total)   || 0;
                 // FIX BUG-EV-01: normalizar isPercentage igual ao buildCumulativeStatsPerDate
+                // BUG 4b FIX: Use maxScore
                 const corrNorm = (h.isPercentage && h.score != null && tot > 0)
-                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
+                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot)
                     : rawC;
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total   += tot;
@@ -159,7 +159,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 const correct = exact ? exact.correct : 0;
                 const total = exact ? exact.total : 0;
 
-                const rawDailyScore = total >= 1 ? (correct / total) * 100 : null;
+                const rawDailyScore = total >= 1 ? (correct / total) * maxScore : null;
 
                 dataByDate[date][`raw_correct_${cat.name}`] = correct;
                 dataByDate[date][`raw_total_${cat.name}`] = total;
@@ -195,7 +195,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 }
             });
 
-            d.global_pct = totalW > 0 ? (weightedSum / totalW) : ((d.global_total > 0) ? (d.global_correct / d.global_total) * 100 : 0);
+            d.global_pct = totalW > 0 ? (weightedSum / totalW) : ((d.global_total > 0) ? (d.global_correct / d.global_total) * maxScore : 0);
         });
 
         return dates.map(d => dataByDate[d]);
@@ -236,10 +236,10 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 let raw = Number(h.correct) || 0;
                 let corrNorm;
                 if (h.isPercentage && h.score != null && tot > 0) {
-                    corrNorm = Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot);
+                    corrNorm = Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot);
                 } else if (h.isPercentage && h.score != null && tot === 0) {
                     tot = SYNTHETIC_TOTAL_QUESTIONS;
-                    corrNorm = Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot);
+                    corrNorm = Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot);
                 } else {
                     corrNorm = raw;
                 }
@@ -251,7 +251,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
                 return {
-                    pct: (entry.correct / entry.total) * 100,
+                    pct: (entry.correct / entry.total) * maxScore,
                     correct: entry.correct,
                     total: entry.total,
                 };
@@ -271,13 +271,13 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 const tot = Number(h.total) || 0;
                 const raw = Number(h.correct) || 0;
                 const corrNorm = (h.isPercentage && h.score != null && tot > 0)
-                    ? Math.round((Math.min(100, Math.max(0, Number(h.score))) / 100) * tot)
+                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot)
                     : raw;
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
             });
         });
-        const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
+        const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * maxScore : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
     }, [activeCategories]);
 

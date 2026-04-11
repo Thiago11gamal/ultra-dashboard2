@@ -8,7 +8,10 @@ import { ChartTooltip } from "../ChartTooltip";
 
 export function CompareChart({ 
     filteredChartData, 
-    targetScore 
+    targetScore,
+    minScore = 0,
+    maxScore = 100,
+    unit = '%'
 }) {
     const baseId = useId().replace(/:/g, '');
     const CC = React.useMemo(() => ({
@@ -72,7 +75,7 @@ export function CompareChart({
         if (!pts || !pts.length) return 0;
         const pt = pts.find(p => p.name === name);
         if (!pt) return 0;
-        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / 100 : 4.6;
+        const pxPerPct = viewBox?.height != null && viewBox.height > 0 ? viewBox.height / maxScore : 4.6;
         return (value - pt.yPos) * pxPerPct;
     };
 
@@ -95,7 +98,7 @@ export function CompareChart({
 
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
-        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{Number(value).toFixed(1)}%</text>;
+        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{Number(value).toFixed(1)}{unit}</text>;
     };
 
     let gainBase = 'dataMin';
@@ -143,10 +146,10 @@ export function CompareChart({
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
                     <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dy={12} axisLine={false} tickLine={false} minTickGap={35} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[0, 100]} allowDataOverflow={true} tickFormatter={(v) => `${v}%`} width={50} />
+                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[minScore, maxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
                     
                     <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
-                        label={{ value: `META ${targetScore}%`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
+                        label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
                     
                     <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                         content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />

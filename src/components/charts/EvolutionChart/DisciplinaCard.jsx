@@ -1,9 +1,9 @@
 import React from 'react';
 
-export function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
-    const pct = Math.min(100, level || 0);
-    const ok = pct >= target;
-    const mid = pct >= target * 0.75;
+export function DisciplinaCard({ cat, level, target, isFocused, onClick, unit = '%', maxScore = 100 }) {
+    const val = level || 0;
+    const ok = val >= target;
+    const mid = val >= target * 0.75;
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
     
     return (
@@ -25,7 +25,7 @@ export function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
             <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/50 overflow-hidden">
                 <div className="h-full transition-all duration-1000 ease-out"
                     style={{ 
-                        width: `${pct}%`, 
+                        width: `${(val / maxScore) * 100}%`, 
                         backgroundColor: statusColor,
                         boxShadow: `0 0 10px ${statusColor}80` 
                     }} />
@@ -48,9 +48,9 @@ export function DisciplinaCard({ cat, level, target, isFocused, onClick }) {
                 </p>
                 <div className="flex items-baseline gap-1 mt-0.5">
                     <span className={`text-lg sm:text-xl font-black tracking-tighter transition-colors duration-500 ${isFocused ? 'text-white' : 'text-slate-200'}`}>
-                        {pct.toFixed(1)}
+                        {val.toFixed(1)}
                     </span>
-                    <span className={`text-[10px] font-bold ${isFocused ? 'opacity-80' : 'opacity-40'}`}>%</span>
+                    <span className={`text-[10px] font-bold ${isFocused ? 'opacity-80' : 'opacity-40'}`}>{unit}</span>
                 </div>
             </div>
         </button>
