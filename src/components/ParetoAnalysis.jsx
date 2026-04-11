@@ -15,18 +15,20 @@ export default function ParetoAnalysis({ categories = [] }) {
                 cat.simuladoStats.history.forEach(h => {
                     const topics = h.topics || [];
                     topics.forEach(t => {
-                        const correct = parseInt(t.correct, 10) || 0;
                         const total = parseInt(t.total, 10) || 0;
-                        const missed = total - correct;
+                        const correctCount = (t.isPercentage && t.score != null && total > 0)
+                            ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
+                            : (parseInt(t.correct, 10) || 0);
+                        const missed = Math.max(0, total - correctCount);
 
                         if (total > 0) {
                             allTopics.push({
                                 category: cat.name,
                                 topic: t.name,
                                 total,
-                                correct,
+                                correct: correctCount,
                                 missed,
-                                percentage: Math.round((correct / total) * 100)
+                                percentage: total > 0 ? Math.round((correctCount / total) * 100) : 0
                             });
                         }
                     });

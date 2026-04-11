@@ -522,7 +522,10 @@ export default function VerifiedStats({ categories = [], user }) {
                     if (h.topics) {
                         h.topics.forEach(t => {
                             const total = Number(t.total) || 0;
-                            const correct = Number(t.correct) || 0;
+                            const correct = (t.isPercentage && t.score != null && total > 0)
+                                ? Math.round((Math.min(100, Math.max(0, Number(t.score))) / 100) * total)
+                                : (Number(t.correct) || 0);
+
                             if (total > 0) {
                                 const topicScore = (correct / total) * 100;
                                 if (!topicMap[t.name]) topicMap[t.name] = [];

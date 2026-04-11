@@ -87,7 +87,6 @@ export function calculateTrend(history) {
     // ... resto da filtragem por T-score se necessário (usuário pediu foco no den)
     return slope * 30; 
 }
-}
 
 /**
  * Nível Bayesiano Real — Modelo Beta-Binomial Conjugado
