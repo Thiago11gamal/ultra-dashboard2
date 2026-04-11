@@ -58,18 +58,26 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
 export function generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore = 0, maxScore = 100) {
     if (!allScores || allScores.length === 0) return [];
 
-    // SCALE-BOUNDS FIX: Anchor domain dynamically using the injected scale bounds.
-    let plotMin = Math.max(minScore, projectedMean - 3.5 * projectedSD);
-    let plotMax = Math.min(maxScore, projectedMean + 3.5 * projectedSD);
+    // 🎯 UI VISUAL SLACK FIX: Adiciona 5% de "folga" nas bordas
+    // Alinha o gráfico do KDE com os limites softLow/softHigh (Bayesian)
+    // Isso garante que a cauda da distribuição tenha espaço para suavizar sem 
+    // ser cortada abruptamente pelo limite do layout visual.
+    const marginSlack = maxScore * 0.05;
+    const visualMin = minScore - marginSlack;
+    const visualMax = maxScore + marginSlack;
+
+    // SCALE-BOUNDS FIX: Anchor domain dynamically using the new visual bounds
+    let plotMin = Math.max(visualMin, projectedMean - 3.5 * projectedSD);
+    let plotMax = Math.min(visualMax, projectedMean + 3.5 * projectedSD);
 
     // BUG 4 FIX: Ensure a minimum plot width of 1.0 even at domain boundaries.
-    // If mean is 100 (maxScore), range becomes 99-100 instead of 99.5-100.
     if (plotMax - plotMin < 1) {
-        plotMin = Math.max(minScore, projectedMean - 0.5);
-        plotMax = Math.min(maxScore, projectedMean + 0.5);
-        // Correct asymmetric squeeze at boundaries
-        if (plotMax === maxScore && maxScore - minScore >= 1) plotMin = maxScore - 1;
-        if (plotMin === minScore && maxScore - minScore >= 1) plotMax = minScore + 1;
+        plotMin = Math.max(visualMin, projectedMean - 0.5);
+        plotMax = Math.min(visualMax, projectedMean + 0.5);
+        
+        // Correct asymmetric squeeze at boundaries respeitando a folga visual
+        if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(visualMin, visualMax - 1);
+        if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(visualMax, visualMin + 1);
     }
     
     const plotSteps = 100;
