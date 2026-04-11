@@ -45,11 +45,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
   // evitando colisões de seed em mudanças fracionárias pequenas.
   const categoryHash = Array.from(String(categoryName || '')).reduce((acc, char, idx) => acc + char.codePointAt(0) * (idx + 1), 0);
   const stableSeed = seed ?? (
-    (Math.floor(safeMean * 1000) * 179 ^
-    Math.floor(safeSD * 1000) * 997 ^
-    Math.floor(safeTarget * 1000) * 1009 ^
-    (categoryHash * 13) ^
-    (safeSimulations * 7)) >>> 0
+    ((Math.floor(safeMean * 1000) * 179 | 0) ^
+     (Math.floor(safeSD * 1000) * 997 | 0) ^
+     (Math.floor(safeTarget * 1000) * 1009 | 0) ^
+     (categoryHash * 13 | 0) ^
+     (safeSimulations * 7 | 0)) >>> 0
   );
 
   const rng = mulberry32(stableSeed);

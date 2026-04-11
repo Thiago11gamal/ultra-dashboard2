@@ -4,30 +4,34 @@ export const createMonteCarloSlice = (set, get) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
 
-        if (!activeData.monteCarloHistory) {
-            activeData.monteCarloHistory = [];
-        }
-
-        const index = activeData.monteCarloHistory.findIndex(h => h.date === date);
-        const snapshot = { 
-            date, 
-            probability: prob,
-            mean: metadata.mean,
-            target: metadata.target
-        };
+        const snapshot = { date, probability: prob, mean: metadata.mean, target: metadata.target };
+        
+        // FIX: Criar nova referência de array (Imutabilidade) para garantir gatilhos de renderização
+        const history = [...(activeData.monteCarloHistory || [])];
+        const index = history.findIndex(h => h.date === date);
 
         if (index >= 0) {
-            activeData.monteCarloHistory[index] = { ...activeData.monteCarloHistory[index], ...snapshot };
+            history[index] = { ...history[index], ...snapshot };
         } else {
-            activeData.monteCarloHistory.push(snapshot);
+            history.push(snapshot);
         }
 
-        // Retention policy: Keep last 30 snapshots
-        if (activeData.monteCarloHistory.length > 30) {
-            activeData.monteCarloHistory = activeData.monteCarloHistory.slice(-30);
-        }
+        // Política de retenção com slice imutável
+        const finalHistory = history.length > 30 ? history.slice(-30) : history;
 
-        state.appState.lastUpdated = new Date().toISOString();
+        return {
+            appState: {
+                ...state.appState,
+                contests: {
+                    ...state.appState.contests,
+                    [activeId]: {
+                        ...activeData,
+                        monteCarloHistory: finalHistory
+                    }
+                },
+                lastUpdated: new Date().toISOString()
+            }
+        };
     }),
 
     setMcEqualWeights: (enabled) => set((state) => {

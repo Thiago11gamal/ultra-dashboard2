@@ -19,10 +19,9 @@ export function standardDeviation(arr) {
         ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
-    // MATH FIX: Tornar o SD da população proporcional aos dados (aprox. 12% da escala máxima presente)
-    // Se arr tiver valores até 10, o prior SD será 1.2. Se for até 100, será 12.
-    const maxVal = Math.max(...arr, 10); // Assume escala mínima de 10
-    const POPULATION_SD = maxVal * 0.12; 
+    // MATH FIX: Estimar escala máxima para ajustar o prior (SD População)
+    const maxDetected = Math.max(...arr, 10); 
+    const POPULATION_SD = maxDetected * 0.12; // 12% da escala dinâmica
     const KAPPA = 1;
 
     const adjustedVar =
