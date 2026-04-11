@@ -144,7 +144,7 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
                         const isActive = selectedWeekOffset === w.offset;
                         return (
                             <div key={w.label} className="flex items-center">
-                                {!isActive && idx !== 0 && idx !== WEEKS.findIndex(w => w.offset === selectedWeekOffset) - 1 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
+                                {!isActive && idx !== 0 && idx !== WEEKS.findIndex(ww => ww.offset === selectedWeekOffset) - 1 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
                                 <button
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     className={`

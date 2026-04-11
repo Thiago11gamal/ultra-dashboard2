@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
+import { calculateSlope } from '../engine';
 
 const PerformanceTable = ({ categories = [] }) => {
     // Sort by Net Balance (Saldo) descending
@@ -60,12 +61,17 @@ const PerformanceTable = ({ categories = [] }) => {
                             const netBalance = Math.round(totalCorrect - totalWrong);
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
-                            const isTopThree = index < 3 && totalQuestions > 0;
-                            const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
+                            // Dynamic Trend calculation instead of relying on static store value
+                            const trendHistory = history.slice(-10).map(h => ({
+                                score: getSafeScore(h),
+                                date: h.date
+                            }));
+                            const trendValue = history.length >= 3 ? calculateSlope(trendHistory) : 0;
+                            const currentTrend = trendValue > 0.05 ? 'up' : trendValue < -0.05 ? 'down' : 'stable';
 
                             let trendIcon = <Minus size={16} className="text-slate-600 opacity-50" />;
-                            if (stats.trend === 'up') trendIcon = <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />;
-                            if (stats.trend === 'down') trendIcon = <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />;
+                            if (currentTrend === 'up') trendIcon = <TrendingUp size={18} className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />;
+                            if (currentTrend === 'down') trendIcon = <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />;
 
                             return (
                                 <tr key={category.id} className="group hover:bg-white/[0.02] transition-all duration-300">
@@ -87,7 +93,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                                 <span className="font-bold text-sm truncate uppercase tracking-tight" style={{ color: category.color }}>
                                                     {category.name}
                                                 </span>
-                                                <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {Math.floor((category.totalMinutes || 0) / 60)} Scholar</span>
+                                                <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {category.level || 0} Scholar</span>
                                             </div>
                                         </div>
                                     </td>
@@ -122,8 +128,8 @@ const PerformanceTable = ({ categories = [] }) => {
                                                 <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden opacity-50"></div>
                                             )}
                                             <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
-                                                <span className="text-green-500">{totalCorrect} AC</span>
-                                                <span className="text-red-500">{totalWrong} ER</span>
+                                                <span className="text-green-500">{Math.round(totalCorrect)} AC</span>
+                                                <span className="text-red-500">{Math.round(totalWrong)} ER</span>
                                             </div>
                                         </div>
                                     </td>
@@ -156,8 +162,8 @@ const PerformanceTable = ({ categories = [] }) => {
                                         <div className="flex justify-center">
                                             <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden">
                                                 <div className="z-10 relative">{trendIcon}</div>
-                                                {stats.trend !== 'stable' && (
-                                                    <div className={`absolute inset-0 blur-lg transition-opacity duration-700 opacity-0 group-hover:opacity-30 ${stats.trend === 'up' ? 'bg-green-500' : 'bg-red-500'
+                                                {currentTrend !== 'stable' && (
+                                                    <div className={`absolute inset-0 blur-lg transition-opacity duration-700 opacity-0 group-hover:opacity-30 ${currentTrend === 'up' ? 'bg-green-500' : 'bg-red-500'
                                                         }`} />
                                                 )}
                                             </div>

@@ -577,9 +577,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
-        const totalCorrect = recentSims.reduce((acc, s) => acc + (Number(s.correct) || 0), 0);
-        
-        const avgScore = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+        const avgScore = recentSims.length > 0
+            ? recentSims.reduce((acc, s) => acc + getSafeScore(s), 0) / recentSims.length
+            : 0;
         const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
         const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
         
