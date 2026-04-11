@@ -93,7 +93,7 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
             targetScore,
             90,
             cfg.MC_SIMULATIONS,
-            {}
+            { maxScore }
         );
         const finalResult = {
             probability: result.probability,

@@ -357,7 +357,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             // Determine Target dynamically IF user is already above their target
             if (currentAvg >= userTarget) {
-                calculatedTarget = 100;
+                calculatedTarget = maxScore;
             }
 
             // Use the shared Weighted Regression engine function for total consistency with Monte Carlo Dashboard

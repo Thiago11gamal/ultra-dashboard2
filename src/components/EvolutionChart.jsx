@@ -152,7 +152,7 @@ export default function EvolutionChart({
         const hist = [...focusCategory.simuladoStats.history]
             .map(h => {
                 const dateKey = getDateKey(h.date);
-                const score = getSafeScore(h);
+                const score = getSafeScore(h, maxScore);
                 if (!dateKey || !Number.isFinite(score)) return null;
                 return { date: dateKey, score, correct: h.correct, total: h.total };
             })
@@ -292,7 +292,7 @@ export default function EvolutionChart({
                     const raw = Number(h.correct) || 0;
                     const tot = Number(h.total) || 0;
                     // BUG 4b FIX: Use maxScore instead of hardcoded 100
-                    return s + (getSafeScore(h) / maxScore * tot);
+                    return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
@@ -310,7 +310,7 @@ export default function EvolutionChart({
         if (activeEngine === "raw") {
             if (raw == null) return "Ainda não existem dados suficientes para esta matéria.";
             const history = focusCategory.simuladoStats?.history || [];
-            const scores = history.map(h => getSafeScore(h)).filter(Number.isFinite);
+            const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
             if (scores.length < 2) return `📊 Nota atual: ${raw.toFixed(1)}%. Faça mais simulados para analisar a volatilidade.`;
             const recentScores = scores.slice(-5);
             const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
@@ -350,7 +350,7 @@ export default function EvolutionChart({
                     if (!d) return;
                     const dow = d.getDay();
                     if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                    dayStats[dow].correct += (getSafeScore(h) / 100 * (Number(h.total) || 0));
+                    dayStats[dow].correct += (getSafeScore(h, maxScore) / maxScore * (Number(h.total) || 0));
                     dayStats[dow].total += (Number(h.total) || 0);
                 });
             });

@@ -21,7 +21,7 @@ export const createGamificationSlice = (set, get) => ({
                 completedTasks: activeData.categories?.reduce((sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
                 currentStreak: calculateStudyStreak(activeData.studyLogs || []).current,
                 totalQuestions: activeData.categories?.reduce((sum, cat) => sum + (cat.simuladoStats?.history?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0), 0) || 0,
-                hasPerfectScore: activeData.categories?.some(cat => cat.simuladoStats?.history?.some(h => h.score === 100 || (h.correct === h.total && h.total > 0))) || false,
+                hasPerfectScore: activeData.categories?.some(cat => cat.simuladoStats?.history?.some(h => h.score >= (cat.maxScore ?? 100) || (h.correct === h.total && h.total > 0))) || false,
                 pomodorosCompleted: activeData.studySessions?.length || 0,
                 studiedEarly: activeData.user?.studiedEarly || false,
                 studiedLate: activeData.user?.studiedLate || false

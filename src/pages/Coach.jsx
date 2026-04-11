@@ -30,7 +30,7 @@ export default function Coach() {
             data.categories,
             data.simuladoRows || [],
             data.studyLogs || [],
-            { user: data.user, targetScore }
+            { user: data.user, targetScore, maxScore: data.maxScore ?? 100 }
         );
     }, [data.categories, data.simuladoRows, data.studyLogs, data.user]);
 
@@ -67,7 +67,7 @@ export default function Coach() {
                 data.categories,
                 data.simuladoRows || [],
                 data.studyLogs || [],
-                { user: data.user, targetScore }
+                { user: data.user, targetScore, maxScore: data.maxScore ?? 100 }
             );
             if (newTasks.length) {
                 setData(prev => ({ ...prev, coachPlan: newTasks }));
