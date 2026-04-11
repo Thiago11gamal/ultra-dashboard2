@@ -24,7 +24,12 @@ const formatWeek = (isoString) => {
 
 export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId, maxScore = 100, unit = '%' }) => {
     const [viewMode, setViewMode] = useState('evolution'); // 'evolution' | 'variation'
-    const [hiddenKeys, setHiddenKeys] = useState({});
+    const [userToggles, setUserToggles] = useState({});
+
+    // Limpa a memória de cliques na legenda sempre que trocar de matéria ou modo
+    React.useEffect(() => {
+        setUserToggles({});
+    }, [showOnlyFocus, focusSubjectId]);
 
     // 2. PROCESSAMENTO DOMINADO
     const { chartData, activeKeys } = useMemo(() => {
@@ -95,20 +100,20 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
 
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
         
-        // 🌟 SOLUÇÃO 3: BURACO DO EIXO X (Preenchimento das semanas sem estudo)
+        // 🌟 SOLUÇÃO: BURACO DO EIXO X (Preenchimento blindado contra Timezones)
         const filledWeeks = [];
         if (sortedWeeks.length > 0) {
             const firstWeek = new Date(sortedWeeks[0].week);
             const lastWeek = new Date(sortedWeeks[sortedWeeks.length - 1].week);
             
-            // Corrige o timezone previnindo deslocamentos no preenchimento
-            const curr = new Date(firstWeek.getTime() + firstWeek.getTimezoneOffset() * 60000);
-            const end = new Date(lastWeek.getTime() + lastWeek.getTimezoneOffset() * 60000);
+            // Usamos UTC explícito para garantir que saltos de 7 dias caiam matematicamente precisos sem DST glitches
+            const curr = new Date(Date.UTC(firstWeek.getUTCFullYear(), firstWeek.getUTCMonth(), firstWeek.getUTCDate()));
+            const end = new Date(Date.UTC(lastWeek.getUTCFullYear(), lastWeek.getUTCMonth(), lastWeek.getUTCDate()));
             
             while (curr <= end) {
                 const weekStr = curr.toISOString().split('T')[0];
                 filledWeeks.push(weeksTemp[weekStr] || { week: weekStr });
-                curr.setDate(curr.getDate() + 7);
+                curr.setUTCDate(curr.getUTCDate() + 7);
             }
         }
         
@@ -151,7 +156,17 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
             return dataPoint;
         });
 
-        return { chartData: finalData, activeKeys: itemsMap };
+        // Ranqueamento dos validIds por volume total (para default view)
+        const volumeTracker = {};
+        validIds.forEach(id => volumeTracker[id] = 0);
+        filledWeeks.forEach(week => {
+            validIds.forEach(id => {
+                if (week[id]) volumeTracker[id] += week[id].total;
+            });
+        });
+        const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
+
+        return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
     }, [categories, showOnlyFocus, focusSubjectId, maxScore]);
 
     if (chartData.length < 2) {
@@ -168,13 +183,26 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
 
     const keys = Object.keys(activeKeys);
 
-    // 🌟 LÓGICA DO CLIQUE NA LEGENDA (Solução 4)
+    // 🌟 LÓGICA DO "Noodle Bowl" (Oculta linhas exedentes se houverem mais de 6 opções)
+    const hiddenKeys = useMemo(() => {
+        const result = {};
+        chartData.rankedKeys?.forEach((key, idx) => {
+            const defaultHide = idx >= 6; // Mantém no top 6 mais volumosos
+            if (userToggles[key] !== undefined) {
+                result[key] = userToggles[key]; // Escolha manual do aluno domina
+            } else {
+                result[key] = defaultHide;
+            }
+        });
+        return result;
+    }, [chartData.rankedKeys, userToggles]);
+
     const handleLegendClick = (e) => {
         const { dataKey } = e;
         const keyID = String(dataKey).replace('delta_', '');
-        setHiddenKeys(prev => ({
+        setUserToggles(prev => ({
             ...prev,
-            [keyID]: !prev[keyID]
+            [keyID]: !hiddenKeys[keyID] // Inverte o frame de ocultação
         }));
     };
 
@@ -303,16 +331,18 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                 )} 
                             />
                             
-                            {/* 🌟 SOLUÇÃO 3: BRUSH NA LINHA */}
-                            <Brush 
-                                dataKey="displayDate" 
-                                height={20} 
-                                stroke="#4f46e5" 
-                                fill="#0f172a" 
-                                tickFormatter={() => ''}
-                                className="opacity-80"
-                                travellerWidth={8}
-                            />
+                            {/* 🌟 SOLUÇÃO: BRUSH NA LINHA SÓ SE NECESSÁRIO */}
+                            {chartData.chartData?.length > 4 && (
+                                <Brush 
+                                    dataKey="displayDate" 
+                                    height={20} 
+                                    stroke="#4f46e5" 
+                                    fill="#0f172a" 
+                                    tickFormatter={() => ''}
+                                    className="opacity-80"
+                                    travellerWidth={8}
+                                />
+                            )}
 
                             {keys.map(key => (
                                 <Line 
@@ -357,16 +387,18 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                                 }}
                             />
                             
-                            {/* 🌟 SOLUÇÃO 3: BRUSH NA BARRA */}
-                            <Brush 
-                                dataKey="displayDate" 
-                                height={20} 
-                                stroke="#4f46e5" 
-                                fill="#0f172a" 
-                                tickFormatter={() => ''}
-                                className="opacity-80"
-                                travellerWidth={8}
-                            />
+                            {/* 🌟 SOLUÇÃO: BRUSH NA BARRA SÓ SE NECESSÁRIO */}
+                            {chartData.chartData?.length > 4 && (
+                                <Brush 
+                                    dataKey="displayDate" 
+                                    height={20} 
+                                    stroke="#4f46e5" 
+                                    fill="#0f172a" 
+                                    tickFormatter={() => ''}
+                                    className="opacity-80"
+                                    travellerWidth={8}
+                                />
+                            )}
 
                             {keys.map(key => (
                                 <Bar 
