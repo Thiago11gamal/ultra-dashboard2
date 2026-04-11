@@ -90,9 +90,19 @@ export default function MonteCarloGauge({
         }
 
         let goal;
-        if (typeof goalDate === 'string' && goalDate.includes('T')) {
-            const g = new Date(goalDate);
-            goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+        if (typeof goalDate === 'string') {
+            if (goalDate.includes('T')) {
+                const g = new Date(goalDate);
+                goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+            } else {
+                // FIXED: Parse "YYYY-MM-DD" using components to avoid UTC-00:00 vs local timezone shift
+                const p = goalDate.split('-');
+                if (p.length === 3) {
+                    goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+                } else {
+                    goal = new Date(goalDate);
+                }
+            }
         } else {
             goal = new Date(goalDate);
         }
@@ -263,8 +273,9 @@ export default function MonteCarloGauge({
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, maxScore]);
 
     // PASS 1: Create an atomic hash to prevent infinite render loops when using objects in useEffect.
+    // FIXED: Use raw values to ensure precision refinements are captured.
     const statsHash = statsData 
-        ? `${statsData.bayesianMean.toFixed(4)}-${statsData.pooledSD.toFixed(4)}-${statsData.globalHistory.length}` 
+        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}` 
         : 'null';
 
     const { runAnalysis } = useMonteCarloWorker();
@@ -374,7 +385,7 @@ export default function MonteCarloGauge({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
                     targetScore: debouncedTarget,
-                    simulations: 2000,
+                    simulations: 500, // OPTIMIZED: Reduced from 2000 to prevent main thread blocking
                     categoryName: cat.name,
                     // C3 FIX: Propagate scoring bounds for non-percentage exams (e.g. OAB 0-10)
                     minScore,

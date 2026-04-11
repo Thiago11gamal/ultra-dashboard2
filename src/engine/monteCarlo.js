@@ -110,7 +110,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (rawTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        analyticalProbability = truncNormFactor > 0.001 
+        // FIXED: Using epsilon 1e-6 for better precision with thin distributions
+        analyticalProbability = truncNormFactor > 1e-6 
             ? ((phiTarget - phiMax) / truncNormFactor) * 100 
             : normalCDF_complement((safeTarget - safeMean) / safeSD) * 100;
     }

@@ -92,25 +92,11 @@ export function useMonteCarloWorker() {
         }
 
         return new Promise((resolve, reject) => {
-            pendingRequests.set(id, { 
-                resolve: (data) => {
-                    // FIX 6: Only resolve if this is still the most recent request.
-                    // Stale results from older simulations are silently discarded.
-                    if (id === requestIdRef.current) {
-                        resolve(data);
-                    }
-                }, 
-                reject 
-            });
-            abortRef.current = id;
-
-            worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
-
-            // Timeout safety — if worker hangs for 5s, fallback to main thread
+            // FIXED: Scope timeoutId to the specific promise to ensure proper cleanup
             const timeoutId = setTimeout(() => {
                 if (pendingRequests.has(id)) {
                     pendingRequests.delete(id);
-                    console.warn('[MC Worker] Timeout, falling back to main thread');
+                    console.warn(`[MC Worker] Request ${id} timed out, falling back to main thread`);
                     try {
                         resolve(runMonteCarloAnalysis(...args));
                     } catch (e) {
@@ -118,7 +104,23 @@ export function useMonteCarloWorker() {
                     }
                 }
             }, 5000);
-            timeoutRef.current = timeoutId;
+
+            pendingRequests.set(id, { 
+                resolve: (data) => {
+                    clearTimeout(timeoutId); // FIXED: Immediate cleanup
+                    // ONLY resolve if this is still the most recent request
+                    if (id === requestIdRef.current) {
+                        resolve(data);
+                    }
+                }, 
+                reject: (err) => {
+                    clearTimeout(timeoutId); // FIXED: Immediate cleanup
+                    reject(err);
+                }
+            });
+            
+            abortRef.current = id;
+            worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
         });
     }, []);
 
