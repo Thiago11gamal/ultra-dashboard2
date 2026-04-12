@@ -143,8 +143,10 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // Consistent blended baseline: 80% raw, 20% EMA
-        currentScore = (lastRawScore * 0.8) + (ema * 0.2);
+        // MELHORIA 2: Ancoragem Dinâmica. Veteranos (história longa) confiam mais na EMA.
+        const emaWeight = Math.min(0.70, 0.10 + (sortedHistory.length * 0.03));
+        const rawWeight = 1 - emaWeight;
+        currentScore = (lastRawScore * rawWeight) + (ema * emaWeight);
     }
 
     // Relaxed damping: 45 instead of 30, allows more linear projection for longer
@@ -272,7 +274,10 @@ export function monteCarloSimulation(
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        baselineScore = (currentScore * 0.8) + (ema * 0.2);
+        // MELHORIA 2: Ancoragem Dinâmica - Veteranos confiam mais no histórico (EMA).
+        const emaWeight = Math.min(0.70, 0.10 + (sortedHistory.length * 0.03));
+        const rawWeight = 1 - emaWeight;
+        baselineScore = (currentScore * rawWeight) + (ema * emaWeight);
     }
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
@@ -407,9 +412,11 @@ export function monteCarloSimulation(
     const theta = Math.max(0.005, 0.1 / (1 + volatility * 0.05));
 
     // 2. O Atrator (μ - Mu).
-    // Até onde o aluno naturalmente chegaria com a tendência de aprendizagem atual.
+    // Até onde o aluno naturalmente chegaria com a tendência atual.
+    // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
+    const effectiveAttractorDays = 45 * Math.log(1 + simulationDays / 45);
     // SCALE-BOUNDS: use dynamic bounds instead of hardcoded [0, 100]
-    const longTermMu = Math.min(maxScore, Math.max(minScore, baselineScore + (drift * simulationDays)));
+    const longTermMu = Math.min(maxScore, Math.max(minScore, baselineScore + (drift * effectiveAttractorDays)));
 
     const bootstrapInvSqrt = 1.0;
 
@@ -431,8 +438,14 @@ export function monteCarloSimulation(
 
             // Extração do Ruído (Empírico ou Teórico)
             if (useBootstrap && residuals.length >= 6) {
-                const randomResidual = residuals[Math.floor(rng() * residuals.length)];
-                shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
+                // MELHORIA 3: Injeção de "Black Swan". 
+                // Mistura 90% Empírico (Bootstrap) com 10% Gaussiano (Teórico).
+                if (rng() < 0.90) {
+                    const randomResidual = residuals[Math.floor(rng() * residuals.length)];
+                    shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
+                } else {
+                    shock = randomNormal(rng) * sigma;
+                }
             } else {
                 shock = randomNormal(rng) * sigma;
             }
