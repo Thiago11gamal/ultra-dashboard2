@@ -100,22 +100,27 @@ export default function Activity() {
 
                 {/* Coluna da Direita: Mapa de Calor (Calendário) (Ocupa 8/12 colunas) */}
                 <div className="lg:col-span-8 flex flex-col">
-                    <div className="bg-gradient-to-b from-slate-800/40 to-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex-1 flex flex-col relative overflow-hidden transition-all duration-500 hover:border-white/20 hover:shadow-[0_0_30px_rgba(99,102,241,0.1)]">
-                        {/* Brilho decorativo de fundo */}
-                        <div className="absolute -top-10 -right-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none transition-all duration-700 hover:bg-indigo-500/20" />
-                        
-                        <div className="flex items-center gap-3 mb-6 relative z-10">
-                            <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/20">
-                                <CalendarDays size={22} className="text-emerald-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-100">Mapa de Frequência</h2>
-                                <p className="text-xs text-slate-400 mt-0.5">Seu histórico de dedicação ao longo do tempo</p>
-                            </div>
+                    <div className="bg-gradient-to-b from-slate-800/40 to-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl flex-1 flex flex-col relative transition-all duration-500 hover:border-white/20 hover:shadow-[0_0_30px_rgba(99,102,241,0.1)]">
+                        {/* Brilho decorativo isolado para não dar clip (overflow-hidden) nos Tooltips das laterais */}
+                        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                            <div className="absolute -top-10 -right-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl transition-all duration-700 hover:bg-indigo-500/20" />
                         </div>
                         
-                        <div className="flex-1 w-full relative z-10 bg-slate-950/40 rounded-2xl p-6 border border-white/5 shadow-inner">
-                            <ActivityHeatmap studyLogs={data.studyLogs} />
+                        <div className="p-6 relative z-10 flex flex-col flex-1">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/20">
+                                    <CalendarDays size={22} className="text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-100">Mapa de Frequência</h2>
+                                    <p className="text-xs text-slate-400 mt-0.5">Seu histórico de dedicação ao longo do tempo</p>
+                                </div>
+                            </div>
+                            
+                            {/* Ajuste importante: overflow visível para tooltips mas mantendo o inner shadow */}
+                            <div className="flex-1 w-full bg-slate-950/40 rounded-2xl p-6 border border-white/5 shadow-inner">
+                                <ActivityHeatmap studyLogs={data.studyLogs} />
+                            </div>
                         </div>
                     </div>
                 </div>
