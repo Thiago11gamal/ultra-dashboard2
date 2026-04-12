@@ -276,12 +276,15 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 
 export default function OnboardingTour() {
     
-    // ======== TRAVA DE TESTE ========
-    // A trava ainda está ativada. O tutorial continuará aparecendo em todo F5!
-    // Quando gostar do visual final, volte a usar o useAppStore.
-    const hasSeenTour = false; 
-    const handleJoyrideCallback = useCallback(() => {}, []);
-    // ================================
+    const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
+    const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
+
+    const handleJoyrideCallback = useCallback((data) => {
+        const { status } = data;
+        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+            setHasSeenTour(true);
+        }
+    }, [setHasSeenTour]);
 
     if (hasSeenTour) return null;
 
@@ -301,8 +304,11 @@ export default function OnboardingTour() {
                 disableAnimation: false,
                 styles: {
                     floater: {
-                        // AQUI ESTÁ A "MOLA" QUE VOCÊ PEDIU - Transição suave com salto
                         transition: 'opacity 0.4s ease-in-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1)',
+                        willChange: 'transform, opacity',
+                        WebkitFontSmoothing: 'antialiased',
+                        backfaceVisibility: 'hidden',
+                        transform: 'translateZ(0)' // Força aceleração de hardware contra blur
                     }
                 }
             }}
