@@ -29,7 +29,6 @@ export default function MonteCarloGauge({
     targetScore,
     onTargetScoreChange,
     forcedMode = null,
-    // SCALE-BOUNDS: unit label and scoring bounds for non-percentage exams
     unit = '%',
     minScore = 0,
     maxScore = 100,
@@ -95,7 +94,6 @@ export default function MonteCarloGauge({
                 const g = new Date(goalDate);
                 goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
             } else {
-                // FIXED: Parse "YYYY-MM-DD" using components to avoid UTC-00:00 vs local timezone shift
                 const p = goalDate.split('-');
                 if (p.length === 3) {
                     goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
@@ -226,7 +224,6 @@ export default function MonteCarloGauge({
         const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
 
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
-
         const lastKnownScores = {}; 
 
         const globalHistory = sortedDates.map(date => {
@@ -270,10 +267,8 @@ export default function MonteCarloGauge({
             dailySD,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, maxScore]);
+    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
 
-    // PASS 1: Create an atomic hash to prevent infinite render loops when using objects in useEffect.
-    // FIXED: Use raw values to ensure precision refinements are captured.
     const statsHash = statsData 
         ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}` 
         : 'null';
@@ -311,7 +306,6 @@ export default function MonteCarloGauge({
                         forcedVolatility: statsData.dailySD,
                         forcedBaseline: statsData.bayesianMean,
                         currentMean: statsData.bayesianMean,
-                        // SCALE-BOUNDS: propagate to engine
                         minScore,
                         maxScore,
                     });
@@ -324,7 +318,6 @@ export default function MonteCarloGauge({
                             simulations: 5000,
                             currentMean: statsData.bayesianMean,
                             bayesianCI: statsData.bayesianCI,
-                            // SCALE-BOUNDS: propagate to engine
                             minScore,
                             maxScore,
                         }
@@ -347,7 +340,6 @@ export default function MonteCarloGauge({
                             forcedVolatility: statsData.dailySD,
                             forcedBaseline: statsData.bayesianMean,
                             currentMean: statsData.bayesianMean,
-                            // SCALE-BOUNDS: propagate to engine
                             minScore,
                             maxScore,
                         });
@@ -360,7 +352,6 @@ export default function MonteCarloGauge({
                                 simulations: 5000,
                                 currentMean: statsData.bayesianMean,
                                 bayesianCI: statsData.bayesianCI,
-                                // SCALE-BOUNDS: propagate to engine
                                 minScore,
                                 maxScore,
                             }
@@ -372,7 +363,7 @@ export default function MonteCarloGauge({
         })();
 
         return () => { cancelled = true; };
-    // PASS 2: Use stable statsHash and add missing runAnalysis dependency to avoid linter warnings and ref-loops.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore]);
 
     const perSubjectProbs = useMemo(() => {
@@ -385,9 +376,8 @@ export default function MonteCarloGauge({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
                     targetScore: debouncedTarget,
-                    simulations: 500, // OPTIMIZED: Reduced from 2000 to prevent main thread blocking
+                    simulations: 500,
                     categoryName: cat.name,
-                    // C3 FIX: Propagate scoring bounds for non-percentage exams (e.g. OAB 0-10)
                     minScore,
                     maxScore,
                 });
@@ -399,7 +389,7 @@ export default function MonteCarloGauge({
                 };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status]);
+    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status, minScore, maxScore]);
 
     const [isFlashing, setIsFlashing] = useState(false);
     useEffect(() => {
@@ -408,16 +398,21 @@ export default function MonteCarloGauge({
             const timer = setTimeout(() => setIsFlashing(false), 800);
             return () => clearTimeout(timer);
         }
-    }, [simulationData.data?.probability]);
+    }, [simulationData.status, simulationData.data?.probability]);
+
+    const probability = simulationData?.data?.probability ?? 0;
+    const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
+    const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
+    
+    const currentMean = (rawCurrentMean === 0 && projectedMean > 0)
+        ? projectedMean
+        : rawCurrentMean;
 
     useEffect(() => {
         const rawProb = Number(simulationData?.data?.probability);
         const prob = Number.isFinite(rawProb) ? rawProb : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
         
-        // A2 FIX: Guard against prob === 0. P(X >= target) = 0 is mathematically implausible
-        // for a continuous distribution within domain. Recording 0% overwrites valid snapshots
-        // causing spurious drops to 0% in the "Hoje & Futuro" evolution chart.
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             recordMonteCarloSnapshot(today, Number(prob.toFixed(1)), {
@@ -425,7 +420,7 @@ export default function MonteCarloGauge({
                 target: Number(debouncedTarget.toFixed(1))
             });
         }
-    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates]);
+    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, debouncedTarget]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
@@ -454,24 +449,13 @@ export default function MonteCarloGauge({
         );
     }
 
-    // SCALE-BOUNDS: formatScore uses the injected unit instead of hardcoded %
     const formatScore = (v) => `${v.toFixed(1)}${unit}`;
 
-    const probability = simulationData?.data?.probability ?? 0;
-    const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const sd = simulationData?.data?.sd ?? 0;
     const sdLeft = simulationData?.data?.sdLeft ?? sd;
     const sdRight = simulationData?.data?.sdRight ?? sd;
     const ci95Low = simulationData?.data?.ci95Low ?? 0;
     const ci95High = simulationData?.data?.ci95High ?? 0;
-    // BUG-A FIX: If currentMean is 0 but projectedMean is a valid non-zero value,
-    // use projectedMean as fallback. currentMean = 0.0% is implausible when
-    // projections show 45%+ — it means bayesianMean was undefined/0 in the
-    // options chain, causing the engine to return currentScore = 0.
-    const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
-    const currentMean = (rawCurrentMean === 0 && projectedMean > 0)
-        ? projectedMean
-        : rawCurrentMean;
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     const prob = safe(probability);
@@ -657,7 +641,6 @@ export default function MonteCarloGauge({
                         prob={safe(prob)}
                         kdeData={simulationData?.data?.kdeData}
                         projectedMean={safe(projectedMean)}
-                        // SCALE-BOUNDS: pass down unit and scale bounds
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}
@@ -762,8 +745,6 @@ export default function MonteCarloGauge({
                             );
                         })}
                     </div>
-                    {/* M2 FIX: Disclaimer when in future mode — per-subject probs use today's
-                        static snapshot via simulateNormalDistribution, not the projection engine */}
                     {!effectiveSimulateToday && !isTimeTraveling && (
                         <p className="text-[8px] text-slate-600 text-center mt-2 italic">
                             Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
