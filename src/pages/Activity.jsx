@@ -33,7 +33,7 @@ export default function Activity() {
                                 <RotateCcw size={20} className="text-red-400" />
                                 Resetar Dados Gamificados
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setShowResetModal(false)}
                                 className="p-2 hover:bg-white/5 rounded-full transition-colors"
                             >
@@ -41,7 +41,7 @@ export default function Activity() {
                             </button>
                         </div>
                         <p className="text-slate-300 mb-8 leading-relaxed">
-                            Atenção: Isto vai apagar todo o seu <strong className="text-amber-400">XP e Nível atual</strong>. 
+                            Atenção: Isto vai apagar todo o seu <strong className="text-amber-400">XP e Nível atual</strong>.
                             Suas tarefas e histórico de estudos continuarão intactos.
                         </p>
                         <div className="flex gap-4">
@@ -75,19 +75,19 @@ export default function Activity() {
                     </div>
                     <p className="text-slate-400 ml-16 text-sm font-medium">Sua jornada de evolução, consistência e conquistas.</p>
                 </div>
-                
+
                 <button
                     onClick={() => setShowResetModal(true)}
                     className="group flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-800/40 hover:bg-red-500/10 text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/30 rounded-xl transition-all duration-300 text-sm font-semibold shadow-sm"
                 >
-                    <RotateCcw size={16} className="group-hover:-rotate-180 transition-transform duration-500" /> 
+                    <RotateCcw size={16} className="group-hover:-rotate-180 transition-transform duration-500" />
                     Resetar Progresso
                 </button>
             </div>
 
             {/* Grid Principal: Layout inteligente e distribuído */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
+
                 {/* Coluna da Esquerda: Streak e XP (Ocupa 4/12 colunas) */}
                 <div className="lg:col-span-4 flex flex-col gap-6">
                     <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-2 shadow-xl hover:border-white/10 transition-all">
@@ -105,7 +105,7 @@ export default function Activity() {
                         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
                             <div className="absolute -top-10 -right-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl transition-all duration-700 hover:bg-indigo-500/20" />
                         </div>
-                        
+
                         <div className="p-6 relative z-10 flex flex-col flex-1">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/20">
@@ -116,7 +116,7 @@ export default function Activity() {
                                     <p className="text-xs text-slate-400 mt-0.5">Seu histórico de dedicação ao longo do tempo</p>
                                 </div>
                             </div>
-                            
+
                             {/* Ajuste importante: overflow visível para tooltips mas mantendo o inner shadow */}
                             <div className="flex-1 w-full bg-slate-950/40 rounded-2xl p-6 border border-white/5 shadow-inner">
                                 <ActivityHeatmap studyLogs={data.studyLogs} />
@@ -132,7 +132,7 @@ export default function Activity() {
                 <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
                     <div className="absolute -left-32 -bottom-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
                 </div>
-                
+
                 <div className="p-8 relative z-10">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="p-2.5 bg-amber-500/20 rounded-xl border border-amber-500/20">
@@ -143,53 +143,53 @@ export default function Activity() {
                             <p className="text-sm text-slate-400 mt-1">Insígnias de desafios completados e marcos alcançados</p>
                         </div>
                     </div>
-                    
+
                     <div>
-                    <AchievementsGrid
-                        unlockedIds={data.user?.achievements || []}
-                        stats={(() => {
-                            const studyLogs = data.studyLogs || [];
-                            const validSimulados = (data.simuladoRows || []).filter(r => r.validated && r.total > 0 && r.correct !== undefined);
-                            const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
-                            const totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
-                            
-                            let studiedEarly = false;
-                            let studiedLate = false;
-                            let studiedWeekend = false;
-                            let pomodorosToday = 0;
-                            
-                            const now = new Date();
-                            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-                            
-                            studyLogs.forEach(log => {
-                                const d = new Date(log.date);
-                                const hr = d.getHours();
-                                const day = d.getDay();
-                                if (hr < 7) studiedEarly = true;
-                                if (hr >= 23 || hr < 4) studiedLate = true;
-                                if (day === 0 || day === 6) studiedWeekend = true;
-                                
-                                if (d.getTime() >= startOfToday) {
-                                    pomodorosToday += (Number(log.minutes) || 0) / 25;
-                                }
-                            });
-                    
-                            return {
-                                completedTasks: data.categories?.reduce((sum, c) => sum + (c.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
-                                currentStreak: data.user?.streak || 0,
-                                totalQuestions,
-                                hasPerfectScore: validSimulados.some(r => Number(r.total) > 0 && Number(r.total) === Number(r.correct)),
-                                accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
-                                pomodorosCompleted: data.pomodorosCompleted || 0,
-                                pomodorosToday: Math.floor(pomodorosToday),
-                                studiedEarly,
-                                studiedLate,
-                                studiedWeekend,
-                                subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
-                            };
-                        })()}
-                    />
-                </div>
+                        <AchievementsGrid
+                            unlockedIds={data.user?.achievements || []}
+                            stats={(() => {
+                                const studyLogs = data.studyLogs || [];
+                                const validSimulados = (data.simuladoRows || []).filter(r => r.validated && r.total > 0 && r.correct !== undefined);
+                                const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
+                                const totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
+
+                                let studiedEarly = false;
+                                let studiedLate = false;
+                                let studiedWeekend = false;
+                                let pomodorosToday = 0;
+
+                                const now = new Date();
+                                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+                                studyLogs.forEach(log => {
+                                    const d = new Date(log.date);
+                                    const hr = d.getHours();
+                                    const day = d.getDay();
+                                    if (hr < 7) studiedEarly = true;
+                                    if (hr >= 23 || hr < 4) studiedLate = true;
+                                    if (day === 0 || day === 6) studiedWeekend = true;
+
+                                    if (d.getTime() >= startOfToday) {
+                                        pomodorosToday += (Number(log.minutes) || 0) / 25;
+                                    }
+                                });
+
+                                return {
+                                    completedTasks: data.categories?.reduce((sum, c) => sum + (c.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
+                                    currentStreak: data.user?.streak || 0,
+                                    totalQuestions,
+                                    hasPerfectScore: validSimulados.some(r => Number(r.total) > 0 && Number(r.total) === Number(r.correct)),
+                                    accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
+                                    pomodorosCompleted: data.pomodorosCompleted || 0,
+                                    pomodorosToday: Math.floor(pomodorosToday),
+                                    studiedEarly,
+                                    studiedLate,
+                                    studiedWeekend,
+                                    subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
+                                };
+                            })()}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
