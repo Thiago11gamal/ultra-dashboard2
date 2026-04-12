@@ -136,37 +136,33 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             </div>
 
             {/* Calendar Grid */}
-            <div className="space-y-2">
-                {calendarData.weeks.map((week, weekIndex) => (
-                    <div key={weekIndex} className="grid grid-cols-7 gap-2">
-                        {week.map((day, dayIndex) => (
-                            <div
-                                key={dayIndex}
-                                className={`
-                                    w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative
-                                    ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}
-                                    ${day?.isToday ? 'ring-2 ring-emerald-500 z-10' : ''}
-                                    ${day ? 'hover:scale-110 hover:z-20 hover:border-white/50' : ''}
-                                `}
-                            >
-                                {/* Tooltip Premium com Enquadramento Dinâmico */}
-                                {day && (
-                                    <div className={`absolute bottom-full mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0 ${dayIndex === 0 ? 'left-[-10px]' : dayIndex === 6 ? 'right-[-10px]' : 'left-1/2 -translate-x-1/2'
-                                        }`}>
-                                        <div className={`absolute -bottom-2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45 ${dayIndex === 0 ? 'left-6' : dayIndex === 6 ? 'right-6' : 'left-1/2 -translate-x-1/2'
-                                            }`}></div>
-                                        <p className="relative z-10 text-[10px] text-slate-400 font-bold capitalize mb-1 tracking-widest">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
-                                        <p className="relative z-10 text-sm font-black text-white">
-                                            {day.minutes > 0
-                                                ? (day.minutes >= 60 ? <span className="text-emerald-400">{Math.floor(day.minutes / 60)}h {day.minutes % 60 > 0 ? `${Math.round(day.minutes % 60)}m` : ''}</span> : <span className="text-emerald-400">{Math.round(day.minutes)} min</span>)
-                                                : 'Descanso'}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                ))}
+            <div className="grid grid-cols-7 gap-2">
+                {calendarData.weeks.flatMap((week, weekIndex) => 
+                    week.map((day, dayIndex) => (
+                        <div
+                            key={`${weekIndex}-${dayIndex}`}
+                            className={`
+                                w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative
+                                ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}
+                                ${day?.isToday ? 'ring-2 ring-emerald-500 ring-inset z-10' : ''}
+                                ${day ? 'hover:scale-110 hover:z-20 hover:border-white/50' : ''}
+                            `}
+                        >
+                            {/* Tooltip Premium com Enquadramento Dinâmico */}
+                            {day && (
+                                <div className={`absolute bottom-full mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0 ${dayIndex === 0 ? 'left-[-10px]' : dayIndex === 6 ? 'right-[-10px]' : 'left-1/2 -translate-x-1/2'}`}>
+                                    <div className={`absolute -bottom-2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45 ${dayIndex === 0 ? 'left-6' : dayIndex === 6 ? 'right-6' : 'left-1/2 -translate-x-1/2'}`}></div>
+                                    <p className="relative z-10 text-[10px] text-slate-400 font-bold capitalize mb-1 tracking-widest">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
+                                    <p className="relative z-10 text-sm font-black text-white">
+                                        {day.minutes > 0
+                                            ? (day.minutes >= 60 ? <span className="text-emerald-400">{Math.floor(day.minutes / 60)}h {day.minutes % 60 > 0 ? `${Math.round(day.minutes % 60)}m` : ''}</span> : <span className="text-emerald-400">{Math.round(day.minutes)} min</span>)
+                                            : 'Descanso'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Legend & Stats */}
