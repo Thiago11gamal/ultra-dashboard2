@@ -332,7 +332,7 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                             />
                             
                             {/* 🌟 SOLUÇÃO: BRUSH NA LINHA SÓ SE NECESSÁRIO */}
-                            {chartData.chartData?.length > 4 && (
+                            {chartData.length > 4 && (
                                 <Brush 
                                     dataKey="displayDate" 
                                     height={20} 
@@ -388,7 +388,7 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                             />
                             
                             {/* 🌟 SOLUÇÃO: BRUSH NA BARRA SÓ SE NECESSÁRIO */}
-                            {chartData.chartData?.length > 4 && (
+                            {chartData.length > 4 && (
                                 <Brush 
                                     dataKey="displayDate" 
                                     height={20} 

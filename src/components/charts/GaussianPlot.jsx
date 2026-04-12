@@ -42,8 +42,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const t = targetVal;
 
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                const normFactor = 2 / (sl + sr);
-                const pUnderflow = normFactor * sl * normalCDF_complement(mVal / sl);
+                // FIX MATEMÁTICO (Underflow Paradox): Usamos (mVal - domainMin) em vez de (mVal / sl) 
+                // para garantir que a regressão geométrica da Gaussiana continue válida caso o minScore da prova 
+                // não seja zero (ex: provas que começam com 50 pontos básicos).
+                const pUnderflow = normFactor * sl * normalCDF_complement((mVal - domainMin) / sl);
                 // SCALE-BOUNDS FIX: overflow uses domainMax instead of hardcoded 100
                 const pOverflow = normFactor * sr * normalCDF_complement((domainMax - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
@@ -223,8 +225,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                const val = xMin + (percentage / 100 * range);
-                setHover({ x: percentage, val });
+                
+                // VISUAL FIX (Hover Tracker Drift): 
+                // O SVG renderiza o gráfico de 2% a 98% para garantir espaço pras bordas da linha. 
+                // Precisamos reverter essa geometria proporcional para ler exatamente o dado sob o mouse.
+                const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * range));
+                setHover({ x: xp(val), val });
             }}
             onMouseLeave={() => setHover(null)}
         >
