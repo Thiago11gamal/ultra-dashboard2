@@ -30,6 +30,13 @@ export const createPomodoroSlice = (set, get) => ({
         }
     },
 
+    startPomodoroSession: (subject) => {
+        get().setPomodoroActiveSubject({
+            ...subject,
+            sessionInstanceId: Date.now().toString()
+        });
+    },
+
     setPomodoroSessions: (count) => set((state) => {
         state.appState.pomodoro.sessions = count;
         state.appState.version = (state.appState.version || 0) + 1;

@@ -37,7 +37,7 @@ export default function Dashboard() {
                 categoryId: cat.id,
                 taskId: tsk.id,
                 category: cat.name,
-                task: tsk.title,
+                task: tsk.title || tsk.text || 'Estudo',
                 priority: tsk.priority
             });
 
