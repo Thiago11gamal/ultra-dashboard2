@@ -191,7 +191,7 @@ function MainLayout() {
   if (!data) return <div className="loading-screen">Carregando Store...</div>;
 
   return (
-    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative">
+    <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
       {!isPremium ? (
         <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
           <Suspense fallback={null}>
@@ -208,7 +208,7 @@ function MainLayout() {
             onOpenHelp={() => setShowHelpGuide(true)}
           />
 
-          <main className="pt-24 md:pt-0 px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full overflow-x-hidden">
+          <main className="pt-24 md:pt-0 px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full max-w-[100vw] overflow-x-hidden">
             <Header
               user={data.user}
               settings={data.settings}

@@ -99,7 +99,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Brand */}
                 <Link to="/" className="flex items-center gap-2 shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10" onClick={() => setCollapsed(true)}>
                     <img src={logo} alt="Logo" className="w-6 h-6 object-contain transition-all duration-300 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
-                    <span className="text-xs font-black tracking-tighter text-white uppercase">Método Arraia</span>
+                    <span className="text-[10px] sm:text-xs font-black tracking-tighter text-white uppercase hidden sm:block">Método Arraia</span>
                 </Link>
 
                 {/* Level Badge */}

@@ -75,7 +75,7 @@ export default function PriorityProgress({ categories = [] }) {
                             </div>
                             
                             <div className="flex justify-end pr-1">
-                                <span className={`text-[11px] font-black ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)] leading-none pb-0.5`}>
+                                <span className={`text-[11px] font-black ${conf.text} drop-shadow-[0_0_8px_rgba(0,0,0,0.5)] leading-none pt-1`}>
                                     {pct}% completado
                                 </span>
                             </div>

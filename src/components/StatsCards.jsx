@@ -45,7 +45,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
             {/* Streak */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
                 {/* Visual Accent */}
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
@@ -72,7 +72,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Eficiência */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-[40px] group-hover:bg-emerald-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
@@ -92,7 +92,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* Balanceamento */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
@@ -114,7 +114,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* XP com barra de progresso */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
