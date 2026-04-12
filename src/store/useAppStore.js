@@ -26,11 +26,17 @@ const idbStorage = {
         const localValue = localStorage.getItem(name);
         if (localValue) {
             try {
-                // Migrate the raw string to IndexedDB and clear localStorage
+                // Migrate the raw string to IndexedDB
                 await idbSet(name, localValue);
-                localStorage.removeItem(name); 
-                return localValue; // createJSONStorage expects the string
+                
+                // FIX: Confirmar a gravação no IndexedDB antes de destruir o backup do localStorage
+                const confirmSave = await idbGet(name);
+                if (confirmSave !== undefined) {
+                    localStorage.removeItem(name); 
+                }
+                return localValue;
             } catch (e) {
+                console.error("[Storage] Migration failed, falling back to local memory.", e);
                 return null;
             }
         }

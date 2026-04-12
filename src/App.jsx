@@ -158,7 +158,8 @@ function MainLayout() {
     if (currentUser) {
         if (!hasActiveData) {
             // Cenário 1: activeId aponta para um contest inexistente
-            if (contestsCount > 0) {
+            // FIX: Verificar se firstContestId é válido
+            if (contestsCount > 0 && firstContestId) {
                 console.warn("Store inconsistency detected: Active contest missing. Attempting to recover activeId...");
                 switchContest(firstContestId);
             } else {
@@ -167,12 +168,11 @@ function MainLayout() {
                 createNewContest();
             }
         } else if (contestsCount > 1 && !contests[activeContestId]) {
-            // BUG 3 FIX: Cenário 3 (antes inalcançável): Dados existem em contests,
-            // mas o activeId aponta para uma chave que não existe mais (ex: contest deletado).
-            // hasActiveData pode ser true se 'data' foi derivado antes do re-render limpá-lo.
-            // Corrigir apontando para o primeiro contest válido.
+            // Cenário 3: Dados existem em contests, mas o activeId é inválido
             console.warn("ActiveId points to deleted contest. Switching to first available...");
-            switchContest(firstContestId);
+            if (firstContestId) {
+                switchContest(firstContestId);
+            }
         }
     }
   }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests]);

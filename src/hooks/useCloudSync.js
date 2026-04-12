@@ -123,15 +123,12 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
     const stateStringForSync = (state) => {
         if (!state) return '';
-        const activeContest = state.contests?.[state.activeId];
         
-        const taskHash = (activeContest?.categories || [])
-            .reduce((acc, cat) => acc + (cat.tasks?.length || 0), 0);
-        
+        // Confiamos no timestamp de última atualização e na versão para detetar mudanças
         const lastUpdated = state.lastUpdated || "0";
         const version = state.version || 0;
 
-        return `${lastUpdated}|v${version}|tasks:${taskHash}|active:${state.activeId}`;
+        return `${lastUpdated}|v${version}|active:${state.activeId}`;
     };
 
     useEffect(() => {
@@ -169,8 +166,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         }, 5000);
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (isInternalSyncingRef.current) {
-                logger.debug("[Sync] Ignorando snapshot da nuvem pois existe um save local em curso.");
+            // FIX: Usar metadados do Firebase em vez de lock local para evitar descartar updates externos
+            if (docSnap.metadata.hasPendingWrites) {
+                logger.debug("[Sync] Ignorando snapshot: Escrita local pendente de envio para a nuvem.");
                 return;
             }
             logger.styled(`[Firebase-Diag] CONEXÃO ESTABELECIDA! Recebido snapshots da nuvem.`, "color: #22c55e; font-weight: bold;");
@@ -379,7 +377,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
                 try {
                     const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
-                    navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, payload);
+                    // FIX: Enviar como Blob para garantir o Content-Type: application/json
+                    const blob = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, blob);
                 } catch(err) { console.debug('Beacon error', err); }
             }
 
