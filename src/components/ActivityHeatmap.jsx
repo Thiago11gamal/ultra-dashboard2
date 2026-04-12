@@ -89,65 +89,76 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
     }, [currentMonth, studyLogs]);
 
     const levelColors = [
-        'bg-slate-800 border-slate-700', // 0 - No study
-        'bg-green-900/50 border-green-800', // 1 - < 30 min
-        'bg-green-700/60 border-green-600', // 2 - 30-60 min
-        'bg-green-500/70 border-green-400', // 3 - 60-120 min
-        'bg-green-400 border-green-300', // 4 - > 120 min
+        'bg-slate-800/40 border-white/5', // 0 - No study
+        'bg-emerald-900/40 border-emerald-800/50', // 1 - < 30 min
+        'bg-emerald-600/50 border-emerald-500/50', // 2 - 30-60 min
+        'bg-emerald-500/80 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)]', // 3 - 60-120 min
+        'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900', // 4 - > 120 min
     ];
 
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     return (
-        <div className="max-w-sm">
+        <div className="w-full max-w-2xl mx-auto">
             {/* Month Navigation */}
-            <div className="flex items-center justify-end gap-2 mb-4">
-                <button
-                    onClick={() => setMonthOffset(m => m - 1)}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/10"
-                >
-                    <ChevronLeft size={16} />
-                </button>
-                <span className="text-sm font-bold text-white min-w-[100px] text-center capitalize">
-                    {format(currentMonth, 'MMM yyyy', { locale: ptBR })}
-                </span>
-                <button
-                    onClick={() => setMonthOffset(m => Math.min(0, m + 1))}
-                    disabled={monthOffset >= 0}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                    <ChevronRight size={16} />
-                </button>
+            <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Visão Mensal
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setMonthOffset(m => m - 1)}
+                        className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-transparent hover:border-white/10"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <span className="text-base font-black text-white min-w-[120px] text-center capitalize tracking-tight">
+                        {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+                    </span>
+                    <button
+                        onClick={() => setMonthOffset(m => Math.min(0, m + 1))}
+                        disabled={monthOffset >= 0}
+                        className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-transparent hover:border-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
             </div>
 
             {/* Week Day Labels */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
+            <div className="grid grid-cols-7 gap-2 mb-3">
                 {weekDays.map(day => (
-                    <div key={day} className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-wider">
+                    <div key={day} className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
                         {day}
                     </div>
                 ))}
             </div>
 
             {/* Calendar Grid */}
-            <div className="space-y-1">
+            <div className="space-y-2">
                 {calendarData.weeks.map((week, weekIndex) => (
-                    <div key={weekIndex} className="grid grid-cols-7 gap-1">
+                    <div key={weekIndex} className="grid grid-cols-7 gap-2">
                         {week.map((day, dayIndex) => (
                             <div
                                 key={dayIndex}
                                 className={`
-                                    aspect-square rounded-sm border transition-all cursor-default group relative
+                                    w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative
                                     ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}
-                                    ${day?.isToday ? 'ring-2 ring-purple-500 ring-offset-1 ring-offset-slate-900' : ''}
+                                    ${day?.isToday ? 'ring-2 ring-emerald-500 ring-offset-4 ring-offset-slate-900 scale-105 z-10' : ''}
+                                    ${day ? 'hover:scale-110 hover:z-20 hover:border-white/50' : ''}
                                 `}
-                                title={day ? `${format(day.date, 'dd/MM')}: ${day.minutes} min` : ''}
                             >
-                                {/* Tooltip */}
+                                {/* Tooltip Premium */}
                                 {day && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                        <p className="text-[10px] text-slate-400 font-bold capitalize mb-1">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
-                                        <p className="text-xs font-black text-white">{day.minutes > 0 ? (day.minutes >= 60 ? `${Math.floor(day.minutes / 60)}h ${day.minutes % 60 > 0 ? `${Math.round(day.minutes % 60)}m` : ''}` : `${Math.round(day.minutes)} min`) : 'Descanso'}</p>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
+                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45"></div>
+                                        <p className="relative z-10 text-[10px] text-slate-400 font-bold capitalize mb-1 tracking-widest">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
+                                        <p className="relative z-10 text-sm font-black text-white">
+                                            {day.minutes > 0 
+                                                ? (day.minutes >= 60 ? <span className="text-emerald-400">{Math.floor(day.minutes / 60)}h {day.minutes % 60 > 0 ? `${Math.round(day.minutes % 60)}m` : ''}</span> : <span className="text-emerald-400">{Math.round(day.minutes)} min</span>) 
+                                                : 'Descanso'}
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -157,21 +168,29 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             </div>
 
             {/* Legend & Stats */}
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+            <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                 {/* Legend */}
-                <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <span>Menos</span>
-                    {levelColors.map((color, i) => (
-                        <div key={i} className={`w-3 h-3 rounded-sm border ${color}`} />
-                    ))}
-                    <span>Mais</span>
+                <div className="flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-full border border-white/5">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Menos</span>
+                    <div className="flex gap-1.5 mx-2">
+                        {levelColors.map((color, i) => (
+                            <div key={i} className={`w-4 h-4 rounded-md border ${color.split(' ')[0]} ${color.split(' ')[1]}`} />
+                        ))}
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mais</span>
                 </div>
 
                 {/* Stats */}
-                <div className="text-xs text-slate-400">
-                    <span className="text-green-400 font-bold">{calendarData.studiedDays}</span>/{calendarData.totalDays} dias
-                    <span className="mx-2">•</span>
-                    <span className="text-white font-bold">{calendarData.totalTimeStr}</span> total
+                <div className="flex items-center gap-4 bg-slate-900/50 px-5 py-2.5 rounded-2xl border border-white/5">
+                    <div className="text-center">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Dias Ativos</div>
+                        <div className="text-sm text-slate-300"><span className="text-emerald-400 font-black">{calendarData.studiedDays}</span> / {calendarData.totalDays}</div>
+                    </div>
+                    <div className="w-px h-8 bg-white/10"></div>
+                    <div className="text-center">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Tempo Total</div>
+                        <div className="text-sm text-white font-black">{calendarData.totalTimeStr}</div>
+                    </div>
                 </div>
             </div>
         </div>

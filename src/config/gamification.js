@@ -15,6 +15,7 @@ export const XP_CONFIG = {
 };
 
 export const ACHIEVEMENTS = [
+    // Conquistas Iniciais
     { 
         id: 'first_step', 
         name: 'Primeiro Passo', 
@@ -44,10 +45,26 @@ export const ACHIEVEMENTS = [
         condition: (stats) => stats.currentStreak >= 30 
     },
     { 
+        id: 'unstoppable', 
+        name: 'Imparável', 
+        icon: '🚀', 
+        xpReward: 2500, 
+        condition: (stats) => stats.currentStreak >= 100 
+    },
+
+    // Conquistas de Desempenho e Resolução
+    { 
+        id: 'half_century', 
+        name: 'Meio Século', 
+        icon: '🥈', 
+        xpReward: 250, 
+        condition: (stats) => stats.completedTasks >= 50 
+    },
+    { 
         id: 'centurion', 
         name: 'Centurião', 
         icon: '💯', 
-        xpReward: 300, 
+        xpReward: 500, 
         condition: (stats) => stats.totalQuestions >= 100 
     },
     { 
@@ -58,11 +75,27 @@ export const ACHIEVEMENTS = [
         condition: (stats) => stats.hasPerfectScore 
     },
     { 
+        id: 'sniper', 
+        name: 'Sniper Acadêmico', 
+        icon: '🦅', 
+        xpReward: 600, 
+        condition: (stats) => stats.accuracy >= 90 && stats.totalQuestions > 50 
+    },
+
+    // Conquistas de Foco e Rotina
+    { 
         id: 'pomodoro_10', 
-        name: 'Focado', 
+        name: 'Mestre do Foco', 
         icon: '⏱️', 
         xpReward: 300, 
         condition: (stats) => stats.pomodorosCompleted >= 10 
+    },
+    { 
+        id: 'deep_work', 
+        name: 'Foco Profundo', 
+        icon: '🧠', 
+        xpReward: 400, 
+        condition: (stats) => stats.pomodorosToday >= 4 // 4 pomodoros no mesmo dia
     },
     { 
         id: 'early_bird', 
@@ -78,4 +111,20 @@ export const ACHIEVEMENTS = [
         xpReward: 200, 
         condition: (stats) => stats.studiedLate 
     },
+
+    // Conquistas Especiais
+    { 
+        id: 'weekend_warrior', 
+        name: 'Guerreiro de Fim de Semana', 
+        icon: '⚔️', 
+        xpReward: 400, 
+        condition: (stats) => stats.studiedWeekend 
+    },
+    { 
+        id: 'polymath', 
+        name: 'Polímata', 
+        icon: '📚', 
+        xpReward: 500, 
+        condition: (stats) => stats.subjectsStudied >= 3 // Estudou 3 matérias/tópicos diferentes
+    }
 ];
