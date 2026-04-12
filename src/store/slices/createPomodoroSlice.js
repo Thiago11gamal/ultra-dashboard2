@@ -50,6 +50,18 @@ export const createPomodoroSlice = (set, get) => ({
         state.appState.lastUpdated = new Date().toISOString();
     }),
 
+    setPomodoroTargetCycles: (target) => set((state) => {
+        state.appState.pomodoro.targetCycles = target;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    }),
+
+    setPomodoroCompletedCycles: (completed) => set((state) => {
+        state.appState.pomodoro.completedCycles = completed;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    }),
+
     updatePomodoroSettings: (settings) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
