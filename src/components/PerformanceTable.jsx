@@ -62,9 +62,12 @@ const PerformanceTable = ({ categories = [] }) => {
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
                             const netBalance = Math.round(totalCorrect - totalWrong);
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * maxScore) : 0;
+                            const pctBar = maxScore > 0 ? (percentCorrect / maxScore) * 100 : 0;
 
                             // Dynamic Trend calculation instead of relying on static store value
-                            const trendHistory = history.slice(-10).map(h => ({
+                            const trendHistory = [...history]
+                                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                .slice(-10).map(h => ({
                                 score: getSafeScore(h, maxScore),
                                 date: h.date
                             }));
@@ -116,16 +119,16 @@ const PerformanceTable = ({ categories = [] }) => {
                                         <div className="flex flex-col gap-2 px-2">
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
-                                                    {percentCorrect > 0 && (
+                                                    {pctBar > 0 && (
                                                         <div
                                                             className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                                                            style={{ width: `${percentCorrect}%` }}
+                                                            style={{ width: `${pctBar}%` }}
                                                         />
                                                     )}
-                                                    {percentCorrect < 100 && (
+                                                    {pctBar < 100 && (
                                                         <div
                                                             className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80"
-                                                            style={{ width: `${100 - percentCorrect}%` }}
+                                                            style={{ width: `${100 - pctBar}%` }}
                                                         />
                                                     )}
                                                 </div>

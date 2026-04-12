@@ -29,6 +29,7 @@ export default function MonteCarloGauge({
     targetScore,
     onTargetScoreChange,
     forcedMode = null,
+    forcedTitle = null,
     unit = '%',
     minScore = 0,
     maxScore = 100,
@@ -179,7 +180,7 @@ export default function MonteCarloGauge({
 
                 const baye = computeBayesianLevel(history, 1, 1, maxScore);
                 const stats = computeCategoryStats(history, weight, 60, maxScore);
-                const vol = calculateVolatility(history);
+                const vol = calculateVolatility(history, maxScore);
 
                 if (stats && weight > 0) {
                     totalWeight += weight;
@@ -248,7 +249,7 @@ export default function MonteCarloGauge({
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         const pooledDailySD = pooledSD;
-        const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory);
+        const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory, maxScore);
 
         const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
@@ -507,7 +508,7 @@ export default function MonteCarloGauge({
                     <div className="flex items-center gap-1.5 mt-1">
                         {forcedMode && (
                             <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
-                                {forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro'}
+                                {forcedTitle || (forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro')}
                             </div>
                         )}
                         

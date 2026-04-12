@@ -222,7 +222,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // MC-03: MSSD Volatility — substitui standardDeviation cega
         // Não castiga crescimento legítimo (50→60→70).
         // ─────────────────────────────────────────────────────────
-        const mcHistory = simuladosToHistory(relevantSimulados.slice(0, 10), maxScore);
+        const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory)
             : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : 0);

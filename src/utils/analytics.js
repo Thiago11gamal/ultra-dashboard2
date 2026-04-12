@@ -507,7 +507,7 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 export const getCompleteReport = (data) => {
     const streak = calculateStudyStreak(data.studyLogs || []);
     const balance = analyzeSubjectBalance(data.categories);
-    const efficiency = analyzeEfficiency(data.categories);
+    const efficiency = analyzeEfficiency(data.categories, data.studyLogs || []);
     const procrastination = detectProcrastination(data.categories, data.studyLogs || []);
     const goals = calculateDailyPomodoroGoal(data.categories, data.user);
 
