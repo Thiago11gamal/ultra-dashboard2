@@ -104,14 +104,19 @@ export function calculateSlope(history, maxScore = 100) {
     const { slope, slopeStdError } = weightedRegression(sorted, 0.08, maxScore);
     const n = sorted.length;
 
+    // FIX MATEMÁTICO: Invariância de Escala
+    const scaleFactor = maxScore / 100;
+
+    const normalizedStdError = slopeStdError / scaleFactor;
+    
     const confidence =
-        1 / (1 + slopeStdError / 0.5);
+        1 / (1 + normalizedStdError / 0.5);
 
     const historyBoost =
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
-    const baseLimit = 0.3; // Base conservadora para pouco histórico
-    const absoluteMax = 0.45; // Teto real para dados abundantes
+    const baseLimit = 0.3 * scaleFactor; // Escalonado
+    const absoluteMax = 0.45 * scaleFactor; // Escalonado
 
     const dynamicLimit = Math.min(
         absoluteMax,
@@ -175,8 +180,9 @@ export function calculateVolatility(history, maxScore = 100) {
     if (sorted.length === 2) {
         const dt = Math.max(1, (new Date(sorted[1].date).getTime() - new Date(sorted[0].date).getTime()) / 86400000);
         const diff = Math.abs(getSafeScore(sorted[1], maxScore) - getSafeScore(sorted[0], maxScore));
-        // REVISION: Floor standardized to 1.0
-        return Math.max(1.0, Math.min(maxScore * 0.15, diff / Math.sqrt(dt)));
+        // REVISION: Floor standardized (escalonado)
+        const scaleFactor = maxScore / 100;
+        return Math.max(1.0 * scaleFactor, Math.min(maxScore * 0.15, diff / Math.sqrt(dt)));
     }
     // C2 FIX: Use rawDrift (unbiased WLS slope) for detrending instead of clamped calculateSlope.
     // calculateSlope applies confidence attenuation + dynamic limits — correct for deterministic
@@ -211,20 +217,23 @@ export function calculateVolatility(history, maxScore = 100) {
         // 🎯 BUG-V2 FIX: MSSD Robusto (Outlier Clamping).
         // Resíduos extremos (> 35pp/√dia) após longos gaps distorcem a volatilidade. 
         // Clampeamos em 3.5 SDs (assumindo sigma médio ~10) para manter robustez.
-        const clampedResidual = Math.max(-35, Math.min(35, residual));
+        // ESCALA INVARIANTE: 35 é re-escalonado.
+        const scaleFactor = maxScore / 100;
+        const clampedResidual = Math.max(-35 * scaleFactor, Math.min(35 * scaleFactor, residual));
         const dailyVariance = clampedResidual * clampedResidual;
 
         sumSw += dailyVariance * weight;
         sumWeights += weight;
     }
 
-    if (sumWeights === 0) return 1.5;
+    const scaleFactorFallback = maxScore / 100;
+    if (sumWeights === 0) return 1.5 * scaleFactorFallback;
 
     // MSSD (Mean Successive Squared Differences)
     const mssdVariance = sumSw / sumWeights;
 
-    // REVISION: Standardized SD floor to 1.0
-    return Math.sqrt(Math.max(1.0, mssdVariance));
+    // REVISION: Standardized SD floor escalonado
+    return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), mssdVariance));
 }
 
 // -----------------------------
@@ -288,11 +297,10 @@ export function monteCarloSimulation(
     const drift = calculateSlope(sortedHistory, maxScore); // Tendência clampeada para a média determinística
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
-    // For 2-point history with dt=1, slopeStdError=4.5 → simMu perturbation ±42.7pp
-    // over 90 days, causing bimodal clamping artifacts. Cap ensures attractor noise
-    // ≤ 1.5σ over the projection horizon.
-    const rawDriftUncertainty = Math.max(0.05, slopeStdError);
-    const driftUncertainty = Math.min(rawDriftUncertainty, 1.5 / Math.sqrt(Math.max(1, simulationDays)));
+    // ESCALA INVARIANTE: O teto 1.5 é escalonado via maxScore.
+    const scaleFactor = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+    const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
+    const driftUncertainty = Math.min(rawDriftUncertainty, (1.5 * scaleFactor) / Math.sqrt(Math.max(1, simulationDays)));
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
@@ -352,9 +360,10 @@ export function monteCarloSimulation(
             ciLow: baseline - (volatility * 1.96),
             ciHigh: baseline + (volatility * 1.96)
         };
-        // REVISION: Standardized floor to 1.0
-        const inferredSD = Math.max(1.0, (ciHigh - ciLow) / 3.92);
-        const zScore = (targetScore - baseline) / (Number.isFinite(inferredSD) && inferredSD > 0 ? inferredSD : 1.0);
+        // REVISION: Escalonamento do SD e Conversão p/ Z-score
+        const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+        const inferredSD = Math.max(1.0 * scaleFactorFallback, (ciHigh - ciLow) / 3.92);
+        const zScore = (targetScore - baseline) / (Number.isFinite(inferredSD) && inferredSD > 0 ? inferredSD : 1.0 * scaleFactorFallback);
         const rawProb = normalCDF_complement(Number.isFinite(zScore) ? zScore : 0) * 100;
         const probability = Number.isFinite(rawProb) ? rawProb : 0;
 
@@ -405,11 +414,10 @@ export function monteCarloSimulation(
     // O 'drift' (slope) de calculateSlope já retorna pontos/dia diretos.
 
     // BUG 1 FIX: Hyperbolic decay for theta (OU mean-reversion speed).
-    // Previously linear: theta = 0.1 - vol*0.005, which created a plateau where
-    // vol=17 and vol=50 both mapped to theta=0.02 (the floor).
-    // Hyperbolic: monotonic decay without plateau, higher-vol students have
-    // proportionally slower reversion. vol=5→0.08, vol=20→0.05, vol=50→0.029.
-    const theta = Math.max(0.005, 0.1 / (1 + volatility * 0.05));
+    // ESCALA INVARIANTE CAUSAVA BUG NO ENEM. Volatility crua corrompia 'theta'.
+    const scoreRange = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+    const normalizedVol = (volatility / scoreRange) * 100;
+    const theta = Math.max(0.005, 0.1 / (1 + normalizedVol * 0.05));
 
     // 2. O Atrator (μ - Mu).
     // Até onde o aluno naturalmente chegaria com a tendência atual.
