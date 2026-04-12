@@ -389,3 +389,11 @@ input, textarea, select, button, .neon-text {
   border-radius: 20px;
   border: 1px solid rgba(15, 23, 42, 0.8); /* Efeito de margem interna no scroll */
 }
+
+/* CSS View Transitions - Global Defaults */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
