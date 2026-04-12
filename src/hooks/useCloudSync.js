@@ -295,7 +295,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
-    }, [currentUser?.uid, setAppState]);
+    }, [currentUser?.uid, setAppState, confirmParity]);
 
     useEffect(() => {
         isParityValidatedRef.current = false;
@@ -353,7 +353,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         } finally {
             if (isMountedRef.current) setInternalSyncing(false);
         }
-    }, [currentUser?.uid]);
+    }, [currentUser?.uid, setInternalSyncing]);
 
     useEffect(() => {
         if (!currentUser?.uid || !db) return;
@@ -500,7 +500,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [syncTrigger, parityTick, currentUser?.uid]);
+    }, [syncTrigger, parityTick, currentUser?.uid, setInternalSyncing]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

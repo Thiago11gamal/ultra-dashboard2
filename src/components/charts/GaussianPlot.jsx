@@ -42,6 +42,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const t = targetVal;
 
             const getGeomProb = (tVal, mVal, sl, sr) => {
+                const normFactor = 2 / (sl + sr);
                 // FIX MATEMÁTICO (Underflow Paradox): Usamos (mVal - domainMin) em vez de (mVal / sl) 
                 // para garantir que a regressão geométrica da Gaussiana continue válida caso o minScore da prova 
                 // não seja zero (ex: provas que começam com 50 pontos básicos).
