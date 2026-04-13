@@ -154,8 +154,8 @@ export function EvolutionLineChart({
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
 
                         return [
-                            (isFocused && engine.id === 'bayesian') ? (
-                                <Area key={`bay_ci_${cat.id}`} type={engine.style}
+                            (isFocused && engine?.id === 'bayesian') ? (
+                                <Area key={`bay_ci_${cat.id}`} type={engine?.style || 'monotone'}
                                     dataKey={`band_${cat.id}`}
                                     name="IC 95%" stroke="none"
                                     fill={`url(#bayBand_${cat.id})`} legendType="none"
@@ -164,10 +164,10 @@ export function EvolutionLineChart({
                                 />
                             ) : null,
                             isFocused ? (
-                                <Area key={`area_${cat.id}`} type={engine.style} dataKey={dataKey} name={cat.name} stroke="none"
+                                <Area key={`area_${cat.id}`} type={engine?.style || 'monotone'} dataKey={dataKey} name={cat.name} stroke="none"
                                     fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
                             ) : null,
-                            <Line key={cat.id} type={engine.style} dataKey={dataKey} name={cat.name}
+                            <Line key={cat.id} type={engine?.style || 'monotone'} dataKey={dataKey} name={cat.name}
                                 stroke={cat.color} strokeWidth={isFocused ? 3.5 : 2}
                                 strokeLinecap="round" strokeLinejoin="round"
                                 strokeOpacity={isFocused ? 1 : 0.4}

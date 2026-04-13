@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS } from '../engine/stats';
 
+const EMPTY_OBJECT = {};
+const EMPTY_ARRAY = [];
+
 function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     const aggregatedHistoryByDateMap = new Map();
 
@@ -88,12 +91,18 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     return dateToStats;
 }
 
-export function useChartData(categories = [], weights = {}, maxScore = 100) {
+export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100) {
     const activeCategories = useMemo(() => {
-        let valid = categories.filter(c => c.simuladoStats?.history?.length > 0);
+        let valid = categories.filter(c => {
+            const hist = c.simuladoStats?.history;
+            return hist && Object.values(hist).length > 0;
+        });
+
         valid.sort((a, b) => {
-            const volA = (a.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
-            const volB = (b.simuladoStats?.history || []).reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const historyA = Object.values(a.simuladoStats?.history || EMPTY_OBJECT);
+            const historyB = Object.values(b.simuladoStats?.history || EMPTY_OBJECT);
+            const volA = historyA.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const volB = historyB.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
             return volB - volA;
         });
 
@@ -105,7 +114,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
 
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            (cat.simuladoStats?.history || []).forEach(h => {
+            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
                 const dateKey = getDateKey(h.date);
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -124,7 +133,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         });
 
         activeCategories.forEach(cat => {
-            const history = [...(cat.simuladoStats?.history || [])].sort((a, b) => {
+            const history = Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).sort((a, b) => {
                 const dA = normalizeDate(a.date);
                 const dB = normalizeDate(b.date);
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
@@ -207,7 +216,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            (cat.simuladoStats?.history || []).forEach(h => {
+            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
                 const dateKey = getDateKey(h.date);
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -228,7 +237,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
 
         const rows = activeCategories.map(cat => {
             const dayMap = {};
-            (cat.simuladoStats?.history || []).forEach(h => {
+            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
@@ -238,8 +247,10 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
                 if (h.isPercentage && h.score != null && tot > 0) {
                     corrNorm = Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot);
                 } else if (h.isPercentage && h.score != null && tot === 0) {
-                    tot = SYNTHETIC_TOTAL_QUESTIONS;
-                    corrNorm = Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot);
+                    // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
+                    // de questões totais, mas mostramos a cor/porcentagem calculada.
+                    tot = 1; // Volume mínimo para exibir a cor
+                    corrNorm = (Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore);
                 } else {
                     corrNorm = raw;
                 }
@@ -267,7 +278,7 @@ export function useChartData(categories = [], weights = {}, maxScore = 100) {
         let totalQuestions = 0;
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
-            (cat.simuladoStats?.history || []).forEach(h => {
+            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
                 const tot = Number(h.total) || 0;
                 const raw = Number(h.correct) || 0;
                 const corrNorm = (h.isPercentage && h.score != null && tot > 0)

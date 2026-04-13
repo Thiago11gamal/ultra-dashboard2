@@ -63,7 +63,11 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const dailyMap = {};
     
     // Sort and take last 14 days
-    const sortedLogs = [...studyLogs].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sortedLogs = Object.values(studyLogs || {}).sort((a, b) => {
+        const timeA = new Date(a.date).getTime() || 0;
+        const timeB = new Date(b.date).getTime() || 0;
+        return timeA - timeB;
+    });
     
     sortedLogs.forEach(log => {
         const dateStr = new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
