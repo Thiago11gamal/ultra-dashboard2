@@ -30,8 +30,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
         } else {
             const rawString = String(user.goalDate);
-            const g = rawString.length === 10 
-                ? new Date(`${rawString}T12:00:00`) 
+            const g = rawString.length === 10
+                ? new Date(`${rawString}T12:00:00`)
                 : new Date(rawString);
             if (isNaN(g.getTime())) return null;
             goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
@@ -114,10 +114,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* XP com barra de progresso */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 shadow-2xl flex flex-col justify-between">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
-                <div className="relative z-10">
+                <div className="relative z-10 px-1 py-1 ml-2">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
                             <Trophy size={16} className="text-purple-400" />
@@ -126,17 +126,17 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-black text-white mb-1 sm:mb-2">
+                    <div className="text-xl sm:text-3xl font-black text-white mb-2 sm:mb-3 pl-0.5">
                         {user.xp} XP
                     </div>
-                    <div className="space-y-1">
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="space-y-1.5 pb-1">
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
                                 style={{ width: `${progress.percentage}%` }}
                             />
                         </div>
-                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-normal">
+                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-relaxed pt-0.5">
                             {progress.percentage}% → Nível {progress.level + 1}
                         </div>
                     </div>
@@ -221,9 +221,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     g = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
                                 } else {
                                     const rawString = String(user.goalDate);
-                                    const d = rawString.length === 10 
-                                            ? new Date(`${rawString}T12:00:00`)
-                                            : new Date(rawString);
+                                    const d = rawString.length === 10
+                                        ? new Date(`${rawString}T12:00:00`)
+                                        : new Date(rawString);
                                     if (isNaN(d.getTime())) return 'INVÁLIDA';
                                     g = new Date(d.getFullYear(), d.getMonth(), d.getDate());
                                 }
