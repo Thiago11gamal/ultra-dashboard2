@@ -66,9 +66,16 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const getInitialColumns = React.useCallback(() => {
         const allAssignedIds = new Set();
         DAYS.forEach(d => {
-            (coachPlanner[d.id] || []).forEach(t => allAssignedIds.add(t.id));
+            (coachPlanner[d.id] || []).forEach(t => {
+                const sid = getSafeId(t);
+                if (sid) allAssignedIds.add(sid);
+            });
         });
-        const activeBacklog = (coachPlan || []).filter(t => t && !allAssignedIds.has(t.id));
+        const activeBacklog = (coachPlan || []).filter(t => {
+            if (!t) return false;
+            const sid = getSafeId(t);
+            return !allAssignedIds.has(sid);
+        });
 
         return {
             backlog: activeBacklog,
@@ -129,8 +136,11 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                 // BUG-4 FIX: Persistir ordem do backlog no store global
                 // Reconstruímos o coachPlan mantendo a nova ordem do backlog
                 const assignedIds = new Set();
-                Object.values(coachPlanner).forEach(day => day.forEach(t => t?.id && assignedIds.add(t.id)));
-                const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(t.id));
+                Object.values(coachPlanner).forEach(day => day.forEach(t => {
+                    const sid = getSafeId(t);
+                    if (sid) assignedIds.add(sid);
+                }));
+                const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(getSafeId(t)));
                 setData(prev => ({ ...prev, coachPlan: [...newColList, ...assignedTasks] }));
             }
             
@@ -165,9 +175,16 @@ export default function AICoachPlanner({ coachPlan = [] }) {
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
             Object.entries(updatedPlanner).forEach(([key, dayTasks]) => {
-                if(key !== 'backlog') dayTasks.forEach(t => t?.id && assignedIds.add(t.id));
+                if(key !== 'backlog') dayTasks.forEach(t => {
+                    const sid = getSafeId(t);
+                    if (sid) assignedIds.add(sid);
+                });
             });
-            const otherTasks = (coachPlan || []).filter(t => !assignedIds.has(t.id) && !finishList.some(f => f.id === t.id));
+            const finishListIds = new Set(finishList.map(f => getSafeId(f)));
+            const otherTasks = (coachPlan || []).filter(t => {
+                const sid = getSafeId(t);
+                return !assignedIds.has(sid) && !finishListIds.has(sid);
+            });
             setData(prev => ({ ...prev, coachPlan: [...finishList, ...otherTasks] }));
         }
 
