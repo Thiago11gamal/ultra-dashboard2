@@ -131,33 +131,35 @@ export default function AICoachView({
     };
 
     return (
-        <div id="ai-coach-container" className="space-y-8 animate-fade-in pb-20 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 xl:px-16 pt-4">
+        <div id="ai-coach-container" className="space-y-8 animate-fade-in pb-20 max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-4">
             {/* 1. Header & Navigation */}
-            <div className="flex flex-col md:flex-row items-end justify-between gap-6 pt-6 pb-6 border-b border-white/5">
-                <div className="flex-1 md:text-left">
-                    <h1 className="text-xl font-black text-white flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 shadow-sm">
-                            <Sparkles size={16} className="text-purple-400" />
-                        </div>
-                        Executive Coach
-                        <span className="text-[10px] text-purple-400 uppercase tracking-widest font-bold bg-purple-500/10 px-2 py-1 rounded ml-2">Beta</span>
-                    </h1>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6 pb-6 border-b border-white/5">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 shadow-sm">
+                        <Sparkles size={20} className="text-purple-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-white flex items-center gap-2">
+                            Executive Coach
+                            <span className="text-[10px] text-purple-400 uppercase tracking-widest font-bold bg-purple-500/10 px-2 py-0.5 rounded">Beta</span>
+                        </h1>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Inteligência Estratégica</p>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6 bg-slate-900/40 p-2 pl-4 rounded-2xl border border-white/5">
+                    <div className="text-left py-1 pr-4 border-r border-white/10">
+                        <span className="block text-xl font-black text-white leading-none">{coachPlan ? coachPlan.length : 0}</span>
+                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
+                    </div>
                     <button 
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="no-print flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 text-xs font-bold transition-all border border-purple-500/30 disabled:opacity-50"
+                        className="no-print flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold transition-all shadow-lg shadow-purple-900/20 disabled:opacity-50"
                     >
                         {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                        <span className="hidden sm:inline">{isExporting ? 'Progresso...' : 'Salvar Plano'}</span>
-                        <span className="sm:hidden">PDF</span>
+                        <span>{isExporting ? 'Processando...' : 'Salvar Plano'}</span>
                     </button>
-                    <div className="text-right hidden md:block border-l border-white/10 pl-4">
-                        <span className="block text-2xl font-black text-white leading-none">{coachPlan ? coachPlan.length : 0}</span>
-                        <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
-                    </div>
                 </div>
             </div>
 
