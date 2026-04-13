@@ -22,7 +22,7 @@ function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitc
                 bg-gradient-to-b from-slate-900 to-slate-950
                 border-l border-white/10 shadow-2xl
                 transition-transform duration-300 ease-out
-                flex flex-col
+                flex flex-col overflow-y-auto custom-scrollbar
                 ${open ? 'translate-x-0' : 'translate-x-full'}
             `}>
                 {/* Drawer Header */}

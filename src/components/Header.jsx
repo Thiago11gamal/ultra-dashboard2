@@ -234,11 +234,11 @@ export default function Header({
                         </button>
 
                         {profileOpen && (
-                            <div className="absolute right-0 top-full mt-4 w-64 bg-slate-900/98 border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down backdrop-blur-md">
+                            <div className="absolute right-0 top-full mt-4 w-64 max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-slate-900/98 border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down backdrop-blur-md">
                                 <div className="px-3 py-2 border-b border-white/10 mb-2">
                                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Meus Painéis</p>
                                 </div>
-                                <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                <div className="space-y-1">
                                     {contests && Object.entries(contests).map(([id, contestData]) => (
                                         <div
                                             key={id}
