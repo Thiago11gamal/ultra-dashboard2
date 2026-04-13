@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -28,7 +29,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
         }
     };
 
-    return (
+    const modalContent = (
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -95,4 +96,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
             )}
         </AnimatePresence>
     );
+
+    if (typeof document === 'undefined') return modalContent; // Fallback for SSR if needed
+    return createPortal(modalContent, document.body);
 }
