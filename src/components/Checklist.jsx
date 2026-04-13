@@ -146,17 +146,49 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
 
             {/* Action Buttons */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                {/* Play Button */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onTriggerPlay();
-                    }}
-                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all group/play ${task.status === 'studying' ? 'text-purple-300 bg-purple-500/40 animate-pulse ring-2 ring-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'text-purple-400 bg-purple-500/10 border border-purple-500/30 hover:text-white hover:bg-purple-500/40 hover:ring-2 hover:ring-purple-400/50 hover:scale-110 shadow-lg shadow-purple-500/10'}`}
-                    title={task.status === 'studying' ? "Estudando agora..." : "Estudar agora (Pomodoro)"}
-                >
-                    {task.status === 'studying' ? <BarChart2 size={18} className="animate-spin" /> : <Play size={18} className="translate-x-[1px] group-hover/play:scale-110 transition-transform fill-purple-500/20 group-hover/play:fill-purple-500/40 drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]" />}
-                </button>
+                {/* Play / Retornar Button (ULTRA PREMIUM) */}
+                {task.status === 'studying' ? (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onTriggerPlay();
+                        }}
+                        className="relative px-4 sm:px-5 h-7 sm:h-9 flex items-center justify-center gap-1.5 sm:gap-2 rounded-full transition-all duration-500 hover:scale-[1.05] active:scale-95 group overflow-visible animate-pulse"
+                        title="Retornar ao Pomodoro"
+                    >
+                        {/* Glow Background / Halo Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur-[6px] opacity-60 group-hover:opacity-100 group-hover:blur-md transition-all duration-500" />
+                        
+                        {/* Main Glowing Body with Top Inner Reflection */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full border border-white/20 group-hover:border-white/50 transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
+
+                        {/* Pulsing Recording Status Bubble */}
+                        <div className="relative flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+                            {/* Outer glowing pulse */}
+                            <div className="absolute w-3 h-3 bg-red-500/50 rounded-full animate-ping blur-[1px]" />
+                            {/* Inner 3D jewel dot */}
+                            <div className="w-2 h-2 bg-gradient-to-br from-rose-300 via-red-500 to-red-700 rounded-full shadow-[0_0_8px_rgba(239,68,68,1),inset_0_1px_1px_rgba(255,255,255,0.8)] relative z-10 border border-red-800/20" />
+                        </div>
+                        
+                        {/* Text and Micro-animated Icon */}
+                        <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.15em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] whitespace-nowrap relative z-10 flex items-center justify-center">
+                            RETORNAR
+                            {/* Slide-in Play icon on hover */}
+                            <Play size={9} className="fill-white opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-1 group-hover:translate-x-1.5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)" />
+                        </span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onTriggerPlay();
+                        }}
+                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all group/play text-purple-400 bg-purple-500/10 border border-purple-500/30 hover:text-white hover:bg-purple-500/40 hover:ring-2 hover:ring-purple-400/50 hover:scale-110 shadow-lg shadow-purple-500/10"
+                        title="Estudar agora (Pomodoro)"
+                    >
+                        <Play size={18} className="translate-x-[1px] group-hover/play:scale-110 transition-transform fill-purple-500/20 group-hover/play:fill-purple-500/40 drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]" />
+                    </button>
+                )}
 
                 {/* Priority Badge */}
                 <button
