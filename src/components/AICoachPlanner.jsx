@@ -251,16 +251,16 @@ export default function AICoachPlanner() {
                             <div className="ml-auto text-[9px] text-slate-500 font-bold uppercase tracking-widest hidden sm:block italic">Arraste para organizar</div>
                         </div>
 
-                        <div className="overflow-x-auto pb-4 custom-planner-scroll">
-                            <div className="flex gap-4 min-w-[1300px] lg:min-w-[1400px] h-full min-h-[500px] lg:min-h-[600px]">
+                        <div className="overflow-x-auto pb-6 custom-planner-scroll">
+                            <div className="flex gap-4 min-w-[1550px] h-full min-h-[500px] lg:min-h-[600px]">
                                 <style>{`
-                                    .custom-planner-scroll::-webkit-scrollbar { height: 6px; }
-                                    .custom-planner-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
-                                    .custom-planner-scroll::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.2); border-radius: 10px; }
-                                    .custom-planner-scroll::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.4); }
+                                    .custom-planner-scroll::-webkit-scrollbar { height: 8px; }
+                                    .custom-planner-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+                                    .custom-planner-scroll::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 10px; border: 2px solid rgba(0,0,0,0.2); }
+                                    .custom-planner-scroll::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.6); }
                                 `}</style>
                                 {DAYS.map(day => (
-                                    <div key={day.id} className="flex-1 flex flex-col min-w-[180px] lg:min-w-[190px]">
+                                    <div key={day.id} className="flex-1 flex flex-col min-w-[200px] shrink-0">
                                     {/* Column Header Design */}
                                     <div className="text-center py-2 px-1 mb-3 rounded-lg border border-white/5 bg-slate-950/50 shadow-inner">
                                         <h4 className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
