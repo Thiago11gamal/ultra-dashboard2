@@ -3,7 +3,7 @@ import { getTaskXP } from '../../utils/gamification';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
-        let levelUpDetail = null;
+        let pendingXpChange = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
             if (!activeData || !activeData.categories) return;
@@ -16,6 +16,7 @@ export const createTaskSlice = (set, get) => ({
 
             const completed = !task.completed;
             const xpChange = getTaskXP(task, completed);
+            pendingXpChange = xpChange;
 
             task.completed = completed;
             task.completedAt = completed ? new Date().toISOString() : null;
@@ -26,20 +27,13 @@ export const createTaskSlice = (set, get) => ({
                 delete task.awardedXP;
             }
 
-            // processGamification is in GamificationSlice, but we might need to access it
-            // For now, we'll assume processGamification is available on the state or we call it directly if shared.
-            // Actually, in Zustand slices, they share the same 'state/set/get'.
-            if (state.processGamification) {
-                levelUpDetail = state.processGamification(xpChange);
-            }
-
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         });
         
-        if (levelUpDetail && get().dispatchLevelUp) {
-            get().dispatchLevelUp(levelUpDetail);
+        if (pendingXpChange !== 0 && get().awardExperience) {
+            get().awardExperience(pendingXpChange);
         }
     },
 
@@ -64,21 +58,26 @@ export const createTaskSlice = (set, get) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
-    deleteTask: (categoryId, taskId) => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        const category = activeData.categories.find(c => c.id === categoryId);
-        if (category) {
-            const task = category.tasks.find(t => t.id === taskId);
-            if (task && task.completed) {
-                const xpDeduction = task.awardedXP || 150;
-                if (state.processGamification) state.processGamification(-xpDeduction);
+    deleteTask: (categoryId, taskId) => {
+        let pendingXpDeduction = 0;
+        set((state) => {
+            const activeData = state.appState.contests[state.appState.activeId];
+            const category = activeData.categories.find(c => c.id === categoryId);
+            if (category) {
+                const task = category.tasks.find(t => t.id === taskId);
+                if (task && task.completed) {
+                    pendingXpDeduction = task.awardedXP || 150;
+                }
+                category.tasks = category.tasks.filter(t => t.id !== taskId);
             }
-            category.tasks = category.tasks.filter(t => t.id !== taskId);
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+        });
+        if (pendingXpDeduction > 0 && get().awardExperience) {
+            get().awardExperience(-pendingXpDeduction);
         }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+    },
 
     togglePriority: (categoryId, taskId) => set((state) => {
         const priorities = ['low', 'medium', 'high'];

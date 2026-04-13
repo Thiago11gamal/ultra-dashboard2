@@ -7,7 +7,7 @@ const SESSION_CAP = SYNC_LOG_CAP;
 
 export const createStudySlice = (set, get) => ({
     handleUpdateStudyTime: (categoryId, minutes, taskId) => {
-        let levelUpDetail = null;
+        let pendingXp = 0;
         set((state) => {
             const now = new Date().toISOString();
             const activeData = state.appState.contests[state.appState.activeId];
@@ -46,47 +46,50 @@ export const createStudySlice = (set, get) => ({
                 if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
             }
 
-            if (state.processGamification) {
-                levelUpDetail = state.processGamification(baseXP + bonusXP);
-            }
+            pendingXp = baseXP + bonusXP;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         });
 
-        if (levelUpDetail && get().dispatchLevelUp) {
-            get().dispatchLevelUp(levelUpDetail);
+        if (pendingXp > 0 && get().awardExperience) {
+            get().awardExperience(pendingXp);
         }
     },
 
-    deleteSession: (sessionId) => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData.studySessions || !activeData.categories) return;
-        const sessionIndex = activeData.studySessions.findIndex(s => s.id === sessionId);
-        if (sessionIndex === -1) return;
+    deleteSession: (sessionId) => {
+        let xpToDeduct = 0;
+        set((state) => {
+            const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData.studySessions || !activeData.categories) return;
+            const sessionIndex = activeData.studySessions.findIndex(s => s.id === sessionId);
+            if (sessionIndex === -1) return;
 
-        const session = activeData.studySessions[sessionIndex];
-        
-        const baseXP = XP_CONFIG.pomodoro.base;
-        const bonusXP = session.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
-        const xpToDeduct = baseXP + bonusXP;
-        
-        if (state.processGamification) state.processGamification(-xpToDeduct);
+            const session = activeData.studySessions[sessionIndex];
+            
+            const baseXP = XP_CONFIG.pomodoro.base;
+            const bonusXP = session.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+            xpToDeduct = baseXP + bonusXP;
 
-        const category = activeData.categories.find(c => c.id === session.categoryId);
-        if (category) {
-            category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
+            const category = activeData.categories.find(c => c.id === session.categoryId);
+            if (category) {
+                category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
+            }
+
+            activeData.studySessions.splice(sessionIndex, 1);
+            if (activeData.studyLogs && session.logReferenceId) {
+                activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.logReferenceId);
+            } else if (activeData.studyLogs) {
+                activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
+            }
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+        });
+
+        if (xpToDeduct > 0 && get().awardExperience) {
+            get().awardExperience(-xpToDeduct);
         }
-
-        activeData.studySessions.splice(sessionIndex, 1);
-        if (activeData.studyLogs && session.logReferenceId) {
-            activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.logReferenceId);
-        } else if (activeData.studyLogs) {
-            activeData.studyLogs = activeData.studyLogs.filter(l => l.id !== session.id);
-        }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+    },
 });
