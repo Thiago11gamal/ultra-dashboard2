@@ -8,6 +8,26 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         const topicMap = {};
 
         categories.forEach(cat => {
+            const tasks = cat.tasks || [];
+            tasks.forEach(tsk => {
+                const name = String(tsk.title || tsk.text || '').trim();
+                if (!name) return;
+                
+                const key = name.toLowerCase();
+                if (!topicMap[key]) {
+                    topicMap[key] = {
+                        id: key,
+                        name: name,
+                        parentCategory: cat.name,
+                        categoryColor: cat.color,
+                        categoryIcon: cat.icon,
+                        correct: 0,
+                        wrong: 0,
+                        total: 0
+                    };
+                }
+            });
+
             const history = cat.simuladoStats?.history || [];
             
             history.forEach(h => {
@@ -44,7 +64,6 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         });
 
         return Object.values(topicMap)
-            .filter(t => t.total > 0)
             .map(t => {
                 const balance = t.correct - t.wrong;
                 const percent = t.total > 0 ? Math.round((t.correct / t.total) * maxScore) : 0;
