@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppStore } from '../store/useAppStore';
 import { BrainCircuit, Calendar, GripVertical, Info } from 'lucide-react';
+import { getSafeId } from '../utils/idGenerator';
 
 const DAYS = [
     { id: 'mon', label: 'Segunda', color: 'blue' },
@@ -13,12 +14,7 @@ const DAYS = [
     { id: 'sun', label: 'Domingo', color: 'rose' }
 ];
 
-// PASSO 1: Gerador de IDs confiável
-const getSafeId = (task) => {
-    if (task?.id) return String(task.id);
-    const text = task?.text || task?.title || "sem-nome";
-    return `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}`;
-};
+// Usando getSafeId importado de utils/idGenerator
 
 // PASSO 2: TaskCard atualizado para receber stableId
 const TaskCard = ({ task, index, isBacklog, stableId }) => {
@@ -55,8 +51,11 @@ const TaskCard = ({ task, index, isBacklog, stableId }) => {
 
 const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
 
-export default function AICoachPlanner({ coachPlan = [] }) {
-    const coachPlanner = useAppStore(state => state.appState.coachPlanner) || DEFAULT_PLANNER;
+export default function AICoachPlanner() {
+    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const coachPlanner = activeContest?.coachPlanner || DEFAULT_PLANNER;
+    const coachPlan = activeContest?.coachPlan || [];
+    
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
     const setData = useAppStore(state => state.setData);
 

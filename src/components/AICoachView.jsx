@@ -5,6 +5,7 @@ import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
 import { exportComponentAsPDF } from '../utils/pdfExport';
+import { getSafeId } from '../utils/idGenerator';
 
 function AICoachCard({ task, idx }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -113,14 +114,15 @@ export default function AICoachView({
     suggestedFocus,
     onGenerateGoals,
     loading,
-    coachPlan = [],
     onClearHistory
 }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     
     // CORREÇÃO: Capturar o state de forma reativa no início do componente
-    const coachPlanner = useAppStore(state => state.appState.coachPlanner) || {};
+    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const coachPlanner = activeContest?.coachPlanner || {};
+    const coachPlan = activeContest?.coachPlan || [];
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -230,19 +232,22 @@ export default function AICoachView({
                             </div>
                         </div>
                     ) : viewMode === 'planner' ? (
-                        <AICoachPlanner coachPlan={coachPlan} />
+                        <AICoachPlanner />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {(() => {
                                 // BUG-5 FIX: Filtrar metas usando o estado reativo
                                 const allAssignedIds = new Set();
                                 Object.values(coachPlanner).forEach(dayTasks => {
-                                    (dayTasks || []).forEach(t => t?.id && allAssignedIds.add(t.id));
+                                    (dayTasks || []).forEach(t => {
+                                        const sid = getSafeId(t);
+                                        if (sid) allAssignedIds.add(sid);
+                                    });
                                 });
                                 return coachPlan
-                                    .filter(task => !allAssignedIds.has(task.id))
+                                    .filter(task => !allAssignedIds.has(getSafeId(task)))
                                     .map((task, idx) => (
-                                        <AICoachCard key={task.id || idx} task={task} idx={idx} />
+                                        <AICoachCard key={getSafeId(task) || idx} task={task} idx={idx} />
                                     ));
                             })()}
                         </div>

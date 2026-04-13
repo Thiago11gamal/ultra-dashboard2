@@ -84,7 +84,6 @@ export default function Coach() {
             suggestedFocus={suggestedFocus}
             onGenerateGoals={handleGenerateGoals}
             loading={coachLoading}
-            coachPlan={data.coachPlan}
             onClearHistory={() => {
                 setData(prev => ({ ...prev, coachPlan: [] }));
                 useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
