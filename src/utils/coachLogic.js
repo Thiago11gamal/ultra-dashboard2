@@ -190,8 +190,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let daysSinceLastStudy = 30;
         let lastDate = normalizeDate(new Date(0));
 
-        if (relevantSimulados.length > 0) {
-            const simDate = normalizeDate(relevantSimulados[0].date);
+        // CORREÇÃO: Usar o array com as datas mais recentes primeiro
+        if (simuladosWithMaxScore.length > 0) {
+            const simDate = normalizeDate(simuladosWithMaxScore[0].date);
             if (simDate > lastDate) lastDate = simDate;
         }
 
@@ -498,11 +499,17 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
         if (!name) return;
         
         if (!topicMap[name]) {
-            // Inicializa com o estado da primeira tarefa encontrada
             topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: !!task.completed, scores: [] };
+            topicMap[name].hasUnfinishedTask = !task.completed;
         } else {
-            // FIX: O tópico só será dado como concluído se TODAS as duplicatas estiverem concluídas
-            topicMap[name].completed = topicMap[name].completed && !!task.completed;
+            // CORREÇÃO: A lógica matemática anterior impedia a conclusão. 
+            // Esta regista qualquer tarefa pendente dentro do tópico.
+            if (topicMap[name].hasUnfinishedTask === undefined) {
+                 topicMap[name].hasUnfinishedTask = !task.completed;
+            } else if (!task.completed) {
+                 topicMap[name].hasUnfinishedTask = true;
+            }
+            topicMap[name].completed = !topicMap[name].hasUnfinishedTask;
         }
         
         if (task.priority === 'high') topicMap[name].manualPriority = 40;
@@ -742,10 +749,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         }
                     }
                 });
-            } else {
-                // Fallback General Task - Only if no specific weak topic task was added for this iteration
+                // Fallback General Task
                 allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${Date.now()}`,
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${crypto.randomUUID()}`, // CORREÇÃO: randomUUID em vez de Date.now()
                     text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                     completed: false,
                     categoryId: cat.id,

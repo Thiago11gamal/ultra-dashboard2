@@ -118,6 +118,9 @@ export default function AICoachView({
 }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
+    
+    // CORREÇÃO: Capturar o state de forma reativa no início do componente
+    const coachPlanner = useAppStore(state => state.appState.coachPlanner) || {};
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -231,8 +234,7 @@ export default function AICoachView({
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {(() => {
-                                // BUG-5 FIX: Filtrar metas que já estão no Planner para não duplicar na visão de Lista
-                                const coachPlanner = useAppStore.getState().appState.coachPlanner || {};
+                                // BUG-5 FIX: Filtrar metas usando o estado reativo
                                 const allAssignedIds = new Set();
                                 Object.values(coachPlanner).forEach(dayTasks => {
                                     (dayTasks || []).forEach(t => t?.id && allAssignedIds.add(t.id));

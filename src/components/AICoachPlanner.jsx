@@ -22,10 +22,8 @@ const TaskCard = ({ task, index, isBacklog }) => {
 
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
 
-    // BUG FIX: react-beautiful-dnd breaks instantly if draggableId changes (e.g. relying on `index` across columns).
-    // If task.id is absent, we generate a stable hash from its content to prevent it from vanishing on drop.
-    // IMPROVEMENT: Added index to ensure uniqueness even with identical texts.
-    const stableId = task.id || `fb-${subject.replace(/\s/g, '')}-${index}-${fullText.length}`;
+    // BUG FIX: Remoção do index para garantir ID estável
+    const stableId = task.id || `fb-${subject.replace(/\s/g, '')}-${fullText.length}`;
 
     return (
         <Draggable draggableId={stableId} index={index}>
@@ -140,12 +138,22 @@ export default function AICoachPlanner({ coachPlan = [] }) {
         };
         setColumns(newCols);
 
-        // Update Store (ignoring backlog changes as they're derived)
+        // Update Store
         const updatedPlanner = { ...coachPlanner };
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
         
         updateCoachPlanner(updatedPlanner);
+
+        // BUG-2 FIX: Sincronizar ordem global se a tarefa voltar para o Backlog
+        if (destination.droppableId === 'backlog') {
+            const assignedIds = new Set();
+            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => {
+                if(key !== 'backlog') dayTasks.forEach(t => t?.id && assignedIds.add(t.id));
+            });
+            const otherTasks = (coachPlan || []).filter(t => !assignedIds.has(t.id) && !finishList.some(f => f.id === t.id));
+            setData(prev => ({ ...prev, coachPlan: [...finishList, ...otherTasks] }));
+        }
     };
 
     return (
