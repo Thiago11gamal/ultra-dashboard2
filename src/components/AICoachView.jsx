@@ -190,22 +190,22 @@ export default function AICoachView({
 
                 {/* Bottom Section: The Plan */}
                 <div className="w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
-                        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                            <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center pr-4 border-r border-white/10">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-6 shrink-0">
+                        <div className="flex flex-wrap items-center gap-5">
+                            <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center pr-5 border-r border-white/10 h-6">
                                 Execução
                             </h2>
                             {coachPlan && coachPlan.length > 0 && (
-                                <div className="flex items-center gap-1 bg-slate-950/50 p-1.5 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-1.5 bg-slate-900/60 p-1.5 rounded-2xl border border-white/5 shadow-inner backdrop-blur-md">
                                     <button
                                         onClick={() => setViewMode('planner')}
-                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'planner' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'planner' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                     >
                                         Planner
                                     </button>
                                     <button
                                         onClick={() => setViewMode('list')}
-                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'list' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === 'list' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                     >
                                         Lista
                                     </button>
@@ -215,10 +215,10 @@ export default function AICoachView({
                         {coachPlan && coachPlan.length > 0 && (
                             <button
                                 onClick={onClearHistory}
-                                className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-red-400 uppercase tracking-widest transition-colors py-1.5 px-3 rounded-lg hover:bg-slate-800"
+                                className="group/clear flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-red-400 uppercase tracking-widest transition-all duration-300 py-2 px-4 rounded-xl border border-transparent hover:border-red-500/20 hover:bg-red-500/5"
                             >
-                                <Trash2 size={12} />
-                                Limpar Lista
+                                <Trash2 size={13} className="group-hover/clear:rotate-12 transition-transform" />
+                                Limpar Plano
                             </button>
                         )}
                     </div>

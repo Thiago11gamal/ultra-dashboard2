@@ -213,20 +213,22 @@ export default function AICoachPlanner() {
                                 <div
                                     ref={provided.innerRef}
                                     {...provided.droppableProps}
-                                    className={`flex-1 transition-colors rounded-xl p-1 -m-1 ${snapshot.isDraggingOver ? 'bg-slate-800/50' : ''}`}
+                                    className={`flex-1 transition-all rounded-xl p-1.5 -m-1.5 ${snapshot.isDraggingOver ? 'bg-purple-500/5' : ''}`}
                                 >
-                                    {columns.backlog.map((task, idx) => {
-                                        const safeId = getSafeId(task);
-                                        return (
-                                            <TaskCard 
-                                                key={safeId} 
-                                                stableId={safeId} 
-                                                task={task} 
-                                                index={idx} 
-                                                isBacklog={true} 
-                                            />
-                                        );
-                                    })}
+                                    <div className="space-y-2.5">
+                                        {columns.backlog.map((task, idx) => {
+                                            const safeId = getSafeId(task);
+                                            return (
+                                                <TaskCard 
+                                                    key={safeId} 
+                                                    stableId={safeId} 
+                                                    task={task} 
+                                                    index={idx} 
+                                                    isBacklog={true} 
+                                                />
+                                            );
+                                        })}
+                                    </div>
                                     {provided.placeholder}
                                     
                                     {columns.backlog.length === 0 && (
@@ -262,8 +264,9 @@ export default function AICoachPlanner() {
                                 {DAYS.map(day => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[200px] shrink-0">
                                     {/* Column Header Design */}
-                                    <div className="text-center py-2 px-1 mb-3 rounded-lg border border-white/5 bg-slate-950/50 shadow-inner">
-                                        <h4 className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                                    <div className="text-center py-2.5 px-2 mb-4 rounded-xl border border-white/5 bg-slate-950/40 shadow-inner group/header relative overflow-hidden">
+                                        <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 bg-${day.color}-500`} />
+                                        <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors group-hover/header:text-${day.color}-400 text-slate-400`}>
                                             {day.label}
                                         </h4>
                                     </div>
