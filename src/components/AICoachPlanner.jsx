@@ -13,17 +13,21 @@ const DAYS = [
     { id: 'sun', label: 'Domingo', color: 'rose' }
 ];
 
-const TaskCard = ({ task, index, isBacklog }) => {
-    // Basic text parsing
+// PASSO 1: Gerador de IDs confiável
+const getSafeId = (task) => {
+    if (task?.id) return String(task.id);
+    const text = task?.text || task?.title || "sem-nome";
+    return `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}`;
+};
+
+// PASSO 2: TaskCard atualizado para receber stableId
+const TaskCard = ({ task, index, isBacklog, stableId }) => {
     const fullText = task.text || task.title || "";
     const parts = fullText.split(':');
     let subject = parts.length > 1 ? parts[0] : fullText;
     let desc = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? "Revisão Geral" : "");
 
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
-
-    // BUG FIX: Remoção do index para garantir ID estável
-    const stableId = task.id || `fb-${subject.replace(/\s/g, '')}-${fullText.length}`;
 
     return (
         <Draggable draggableId={stableId} index={index}>
@@ -92,11 +96,18 @@ export default function AICoachPlanner({ coachPlan = [] }) {
     const onDragStart = () => setIsDragging(true);
 
     const onDragEnd = (result) => {
-        setIsDragging(false);
-        if (!result.destination) return;
+        // SE NÃO HOUVE DESTINO, CANCELA AQUI
+        if (!result.destination) {
+            setIsDragging(false);
+            return;
+        }
+
         const { source, destination } = result;
 
-        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+        if (source.droppableId === destination.droppableId && source.index === destination.index) {
+            setIsDragging(false);
+            return;
+        }
 
         const startCol = columns[source.droppableId];
         const finishCol = columns[destination.droppableId];
@@ -122,6 +133,11 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                 const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(t.id));
                 setData(prev => ({ ...prev, coachPlan: [...newColList, ...assignedTasks] }));
             }
+            
+            // PASSO 4: Timeout mágico para evitar race condition
+            setTimeout(() => {
+                setIsDragging(false);
+            }, 50);
             return;
         }
 
@@ -154,6 +170,11 @@ export default function AICoachPlanner({ coachPlan = [] }) {
             const otherTasks = (coachPlan || []).filter(t => !assignedIds.has(t.id) && !finishList.some(f => f.id === t.id));
             setData(prev => ({ ...prev, coachPlan: [...finishList, ...otherTasks] }));
         }
+
+        // PASSO 4: Timeout mágico para evitar race condition
+        setTimeout(() => {
+            setIsDragging(false);
+        }, 50);
     };
 
     return (
@@ -178,9 +199,18 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                                     {...provided.droppableProps}
                                     className={`flex-1 transition-colors rounded-xl p-1 -m-1 ${snapshot.isDraggingOver ? 'bg-slate-800/50' : ''}`}
                                 >
-                                    {columns.backlog.map((task, idx) => (
-                                        <TaskCard key={task.id || `backlog-${idx}`} task={task} index={idx} isBacklog={true} />
-                                    ))}
+                                    {columns.backlog.map((task, idx) => {
+                                        const safeId = getSafeId(task);
+                                        return (
+                                            <TaskCard 
+                                                key={safeId} 
+                                                stableId={safeId} 
+                                                task={task} 
+                                                index={idx} 
+                                                isBacklog={true} 
+                                            />
+                                        );
+                                    })}
                                     {provided.placeholder}
                                     
                                     {columns.backlog.length === 0 && (
@@ -222,9 +252,18 @@ export default function AICoachPlanner({ coachPlan = [] }) {
                                                     snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
                                                 }`}
                                             >
-                                                {columns[day.id].map((task, idx) => (
-                                                    <TaskCard key={task.id || `plan-${day.id}-${idx}`} task={task} index={idx} isBacklog={false} />
-                                                ))}
+                                                {columns[day.id].map((task, idx) => {
+                                                    const safeId = getSafeId(task);
+                                                    return (
+                                                        <TaskCard 
+                                                            key={safeId} 
+                                                            stableId={safeId} 
+                                                            task={task} 
+                                                            index={idx} 
+                                                            isBacklog={false} 
+                                                        />
+                                                    );
+                                                })}
                                                 {provided.placeholder}
                                             </div>
                                         )}
