@@ -31,11 +31,53 @@ export default function PriorityProgress({ categories = [] }) {
 
     // Se não tiver nenhuma tarefa em todo o app, podemos não mostrar ou mostrar zerado
     const totalTasksGlobally = priorities.reduce((acc, p) => acc + stats[p].total, 0);
+    const totalCompletedGlobally = priorities.reduce((acc, p) => acc + stats[p].completed, 0);
     if (totalTasksGlobally === 0) return null;
 
+    const globalPct = totalTasksGlobally > 0 ? Math.round((totalCompletedGlobally / totalTasksGlobally) * 100) : 0;
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {priorities.map(p => {
+        <div className="space-y-4">
+            {/* Barra de Progresso Global Maior */}
+            <div className="p-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-hidden">
+                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                    <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] opacity-30 transition-all duration-700 group-hover:bg-purple-400/30" />
+                </div>
+                
+                <div className="relative z-10 flex flex-col gap-4">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 leading-none">
+                                Progresso Global
+                            </span>
+                            <h3 className="text-xl font-bold text-white mt-1">Conclusão de Assuntos</h3>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">{globalPct}%</span>
+                            <p className="text-xs text-slate-400 font-bold mt-1">
+                                {totalCompletedGlobally} de {totalTasksGlobally} concluídos
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]">
+                        {globalPct > 0 ? (
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-purple-600 to-blue-500 transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(168,85,247,0.5)] relative overflow-hidden"
+                                style={{ width: `${globalPct}%` }}
+                            >
+                                {/* Animação de brilho interno */}
+                                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                            </div>
+                        ) : (
+                            <div className="h-full w-2 rounded-full bg-white/10" />
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {priorities.map(p => {
                 const { total, completed } = stats[p];
                 const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                 const conf = priorityColors[p];
@@ -84,5 +126,7 @@ export default function PriorityProgress({ categories = [] }) {
                 );
             })}
         </div>
+        </div>
     );
 }
+
