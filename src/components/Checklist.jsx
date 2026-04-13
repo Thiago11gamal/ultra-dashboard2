@@ -157,10 +157,10 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                         title="Retornar ao Pomodoro"
                     >
                         {/* Glow Background / Halo Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur-[6px] opacity-60 group-hover:opacity-100 group-hover:blur-md transition-all duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 rounded-full blur-[6px] opacity-60 group-hover:opacity-100 group-hover:blur-md transition-all duration-500" />
                         
                         {/* Main Glowing Body with Top Inner Reflection */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full border border-white/20 group-hover:border-white/50 transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-500 rounded-full border border-white/20 group-hover:border-white/50 transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
 
                         {/* Pulsing Recording Status Bubble */}
                         <div className="relative flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
