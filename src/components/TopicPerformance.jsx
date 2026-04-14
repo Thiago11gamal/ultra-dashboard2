@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { getSafeScore } from '../utils/scoreHelper';
 
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 

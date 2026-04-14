@@ -50,9 +50,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     }
 
                     const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
-                    const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
+                    const correctCount = total > 0 
+                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        : (Number(t.correct) || 0);
                     
                     const wrongCount = Math.max(0, total - correctCount);
 
@@ -71,7 +71,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
             })
             .sort((a, b) => b.balance - a.balance);
 
-    }, [categories]);
+    }, [categories, maxScore]);
 
     return (
         <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">

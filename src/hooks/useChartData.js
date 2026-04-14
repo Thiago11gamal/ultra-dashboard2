@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS } from '../engine/stats';
+import { getSafeScore } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];
@@ -238,15 +239,14 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 let tot = Number(h.total) || 0;
                 let raw = Number(h.correct) || 0;
                 let corrNorm;
-                if (h.isPercentage && h.score != null && tot > 0) {
-                    corrNorm = Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot);
-                } else if (h.isPercentage && h.score != null && tot === 0) {
+                const score = getSafeScore(h, maxScore);
+                if (h.isPercentage && h.score != null && tot === 0) {
                     // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
                     // de questões totais, mas mostramos a cor/porcentagem calculada.
                     tot = 1; // Volume mínimo para exibir a cor
-                    corrNorm = (Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore);
+                    corrNorm = (score / maxScore);
                 } else {
-                    corrNorm = raw;
+                    corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
@@ -275,8 +275,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
                 const tot = Number(h.total) || 0;
                 const raw = Number(h.correct) || 0;
-                const corrNorm = (h.isPercentage && h.score != null && tot > 0)
-                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot)
+                const corrNorm = tot > 0 
+                    ? Math.round((getSafeScore(h, maxScore) / maxScore) * tot)
                     : raw;
                 totalQuestions += tot;
                 totalCorrect += corrNorm;

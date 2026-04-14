@@ -73,9 +73,9 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
-                    const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
+                    const correctCount = total > 0 
+                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        : (Number(t.correct) || 0);
                     
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -96,7 +96,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 };
             })
             .sort((a, b) => a.accuracy - b.accuracy);
-    }, [relevantCategories, limitMs]);
+    }, [relevantCategories, limitMs, maxScore]);
 
 
     // ── COMPUTATION 2: TIME SERIES LINES ──
@@ -131,9 +131,9 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
-                    const correct = (t.isPercentage && t.score != null && total > 0)
-                        ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
-                        : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
+                    const correct = total > 0 
+                        ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
+                        : (Number(t.correct) || 0);
                     
                     const totKey = `${topicName}_total`;
                     const corKey = `${topicName}_correct`;
@@ -167,7 +167,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
         });
         
         return { timeSeriesData: series, uniqueTopics: Array.from(topTopicSet) };
-    }, [relevantCategories, limitMs]);
+    }, [relevantCategories, limitMs, maxScore]);
 
 
     // Removido o early return daqui para colocá-lo dentro do render principal.
