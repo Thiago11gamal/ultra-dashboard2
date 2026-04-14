@@ -388,7 +388,7 @@ export function monteCarloSimulation(
 
     // Math fix 1: Collect all final scores for empirical CI percentiles
     const safeSimulations = Math.max(1, simulations);
-    const allFinalScores = new Float32Array(safeSimulations);
+    const allFinalScores = new Float64Array(safeSimulations);
 
     // BUG 4 FIX: Uncertaintiy follows Random Walk (sqrt of time)
     // We use volatility directly as the standard deviation of each daily step.

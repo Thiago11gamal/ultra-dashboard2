@@ -121,8 +121,8 @@ export function analyzeProgressState(scores, config = {}) {
 
     // 8. Standardized Output
     return {
-        // FIX 1.1: O trend_slope está a calcular "pontos/prova". Multiplicamos por uma
-        // estimativa para alinhar a tolerância visual (se necessário) ou passamos o valor cru corrigido.
+    // FIX 1.1: O trend_slope retorna o valor bruto em "pontos/prova" (pp/índice).
+    // O motor está calibrado para este valor; compará-lo com pp/dia (calculateSlope) causaria confusão.
         state,
         label,
         mean_score: Number(mean.toFixed(2)),

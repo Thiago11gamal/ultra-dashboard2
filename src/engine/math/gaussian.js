@@ -1,4 +1,5 @@
 // src/engine/math/gaussian.js
+import { getPercentile } from './percentile.js';
 
 /**
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
@@ -81,7 +82,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const stepSize = (plotMax - plotMin) / plotSteps;
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
-    const iqr = allScores[Math.floor(safeSimulations * 0.75)] - allScores[Math.floor(safeSimulations * 0.25)];
+    const iqr = getPercentile(allScores, 0.75) - getPercentile(allScores, 0.25);
     const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
     const h = 0.9 * scottFactor * Math.pow(safeSimulations, -0.2);
 

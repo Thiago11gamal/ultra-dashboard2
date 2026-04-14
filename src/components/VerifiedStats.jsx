@@ -397,7 +397,7 @@ export default function VerifiedStats({ categories = [], user }) {
                     const dailyVar = dailyScoresList.reduce((a, b) => a + Math.pow(b - dailyMean, 2), 0) / (dailyScoresList.length - 1 || 1);
                     const dailySD = Math.sqrt(dailyVar);
 
-                    quality = Math.max(0.5, 1 - (dailySD / 40));
+                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * maxScore)));
 
                     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
                     const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
