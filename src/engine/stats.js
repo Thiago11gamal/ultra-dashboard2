@@ -183,7 +183,7 @@ export function computeCategoryStats(history, weight, daysValue = 60, maxScore =
         variance = Math.pow(standardDeviation(scores), 2);
     }
     
-    const sd = Math.max(Math.sqrt(variance), 0.01 * maxScore);
+    const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
     const safeSD = sd;
 
     const slopePerDay = calculateSlope(historyToUse);

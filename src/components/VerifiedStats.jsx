@@ -325,9 +325,10 @@ export default function VerifiedStats({ categories = [], user }) {
         const dailyScores = dailyHistory.map(h => h.score);
         const globalAnalysis = analyzeProgressState(dailyScores, {
             window_size: Math.min(5, dailyScores.length),
-            stagnation_threshold: 0.5,
+            stagnation_threshold: 4.0,
             low_level_limit: 60,
-            high_level_limit: statsTarget
+            high_level_limit: statsTarget,
+            mastery_limit: statsTarget
         });
 
         // Map to UI-compatible format
@@ -506,10 +507,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
                 const analysis = analyzeProgressState(scores, {
                     window_size: Math.min(5, scores.length),
-                    stagnation_threshold: 0.5,
+                    stagnation_threshold: 4.0,
                     low_level_limit: 60,
-                    // Bug fix: was hardcoded to 75, ignoring the actual prop targetScore
-                    high_level_limit: statsTarget
+                    high_level_limit: statsTarget,
+                    mastery_limit: statsTarget
                 });
 
                 categoryAnalyses.push(analysis);

@@ -11,7 +11,7 @@ const DEFAULT_CONFIG = {
     low_level_limit: 60,
     high_level_limit: 75,
     mastery_limit: 85,
-    trend_tolerance: 0.8 // Aumentado para evitar alertas de regressão por flutuações mínimas
+    trend_tolerance: 0.5 // Alinhado com 0.5 pp/30d (unificado)
 };
 
 export function analyzeProgressState(scores, config = {}) {

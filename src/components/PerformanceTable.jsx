@@ -61,8 +61,8 @@ const PerformanceTable = ({ categories = [] }) => {
                             const totalCorrect = history.reduce((acc, h) => acc + (getSafeScore(h, maxScore) / maxScore * (Number(h.total) || 0)), 0);
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
                             const netBalance = Math.round(totalCorrect - totalWrong);
-                            const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * maxScore) : 0;
-                            const pctBar = maxScore > 0 ? (percentCorrect / maxScore) * 100 : 0;
+                            const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+                            const pctBar = percentCorrect;
 
                             // Dynamic Trend calculation instead of relying on static store value
                             const trendHistory = [...history]
@@ -72,7 +72,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                 date: h.date
                             }));
                             const trendValue = history.length >= 3 ? calculateSlope(trendHistory) : 0;
-                            const currentTrend = trendValue > 0.05 ? 'up' : trendValue < -0.05 ? 'down' : 'stable';
+                            const currentTrend = trendValue > 0.0167 ? 'up' : trendValue < -0.0167 ? 'down' : 'stable';
 
                             const isTopThree = index < 3 && totalQuestions > 0;
                             const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
@@ -155,13 +155,13 @@ const PerformanceTable = ({ categories = [] }) => {
 
                                     {/* Taxa Badge */}
                                     <td className="p-5 text-center">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (maxScore * 0.8) ? 'text-green-400 scale-110' :
-                                            percentCorrect >= (maxScore * 0.6) ? 'text-yellow-400' :
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 scale-110' :
+                                            percentCorrect >= 60 ? 'text-yellow-400' :
                                                 percentCorrect > 0 ? 'text-red-500' :
                                                     'text-slate-500'
                                             }`}>
-                                            <span className="text-sm tracking-tight">{percentCorrect}{maxScore === 100 ? '%' : ''}</span>
-                                            {percentCorrect >= (maxScore * 0.8) && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}
+                                            <span className="text-sm tracking-tight">{percentCorrect}%</span>
+                                            {percentCorrect >= 80 && <div className="absolute -top-1 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75" />}
                                         </div>
                                     </td>
 
