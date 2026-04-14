@@ -11,9 +11,20 @@ export function AnaliseRetencaoChart({ data }) {
     }
 
     return (
-        <div className="h-[300px] w-full mt-4">
+        <div className="h-[320px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                    <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.2} />
+                        </linearGradient>
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis 
                         dataKey="nomeTopico" 
@@ -24,7 +35,6 @@ export function AnaliseRetencaoChart({ data }) {
                         dy={10}
                     />
                     
-                    {/* EIXO PRINCIPAL (Esquerda) - Para as Barras de Dias */}
                     <YAxis 
                         yAxisId="left" 
                         orientation="left" 
@@ -35,7 +45,6 @@ export function AnaliseRetencaoChart({ data }) {
                         label={{ value: 'Dias sem Revisão', angle: -90, position: 'insideLeft', offset: 10, fill: '#64748b', fontSize: 10, fontWeight: 'bold' }}
                     />
                     
-                    {/* EIXO SECUNDÁRIO (Direita) - Para a Linha de Nível Crítico */}
                     <YAxis 
                         yAxisId="right" 
                         orientation="right" 
@@ -48,28 +57,43 @@ export function AnaliseRetencaoChart({ data }) {
                     />
 
                     <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
+                        contentStyle={{ 
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)', 
+                            border: '1px solid rgba(255,255,255,0.1)', 
+                            borderRadius: '16px', 
+                            fontSize: '11px',
+                            backdropFilter: 'blur(8px)',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                        }}
                         itemStyle={{ padding: '2px 0' }}
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                        formatter={(value, name) => {
+                            if (name === "Nível Crítico") return [`${value}% (Risco)`, name];
+                            return [value, name];
+                        }}
                     />
-                    <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', paddingBottom: '20px' }} />
 
                     <Bar 
                         yAxisId="left" 
                         dataKey="diasSemRevisao" 
-                        fill="#6366f1" 
-                        radius={[4, 4, 0, 0]} 
+                        fill="url(#barGradient)" 
+                        radius={[6, 6, 0, 0]} 
                         name="Dias sem Revisão" 
-                        barSize={30}
+                        barSize={24}
                     />
                     
                     <Line 
                         yAxisId="right" 
-                        type="monotoneX" 
+                        type="monotone" 
                         dataKey="nivelCritico" 
                         stroke="#ef4444" 
-                        strokeWidth={3} 
-                        dot={{ r: 4, fill: '#ef4444' }} 
+                        strokeWidth={4} 
+                        dot={{ r: 5, fill: '#ef4444', stroke: '#0f172a', strokeWidth: 2 }} 
+                        activeDot={{ r: 7, strokeWidth: 0 }}
                         name="Nível Crítico" 
+                        filter="url(#glow)"
+                        animationDuration={1500}
                     />
                 </ComposedChart>
             </ResponsiveContainer>

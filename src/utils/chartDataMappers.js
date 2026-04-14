@@ -24,7 +24,7 @@ export const mapRetentionData = (categories = []) => {
             data.push({
                 nomeTopico: cat.name,
                 diasSemRevisao: Math.floor(days),
-                nivelCritico: retention
+                nivelCritico: 100 - retention // INVERSÃO: Agora 100% é o mais crítico (esquecido)
             });
         }
         
@@ -40,7 +40,7 @@ export const mapRetentionData = (categories = []) => {
                         data.push({
                             nomeTopico: task.text || task.title,
                             diasSemRevisao: Math.floor(days),
-                            nivelCritico: retention
+                            nivelCritico: 100 - retention // INVERSÃO
                         });
                     }
                 }
@@ -48,9 +48,9 @@ export const mapRetentionData = (categories = []) => {
         }
     });
 
-    // Sort by critical level (ascending) and take top 8
+    // Sort by critical level (descending = most critical first) and take top 8
     return data
-        .sort((a, b) => a.nivelCritico - b.nivelCritico)
+        .sort((a, b) => b.nivelCritico - a.nivelCritico)
         .slice(0, 8);
 };
 
