@@ -302,10 +302,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-none mt-1 opacity-80" style={{ color: successColor }}>Caminho de Sucesso</span>
                     </div>
                 )}
+                {isCurrentVisible && (
                     <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.max(2, Math.min(currentPos, 90))}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-white mb-1 shadow-[0_0_8px_white]" />
                         <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}{unit}</span>
                     </div>
+                )}
             </div>
 
             {hover && (
@@ -326,7 +328,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 {/* SCALE-BOUNDS FIX: Dynamic X-axis ticks based on actual domain */}
                 {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
                     const tickVal = domainMin + f * (domainMax - domainMin);
-                    const pct = f * 100;
+                    const pct = 2 + f * 96;
                     return (
                         <span key={f} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: pct === 0 ? 'translateX(0%)' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
                             {Number.isInteger(tickVal) ? tickVal : tickVal.toFixed(1)}{unit}

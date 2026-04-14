@@ -13,12 +13,10 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
         if (!key) continue;
 
         const existing = aggregatedHistoryByDateMap.get(key);
-        const rawCorrect = Number(h.correct) || 0;
         const total = Number(h.total) || 0;
-        // BUG 4b FIX: Use maxScore instead of hardcoded 100
-        const correct = (h.isPercentage && h.score != null && total > 0)
-            ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * total)
-            : rawCorrect;
+        const rawCorrect = Number(h.correct) || 0;
+        const score = getSafeScore(h, maxScore);
+        const correct = total > 0 ? Math.round((score / maxScore) * total) : rawCorrect;
 
         if (existing) {
             if (existing.total + total > 0) {
@@ -27,7 +25,6 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
             existing.correct += correct;
             existing.total += total;
         } else {
-            const score = h.score != null ? Number(h.score) : (total > 0 ? (correct / total) * maxScore : 0);
             aggregatedHistoryByDateMap.set(key, { ...h, date: key, correct, total, score });
         }
     }
@@ -147,13 +144,10 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const key = getDateKey(h.date);
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0 };
+                const tot = Number(h.total) || 0;
                 const rawC = Number(h.correct) || 0;
-                const tot  = Number(h.total)   || 0;
-                // FIX BUG-EV-01: normalizar isPercentage igual ao buildCumulativeStatsPerDate
-                // BUG 4b FIX: Use maxScore
-                const corrNorm = (h.isPercentage && h.score != null && tot > 0)
-                    ? Math.round((Math.min(maxScore, Math.max(0, Number(h.score))) / maxScore) * tot)
-                    : rawC;
+                const score = getSafeScore(h, maxScore);
+                const corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : rawC;
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total   += tot;
             });
