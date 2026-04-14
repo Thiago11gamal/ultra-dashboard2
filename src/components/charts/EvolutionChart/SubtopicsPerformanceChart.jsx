@@ -173,7 +173,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
     // Removido o early return daqui para colocá-lo dentro do render principal.
 
     return (
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[350px]">
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]">
              
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
@@ -209,7 +209,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 </div>
             ) : viewMode === 'bars' ? (
                 // ── BARS RENDER ──
-                <div className="w-full relative" style={{ height: Math.max(300, chartData.length * 36) }}>
+                <div className="w-full relative" style={{ height: Math.max(400, chartData.length * 50) }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
                             <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
@@ -247,7 +247,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
 
                             <ReferenceLine x={targetScore} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="3 3" />
 
-                            <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={18}>
+                            <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={26}>
                                 {chartData.map((entry, index) => {
                                     let barColor = "#ef4444"; 
                                     if (entry.accuracy >= targetScore) barColor = "#10b981"; 
@@ -267,12 +267,12 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 </div>
             ) : (
                 // ── LINES RENDER ──
-                <div className="w-full relative min-h-[400px]">
+                <div className="w-full relative min-h-[750px]">
                     <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono">
                         {uniqueTopics.length} linhas sendo plotadas simultaneamente.
                     </div>
                     {timeSeriesData.length > 1 ? (
-                        <ResponsiveContainer width="100%" height={400}>
+                        <ResponsiveContainer width="100%" height={750}>
                             <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                 
