@@ -155,13 +155,24 @@ export const createCategorySlice = (set, get) => ({
             console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
             
             const primary = group.sort((a, b) => {
-                const aData = (a.tasks?.length || 0) + (a.simuladoStats?.history?.length || 0);
-                const bData = (b.tasks?.length || 0) + (b.simuladoStats?.history?.length || 0);
+                const getHistoryLen = (obj) => {
+                    const h = obj.simuladoStats?.history;
+                    if (!h) return 0;
+                    return Array.isArray(h) ? h.length : Object.values(h).length;
+                };
+                const aData = (a.tasks?.length || 0) + getHistoryLen(a);
+                const bData = (b.tasks?.length || 0) + getHistoryLen(b);
                 return bData - aData;
             })[0];
 
+            const getHistoryArr = (c) => {
+                const h = c.simuladoStats?.history;
+                if (!h) return [];
+                return Array.isArray(h) ? h : Object.values(h);
+            };
+
             const mergedTasks = [...(primary.tasks || [])];
-            const mergedHistory = [...(primary.simuladoStats?.history || [])];
+            const mergedHistory = [...getHistoryArr(primary)];
 
             group.forEach(cat => {
                 if (cat.id === primary.id) return;
@@ -173,7 +184,7 @@ export const createCategorySlice = (set, get) => ({
                     }
                 });
 
-                (cat.simuladoStats?.history || []).forEach(h => {
+                getHistoryArr(cat).forEach(h => {
                     const exists = mergedHistory.some(mh => mh.date === h.date && normalize(mh.topic) === normalize(h.topic));
                     if (!exists) mergedHistory.push(h);
                 });

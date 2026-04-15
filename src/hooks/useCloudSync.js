@@ -88,9 +88,11 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         const nameMap = {};
         contest.categories.forEach(cat => {
             const key = _normName(cat.name);
-            const richness = (c) =>
-                (c.tasks?.length || 0) +
-                Object.values(c.simuladoStats?.history || {}).length;
+            const richness = (c) => {
+                const h = c.simuladoStats?.history;
+                const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
+                return (c.tasks?.length || 0) + hLen;
+            };
             if (!nameMap[key]) {
                 nameMap[key] = cat;
             } else if (richness(cat) > richness(nameMap[key])) {
