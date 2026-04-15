@@ -271,7 +271,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                             onDeleteCategory(category.id);
                         }
                     }}
-                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1.5 sm:p-2 hover:bg-red-500/20 rounded-lg text-slate-500 hover:text-red-400 flex-shrink-0"
+                    className="transition-all p-1.5 sm:p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-500/70 hover:text-red-400 flex-shrink-0 border border-red-500/10"
                     title="Excluir Disciplina"
                 >
                     <Trash2 size={15} />

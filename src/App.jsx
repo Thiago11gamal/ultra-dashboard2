@@ -71,6 +71,7 @@ function MainLayout() {
   const updateUserName = useAppStore(state => state.updateUserName);
   const undo = useAppStore(state => state.undo);
   const setThemeMode = useAppStore(state => state.setThemeMode);
+  const safelyMergeDuplicates = useAppStore(state => state.safelyMergeDuplicates);
 
   const isMobile = useMobileDetect();
 
@@ -173,9 +174,12 @@ function MainLayout() {
             if (firstContestId) {
                 switchContest(firstContestId);
             }
+        } else {
+            // Data exists and is valid - run a health check/cleanup for duplicates
+            safelyMergeDuplicates();
         }
     }
-  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests]);
+  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

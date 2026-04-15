@@ -109,7 +109,7 @@ export const createCategorySlice = (set, get) => ({
     updateWeights: (weights) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
-        if (!activeData || !activeData.categories || !weights) return;
+        if (!activeId || !activeData || !activeData.categories || !weights) return;
 
         activeData.categories.forEach(cat => {
             if (weights[cat.id] !== undefined) {
@@ -123,5 +123,88 @@ export const createCategorySlice = (set, get) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
+
+    safelyMergeDuplicates: () => set((state) => {
+        const activeId = state.appState.activeId;
+        const activeData = state.appState.contests[activeId];
+        if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
+
+        const groups = {};
+        activeData.categories.forEach(cat => {
+            const norm = normalize(cat.name);
+            if (!groups[norm]) groups[norm] = [];
+            groups[norm].push(cat);
+        });
+
+        let changed = false;
+        const newCategories = [];
+
+        Object.values(groups).forEach(group => {
+            if (group.length === 1) {
+                newCategories.push(group[0]);
+                return;
+            }
+
+            // MERGE LOGIC
+            changed = true;
+            console.log(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
+            
+            // Primary is the one with most tasks or history
+            const primary = group.sort((a, b) => {
+                const aData = (a.tasks?.length || 0) + (a.simuladoStats?.history?.length || 0);
+                const bData = (b.tasks?.length || 0) + (b.simuladoStats?.history?.length || 0);
+                return bData - aData;
+            })[0];
+
+            const mergedTasks = [...(primary.tasks || [])];
+            const mergedHistory = [...(primary.simuladoStats?.history || [])];
+
+            group.forEach(cat => {
+                if (cat.id === primary.id) return;
+                
+                // Merge tasks (deduplicate by title)
+                (cat.tasks || []).forEach(t => {
+                    const taskTitle = t.title || t.text;
+                    if (!mergedTasks.some(mt => (mt.title || mt.text) === taskTitle)) {
+                        mergedTasks.push(t);
+                    }
+                });
+
+                // Merge History
+                (cat.simuladoStats?.history || []).forEach(h => {
+                    if (!mergedHistory.some(mh => mh.date === h.date && mh.topic === h.topic)) {
+                        mergedHistory.push(h);
+                    }
+                });
+
+                // Re-map other data pointers in the store
+                const oldId = cat.id;
+                const newId = primary.id;
+
+                if (activeData.studyLogs) {
+                    activeData.studyLogs.forEach(l => { if (l.categoryId === oldId) l.categoryId = newId; });
+                }
+                if (activeData.studySessions) {
+                    activeData.studySessions.forEach(s => { if (s.categoryId === oldId) s.categoryId = newId; });
+                }
+            });
+
+            newCategories.push({
+                ...primary,
+                tasks: mergedTasks,
+                simuladoStats: {
+                    ...primary.simuladoStats,
+                    history: mergedHistory
+                }
+            });
+        });
+
+        if (changed) {
+            activeData.categories = newCategories;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            localStorage.setItem('ultra-sync-dirty', 'true');
+        }
     }),
 });
