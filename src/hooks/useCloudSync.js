@@ -66,12 +66,59 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         };
     }, []);
 
+    // -----------------------------------------------------------------------
+    // deduplicateCategoryNames — removes categories whose normalized name
+    // collides with another entry in the same contest. Keeps the copy with
+    // the most accumulated data (tasks + simulado history entries).
+    // Applied UNCONDITIONALLY to every contest after every merge so that
+    // duplicates already persisted in localStorage are also removed on the
+    // next app load, regardless of which side had the newer timestamp.
+    // -----------------------------------------------------------------------
+    const _normName = (str) => {
+        if (typeof str !== 'string') return '';
+        return str
+            .normalize('NFKC').toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^\p{L}\p{N}\s]/gu, '')
+            .replace(/\s+/g, ' ').trim();
+    };
+
+    const deduplicateCategoryNames = (contest) => {
+        if (!Array.isArray(contest?.categories)) return contest;
+        const nameMap = {};
+        contest.categories.forEach(cat => {
+            const key = _normName(cat.name);
+            const richness = (c) =>
+                (c.tasks?.length || 0) +
+                Object.values(c.simuladoStats?.history || {}).length;
+            if (!nameMap[key]) {
+                nameMap[key] = cat;
+            } else if (richness(cat) > richness(nameMap[key])) {
+                console.warn(`[dedup] "${cat.name}" — keeping richer copy (id=${cat.id}).`);
+                nameMap[key] = cat;
+            } else {
+                console.warn(`[dedup] "${cat.name}" — discarding thin copy (id=${cat.id}).`);
+            }
+        });
+        const deduped = Object.values(nameMap);
+        if (deduped.length === contest.categories.length) return contest;
+        return { ...contest, categories: deduped };
+    };
+
     const mergeAppState = (local, cloud) => {
         if (!cloud) return local;
         if (!local) return cloud;
 
         const mergedContests = { ...(local.contests || {}) };
         const cloudContests = cloud.contests || {};
+
+        const mergeArrays = (arr1, arr2) => {
+            const map = new Map();
+            const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
+            (arr1 || []).forEach(item => map.set(getStableKey(item), item));
+            (arr2 || []).forEach(item => map.set(getStableKey(item), item));
+            return Array.from(map.values());
+        };
 
         Object.entries(cloudContests).forEach(([id, cloudContest]) => {
             const localContest = mergedContests[id];
@@ -87,55 +134,22 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
                     (cloudContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
 
-                    // FIX: After merging by id, deduplicate by normalized name.
-                    // Scenario: same discipline created offline on two devices gets two different ids.
-                    // mergeByid keeps both → duplicates appear in EvolutionChart/Bayesian level.
-                    // Resolution: keep whichever copy has more accumulated data.
-                    const normalizeName = (str) => {
-                        if (typeof str !== 'string') return '';
-                        return str
-                            .normalize('NFKC').toLowerCase().normalize('NFD')
-                            .replace(/[\u0300-\u036f]/g, '')
-                            .replace(/[^\p{L}\p{N}\s]/gu, '')
-                            .replace(/\s+/g, ' ').trim();
-                    };
-                    const nameMap = {};
-                    Object.values(mergedCatsMap).forEach(cat => {
-                        const key = normalizeName(cat.name);
-                        if (!nameMap[key]) {
-                            nameMap[key] = cat;
-                        } else {
-                            // Keep the richer copy (more history entries)
-                            const existingScore =
-                                (nameMap[key].tasks?.length || 0) +
-                                Object.values(nameMap[key].simuladoStats?.history || {}).length;
-                            const candidateScore =
-                                (cat.tasks?.length || 0) +
-                                Object.values(cat.simuladoStats?.history || {}).length;
-                            if (candidateScore > existingScore) nameMap[key] = cat;
-                            console.warn(`[mergeAppState] Duplicate category "${cat.name}" resolved during sync.`);
-                        }
-                    });
-                    const deduplicatedCategories = Object.values(nameMap);
-
-                    const mergeArrays = (arr1, arr2) => {
-                        const map = new Map();
-                        const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
-                        
-                        (arr1 || []).forEach(item => map.set(getStableKey(item), item));
-                        (arr2 || []).forEach(item => map.set(getStableKey(item), item));
-                        return Array.from(map.values());
-                    };
-
                     mergedContests[id] = { 
                         ...cloudContest, 
-                        categories: deduplicatedCategories,
+                        categories: Object.values(mergedCatsMap),
                         studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
                         studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
                         simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows)
                     };
                 }
             }
+        });
+
+        // Deduplicate categories by name in ALL contests unconditionally.
+        // This catches duplicates already stored in localStorage that never
+        // went through the cloudTime > localTime merge path above.
+        Object.keys(mergedContests).forEach(id => {
+            mergedContests[id] = deduplicateCategoryNames(mergedContests[id]);
         });
 
         const cloudUpdated = new Date(cloud.lastUpdated || 0).getTime();
