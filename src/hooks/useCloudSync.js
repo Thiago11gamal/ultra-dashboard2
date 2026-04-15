@@ -258,12 +258,6 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
             const localUpdatedTime = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
 
-            // Se o estado local foi atualizado DEPOIS do estado que a nuvem está mandando, ignoramos a nuvem.
-            if (localUpdatedTime > cloudUpdatedTime || isInternalSyncingRef.current) {
-                logger.debug("[Sync] Rejeitando snapshot: O estado local é mais recente ou há um save em curso.");
-                return;
-            }
-
             const isBootSync = !isParityValidatedRef.current;
             const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
 
@@ -321,20 +315,20 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             const wasAlreadyValidated = isParityValidatedRef.current;
             confirmParity();
 
-            if (shouldPullCloud) {
-                logger.debug("[Sync] Dado recebido da nuvem → atualizando estado local");
+            if (shouldPullCloud || isBootSync) {
+                const actionLabel = shouldPullCloud ? "Dado da nuvem" : "Health Pulse";
+                logger.debug(`[Sync] ${actionLabel} → processando merge e deduplicação`);
                 isCloudPullRef.current = true;
                 setAppState(prev => mergeAppState(prev, cloudData));
-                // BUG 1 FIX: cloudStateString was undefined — caused infinite sync loop.
-                // lastSyncedRef was set to undefined, making every comparison false,
-                // triggering re-uploads on every syncTrigger tick.
-                lastSyncedRef.current = stateStringForSync(cloudData);
+                lastSyncedRef.current = stateStringForSync(appStateRef.current);
                 setHasConflict(false);
 
-                if (!wasAlreadyValidated && showToastRef.current) {
+                if (shouldPullCloud && !wasAlreadyValidated && showToastRef.current) {
                     showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
+                // Se não puxamos a nuvem mas o snapshot chegou, ainda assim rodamos um
+                // merge local silencioso só para garantir a deduplicação se for a primeira vez.
                 setHasConflict(true);
             }
         }, (err) => {

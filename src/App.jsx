@@ -157,40 +157,41 @@ function MainLayout() {
   // Derived States are now handled by store selectors at the top of the component
 
   useEffect(() => {
-    if (currentUser) {
-        if (!hasActiveData) {
-            // Cenário 1: activeId aponta para um contest inexistente
-            // FIX: Verificar se firstContestId é válido
-            if (contestsCount > 0 && firstContestId) {
-                console.warn("Store inconsistency detected: Active contest missing. Attempting to recover activeId...");
-                switchContest(firstContestId);
-            } else {
-                // Cenário 2: Nenhum contest existe — criar default
-                console.warn("No contests found. Creating default...");
-                createNewContest();
-            }
-        } else if (contestsCount > 1 && !contests[activeContestId]) {
-            // Cenário 3: Dados existem em contests, mas o activeId é inválido
-            console.warn("ActiveId points to deleted contest. Switching to first available...");
+    // -------------------------------------------------------------------------
+    // CONTEST CONSISTENCY CHECK (Runs for both Guest & Auth users)
+    // -------------------------------------------------------------------------
+    if (!hasActiveData) {
+        if (contestsCount > 0 && firstContestId) {
+            console.warn("[Sanity] Store inconsistency: Active contest missing. Recovering activeId...");
+            switchContest(firstContestId);
         } else {
-            // Data exists - run health check
-            const categories = data.categories || [];
-            const names = categories.map(c => normalize(c.name));
-            const hasDuplicates = names.length !== new Set(names).size;
+            console.warn("[Sanity] No contests found. Creating default...");
+            createNewContest();
+        }
+    } else if (contestsCount > 1 && !contests[activeContestId]) {
+        console.warn("[Sanity] ActiveId points to deleted contest. Switching to first available...");
+        // This is safe since firstContestId is derived from Object.keys(contests)
+        if (firstContestId) switchContest(firstContestId);
+    } else if (hasActiveData) {
+        // -------------------------------------------------------------------------
+        // CATEGORICAL DEDUPLICATION PASS (Runs unconditionally when store is active)
+        // -------------------------------------------------------------------------
+        const categories = data.categories || [];
+        const names = categories.map(c => normalize(c.name));
+        const hasDuplicates = names.length !== new Set(names).size;
+        
+        if (hasDuplicates) {
+            console.warn("[Sanity] Duplicates detected, triggering merge...");
+            const oldLen = categories.length;
+            safelyMergeDuplicates();
+            const newLen = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
             
-            if (hasDuplicates) {
-                console.warn("[Sanity] Duplicates detected, triggering merge...");
-                const oldLen = categories.length;
-                safelyMergeDuplicates();
-                const newLen = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
-                
-                if (newLen < oldLen) {
-                    showToast(`Dados reparados: ${oldLen - newLen} duplicidade(s) removida(s). ✨`, 'success');
-                }
+            if (newLen < oldLen) {
+                showToast(`Dados reparados: ${oldLen - newLen} duplicidade(s) removida(s). ✨`, 'success');
             }
         }
     }
-  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates, showToast]);
+  }, [hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates, showToast]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
