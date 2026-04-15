@@ -27,14 +27,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                         );
                     }
 
+                    const dataKey = p.dataKey;
+                    if (typeof dataKey !== 'string') return null;
+                    
+                    const catId = dataKey.replace(/^(raw|bay|bay_ci_low|bay_ci_high|stats|trend|trend_status)_/, '');
                     const subjName = p.name;
-                    const rawCorrect = currentData ? currentData[`raw_correct_${subjName}`] : null;
-                    const rawTotal = currentData ? currentData[`raw_total_${subjName}`] : null;
-                    const rawVal = currentData ? currentData[`raw_${subjName}`] : null;
-                    const bayVal = currentData ? currentData[`bay_${subjName}`] : null;
-                    const statsVal = currentData ? currentData[`stats_${subjName}`] : null;
-                    const trendVal = currentData ? currentData[`trend_${subjName}`] : null;
-                    const trendStatus = currentData ? currentData[`trend_status_${subjName}`] : 'stable';
+                    
+                    const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;
+                    const rawTotal = currentData ? currentData[`raw_total_${catId}`] : null;
+                    const rawVal = currentData ? currentData[`raw_${catId}`] : null;
+                    const bayVal = currentData ? currentData[`bay_${catId}`] : null;
+                    const statsVal = currentData ? currentData[`stats_${catId}`] : null;
+                    const trendVal = currentData ? currentData[`trend_${catId}`] : null;
+                    const trendStatus = currentData ? currentData[`trend_status_${catId}`] : 'stable';
 
                     return (
                         <div key={i} className="flex flex-col bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">

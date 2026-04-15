@@ -165,15 +165,15 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
 
                 const rawDailyScore = total >= 1 ? (correct / total) * maxScore : null;
 
-                dataByDate[date][`raw_correct_${cat.name}`] = correct;
-                dataByDate[date][`raw_total_${cat.name}`] = total;
-                dataByDate[date][`raw_${cat.name}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.name}`]        = snap.bayesian ? snap.bayesian.mean   : 0;
-                dataByDate[date][`bay_ci_low_${cat.name}`]  = snap.bayesian ? snap.bayesian.ciLow  : 0;
-                dataByDate[date][`bay_ci_high_${cat.name}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
-                dataByDate[date][`stats_${cat.name}`] = stats ? stats.mean : 0;
-                dataByDate[date][`trend_${cat.name}`] = stats ? stats.trendValue : 0;
-                dataByDate[date][`trend_status_${cat.name}`] = stats ? stats.trend : 'stable';
+                dataByDate[date][`raw_correct_${cat.id}`] = correct;
+                dataByDate[date][`raw_total_${cat.id}`] = total;
+                dataByDate[date][`raw_${cat.id}`] = rawDailyScore;
+                dataByDate[date][`bay_${cat.id}`]        = snap.bayesian ? snap.bayesian.mean   : 0;
+                dataByDate[date][`bay_ci_low_${cat.id}`]  = snap.bayesian ? snap.bayesian.ciLow  : 0;
+                dataByDate[date][`bay_ci_high_${cat.id}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
+                dataByDate[date][`stats_${cat.id}`] = stats ? stats.mean : 0;
+                dataByDate[date][`trend_${cat.id}`] = stats ? stats.trendValue : 0;
+                dataByDate[date][`trend_status_${cat.id}`] = stats ? stats.trend : 'stable';
 
                 dataByDate[date].global_correct = (Number(dataByDate[date].global_correct) || 0) + correct;
                 dataByDate[date].global_total = (Number(dataByDate[date].global_total) || 0) + total;
@@ -190,7 +190,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             let totalW = 0;
 
             activeCategories.forEach(cat => {
-                const score = d[`bay_${cat.name}`] ?? d[`raw_${cat.name}`];
+                const score = d[`bay_${cat.id}`] ?? d[`raw_${cat.id}`];
                 const w = weights[cat.id] ?? weights[cat.name] ?? 0; // Fallback 0 se sem pesos
 
                 if (score != null && w > 0) {

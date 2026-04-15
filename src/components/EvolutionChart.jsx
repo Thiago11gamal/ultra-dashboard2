@@ -126,7 +126,7 @@ export default function EvolutionChart({
         const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
 
         categories.forEach(cat => {
-            const fromTimeline = lastPoint?.[`bay_${cat.name}`];
+            const fromTimeline = lastPoint?.[`bay_${cat.id}`];
             if (fromTimeline != null) { 
                 map[cat.id] = fromTimeline;
                 return;
@@ -221,12 +221,12 @@ export default function EvolutionChart({
         if (!focusCategory) return timeline;
         let pts = timeline.map((d) => ({ 
             ...d, 
-            "Nota Bruta": d[`raw_${focusCategory.name}`], 
-            "Nível Bayesiano": d[`bay_${focusCategory.name}`], 
-            "Bay CI Low": d[`bay_ci_low_${focusCategory.name}`], 
-            "Bay CI High": d[`bay_ci_high_${focusCategory.name}`], 
-            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.name}`] != null ? [d[`bay_ci_low_${focusCategory.name}`], d[`bay_ci_high_${focusCategory.name}`]] : null, 
-            "Média Histórica": d[`stats_${focusCategory.name}`] 
+            "Nota Bruta": d[`raw_${focusCategory.id}`], 
+            "Nível Bayesiano": d[`bay_${focusCategory.id}`], 
+            "Bay CI Low": d[`bay_ci_low_${focusCategory.id}`], 
+            "Bay CI High": d[`bay_ci_high_${focusCategory.id}`], 
+            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] : null, 
+            "Média Histórica": d[`stats_${focusCategory.id}`] 
         }));
         
         if (mcProjectionSeries && pts.length > 0) {
@@ -309,8 +309,8 @@ export default function EvolutionChart({
     const getInsightText = () => {
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
         const lastPoint = timeline[timeline.length - 1];
-        const raw = lastPoint[`raw_${focusCategory.name}`];
-        const bayesian = lastPoint[`bay_${focusCategory.name}`];
+        const raw = lastPoint[`raw_${focusCategory.id}`];
+        const bayesian = lastPoint[`bay_${focusCategory.id}`];
 
         if (activeEngine === "raw") {
             if (raw == null) return "Ainda não existem dados suficientes para esta matéria.";
@@ -327,8 +327,8 @@ export default function EvolutionChart({
 
         if (activeEngine === "bayesian") {
             if (bayesian == null) return "Ainda não existem dados suficientes para esta matéria.";
-            const ciLow = lastPoint[`bay_ci_low_${focusCategory.name}`];
-            const ciHigh = lastPoint[`bay_ci_high_${focusCategory.name}`];
+            const ciLow = lastPoint[`bay_ci_low_${focusCategory.id}`];
+            const ciHigh = lastPoint[`bay_ci_high_${focusCategory.id}`];
             const ciWidth = (ciHigh != null && ciLow != null) ? (ciHigh - ciLow) : null;
             if (ciWidth != null && ciWidth < 5) return `🧠 Alta confiança! IC 95%: [${ciLow.toFixed(1)}%, ${ciHigh.toFixed(1)}%] (banda de ${ciWidth.toFixed(1)}pp). Seu nível real é ${bayesian.toFixed(1)}% com excelente precisão.`;
             if (ciWidth != null && ciWidth > 20) return `🧠 Incerteza elevada. IC 95%: [${ciLow.toFixed(1)}%, ${ciHigh.toFixed(1)}%] (banda de ${ciWidth.toFixed(1)}pp). Faça mais simulados para estreitar a estimativa.`;
@@ -336,9 +336,9 @@ export default function EvolutionChart({
         }
 
         if (activeEngine === "stats") {
-            const stats = lastPoint[`stats_${focusCategory.name}`];
+            const stats = lastPoint[`stats_${focusCategory.id}`];
             if (stats == null) return "Ainda não existem dados suficientes para esta matéria.";
-            const trend = lastPoint[`trend_status_${focusCategory.name}`];
+            const trend = lastPoint[`trend_status_${focusCategory.id}`];
             const gap = bayesian != null ? (bayesian - stats) : null;
             const gapText = gap != null ? ` Gap vs Bayesiano: ${gap > 0 ? '+' : ''}${gap.toFixed(1)}pp.` : '';
             if (trend === 'up') return `📐 Média histórica: ${stats.toFixed(1)}%. Tendência de alta detectada — sua curva de aprendizado está funcionando!${gapText}`;

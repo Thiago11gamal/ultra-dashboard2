@@ -33,8 +33,8 @@ export function EvolutionLineChart({
         return sortedData.map(d => {
             const copy = { ...d };
             activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
-                const low = d[`bay_ci_low_${cat.name}`];
-                const high = d[`bay_ci_high_${cat.name}`];
+                const low = d[`bay_ci_low_${cat.id}`];
+                const high = d[`bay_ci_high_${cat.id}`];
                 if (low != null && high != null) {
                     copy[`band_${cat.id}`] = [low, high];
                 }
@@ -47,7 +47,7 @@ export function EvolutionLineChart({
     const finalPoints = React.useMemo(() => {
         const pts = [];
         activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
-            const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+            const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
             const lastVal = filteredChartData[filteredChartData.length - 1]?.[dataKey];
             if (lastVal != null && Number.isFinite(Number(lastVal))) {
                 pts.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
@@ -151,7 +151,7 @@ export function EvolutionLineChart({
                     
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const isFocused = focusSubjectId === cat.id;
-                        const dataKey = engine?.prefix ? `${engine.prefix}${cat.name}` : `raw_${cat.name}`;
+                        const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
 
                         return [
                             (isFocused && engine?.id === 'bayesian') ? (

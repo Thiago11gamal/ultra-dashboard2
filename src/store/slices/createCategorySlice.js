@@ -1,4 +1,5 @@
 import { generateId } from '../../utils/idGenerator';
+import { normalize } from '../../utils/normalization';
 
 export const createCategorySlice = (set, get) => ({
     addCategory: (name) => set((state) => {
@@ -8,6 +9,13 @@ export const createCategorySlice = (set, get) => ({
         if (!activeData) return;
         if (!activeData.categories) activeData.categories = [];
         
+        // BUG FIX: Prevent duplicate categories by name
+        const normName = normalize(name);
+        if (activeData.categories.some(c => normalize(c.name) === normName)) {
+            console.warn(`[Store] Category "${name}" already exists.`);
+            return;
+        }
+
         activeData.categories.push({
             id: generateId('cat'),
             name,
