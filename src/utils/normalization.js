@@ -7,10 +7,13 @@
  */
 export const normalize = (str) => {
     if (typeof str !== 'string') return '';
-    return str.toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove accents
-        .replace(/nocoes de\s+/g, "") // Remove common prefix (post-accent-removal form)
-        .replace(/[^\w\s]/gi, '') // Remove special chars for safer matching
+    return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, "") // Remove accents/diacritics
+        .replace(/nocoes de\s+/g, "")    // Remove common prefix
+        .replace(/[^\p{L}\p{N}\s]/gu, '') // Remove symbols but keep ALL letters (unicode) and numbers
+        .replace(/\s+/g, ' ')           // Collapse multiple spaces
         .trim();
 };
 

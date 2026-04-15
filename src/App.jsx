@@ -171,15 +171,23 @@ function MainLayout() {
         } else if (contestsCount > 1 && !contests[activeContestId]) {
             // Cenário 3: Dados existem em contests, mas o activeId é inválido
             console.warn("ActiveId points to deleted contest. Switching to first available...");
-            if (firstContestId) {
-                switchContest(firstContestId);
-            }
         } else {
             // Data exists and is valid - run a health check/cleanup for duplicates
-            safelyMergeDuplicates();
+            const currentV = useAppStore.getState().appState.version || 0;
+            const lastMergedV = useAppStore.getState().appState.lastMergeVersion || 0;
+            
+            if (currentV > lastMergedV) {
+                const oldLength = data.categories?.length || 0;
+                safelyMergeDuplicates();
+                const newLength = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
+                
+                if (newLength < oldLength) {
+                    showToast(`Saneamento concluído: ${oldLength - newLength} duplicação(ões) resolvida(s)! ✨`, 'success');
+                }
+            }
         }
     }
-  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates]);
+  }, [currentUser, hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates, showToast]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

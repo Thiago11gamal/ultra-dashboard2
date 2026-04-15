@@ -263,18 +263,18 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     </div>
                 </div>
 
-                {/* Delete Category Button */}
+                {/* Delete Category Button - ULTRA VISIBLE */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Tem certeza que deseja excluir a disciplina "${category.name}" e todas as suas tarefas?`)) {
+                        if (confirm(`Tem certeza que deseja excluir a disciplina "${category.name}" e todas as suas tarefas? Isso não pode ser desfeito.`)) {
                             onDeleteCategory(category.id);
                         }
                     }}
-                    className="transition-all p-1.5 sm:p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-500/70 hover:text-red-400 flex-shrink-0 border border-red-500/10"
-                    title="Excluir Disciplina"
+                    className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
+                    title="Excluir Disciplina Permanente"
                 >
-                    <Trash2 size={15} />
+                    <Trash2 size={16} strokeWidth={3} />
                 </button>
 
                 {/* Right side: Progress + Toggle */}
