@@ -86,7 +86,38 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     const mergedCatsMap = {};
                     (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
                     (cloudContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
-                    
+
+                    // FIX: After merging by id, deduplicate by normalized name.
+                    // Scenario: same discipline created offline on two devices gets two different ids.
+                    // mergeByid keeps both → duplicates appear in EvolutionChart/Bayesian level.
+                    // Resolution: keep whichever copy has more accumulated data.
+                    const normalizeName = (str) => {
+                        if (typeof str !== 'string') return '';
+                        return str
+                            .normalize('NFKC').toLowerCase().normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/[^\p{L}\p{N}\s]/gu, '')
+                            .replace(/\s+/g, ' ').trim();
+                    };
+                    const nameMap = {};
+                    Object.values(mergedCatsMap).forEach(cat => {
+                        const key = normalizeName(cat.name);
+                        if (!nameMap[key]) {
+                            nameMap[key] = cat;
+                        } else {
+                            // Keep the richer copy (more history entries)
+                            const existingScore =
+                                (nameMap[key].tasks?.length || 0) +
+                                Object.values(nameMap[key].simuladoStats?.history || {}).length;
+                            const candidateScore =
+                                (cat.tasks?.length || 0) +
+                                Object.values(cat.simuladoStats?.history || {}).length;
+                            if (candidateScore > existingScore) nameMap[key] = cat;
+                            console.warn(`[mergeAppState] Duplicate category "${cat.name}" resolved during sync.`);
+                        }
+                    });
+                    const deduplicatedCategories = Object.values(nameMap);
+
                     const mergeArrays = (arr1, arr2) => {
                         const map = new Map();
                         const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
@@ -98,7 +129,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
                     mergedContests[id] = { 
                         ...cloudContest, 
-                        categories: Object.values(mergedCatsMap),
+                        categories: deduplicatedCategories,
                         studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
                         studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
                         simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows)
@@ -109,7 +140,16 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
         const cloudUpdated = new Date(cloud.lastUpdated || 0).getTime();
         const localUpdated = new Date(local.lastUpdated || 0).getTime();
-        const activeId = cloudUpdated > localUpdated ? cloud.activeId : local.activeId;
+
+        // FIX: activeId is a UI-navigation state — it reflects what the user last chose to view.
+        // Overwriting it with the cloud's value (based on timestamp) causes the right-panel content
+        // to switch to a different contest than what is highlighted in the sidebar on mobile.
+        // Rule: always keep local.activeId if it points to a valid contest; only fall back to
+        // cloud.activeId when local has no valid selection (first login / empty state).
+        const isLocalIdValid = local.activeId && mergedContests[local.activeId];
+        const activeId = isLocalIdValid
+            ? local.activeId
+            : (cloud.activeId && mergedContests[cloud.activeId] ? cloud.activeId : local.activeId);
 
         return {
             ...local,
