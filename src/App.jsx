@@ -39,6 +39,7 @@ import { useThemeSync } from './hooks/useThemeSync';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
 import useIdleLogout from './hooks/useIdleLogout';
+import { normalize } from './utils/normalization';
 
 
 import './components/Loading.css';
@@ -172,17 +173,19 @@ function MainLayout() {
             // Cenário 3: Dados existem em contests, mas o activeId é inválido
             console.warn("ActiveId points to deleted contest. Switching to first available...");
         } else {
-            // Data exists and is valid - run a health check/cleanup for duplicates
-            const currentV = useAppStore.getState().appState.version || 0;
-            const lastMergedV = useAppStore.getState().appState.lastMergeVersion || 0;
+            // Data exists - run health check
+            const categories = data.categories || [];
+            const names = categories.map(c => normalize(c.name));
+            const hasDuplicates = names.length !== new Set(names).size;
             
-            if (currentV > lastMergedV) {
-                const oldLength = data.categories?.length || 0;
+            if (hasDuplicates) {
+                console.warn("[Sanity] Duplicates detected, triggering merge...");
+                const oldLen = categories.length;
                 safelyMergeDuplicates();
-                const newLength = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
+                const newLen = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
                 
-                if (newLength < oldLength) {
-                    showToast(`Saneamento concluído: ${oldLength - newLength} duplicação(ões) resolvida(s)! ✨`, 'success');
+                if (newLen < oldLen) {
+                    showToast(`Dados reparados: ${oldLen - newLen} duplicidade(s) removida(s). ✨`, 'success');
                 }
             }
         }

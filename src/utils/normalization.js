@@ -8,11 +8,13 @@
 export const normalize = (str) => {
     if (typeof str !== 'string') return '';
     return str
+        .normalize('NFKC')              // Use NFKC for better compatibility matching
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, "") // Remove accents/diacritics
+        .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "") // Remove non-printable/control chars
         .replace(/nocoes de\s+/g, "")    // Remove common prefix
-        .replace(/[^\p{L}\p{N}\s]/gu, '') // Remove symbols but keep ALL letters (unicode) and numbers
+        .replace(/[^\p{L}\p{N}\s]/gu, '') // Keep all letters (unicode) and numbers
         .replace(/\s+/g, ' ')           // Collapse multiple spaces
         .trim();
 };

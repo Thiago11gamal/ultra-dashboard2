@@ -457,6 +457,18 @@ export default function EvolutionChart({
                             maxScore={maxScore}
                         />
                     ))}
+
+                    {/* Botão de Reparo Manual */}
+                    <button 
+                        onClick={() => {
+                            useAppStore.getState().safelyMergeDuplicates();
+                            alert("Saneamento de dados disparado! Se houver duplicatas, elas serão unidas agora. ✨");
+                        }}
+                        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700/50 hover:bg-slate-800/30 transition-all p-3 sm:p-4 text-slate-500 hover:text-slate-300 group"
+                    >
+                        <span className="text-xl group-hover:scale-125 transition-transform">🛠️</span>
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center leading-tight">Reparar<br/>Sistema</span>
+                    </button>
                 </div>
             </div>
 
