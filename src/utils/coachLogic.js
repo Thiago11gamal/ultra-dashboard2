@@ -268,18 +268,20 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcProbability !== null) {
             if (mcProbability < cfg.MC_PROB_DANGER) {
-                // CORREÇÃO: Ancorar o piso desta zona ao teto da zona moderada (12 pts)
-                // A equação agora transita suavemente do limite de 25 para 12.
                 mcUrgencyBoost = 12 + 13 * (1 - mcProbability / cfg.MC_PROB_DANGER);
                 mcRiskLabel = 'critical';
-            } else if (mcProbability < 55) {
-                // 30–55%: risco moderado — boost até 12pts
-                // BUG-19 FIX: Corrigido de 0.55 para 55 (escala 0-100)
-                const t = (mcProbability - cfg.MC_PROB_DANGER) / (55 - cfg.MC_PROB_DANGER);
-                mcUrgencyBoost = 12 * (1 - t);
-                mcRiskLabel = 'moderate';
+            } else if (mcProbability < cfg.MC_PROB_SAFE) {
+                // Modificado: Captura todo mundo entre 30 e 89.9%
+                if (mcProbability < 55) {
+                    const t = (mcProbability - cfg.MC_PROB_DANGER) / (55 - cfg.MC_PROB_DANGER);
+                    mcUrgencyBoost = 12 * (1 - t);
+                    mcRiskLabel = 'moderate';
+                } else {
+                    // Zona 55 a 89.9: Modo normal/bom. Zero boost de urgência, mas ganha label 'ok'.
+                    mcUrgencyBoost = 0;
+                    mcRiskLabel = 'ok';
+                }
             } else if (mcProbability >= cfg.MC_PROB_SAFE) {
-                // > 90%: seguro — penalidade leve de 8pts
                 mcUrgencyBoost = -8;
                 mcRiskLabel = 'safe';
             }
@@ -474,10 +476,17 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
             if (!topicMap[name]) {
                 topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
             }
-            const topicTotal = parseInt(t.total, 10) || 0;
-            const topicCorrect = (t.isPercentage && t.score != null && topicTotal > 0)
-                ? Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal)
-                : (parseInt(t.correct, 10) || 0);
+            let topicTotal = parseInt(t.total, 10) || 0;
+            let topicCorrect = parseInt(t.correct, 10) || 0;
+
+            if (t.isPercentage && t.score != null) {
+                // FIX: Se for percentual puro mas o usuário deixou 'total' em branco, 
+                // criamos uma base 100 para a matemática do ranking não gerar NaN ou zerar o tópico.
+                if (topicTotal === 0) {
+                    topicTotal = 100;
+                }
+                topicCorrect = Math.round((getSafeScore(t, maxScore) / maxScore) * topicTotal);
+            }
 
             topicMap[name].total += topicTotal;
             topicMap[name].correct += topicCorrect;
@@ -587,7 +596,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const recentSims = simulados.filter(s => normalize(s.subject) === catNormalized && new Date(s.date || 0).getTime() >= cutoffTime);
 
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+        const totalQuestions = recentSims.reduce((acc, s) => {
+            const sTotal = Number(s.total) || 0;
+            // FIX: Se o simulado tem nota mas não registrou o total de questões (cadastro só em %), 
+            // assumimos um peso sintético de 100 questões para evitar divisão por zero no questionsPerHour.
+            if (sTotal === 0 && s.score != null) {
+                return acc + 100;
+            }
+            return acc + sTotal;
+        }, 0);
         const avgScore = recentSims.length > 0
             ? recentSims.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0) / recentSims.length
             : 0;

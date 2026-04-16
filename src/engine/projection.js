@@ -203,9 +203,9 @@ export function calculateVolatility(history, maxScore = 100) {
         const time0 = new Date(h0.date).getTime();
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
-        // FIX ESTATÍSTICO: O piso passa a ser 1.0. Simular 2 vezes no mesmo dia 
-        // conta como o esforço/ruído de 1 dia inteiro, evitando dividir por 0.1.
-        const rawDaysBetween = Math.max(1.0, (time1 - time0) / (1000 * 60 * 60 * 24));
+        // FIX: Piso de tempo menor (0.1) para registrar a volatilidade extraída
+        // de múltiplos simulados prestados num intervalo menor que 24h.
+        const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
         const detrendedDiff = diff - (rawDriftVol * daysBetween);
@@ -289,16 +289,19 @@ export function monteCarloSimulation(
         baselineScore = (currentScore * rawWeight) + (ema * emaWeight);
     }
 
+    const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+    
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore)
-        : { slope: 0, slopeStdError: 1.5 };
+        // FIX: O fallback de 1.5 precisa ser escalonado pela base da prova (senão fica inútil no Enem/OAB)
+        : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
 
     const drift = calculateSlope(sortedHistory, maxScore); // Tendência clampeada para a média determinística
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
     // ESCALA INVARIANTE: O teto 1.5 é escalonado via maxScore.
-    const scaleFactor = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
+    const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
     const driftUncertainty = Math.min(rawDriftUncertainty, (1.5 * scaleFactor) / Math.sqrt(Math.max(1, simulationDays)));
 
@@ -311,7 +314,9 @@ export function monteCarloSimulation(
 
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
-        const rawDays = Math.max(1, (time1 - time0) / (1000 * 60 * 60 * 24));
+        
+        // FIX: Consistência com o calculateVolatility, permitindo eventos intraday (0.1 dias mínimo)
+        const rawDays = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDays); // Alinhar com calculateVolatility
 
         // EXTRA FIX: Removemos o drift linear do 'change' para não haver double-counting

@@ -171,16 +171,18 @@ export function computeCategoryStats(history, weight, daysValue = 60, maxScore =
 
     // FIX: Variância Ponderada pelo esforço real (questões)
     let variance = 0;
-    if (totalQ > 1) { // RIGOR FIX: Variância amostral requer n > 1
+    // FIX: Variância amostral requer n > 1 EVENTOS (historyToUse.length > 1), e não apenas questões.
+    // Se o aluno fez 1 simulado de 50 questões, a variância dele com ele mesmo é 0. 
+    // Precisamos cair no prior do standardDeviation.
+    if (historyToUse.length > 1 && totalQ > 1) { 
         let wVarSum = 0;
         historyToUse.forEach(h => {
             const w = (Number(h.total) || 1);
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
-        // MATH FIX: Variância ponderada de frequências (unidade = questão)
         variance = wVarSum / (totalQ - 1);
     } else {
-        variance = Math.pow(standardDeviation(scores), 2);
+        variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }
     
     const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
