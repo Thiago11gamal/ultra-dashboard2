@@ -168,11 +168,11 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 dataByDate[date][`raw_correct_${cat.id}`] = correct;
                 dataByDate[date][`raw_total_${cat.id}`] = total;
                 dataByDate[date][`raw_${cat.id}`] = rawDailyScore;
-                dataByDate[date][`bay_${cat.id}`]        = snap.bayesian ? snap.bayesian.mean   : 0;
-                dataByDate[date][`bay_ci_low_${cat.id}`]  = snap.bayesian ? snap.bayesian.ciLow  : 0;
-                dataByDate[date][`bay_ci_high_${cat.id}`] = snap.bayesian ? snap.bayesian.ciHigh : 0;
-                dataByDate[date][`stats_${cat.id}`] = stats ? stats.mean : 0;
-                dataByDate[date][`trend_${cat.id}`] = stats ? stats.trendValue : 0;
+                dataByDate[date][`bay_${cat.id}`]        = snap.bayesian ? (Number(snap.bayesian.mean) || 0)   : 0;
+                dataByDate[date][`bay_ci_low_${cat.id}`]  = snap.bayesian ? (Number(snap.bayesian.ciLow) || 0)  : 0;
+                dataByDate[date][`bay_ci_high_${cat.id}`] = snap.bayesian ? (Number(snap.bayesian.ciHigh) || 0) : 0;
+                dataByDate[date][`stats_${cat.id}`] = stats ? (Number(stats.mean) || 0) : 0;
+                dataByDate[date][`trend_${cat.id}`] = stats ? (Number(stats.trendValue) || 0) : 0;
                 dataByDate[date][`trend_status_${cat.id}`] = stats ? stats.trend : 'stable';
 
                 dataByDate[date].global_correct = (Number(dataByDate[date].global_correct) || 0) + correct;

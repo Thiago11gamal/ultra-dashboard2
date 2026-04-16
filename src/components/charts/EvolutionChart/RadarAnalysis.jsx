@@ -36,8 +36,8 @@ export function RadarAnalysis({ radarData }) {
                         <PolarGrid stroke="rgba(255,255,255,0.1)" strokeDasharray="0" />
                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#ffffff', fontSize: 9 }} />
                         <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#475569', fontSize: 8 }} axisLine={false} />
-                        <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeOpacity={0.5} fill="none" />
-                        <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: `url(#${glowId})` }} />
+                        <Radar name="Meta" dataKey="meta" stroke="#22c55e" strokeOpacity={0.5} fill="none" dot={{ r: 2, fill: '#ffffff', stroke: '#22c55e', strokeWidth: 1 }} />
+                        <Radar name="Seu Nível" dataKey="nivel" stroke="#818cf8" strokeWidth={2} fill="#818cf8" fillOpacity={0.2} dot={{ r: 3, fill: '#ffffff', stroke: '#818cf8', strokeWidth: 2 }} activeDot={{ r: 4, strokeWidth: 0 }} style={{ filter: `url(#${glowId})` }} />
                         <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                         <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
                     </RadarChart>
