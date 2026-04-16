@@ -52,10 +52,10 @@ function MainLayout() {
   const activeContestId = useAppStore(state => state.appState.activeId);
   
   // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
-  // Retorna apenas IDs e nomes, assim o App.jsx não re-renderiza se uma task for adicionada em outro painel
+  // Retorna apenas IDs e nomes (strings), assim o App.jsx não re-renderiza infinitamente
   const contestsMetaList = useAppStore(useShallow(state => {
     return Object.keys(state.appState.contests).reduce((acc, key) => {
-      acc[key] = { user: { name: state.appState.contests[key]?.user?.name } };
+      acc[key] = state.appState.contests[key]?.user?.name || 'Sem nome';
       return acc;
     }, {});
   }));

@@ -72,7 +72,7 @@ function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitc
                                     </div>
                                     <div className="min-w-0">
                                         <p className={`text-sm font-semibold truncate ${isActive ? 'text-purple-200' : 'text-slate-300'}`}>
-                                            {contestData?.user?.name || 'Sem nome'}
+                                            {typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome'}
                                         </p>
                                         {isActive && (
                                             <p className="text-[9px] text-green-400 font-bold uppercase tracking-wider">Ativo</p>

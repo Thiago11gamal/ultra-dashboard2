@@ -252,7 +252,9 @@ export default function Header({
                                                 className={`flex-1 flex items-center gap-3 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
                                             >
                                                 <LayoutDashboard size={16} className="shrink-0" />
-                                                <span className="truncate text-sm">{contestData?.user?.name || 'Sem nome'}</span>
+                                                <span className="truncate text-sm">
+                                                    {typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome'}
+                                                </span>
                                             </button>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
