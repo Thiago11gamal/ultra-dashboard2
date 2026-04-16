@@ -184,7 +184,7 @@ function MainLayout() {
             console.warn("[Sanity] No contests found. Creating default...");
             createNewContest();
         }
-    } else if (contestsCount > 1 && !contests[activeContestId]) {
+    } else if (contestsCount > 1 && !contestsMetaList[activeContestId]) {
         console.warn("[Sanity] ActiveId points to deleted contest. Switching to first available...");
         // This is safe since firstContestId is derived from Object.keys(contests)
         if (firstContestId) switchContest(firstContestId);
