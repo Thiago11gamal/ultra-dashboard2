@@ -381,7 +381,12 @@ export default function EvolutionChart({
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
             .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
-            .reduce((sum, h) => sum + (parseInt(h.total, 10) || 0), 0);
+            .reduce((sum, h) => {
+                let q = parseInt(h.total, 10) || 0;
+                // FIX: Se houver nota, mas não houver contagem de questões, assumir carga de base 100
+                if (q === 0 && h.score != null) q = 100;
+                return sum + q;
+            }, 0);
 
         if (recentVolumeAlert > 40 && raw < bayesian - 10) return `⚠️ Alerta de Burnout: Você fez ${recentVolumeAlert} questões nos últimos 7 dias, mas a nota (${raw.toFixed(1)}%) despencou. O cansaço é real. Recomendo uma pausa!`;
         if (raw > bayesian + 8) return `💡 Espetacular! Sua última nota (${raw.toFixed(1)}%) estourou a previsão (${bayesian.toFixed(1)}%). O conhecimento assentou de vez. Pode seguir avançando firme.`;

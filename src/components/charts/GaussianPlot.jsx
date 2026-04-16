@@ -67,7 +67,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let sl = vizSdLeft, sr = vizSdRight;
         for (let i = 0; i < 12; i++) {
             const pg = getGeomProb(t, m, sl, sr);
-            if (Math.abs(targetProb - pg) <= 0.002) break;
+            
+            // FIX: Paragem de emergência para NaN prevenindo corrupção em cascata
+            if (isNaN(pg) || Math.abs(targetProb - pg) <= 0.002) break;
             
             const r = targetProb / Math.max(0.005, pg);
             const adjustment = t < m ? (1 / r) : r;
@@ -130,6 +132,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
         if (!lo) return hi?.py ?? 100;
         if (!hi) return lo.py;
+        
+        // FIX: Prevenção de divisão por zero (impede que 't' se torne NaN e colapse o Path SVG)
+        if (hi.px === lo.px) return lo.py; 
+        
         const t = (xTarget - lo.px) / (hi.px - lo.px);
         return lo.py + t * (hi.py - lo.py);
     };
