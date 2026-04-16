@@ -111,8 +111,12 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         if (!cloud) return local;
         if (!local) return cloud;
 
-        const mergedContests = { ...(local.contests || {}) };
+        const localContests = local.contests || {};
         const cloudContests = cloud.contests || {};
+        const mergedContests = { ...localContests };
+
+        const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
+        const localFullUpdate = new Date(local.lastUpdated || 0).getTime();
 
         const mergeArrays = (arr1, arr2) => {
             const map = new Map();
@@ -122,12 +126,15 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             return Array.from(map.values());
         };
 
+        // 1. Processar adições e atualizações da nuvem
         Object.entries(cloudContests).forEach(([id, cloudContest]) => {
-            const localContest = mergedContests[id];
+            const localContest = localContests[id];
             
             if (!localContest) {
+                // Novo painel vindo da nuvem
                 mergedContests[id] = cloudContest;
             } else {
+                // Painel existente: comparar timestamps granulares
                 const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
                 const localTime = new Date(localContest.lastUpdated || 0).getTime();
                 
@@ -147,21 +154,25 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             }
         });
 
-        // Deduplicate categories by name in ALL contests unconditionally.
-        // This catches duplicates already stored in localStorage that never
-        // went through the cloudTime > localTime merge path above.
+        // 2. SINCRONIZAÇÃO DE DELEÇÃO (Bug Fix solicitado)
+        // Se um painel existe localmente mas NÃO está na nuvem, e a nuvem é MAIS RECENTE
+        // que a última alteração desse painel local, significa que ele foi deletado em outro dispositivo.
+        Object.keys(localContests).forEach(id => {
+            if (!cloudContests[id]) {
+                const localTime = new Date(localContests[id]?.lastUpdated || 0).getTime();
+                // Margem de 5s para evitar race conditions de clock
+                if (cloudFullUpdate > localTime + 5000) {
+                    console.warn(`[Sync] Deletando painel "${id}" localmente (removido na nuvem).`);
+                    delete mergedContests[id];
+                }
+            }
+        });
+
+        // [O restante da lógica de deduplicação e activeId permanece igual]
         Object.keys(mergedContests).forEach(id => {
             mergedContests[id] = deduplicateCategoryNames(mergedContests[id]);
         });
 
-        const cloudUpdated = new Date(cloud.lastUpdated || 0).getTime();
-        const localUpdated = new Date(local.lastUpdated || 0).getTime();
-
-        // FIX: activeId is a UI-navigation state — it reflects what the user last chose to view.
-        // Overwriting it with the cloud's value (based on timestamp) causes the right-panel content
-        // to switch to a different contest than what is highlighted in the sidebar on mobile.
-        // Rule: always keep local.activeId if it points to a valid contest; only fall back to
-        // cloud.activeId when local has no valid selection (first login / empty state).
         const isLocalIdValid = local.activeId && mergedContests[local.activeId];
         const activeId = isLocalIdValid
             ? local.activeId
@@ -173,7 +184,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             contests: mergedContests,
             activeId: activeId || local.activeId || cloud.activeId,
             version: Math.max(local.version ?? 0, cloud.version ?? 0),
-            lastUpdated: new Date(Math.max(cloudUpdated, localUpdated)).toISOString()
+            lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()
         };
     };
 

@@ -56,4 +56,11 @@ export const createContestSlice = (set, get) => ({
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
+
+    setPaineis: (paineis) => set((state) => {
+        if (!paineis || typeof paineis !== 'object') return;
+        state.appState.contests = paineis;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    }),
 });
