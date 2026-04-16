@@ -157,14 +157,14 @@ export function EvolutionLineChart({
                             (isFocused && engine?.id === 'bayesian') ? (
                                 <Area key={`bay_ci_${cat.id}`} type={engine?.style || 'monotone'}
                                     dataKey={`band_${cat.id}`}
-                                    name="IC 95%" stroke="none"
+                                    name="_IC 95%" stroke="none"
                                     fill={`url(#bayBand_${cat.id})`} legendType="none"
                                     connectNulls
                                     isAnimationActive={false}
                                 />
                             ) : null,
                             isFocused ? (
-                                <Area key={`area_${cat.id}`} type={engine?.style || 'monotone'} dataKey={dataKey} name={cat.name} stroke="none"
+                                <Area key={`area_${cat.id}`} type={engine?.style || 'monotone'} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id})`} legendType="none" connectNulls />
                             ) : null,
                             <Line key={cat.id} type={engine?.style || 'monotone'} dataKey={dataKey} name={cat.name}

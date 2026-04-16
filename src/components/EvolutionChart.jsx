@@ -445,7 +445,7 @@ export default function EvolutionChart({
                     Nível Bayesiano por Disciplina • clique para focar
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 overflow-visible">
-                    {categories.map(cat => (
+                    {activeCategories.map(cat => (
                         <DisciplinaCard 
                             key={cat.id} 
                             cat={cat} 
