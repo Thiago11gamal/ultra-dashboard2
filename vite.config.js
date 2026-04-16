@@ -17,9 +17,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          charts: ['recharts', 'html2canvas', 'jspdf'], // Separa as bibliotecas de gráficos e PDF
-          motion: ['framer-motion'] // Separa a biblioteca de animação
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          charts: ['recharts', 'html2canvas', 'jspdf'], 
+          motion: ['framer-motion'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
+          ai: ['@google/generative-ai'],
+          graphics: ['three', 'tsparticles', 'react-tsparticles']
         }
       }
     }

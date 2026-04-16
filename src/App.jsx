@@ -50,8 +50,18 @@ function MainLayout() {
   const location = useLocation();
 
   const activeContestId = useAppStore(state => state.appState.activeId);
-  const contests = useAppStore(useShallow(state => state.appState.contests));
   
+  // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
+  // Retorna apenas IDs e nomes, assim o App.jsx não re-renderiza se uma task for adicionada em outro painel
+  const contestsMetaList = useAppStore(useShallow(state => {
+    return Object.keys(state.appState.contests).reduce((acc, key) => {
+      acc[key] = { user: { name: state.appState.contests[key]?.user?.name } };
+      return acc;
+    }, {});
+  }));
+
+  const data = useAppStore(state => state.appState.contests[activeContestId]);
+
   // Use a stable reference for cloud sync without forcing re-renders on every state tick
   // by only selecting the properties that actually need to trigger a sync cycle.
   const syncTrigger = useAppStore(useShallow(state => ({
@@ -59,11 +69,10 @@ function MainLayout() {
     lastUpdated: state.appState.lastUpdated
   })));
   
-  // Seletores estáveis para evitar re-renderizações excessivas
-  const data = contests[activeContestId];
-  const contestsCount = Object.keys(contests).length;
+  // Seletores derivados
+  const contestsCount = Object.keys(contestsMetaList).length;
   const hasActiveData = !!data;
-  const firstContestId = Object.keys(contests)[0];
+  const firstContestId = Object.keys(contestsMetaList)[0];
 
   const setAppState = useAppStore(state => state.setAppState);
   const switchContest = useAppStore(state => state.switchContest);
@@ -96,7 +105,7 @@ function MainLayout() {
     useAppStore.getState().appState, 
     setAppState, 
     showToast,
-    syncTrigger // Pass trigger to notify hook of changes
+    syncTrigger // Pass trigger to notify hook of changes (version/lastUpdated)
   );
 
   // --- THEME SYNC ---
@@ -108,6 +117,12 @@ function MainLayout() {
       showToast('Dados de "Direito" recuperados do armazenamento profundo! 💎📚', 'success');
       delete window.__ULTRA_RESCUE_SUCCESS;
     }
+    // Clean-up para evitar vazamentos se o componente for desmontado rapidamente
+    return () => { 
+      if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
+        delete window.__ULTRA_RESCUE_SUCCESS;
+      }
+    };
   }, [showToast]);
 
   // Global Handlers
@@ -122,22 +137,23 @@ function MainLayout() {
     event.target.value = '';
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      // FIX: Pequeno delay para garantir que o toast de "A processar" seja renderizado antes do bloqueio da CPU
-      setTimeout(() => {
-        try {
-          const currentAppState = useAppStore.getState().appState;
-          const result = parseImportedData(e.target.result, currentAppState);
-          setAppState(result.data);
-          showToast('Backup restaurado com sucesso! ✨', 'success');
-        } catch (err) {
-          console.error("Import Error:", err);
-          showToast(`Erro no Backup: ${err.message}`, 'error');
-        }
-      }, 100);
+    reader.onload = async (e) => {
+      showToast('A processar backup... ⏳', 'info');
+      
+      // Dá um "respiro" real para a renderização do Toast antes de travar a CPU com processamento pesado
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      try {
+        const currentAppState = useAppStore.getState().appState;
+        const result = parseImportedData(e.target.result, currentAppState);
+        setAppState(result.data);
+        showToast('Backup restaurado com sucesso! ✨', 'success');
+      } catch (err) {
+        console.error("Import Error:", err);
+        showToast(`Erro no Backup: ${err.message}`, 'error');
+      }
     };
     
-    showToast('A processar backup... ⏳', 'info');
     reader.readAsText(file);
   }, [setAppState, showToast]);
 
@@ -191,7 +207,7 @@ function MainLayout() {
             }
         }
     }
-  }, [hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contests, safelyMergeDuplicates, showToast]);
+  }, [hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contestsMetaList, safelyMergeDuplicates, showToast]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
@@ -228,7 +244,7 @@ function MainLayout() {
             <Header
               user={data.user}
               settings={data.settings}
-              contests={contests}
+              contests={contestsMetaList}
               activeContestId={activeContestId}
               onSwitchContest={switchContest}
               onCreateContest={createNewContest}
