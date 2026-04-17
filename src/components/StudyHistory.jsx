@@ -37,11 +37,12 @@ const StudyHistory = React.memo(function StudyHistory({
         // Find the earliest session
         const earliestTimeArr = studySessions.map(s => {
             const t = new Date(s.startTime).getTime();
-            return isNaN(t) ? currentTime : t; // B-13 FIX: Previne Math.min(NaN) devolvendo Infinity acidental ou White Screen
+            return isNaN(t) ? currentTime : t;
         });
-        const earliestTime = useMemo(() => {
-            return Math.min(...earliestTimeArr, currentTime);
-        }, [earliestTimeArr, currentTime]);
+
+        // FIX: Removido useMemo aninhado que causava erro #300. 
+        // Hooks devem ser chamados apenas no nível superior.
+        const earliestTime = Math.min(...earliestTimeArr, currentTime);
 
         const firstSession = new Date(earliestTime);
 

@@ -106,19 +106,16 @@ export default function EvolutionChart({
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
-    // B-13 FIX: Previne loops de renderização as dependências
-    useEffect(() => {
-        if (!categories.length) return;
-        
-        // Só define o foco inicial se ele estiver vazio ou se o ID atual não pertencer à lista (ex: trocou dashboard)
-        if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            setFocusSubjectId(categories[0].id);
-        }
-    }, [categories]); // Removido focusSubjectId das dependências
+    // B-13 & P0 FIX: Removido useEffect que causava re-render duplo.
+    // A validação do foco agora é feita de forma reativa no useMemo abaixo.
 
     const focusCategory = useMemo(() => {
+        if (!categories || categories.length === 0) return null;
         const found = categories.find(c => c.id === focusSubjectId);
-        return found || categories[0] || null;
+        
+        // Se não encontrou (ou foi apagado), volta para o primeiro automaticamente 
+        // sem precisar disparar um setFocusSubjectId e causar um re-render duplo!
+        return found || categories[0];
     }, [categories, focusSubjectId]);
 
     const categoryLevels = useMemo(() => {
@@ -146,7 +143,7 @@ export default function EvolutionChart({
 
     const historyArray = focusCategory?.simuladoStats?.history ?? EMPTY_ARRAY;
     const historyHash = useMemo(() =>
-        historyArray.map(h => `${h.date}:${h.score ?? h.correct}`).join('|'),
+        historyArray.map(h => `${h?.date || 'nodate'}:${h?.score ?? h?.correct ?? 0}`).join('|'),
         [focusCategory?.id, focusCategory?.simuladoStats?.history]
     );
 
@@ -155,6 +152,7 @@ export default function EvolutionChart({
         if (!focusCategory?.simuladoStats?.history) return;
         
         const hist = [...focusCategory.simuladoStats.history]
+            .filter(h => h && h.date) // <--- FILTRO DE SEGURANÇA ADICIONADO AQUI
             .map(h => {
                 const dateKey = getDateKey(h.date);
                 const score = getSafeScore(h, maxScore);
@@ -382,7 +380,11 @@ export default function EvolutionChart({
 
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
-            .filter(h => { const d = new Date(h.date).getTime(); return !isNaN(d) && nowMs - d <= sevenDaysMs; })
+            .filter(h => { 
+                if (!h || !h.date) return false; // <--- PROTEÇÃO AQUI
+                const d = new Date(h.date).getTime(); 
+                return !isNaN(d) && nowMs - d <= sevenDaysMs; 
+            })
             .reduce((sum, h) => {
                 let q = parseInt(h.total, 10) || 0;
                 // FIX: Se houver nota, mas não houver contagem de questões, assumir carga de base 100
