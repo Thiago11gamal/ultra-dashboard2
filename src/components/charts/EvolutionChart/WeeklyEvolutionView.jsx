@@ -6,14 +6,20 @@ import {
 import { TrendingUp, BarChart3, HelpCircle } from 'lucide-react';
 import { getSafeScore } from "../../../utils/scoreHelper";
 
-// 1. UTIL: Pegar a segunda-feira para agrupar as semanas
+// FIX CRÍTICO: Forçar T12:00:00 para evitar que new Date("YYYY-MM-DD") recue 1 dia em UTC-4.
+// Extracção de data local em vez de toISOString() (que retorna UTC).
 const getMondayStr = (dateStr) => {
-    const dt = new Date(dateStr);
+    const dt = typeof dateStr === 'string' && dateStr.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+        ? new Date(`${dateStr}T12:00:00`)
+        : new Date(dateStr);
     if (isNaN(dt.getTime())) return null;
     const day = dt.getDay();
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
     dt.setDate(diff);
-    return dt.toISOString().split('T')[0]; // ex: "2026-04-01"
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 };
 
 // Formatação legível para o XAxis
@@ -99,21 +105,22 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
         }
 
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
-        
         // 🌟 SOLUÇÃO: BURACO DO EIXO X (Preenchimento blindado contra Timezones)
+        // FIX: Usar T12:00:00 local e extracção local consistente com getMondayStr
         const filledWeeks = [];
         if (sortedWeeks.length > 0) {
-            const firstWeek = new Date(sortedWeeks[0].week);
-            const lastWeek = new Date(sortedWeeks[sortedWeeks.length - 1].week);
+            const firstWeek = new Date(`${sortedWeeks[0].week}T12:00:00`);
+            const lastWeek = new Date(`${sortedWeeks[sortedWeeks.length - 1].week}T12:00:00`);
             
-            // Usamos UTC explícito para garantir que saltos de 7 dias caiam matematicamente precisos sem DST glitches
-            const curr = new Date(Date.UTC(firstWeek.getUTCFullYear(), firstWeek.getUTCMonth(), firstWeek.getUTCDate()));
-            const end = new Date(Date.UTC(lastWeek.getUTCFullYear(), lastWeek.getUTCMonth(), lastWeek.getUTCDate()));
+            const curr = new Date(firstWeek);
             
-            while (curr <= end) {
-                const weekStr = curr.toISOString().split('T')[0];
+            while (curr <= lastWeek) {
+                const y = curr.getFullYear();
+                const m = String(curr.getMonth() + 1).padStart(2, '0');
+                const d = String(curr.getDate()).padStart(2, '0');
+                const weekStr = `${y}-${m}-${d}`;
                 filledWeeks.push(weeksTemp[weekStr] || { week: weekStr });
-                curr.setUTCDate(curr.getUTCDate() + 7);
+                curr.setDate(curr.getDate() + 7);
             }
         }
         

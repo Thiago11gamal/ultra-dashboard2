@@ -69,7 +69,7 @@ export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCatego
                                 content={({ active, payload }) => {
                                     if (active && payload && payload.length) {
                                             const d = payload[0].payload;
-                                            const rendPct = d.questoes > 0 ? ((d.acertos / d.questoes) * maxScore).toFixed(1) : '0.0';
+                                            const rendPct = d.questoes > 0 ? ((d.acertos / d.questoes) * 100).toFixed(1) : '0.0';
                                             return (
                                                 <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl min-w-[180px]">
                                                     <p className="font-black text-slate-200 mb-2 border-b border-white/5 pb-1.5 text-xs">{d.fullName}</p>

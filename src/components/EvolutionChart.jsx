@@ -602,14 +602,14 @@ export default function EvolutionChart({
                                 </div>
                                 <div className="h-40 w-full mb-2">
                                     <GaussianPlot 
-                                        mean={mcResult?.projectedMean || mcResult?.mean || 0}
-                                        sd={mcResult?.sd || 0}
-                                        sdLeft={mcResult?.sdLeft || mcResult?.sd || 0}
-                                        sdRight={mcResult?.sdRight || mcResult?.sd || 0}
-                                        low95={mcResult?.ci95Low || 0}
-                                        high95={mcResult?.ci95High || 0}
+                                        mean={mcResult?.projectedMean ?? mcResult?.mean ?? 0}
+                                        sd={mcResult?.sd ?? 0}
+                                        sdLeft={mcResult?.sdLeft ?? mcResult?.sd ?? 0}
+                                        sdRight={mcResult?.sdRight ?? mcResult?.sd ?? 0}
+                                        low95={mcResult?.ci95Low ?? 0}
+                                        high95={mcResult?.ci95High ?? 0}
                                         targetScore={targetScore}
-                                        prob={mcResult?.probability || 0}
+                                        prob={mcResult?.probability ?? 0}
                                         kdeData={mcResult?.kdeData}
                                         minScore={minScore}
                                         maxScore={maxScore}

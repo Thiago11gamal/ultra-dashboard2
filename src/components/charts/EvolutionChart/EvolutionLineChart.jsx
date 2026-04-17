@@ -5,6 +5,7 @@ import {
     LabelList
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
+import { normalizeDate } from '../../../utils/dateHelper';
 
 export function EvolutionLineChart({ 
     filteredChartData, 
@@ -24,9 +25,10 @@ export function EvolutionLineChart({
     const enhancedChartData = React.useMemo(() => {
         if (!filteredChartData || !filteredChartData.length) return [];
         // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines if data is unordered
+        // FIX: Usar normalizeDate para evitar que YYYY-MM-DD seja interpretado como UTC midnight
         const sortedData = [...filteredChartData].sort((a, b) => {
-            const dateA = a.date ? new Date(a.date).getTime() : 0;
-            const dateB = b.date ? new Date(b.date).getTime() : 0;
+            const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
+            const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
             return dateA - dateB;
         });
 
