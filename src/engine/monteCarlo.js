@@ -137,7 +137,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
 
-    // FIX 6: sdLeft/Right rigidamente ancorados na Média Visual (acaba com o shift no Gauge)
+    // FIX 6: sdLeft/Right ancorados na mediana empírica (consistente com projection.js)
+    // A mediana está sempre entre p16 e p84 por definição, evitando valores negativos
+    // quando a distribuição truncada é assimétrica (média perto das bordas).
+    const empMedian = getPercentile(allScores, 0.5);
     const rawLeft = getPercentile(allScores, 0.16);
     const rawRight = getPercentile(allScores, 0.84);
 
@@ -146,8 +149,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
         sd: Number(projectedSD.toFixed(1)),
-        sdLeft: Number(Math.max(0.1, displayMean - rawLeft).toFixed(2)),
-        sdRight: Number(Math.max(0.1, rawRight - displayMean).toFixed(2)),
+        sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
+        sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
         ci95Low: Number(displayLow.toFixed(1)),
         ci95High: Number(displayHigh.toFixed(1)),
         currentMean: Number((currentMean || safeMean).toFixed(1)),

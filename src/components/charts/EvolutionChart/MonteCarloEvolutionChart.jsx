@@ -60,7 +60,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
             // Extraia os valores do payload primeiro para evitar ReferenceError
-            const val = payload[0].value ?? payload[0].payload.probability;
+            // FIX: Fallback final ?? 0 para prevenir crash se ambos os valores forem undefined
+            const val = payload[0].value ?? payload[0].payload?.probability ?? 0;
             const fullDate = payload[0].payload.fullDate;
             
             const pointMean = payload[0].payload.mean;

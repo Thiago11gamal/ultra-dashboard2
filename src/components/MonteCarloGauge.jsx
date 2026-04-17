@@ -588,7 +588,8 @@ export default function MonteCarloGauge({
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
                         <span className="text-5xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
-                            {formatScore(prob)}
+                            {/* FIX: Probabilidade é sempre %, independente da unidade do concurso */}
+                            {prob.toFixed(1)}%
                         </span>
                     </div>
                 </div>
