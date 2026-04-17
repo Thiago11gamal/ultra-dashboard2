@@ -221,10 +221,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     
     // RIGOR-LABEL-FIX: Se o label "Hoje" estiver muito no topo do gráfico (curva alta) 
     // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
-    const isHighCurve = hojeTop < 22;
+    // D-10 FIX: Garantir Math.max(0, hojeTop) antes de qualquer operação de tier.
+    const safeHojeTop = Math.max(0, hojeTop);
+    const isHighCurve = safeHojeTop < 22;
     const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget)) 
         ? (22 + (tierHoje - 1) * 15 + '%') 
-        : (tierHoje > 1 ? `calc(${hojeTop}% + ${(tierHoje - 1) * 16}px)` : `${hojeTop}%`);
+        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 16}px)` : `${safeHojeTop}%`);
 
     return (
         <div className="relative w-full h-[140px] mb-12 cursor-crosshair group/chart"
@@ -270,7 +272,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                {[25, 50, 75].map(tick => (
+                {[26, 50, 74].map(tick => (
                     <line key={tick} x1={tick} y1="100" x2={tick} y2="103" stroke="#475569" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 ))}
 
@@ -319,7 +321,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             {hover && (
                 <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
-                    <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${yp(asymmetricGaussianFn(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
+                    <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, yp(asymmetricGaussianFn(hover.val)))}%`, transform: 'translate(-50%, -50%)' }} />
                     <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(5, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
                         <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}{unit}</span>
                         <div className="flex items-center gap-1 mt-0.5">

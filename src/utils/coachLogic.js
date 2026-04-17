@@ -143,8 +143,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(category.name);
         const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNormalized);
-        const simuladosWithMaxScore = relevantSimulados.map(s => ({ ...s, maxScore }));
-        simuladosWithMaxScore.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        const simuladosWithMaxScore = relevantSimulados;
 
         let averageScore = 0;
         if (relevantSimulados.length > 0) {

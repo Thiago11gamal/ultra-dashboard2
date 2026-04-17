@@ -41,7 +41,7 @@ export function standardDeviation(arr, maxScore = 100) {
  * Nota: Para o dashboard e Monte Carlo, use calculateSlope de projection.js, 
  * que implementa Regressão Ponderada Temporal (WLS).
  */
-export function calculateTrend(history) {
+export function calculateTrend(history, maxScore = 100) {
     if (!history || history.length < 3) return 0;
 
     const sorted = [...history]
@@ -52,7 +52,7 @@ export function calculateTrend(history) {
         const time = new Date(h.date).getTime();
         return {
             x: time / (1000 * 60 * 60 * 24),
-            y: getSafeScore(h)
+            y: getSafeScore(h, maxScore)
         };
     });
 

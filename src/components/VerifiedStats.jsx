@@ -329,17 +329,19 @@ export default function VerifiedStats({ categories = [], user }) {
             stagnation_threshold: 4.0,
             low_level_limit: 60,
             high_level_limit: statsTarget,
-            mastery_limit: statsTarget
+            mastery_limit: statsTarget,
+            maxScore
         });
 
         // Map to UI-compatible format
         const hasEnoughData = dailyScores.length >= 3;
-        // D-02 FIX: Threshold alinhado ao trend_tolerance do ProgressStateEngine (0.8).
-        // Antes, slope de 0.01 já mostrava "↑ Alta" — agora exige evidência real.
+        // D-02 FIX: Unificar unidades. PSE retorna pp/sessão. Multiplicamos por 30 (pp/30d) 
+        // para alinhar com o Coach e threshold de 0.5.
+        const trend30d = globalAnalysis.trend_slope * 30;
         const trend = !hasEnoughData ? 'insufficient' :
-            (globalAnalysis.trend_slope > 0.5 ? 'up' :
-                globalAnalysis.trend_slope < -0.5 ? 'down' : 'stable');
-        const trendValue = globalAnalysis.trend_slope;
+            (trend30d > 0.5 ? 'up' :
+                trend30d < -0.5 ? 'down' : 'stable');
+        const trendValue = trend30d;
 
         // 2. Linear Regression & Contextual Prediction
         let prediction = "Calibrando...";
@@ -511,7 +513,8 @@ export default function VerifiedStats({ categories = [], user }) {
                     stagnation_threshold: 4.0,
                     low_level_limit: 60,
                     high_level_limit: statsTarget,
-                    mastery_limit: statsTarget
+                    mastery_limit: statsTarget,
+                    maxScore
                 });
 
                 categoryAnalyses.push(analysis);
@@ -649,6 +652,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         onTargetScoreChange={setTargetScore}
                         forcedMode="today"
                         forcedTitle="Status Atual"
+                        maxScore={maxScore}
                     />
                     <MonteCarloGauge
                         categories={categories}
@@ -657,6 +661,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         onTargetScoreChange={setTargetScore}
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
+                        maxScore={maxScore}
                     />
                 </div>
             </div>

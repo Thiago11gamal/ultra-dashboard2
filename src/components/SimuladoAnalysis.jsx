@@ -171,7 +171,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             setErrorIndices({ subjects: new Set(), topics: new Set() });
         }
 
-        const validRows = rows.filter(r => r.subject && r.topic && parseInt(r.total, 10) > 0);
+        const validRows = rows.filter(r => r.subject && r.topic && (parseInt(r.total, 10) > 0 || r.score != null));
 
         if (validRows.length === 0) {
             setError("Preencha a quantidade de questões feitas em pelo menos um assunto.");

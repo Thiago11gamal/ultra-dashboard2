@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2 } from 'lucide-react';
+import { getSafeScore } from '../utils/scoreHelper';
 
 export default function ParetoAnalysis({ categories = [] }) {
 
@@ -17,8 +18,8 @@ export default function ParetoAnalysis({ categories = [] }) {
                     const topics = h.topics || [];
                     topics.forEach(t => {
                         const total = parseInt(t.total, 10) || 0;
-                        const correctCount = (t.isPercentage && t.score != null && total > 0)
-                            ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
+                        const correctCount = (total > 0)
+                            ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
                             : (parseInt(t.correct, 10) || 0);
                         const missed = Math.max(0, total - correctCount);
 

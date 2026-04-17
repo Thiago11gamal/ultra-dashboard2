@@ -17,12 +17,18 @@ const DEFAULT_CONFIG = {
 export function analyzeProgressState(scores, config = {}) {
     const {
         window_size,
-        stagnation_threshold,
+        stagnation_threshold: raw_stagnation,
         low_level_limit,
         high_level_limit,
         mastery_limit,
-        trend_tolerance
+        trend_tolerance: raw_trend,
+        maxScore = 100
     } = { ...DEFAULT_CONFIG, ...config };
+
+    // SCALE FIX: Escalonar thresholds pela amplitude da escala (maxScore)
+    const scaleFactor = maxScore / 100;
+    const stagnation_threshold = raw_stagnation * scaleFactor;
+    const trend_tolerance = raw_trend * scaleFactor;
 
     // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
     // (With only 2 points, variance = one single squared difference — not representative)
