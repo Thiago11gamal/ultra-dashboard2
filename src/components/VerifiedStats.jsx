@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, normalizeDate } from '../utils/dateHelper';
 
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -291,9 +291,10 @@ export default function VerifiedStats({ categories = [], user }) {
                 // Flatten history for global regression
                 cat.simuladoStats.history.forEach(h => {
                     const safeScore = getSafeScore(h, maxScore);
-                    if (h.date && safeScore >= 0) {
+                    const parsedDate = normalizeDate(h.date);
+                    if (parsedDate && safeScore >= 0) {
                         allHistory.push({
-                            date: new Date(h.date).getTime(),
+                            date: parsedDate.getTime(),
                             score: safeScore,
                             totalQuestions: Number(h.total) || 0
                         });
@@ -500,8 +501,8 @@ export default function VerifiedStats({ categories = [], user }) {
             if (cat.simuladoStats?.history?.length >= 2) {
                 // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
                 const sortedHistory = [...cat.simuladoStats.history]
-                    .filter(h => h.date && !isNaN(new Date(h.date).getTime()))
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                    .filter(h => h.date && normalizeDate(h.date) !== null)
+                    .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
                 const scores = sortedHistory.slice(-5).map(h => getSafeScore(h, maxScore));
 

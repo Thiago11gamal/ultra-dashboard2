@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Activity } from 'lucide-react';
+import { normalizeDate } from '../utils/dateHelper';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
@@ -22,7 +23,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const topCategory = categories.find(c => c.id === topCatId)?.name || '-';
 
         // 2. Group by Date then by Category
-        const sortedLogs = [...studyLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+        // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
+        const sortedLogs = [...studyLogs].sort((a, b) => (normalizeDate(b.date)?.getTime() ?? 0) - (normalizeDate(a.date)?.getTime() ?? 0));
         const grouped = {};
 
         sortedLogs.forEach(log => {

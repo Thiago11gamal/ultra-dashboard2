@@ -1,11 +1,14 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play } from 'lucide-react';
+import { normalizeDate } from '../utils/dateHelper';
 
 // Calculate retention based on Ebbinghaus Forgetting Curve
 const calculateRetention = (lastStudiedAt) => {
     if (!lastStudiedAt) return { val: 0, status: 'never', label: 'Nunca estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
 
-    const last = new Date(lastStudiedAt).getTime();
+    // FIX: Usar normalizeDate para evitar que datas YYYY-MM-DD sejam interpretadas como UTC midnight
+    const parsed = normalizeDate(lastStudiedAt);
+    const last = parsed ? parsed.getTime() : new Date(lastStudiedAt).getTime();
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
     // BUG 6 FIX: Use S=7 days instead of 3 to better match spaced repetition retention
