@@ -24,7 +24,7 @@ function AICoachPanel({ activeSubject, stats }) {
     }[insight.color];
 
     const formatText = (text) => {
-        return text.split('**').map((part, i) => 
+        return text.split('**').map((part, i) =>
             i % 2 === 1 ? <strong key={i} className="font-black text-white">{part}</strong> : part
         );
     };
@@ -33,7 +33,7 @@ function AICoachPanel({ activeSubject, stats }) {
         <div className={`group relative rounded-[32px] border overflow-hidden p-10 transition-all duration-700 ${themeStyles} mb-8`}>
             {/* Efeito Scanline */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent h-[200%] -translate-y-[150%] group-hover:translate-y-[50%] transition-transform duration-[2000ms] ease-in-out pointer-events-none" />
-            
+
             <div className="flex items-start gap-8 relative z-10">
                 <div className="mt-1 animate-pulse-slow shrink-0">{icons[insight.iconType] || <BrainCircuit size={48} />}</div>
                 <div>
@@ -61,7 +61,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                 tasks.push({ ...t, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
-        return tasks.slice(0, 5); 
+        return tasks.slice(0, 5);
     }, [categories, recommendedTask]);
 
     return (
@@ -72,7 +72,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
             {/* Recommended Action (ROI) */}
             {recommendedTask && !activeSubject && (
                 <div className="mb-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-4 backdrop-blur-md relative overflow-hidden group">
-                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
                         <Target size={40} />
                     </div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2 flex items-center gap-1.5">
@@ -115,11 +115,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                                 <button
                                     key={task.id}
                                     onClick={() => onStartTask(task)}
-                                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 group text-left ${
-                                        isActive
+                                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 group text-left ${isActive
                                             ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                                             : 'bg-black/20 border-white/5 hover:bg-white/10 hover:border-white/20'
-                                    }`}
+                                        }`}
                                 >
                                     <div
                                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm"
@@ -265,7 +264,7 @@ export default function Pomodoro() {
 function SparklesIcon(props) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
         </svg>
     );
 }
