@@ -202,7 +202,9 @@ export default function EvolutionChart({
                 if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
                 
                 setMcProjectionSeries({ 
-                    date: nextDate.toISOString().split("T")[0], 
+                    // FIX: Usar getDateKey (hora local) em vez de toISOString (UTC)
+                    // para evitar deslocamento de ±1 dia nos fusos negativos (ex: UTC-4)
+                    date: getDateKey(nextDate), 
                     mc_p50: p50, 
                     mc_band: [lo, hi] 
                 });
