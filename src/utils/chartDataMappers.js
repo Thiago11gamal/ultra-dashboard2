@@ -1,6 +1,7 @@
 /**
  * Mapper functions to transform application state into chart-ready data
  */
+import { normalizeDate } from './dateHelper.js';
 
 /**
  * Maps categories and their tasks to retention analysis data
@@ -14,7 +15,9 @@ export const mapRetentionData = (categories = []) => {
     categories.forEach(cat => {
         // Add categories with study history
         if (cat.lastStudiedAt) {
-            const last = new Date(cat.lastStudiedAt).getTime();
+            // FIX BUG N: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
+            const parsed = normalizeDate(cat.lastStudiedAt);
+            const last = parsed ? parsed.getTime() : new Date(cat.lastStudiedAt).getTime();
             
             // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
             // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
@@ -32,7 +35,9 @@ export const mapRetentionData = (categories = []) => {
         if (cat.tasks) {
             cat.tasks.forEach(task => {
                 if (task.lastStudiedAt || task.completedAt) {
-                    const last = new Date(task.lastStudiedAt || task.completedAt).getTime();
+                    // FIX BUG N: normalizeDate evita shift de UTC midnight em datas YYYY-MM-DD
+                    const parsedTask = normalizeDate(task.lastStudiedAt || task.completedAt);
+                    const last = parsedTask ? parsedTask.getTime() : new Date(task.lastStudiedAt || task.completedAt).getTime();
                     const days = Math.max(0, (Date.now() - last) / (1000 * 60 * 60 * 24));
                     const retention = Math.round(100 * Math.exp(-days / 7));
                     
@@ -63,14 +68,19 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     const dailyMap = {};
     
     // Sort and take last 14 days
+    // FIX BUG M: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
     const sortedLogs = Object.values(studyLogs || {}).sort((a, b) => {
-        const timeA = new Date(a.date).getTime() || 0;
-        const timeB = new Date(b.date).getTime() || 0;
+        const timeA = normalizeDate(a.date)?.getTime() ?? 0;
+        const timeB = normalizeDate(b.date)?.getTime() ?? 0;
         return timeA - timeB;
     });
     
     sortedLogs.forEach(log => {
-        const dateStr = new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        // FIX BUG M: usar normalizeDate para agrupamento correto por data local
+        const parsed = normalizeDate(log.date);
+        const dateStr = parsed
+            ? parsed.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+            : new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         dailyMap[dateStr] = (dailyMap[dateStr] || 0) + (Number(log.minutes) || 0);
     });
 

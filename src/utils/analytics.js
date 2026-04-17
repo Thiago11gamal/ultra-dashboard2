@@ -1,4 +1,5 @@
 import { getXPProgress } from './gamification.js';
+import { normalizeDate } from './dateHelper.js';
 // Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
 const toISODay = (date) => {
     const d = typeof date === 'string' && date.length === 10 ? new Date(`${date}T12:00:00`) : new Date(date);
@@ -317,7 +318,8 @@ export const detectProcrastination = (categories, studyLogs) => {
             if (task.priority === 'high' && !task.completed) {
                 const taskLogs = logsByTaskId[task.id] || [];
                 const recentLogs = taskLogs.filter(log => {
-                    const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
+                    const logDate = normalizeDate(log.date);
+                    const daysDiff = logDate ? (now - logDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
                     return daysDiff <= 3;
                 });
 
@@ -327,7 +329,8 @@ export const detectProcrastination = (categories, studyLogs) => {
                     // Evita falso alerta quando o usuário estudou a matéria sem focar na tarefa.
                     const categoryLogs = logsByCategoryId[cat.id] || [];
                     const recentCategoryLogs = categoryLogs.filter(log => {
-                        const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
+                        const catLogDate = normalizeDate(log.date);
+                        const daysDiff = catLogDate ? (now - catLogDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
                         return daysDiff <= 3;
                     });
                     if (recentCategoryLogs.length === 0) {
@@ -349,9 +352,10 @@ export const detectProcrastination = (categories, studyLogs) => {
             const categoryLogs = logsByCategoryId[cat.id] || [];
             if (categoryLogs.length > 0) {
                 const lastLog = categoryLogs.reduce((latest, log) =>
-                    new Date(log.date) > new Date(latest.date) ? log : latest
+                    (normalizeDate(log.date)?.getTime() ?? 0) > (normalizeDate(latest.date)?.getTime() ?? 0) ? log : latest
                 );
-                const daysSinceLastStudy = (now - new Date(lastLog.date)) / (1000 * 60 * 60 * 24);
+                const lastLogDate = normalizeDate(lastLog.date);
+                const daysSinceLastStudy = lastLogDate ? (now - lastLogDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
 
                 if (daysSinceLastStudy > 5) {
                     warnings.push({
@@ -368,7 +372,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     // 3. Padrão de estudo irregular (< 3 dias na última semana)
     if ((studyLogs || []).length >= 7) {
         const last7Days = (studyLogs || []).filter(log => {
-            const daysDiff = (now - new Date(log.date)) / (1000 * 60 * 60 * 24);
+            const logDate7 = normalizeDate(log.date);
+            const daysDiff = logDate7 ? (now - logDate7.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
             return daysDiff <= 7;
         });
 
