@@ -66,7 +66,7 @@ const PerformanceTable = ({ categories = [] }) => {
 
                             // Dynamic Trend calculation instead of relying on static store value
                             const trendHistory = [...history]
-                                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)) // FIX: String compare safe for YYYY-MM-DD keys
                                 .slice(-10).map(h => ({
                                 score: getSafeScore(h, maxScore),
                                 date: h.date

@@ -14,7 +14,7 @@ import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { getSafeScore } from '../utils/scoreHelper';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { useMonteCarloWorker } from '../hooks/useMonteCarloWorker';
 
 const sanitizeWeightUnit = (value) => {
@@ -172,7 +172,7 @@ export default function MonteCarloGauge({
             if (cat.simuladoStats?.history?.length > 0) {
                 const history = [...cat.simuladoStats.history]
                     .filter(h => cutoffDate ? getDateKey(h.date) <= cutoffDate : true)
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                    .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
                 if (history.length === 0) return;
 

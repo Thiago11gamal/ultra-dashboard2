@@ -93,7 +93,7 @@ const repairContestHistory = (data) => {
         total: stats.total,
         score: stats.total > 0 ? (stats.correct / stats.total) * maxScore : 0,
         isPercentage: true
-      })).sort((a, b) => new Date(a.date) - new Date(b.date));
+      })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);
 

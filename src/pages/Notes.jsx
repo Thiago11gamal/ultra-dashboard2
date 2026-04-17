@@ -55,7 +55,8 @@ export default function Notes() {
 
             // Add from existing history first
             existingHistory.forEach(h => {
-                const dateKey = getDateKey(new Date(h.date));
+                // FIX: Passar h.date diretamente (já é YYYY-MM-DD do store)
+                const dateKey = getDateKey(h.date);
                 mergedHistoryMap[dateKey] = {
                     date: dateKey,
                     correct: h.correct,
@@ -95,7 +96,7 @@ export default function Notes() {
             });
 
             const rebuiltHistory = Object.values(mergedHistoryMap)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
+                .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
 
             cat.simuladoStats.history = rebuiltHistory.slice(-50);
         });
