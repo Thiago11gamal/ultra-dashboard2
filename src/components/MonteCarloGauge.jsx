@@ -587,13 +587,13 @@ export default function MonteCarloGauge({
                         )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
-                        <span className="text-5xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
+                        <span className="text-4xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
                             {/* FIX: Probabilidade é sempre %, independente da unidade do concurso */}
                             {prob.toFixed(1)}%
                         </span>
                     </div>
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                <span className={`mt-2 text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
                     {isFlashing ? (
                         <span className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>

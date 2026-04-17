@@ -470,19 +470,24 @@ export default function EvolutionChart({
             </div>
 
             <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0 transition-all duration-500">
-                <div className="flex overflow-x-auto pb-2 sm:pb-4 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:pb-5 sm:flex-wrap gap-2 w-full mobile-edge-fade">
-                    {ENGINES.map((eng) => {
-                        const active = activeEngine === eng.id;
-                        return (
-                            <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
-                                className={`shrink-0 w-max group flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
-                                style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
-                                <span className="text-base">{eng.emoji}</span>
-                                <span>{eng.label}</span>
-                                {active && <span className="w-1.5 h-1.5 rounded-full ml-1 animate-pulse" style={{ backgroundColor: eng.color }} />}
-                            </button>
-                        );
-                    })}
+                <div className="relative w-full">
+                    {/* Fade indicators for hidden tabs */}
+                    <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
+                    <div className="flex overflow-x-auto pb-2 sm:pb-4 gap-2 w-full"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {ENGINES.map((eng) => {
+                            const active = activeEngine === eng.id;
+                            return (
+                                <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
+                                    className={`shrink-0 group flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
+                                    style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
+                                    <span className="text-base">{eng.emoji}</span>
+                                    <span className="whitespace-nowrap">{eng.label}</span>
+                                    {active && <span className="w-1.5 h-1.5 rounded-full ml-1 animate-pulse shrink-0" style={{ backgroundColor: eng.color }} />}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3 sm:p-4 mb-3 sm:mb-5 relative overflow-hidden">

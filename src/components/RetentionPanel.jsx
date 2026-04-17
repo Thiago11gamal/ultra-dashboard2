@@ -22,19 +22,23 @@ const calculateRetention = (lastStudiedAt) => {
     return { val, status: 'critical', label: 'Urgente!', color: 'text-red-400', bg: 'bg-red-500', border: 'border-red-500/30' };
 };
 
-// Format time ago
+// Format time ago with correct Portuguese pluralization
 const formatTimeAgo = (date) => {
     if (!date) return 'Nunca';
-    const diff = Date.now() - new Date(date).getTime();
+    // FIX: normalizeDate evita que YYYY-MM-DD seja UTC midnight
+    const parsed = normalizeDate(date);
+    const diff = Date.now() - (parsed ? parsed.getTime() : new Date(date).getTime());
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
 
     if (hours < 1) return 'Agora há pouco';
     if (hours < 24) return `${hours}h atrás`;
     if (days === 1) return 'Ontem';
-    if (days < 7) return `${days} dias atrás`;
-    if (days < 30) return `${Math.floor(days / 7)} semanas atrás`;
-    return `${Math.floor(days / 30)} meses atrás`;
+    if (days < 7) return `${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
+    if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
+    return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
 };
 
 // Retention Ring Component

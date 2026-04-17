@@ -338,9 +338,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     </div>
 
                     {/* Colunas header */}
-                    <div className="grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1">
+                    <div className="grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
                         {['Matéria', 'Assunto', '✓', 'Total', ''].map((h, i) => (
-                            <span key={i} className="text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center first:text-left">{h}</span>
+                            <span key={i} className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center first:text-left">{h}</span>
                         ))}
                     </div>
 

@@ -63,3 +63,26 @@ export const normalizeDate = (raw) => {
     if (isNaN(d.getTime())) return null;
     return d;
 };
+
+/**
+ * Centralised "time ago" formatter with correct Portuguese pluralization.
+ * Uses normalizeDate to avoid UTC midnight shift on YYYY-MM-DD strings.
+ * Returns: "Agora há pouco" | "Xh atrás" | "Ontem" | "X dias atrás" |
+ *          "X semana(s) atrás" | "X mês/meses atrás"
+ */
+export const formatTimeAgo = (date) => {
+    if (!date) return 'Nunca';
+    const parsed = normalizeDate(date);
+    const diff = Date.now() - (parsed ? parsed.getTime() : new Date(date).getTime());
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+
+    if (hours < 1) return 'Agora há pouco';
+    if (hours < 24) return `${hours}h atrás`;
+    if (days === 1) return 'Ontem';
+    if (days < 7) return `${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
+    if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
+    return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
+};
