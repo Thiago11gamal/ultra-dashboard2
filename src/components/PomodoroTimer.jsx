@@ -468,7 +468,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 animate={uiPosition}
                 onDragEnd={handleDragEnd}
                 whileDrag={{ scale: 1.01 }}
-                className={`w-full max-w-3xl mx-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                className={`w-full max-w-3xl mr-0 ml-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
             >
             <div className="relative flex items-center justify-center py-2 w-full px-4">
                 <div className="flex-1 flex justify-center bg-transparent">

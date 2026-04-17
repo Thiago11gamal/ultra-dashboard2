@@ -788,3 +788,103 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     // Limita estritamente a 12 tarefas para não engolir a tela inteira do Backlog
     return allGeneratedTasks.slice(0, 12);
 };
+
+/**
+ * --- AI PRODUCTIVITY COACH ENGINE ---
+ * Lógica específica para o Pomodoro e Produtividade em Tempo Real
+ */
+
+/**
+ * Curva de Fadiga Cognitiva
+ * Baseada no modelo de decaimento: R(t) = 100 * e^(-0.003 * t)
+ */
+export function getCognitiveState(stats) {
+    const focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
+    const retention = 100 * Math.exp(-0.003 * focusMinutes);
+    return Math.max(0, Math.min(100, Math.round(retention)));
+}
+
+/**
+ * Algoritmo de Prioridade (ROI)
+ * Descobre exatamente o que você deve estudar agora com base em múltiplos fatores.
+ */
+export function getBestTask(categories) {
+    let bestTask = null;
+    let highestScore = -Infinity;
+
+    (categories || []).forEach(cat => {
+        (cat.tasks || []).forEach(task => {
+            if (task.completed) return;
+
+            let score = 0;
+            
+            // Fator 1: Prioridade do Usuário
+            if (task.priority === 'high') score += 50;
+            else if (task.priority === 'medium') score += 20;
+
+            // Fator 2: Curva de Esquecimento (Dias sem estudar)
+            if (task.lastStudiedAt) {
+                const days = (Date.now() - new Date(task.lastStudiedAt).getTime()) / (1000 * 60 * 60 * 24);
+                score += Math.min(days * 5, 30); // Teto de 30 pontos
+            } else {
+                score += 15; // Tarefas novas ganham bônus
+            }
+
+            // Fator 3: Taxa de Erro (se o seu sistema gravar isso depois)
+            if (task.errorRate) score += (task.errorRate * 100) * 0.4;
+
+            if (score > highestScore) {
+                highestScore = score;
+                bestTask = { ...task, catName: cat.name, catColor: cat.color, catIcon: cat.icon };
+            }
+        });
+    });
+
+    return bestTask;
+}
+
+/**
+ * Inteligência do Coach
+ * Decide a cor e a mensagem baseada na matemática acima.
+ */
+export function getCoachInsight(activeSubject, stats) {
+    if (!activeSubject) {
+        return {
+            type: 'info',
+            title: 'Aguardando Sessão',
+            text: 'Selecione a ação recomendada abaixo para iniciar o rastreamento cognitivo.',
+            color: 'indigo',
+            iconType: 'Brain'
+        };
+    }
+
+    const retention = getCognitiveState(stats);
+
+    if (retention < 70) {
+        return {
+            type: 'danger',
+            title: 'Fadiga Cognitiva Detectada',
+            text: `Sua capacidade de retenção caiu para **${retention}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
+            color: 'red',
+            iconType: 'Alert'
+        };
+    }
+
+    if (stats.pomodorosCompleted >= 3) {
+        return {
+            type: 'success',
+            title: 'Modo Ultra Foco',
+            text: `Série de alta performance! Sua retenção está blindada em **${retention}%**. Capitalize neste estado de fluxo.`,
+            color: 'emerald',
+            iconType: 'Zap'
+        };
+    }
+
+    return {
+        type: 'info',
+        title: 'Sessão Calibrada',
+        text: `Motor ativado. Retenção calculada em **${retention}%**. Foco total em **${activeSubject.task || 'ação'}**.`,
+        color: 'indigo',
+        iconType: 'Brain'
+    };
+}

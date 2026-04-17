@@ -3,68 +3,98 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, Circle, Flame, Clock, Target, ChevronRight } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 
-// Focus Panel: shows pending high-priority tasks and session context
-function FocusPanel({ categories, activeSubject, onStartTask }) {
+// --- NOVO COMPONENTE: AI Productivity Coach ---
+function AICoachPanel({ activeSubject, stats }) {
+    const insight = getCoachInsight(activeSubject, stats);
+
+    const icons = {
+        'Brain': <BrainCircuit size={48} />,
+        'Zap': <Zap size={48} />,
+        'Alert': <AlertTriangle size={48} />
+    };
+
+    const themeStyles = {
+        red: "border-red-500/40 bg-gradient-to-br from-red-500/10 to-transparent text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.15)]",
+        emerald: "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]",
+        indigo: "border-indigo-500/40 bg-gradient-to-br from-indigo-500/10 to-transparent text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.15)]",
+    }[insight.color];
+
+    const formatText = (text) => {
+        return text.split('**').map((part, i) => 
+            i % 2 === 1 ? <strong key={i} className="font-black text-white">{part}</strong> : part
+        );
+    };
+
+    return (
+        <div className={`group relative rounded-[32px] border overflow-hidden p-10 transition-all duration-700 ${themeStyles} mb-8`}>
+            {/* Efeito Scanline */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent h-[200%] -translate-y-[150%] group-hover:translate-y-[50%] transition-transform duration-[2000ms] ease-in-out pointer-events-none" />
+            
+            <div className="flex items-start gap-8 relative z-10">
+                <div className="mt-1 animate-pulse-slow shrink-0">{icons[insight.iconType] || <BrainCircuit size={48} />}</div>
+                <div>
+                    <h4 className="text-[11px] uppercase font-black tracking-[0.3em] opacity-60 mb-3 flex items-center gap-1.5">
+                        <SparklesIcon size={14} /> AI Productivity Coach
+                    </h4>
+                    <h3 className="text-xl font-black text-white mb-3 tracking-tight">{insight.title}</h3>
+                    <p className="text-base opacity-90 leading-relaxed font-medium">{formatText(insight.text)}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Focus Panel: Atualizado para incluir o AICoachPanel e manter a lista de prioridades
+function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
+    const recommendedTask = useMemo(() => getBestTask(categories), [categories]);
+
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
+        const recommendedId = recommendedTask?.id;
+
         (categories || []).forEach(cat => {
-            (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
+            (cat.tasks || []).filter(t => !t.completed && t.priority === 'high' && t.id !== recommendedId).forEach(t => {
                 tasks.push({ ...t, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
-        return tasks.slice(0, 6);
-    }, [categories]);
-
-    const allPending = useMemo(() => {
-        let count = 0;
-        (categories || []).forEach(cat => {
-            count += (cat.tasks || []).filter(t => !t.completed).length;
-        });
-        return count;
-    }, [categories]);
-
-    const allCompleted = useMemo(() => {
-        let count = 0;
-        (categories || []).forEach(cat => {
-            count += (cat.tasks || []).filter(t => t.completed).length;
-        });
-        return count;
-    }, [categories]);
-
-    const completionRate = allCompleted + allPending > 0
-        ? Math.round((allCompleted / (allCompleted + allPending)) * 100)
-        : 0;
+        return tasks.slice(0, 5); 
+    }, [categories, recommendedTask]);
 
     return (
-        <div className="hidden xl:flex flex-col gap-4 w-72 shrink-0">
-            {/* Daily Stats */}
-            <div className="bg-slate-900/80 border border-white/8 rounded-2xl p-4 backdrop-blur-sm">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">📊 Hoje</p>
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-black/30 rounded-xl p-3 text-center">
-                        <div className="text-2xl font-black text-amber-400">{allPending}</div>
-                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Pendentes</div>
+        <div className="hidden xl:flex flex-col w-[480px] shrink-0">
+            {/* Painel de Inteligência inserido no topo */}
+            <AICoachPanel activeSubject={activeSubject} stats={stats} />
+
+            {/* Recommended Action (ROI) */}
+            {recommendedTask && !activeSubject && (
+                <div className="mb-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-4 backdrop-blur-md relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform">
+                        <Target size={40} />
                     </div>
-                    <div className="bg-black/30 rounded-xl p-3 text-center">
-                        <div className="text-2xl font-black text-emerald-400">{completionRate}%</div>
-                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Completado</div>
-                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2 flex items-center gap-1.5">
+                        <Sparkles size={10} /> Recomendação ROI
+                    </p>
+                    <button
+                        onClick={() => onStartTask(recommendedTask)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
+                    >
+                        <span>Estudar {recommendedTask.catName}</span>
+                        <ChevronRight size={14} />
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-2 italic">
+                        "{recommendedTask.text || recommendedTask.title}" detectado como maior ganho técnico agora.
+                    </p>
                 </div>
-                {/* Progress bar */}
-                <div className="mt-3 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
-                        style={{ width: `${completionRate}%` }}
-                    />
-                </div>
-            </div>
+            )}
 
             {/* High priority tasks */}
             <div className="bg-slate-900/80 border border-white/8 rounded-2xl p-4 backdrop-blur-sm flex-1">
                 <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">🔥 Alta Prioridade</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">🔥 Próximas Ações</p>
                     {highPriorityTasks.length > 0 && (
                         <span className="text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full">
                             {highPriorityTasks.length}
@@ -73,10 +103,9 @@ function FocusPanel({ categories, activeSubject, onStartTask }) {
                 </div>
 
                 {highPriorityTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-8 text-center bg-black/20 rounded-xl border border-white/5">
                         <CheckCircle2 size={32} className="text-emerald-500/40 mb-2" />
                         <p className="text-xs font-bold text-slate-500">Nenhuma tarefa urgente!</p>
-                        <p className="text-[10px] text-slate-600 mt-1">Ótimo ritmo 🎉</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -88,8 +117,8 @@ function FocusPanel({ categories, activeSubject, onStartTask }) {
                                     onClick={() => onStartTask(task)}
                                     className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-200 group text-left ${
                                         isActive
-                                            ? 'bg-amber-500/10 border-amber-500/40'
-                                            : 'bg-black/20 border-white/5 hover:bg-white/5 hover:border-white/15'
+                                            ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                                            : 'bg-black/20 border-white/5 hover:bg-white/10 hover:border-white/20'
                                     }`}
                                 >
                                     <div
@@ -99,7 +128,9 @@ function FocusPanel({ categories, activeSubject, onStartTask }) {
                                         {task.catIcon || '📚'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-[11px] font-bold text-slate-200 truncate">{task.text || task.title}</p>
+                                        <p className={`text-[11px] font-bold truncate ${isActive ? 'text-amber-400' : 'text-slate-200'}`}>
+                                            {task.text || task.title}
+                                        </p>
                                         <p className="text-[9px] text-slate-500 truncate mt-0.5">{task.catName}</p>
                                     </div>
                                     {isActive ? (
@@ -112,14 +143,6 @@ function FocusPanel({ categories, activeSubject, onStartTask }) {
                         })}
                     </div>
                 )}
-            </div>
-
-            {/* Tips */}
-            <div className="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-2">💡 Dica de Foco</p>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Escolha <strong className="text-slate-300">1 tarefa de alta prioridade</strong> e dedique todo o ciclo a ela. Foco profundo supera multitarefa.
-                </p>
             </div>
         </div>
     );
@@ -136,6 +159,12 @@ export default function Pomodoro() {
 
     const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
+
+    // Preparar dados do utilizador para passar ao Coach
+    const userStats = useMemo(() => ({
+        pomodorosCompleted: data.pomodorosCompleted || 0,
+        settings: data.settings
+    }), [data.pomodorosCompleted, data.settings]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
@@ -201,10 +230,10 @@ export default function Pomodoro() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-180px)] flex items-start xl:items-center justify-center py-4">
-            <div className="w-full max-w-6xl flex gap-8 items-start xl:items-center">
-                {/* Timer — centered column */}
-                <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="min-h-[calc(100vh-180px)] flex items-start justify-center pt-32 pb-10 px-4">
+            <div className="flex gap-2 items-start justify-center">
+                {/* Timer Column — No flex-1 to keep it tight with the side panel */}
+                <div className="w-[850px] shrink-0">
                     <PomodoroTimer
                         settings={data.settings}
                         onUpdateSettings={updatePomodoroSettings}
@@ -225,9 +254,18 @@ export default function Pomodoro() {
                     categories={data.categories || []}
                     activeSubject={activeSubject}
                     onStartTask={handleStartTask}
+                    stats={userStats}
                 />
             </div>
         </div>
     );
 }
 
+// Utilitário de Ícone
+function SparklesIcon(props) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+        </svg>
+    );
+}
