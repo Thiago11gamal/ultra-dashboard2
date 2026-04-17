@@ -3,7 +3,7 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target, Lock, Unlock, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 
@@ -52,6 +52,39 @@ function AICoachPanel({ activeSubject, stats }) {
 function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     const recommendedTask = useMemo(() => getBestTask(categories), [categories]);
 
+    // Estados de Arraste e Bloqueio
+    const [isPanelLocked, setIsPanelLocked] = useState(() => {
+        const saved = localStorage.getItem('focusPanelLocked');
+        return saved ? JSON.parse(saved) : true; // Começa travado por padrão
+    });
+
+    const [uiPosition, setUiPosition] = useState(() => {
+        const saved = localStorage.getItem('focusPanelPosition');
+        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+    });
+
+    const handleDragEnd = (event, info) => {
+        const newPos = {
+            x: uiPosition.x + info.offset.x,
+            y: uiPosition.y + info.offset.y
+        };
+        setUiPosition(newPos);
+        try {
+            localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
+        } catch (err) { console.debug('Storage ignored', err); }
+    };
+
+    const toggleLock = () => {
+        const newState = !isPanelLocked;
+        setIsPanelLocked(newState);
+        localStorage.setItem('focusPanelLocked', JSON.stringify(newState));
+    };
+
+    const resetPosition = () => {
+        setUiPosition({ x: 0, y: 0 });
+        localStorage.removeItem('focusPanelPosition');
+    };
+
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
         const recommendedId = recommendedTask?.id;
@@ -65,8 +98,42 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     }, [categories, recommendedTask]);
 
     return (
-        <div className="hidden xl:flex flex-col w-[480px] shrink-0">
-            {/* Painel de Inteligência inserido no topo */}
+        <motion.div 
+            drag={!isPanelLocked}
+            dragMomentum={false}
+            animate={uiPosition}
+            onDragEnd={handleDragEnd}
+            whileDrag={{ scale: 1.02, zIndex: 100 }}
+            className={`hidden xl:flex flex-col w-[480px] shrink-0 relative group p-1 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
+            {/* Controles de Painel (Só aparecem no hover) */}
+            <div className="absolute -top-12 left-0 right-0 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                {!isPanelLocked && (
+                    <button
+                        onClick={resetPosition}
+                        className="p-2.5 rounded-xl bg-slate-800/90 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-700 transition-all shadow-xl backdrop-blur-md flex items-center gap-2"
+                        title="Resetar Posição do Painel"
+                    >
+                        <RotateCcw size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-tighter">Resetar</span>
+                    </button>
+                )}
+                <button
+                    onClick={toggleLock}
+                    className={`p-2.5 rounded-xl transition-all duration-300 shadow-xl backdrop-blur-md border ${
+                        isPanelLocked 
+                        ? 'bg-slate-900/40 text-slate-500 border-white/5 hover:text-slate-300' 
+                        : 'bg-indigo-600 text-white border-indigo-500'
+                    }`}
+                    title={isPanelLocked ? "Destravar Painel para Arrastar" : "Travar Painel na Posição"}
+                >
+                    {isPanelLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                </button>
+            </div>
+
+            {/* Espaçador de Alinhamento Inicial */}
+            <div className="h-[140px]" />
+
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
             {/* Recommended Action (ROI) */}
@@ -143,7 +210,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                     </div>
                 )}
             </div>
-        </div>
+        </motion.div>
     );
 }
 
