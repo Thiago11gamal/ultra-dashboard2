@@ -171,12 +171,12 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     );
 });
 
-const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
+const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
     if (categoryBreakdown.length === 0) return (
         <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 2 simulados em cada matéria para gerar o diagnóstico individual.</div>
     );
 
-    const maxSdVal = Math.max(25, ...categoryBreakdown.map(c => c.rawSd || 0));
+    const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));
 
     return (
         <div className="flex flex-col gap-1">
@@ -551,7 +551,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
                         const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
                         const tSD = Math.sqrt(tVar);
-                        if (tSD > 10) {
+                        if (tSD > 0.10 * maxScore) {
                             unstableTopics.push({ name: tName, sd: tSD });
                         }
                     }
@@ -695,7 +695,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         </span>
                     )}
                 </div>
-                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} />
+                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} maxScore={maxScore} />
             </div>
         </div>
     );

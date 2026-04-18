@@ -91,8 +91,7 @@ const repairContestHistory = (data) => {
         date,
         correct: stats.correct,
         total: stats.total,
-        score: stats.total > 0 ? (stats.correct / stats.total) * maxScore : 0,
-        isPercentage: true
+        score: stats.total > 0 ? (stats.correct / stats.total) * maxScore : 0
       })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); // FIX: String compare safe for YYYY-MM-DD
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);
@@ -102,7 +101,7 @@ const repairContestHistory = (data) => {
         average: Number(statsResult.mean.toFixed(1)),
         trend: statsResult.trend || 'stable',
         lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
-        level: statsResult.level || (statsResult.mean > 70 ? 'ALTO' : statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO')
+        level: statsResult.level || (statsResult.mean > 0.7 * maxScore ? 'ALTO' : statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO')
       };
     } else {
       if (import.meta.env.DEV) {
@@ -168,6 +167,8 @@ const sanitizeContest = (data) => {
         ...(t.status ? { status: t.status } : {})
       })).filter(t => t.id && (t.text || t.title)), // Skip Corrupted Tasks
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
+      maxScore: Number(cat.maxScore) || 100,
+      level: Number(cat.level) || 0,
       totalMinutes: Number(cat.totalMinutes) || 0,
       lastStudiedAt: cat.lastStudiedAt || null,
       simuladoStats: {
@@ -240,6 +241,7 @@ export const validateAppState = (data) => {
     const finalState = {
       contests: validatedContests,
       activeId: activeId,
+      dashboardFilter: d.dashboardFilter || 'all',
       pomodoro: d.pomodoro && typeof d.pomodoro === 'object'
         ? d.pomodoro
         : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },

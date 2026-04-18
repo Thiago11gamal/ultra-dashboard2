@@ -2,14 +2,13 @@ import React, { useMemo } from 'react';
 import { Target, CheckCircle2 } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
 
-export default function ParetoAnalysis({ categories = [] }) {
+export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
 
     // Calculate Pareto Data
     const { topEnemies, totalLostPoints } = useMemo(() => {
         let allTopics = [];
 
         if (!Array.isArray(categories) || categories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
-        const maxScore = categories[0]?.maxScore ?? 100;
 
         categories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {

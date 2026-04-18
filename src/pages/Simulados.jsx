@@ -171,10 +171,10 @@ export default function Simulados() {
                                 history: filteredHistory.slice(-50),
                                 average: Number(statsResult.mean.toFixed(1)),
                                 trend: statsResult.trend || 'stable',
-                                lastAttempt: (finalC / finalQ) * 100,
+                                lastAttempt: (finalC / finalQ) * maxScore,
                                 level: statsResult.level || (
-                                    statsResult.mean > 70 ? 'ALTO' : 
-                                    statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO'
+                                    statsResult.mean > 0.7 * maxScore ? 'ALTO' : 
+                                    statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
                                 )
                             };
                         }
@@ -222,10 +222,10 @@ export default function Simulados() {
                                 history: filteredHistory.slice(-50),
                                 average: Number(statsResult.mean.toFixed(1)),
                                 trend: statsResult.trend || 'stable',
-                                lastAttempt: (finalC / finalQ) * 100,
+                                lastAttempt: (finalC / finalQ) * maxScore,
                                 level: statsResult.level || (
-                                    statsResult.mean > 70 ? 'ALTO' : 
-                                    statsResult.mean > 40 ? 'MÉDIO' : 'BAIXO'
+                                    statsResult.mean > 0.7 * maxScore ? 'ALTO' : 
+                                    statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
                                 )
                             };
                         }

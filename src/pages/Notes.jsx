@@ -104,10 +104,15 @@ export default function Notes() {
         return newCats;
     }, [categoriesRaw, simuladoRowsRaw]);
 
+    const maxScore = useMemo(() => {
+        const scores = enhancedCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
+        return scores.length > 0 ? Math.max(...scores) : 100;
+    }, [enhancedCategories]);
+
     return (
         <div className="h-full min-h-[500px] grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <TopicPerformance categories={enhancedCategories} />
-            <ParetoAnalysis categories={enhancedCategories} />
+            <TopicPerformance categories={enhancedCategories} maxScore={maxScore} />
+            <ParetoAnalysis categories={enhancedCategories} maxScore={maxScore} />
         </div>
     );
 }

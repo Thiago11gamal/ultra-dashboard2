@@ -22,7 +22,10 @@ export const createCategorySlice = (set, get) => ({
             color: '#3b82f6',
             icon: '📚',
             tasks: [],
-            weight: 10
+            weight: 10,
+            simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
+            totalMinutes: 0,
+            lastStudiedAt: null
         });
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

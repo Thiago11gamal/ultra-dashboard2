@@ -141,7 +141,24 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 if (cloudTime > localTime) {
                     const mergedCatsMap = {};
                     (localContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
-                    (cloudContest.categories || []).forEach(c => mergedCatsMap[c.id] = c);
+                    (cloudContest.categories || []).forEach(c => {
+                        if (mergedCatsMap[c.id]) {
+                            const localHistory = mergedCatsMap[c.id].simuladoStats?.history || [];
+                            const cloudHistory = c.simuladoStats?.history || [];
+                            const historyMap = new Map();
+                            localHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+                            cloudHistory.forEach(h => { if (h?.date) historyMap.set(h.date, h); });
+                            mergedCatsMap[c.id] = {
+                                ...c,
+                                simuladoStats: {
+                                    ...c.simuladoStats,
+                                    history: Array.from(historyMap.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+                                }
+                            };
+                        } else {
+                            mergedCatsMap[c.id] = c;
+                        }
+                    });
 
                     mergedContests[id] = { 
                         ...cloudContest, 

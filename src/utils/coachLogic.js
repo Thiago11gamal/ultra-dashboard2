@@ -183,7 +183,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 averageScore = notaBruta;
             }
         } else {
-            averageScore = 50;
+            averageScore = maxScore / 2;
         }
 
         // 2. Days Since Last Study
@@ -252,7 +252,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // MSSD típica: 2–8 → output 12–48 antes do cap.
         // stdDev típica era: 8–15 → output 16–30. Escala equivalente.
         // ─────────────────────────────────────────────────────────
-        let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR);
+        let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
         if (trend > 0.5) {
             instabilityComponent *= 0.5;
         } else if (trend < -0.5) {
@@ -356,7 +356,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             recommendation = `🏆 Cruzeiro Seguro (${Math.round(mcProbability)}% nas projeções). Modo de manutenção ativado.`;
         } else if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
-        } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH && trend > 0) {
+        } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && trend > 0) {
             recommendation = `Evolução Frágil (Volatilidade MSSD: ±${mssdVolatility.toFixed(1)}). Consolide a base.`;
         } else if (daysSinceLastStudy > 14) {
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
@@ -665,7 +665,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             }
 
             // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
-            if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
+            if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -675,7 +675,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     categoryId: cat.id,
                     analysis: {
                         reason: "Monte Carlo — Caos Estatístico",
-                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(1)} (limiar: ${DEFAULT_CONFIG.MC_VOLATILITY_HIGH}). Probabilidade atual: ${probPct}%.`,
+                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(1)} (limiar: ${(DEFAULT_CONFIG.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(1)}). Probabilidade atual: ${probPct}%.`,
                         metrics: cat.urgency.details.humanReadable,
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
