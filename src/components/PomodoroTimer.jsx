@@ -157,8 +157,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (uiPosition.x !== 0 || uiPosition.y !== 0) {
                 // If it's significantly off-screen, bring it back to center (0,0 relative)
                 const threshold = 100;
-                if (Math.abs(uiPosition.x) > window.innerWidth - threshold || 
-                    Math.abs(uiPosition.y) > window.innerHeight - threshold) {
+                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold || 
+                    Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
                     setUiPosition({ x: 0, y: 0 });
                     localStorage.removeItem('pomodoroPosition');
                 }
@@ -539,6 +539,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     {!isLayoutLocked && (
                         <button
                             onClick={() => {
+                                setUiPosition({ x: 0, y: 0 });
                                 try {
                                     localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
                                 } catch (err) { console.debug("Ignored storage error", err); }

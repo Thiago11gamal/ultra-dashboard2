@@ -800,8 +800,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
  */
 export function getCognitiveState(stats) {
     const focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
-    const retention = 100 * Math.exp(-0.003 * focusMinutes);
-    return Math.max(0, Math.min(100, Math.round(retention)));
+    const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-0.003 * focusMinutes))));
+    return fatigueScore; // 100 = descansado, <70 = fadigado
 }
 
 /**
@@ -823,8 +823,9 @@ export function getBestTask(categories) {
             else if (task.priority === 'medium') score += 20;
 
             // Fator 2: Curva de Esquecimento (Dias sem estudar)
-            if (task.lastStudiedAt) {
-                const days = (Date.now() - new Date(task.lastStudiedAt).getTime()) / (1000 * 60 * 60 * 24);
+            const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
+            if (studiedAt) {
+                const days = (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24);
                 score += Math.min(days * 5, 30); // Teto de 30 pontos
             } else {
                 score += 15; // Tarefas novas ganham bônus
@@ -835,7 +836,7 @@ export function getBestTask(categories) {
 
             if (score > highestScore) {
                 highestScore = score;
-                bestTask = { ...task, catName: cat.name, catColor: cat.color, catIcon: cat.icon };
+                bestTask = { ...task, catName: cat.name, catColor: cat.color, catIcon: cat.icon, catId: cat.id };
             }
         });
     });
@@ -858,13 +859,13 @@ export function getCoachInsight(activeSubject, stats) {
         };
     }
 
-    const retention = getCognitiveState(stats);
+    const fatigueScore = getCognitiveState(stats);
 
-    if (retention < 70) {
+    if (fatigueScore < 70) {
         return {
             type: 'danger',
             title: 'Fadiga Cognitiva Detectada',
-            text: `Sua capacidade de retenção caiu para **${retention}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
+            text: `Sua disposição cognitiva caiu para **${fatigueScore}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
             color: 'red',
             iconType: 'Alert'
         };
@@ -874,7 +875,7 @@ export function getCoachInsight(activeSubject, stats) {
         return {
             type: 'success',
             title: 'Modo Ultra Foco',
-            text: `Série de alta performance! Sua retenção está blindada em **${retention}%**. Capitalize neste estado de fluxo.`,
+            text: `Série de alta performance! Sua disposição está blindada em **${fatigueScore}%**. Capitalize neste estado de fluxo.`,
             color: 'emerald',
             iconType: 'Zap'
         };
@@ -883,7 +884,7 @@ export function getCoachInsight(activeSubject, stats) {
     return {
         type: 'info',
         title: 'Sessão Calibrada',
-        text: `Motor ativado. Retenção calculada em **${retention}%**. Foco total em **${activeSubject.task || 'ação'}**.`,
+        text: `Motor ativado. Disposição calculada em **${fatigueScore}%**. Foco total em **${activeSubject.task || 'ação'}**.`,
         color: 'indigo',
         iconType: 'Brain'
     };
