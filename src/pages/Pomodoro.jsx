@@ -291,7 +291,6 @@ export default function Pomodoro() {
     const handleSessionComplete = () => {
         setData(prev => ({
             ...prev,
-            pomodorosCompleted: (prev.pomodorosCompleted || 0) + 1,
             lastPomodoroDate: new Date().toISOString()
         }));
     };

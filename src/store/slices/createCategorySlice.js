@@ -130,10 +130,11 @@ export const createCategorySlice = (set, get) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
 
-        // Check against a specific merge version to prevent redundant loops
+        // BUG-GUARD: Evitar loops infinitos se chamado em cascata
         const lastMergeVersion = state.appState.lastMergeVersion || 0;
         const currentVersion = state.appState.version || 0;
-        
+        if (lastMergeVersion >= currentVersion && lastMergeVersion > 0) return;
+
         const groups = {};
         activeData.categories.forEach(cat => {
             const norm = normalize(cat.name);
@@ -215,12 +216,26 @@ export const createCategorySlice = (set, get) => ({
 
         if (changed) {
             activeData.categories = newCategories;
+            
+            // CLEANUP: Remover pesos órfãos
+            if (activeData.mcWeights) {
+                const validKeys = new Set();
+                newCategories.forEach(c => {
+                    validKeys.add(c.id);
+                    validKeys.add(normalize(c.name));
+                });
+                Object.keys(activeData.mcWeights).forEach(key => {
+                    if (!validKeys.has(key) && !validKeys.has(normalize(key))) {
+                        delete activeData.mcWeights[key];
+                    }
+                });
+            }
+
             state.appState.lastMergeVersion = currentVersion + 1;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         } else {
-            // Even if no duplicates, mark as checked for this version
             state.appState.lastMergeVersion = currentVersion;
         }
     }),

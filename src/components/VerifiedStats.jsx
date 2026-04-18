@@ -209,7 +209,10 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown }) => {
 });
 
 export default function VerifiedStats({ categories = [], user }) {
-    const maxScore = categories[0]?.maxScore ?? 100;
+    const maxScore = useMemo(() => {
+        const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
+        return scores.length > 0 ? Math.max(...scores) : 100;
+    }, [categories]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
     const [targetScore, setTargetScore] = React.useState(() => {

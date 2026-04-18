@@ -31,7 +31,7 @@ export function standardDeviation(arr, maxScore = 100) {
 
     // 🎯 MATH FIX: Piso dinâmico microscópico. 
     // Mantém a segurança de Z-Score sem destruir a precisão matemática de um estudo consistente.
-    const MIN_SD_FLOOR = 0.001;
+    const MIN_SD_FLOOR = 0.0001 * maxScore;
     return Math.max(MIN_SD_FLOOR, Math.sqrt(adjustedVar));
 
 }
@@ -41,7 +41,7 @@ export function standardDeviation(arr, maxScore = 100) {
  * Nota: Para o dashboard e Monte Carlo, use calculateSlope de projection.js, 
  * que implementa Regressão Ponderada Temporal (WLS).
  */
-export function calculateTrend(history, maxScore = 100) {
+function calculateTrend(history, maxScore = 100) {
     if (!history || history.length < 3) return 0;
 
     const sorted = [...history]

@@ -62,29 +62,31 @@ const firebaseConfig = {
     measurementId: clean(rawConfig.measurementId)
 };
 
-// Verifica imediatamente se as credenciais base existem
+
+// Initialize Firebase only if config is valid
+let app = null;
+let db = null;
+let auth = null;
+
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    const errorMsg = "ERRO CRÍTICO: Chaves do Firebase ausentes no arquivo .env (Verifique VITE_FIREBASE_API_KEY ou VITE_FIREBASE_PROJECT_ID).";
-    console.error(`%c${errorMsg}`, "color: #f87171; font-weight: bold; background: #222; padding: 4px;");
-    throw new Error(errorMsg); // Para a execução antes de causar bugs na interface
+    console.warn(`%c[Firebase] Chaves ausentes. O Ultra Dashboard funcionará apenas em modo LOCAL (Offline).`, "color: #fbbf24; font-weight: bold;");
+} else {
+    try {
+        app = initializeApp(firebaseConfig);
+        db = initializeFirestore(app, {
+            localCache: persistentLocalCache({
+                tabManager: persistentMultipleTabManager()
+            })
+        });
+        auth = getAuth(app);
+        console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
+    } catch (err) {
+        console.error("[Firebase] erro na inicialização:", err);
+    }
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore with persistence
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
-});
-
-const auth = getAuth(app);
-
-console.log(`%c[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
-
 const getAppAnalytics = async () => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined" || !app) return null;
     const supported = await isAnalyticsSupported();
     if (supported) {
         return getAnalytics(app);

@@ -861,16 +861,6 @@ export function getCoachInsight(activeSubject, stats) {
 
     const fatigueScore = getCognitiveState(stats);
 
-    if (fatigueScore < 70) {
-        return {
-            type: 'danger',
-            title: 'Fadiga Cognitiva Detectada',
-            text: `Sua disposição cognitiva caiu para **${fatigueScore}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
-            color: 'red',
-            iconType: 'Alert'
-        };
-    }
-
     if (stats.pomodorosCompleted >= 3) {
         return {
             type: 'success',
@@ -878,6 +868,16 @@ export function getCoachInsight(activeSubject, stats) {
             text: `Série de alta performance! Sua disposição está blindada em **${fatigueScore}%**. Capitalize neste estado de fluxo.`,
             color: 'emerald',
             iconType: 'Zap'
+        };
+    }
+
+    if (fatigueScore < 70) {
+        return {
+            type: 'danger',
+            title: 'Fadiga Cognitiva Detectada',
+            text: `Sua disposição cognitiva caiu para **${fatigueScore}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
+            color: 'red',
+            iconType: 'Alert'
         };
     }
 
