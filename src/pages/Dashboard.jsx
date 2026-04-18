@@ -16,7 +16,14 @@ export default function Dashboard() {
     // FIX: Usar o filtro do store em vez do useState local
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
 
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const activeId = useAppStore(state => state.appState.activeId);
+    const categories = useAppStore(state => state.appState.contests[activeId]?.categories);
+    const simuladoRows = useAppStore(state => state.appState.contests[activeId]?.simuladoRows);
+    const studyLogs = useAppStore(state => state.appState.contests[activeId]?.studyLogs);
+    const user = useAppStore(state => state.appState.contests[activeId]?.user);
+    const pomodorosCompleted = useAppStore(state => state.appState.contests[activeId]?.pomodorosCompleted);
+
+    const data = { categories, simuladoRows, studyLogs, user, pomodorosCompleted };
 
     if (!data || !data.categories) {
         return (

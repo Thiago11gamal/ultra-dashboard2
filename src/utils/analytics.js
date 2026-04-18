@@ -198,13 +198,23 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
         sum + (c.tasks || []).filter(t => t.completed).length, 0
     );
 
-    if (totalMinutes === 0 || completedTasks === 0) {
+    if (totalMinutes === 0 && completedTasks === 0) {
         return {
             status: 'sem_dados',
             message: 'Complete algumas tarefas para análise',
             score: 0,
             metrics: {},
             recommendations: []
+        };
+    }
+
+    if (totalMinutes > 0 && completedTasks === 0) {
+        return {
+            efficiency: 'precisa_melhorar',
+            score: 40,
+            message: 'Lembre-se de marcar as tarefas concluídas!',
+            metrics: { minutesPerTask: 0, completionRate: 0, tasksPerHour: 0, highPriorityRate: 0, totalStudied: totalMinutes, totalCompleted: 0 },
+            recommendations: [{ type: 'goal_setting', message: 'Lembre-se de marcar as tarefas concluídas!', priority: 'high' }]
         };
     }
 
@@ -216,7 +226,7 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
     // Mapeamento: 0 min/task → 100%, 90+ min/task → 50%. Suave e intuitivo.
     // FIX LÓGICO: Substituição pela fórmula de decaimento exponencial.
     // Assim, uma tarefa de 4 horas não recebe o mesmo score punitivo que uma de 1.5 horas.
-    const score = Math.max(10, Math.min(100, Math.round(100 * Math.exp(-minutesPerTask / 180))));
+    const score = Math.max(10, Math.min(100, Math.round(100 * Math.exp(-minutesPerTask / 360))));
 
     let efficiency = 'excelente';
     if (score < 60) efficiency = 'precisa_melhorar';
@@ -506,7 +516,7 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
     const adjustedGoal = Math.ceil(baseGoal * levelMultiplier);
 
     // Limitar entre 3 e 12 pomodoros (razoável)
-    const dailyGoal = Math.max(3, Math.min(12, adjustedGoal));
+    const dailyGoal = pendingTasks === 0 ? 0 : Math.max(3, Math.min(12, adjustedGoal));
 
     return {
         daily: dailyGoal,

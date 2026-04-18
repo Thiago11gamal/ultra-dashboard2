@@ -239,17 +239,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className="w-[1px] h-12 bg-white/10 z-10 mx-2" />
 
                 {/* Right: date picker */}
-                <div
-                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 pr-2 group/rightside cursor-pointer"
-                    onMouseDown={(e) => {
-                        e.preventDefault();
-                        try {
-                            dateInputRef.current?.showPicker();
-                        } catch {
-                            dateInputRef.current?.focus();
-                        }
-                    }}
-                >
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 pr-2 group/rightside cursor-pointer">
                     <div className="flex flex-col items-center gap-1.5 mb-2 pl-3 pointer-events-none">
                         <div className={`p-1.5 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
                             <Calendar size={16} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
@@ -281,10 +271,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <input
                         ref={dateInputRef}
                         type="date"
-                        tabIndex="-1"
                         value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 pointer-events-none absolute inset-0 w-0 h-0"
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-20"
                     />
                 </div>
             </div>
