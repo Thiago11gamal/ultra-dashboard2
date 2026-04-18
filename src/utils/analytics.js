@@ -540,11 +540,17 @@ export const getCompleteReport = (data) => {
             current: data.pomodorosCompleted || 0,
             progress: Math.round(((data.pomodorosCompleted || 0) / goals.daily) * 100)
         },
+        // BUG 3 FIX: balance.status === 'sem_dados' recebia 40 (mesmo que 'alerta'),
+        // penalizando usuários novos sem histórico de estudo.
+        // Agora 'sem_dados' é neutro (65) — sem dados não é sinal de problema.
         overallScore: Math.round(
             (efficiency.score +
                 procrastination.score +
                 (Math.min(100, 40 + streak.current * 2)) +
-                (balance.status === 'excelente' ? 100 : balance.status === 'atencao' ? 70 : 40)) / 4
+                (balance.status === 'excelente' ? 100
+                    : balance.status === 'atencao' ? 70
+                    : balance.status === 'sem_dados' ? 65
+                    : 40)) / 4
         ),
         recommendations: [
             ...efficiency.recommendations.map(r => r.message),
