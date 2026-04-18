@@ -9,6 +9,10 @@ const calculateRetention = (lastStudiedAt) => {
     // FIX: Usar normalizeDate para evitar que datas YYYY-MM-DD sejam interpretadas como UTC midnight
     const parsed = normalizeDate(lastStudiedAt);
     const last = parsed ? parsed.getTime() : new Date(lastStudiedAt).getTime();
+    
+    // Fallback if date parsing results in NaN
+    if (isNaN(last)) return { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
+
     const diffHours = (Date.now() - last) / (1000 * 60 * 60);
     const days = diffHours / 24;
     // BUG 6 FIX: Use S=7 days instead of 3 to better match spaced repetition retention
@@ -113,6 +117,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Helper to get style from value - moved before useMemo that uses it
     const getRetentionStyle = useCallback((val) => {
+        if (val === 0) return { status: 'never', label: 'Não Estudado', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500/30' };
         if (val >= 80) return { status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
         if (val >= 60) return { status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
         if (val >= 40) return { status: 'warning', label: 'Atenção', color: 'text-yellow-400', bg: 'bg-yellow-500', border: 'border-yellow-500/30' };
@@ -135,8 +140,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 tasksWithRetention.sort((a, b) => a.retention.val - b.retention.val);
 
                 // Category retention is the average of all task retentions, or category lastStudiedAt
-                const avgTaskRetention = tasksWithRetention.length > 0
-                    ? Math.round(tasksWithRetention.reduce((acc, t) => acc + t.retention.val, 0) / tasksWithRetention.length)
+                // FIX: Filtrar apenas tarefas estudadas para não derrubar a média do que já foi aprendido
+                const studiedTasks = tasksWithRetention.filter(t => t.lastStudiedAt || t.completedAt);
+                const avgTaskRetention = studiedTasks.length > 0
+                    ? Math.round(studiedTasks.reduce((acc, t) => acc + t.retention.val, 0) / studiedTasks.length)
                     : null;
 
                 // Use category-level lastStudiedAt if no task data, otherwise use average
@@ -146,15 +153,18 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 const catDirectRet = calculateRetention(cat.lastStudiedAt || null);
                 const finalVal = avgTaskRetention !== null ? Math.max(avgTaskRetention, catDirectRet.val) : catDirectRet.val;
 
-                const categoryRetention = { ...calculateRetention(null), val: finalVal, ...getRetentionStyle(finalVal) };
+                // FIX: Verifique se não há estudo antes de construir o objeto para não sobrescrever o status 'never'
+                const categoryRetention = finalVal === 0
+                    ? { val: 0, status: 'never', label: 'Não Estudado', color: 'text-slate-500', bg: 'bg-slate-800', border: 'border-slate-700' }
+                    : { val: finalVal, ...getRetentionStyle(finalVal) };
 
                 return {
                     ...cat,
                     retention: categoryRetention,
                     timeAgo: formatTimeAgo(cat.lastStudiedAt),
                     tasksWithRetention,
-                    criticalTasks: tasksWithRetention.filter(t => t.retention.val < 40).length,
-                    warningTasks: tasksWithRetention.filter(t => t.retention.val >= 40 && t.retention.val < 60).length
+                    criticalTasks: tasksWithRetention.filter(t => t.retention.val < 40 && t.retention.status !== 'never').length,
+                    warningTasks: tasksWithRetention.filter(t => t.retention.val >= 40 && t.retention.val < 60 && t.retention.status !== 'never').length
                 };
             })
             .sort((a, b) => a.retention.val - b.retention.val);
@@ -169,13 +179,16 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             allTasks = [...allTasks, ...cat.tasksWithRetention];
         });
 
-        const critical = allTasks.filter(t => t.retention.val < 40).length;
-        const warning = allTasks.filter(t => t.retention.val >= 40 && t.retention.val < 60).length;
+        const critical = allTasks.filter(t => t.retention.val < 40 && t.retention.status !== 'never').length;
+        const warning = allTasks.filter(t => t.retention.val >= 40 && t.retention.val < 60 && t.retention.status !== 'never').length;
         const healthy = allTasks.filter(t => t.retention.val >= 60).length;
-        const avgRetention = allTasks.length > 0
-            ? Math.round(allTasks.reduce((acc, t) => acc + t.retention.val, 0) / allTasks.length)
+        
+        // FIX: Ignorar tarefas 'never' no cálculo da média global
+        const studiedTasks = allTasks.filter(t => t.retention.status !== 'never');
+        const avgRetention = studiedTasks.length > 0
+            ? Math.round(studiedTasks.reduce((acc, t) => acc + t.retention.val, 0) / studiedTasks.length)
             : 0;
-        return { critical, warning, healthy, avgRetention, totalTasks: allTasks.length, totalCategories: retentionData.length };
+        return { critical, warning, healthy, avgRetention, totalTasks: allTasks.length, studiedTasks: studiedTasks.length, totalCategories: retentionData.length };
     }, [retentionData]);
 
     // Get priority items (need review)
@@ -183,8 +196,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
         let urgent = [];
         retentionData.forEach(cat => {
             cat.tasksWithRetention.forEach(task => {
-                if (task.retention.val < 60) {
-                    urgent.push({ ...task, categoryName: cat.name, categoryIcon: cat.icon, categoryColor: cat.color });
+                if (task.retention.val < 60 && task.retention.status !== 'never') {
+                    urgent.push({ ...task, categoryName: cat.name, categoryIcon: cat.icon, categoryColor: cat.color, catReference: cat });
                 }
             });
         });
@@ -301,8 +314,12 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                             </div>
 
                             <div className="flex flex-wrap gap-2 md:justify-end max-w-xl">
-                                {needsReview.slice(0, 5).map((task) => (
-                                    <div key={task.id || task.title} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}>
+                                {needsReview.slice(0, 5).map((task, index) => (
+                                    <div 
+                                        key={task.id || `${task.title}-${index}`} 
+                                        onClick={() => onSelectCategory?.({ ...task.catReference, selectedTask: task })}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 cursor-pointer ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}
+                                    >
                                         <span className="opacity-70">{task.categoryIcon}</span>
                                         <span className="uppercase tracking-tight truncate max-w-[120px]">{task.title || task.text || 'Sem nome'}</span>
                                         <span className="ml-1 bg-white/5 px-1.5 py-0.5 rounded-md">{task.retention.val}%</span>

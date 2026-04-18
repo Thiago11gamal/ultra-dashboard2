@@ -6,7 +6,10 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function Retention() {
-    const categories = useAppStore(state => state.appState.contests[state.appState.activeId].categories || []);
+    const categories = useAppStore(state => {
+        const activeContest = state.appState.contests[state.appState.activeId];
+        return activeContest?.categories || [];
+    });
     const navigate = useNavigate();
 
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
