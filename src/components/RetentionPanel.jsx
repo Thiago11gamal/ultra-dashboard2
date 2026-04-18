@@ -227,7 +227,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Average Retention */}
-                <div className="glass p-6 border-l-4 border-purple-500 relative overflow-hidden group hover:border-purple-400 transition-all duration-500 min-h-[150px] flex flex-col justify-between">
+                <div className="glass py-7 px-6 border-l-4 border-purple-500 relative overflow-hidden group hover:border-purple-400 transition-all duration-500 min-h-[160px] flex flex-col justify-between">
                     <BrainCircuit size={70} className="absolute -right-6 -bottom-6 text-purple-500/10 group-hover:text-purple-500/20 transition-all duration-700" />
                     <div className="relative z-10">
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
@@ -247,7 +247,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 </div>
 
                 {/* Critical */}
-                <div className="glass p-6 border-l-4 border-red-500 relative overflow-hidden group hover:border-red-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                <div className="glass py-7 px-6 border-l-4 border-red-500 relative overflow-hidden group hover:border-red-400 transition-all duration-500 min-h-[160px] flex flex-col">
                     <AlertTriangle size={70} className="absolute -right-6 -bottom-6 text-red-500/10 group-hover:text-red-500/20 transition-all duration-700" />
                     <div className="relative z-10 mb-auto">
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
@@ -262,7 +262,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 </div>
 
                 {/* Warning */}
-                <div className="glass p-6 border-l-4 border-yellow-500 relative overflow-hidden group hover:border-yellow-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                <div className="glass py-7 px-6 border-l-4 border-yellow-500 relative overflow-hidden group hover:border-yellow-400 transition-all duration-500 min-h-[160px] flex flex-col">
                     <TrendingDown size={70} className="absolute -right-6 -bottom-6 text-yellow-500/10 group-hover:text-yellow-500/20 transition-all duration-700" />
                     <div className="relative z-10 mb-auto">
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
@@ -277,7 +277,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 </div>
 
                 {/* Healthy */}
-                <div className="glass p-6 border-l-4 border-emerald-500 relative overflow-hidden group hover:border-emerald-400 transition-all duration-500 min-h-[150px] flex flex-col">
+                <div className="glass py-7 px-6 border-l-4 border-emerald-500 relative overflow-hidden group hover:border-emerald-400 transition-all duration-500 min-h-[160px] flex flex-col">
                     <CheckCircle2 size={70} className="absolute -right-6 -bottom-6 text-emerald-500/10 group-hover:text-emerald-500/20 transition-all duration-700" />
                     <div className="relative z-10 mb-auto">
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
