@@ -59,6 +59,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const svgCircleRef = useRef(null);
     const bottomBarRef = useRef(null);
     const sphereRef = useRef(null);
+    
+    // BUG 3 FIX: Persistent Audio Ref to bypass Autoplay Policies
+    const alarmAudioRef = useRef(null);
+    useEffect(() => {
+        try {
+            alarmAudioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+        } catch(e) {}
+    }, []);
 
     useEffect(() => {
         if (savedState) {
@@ -231,7 +239,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             onSessionComplete?.();
 
             if (activeSubject && onUpdateStudyTime) {
-                onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
+                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
+                const actualElapsedMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
+                
+                if (actualElapsedMinutes > 0) {
+                    onUpdateStudyTime(activeSubject.categoryId, actualElapsedMinutes, activeSubject.taskId);
+                } else if (isNatural) {
+                    onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
+                }
             }
 
             setMode('break');
@@ -249,8 +264,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (isNatural) {
                 if (safeSettings.soundEnabled) {
                     try {
-                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                        audio.play().catch((err) => { console.debug('Playback ignored', err); });
+                        if (alarmAudioRef.current) {
+                            alarmAudioRef.current.currentTime = 0;
+                            const playPromise = alarmAudioRef.current.play();
+                            if (playPromise !== undefined) {
+                                playPromise.catch((err) => { console.debug('Playback ignored', err); });
+                            }
+                        }
                     } catch (err) { console.debug('Audio error', err); }
                 }
                 sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
@@ -262,8 +282,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (isNatural) {
                 if (safeSettings.soundEnabled) {
                     try {
-                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
-                        audio.play().catch((err) => { console.debug('Playback ignored', err); });
+                        if (alarmAudioRef.current) {
+                            alarmAudioRef.current.currentTime = 0;
+                            const playPromise = alarmAudioRef.current.play();
+                            if (playPromise !== undefined) {
+                                playPromise.catch((err) => { console.debug('Playback ignored', err); });
+                            }
+                        }
                     } catch (err) { console.debug('Audio error', err); }
                 }
                 sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
@@ -704,6 +729,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     setTimeout(() => setShowWarning(false), 3000);
                                     return;
                                 }
+                                
+                                // Unlock Audio Context on first explicit user interaction
+                                if (!isRunning && alarmAudioRef.current) {
+                                    try {
+                                        const warmUp = alarmAudioRef.current.play();
+                                        if (warmUp !== undefined) {
+                                            warmUp.then(() => {
+                                                alarmAudioRef.current.pause();
+                                                alarmAudioRef.current.currentTime = 0;
+                                            }).catch(()=>{});
+                                        }
+                                    } catch(e) {}
+                                }
+                                
                                 setIsRunning(!isRunning);
                             }}
                             // REMOVIDO: disabled={!activeSubject} -> O warning agora vai funcionar!
