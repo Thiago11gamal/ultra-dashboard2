@@ -149,11 +149,14 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                         onClick={() => onStartTask(recommendedTask)}
                         className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
                     >
-                        <span>Estudar {recommendedTask.catName}</span>
-                        <ChevronRight size={14} />
+                        <span className="truncate max-w-[90%]">
+                            Estudar {recommendedTask.text || recommendedTask.title || 'Prioridade'}
+                        </span>
+                        <ChevronRight size={14} className="shrink-0" />
                     </button>
-                    <p className="text-[10px] text-slate-400 mt-2 italic">
-                        "{recommendedTask.text || recommendedTask.title}" detectado como maior ganho técnico agora.
+                    <p className="text-[10px] text-slate-400 mt-2 italic flex justify-between">
+                        <span className="truncate mr-2">Cat: "{recommendedTask.catName}"</span>
+                        <span className="shrink-0 font-bold text-indigo-400">↑ Maior ROI</span>
                     </p>
                 </div>
             )}
@@ -172,7 +175,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                 {highPriorityTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center bg-black/20 rounded-xl border border-white/5">
                         <CheckCircle2 size={32} className="text-emerald-500/40 mb-2" />
-                        <p className="text-xs font-bold text-slate-500">Nenhuma tarefa urgente!</p>
+                        <p className="text-xs font-bold text-slate-500">
+                            {recommendedTask && !activeSubject ? 'Nenhuma OUTRA tarefa urgente!' : 'Nenhuma tarefa urgente!'}
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -230,11 +235,38 @@ export default function Pomodoro() {
     const currentSessions = useAppStore(state => state.appState.pomodoro.sessions) || 0;
 
     // Preparar dados do utilizador para passar ao Coach
-    const userStats = useMemo(() => ({
-        // Usar currentSessions garante que a fadiga reseta a cada nova sessão de estudos
-        pomodorosCompleted: currentSessions,
-        settings: data.settings
-    }), [currentSessions, data.settings]);
+    const userStats = useMemo(() => {
+        // Cálculo Inteligente de Fadiga Diária sem Amnésia
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        
+        let consecutiveStudyMinutes = 0;
+        const recentLogs = [...(data.studyLogs || [])]
+            .filter(log => new Date(log.date || 0).getTime() >= startOfToday)
+            .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()); // newest first
+            
+        let lastTimeBoundary = now.getTime();
+        
+        for (const log of recentLogs) {
+            const logEnd = new Date(log.date || 0).getTime();
+            const gapInMinutes = (lastTimeBoundary - logEnd) / (1000 * 60);
+            
+            // Se houve um hiato de descanso de mais de 90 minutos, a estafa resetou organicamente
+            if (gapInMinutes > 90) {
+                break;
+            }
+            
+            consecutiveStudyMinutes += (Number(log.minutes) || 0);
+            // O início dessa sessão de log marca a próxima fronteira
+            lastTimeBoundary = logEnd - ((Number(log.minutes) || 0) * 60 * 1000); 
+        }
+
+        return {
+            pomodorosCompleted: currentSessions,
+            consecutiveMinutes: consecutiveStudyMinutes,
+            settings: data.settings
+        };
+    }, [currentSessions, data.settings, data.studyLogs]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {

@@ -799,7 +799,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
  * Baseada no modelo de decaimento: R(t) = 100 * e^(-0.003 * t)
  */
 export function getCognitiveState(stats) {
-    const focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
+    // BUG 4 FIX: Fadiga agora engloba sessões consecutivas recentes do dia + progresso da sessão atual vazada
+    let focusMinutes = stats.consecutiveMinutes || 0;
+    
+    // Fallback ou acréscimo se a pessoa acabou de fechar pomodoros na sessão ativa
+    // Mas note que a conta no Pomodoro.jsx já soma todos os studyLogs.
+    if (focusMinutes === 0) {
+        focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
+    }
+    
     const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-0.003 * focusMinutes))));
     return fatigueScore; // 100 = descansado, <70 = fadigado
 }
@@ -861,16 +869,7 @@ export function getCoachInsight(activeSubject, stats) {
 
     const fatigueScore = getCognitiveState(stats);
 
-    if (stats.pomodorosCompleted >= 3) {
-        return {
-            type: 'success',
-            title: 'Modo Ultra Foco',
-            text: `Série de alta performance! Sua disposição está blindada em **${fatigueScore}%**. Capitalize neste estado de fluxo.`,
-            color: 'emerald',
-            iconType: 'Zap'
-        };
-    }
-
+    // BUG 3 FIX: O Bloqueio Cego. A Urgência (Fadiga) DEVE interceptar antes da recompensa (Ultra Foco)
     if (fatigueScore < 70) {
         return {
             type: 'danger',
@@ -878,6 +877,16 @@ export function getCoachInsight(activeSubject, stats) {
             text: `Sua disposição cognitiva caiu para **${fatigueScore}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
             color: 'red',
             iconType: 'Alert'
+        };
+    }
+
+    if (stats.pomodorosCompleted >= 3) {
+        return {
+            type: 'success',
+            title: 'Modo Ultra Foco',
+            text: `Série de alta performance! Sua disposição está blindada em **${fatigueScore}%**. Capitalize neste estado de fluxo.`,
+            color: 'emerald',
+            iconType: 'Zap'
         };
     }
 
