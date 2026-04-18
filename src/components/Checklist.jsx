@@ -158,7 +158,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                     >
                         {/* Glow Background / Halo Effect */}
                         <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 rounded-full blur-[6px] opacity-60 group-hover:opacity-100 group-hover:blur-md transition-all duration-500" />
-                        
+
                         {/* Main Glowing Body with Top Inner Reflection */}
                         <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-500 rounded-full border border-white/20 group-hover:border-white/50 transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
 
@@ -169,7 +169,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                             {/* Inner 3D jewel dot */}
                             <div className="w-2 h-2 bg-gradient-to-br from-rose-300 via-red-500 to-red-700 rounded-full shadow-[0_0_8px_rgba(239,68,68,1),inset_0_1px_1px_rgba(255,255,255,0.8)] relative z-10 border border-red-800/20" />
                         </div>
-                        
+
                         {/* Text and Micro-animated Icon */}
                         <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.15em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] whitespace-nowrap relative z-10 flex items-center justify-center">
                             RETORNAR
@@ -282,17 +282,17 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     onClick={() => setIsOpen(!isOpen)}
                     className="flex items-center justify-end gap-2 sm:gap-4 cursor-pointer flex-shrink-0"
                 >
-                        <>
-                            <div className="w-14 sm:w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{ width: `${progress}%`, backgroundColor: category.color }}
-                                />
-                            </div>
-                            <span className="text-xs sm:text-sm font-mono flex-shrink-0" style={{ color: category.color }}>
-                                {progress}%
-                            </span>
-                        </>
+                    <>
+                        <div className="w-14 sm:w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{ width: `${progress}%`, backgroundColor: category.color }}
+                            />
+                        </div>
+                        <span className="text-xs sm:text-sm font-mono flex-shrink-0" style={{ color: category.color }}>
+                            {progress}%
+                        </span>
+                    </>
                     {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </div>
             </div>
