@@ -317,7 +317,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // G. Rotation Penalty
         let rotationPenalty = 0;
         if (daysSinceLastStudy < 1) {
-            rotationPenalty = averageScore < 60 ? 0 : 15;
+            rotationPenalty = averageScore < 0.6 * maxScore ? 0 : 15;
         } else if (daysSinceLastStudy === 1 && !srsLabel) {
             rotationPenalty = 5;
         }
@@ -362,7 +362,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
         } else if (trend < -0.5) {
             recommendation = `Nota caindo (${trend.toFixed(1)} pts) - Atenção urgente`;
-        } else if (averageScore < targetScore - 20) {
+        } else if (averageScore < targetScore - (0.2 * maxScore)) {
             recommendation = `Nota Crítica: ${Math.round(averageScore)}% (Meta ${targetScore}%)`;
         } else if (averageScore >= targetScore) {
             recommendation = "No caminho certo! Continue consolidando";

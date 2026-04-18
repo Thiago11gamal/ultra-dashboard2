@@ -39,7 +39,7 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
         const intercept = getSafeScore(p1, maxScore);
         // BUGFIX M4: Utilizar prior variância estipulada em ~20 em vez de hardcode 2.0
         // Para dt altos, o standard error cai (mais certeza no slope).
-        const slopeStdError = Math.max(0.2, 4.5 / dt);
+        const slopeStdError = Math.max(0.002 * maxScore, (maxScore * 0.045) / dt);
         return { slope, intercept, slopeStdError };
     }
 

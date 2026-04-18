@@ -225,19 +225,13 @@ export default function MonteCarloGauge({
         const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
 
         const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
-        const lastKnownScores = {}; 
-
         const globalHistory = sortedDates.map(date => {
-            Object.keys(scoresByDate[date]).forEach(name => {
-                lastKnownScores[name] = scoresByDate[date][name];
-            });
-
             let sum = 0;
             let tw = 0;
 
-            Object.keys(weightsByName).forEach(name => {
+            Object.keys(scoresByDate[date]).forEach(name => {
                 const w = weightsByName[name];
-                const currentScore = lastKnownScores[name];
+                const currentScore = scoresByDate[date][name];
 
                 if (w > 0 && currentScore !== undefined) {
                     sum += currentScore * w;
@@ -245,7 +239,7 @@ export default function MonteCarloGauge({
                 }
             });
 
-            return { date, score: tw > 0 ? sum / tw : 0 };
+            return { date, score: tw > 0 ? sum / tw : -1 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         const pooledDailySD = pooledSD;

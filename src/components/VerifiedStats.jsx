@@ -321,8 +321,8 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         const dailyHistory = Object.values(dailyMap)
-            .map(d => ({ date: d.date, score: d.scoreSum / d.weightSum }))
-            .sort((a, b) => a.date - b.date);
+            .map(d => ({ date: new Date(d.date).toISOString(), score: d.scoreSum / d.weightSum }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend

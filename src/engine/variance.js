@@ -18,8 +18,11 @@
  * (shared test-day effects), the true variance lies between this value
  * and the correlated formula (Σ w_i*σ_i)².
  * 
+ * CONTRACT: totalWeight must be the sum of all raw weights. If stats weights are 
+ * already normalized (0-1), totalWeight MUST be passed as 1 for correct computations.
+ * 
  * @param {Object[]} stats - Array of { sd, weight } objects
- * @param {number} totalWeight - Sum of all weights
+ * @param {number} totalWeight - Sum of all weights (use 1 if stats weights are normalized)
  * @returns {number} Weighted variance
  */
 // REVISION: Institutional Correlation Factor (Rho)
