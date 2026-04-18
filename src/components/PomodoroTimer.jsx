@@ -426,16 +426,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const formatTime = (seconds) => {
-        const secsInt = Math.ceil(seconds);
+        const safeSecs = Math.max(0, seconds);
+        const secsInt = Math.ceil(safeSecs);
         const mins = Math.floor(secsInt / 60);
         const secs = secsInt % 60;
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+    const totalTime = mode === 'work' ? Math.max(1, safeSettings.pomodoroWork * 60) : Math.max(1, safeSettings.pomodoroBreak * 60);
 
-    const rawProgress = ((totalTime - timeLeft) / totalTime) * 100;
-    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress));
+    const rawProgress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress || 0));
 
     const retention = useMemo(() => {
         if (!activeSubject) return null;
@@ -769,8 +770,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     <div className={`flex items-center gap-4 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setTargetCycles(Math.max(1, targetCycles - 1))}
-                                disabled={!activeSubject}
+                                onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
+                                disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
                                 className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-bold uppercase transition-colors"
                                 title="Remover Ciclo"
                             >

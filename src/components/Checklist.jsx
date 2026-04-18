@@ -84,7 +84,7 @@ const PerformancePanel = ({ stats, color }) => {
                                     <div
                                         className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
                                         style={{
-                                            height: `${h.score || 0}%`,
+                                            height: `${Math.min(100, Math.max(2, h.score || 0))}%`,
                                             backgroundColor: i === sliced.length - 1 ? color : undefined,
                                             opacity: i === sliced.length - 1 ? 1 : 0.3
                                         }}
