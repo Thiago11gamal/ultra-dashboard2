@@ -297,6 +297,7 @@ const generateEfficiencyRecommendations = ({ minutesPerTask, completionRate, hig
 
 export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
+    const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
@@ -328,7 +329,7 @@ export const detectProcrastination = (categories, studyLogs) => {
                 const taskLogs = logsByTaskId[task.id] || [];
                 const recentLogs = taskLogs.filter(log => {
                     const logDate = normalizeDate(log.date);
-                    const daysDiff = logDate ? (now - logDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+                    const daysDiff = logDate ? (normalizedNow - logDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
                     return daysDiff <= 3;
                 });
 
@@ -339,7 +340,7 @@ export const detectProcrastination = (categories, studyLogs) => {
                     const categoryLogs = logsByCategoryId[cat.id] || [];
                     const recentCategoryLogs = categoryLogs.filter(log => {
                         const catLogDate = normalizeDate(log.date);
-                        const daysDiff = catLogDate ? (now - catLogDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+                        const daysDiff = catLogDate ? (normalizedNow - catLogDate.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
                         return daysDiff <= 3;
                     });
                     if (recentCategoryLogs.length === 0) {
@@ -364,7 +365,7 @@ export const detectProcrastination = (categories, studyLogs) => {
                     (normalizeDate(log.date)?.getTime() ?? 0) > (normalizeDate(latest.date)?.getTime() ?? 0) ? log : latest
                 );
                 const lastLogDate = normalizeDate(lastLog.date);
-                const daysSinceLastStudy = lastLogDate ? (now - lastLogDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
+                const daysSinceLastStudy = lastLogDate ? (normalizedNow - lastLogDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
 
                 if (daysSinceLastStudy > 5) {
                     warnings.push({
@@ -382,7 +383,7 @@ export const detectProcrastination = (categories, studyLogs) => {
     if ((studyLogs || []).length >= 7) {
         const last7Days = (studyLogs || []).filter(log => {
             const logDate7 = normalizeDate(log.date);
-            const daysDiff = logDate7 ? (now - logDate7.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+            const daysDiff = logDate7 ? (normalizedNow - logDate7.getTime()) / (1000 * 60 * 60 * 24) : Infinity;
             return daysDiff <= 7;
         });
 
@@ -459,7 +460,8 @@ export const calculatePomodoroStats = (stats) => {
 
         todayMinutes += minutesToCount;
         // FIX: Adiciona apenas a fração do pomodoro que pertence a "hoje"
-        fractionalPomodoros += (minutesToCount / Math.max(1, sessionDuration));
+        // Calcula o equivalente em blocos de pomodoro de 25 minutos
+        fractionalPomodoros += (minutesToCount / 25);
 
         const cat = categories.find(c => c.id === session.categoryId);
         if (cat) {
@@ -520,8 +522,8 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 
 export const getCompleteReport = (data) => {
     const streak = calculateStudyStreak(data.studyLogs || []);
-    const balance = analyzeSubjectBalance(data.categories);
-    const efficiency = analyzeEfficiency(data.categories, data.studyLogs || []);
+    const balance = analyzeSubjectBalance(data.categories || []);
+    const efficiency = analyzeEfficiency(data.categories || [], data.studyLogs || []);
     const procrastination = detectProcrastination(data.categories, data.studyLogs || []);
     const goals = calculateDailyPomodoroGoal(data.categories, data.user);
 

@@ -46,7 +46,7 @@ export default function Dashboard() {
                 ...prev,
                 categories: prev.categories.map(c => ({
                     ...c,
-                    tasks: c.tasks.map(t => {
+                    tasks: (c.tasks || []).map(t => {
                         if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
                         if (t.status === 'studying') return { ...t, status: undefined };
                         return t;
