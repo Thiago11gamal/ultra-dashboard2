@@ -179,8 +179,8 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             : (cloud.activeId && mergedContests[cloud.activeId] ? cloud.activeId : local.activeId);
 
         return {
-            ...local,
             ...cloud,
+            ...local,
             contests: mergedContests,
             activeId: activeId || local.activeId || cloud.activeId,
             version: Math.max(local.version ?? 0, cloud.version ?? 0),
