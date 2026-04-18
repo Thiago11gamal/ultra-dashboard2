@@ -122,7 +122,9 @@ const repairContestHistory = (data) => {
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
-  const source = repairContestHistory(JSON.parse(JSON.stringify(data)));
+  const source = (data.simuladoRows && data.simuladoRows.length > 0)
+    ? repairContestHistory(JSON.parse(JSON.stringify(data)))
+    : data;
 
   // FORTRESS-01: Defensive initialization for all top-level keys
   return {
@@ -188,6 +190,8 @@ const sanitizeContest = (data) => {
       soundEnabled: source.settings?.soundEnabled ?? true,
       pomodoroWork: Number(source.settings?.pomodoroWork) || 25,
       pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
+      pomodoroLongBreak: Number(source.settings?.pomodoroLongBreak) || 15,
+      longBreakAfter: Number(source.settings?.longBreakAfter) || 4,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
     monteCarloHistory: Array.isArray(source.monteCarloHistory) ? source.monteCarloHistory : [],
