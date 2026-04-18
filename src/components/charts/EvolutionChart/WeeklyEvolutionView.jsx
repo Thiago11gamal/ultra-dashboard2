@@ -76,8 +76,13 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
                 
-                const totalQ = Number(h.total) || 0;
-                const score = getSafeScore(h, maxScore);
+                let totalQ = Number(h.total) || 0;
+                let score = getSafeScore(h, maxScore);
+                
+                // MATH FIX: Impedir que testes baseados puramente em porcentagem sem métrica de questões gerem 'missing data' (zeros cegos)
+                if (totalQ === 0 && h.score != null) {
+                    totalQ = 100; // Carga sintética para cálculo WLS
+                }
                 
                 weeksTemp[weekStr][itemId].total += totalQ;
                 weeksTemp[weekStr][itemId].correct += (score / maxScore) * totalQ;

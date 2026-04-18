@@ -158,8 +158,17 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 export function computeCategoryStats(history, weight, daysValue = 60, maxScore = 100) {
     if (!history || history.length === 0) return null;
 
-    const validHistory = history.filter(h => (Number(h.total) || 0) > 0);
-    const historyToUse = validHistory.length > 0 ? validHistory : history;
+    // MATH FIX: O filtro destruía as amostras que os usuários cadastravam só como "%" (total=0),
+    // arruinando regressões inteiras da estatística se não houvesse input manual de volume de questões.
+    const historyWithSynthetics = history.map(h => {
+        if ((Number(h.total) || 0) === 0 && h.score != null) {
+            return { ...h, total: SYNTHETIC_TOTAL_QUESTIONS };
+        }
+        return h;
+    });
+
+    const validHistory = historyWithSynthetics.filter(h => (Number(h.total) || 0) > 0);
+    const historyToUse = validHistory.length > 0 ? validHistory : historyWithSynthetics;
 
     // BUG 4b FIX: Pass maxScore to getSafeScore
     const scores = historyToUse.map(h => getSafeScore(h, maxScore));
