@@ -352,6 +352,12 @@ export function monteCarloSimulation(
     const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore * 100) * 31;
     const rng = mulberry32(seed);
 
+    // 🎯 ALERTA 3.1 FIX: RNG Isolado para Decisões de Caminho (Path Choice)
+    // Evita consumir o estado do PRNG principal entre chamadas ao Box-Muller (randomNormal),
+    // garantindo que a sequência de choques (volatilidade) seja idêntica com a mesma seed
+    // mesmo se as condições lógicas internas mudarem.
+    const pathRng = mulberry32(seed + 777);
+
     let success = 0;
     // Math fix 2: Welford's online algorithm for numerically stable variance
     // Avoids catastrophic cancellation in (ΣX²/n − (ΣX/n)²) when mean is large
@@ -453,8 +459,9 @@ export function monteCarloSimulation(
             if (useBootstrap && residuals.length >= 6) {
                 // MELHORIA 3: Injeção de "Black Swan". 
                 // Mistura 90% Empírico (Bootstrap) com 10% Gaussiano (Teórico).
-                if (rng() < 0.90) {
-                    const randomResidual = residuals[Math.floor(rng() * residuals.length)];
+                // 🎯 ALERTA 3.1 FIX: Usar pathRng para não desalinhar o cache do Box-Muller (rng).
+                if (pathRng() < 0.90) {
+                    const randomResidual = residuals[Math.floor(pathRng() * residuals.length)];
                     shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
                 } else {
                     shock = randomNormal(rng) * sigma;
@@ -469,8 +476,9 @@ export function monteCarloSimulation(
             // 📊 2. Heterocedasticidade (Fator Binomial)
             // SCALE-BOUNDS FIX: Normalizar pela escala real da prova em vez de 100 fixo.
             // Mapeia score para [0, 1] relativo ao domínio real da prova.
-            const scoreRange = maxScore - minScore;
-            const p = Math.max(0.001, Math.min(0.999, (score - minScore) / scoreRange));
+            // 🎯 BUG 1.2 FIX: Proteção contra scoreRange = 0 para simulações estritas.
+            const currentScoreRange = (maxScore - minScore) || maxScore || 1;
+            const p = Math.max(0.001, Math.min(0.999, (score - minScore) / currentScoreRange));
             // BUG 2 FIX: Gentle power-law boundary damping instead of linear compression.
             // Previously: sqrt(p(1-p))*2 peaked at 1.0 (center) but dropped to 0.44 at
             // extremes, systematically compressing shocks by ~50% for non-centered scores.
@@ -524,9 +532,27 @@ export function monteCarloSimulation(
 
     const displayMean = Math.max(minScore, Math.min(maxScore, projectedMean));
 
-    // 🎯 BUG-Z4 FIX: zScore e Analytical Probability calculados sobre os parâmetros REAIS (projected).
-    const zScore = (targetScore - projectedMean) / (projectedSD || 0.0001);
-    const analyticalProbability = normalCDF_complement(zScore) * 100;
+    // 🎯 ALERTA 3.2 FIX: Probabilidade Analítica Normalizada para Truncamento [minScore, maxScore].
+    // P(X >= target | X in [min, max]) = [Φ(target') - Φ(max')] / [Φ(min') - Φ(max')]
+    // O cálculo anterior via zScore puro ignorava o fator de truncamento das barreiras,
+    // gerando gaps > 3% em metas extremas (ex: OAB 40 pontos).
+    const safeSD = projectedSD || 0.0001;
+    const phiMin    = normalCDF_complement((minScore - projectedMean) / safeSD);
+    const phiMax    = normalCDF_complement((maxScore - projectedMean) / safeSD);
+    const phiTarget = normalCDF_complement((targetScore - projectedMean) / safeSD);
+    
+    // Clamp phiTarget para garantir que fique no domínio [phiMax, phiMin]
+    const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
+    const truncNormFactor = Math.max(1e-10, phiMin - phiMax);
+
+    let analyticalProbability;
+    if (targetScore >= maxScore) {
+        analyticalProbability = 0;
+    } else if (targetScore <= minScore) {
+        analyticalProbability = 100;
+    } else {
+        analyticalProbability = ((clampedPhiTarget - phiMax) / truncNormFactor) * 100;
+    }
 
     // MC-02: Use raw empirical probability
     const empiricalProbability = safeSimulations > 0 ? (success / safeSimulations) * 100 : 0;

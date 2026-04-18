@@ -180,7 +180,10 @@ export function computeCategoryStats(history, weight, daysValue = 60, maxScore =
             const w = (Number(h.total) || 1);
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
-        variance = wVarSum / (totalQ - 1);
+        // 🎯 MATH FIX: O divisor da variância ponderada deve refletir o espalhamento das provas (N-1),
+        // e não das questões totais. Usamos o divisor de Bessel escalonado pelo peso médio.
+        const n = historyToUse.length;
+        variance = wVarSum / (totalQ * (n - 1) / n);
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }

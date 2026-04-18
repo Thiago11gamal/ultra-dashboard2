@@ -78,7 +78,8 @@ export const calculateStudyStreak = (studyLogs) => {
     if (!hasToday) dateCursor.setDate(dateCursor.getDate() - 1); // Start from yesterday
 
     // Now count backwards
-    for (let i = 0; i < 365; i++) { // Max safety cap
+    const maxDays = uniqueDays.length;
+    for (let i = 0; i < maxDays; i++) { // Adaptive safety cap based on unique history length
         const dString = toISODay(dateCursor);
         if (uniqueDays.includes(dString)) {
             streak++;
@@ -309,6 +310,14 @@ export const detectProcrastination = (categories, studyLogs) => {
         if (log.categoryId) {
             if (!logsByCategoryId[log.categoryId]) logsByCategoryId[log.categoryId] = [];
             logsByCategoryId[log.categoryId].push(log);
+        } else if (log.categoryName) {
+            // 🎯 BUG 2.2 FIX: Fallback para logs sem categoryId mas com categoryName.
+            // Permite que estudos "livres" sem vínculo de ID ainda protejam a categoria contra alertas de procrastinação.
+            const matchingCat = categories.find(c => c.name === log.categoryName);
+            if (matchingCat) {
+                if (!logsByCategoryId[matchingCat.id]) logsByCategoryId[matchingCat.id] = [];
+                logsByCategoryId[matchingCat.id].push(log);
+            }
         }
     });
 

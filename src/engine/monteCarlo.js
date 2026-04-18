@@ -120,19 +120,22 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); // P(X >= max)
     const phiTarget = normalCDF_complement((rawTarget - safeMean) / safeSD); // P(X >= target)
     
-    const truncNormFactor = phiMin - phiMax;
-    // FIX 1: Probabilidade Analítica forçada a 0% ou 100% se a meta estiver fora do domínio.
-    // P(X >= target | X in [min, max]) = [Φ(target') - Φ(max')] / [Φ(min') - Φ(max')]
+    const truncNormFactor = Math.max(1e-10, phiMin - phiMax);
+    // 🎯 ALERTA 3.2 FIX: Clamping do phiTarget para o domínio truncado [phiMax, phiMin].
+    // Sem isso, metas fora do intervalo [minScore, maxScore] geravam probabilidades > 100% ou < 0%
+    // no cálculo analítico, causando o gap > 3% em relação à empírica.
+    const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
+
     let analyticalProbability;
     if (rawTarget >= maxScore) {
         analyticalProbability = 0;
     } else if (rawTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        // MATH FIX: Se a massa estiver fora do domínio (factor < 1e-6), 
+        // MATH FIX: Se a massa estiver fora do domínio (factor < 1e-10), 
         // a simulação empírica é mais estável que a aproximação analítica.
-        analyticalProbability = truncNormFactor > 1e-6 
-            ? ((phiTarget - phiMax) / truncNormFactor) * 100 
+        analyticalProbability = truncNormFactor > 1e-10 
+            ? ((clampedPhiTarget - phiMax) / truncNormFactor) * 100 
             : empiricalProbability; 
     }
     analyticalProbability = Math.min(100, Math.max(0, analyticalProbability));
