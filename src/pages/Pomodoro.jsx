@@ -226,11 +226,15 @@ export default function Pomodoro() {
     const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
+    // CORREÇÃO 1: Pegar os ciclos atuais da sessão do store em vez do histórico all-time
+    const currentSessions = useAppStore(state => state.appState.pomodoro.sessions) || 0;
+
     // Preparar dados do utilizador para passar ao Coach
     const userStats = useMemo(() => ({
-        pomodorosCompleted: data.pomodorosCompleted || 0,
+        // Usar currentSessions garante que a fadiga reseta a cada nova sessão de estudos
+        pomodorosCompleted: currentSessions,
         settings: data.settings
-    }), [data.pomodorosCompleted, data.settings]);
+    }), [currentSessions, data.settings]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
@@ -275,11 +279,8 @@ export default function Pomodoro() {
 
     const handleFullCycleComplete = () => {
         if (activeSubject) {
-            const cat = data.categories?.find(c => c.id === activeSubject.categoryId);
-            const tsk = cat?.tasks?.find(t => t.id === activeSubject.taskId);
-            if (tsk && !tsk.completed) {
-                toggleTask(activeSubject.categoryId, activeSubject.taskId);
-            }
+            // CORREÇÃO 2: Removida a chamada automática para toggleTask().
+            // Tarefas de concurso são contínuas e não devem ser concluídas sozinhas pelo timer.
             showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
             setTimeout(() => { handleExit(); }, 1000);
         } else {

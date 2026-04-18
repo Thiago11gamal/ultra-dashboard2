@@ -12,7 +12,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         ...settings
     }), [settings]);
 
-    const savedState = useMemo(() => {
+    const [savedState] = useState(() => {
         if (typeof window === 'undefined') return null;
         try {
             const saved = JSON.parse(localStorage.getItem('pomodoroState'));
@@ -26,7 +26,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             console.debug('Storage read ignored', err);
         }
         return null;
-    }, [activeSubject]);
+    });
 
     const getSavedState = (key, defaultValue) => {
         if (savedState && savedState[key] !== undefined) {
@@ -308,18 +308,48 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const timeLeftRef = useRef(timeLeft);
     useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
+    // CORREÇÃO: Usar Screen Wake Lock API em vez do hack de mousemove
+    const wakeLockRef = useRef(null);
     useEffect(() => {
-        let heartbeatInterval;
-        if (isRunning && typeof window !== 'undefined') {
-            heartbeatInterval = setInterval(() => {
-                window.dispatchEvent(new MouseEvent('mousemove', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                }));
-            }, 5 * 60 * 1000);
+        const requestWakeLock = async () => {
+            if ('wakeLock' in navigator && isRunning) {
+                try {
+                    wakeLockRef.current = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    console.debug('Wake Lock falhou:', err);
+                }
+            }
+        };
+
+        const releaseWakeLock = async () => {
+            if (wakeLockRef.current) {
+                try {
+                    await wakeLockRef.current.release();
+                    wakeLockRef.current = null;
+                } catch (err) {
+                    console.debug('Release Wake Lock falhou:', err);
+                }
+            }
+        };
+
+        if (isRunning) {
+            requestWakeLock();
+        } else {
+            releaseWakeLock();
         }
-        return () => clearInterval(heartbeatInterval);
+
+        // Lidar com visibilidade da página (Wake lock cai se a aba ficar oculta)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isRunning) {
+                requestWakeLock();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            releaseWakeLock();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [isRunning]);
 
     useEffect(() => {
@@ -675,7 +705,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 }
                                 setIsRunning(!isRunning);
                             }}
-                            disabled={!activeSubject}
+                            // REMOVIDO: disabled={!activeSubject} -> O warning agora vai funcionar!
                             className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
                         >
                             {isRunning
