@@ -281,9 +281,10 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     logger.warn("[Sync] Bloqueio de Boot: Utilizador já iniciou edições locais.");
                     shouldPullCloud = false;
                 } else {
-                    // BUG 2 FIX: Reusar cloudUpdatedTime/localUpdatedTime do escopo externo
-                    // em vez de redeclarar variáveis shadow que criam Date duplicados.
-                    const cloudUpdated = cloudUpdatedTime || now;
+                    // BUG 2 FIX: Se a nuvem não tem timestamp válido, NUNCA assuma "now".
+                    // Assumir "now" criava um falso positivo de superioridade temporal, fazendo
+                    // com que backups defeituosos assombrassem o cache local sobrescrevendo-o.
+                    const cloudUpdated = cloudUpdatedTime || 0;
                     const localUpdated = localUpdatedTime;
 
                     const activeId = appStateRef.current?.activeId;

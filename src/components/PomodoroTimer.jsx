@@ -239,13 +239,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             onSessionComplete?.();
 
             if (activeSubject && onUpdateStudyTime) {
-                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
-                const actualElapsedMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
-                
-                if (actualElapsedMinutes > 0) {
-                    onUpdateStudyTime(activeSubject.categoryId, actualElapsedMinutes, activeSubject.taskId);
-                } else if (isNatural) {
+                if (isNatural) {
+                    // BUG FIX: Se completou naturalmente, garante a glória total em vez de sofrer cortes 
+                    // de arredondamento por milissegundos devidos a "browser throttling".
                     onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
+                } else {
+                    const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
+                    const actualElapsedMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
+                    if (actualElapsedMinutes > 0) {
+                        onUpdateStudyTime(activeSubject.categoryId, actualElapsedMinutes, activeSubject.taskId);
+                    }
                 }
             }
 
