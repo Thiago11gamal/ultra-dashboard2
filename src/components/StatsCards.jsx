@@ -74,111 +74,114 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
 
-            {/* ── Streak ─────────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            {/* ── Sequência ─────────────────────────────────────────────────── */}
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
-                            <Activity size={16} className="text-orange-400" />
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                        <div className="p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition-colors">
+                            <Activity size={18} className="text-orange-400" />
                         </div>
-                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Sequência</span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Sequência</span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
-                        {streak?.current || 0} {(streak?.current || 0) === 1 ? 'dia' : 'dias'}
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2">
+                        {streak?.current || 0} <span className="text-lg sm:text-2xl text-slate-300 font-bold">{(streak?.current || 0) === 1 ? 'dia' : 'dias'}</span>
                     </div>
-                    <div className="text-[10px] sm:text-xs text-slate-500 leading-normal">
-                        Recorde: {streak?.longest || 0}d
-                    </div>
-                    {streak?.isActive && (
-                        <div className="mt-1 sm:mt-2 flex items-center gap-1 text-orange-400">
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse" />
-                            <span className="text-[9px] sm:text-xs font-bold">ATIVA</span>
+                    <div className="mt-auto pt-2 flex flex-col gap-1.5">
+                        <div className="text-xs sm:text-sm text-slate-400 font-medium leading-relaxed">
+                            Recorde: {streak?.longest || 0}d
                         </div>
-                    )}
+                        {streak?.isActive && (
+                            <div className="flex items-center gap-2 text-orange-400 mt-1">
+                                <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(251,146,60,0.8)]" />
+                                <span className="text-xs sm:text-sm font-bold tracking-widest">ATIVA</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* ── Eficiência — BUG 1 FIX: cor dinâmica ──────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            {/* ── Eficiência ──────────────────────────────────────────────── */}
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className={`absolute -top-10 -left-10 w-24 h-24 ${effTheme.glow} rounded-full blur-[40px] ${effTheme.glowHover} transition-all duration-700`} />
                 <div className={`absolute inset-0 bg-gradient-to-br ${effTheme.gradient} to-transparent pointer-events-none`} />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className={`p-1.5 sm:p-2 ${effTheme.iconBg} rounded-lg transition-colors`}>
-                            <TrendingUp size={16} className={effTheme.iconColor} />
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                        <div className={`p-2 ${effTheme.iconBg} rounded-lg transition-colors`}>
+                            <TrendingUp size={18} className={effTheme.iconColor} />
                         </div>
-                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Eficiência</span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Eficiência</span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
-                        {efficiency?.score ?? 0}%
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2">
+                        {efficiency?.score ?? 0}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
                     </div>
-                    <div className={`text-[10px] sm:text-xs ${effTheme.iconColor} capitalize leading-normal truncate font-medium`}>
-                        {efficiency?.efficiency?.replace(/_/g, ' ') || 'Sem dados'}
-                    </div>
-                    {/* MELHORIA VISUAL: mini métrica extra */}
-                    {efficiency?.metrics?.minutesPerTask > 0 && (
-                        <div className="text-[9px] text-slate-600 mt-0.5 leading-normal">
-                            ~{efficiency.metrics.minutesPerTask}min/tarefa
+                    <div className="mt-auto pt-2 flex flex-col gap-1.5">
+                        <div className={`text-xs sm:text-sm ${effTheme.iconColor} capitalize leading-relaxed truncate font-extrabold`}>
+                            {efficiency?.efficiency?.replace(/_/g, ' ') || 'Sem dados'}
                         </div>
-                    )}
+                        {efficiency?.metrics?.minutesPerTask > 0 && (
+                            <div className="text-xs sm:text-sm text-slate-400 font-medium">
+                                ~{efficiency.metrics.minutesPerTask} min/tarefa
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* ── Equilíbrio ─────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                            <BarChart2 size={16} className="text-blue-400" />
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                            <BarChart2 size={18} className="text-blue-400" />
                         </div>
-                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Equilíbrio</span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Equilíbrio</span>
                     </div>
-                    <div className="text-base sm:text-xl font-black text-white mb-0.5 sm:mb-1 capitalize truncate">
+                    <div className="text-2xl sm:text-3xl font-black text-white mt-1 mb-2 capitalize truncate">
                         {balance?.status?.replace(/_/g, ' ') || 'N/A'}
                     </div>
-                    {balance?.distribution?.[0] && (
-                        <div className="text-[10px] sm:text-xs text-slate-500 leading-normal truncate">
-                            {balance.distribution[0].subject}: {balance.distribution[0].percentage}%
-                        </div>
-                    )}
-                    {/* MELHORIA VISUAL: mini badge de status */}
-                    {balance?.metrics?.activeSubjects > 0 && (
-                        <div className="text-[9px] text-slate-600 mt-0.5 leading-normal">
-                            {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} matérias ativas
-                        </div>
-                    )}
+                    <div className="mt-auto pt-2 flex flex-col gap-1.5">
+                        {balance?.distribution?.[0] && (
+                            <div className="text-xs sm:text-sm text-slate-400 font-medium leading-relaxed truncate">
+                                {balance.distribution[0].subject}: <span className="font-bold text-slate-300">{balance.distribution[0].percentage}%</span>
+                            </div>
+                        )}
+                        {balance?.metrics?.activeSubjects > 0 && (
+                            <div className="text-xs sm:text-sm text-slate-500 font-medium">
+                                {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} matérias ativas
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* ── XP / Nível ─────────────────────────────────────────────── */}
-            {/* MELHORIA VISUAL: removido padding interno inconsistente (px-1 py-1 ml-2) */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 shadow-2xl flex flex-col justify-between overflow-hidden">
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 shadow-2xl overflow-hidden">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
-                            <Trophy size={16} className="text-purple-400" />
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                        <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                            <Trophy size={18} className="text-purple-400" />
                         </div>
-                        <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-black text-white mb-2 sm:mb-3">
-                        {user.xp.toLocaleString('pt-BR')} XP
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3">
+                        {user.xp.toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
-                    <div className="space-y-1.5 mt-auto">
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="space-y-2 mt-auto pt-2">
+                        <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">
                             <div
-                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-1000 ease-out"
                                 style={{ width: `${progress.percentage}%` }}
                             />
                         </div>
-                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-relaxed">
+                        <div className="text-xs sm:text-sm text-purple-400 font-bold leading-relaxed">
                             {progress.percentage}% → Nível {progress.level + 1}
                         </div>
                     </div>
@@ -186,11 +189,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Data da Prova ───────────────────────────────────────────── */}
-            {/* BUG 2 FIX: col-span-2 md:col-span-1 → col-span-2 lg:col-span-1
-                Em telas md (768-1023px), a grade ainda tem 2 colunas (sem breakpoint md
-                no grid). O card com md:col-span-1 ficava com 1 col em grade de 2,
-                deixando uma célula vazia ao lado. Agora só colapsa em lg+ (5 colunas). */}
-            <div className={`col-span-2 lg:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-4 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`col-span-2 lg:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-5 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'animate-glow-red'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
@@ -206,16 +205,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 {/* Left: contador de dias */}
                 <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2">
                     {daysRemaining !== null ? (
-                        <div className="flex flex-col items-center pl-2">
-                            <div className="flex items-baseline gap-1.5 justify-center">
-                                <span className={`text-4xl font-black ${daysRemaining < 0 ? 'text-slate-500' : daysRemaining <= 15 ? 'text-red-400' : 'text-white'}`}>
+                        <div className="flex flex-col items-center">
+                            <div className="flex items-baseline gap-1.5 justify-center mb-1">
+                                <span className={`text-4xl sm:text-5xl font-black ${daysRemaining < 0 ? 'text-slate-500' : daysRemaining <= 15 ? 'text-red-400' : 'text-white'}`}>
                                     {Math.abs(daysRemaining)}
                                 </span>
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-relaxed">
+                                <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                                     {Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'}
                                 </span>
                             </div>
-                            <div className={`text-[10px] font-bold mt-0.5 text-center uppercase tracking-widest leading-normal ${daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400'}`}>
+                            <div className={`text-xs font-bold mt-1 text-center uppercase tracking-widest leading-relaxed ${daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400'}`}>
                                 {daysRemaining < 0
                                     ? 'Já passou'
                                     : daysRemaining === 0
@@ -224,11 +223,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center pl-2">
-                            <div className="text-red-500 animate-bounce mb-1">
-                                <AlertCircle size={32} strokeWidth={3} />
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="text-red-500 animate-bounce mb-2">
+                                <AlertCircle size={36} strokeWidth={3} />
                             </div>
-                            <div className="text-[10px] font-black text-red-100 bg-red-600 px-2 py-0.5 rounded-sm text-center uppercase tracking-tighter leading-tight shadow-lg shadow-red-500/50">
+                            <div className="text-xs font-black text-red-100 bg-red-600 px-3 py-1 rounded-sm text-center uppercase tracking-widest leading-tight shadow-lg shadow-red-500/50">
                                 URGENTE
                             </div>
                         </div>
@@ -236,15 +235,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 </div>
 
                 {/* Divisor vertical */}
-                <div className="w-[1px] h-12 bg-white/10 z-10 mx-2" />
+                <div className="w-[1px] h-16 bg-white/10 z-10 mx-3" />
 
                 {/* Right: date picker */}
-                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 pr-2 group/rightside cursor-pointer">
-                    <div className="flex flex-col items-center gap-1.5 mb-2 pl-3 pointer-events-none">
-                        <div className={`p-1.5 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
-                            <Calendar size={16} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside cursor-pointer">
+                    <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
+                        <div className={`p-2 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
+                            <Calendar size={18} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
                         </div>
-                        <span className={`text-[9px] font-black uppercase tracking-widest text-center leading-normal transition-colors ${!user.goalDate ? 'text-red-400 animate-pulse' : 'text-slate-500 group-hover/rightside:text-slate-400'}`}>Data</span>
+                        <span className={`text-xs font-black uppercase tracking-widest text-center leading-normal transition-colors ${!user.goalDate ? 'text-red-400 animate-pulse' : 'text-slate-500 group-hover/rightside:text-slate-400'}`}>Data final</span>
                     </div>
 
                     <div className="relative group/input flex justify-center w-full pointer-events-none">
