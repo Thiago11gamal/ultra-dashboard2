@@ -65,29 +65,41 @@ export const mapRetentionData = (categories = []) => {
  * @returns {Array} [{ data, horasEstudadas }]
  */
 export const mapFocusEvolutionData = (studyLogs = []) => {
-    const dailyMap = {};
+    // MATH FIX: Preenchimento de Lacunas Temporais (Time-series Gap Filling).
+    // Gráficos que ignoram dias com "0 horas estudadas" criam uma compressão visual irreal,
+    // mentindo sobre a consistência do aluno e unindo dias distantes como se fossem seguidos.
+    const last14Days = [];
+    const today = new Date();
+    today.setHours(12, 0, 0, 0); // Ancorar no meio-dia para imunidade a fuso horário
     
-    // Sort and take last 14 days
-    // FIX BUG M: normalizeDate evita que YYYY-MM-DD seja interpretado como UTC midnight
-    const sortedLogs = Object.values(studyLogs || {}).sort((a, b) => {
-        const timeA = normalizeDate(a.date)?.getTime() ?? 0;
-        const timeB = normalizeDate(b.date)?.getTime() ?? 0;
-        return timeA - timeB;
-    });
+    for (let i = 13; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        last14Days.push({
+            data: dateStr,
+            horasEstudadas: 0
+        });
+    }
+
+    const logsArray = Object.values(studyLogs || {});
     
-    sortedLogs.forEach(log => {
-        // FIX BUG M: usar normalizeDate para agrupamento correto por data local
+    logsArray.forEach(log => {
         const parsed = normalizeDate(log.date);
-        const dateStr = parsed
-            ? parsed.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-            : new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        dailyMap[dateStr] = (dailyMap[dateStr] || 0) + (Number(log.minutes) || 0);
+        const logDate = parsed || new Date(log.date);
+        const dateStr = logDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        
+        const dayMatch = last14Days.find(d => d.data === dateStr);
+        if (dayMatch) {
+            dayMatch.horasEstudadas += Number(log.minutes) / 60;
+        }
     });
 
-    return Object.entries(dailyMap).map(([date, minutes]) => ({
-        data: date,
-        horasEstudadas: parseFloat((minutes / 60).toFixed(1))
-    })).slice(-10); // Show last 10 days
+    // Retorna arredondando no final para preservar precisão em somas fracionadas
+    return last14Days.map(d => ({ 
+        data: d.data, 
+        horasEstudadas: parseFloat(d.horasEstudadas.toFixed(1)) 
+    }));
 };
 
 /**
