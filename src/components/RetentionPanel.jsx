@@ -227,13 +227,13 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Average Retention */}
-                <div className="glass p-8 border-l-4 border-purple-500 relative group hover:border-purple-400 transition-all duration-500 min-h-[180px]">
+                <div className="glass p-4 border-l-4 border-purple-500 relative group hover:border-purple-400 transition-all duration-500 min-h-[135px]">
                     <div className="absolute inset-0 rounded-[1.25rem] overflow-hidden pointer-events-none">
-                        <BrainCircuit size={70} className="absolute -right-6 -bottom-6 text-purple-500/10 group-hover:text-purple-500/20 transition-all duration-700" />
+                        <BrainCircuit size={70} className="absolute -right-4 -bottom-4 text-purple-500/10 group-hover:text-purple-500/20 transition-all duration-700" />
                     </div>
                     <div className="relative z-10 h-full flex flex-col justify-between">
                         <div>
-                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-2">
                                 <BrainCircuit size={12} className="text-purple-500" />
                                 Média Geral
                             </div>
@@ -242,7 +242,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                         <div>
                             {/* Progress Bar */}
-                            <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden mb-3 border border-white/5">
+                            <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden mb-2 border border-white/5">
                                 <div className="h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.4)]" style={{ width: `${stats.avgRetention}%` }} />
                             </div>
                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{stats.totalTasks} assuntos</div>
@@ -251,57 +251,57 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 </div>
 
                 {/* Critical */}
-                <div className="glass p-8 border-l-4 border-red-500 relative group hover:border-red-400 transition-all duration-500 min-h-[180px]">
+                <div className="glass p-4 border-l-4 border-red-500 relative group hover:border-red-400 transition-all duration-500 min-h-[135px]">
                     <div className="absolute inset-0 rounded-[1.25rem] overflow-hidden pointer-events-none">
-                        <AlertTriangle size={70} className="absolute -right-6 -bottom-6 text-red-500/10 group-hover:text-red-500/20 transition-all duration-700" />
+                        <AlertTriangle size={70} className="absolute -right-4 -bottom-4 text-red-500/10 group-hover:text-red-500/20 transition-all duration-700" />
                     </div>
                     <div className="relative z-10 h-full flex flex-col justify-between">
                         <div>
-                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-2">
                                 <AlertTriangle size={12} className="text-red-500" />
                                 Críticos
                             </div>
-                            <div className="text-4xl font-black text-red-400 tracking-tighter drop-shadow-[0_0_10px_rgba(239,68,68,0.2)]">{stats.critical}</div>
+                            <div className="text-4xl font-black text-red-400 tracking-tighter">{stats.critical}</div>
                         </div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
                             precisam de revisão
                         </div>
                     </div>
                 </div>
 
                 {/* Warning */}
-                <div className="glass p-8 border-l-4 border-yellow-500 relative group hover:border-yellow-400 transition-all duration-500 min-h-[180px]">
+                <div className="glass p-4 border-l-4 border-yellow-500 relative group hover:border-yellow-400 transition-all duration-500 min-h-[135px]">
                     <div className="absolute inset-0 rounded-[1.25rem] overflow-hidden pointer-events-none">
-                        <TrendingDown size={70} className="absolute -right-6 -bottom-6 text-yellow-500/10 group-hover:text-yellow-500/20 transition-all duration-700" />
+                        <TrendingDown size={70} className="absolute -right-4 -bottom-4 text-yellow-500/10 group-hover:text-yellow-500/20 transition-all duration-700" />
                     </div>
                     <div className="relative z-10 h-full flex flex-col justify-between">
                         <div>
-                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-2">
                                 <TrendingDown size={12} className="text-yellow-500" />
                                 Atenção
                             </div>
-                            <div className="text-4xl font-black text-yellow-500 tracking-tighter drop-shadow-[0_0_10px_rgba(234,179,8,0.2)]">{stats.warning}</div>
+                            <div className="text-4xl font-black text-yellow-500 tracking-tighter">{stats.warning}</div>
                         </div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
                             em declínio
                         </div>
                     </div>
                 </div>
 
                 {/* Healthy */}
-                <div className="glass p-8 border-l-4 border-emerald-500 relative group hover:border-emerald-400 transition-all duration-500 min-h-[180px]">
+                <div className="glass p-4 border-l-4 border-emerald-500 relative group hover:border-emerald-400 transition-all duration-500 min-h-[135px]">
                     <div className="absolute inset-0 rounded-[1.25rem] overflow-hidden pointer-events-none">
-                        <CheckCircle2 size={70} className="absolute -right-6 -bottom-6 text-emerald-500/10 group-hover:text-emerald-500/20 transition-all duration-700" />
+                        <CheckCircle2 size={70} className="absolute -right-4 -bottom-4 text-emerald-500/10 group-hover:text-emerald-500/20 transition-all duration-700" />
                     </div>
                     <div className="relative z-10 h-full flex flex-col justify-between">
                         <div>
-                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-4">
+                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.15em] mb-2">
                                 <CheckCircle2 size={12} className="text-emerald-500" />
                                 Saudáveis
                             </div>
                             <div className="text-4xl font-black text-emerald-400 tracking-tighter">{stats.healthy}</div>
                         </div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-2">
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
                             excelente
                         </div>
                     </div>
