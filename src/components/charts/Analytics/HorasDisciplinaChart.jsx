@@ -47,6 +47,7 @@ export function HorasDisciplinaChart({ data }) {
                     />
                     
                     <Tooltip 
+                        cursor={false}
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
                         itemStyle={{ padding: '2px 0' }}
                         formatter={(value) => [`${value} horas`, 'Total']}
