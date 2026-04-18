@@ -53,7 +53,7 @@ export function AnaliseRetencaoChart({ data }) {
                         domain={[0, 100]} 
                         axisLine={false} 
                         tickLine={false}
-                        label={{ value: 'Nível Crítico (%)', angle: 90, position: 'insideRight', offset: 10, fill: '#f87171', fontSize: 10, fontWeight: 'bold' }}
+                        label={{ value: 'Risco de Esquecimento (%)', angle: 90, position: 'insideRight', offset: 10, fill: '#f87171', fontSize: 10, fontWeight: 'bold' }}
                     />
 
                     <Tooltip 
@@ -68,7 +68,7 @@ export function AnaliseRetencaoChart({ data }) {
                         itemStyle={{ padding: '2px 0' }}
                         cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                         formatter={(value, name) => {
-                            if (name === "Nível Crítico") return [`${value}% (Risco)`, name];
+                            if (name === "Risco de Esquecimento") return [`${value}% (Risco)`, name];
                             return [value, name];
                         }}
                     />
@@ -91,7 +91,7 @@ export function AnaliseRetencaoChart({ data }) {
                         strokeWidth={4} 
                         dot={{ r: 5, fill: '#ef4444', stroke: '#0f172a', strokeWidth: 2 }} 
                         activeDot={{ r: 7, strokeWidth: 0 }}
-                        name="Nível Crítico" 
+                        name="Risco de Esquecimento" 
                         filter="url(#glow)"
                         animationDuration={1500}
                     />
