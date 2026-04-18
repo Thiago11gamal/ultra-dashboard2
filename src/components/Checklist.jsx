@@ -119,7 +119,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                 type="checkbox"
                 checked={task.completed}
                 onChange={() => onToggle(task.id)}
-                className="flex-shrink-0 w-4 h-4"
+                className="flex-shrink-0 w-5 h-5 cursor-pointer accent-purple-500 hover:scale-110 transition-transform"
             />
 
             {/* Task Content */}
@@ -282,7 +282,6 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     onClick={() => setIsOpen(!isOpen)}
                     className="flex items-center justify-end gap-2 sm:gap-4 cursor-pointer flex-shrink-0"
                 >
-                    {filter === 'all' && (
                         <>
                             <div className="w-14 sm:w-24 h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div
@@ -294,7 +293,6 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                                 {progress}%
                             </span>
                         </>
-                    )}
                     {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </div>
             </div>
@@ -327,7 +325,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                         )}
                     </div>
                     {/* Add Task Button */}
-                    {filter === 'all' && (
+                    {filter !== 'completed' && (
                         <div className="p-4 pt-0">
                             <button
                                 onClick={() => setIsTaskModalOpen(true)}
@@ -447,7 +445,7 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             </div>
 
             {/* Add Category Button */}
-            {onAddCategory && filter === 'all' && (
+            {onAddCategory && filter !== 'completed' && (
                 <div className="mt-6">
                     <button
                         onClick={() => setIsCatModalOpen(true)}
