@@ -3,17 +3,48 @@ import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle } from '
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 
+// ─── BUG 1 FIX ───────────────────────────────────────────────────────────────
+// Cor dinâmica para o card de Eficiência baseada no score real.
+// Antes: sempre emerald/verde, independente do score.
+// Agora: verde (≥85), amarelo (≥60), vermelho (<60).
+const getEfficiencyTheme = (score) => {
+    if (score >= 85) return {
+        glow: 'bg-emerald-500/10',
+        glowHover: 'group-hover:bg-emerald-500/20',
+        gradient: 'from-emerald-500/[0.02]',
+        iconBg: 'bg-green-500/10 group-hover:bg-green-500/20',
+        iconColor: 'text-green-400',
+    };
+    if (score >= 60) return {
+        glow: 'bg-yellow-500/10',
+        glowHover: 'group-hover:bg-yellow-500/20',
+        gradient: 'from-yellow-500/[0.02]',
+        iconBg: 'bg-yellow-500/10 group-hover:bg-yellow-500/20',
+        iconColor: 'text-yellow-400',
+    };
+    return {
+        glow: 'bg-red-500/10',
+        glowHover: 'group-hover:bg-red-500/20',
+        gradient: 'from-red-500/[0.02]',
+        iconBg: 'bg-red-500/10 group-hover:bg-red-500/20',
+        iconColor: 'text-red-400',
+    };
+};
+
 const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
+
     // Memoized Analytics
-    const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
-    const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
-    const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []), [data.categories, data.studyLogs]);
+    const streak    = useMemo(() => calculateStudyStreak(data.studyLogs || []),                              [data.studyLogs]);
+    const balance   = useMemo(() => analyzeSubjectBalance(data.categories || []),                            [data.categories]);
+    const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []),         [data.categories, data.studyLogs]);
 
     // Ensure user data exists
-    const user = data.user || { xp: 0, level: 1 };
-
+    const user     = data.user || { xp: 0, level: 1 };
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
+
+    // ─── BUG 1 FIX: tema calculado a partir do score real ───────────────────
+    const effTheme = useMemo(() => getEfficiencyTheme(efficiency?.score ?? 0), [efficiency?.score]);
 
     // Calculate days remaining
     const daysRemaining = useMemo(() => {
@@ -26,7 +57,6 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         if (typeof user.goalDate === 'string' && user.goalDate.includes('T')) {
             const g = new Date(user.goalDate);
             if (isNaN(g.getTime())) return null;
-            // ISO strings interpreted as UTC days for the goal
             goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
         } else {
             const rawString = String(user.goalDate);
@@ -38,15 +68,14 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         }
 
         const diffTime = goal.getTime() - localToday.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
+        return Math.round(diffTime / (1000 * 60 * 60 * 24));
     }, [user.goalDate]);
 
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
-            {/* Streak */}
+
+            {/* ── Streak ─────────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
-                {/* Visual Accent */}
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
                 <div className="relative z-10">
@@ -64,34 +93,40 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     </div>
                     {streak?.isActive && (
                         <div className="mt-1 sm:mt-2 flex items-center gap-1 text-orange-400">
-                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse"></div>
+                            <div className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse" />
                             <span className="text-[9px] sm:text-xs font-bold">ATIVA</span>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Eficiência */}
+            {/* ── Eficiência — BUG 1 FIX: cor dinâmica ──────────────────── */}
             <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
-                <div className="absolute -top-10 -left-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-[40px] group-hover:bg-emerald-500/20 transition-all duration-700" />
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-transparent pointer-events-none" />
+                <div className={`absolute -top-10 -left-10 w-24 h-24 ${effTheme.glow} rounded-full blur-[40px] ${effTheme.glowHover} transition-all duration-700`} />
+                <div className={`absolute inset-0 bg-gradient-to-br ${effTheme.gradient} to-transparent pointer-events-none`} />
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
-                            <TrendingUp size={16} className="text-green-400" />
+                        <div className={`p-1.5 sm:p-2 ${effTheme.iconBg} rounded-lg transition-colors`}>
+                            <TrendingUp size={16} className={effTheme.iconColor} />
                         </div>
                         <span className="text-[9px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Eficiência</span>
                     </div>
                     <div className="text-xl sm:text-3xl font-black text-white mb-0.5 sm:mb-1">
                         {efficiency?.score ?? 0}%
                     </div>
-                    <div className="text-[10px] sm:text-xs text-slate-500 capitalize leading-normal truncate">
-                        {efficiency?.efficiency?.replace(/_/g, ' ') || 'N/A'}
+                    <div className={`text-[10px] sm:text-xs ${effTheme.iconColor} capitalize leading-normal truncate font-medium`}>
+                        {efficiency?.efficiency?.replace(/_/g, ' ') || 'Sem dados'}
                     </div>
+                    {/* MELHORIA VISUAL: mini métrica extra */}
+                    {efficiency?.metrics?.minutesPerTask > 0 && (
+                        <div className="text-[9px] text-slate-600 mt-0.5 leading-normal">
+                            ~{efficiency.metrics.minutesPerTask}min/tarefa
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Balanceamento */}
+            {/* ── Equilíbrio ─────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 overflow-hidden shadow-2xl">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full blur-[40px] group-hover:bg-blue-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.02] to-transparent pointer-events-none" />
@@ -110,14 +145,21 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             {balance.distribution[0].subject}: {balance.distribution[0].percentage}%
                         </div>
                     )}
+                    {/* MELHORIA VISUAL: mini badge de status */}
+                    {balance?.metrics?.activeSubjects > 0 && (
+                        <div className="text-[9px] text-slate-600 mt-0.5 leading-normal">
+                            {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} matérias ativas
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* XP com barra de progresso */}
-            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 shadow-2xl flex flex-col justify-between">
+            {/* ── XP / Nível ─────────────────────────────────────────────── */}
+            {/* MELHORIA VISUAL: removido padding interno inconsistente (px-1 py-1 ml-2) */}
+            <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-4 sm:p-6 pb-6 group transition-all duration-500 shadow-2xl flex flex-col justify-between overflow-hidden">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-purple-500/10 rounded-full blur-[40px] group-hover:bg-purple-500/20 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.02] to-transparent pointer-events-none" />
-                <div className="relative z-10 px-1 py-1 ml-2">
+                <div className="relative z-10 flex flex-col h-full">
                     <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                         <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
                             <Trophy size={16} className="text-purple-400" />
@@ -126,30 +168,34 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-xl sm:text-3xl font-black text-white mb-2 sm:mb-3 pl-0.5">
-                        {user.xp} XP
+                    <div className="text-xl sm:text-3xl font-black text-white mb-2 sm:mb-3">
+                        {user.xp.toLocaleString('pt-BR')} XP
                     </div>
-                    <div className="space-y-1.5 pb-1">
+                    <div className="space-y-1.5 mt-auto">
                         <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
                                 style={{ width: `${progress.percentage}%` }}
                             />
                         </div>
-                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-relaxed pt-0.5">
+                        <div className="text-[9px] sm:text-xs text-purple-400 font-bold leading-relaxed">
                             {progress.percentage}% → Nível {progress.level + 1}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Data da Prova */}
-            <div className={`col-span-2 md:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-4 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            {/* ── Data da Prova ───────────────────────────────────────────── */}
+            {/* BUG 2 FIX: col-span-2 md:col-span-1 → col-span-2 lg:col-span-1
+                Em telas md (768-1023px), a grade ainda tem 2 colunas (sem breakpoint md
+                no grid). O card com md:col-span-1 ficava com 1 col em grade de 2,
+                deixando uma célula vazia ao lado. Agora só colapsa em lg+ (5 colunas). */}
+            <div className={`col-span-2 lg:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-4 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'animate-glow-red'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
 
-                {/* Background Layer for Glowes & Overflows */}
+                {/* Background glows */}
                 <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                     <div className={`absolute -top-10 -right-10 w-24 h-24 rounded-full blur-[40px] transition-transform duration-700 ${!user.goalDate ? 'bg-red-500/30 scale-150' : 'bg-red-500/10 group-hover:scale-150'}`} />
                     {(!user.goalDate || (daysRemaining !== null && daysRemaining <= 15 && daysRemaining >= 0)) && (
@@ -157,7 +203,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     )}
                 </div>
 
-                {/* Content Layer */}
+                {/* Left: contador de dias */}
                 <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2">
                     {daysRemaining !== null ? (
                         <div className="flex flex-col items-center pl-2">
@@ -171,10 +217,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             </div>
                             <div className={`text-[10px] font-bold mt-0.5 text-center uppercase tracking-widest leading-normal ${daysRemaining < 0 ? 'text-slate-600' : daysRemaining <= 15 ? 'text-red-500/80' : 'text-slate-400'}`}>
                                 {daysRemaining < 0
-                                    ? "Já passou"
+                                    ? 'Já passou'
                                     : daysRemaining === 0
-                                        ? "É hoje!"
-                                        : "Para a prova"}
+                                        ? 'É hoje!'
+                                        : 'Para a prova'}
                             </div>
                         </div>
                     ) : (
@@ -189,10 +235,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     )}
                 </div>
 
-                {/* Vertical Divider */}
-                <div className="w-[1px] h-12 bg-white/10 z-10 mx-2"></div>
+                {/* Divisor vertical */}
+                <div className="w-[1px] h-12 bg-white/10 z-10 mx-2" />
 
-                {/* Right Side: Date Picker */}
+                {/* Right: date picker */}
                 <div
                     className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 pr-2 group/rightside cursor-pointer"
                     onMouseDown={(e) => {
