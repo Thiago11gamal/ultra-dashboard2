@@ -23,13 +23,13 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
         const end = new Date();
         end.setHours(23, 59, 59, 999);
         end.setDate(end.getDate() - (selectedWeekOffset * 7));
-        
+
         const start = new Date(end);
         start.setHours(0, 0, 0, 0);
         start.setDate(end.getDate() - 6);
 
         const format = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-        
+
         return {
             startDate: start,
             endDate: end,
@@ -66,13 +66,13 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
                     if (!n) return;
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, errors: 0 };
-                    
+
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
                     const correctCount = (t.isPercentage && t.score != null && total > 0)
                         ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
                         : (t.correct != null ? parseInt(t.correct, 10) : Math.round((getSafeScore(t, maxScore) / maxScore) * total));
-                    
+
                     topicMap[key].errors += Math.max(0, total - correctCount);
                 });
             }
@@ -99,11 +99,11 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
         if (!categories || !categories.length) return [];
         let totalErrors = 0;
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
-        
+
         const rawData = categories.map(cat => {
             let errors = 0;
             const history = cat.simuladoStats?.history || [];
-            
+
             const recentHistory = history.filter(h => {
                 const d = normalizeDate(h.date);
                 return d && d >= startDate && d <= endDate;
@@ -149,8 +149,8 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     className={`
                                         relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
-                                        ${isActive 
-                                            ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_20px_rgba(157,78,221,0.8)] scale-105 border border-purple-400/30 ring-1 ring-purple-500/20' 
+                                        ${isActive
+                                            ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_20px_rgba(157,78,221,0.8)] scale-105 border border-purple-400/30 ring-1 ring-purple-500/20'
                                             : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 shadow-sm'
                                         }
                                     `}

@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { 
-    monteCarloSimulation, 
-    computeCategoryStats, 
-    calculateCurrentWeightedMean, 
-    computeBayesianLevel, 
+import {
+    monteCarloSimulation,
+    computeCategoryStats,
+    calculateCurrentWeightedMean,
+    computeBayesianLevel,
     calculateVolatility,
-    runMonteCarloAnalysis 
+    runMonteCarloAnalysis
 } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -67,18 +67,18 @@ const ENGINES = [
 
 import { useAppStore } from "../store/useAppStore";
 
-export default function EvolutionChart({ 
-    categories = [], 
-    targetScore = 80, 
-    goalDate, 
-    monteCarloHistory = [], 
+export default function EvolutionChart({
+    categories = [],
+    targetScore = 80,
+    goalDate,
+    monteCarloHistory = [],
     unit = '%',
     minScore = 0,
     maxScore = 100
 }) {
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
-    
+
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
@@ -101,7 +101,7 @@ export default function EvolutionChart({
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
     }, [goalDate]);
-    
+
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
@@ -112,7 +112,7 @@ export default function EvolutionChart({
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         const found = categories.find(c => c.id === focusSubjectId);
-        
+
         // Se não encontrou (ou foi apagado), volta para o primeiro automaticamente 
         // sem precisar disparar um setFocusSubjectId e causar um re-render duplo!
         return found || categories[0];
@@ -124,7 +124,7 @@ export default function EvolutionChart({
 
         categories.forEach(cat => {
             const fromTimeline = lastPoint?.[`bay_${cat.id}`];
-            if (fromTimeline != null) { 
+            if (fromTimeline != null) {
                 map[cat.id] = fromTimeline;
                 return;
             }
@@ -150,7 +150,7 @@ export default function EvolutionChart({
     useEffect(() => {
         setMcProjectionSeries(null);
         if (!focusCategory?.simuladoStats?.history) return;
-        
+
         const hist = [...focusCategory.simuladoStats.history]
             .filter(h => h && h.date) // <--- FILTRO DE SEGURANÇA ADICIONADO AQUI
             .map(h => {
@@ -160,18 +160,18 @@ export default function EvolutionChart({
                 return { date: dateKey, score, correct: h.correct, total: h.total };
             })
             .filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
-            
+
         if (hist.length < 2) return;
-        
+
         let cancelled = false;
-        
+
         (async () => {
             setMcLoading(true);
             try {
                 // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
                 const bayesian = computeBayesianLevel(hist, 1, 1, maxScore);
                 const vol = calculateVolatility(hist);
-                
+
                 // WORKER UPGRADE: Using parallel worker with 5000 simulations
                 const result = await runAnalysis({
                     values: hist.map(h => h.score),
@@ -185,26 +185,26 @@ export default function EvolutionChart({
                 });
 
                 if (cancelled || !result) return;
-                
+
                 setMcResult(result);
 
                 const lastDate = new Date(hist[hist.length - 1].date);
                 if (Number.isNaN(lastDate.getTime())) return;
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + projectDays);
-                
+
                 const p50 = parseFloat(result.projectedMean || result.mean);
                 const lo = parseFloat(result.ci95Low);
                 const hi = parseFloat(result.ci95High);
-                
+
                 if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
-                
-                setMcProjectionSeries({ 
+
+                setMcProjectionSeries({
                     // FIX: Usar getDateKey (hora local) em vez de toISOString (UTC)
                     // para evitar deslocamento de ±1 dia nos fusos negativos (ex: UTC-4)
-                    date: getDateKey(nextDate), 
-                    mc_p50: p50, 
-                    mc_band: [lo, hi] 
+                    date: getDateKey(nextDate),
+                    mc_p50: p50,
+                    mc_band: [lo, hi]
                 });
             } catch (err) {
                 console.warn('[EvolutionChart] Worker MC falhou, tentando sync:', err);
@@ -219,16 +219,16 @@ export default function EvolutionChart({
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
-        let pts = timeline.map((d) => ({ 
-            ...d, 
-            "Nota Bruta": d[`raw_${focusCategory.id}`], 
-            "Nível Bayesiano": d[`bay_${focusCategory.id}`], 
-            "Bay CI Low": d[`bay_ci_low_${focusCategory.id}`], 
-            "Bay CI High": d[`bay_ci_high_${focusCategory.id}`], 
-            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] : null, 
-            "Média Histórica": d[`stats_${focusCategory.id}`] 
+        let pts = timeline.map((d) => ({
+            ...d,
+            "Nota Bruta": d[`raw_${focusCategory.id}`],
+            "Nível Bayesiano": d[`bay_${focusCategory.id}`],
+            "Bay CI Low": d[`bay_ci_low_${focusCategory.id}`],
+            "Bay CI High": d[`bay_ci_high_${focusCategory.id}`],
+            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] : null,
+            "Média Histórica": d[`stats_${focusCategory.id}`]
         }));
-        
+
         if (mcProjectionSeries && pts.length > 0) {
             const lastIdx = pts.length - 1;
             const currentLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
@@ -236,7 +236,7 @@ export default function EvolutionChart({
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
-                const weight = Math.sqrt(t); 
+                const weight = Math.sqrt(t);
                 const val = currentLevel + (mcProjectionSeries.mc_p50 - currentLevel) * t;
                 const bandLow = currentLevel + (mcProjectionSeries.mc_band[0] - currentLevel) * weight;
                 const bandHigh = currentLevel + (mcProjectionSeries.mc_band[1] - currentLevel) * weight;
@@ -380,10 +380,10 @@ export default function EvolutionChart({
 
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
-            .filter(h => { 
+            .filter(h => {
                 if (!h || !h.date) return false; // <--- PROTEÇÃO AQUI
-                const d = new Date(h.date).getTime(); 
-                return !isNaN(d) && nowMs - d <= sevenDaysMs; 
+                const d = new Date(h.date).getTime();
+                return !isNaN(d) && nowMs - d <= sevenDaysMs;
             })
             .reduce((sum, h) => {
                 let q = parseInt(h.total, 10) || 0;
@@ -421,7 +421,7 @@ export default function EvolutionChart({
     return (
         <div id="evolution-chart-container" className="space-y-6 animate-fade-in relative">
             <div className="flex justify-end mb-[-10px] sm:mb-[-20px] relative z-20 no-print pr-1">
-                <button 
+                <button
                     onClick={handleExport}
                     disabled={isExporting}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-[10px] sm:text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
@@ -442,8 +442,8 @@ export default function EvolutionChart({
                 <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
                 <div className="col-span-2 sm:col-span-1">
-                    <KpiCard 
-                        value={`${globalMetrics.globalAccuracy.toFixed(1)}%`} 
+                    <KpiCard
+                        value={`${globalMetrics.globalAccuracy.toFixed(1)}%`}
                         label="Precisão Global" color="#fb923c" icon="⚡"
                     />
                 </div>
@@ -455,13 +455,13 @@ export default function EvolutionChart({
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 overflow-visible">
                     {activeCategories.map(cat => (
-                        <DisciplinaCard 
-                            key={cat.id} 
-                            cat={cat} 
-                            level={categoryLevels[cat.id] || 0} 
-                            target={targetScore} 
-                            isFocused={focusSubjectId === cat.id} 
-                            onClick={() => setFocusSubjectId(cat.id)} 
+                        <DisciplinaCard
+                            key={cat.id}
+                            cat={cat}
+                            level={categoryLevels[cat.id] || 0}
+                            target={targetScore}
+                            isFocused={focusSubjectId === cat.id}
+                            onClick={() => setFocusSubjectId(cat.id)}
                             unit={unit}
                             maxScore={maxScore}
                         />
@@ -524,23 +524,23 @@ export default function EvolutionChart({
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap heatmapData={heatmapData} targetScore={targetScore} />
                 ) : activeEngine === "subtopics" ? (
-                    <SubtopicsPerformanceChart 
-                        categories={categories} 
-                        focusSubjectId={focusSubjectId} 
-                        showOnlyFocus={showOnlyFocus} 
-                        timeWindow={timeWindow} 
-                        targetScore={targetScore} 
+                    <SubtopicsPerformanceChart
+                        categories={categories}
+                        focusSubjectId={focusSubjectId}
+                        showOnlyFocus={showOnlyFocus}
+                        timeWindow={timeWindow}
+                        targetScore={targetScore}
                     />
                 ) : activeEngine === "mc_density" ? (
-                    <MonteCarloEvolutionChart 
-                        data={monteCarloHistory} 
-                        targetScore={targetScore} 
+                    <MonteCarloEvolutionChart
+                        data={monteCarloHistory}
+                        targetScore={targetScore}
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}
                     />
                 ) : activeEngine === "weekly_diff" ? (
-                    <WeeklyEvolutionView 
+                    <WeeklyEvolutionView
                         categories={categories}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
@@ -565,9 +565,9 @@ export default function EvolutionChart({
                                 </div>
                             </div>
                         )}
-                        <CompareChart 
-                            filteredChartData={filteredChartData} 
-                            targetScore={targetScore} 
+                        <CompareChart
+                            filteredChartData={filteredChartData}
+                            targetScore={targetScore}
                             categories={categories}
                             minScore={minScore}
                             maxScore={maxScore}
@@ -575,7 +575,7 @@ export default function EvolutionChart({
                         />
                     </div>
                 ) : (
-                    <EvolutionLineChart 
+                    <EvolutionLineChart
                         filteredChartData={filteredChartData}
                         activeCategories={activeCategories}
                         engine={engine}
@@ -597,7 +597,7 @@ export default function EvolutionChart({
                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                             <TrendingUp size={120} />
                         </div>
-                        
+
                         <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
                             {/* Left: Gaussian Plot */}
                             <div className="w-full md:w-1/2 flex flex-col">
@@ -608,7 +608,7 @@ export default function EvolutionChart({
                                     </span>
                                 </div>
                                 <div className="h-40 w-full mb-2">
-                                    <GaussianPlot 
+                                    <GaussianPlot
                                         mean={mcResult?.projectedMean ?? mcResult?.mean ?? 0}
                                         sd={mcResult?.sd ?? 0}
                                         sdLeft={mcResult?.sdLeft ?? mcResult?.sd ?? 0}
@@ -671,14 +671,14 @@ export default function EvolutionChart({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     <RadarAnalysis radarData={radarData} />
-                    <PerformanceBarChart 
-                        subjectAggData={subjectAggData} 
-                        showOnlyFocus={showOnlyFocus} 
-                        focusCategory={focusCategory} 
+                    <PerformanceBarChart
+                        subjectAggData={subjectAggData}
+                        showOnlyFocus={showOnlyFocus}
+                        focusCategory={focusCategory}
                         unit={unit}
                         maxScore={maxScore}
                     />
-                    <CriticalTopicsAnalysis 
+                    <CriticalTopicsAnalysis
                         categories={categories}
                         maxScore={maxScore}
                     />
