@@ -91,11 +91,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         }
 
         const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
-        const baseHeightFactor = 0.95;
+        // FIX: Utilizando 65% da área vertical para deixar espaço para labels e tooltips no "céu" do gráfico
+        const baseHeightFactor = 0.65;
         // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
         const xp = (v) => 2 + ((v - xMin) / range * 96);
-        const yp = (yVal) => 100 - (yVal * 92);
+        const yp = (yVal) => 100 - (yVal * 90);
 
         let path;
         let pointsForArea = [];
@@ -224,13 +224,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
     // D-10 FIX: Garantir Math.max(0, hojeTop) antes de qualquer operação de tier.
     const safeHojeTop = Math.max(0, hojeTop);
-    const isHighCurve = safeHojeTop < 25;
+    const isHighCurve = safeHojeTop < 35;
     const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget))
-        ? (25 + (tierHoje - 1) * 20 + '%')
-        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 22}px)` : `${safeHojeTop}%`);
+        ? (35 + (tierHoje - 1) * 15 + '%')
+        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 20}px)` : `${safeHojeTop}%`);
 
     return (
-        <div className="relative w-full h-[160px] mt-6 mb-12 cursor-crosshair group/chart"
+        <div className="relative w-full h-[220px] mt-12 mb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -293,13 +293,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </svg>
 
             <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '24%' : tierMean === 2 ? '12%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
+                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '30%' : tierMean === 2 ? '15%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
                     <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
                     <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5 whitespace-nowrap">Projeção</span>
                 </div>
                 {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '24%' : tierTarget === 2 ? '12%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
+                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '30%' : tierTarget === 2 ? '15%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
                         <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
                         <span className="text-[7px] font-black text-rose-500/50 uppercase tracking-tighter mt-0.5">Meta</span>
@@ -323,7 +323,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <div className="absolute inset-0 pointer-events-none z-50">
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                     <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, yp(asymmetricGaussianFn(hover.val)))}%`, transform: 'translate(-50%, -50%)' }} />
-                    <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(5, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
+                    <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(25, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
                         <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}{unit}</span>
                         <div className="flex items-center gap-1 mt-0.5">
                             <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />

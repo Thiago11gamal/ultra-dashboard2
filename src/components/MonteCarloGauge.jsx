@@ -641,7 +641,7 @@ export default function MonteCarloGauge({
 
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
-                <div className="w-full h-44 px-2">
+                <div className="w-full h-80 px-2">
                     <GaussianPlot
                         mean={safe(projectedMean)}
                         sd={safe(sd)}
