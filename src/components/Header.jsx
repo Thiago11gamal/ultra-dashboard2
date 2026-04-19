@@ -11,17 +11,37 @@ import ProfileDrawer from './header/ProfileDrawer';
 /* ─────────────────────────────────────────────────────────
    Helper Components
 ───────────────────────────────────────────────────────── */
-const DateDisplay = ({ time }) => (
-    <p className="text-slate-300/80 pl-2 text-sm">
-        {format(time, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-    </p>
-);
+const DateDisplay = () => {
+    const clockTime = useClock();
+    return (
+        <p className="text-slate-300/80 pl-2 text-sm">
+            {format(clockTime, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+        </p>
+    );
+};
 
-const TimeDisplay = ({ time }) => (
-    <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
-        {format(time, 'HH:mm:ss')}
-    </div>
-);
+const TimeDisplay = () => {
+    const clockTime = useClock();
+    return (
+        <div className="glass px-4 py-2 text-lg font-mono hidden md:block">
+            {format(clockTime, 'HH:mm:ss')}
+        </div>
+    );
+};
+
+const MobileClockDisplay = () => {
+    const clockTime = useClock();
+    return (
+        <div className="flex flex-col">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold leading-none mb-0.5">
+                {format(clockTime, "EEEE", { locale: ptBR })}
+            </p>
+            <p className="text-white/60 text-xs font-semibold leading-none">
+                {format(clockTime, "d 'de' MMM", { locale: ptBR })}
+            </p>
+        </div>
+    );
+};
 
 /* ─────────────────────────────────────────────────────────
    Main Header component
@@ -42,7 +62,6 @@ export default function Header({
     onThemeChange
 }) {
     const { logout } = useAuth();
-    const clockTime = useClock();
 
     const [profileOpen, setProfileOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -84,14 +103,7 @@ export default function Header({
             {/* ─── MOBILE HEADER ─── */}
             <div className="md:hidden mb-3">
                 <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex flex-col">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold leading-none mb-0.5">
-                            {format(clockTime, "EEEE", { locale: ptBR })}
-                        </p>
-                        <p className="text-white/60 text-xs font-semibold leading-none">
-                            {format(clockTime, "d 'de' MMM", { locale: ptBR })}
-                        </p>
-                    </div>
+                    <MobileClockDisplay />
 
                     <div className="flex items-center gap-2">
                         <button
@@ -196,7 +208,7 @@ export default function Header({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <DateDisplay time={clockTime} />
+                        <DateDisplay />
                         {cloudStatus.status !== 'idle' && (
                             <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
                                 cloudStatus.status === 'connected' 
@@ -237,7 +249,7 @@ export default function Header({
                         </span>
                     </button>
 
-                    <TimeDisplay time={clockTime} />
+                    <TimeDisplay />
 
                     <div className="relative">
                         <button

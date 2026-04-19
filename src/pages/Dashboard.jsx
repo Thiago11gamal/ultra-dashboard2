@@ -9,7 +9,14 @@ import { useToast } from '../hooks/useToast';
 
 export default function Dashboard() {
     const setData = useAppStore(state => state.setData);
-    const { toggleTask, deleteTask, addCategory, deleteCategory, addTask, togglePriority, startPomodoroSession, setDashboardFilter } = useAppStore();
+    const toggleTask = useAppStore(state => state.toggleTask);
+    const deleteTask = useAppStore(state => state.deleteTask);
+    const addCategory = useAppStore(state => state.addCategory);
+    const deleteCategory = useAppStore(state => state.deleteCategory);
+    const addTask = useAppStore(state => state.addTask);
+    const togglePriority = useAppStore(state => state.togglePriority);
+    const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
+    const setDashboardFilter = useAppStore(state => state.setDashboardFilter);
     const showToast = useToast();
     const navigate = useNavigate();
 
@@ -17,11 +24,11 @@ export default function Dashboard() {
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
 
     const activeId = useAppStore(state => state.appState.activeId);
-    const categories = useAppStore(state => state.appState.contests[activeId]?.categories);
-    const simuladoRows = useAppStore(state => state.appState.contests[activeId]?.simuladoRows);
-    const studyLogs = useAppStore(state => state.appState.contests[activeId]?.studyLogs);
-    const user = useAppStore(state => state.appState.contests[activeId]?.user);
-    const pomodorosCompleted = useAppStore(state => state.appState.contests[activeId]?.pomodorosCompleted);
+    const categories = useAppStore(state => state.appState.contests?.[activeId]?.categories);
+    const simuladoRows = useAppStore(state => state.appState.contests?.[activeId]?.simuladoRows);
+    const studyLogs = useAppStore(state => state.appState.contests?.[activeId]?.studyLogs);
+    const user = useAppStore(state => state.appState.contests?.[activeId]?.user);
+    const pomodorosCompleted = useAppStore(state => state.appState.contests?.[activeId]?.pomodorosCompleted);
 
     const data = React.useMemo(() => ({
         categories, simuladoRows, studyLogs, user, pomodorosCompleted 
@@ -35,7 +42,16 @@ export default function Dashboard() {
         );
     }
 
-    const setGoalDate = (d) => setData(prev => ({ ...prev, user: { ...prev.user, goalDate: d } }));
+    const setGoalDate = (d) => setData(prev => ({
+        ...prev,
+        contests: {
+            ...prev.contests,
+            [activeId]: {
+                ...prev.contests?.[activeId],
+                user: { ...prev.contests?.[activeId]?.user, goalDate: d }
+            }
+        }
+    }));
 
     const handleStartStudying = (categoryId, taskId) => {
         const cat = data.categories?.find(c => c.id === categoryId);
