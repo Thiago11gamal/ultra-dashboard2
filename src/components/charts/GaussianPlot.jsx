@@ -15,9 +15,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const successColor = '#22c55e';
 
-    const { 
-        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, 
-        asymmetricGaussianFn, median, p25, p75, domainMin, domainMax, curveY 
+    const {
+        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp,
+        asymmetricGaussianFn, median, p25, p75, domainMin, domainMax, curveY
     } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
@@ -174,7 +174,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const ciHighPx = xp(Math.max(domainMin, Math.min(domainMax, high95)));
     const ciLowPx = xp(Math.max(domainMin, Math.min(domainMax, low95)));
-    
+
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
 
@@ -184,7 +184,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const resolvedLabels = useMemo(() => {
         const items = [];
         if (isTargetVisible) items.push({ id: 'target', x: targetPos });
-        
+
         // Se a Projeção e o Hoje forem no mesmo pixel exato, fundimos a UI para evitar poluição
         const hideMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 2.5;
         if (!hideMean) items.push({ id: 'mean', x: meanPos });
@@ -192,7 +192,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         const sorted = [...items].sort((a, b) => a.x - b.x);
         const THRESHOLD = 16; // Distância mínima (em %) para não empilhar
-        
+
         sorted.forEach((item, i) => {
             item.level = 0;
             if (i > 0) {
@@ -202,7 +202,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 }
             }
         });
-        
+
         const res = { hideMean };
         sorted.forEach(item => res[item.id] = item.level);
         return res;
@@ -224,7 +224,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         >
             <div className="fade-edge fade-left" />
             <div className="fade-edge fade-right" />
-            
+
             {/* RENDERIZAÇÃO DA MONTANHA (SVG Base) */}
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
                 <defs>
@@ -251,14 +251,14 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                
+
                 {low95 != null && high95 != null && (
                     <rect x={ciLowPx} y="0" width={Math.max(0, ciHighPx - ciLowPx)} height="100" fill="rgba(59, 130, 246, 0.05)" className="transition-opacity duration-300 group-hover/chart:opacity-80" clipPath={`url(#${ID.chartClip})`} />
                 )}
 
                 <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
                 <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
-                
+
                 <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: `url(#${ID.glow})` }} className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
 
                 {/* LINHAS VERTICAIS QUE DESCEM DO PONTO NA CURVA ATÉ O CHÃO */}
@@ -270,23 +270,23 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             {/* RENDERIZAÇÃO DOS PONTOS CIRCULARES (Fora do SVG para evitar distorção de elipse) */}
             <div className="absolute inset-0 pointer-events-none">
                 {isTargetVisible && (
-                    <div className="absolute w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)] transition-all duration-500" 
-                         style={{ left: `${targetPos}%`, top: `${targetY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)] transition-all duration-500"
+                        style={{ left: `${targetPos}%`, top: `${targetY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
                 )}
                 {!resolvedLabels.hideMean && (
-                    <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500" 
-                         style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500"
+                        style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
                 )}
                 {isCurrentVisible && (
-                    <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_12px_white] transition-all duration-500" 
-                         style={{ left: `${currentPos}%`, top: `${currentY}%`, transform: 'translate(-50%, -50%)', zIndex: 25 }} />
+                    <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_12px_white] transition-all duration-500"
+                        style={{ left: `${currentPos}%`, top: `${currentY}%`, transform: 'translate(-50%, -50%)', zIndex: 25 }} />
                 )}
             </div>
 
             {/* RÓTULOS MAIS ALTOS COM "PINOS" DE LIGAÇÃO */}
             <div className="absolute inset-0 pointer-events-none">
                 {!resolvedLabels.hideMean && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" 
+                    <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-blue-500/30 shadow-lg">
                             <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
@@ -296,9 +296,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${12 + (resolvedLabels.mean || 0) * 45}px` }} />
                     </div>
                 )}
-                
+
                 {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" 
+                    <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(targetPos, 96))}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
                         <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-rose-500/30 shadow-lg">
                             <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
@@ -310,7 +310,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
 
                 {isCurrentVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40" 
+                    <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
                         style={{ left: `${Math.max(4, Math.min(currentPos, 96))}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
                         <div className="flex flex-col items-center px-2 py-1 rounded-lg bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
                             <span className="text-[11px] leading-none font-black text-white">{(currentMean ?? 0).toFixed(1)}{unit}</span>
