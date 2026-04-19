@@ -46,7 +46,7 @@ export const WeeklyEvolutionView = ({
     }, [showOnlyFocus, focusSubjectId]);
 
     // 2. PROCESSAMENTO DOMINADO
-    const { chartData, activeKeys } = useMemo(() => {
+    const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {}; 
         
         if (!showOnlyFocus || !focusSubjectId) {
@@ -194,7 +194,7 @@ export const WeeklyEvolutionView = ({
     // 🌟 LÓGICA DO "Noodle Bowl" (Oculta linhas exedentes se houverem mais de 6 opções)
     const hiddenKeys = useMemo(() => {
         const result = {};
-        chartData.rankedKeys?.forEach((key, idx) => {
+        rankedKeys?.forEach((key, idx) => {
             const defaultHide = idx >= 6; // Mantém no top 6 mais volumosos
             if (userToggles[key] !== undefined) {
                 result[key] = userToggles[key]; // Escolha manual do aluno domina
@@ -332,135 +332,137 @@ export const WeeklyEvolutionView = ({
             </div>
 
             <div className="h-[380px] w-full mt-2 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                    {viewMode === 'performance' ? (
-                        <WeeklyPerformanceChart
-                             categories={categories}
-                             studyLogs={studyLogs}
-                             showOnlyFocus={showOnlyFocus}
-                             focusSubjectId={focusSubjectId}
-                             maxScore={maxScore}
-                             unit={unit}
-                        />
-                    ) : viewMode === 'evolution' ? (
-                        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                            
-                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                            <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}${unit}`} />
-                            
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
-                            
-                            <Legend 
-                                onClick={handleLegendClick}
-                                wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
-                                iconType="circle"
-                                formatter={(value, entry) => (
-                                    <span style={{ 
-                                        color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff', 
-                                        textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
-                                        transition: 'all 0.3s'
-                                    }}>
-                                        {value}
-                                    </span>
-                                )} 
-                            />
-                            
-                            {/* 🌟 SOLUÇÃO: BRUSH NA LINHA SÓ SE NECESSÁRIO */}
-                            {chartData.length > 4 && (
-                                <Brush 
-                                    dataKey="displayDate" 
-                                    height={20} 
-                                    stroke="#4f46e5" 
-                                    fill="#0f172a" 
-                                    tickFormatter={() => ''}
-                                    className="opacity-80"
-                                    travellerWidth={8}
-                                />
-                            )}
-
-                            {keys.map(key => (
-                                <Line 
-                                    key={key}
-                                    type="monotone" 
-                                    dataKey={key} 
-                                    name={activeKeys[key].name}
-                                    stroke={activeKeys[key].color} 
-                                    strokeWidth={3}
-                                    hide={hiddenKeys[key]}
-                                    dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
-                                    activeDot={{ r: 6, strokeWidth: 0 }}
-                                    connectNulls={true} 
-                                />
-                            ))}
-                        </LineChart>
-                    ) : (
-                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                            
-                            <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit}`} />
-                            
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
-                            <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
-                            
-                            <Legend 
-                                onClick={handleLegendClick}
-                                wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
-                                iconType="circle" 
-                                formatter={(value, entry) => {
-                                    const baseKey = entry.dataKey.replace('delta_', '');
-                                    return (
+                {viewMode === 'performance' ? (
+                    <WeeklyPerformanceChart
+                         categories={categories}
+                         studyLogs={studyLogs}
+                         showOnlyFocus={showOnlyFocus}
+                         focusSubjectId={focusSubjectId}
+                         maxScore={maxScore}
+                         unit={unit}
+                    />
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        {viewMode === 'evolution' ? (
+                            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                                <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}${unit}`} />
+                                
+                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
+                                
+                                <Legend 
+                                    onClick={handleLegendClick}
+                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
+                                    iconType="circle"
+                                    formatter={(value, entry) => (
                                         <span style={{ 
-                                            color: hiddenKeys[baseKey] ? '#475569' : '#fff', 
-                                            textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
+                                            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff', 
+                                            textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
                                             transition: 'all 0.3s'
                                         }}>
-                                            {value.replace(' (Var.)', '')}
+                                            {value}
                                         </span>
-                                    );
-                                }}
-                            />
-                            
-                            {/* 🌟 SOLUÇÃO: BRUSH NA BARRA SÓ SE NECESSÁRIO */}
-                            {chartData.length > 4 && (
-                                <Brush 
-                                    dataKey="displayDate" 
-                                    height={20} 
-                                    stroke="#4f46e5" 
-                                    fill="#0f172a" 
-                                    tickFormatter={() => ''}
-                                    className="opacity-80"
-                                    travellerWidth={8}
+                                    )} 
                                 />
-                            )}
+                                
+                                {chartData.length > 4 && (
+                                    <Brush 
+                                        dataKey="displayDate" 
+                                        height={20} 
+                                        stroke="#4f46e5" 
+                                        fill="#0f172a" 
+                                        tickFormatter={() => ''}
+                                        className="opacity-80"
+                                        travellerWidth={8}
+                                    />
+                                )}
 
-                            {keys.map(key => (
-                                <Bar 
-                                    key={`delta_${key}`}
-                                    dataKey={`delta_${key}`} 
-                                    name={`${activeKeys[key].name} (Var.)`}
-                                    fill={activeKeys[key].color} 
-                                    radius={[4, 4, 4, 4]}
-                                    hide={hiddenKeys[key]}
-                                >
-                                    {chartData.map((entry, index) => {
-                                        const val = entry[`delta_${key}`];
-                                        const barColor = val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8';
-                                        return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={0.85} />;
-                                    })}
-                                </Bar>
-                            ))}
-                        </BarChart>
-                    )}
-                </ResponsiveContainer>
+                                {keys.map(key => (
+                                    <Line 
+                                        key={key}
+                                        type="monotone" 
+                                        dataKey={key} 
+                                        name={activeKeys[key].name}
+                                        stroke={activeKeys[key].color} 
+                                        strokeWidth={3}
+                                        hide={hiddenKeys[key]}
+                                        dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
+                                        activeDot={{ r: 6, strokeWidth: 0 }}
+                                        connectNulls={true} 
+                                    />
+                                ))}
+                            </LineChart>
+                        ) : (
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit}`} />
+                                
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
+                                <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
+                                
+                                <Legend 
+                                    onClick={handleLegendClick}
+                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
+                                    iconType="circle" 
+                                    formatter={(value, entry) => {
+                                        const baseKey = entry.dataKey.replace('delta_', '');
+                                        return (
+                                            <span style={{ 
+                                                color: hiddenKeys[baseKey] ? '#475569' : '#fff', 
+                                                textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
+                                                transition: 'all 0.3s'
+                                            }}>
+                                                {value.replace(' (Var.)', '')}
+                                            </span>
+                                        );
+                                    }}
+                                />
+                                
+                                {chartData.length > 4 && (
+                                    <Brush 
+                                        dataKey="displayDate" 
+                                        height={20} 
+                                        stroke="#4f46e5" 
+                                        fill="#0f172a" 
+                                        tickFormatter={() => ''}
+                                        className="opacity-80"
+                                        travellerWidth={8}
+                                    />
+                                )}
+
+                                {keys.map(key => (
+                                    <Bar 
+                                        key={`delta_${key}`}
+                                        dataKey={`delta_${key}`} 
+                                        name={`${activeKeys[key].name} (Var.)`}
+                                        fill={activeKeys[key].color} 
+                                        radius={[4, 4, 4, 4]}
+                                        hide={hiddenKeys[key]}
+                                    >
+                                        {chartData.map((entry, index) => {
+                                            const val = entry[`delta_${key}`];
+                                            const barColor = val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8';
+                                            return <Cell key={`cell-${index}`} fill={barColor} fillOpacity={0.85} />;
+                                        })}
+                                    </Bar>
+                                ))}
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                )}
             </div>
             
-            <div className="flex justify-center mt-3 opacity-60">
-                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 shrink-0 select-none">
-                     💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
-                 </p>
-            </div>
+            {viewMode !== 'performance' && (
+                <div className="flex justify-center mt-3 opacity-60">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 shrink-0 select-none">
+                        💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

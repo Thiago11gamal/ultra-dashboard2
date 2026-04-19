@@ -222,8 +222,26 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             }}
             onMouseLeave={() => setHover(null)}
         >
-            <div className="fade-edge fade-left" />
-            <div className="fade-edge fade-right" />
+            <div style={{
+                position: 'absolute',
+                width: '40px',
+                top: 0,
+                bottom: 0,
+                pointerEvents: 'none',
+                zIndex: 10,
+                left: 0,
+                background: 'linear-gradient(to right, rgb(15, 23, 42), transparent)'
+            }} />
+            <div style={{
+                position: 'absolute',
+                width: '40px',
+                top: 0,
+                bottom: 0,
+                pointerEvents: 'none',
+                zIndex: 10,
+                right: 0,
+                background: 'linear-gradient(to left, rgb(15, 23, 42), transparent)'
+            }} />
 
             {/* RENDERIZAÇÃO DA MONTANHA (SVG Base) */}
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">

@@ -14,6 +14,16 @@ const DAYS = [
     { id: 'sun', label: 'Domingo', color: 'rose' }
 ];
 
+const colorMap = {
+    blue: { bg: 'bg-blue-500', text: 'group-hover/header:text-blue-400' },
+    purple: { bg: 'bg-purple-500', text: 'group-hover/header:text-purple-400' },
+    pink: { bg: 'bg-pink-500', text: 'group-hover/header:text-pink-400' },
+    orange: { bg: 'bg-orange-500', text: 'group-hover/header:text-orange-400' },
+    emerald: { bg: 'bg-emerald-500', text: 'group-hover/header:text-emerald-400' },
+    cyan: { bg: 'bg-cyan-500', text: 'group-hover/header:text-cyan-400' },
+    rose: { bg: 'bg-rose-500', text: 'group-hover/header:text-rose-400' }
+};
+
 // Usando getSafeId importado de utils/idGenerator
 
 // PASSO 2: TaskCard atualizado para receber stableId
@@ -265,8 +275,8 @@ export default function AICoachPlanner() {
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[200px] shrink-0">
                                     {/* Column Header Design */}
                                     <div className="text-center py-2.5 px-2 mb-4 rounded-xl border border-white/5 bg-slate-950/40 shadow-inner group/header relative overflow-hidden">
-                                        <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 bg-${day.color}-500`} />
-                                        <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors group-hover/header:text-${day.color}-400 text-slate-400`}>
+                                        <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 ${colorMap[day.color]?.bg || 'bg-slate-500'}`} />
+                                        <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors ${colorMap[day.color]?.text || 'text-slate-400'} text-slate-400`}>
                                             {day.label}
                                         </h4>
                                     </div>

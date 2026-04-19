@@ -44,6 +44,10 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Charts({ data, compact = false }) {
+    const instanceId = React.useId().replace(/:/g, '');
+    const gradId = `barGradient_${instanceId}`;
+    const shadowId = `barShadow_${instanceId}`;
+
     // Ensure categories exists from data prop or fallback
     const categories = React.useMemo(() => data?.categories || [], [data?.categories]);
 
@@ -99,11 +103,11 @@ export default function Charts({ data, compact = false }) {
             {/* SVG Gradient Defs - always rendered so the gradient is available */}
             <svg width="0" height="0" className="hidden">
                 <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#a855f7" />
                         <stop offset="100%" stopColor="#3b82f6" />
                     </linearGradient>
-                    <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="2" result="blur" />
                         <feOffset dx="0" dy="2" result="offsetBlur" />
                         <feMerge>
@@ -160,7 +164,7 @@ export default function Charts({ data, compact = false }) {
                         <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(val) => Math.round(val)} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                         <Bar dataKey="total" fill="rgba(255,255,255,0.05)" radius={[6, 6, 0, 0]} barSize={24} />
-                        <Bar dataKey="completed" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={24} style={{ filter: 'url(#barShadow)' }} />
+                        <Bar dataKey="completed" fill={`url(#${gradId})`} radius={[6, 6, 0, 0]} barSize={24} style={{ filter: `url(#${shadowId})` }} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

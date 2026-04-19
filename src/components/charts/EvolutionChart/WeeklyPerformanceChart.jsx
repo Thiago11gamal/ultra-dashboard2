@@ -83,8 +83,8 @@ const WeeklyPerformanceChart = ({
     }, [categories, studyLogs, showOnlyFocus, focusSubjectId, maxScore]);
 
     return (
-        <div className="w-full h-[320px] sm:h-[400px]">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-1 gap-2">
+        <div className="w-full h-[320px] sm:h-[400px] flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-1 gap-2 shrink-0">
                 <div>
                   <h3 className="text-white font-black text-sm sm:text-base flex items-center gap-2">
                       📈 {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
@@ -105,7 +105,8 @@ const WeeklyPerformanceChart = ({
                 </div>
             </div>
 
-            <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
@@ -220,6 +221,7 @@ const WeeklyPerformanceChart = ({
                 </ComposedChart>
             </ResponsiveContainer>
         </div>
+    </div>
     );
 };
 
