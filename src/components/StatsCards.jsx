@@ -239,19 +239,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                 {/* Right: date picker */}
                 <div 
-                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside cursor-pointer"
-                    onClick={() => {
-                        try {
-                            if (dateInputRef.current && typeof dateInputRef.current.showPicker === 'function') {
-                                dateInputRef.current.showPicker();
-                            } else if (dateInputRef.current) {
-                                dateInputRef.current.click();
-                            }
-                        } catch (e) {
-                            console.error("Picker não suportado", e);
-                        }
-                    }}
+                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside hover:bg-white/5 rounded-xl transition-colors py-2"
                 >
+                    <input
+                        ref={dateInputRef}
+                        type="date"
+                        value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
+                        onChange={(e) => onUpdateGoalDate(e.target.value)}
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50"
+                        title="Escolher data da prova"
+                    />
                     <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
                         <div className={`p-2 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
                             <Calendar size={18} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
@@ -274,15 +271,6 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             })() : 'ESCOLHER'}
                         </div>
                     </div>
-
-                    <input
-                        ref={dateInputRef}
-                        type="date"
-                        value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
-                        onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 absolute w-0 h-0 overlow-hidden pointer-events-none"
-                        tabIndex={-1}
-                    />
                 </div>
             </div>
         </div>
