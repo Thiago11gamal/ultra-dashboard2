@@ -53,92 +53,92 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
                 let pSuccess;
                 if (tVal >= mVal) {
-                const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
-                pSuccess = Math.max(0, pRightSuccess - pOverflow);
-            } else {
-                const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
-                const totalLeftArea = normFactor * sl * 0.5;
-                const totalRightArea = normFactor * sr * 0.5;
-                pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
+                    const pRightSuccess = normFactor * sr * normalCDF_complement((tVal - mVal) / sr);
+                    pSuccess = Math.max(0, pRightSuccess - pOverflow);
+                } else {
+                    const pLeftFail = normFactor * sl * normalCDF_complement((mVal - tVal) / sl);
+                    const totalLeftArea = normFactor * sl * 0.5;
+                    const totalRightArea = normFactor * sr * 0.5;
+                    pSuccess = Math.max(0, (totalLeftArea - pLeftFail) + (totalRightArea - pOverflow));
+                }
+                return pSuccess / truncatedTotal;
+            };
+
+            let sl = vizSdLeft, sr = vizSdRight;
+            for (let i = 0; i < 12; i++) {
+                const pg = getGeomProb(t, m, sl, sr);
+
+                // FIX: Paragem de emergência para NaN prevenindo corrupção em cascata
+                if (isNaN(pg) || Math.abs(targetProb - pg) <= 0.002) break;
+
+                const r = targetProb / Math.max(0.005, pg);
+                const adjustment = t < m ? (1 / r) : r;
+
+                const damp = 0.85 * Math.pow(0.93, i);
+                const appliedAdj = 1 + (adjustment - 1) * damp;
+
+                const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
+                const currentCap = targetProb > 0.95 ? 8 : 4;
+
+                if (t < m) {
+                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
+                } else {
+                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
+                }
             }
-            return pSuccess / truncatedTotal;
+            vizSdLeft = sl; vizSdRight = sr;
+        }
+
+        const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
+        // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
+        const baseHeightFactor = 0.95;
+        // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
+        const xp = (v) => 2 + ((v - xMin) / range * 96);
+        const yp = (yVal) => 100 - (yVal * 92);
+
+        let path;
+        let pointsForArea = [];
+        const finalHF = baseHeightFactor;
+
+        if (kdeData && kdeData.length > 5) {
+            // VISUAL FIX 2: Deixar a curva fluir para ALÉM do Viewport `<svg>`
+            // Ocultado o corte artificial (DOMAIN_MIN/MAX) que causava as 'paredes verticais'.
+            // O `preserveAspectRatio="none"` do CSS vai naturalmente e perfeitamente cortar 
+            // a linha onde a tela acaba, enquanto a linha segue linear fora dela.
+            const points = [];
+            points.push(`${xp(kdeData[0].x)},100`);
+            kdeData.forEach(p => {
+                points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
+            });
+            points.push(`${xp(kdeData[kdeData.length - 1].x)},100`);
+            path = `M ${points.join(' L ')}`;
+            pointsForArea = points;
+        } else {
+            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
+            path = `M ${pts.join(' L ')}`;
+            pointsForArea = pts;
+        }
+
+        const areaPoints = [];
+        const failPoints = [];
+        const successStart = Math.max(xMin, targetVal);
+
+        const getYAtX = (pts, xTarget) => {
+            let lo = null, hi = null;
+            for (const p of pts) {
+                const [px, py] = p.split(',').map(Number);
+                if (px <= xTarget) lo = { px, py };
+                else if (!hi) { hi = { px, py }; break; }
+            }
+            if (!lo) return hi?.py ?? 100;
+            if (!hi) return lo.py;
+
+            // FIX: Prevenção de divisão por zero (impede que 't' se torne NaN e colapse o Path SVG)
+            if (hi.px === lo.px) return lo.py;
+
+            const t = (xTarget - lo.px) / (hi.px - lo.px);
+            return lo.py + t * (hi.py - lo.py);
         };
-
-        let sl = vizSdLeft, sr = vizSdRight;
-        for (let i = 0; i < 12; i++) {
-            const pg = getGeomProb(t, m, sl, sr);
-            
-            // FIX: Paragem de emergência para NaN prevenindo corrupção em cascata
-            if (isNaN(pg) || Math.abs(targetProb - pg) <= 0.002) break;
-            
-            const r = targetProb / Math.max(0.005, pg);
-            const adjustment = t < m ? (1 / r) : r;
-            
-            const damp = 0.85 * Math.pow(0.93, i);
-            const appliedAdj = 1 + (adjustment - 1) * damp;
-            
-            const safeR = Math.min(1.5, Math.max(0.66, appliedAdj));
-            const currentCap = targetProb > 0.95 ? 8 : 4;
-            
-            if (t < m) {
-                sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
-            } else {
-                sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
-            }
-        }
-        vizSdLeft = sl; vizSdRight = sr;
-    }
-
-    const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-    // FIX: Utilizando quase 100% da área do SVG para não "esmagar" a distribuição ao meio
-    const baseHeightFactor = 0.95; 
-    // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
-    const xp = (v) => 2 + ((v - xMin) / range * 96);
-    const yp = (yVal) => 100 - (yVal * 92); 
-
-    let path;
-    let pointsForArea = [];
-    const finalHF = baseHeightFactor;
-
-    if (kdeData && kdeData.length > 5) {
-        // VISUAL FIX 2: Deixar a curva fluir para ALÉM do Viewport `<svg>`
-        // Ocultado o corte artificial (DOMAIN_MIN/MAX) que causava as 'paredes verticais'.
-        // O `preserveAspectRatio="none"` do CSS vai naturalmente e perfeitamente cortar 
-        // a linha onde a tela acaba, enquanto a linha segue linear fora dela.
-        const points = [];
-        points.push(`${xp(kdeData[0].x)},100`);
-        kdeData.forEach(p => {
-            points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
-        });
-        points.push(`${xp(kdeData[kdeData.length - 1].x)},100`);
-        path = `M ${points.join(' L ')}`;
-        pointsForArea = points;
-    } else {
-        const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
-        path = `M ${pts.join(' L ')}`;
-        pointsForArea = pts;
-    }
-
-    const areaPoints = [];
-    const failPoints = [];
-    const successStart = Math.max(xMin, targetVal);
-
-    const getYAtX = (pts, xTarget) => {
-        let lo = null, hi = null;
-        for (const p of pts) {
-            const [px, py] = p.split(',').map(Number);
-            if (px <= xTarget) lo = { px, py };
-            else if (!hi) { hi = { px, py }; break; }
-        }
-        if (!lo) return hi?.py ?? 100;
-        if (!hi) return lo.py;
-        
-        // FIX: Prevenção de divisão por zero (impede que 't' se torne NaN e colapse o Path SVG)
-        if (hi.px === lo.px) return lo.py; 
-        
-        const t = (xTarget - lo.px) / (hi.px - lo.px);
-        return lo.py + t * (hi.py - lo.py);
-    };
 
         const yAtTargetVisual = (kdeData && kdeData.length > 5)
             ? getYAtX(pointsForArea, xp(successStart))
@@ -157,7 +157,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         // Ancora no infinito/ponto final disponível
         failPoints.push(`${pointsForArea[0].split(',')[0]},100`);
-        
+
         pointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
@@ -182,7 +182,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     const nearest = kdeData.reduce((best, p) =>
                         Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
                     );
-                    return nearest.y * finalHF; 
+                    return nearest.y * finalHF;
                 }
                 return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
             },
@@ -196,7 +196,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const meanPos = xp(projectedMean ?? mean ?? 0);
     const currentPos = currentMean != null ? xp(currentMean) : 0;
     const ciHighPx = xp(Math.max(domainMin, Math.min(domainMax, high95)));
-    const ciLowPx  = xp(Math.max(domainMin, Math.min(domainMax, low95)));
+    const ciLowPx = xp(Math.max(domainMin, Math.min(domainMax, low95)));
     // SCALE-BOUNDS FIX: visibility check uses SVG coordinate space (2..98)
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
@@ -218,14 +218,14 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const meanImpact = collisionHojeMean ? tierMean : 0;
         tierHoje = Math.max(targetImpact, meanImpact) + 1;
     }
-    
+
     // RIGOR-LABEL-FIX: Se o label "Hoje" estiver muito no topo do gráfico (curva alta) 
     // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
     // D-10 FIX: Garantir Math.max(0, hojeTop) antes de qualquer operação de tier.
     const safeHojeTop = Math.max(0, hojeTop);
     const isHighCurve = safeHojeTop < 22;
-    const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget)) 
-        ? (22 + (tierHoje - 1) * 15 + '%') 
+    const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget))
+        ? (22 + (tierHoje - 1) * 15 + '%')
         : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 16}px)` : `${safeHojeTop}%`);
 
     return (
@@ -234,7 +234,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                
+
                 // VISUAL FIX (Hover Tracker Drift): 
                 // O SVG renderiza o gráfico de 2% a 98% para garantir espaço pras bordas da linha. 
                 // Precisamos reverter essa geometria proporcional para ler exatamente o dado sob o mouse.

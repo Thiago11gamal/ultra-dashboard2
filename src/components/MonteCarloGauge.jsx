@@ -37,7 +37,7 @@ export default function MonteCarloGauge({
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [showPerSubject, setShowPerSubject] = useState(false);
-    
+
     const [timeIndex, setTimeIndex] = useState(-1);
 
     const activeId = useAppStore(state => state.appState.activeId);
@@ -81,7 +81,7 @@ export default function MonteCarloGauge({
     const projectDays = useMemo(() => {
         if (effectiveSimulateToday) return 0;
         if (!goalDate) return 30;
-        
+
         let currentDate = new Date();
         currentDate.setHours(0, 0, 0, 0);
 
@@ -117,7 +117,7 @@ export default function MonteCarloGauge({
         if (activeCategories.length === 0) return {};
         const newWeights = {};
         activeCategories.forEach(cat => {
-            newWeights[cat.id || cat.name] = 1; 
+            newWeights[cat.id || cat.name] = 1;
         });
         return newWeights;
     }, [activeCategories]);
@@ -164,8 +164,8 @@ export default function MonteCarloGauge({
         const weightsByName = {};
         const bayesianStats = [];
 
-        const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length) 
-            ? timelineDates[timeIndex] 
+        const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
+            ? timelineDates[timeIndex]
             : null;
 
         categories.forEach(cat => {
@@ -202,7 +202,7 @@ export default function MonteCarloGauge({
                         bayesianSd: baye.sd,
                         volatility: vol
                     });
-                    
+
                     bayesianStats.push({ sd: baye.sd, weight, n: history.length });
                 }
             }
@@ -264,8 +264,8 @@ export default function MonteCarloGauge({
         };
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
 
-    const statsHash = statsData 
-        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}` 
+    const statsHash = statsData
+        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}`
         : 'null';
 
     const { runAnalysis } = useMonteCarloWorker();
@@ -398,7 +398,7 @@ export default function MonteCarloGauge({
     const probability = simulationData?.data?.probability ?? 0;
     const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
-    
+
     const currentMean = (rawCurrentMean === 0 && projectedMean > 0)
         ? projectedMean
         : rawCurrentMean;
@@ -407,7 +407,7 @@ export default function MonteCarloGauge({
         const rawProb = Number(simulationData?.data?.probability);
         const prob = Number.isFinite(rawProb) ? rawProb : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
-        
+
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             recordMonteCarloSnapshot(today, Number(prob.toFixed(1)), {
@@ -458,9 +458,9 @@ export default function MonteCarloGauge({
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
     const getGradientColor = (p) => {
-        if (p >= 70) return "#22c55e"; 
-        if (p >= 40) return "#f59e0b"; 
-        return "#ef4444"; 
+        if (p >= 70) return "#22c55e";
+        if (p >= 40) return "#f59e0b";
+        return "#ef4444";
     };
 
     const gradientColor = getGradientColor(prob);
@@ -498,14 +498,14 @@ export default function MonteCarloGauge({
                             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">Simulação Probabilística</span>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-1.5 mt-1">
                         {forcedMode && (
                             <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
                                 {forcedTitle || (forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro')}
                             </div>
                         )}
-                        
+
                         {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
                             <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner group-hover:border-blue-500/30 transition-all">
                                 <span className="text-[8px] font-bold text-slate-500 uppercase">Delta</span>
@@ -514,7 +514,7 @@ export default function MonteCarloGauge({
                                 </span>
                             </div>
                         )}
-                        
+
                         {!effectiveSimulateToday && projectDays > 0 && (
                             <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner">
                                 <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
@@ -642,7 +642,7 @@ export default function MonteCarloGauge({
                         maxScore={maxScore}
                     />
                 </div>
-                
+
                 <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/10">
                     {[{ bg: "bg-red-500", lbl: "Meta" }, { bg: "bg-blue-500 opacity-50", lbl: "Média" }, { bg: "border", lbl: "Sucesso", dynamic: true }, { bg: "bg-white/40", lbl: isTimeTraveling ? "Nesse Dia" : "Hoje" }, { bg: "bg-blue-500", lbl: "Projeção" }].map((l, i) => (
                         <div key={i} className="flex items-center gap-1.5">
@@ -660,17 +660,17 @@ export default function MonteCarloGauge({
                         <div className="flex justify-between items-end mb-3 px-1">
                             <span className="text-[9px] text-slate-500 uppercase tracking-widest">Evolução Histórica</span>
                             <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded backdrop-blur-sm border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition-all duration-300">
-                                {timeIndex === -1 || timeIndex === timelineDates.length - 1 
-                                    ? 'Estado Atual (Hoje)' 
+                                {timeIndex === -1 || timeIndex === timelineDates.length - 1
+                                    ? 'Estado Atual (Hoje)'
                                     : new Date(timelineDates[timeIndex] + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
                         </div>
                         <div className="relative w-full flex items-center group-hover/timeline:scale-[1.01] transition-transform">
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max={timelineDates.length - 1} 
-                                value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex} 
+                            <input
+                                type="range"
+                                min="0"
+                                max={timelineDates.length - 1}
+                                value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex}
                                 onChange={(e) => {
                                     const val = Number(e.target.value);
                                     setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
@@ -692,7 +692,7 @@ export default function MonteCarloGauge({
                             />
                             <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
                                 {timelineDates.map((_, i) => (
-                                    <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length -1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
+                                    <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length - 1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
                                 ))}
                             </div>
                         </div>
@@ -713,39 +713,39 @@ export default function MonteCarloGauge({
 
                 {showPerSubject && perSubjectProbs.length > 0 && (
                     <>
-                    <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
-                        <div className="flex items-center justify-between px-1 mb-2">
-                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
-                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">
-                                Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">({isTimeTraveling ? 'Nesse Dia' : 'Hoje'})</span>}
-                            </span>
-                        </div>
-                        {perSubjectProbs.map(s => {
-                            const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
-                            const barColor = s.prob < 40 ? 'bg-rose-500' : s.prob < 60 ? 'bg-amber-500' : s.prob < 80 ? 'bg-blue-500' : 'bg-emerald-500';
-                            return (
-                                <div key={s.name} className="flex items-center gap-2 group/row hover:bg-white/5 rounded-lg px-1.5 py-1 transition-colors">
-                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                        {s.trend === 'up' && <TrendingUp size={9} className="text-emerald-400 shrink-0" />}
-                                        {s.trend === 'down' && <TrendingDown size={9} className="text-rose-400 shrink-0" />}
-                                        {(s.trend === 'stable' || !s.trend) && <Minus size={9} className="text-slate-600 shrink-0" />}
-                                        <span className="text-[9px] text-slate-400 truncate">{s.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${Math.min(100, s.prob)}%` }} />
+                        <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
+                            <div className="flex items-center justify-between px-1 mb-2">
+                                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
+                                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">
+                                    Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">({isTimeTraveling ? 'Nesse Dia' : 'Hoje'})</span>}
+                                </span>
+                            </div>
+                            {perSubjectProbs.map(s => {
+                                const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
+                                const barColor = s.prob < 40 ? 'bg-rose-500' : s.prob < 60 ? 'bg-amber-500' : s.prob < 80 ? 'bg-blue-500' : 'bg-emerald-500';
+                                return (
+                                    <div key={s.name} className="flex items-center gap-2 group/row hover:bg-white/5 rounded-lg px-1.5 py-1 transition-colors">
+                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                            {s.trend === 'up' && <TrendingUp size={9} className="text-emerald-400 shrink-0" />}
+                                            {s.trend === 'down' && <TrendingDown size={9} className="text-rose-400 shrink-0" />}
+                                            {(s.trend === 'stable' || !s.trend) && <Minus size={9} className="text-slate-600 shrink-0" />}
+                                            <span className="text-[9px] text-slate-400 truncate">{s.name}</span>
                                         </div>
-                                        <span className={`text-[10px] font-black w-10 text-right ${probColor}`}>{s.prob.toFixed(0)}%</span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${Math.min(100, s.prob)}%` }} />
+                                            </div>
+                                            <span className={`text-[10px] font-black w-10 text-right ${probColor}`}>{s.prob.toFixed(0)}%</span>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    {!effectiveSimulateToday && !isTimeTraveling && (
-                        <p className="text-[8px] text-slate-600 text-center mt-2 italic">
-                            Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
-                        </p>
-                    )}
+                                );
+                            })}
+                        </div>
+                        {!effectiveSimulateToday && !isTimeTraveling && (
+                            <p className="text-[8px] text-slate-600 text-center mt-2 italic">
+                                Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
+                            </p>
+                        )}
                     </>
                 )}
             </div>
@@ -768,3 +768,4 @@ export default function MonteCarloGauge({
         </div>
     );
 }
+
