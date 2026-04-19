@@ -239,14 +239,29 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                 {/* Right: date picker */}
                 <div 
-                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside hover:bg-white/5 rounded-xl transition-colors py-2"
+                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside cursor-pointer py-2"
+                    onClick={() => {
+                        try {
+                            if (dateInputRef.current) {
+                                if (typeof dateInputRef.current.showPicker === 'function') {
+                                    dateInputRef.current.showPicker();
+                                } else {
+                                    dateInputRef.current.focus();
+                                    dateInputRef.current.click();
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Picker falhou", e);
+                        }
+                    }}
                 >
                     <input
                         ref={dateInputRef}
                         type="date"
                         value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50"
+                        className="opacity-0 absolute pointer-events-none"
+                        style={{ width: '1px', height: '1px', top: '50%', left: '50%' }}
                         title="Escolher data da prova"
                     />
                     <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
