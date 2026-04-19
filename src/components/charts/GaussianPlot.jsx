@@ -4,27 +4,24 @@ import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData, projectedMean, minScore = 0, maxScore = 100, unit = '%' }) => {
     const [hover, setHover] = useState(null);
 
-    // VISUAL-01 FIX: IDs únicos por instância para evitar conflito entre múltiplos GaussianPlot
     const instanceId = useId().replace(/:/g, '');
     const ID = {
         curveGrad: `gpCurveGradient_${instanceId}`,
         areaGrad: `gpAreaGradient_${instanceId}`,
         failGrad: `gpFailAreaGradient_${instanceId}`,
-        glow: `gpGlow_${instanceId}`
+        glow: `gpGlow_${instanceId}`,
+        chartClip: `chartClip_${instanceId}`
     };
 
-    // VISUAL-02 FIX: "Paradoxo do Vermelho" Resolvido
-    // A área à direita da meta (Caminho de Sucesso) recebe uma cor positiva fixa.
-    // Assim, contrasta sempre perfeitamente com a zona de falha (vermelha), independentemente da probabilidade atual.
-    const successColor = '#22c55e'; // Verde Esmeralda
+    const successColor = '#22c55e';
 
-    const { pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, asymmetricGaussianFn, median, p25, p75, domainMin, domainMax } = useMemo(() => {
+    const { 
+        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp, 
+        asymmetricGaussianFn, median, p25, p75, domainMin, domainMax, curveY 
+    } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
 
-        // SCALE-BOUNDS FIX: Dynamic domain — adds 10% right-margin so target line is never cut off
-        // M3 FIX: domainMin must never go below minScore — degenerate data (meanVal < 0) would
-        // otherwise render impossible negative values on the X-axis.
         const domainMin = minScore;
         const rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
         const domainMax = rawMax;
@@ -34,9 +31,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         let vizSdLeft = Math.max(1, propSdLeft ?? sd);
         let vizSdRight = Math.max(1, propSdRight ?? sd);
 
-        // FIX: Ignora a distorção (solver geométrico) caso estejamos usando o KDE verdadeiro
         const hasValidKDE = kdeData && kdeData.length > 5;
 
+        // Geometria de distorção (se não houver KDE)
         if (!hasValidKDE && prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
@@ -44,11 +41,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
             const getGeomProb = (tVal, mVal, sl, sr) => {
                 const normFactor = 2 / (sl + sr);
-                // FIX MATEMÁTICO (Underflow Paradox): Usamos (mVal - domainMin) em vez de (mVal / sl) 
-                // para garantir que a regressão geométrica da Gaussiana continue válida caso o minScore da prova 
-                // não seja zero (ex: provas que começam com 50 pontos básicos).
                 const pUnderflow = normFactor * sl * normalCDF_complement((mVal - domainMin) / sl);
-                // SCALE-BOUNDS FIX: overflow uses domainMax instead of hardcoded 100
                 const pOverflow = normFactor * sr * normalCDF_complement((domainMax - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
 
@@ -68,13 +61,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             let sl = vizSdLeft, sr = vizSdRight;
             for (let i = 0; i < 12; i++) {
                 const pg = getGeomProb(t, m, sl, sr);
-
-                // FIX: Paragem de emergência para NaN prevenindo corrupção em cascata
                 if (isNaN(pg) || Math.abs(targetProb - pg) <= 0.002) break;
 
                 const r = targetProb / Math.max(0.005, pg);
                 const adjustment = t < m ? (1 / r) : r;
-
                 const damp = 0.85 * Math.pow(0.93, i);
                 const appliedAdj = 1 + (adjustment - 1) * damp;
 
@@ -90,39 +80,27 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             vizSdLeft = sl; vizSdRight = sr;
         }
 
-        const avgSd = Math.max(1, (vizSdLeft + vizSdRight) / 2);
-        // FIX: Utilizando 65% da área vertical para deixar espaço para labels e tooltips no "céu" do gráfico
         const baseHeightFactor = 0.65;
-        // SCALE-BOUNDS FIX: xp maps any value in [domainMin, domainMax] to SVG [2, 98]
         const xp = (v) => 2 + ((v - xMin) / range * 96);
         const yp = (yVal) => 100 - (yVal * 90);
 
         let path;
         let pointsForArea = [];
-        const finalHF = baseHeightFactor;
 
-        if (kdeData && kdeData.length > 5) {
-            // VISUAL FIX 2: Deixar a curva fluir para ALÉM do Viewport `<svg>`
-            // Ocultado o corte artificial (DOMAIN_MIN/MAX) que causava as 'paredes verticais'.
-            // O `preserveAspectRatio="none"` do CSS vai naturalmente e perfeitamente cortar 
-            // a linha onde a tela acaba, enquanto a linha segue linear fora dela.
+        if (hasValidKDE) {
             const points = [];
             points.push(`${xp(kdeData[0].x)},100`);
             kdeData.forEach(p => {
-                points.push(`${xp(p.x)},${yp(p.y * finalHF)}`);
+                points.push(`${xp(p.x)},${yp(p.y * baseHeightFactor)}`);
             });
             points.push(`${xp(kdeData[kdeData.length - 1].x)},100`);
             path = `M ${points.join(' L ')}`;
             pointsForArea = points;
         } else {
-            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, finalHF, xp, yp);
+            const pts = generateGaussianPoints(xMin, domainMax, 100, meanVal, vizSdLeft, vizSdRight, baseHeightFactor, xp, yp);
             path = `M ${pts.join(' L ')}`;
             pointsForArea = pts;
         }
-
-        const areaPoints = [];
-        const failPoints = [];
-        const successStart = Math.max(xMin, targetVal);
 
         const getYAtX = (pts, xTarget) => {
             let lo = null, hi = null;
@@ -133,21 +111,20 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             }
             if (!lo) return hi?.py ?? 100;
             if (!hi) return lo.py;
-
-            // FIX: Prevenção de divisão por zero (impede que 't' se torne NaN e colapse o Path SVG)
             if (hi.px === lo.px) return lo.py;
-
             const t = (xTarget - lo.px) / (hi.px - lo.px);
             return lo.py + t * (hi.py - lo.py);
         };
 
-        const yAtTargetVisual = (kdeData && kdeData.length > 5)
-            ? getYAtX(pointsForArea, xp(successStart))
-            : yp(asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, finalHF));
+        const successStart = Math.max(xMin, targetVal);
+        const yAtTargetVisual = hasValidKDE ? getYAtX(pointsForArea, xp(successStart)) : yp(asymmetricGaussian(successStart, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
+
+        const areaPoints = [];
+        const failPoints = [];
 
         areaPoints.push(`${xp(successStart)},${yAtTargetVisual}`);
         pointsForArea.forEach(p => {
-            const [xPos, yPos] = p.split(',').map(Number);
+            const [xPos] = p.split(',').map(Number);
             if (xPos > xp(successStart)) areaPoints.push(p);
         });
         if (areaPoints.length > 0) {
@@ -156,9 +133,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             areaPoints.push(`${xp(successStart)},100`);
         }
 
-        // Ancora no infinito/ponto final disponível
         failPoints.push(`${pointsForArea[0].split(',')[0]},100`);
-
         pointsForArea.forEach(p => {
             const [xPos] = p.split(',').map(Number);
             if (xPos <= xp(successStart)) failPoints.push(p);
@@ -171,80 +146,77 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         const rawSdLeft = Math.max(1, propSdLeft ?? sd);
         const rawSdRight = Math.max(1, propSdRight ?? sd);
-        const lp25 = meanVal - 0.674 * rawSdLeft;
-        const lp75 = meanVal + 0.674 * rawSdRight;
+
+        // FUNÇÃO MATADORA DE BUGS: Descobre exatamente o 'Top Y' do pixel da curva para qualquer valor X.
+        const calculateCurveY = (x) => {
+            if (hasValidKDE) return getYAtX(pointsForArea, xp(x));
+            return yp(asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, baseHeightFactor));
+        };
 
         return {
-            pathData: path,
-            areaPathData: areaPath,
-            failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp, asymmetricGaussianFn: (x) => {
-                if (kdeData && kdeData.length > 5) {
-                    const nearest = kdeData.reduce((best, p) =>
-                        Math.abs(p.x - x) < Math.abs(best.x - x) ? p : best
-                    );
-                    return nearest.y * finalHF;
-                }
-                return asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, finalHF);
-            },
-            median: meanVal, p25: lp25, p75: lp75,
-            // expose domain for use outside useMemo
-            domainMin, domainMax,
+            pathData: path, areaPathData: areaPath, failAreaPathData: failPath,
+            range, xMin, targetVal, xp, yp,
+            asymmetricGaussianFn: (x) => hasValidKDE ? (getYAtX(pointsForArea, xp(x)) / baseHeightFactor) : asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, baseHeightFactor),
+            median: meanVal, p25: meanVal - 0.674 * rawSdLeft, p75: meanVal + 0.674 * rawSdRight,
+            domainMin, domainMax, curveY: calculateCurveY
         };
     }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean, minScore, maxScore]);
 
+    // POSIÇÕES EXATAS (X e Y acoplados perfeitamente à montanha)
     const targetPos = xp(targetVal);
+    const targetY = curveY(targetVal);
+
     const meanPos = xp(projectedMean ?? mean ?? 0);
+    const meanY = curveY(projectedMean ?? mean ?? 0);
+
     const currentPos = currentMean != null ? xp(currentMean) : 0;
+    const currentY = currentMean != null ? curveY(currentMean) : 100;
+
     const ciHighPx = xp(Math.max(domainMin, Math.min(domainMax, high95)));
     const ciLowPx = xp(Math.max(domainMin, Math.min(domainMax, low95)));
-    // SCALE-BOUNDS FIX: visibility check uses SVG coordinate space (2..98)
+    
     const isTargetVisible = targetPos >= 2 && targetPos <= 98;
     const isCurrentVisible = currentMean != null && currentPos >= 2 && currentPos <= 98;
+
     const ciLabel = (high95 - low95) >= (domainMax - domainMin) * 0.95 ? "Alta incerteza" : `${low95.toFixed(0)}–${high95.toFixed(0)}${unit}`;
 
-    const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean ?? 0));
-    const hojeTop = Math.max(0, hojeYPercent - 12);
-    const safeHojeTop = Math.max(0, hojeTop);
-    const isHighCurve = safeHojeTop < 35;
-
-    // DYNAMIC COLLISION RESOLVER
+    // SISTEMA ANTI-SOBREPOSIÇÃO INTELIGENTE PARA RÓTULOS
     const resolvedLabels = useMemo(() => {
         const items = [];
         if (isTargetVisible) items.push({ id: 'target', x: targetPos });
-        items.push({ id: 'mean', x: meanPos });
+        
+        // Se a Projeção e o Hoje forem no mesmo pixel exato, fundimos a UI para evitar poluição
+        const hideMean = isCurrentVisible && Math.abs(currentPos - meanPos) < 2.5;
+        if (!hideMean) items.push({ id: 'mean', x: meanPos });
         if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
 
         const sorted = [...items].sort((a, b) => a.x - b.x);
-        const tracks = {};
-        const COLLISION_THRESHOLD = 14;
-
-        const result = {};
-        sorted.forEach(item => {
-            let level = 1;
-            while (tracks[level] !== undefined && (item.x - tracks[level]) < COLLISION_THRESHOLD) {
-                level++;
+        const THRESHOLD = 16; // Distância mínima (em %) para não empilhar
+        
+        sorted.forEach((item, i) => {
+            item.level = 0;
+            if (i > 0) {
+                const prev = sorted[i - 1];
+                if (item.x - prev.x < THRESHOLD) {
+                    item.level = prev.level + 1; // Empurra o rótulo para cima
+                }
             }
-            tracks[level] = item.x;
-            result[item.id] = level;
         });
-        return result;
+        
+        const res = { hideMean };
+        sorted.forEach(item => res[item.id] = item.level);
+        return res;
     }, [targetPos, meanPos, currentPos, isTargetVisible, isCurrentVisible]);
 
-    const finalHojeTop = (isHighCurve)
-        ? (35 + (resolvedLabels.today - 1) * 15 + '%')
-        : (resolvedLabels.today > 1 ? `calc(${safeHojeTop}% + ${(resolvedLabels.today - 1) * 22}px)` : `${safeHojeTop}%`);
+    // AUMENTAMOS AQUI: A distância base agora é 45px (antes era 20px). 
+    // Os níveis superiores ganham +45px de altura extra.
+    const getLabelTop = (yPercent, level) => `calc(${yPercent}% - ${45 + level * 45}px)`;
 
     return (
         <div className="relative w-full h-[220px] mt-12 mb-6 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-
-                // VISUAL FIX (Hover Tracker Drift): 
-                // O SVG renderiza o gráfico de 2% a 98% para garantir espaço pras bordas da linha. 
-                // Precisamos reverter essa geometria proporcional para ler exatamente o dado sob o mouse.
+                const percentage = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
                 const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * range));
                 setHover({ x: xp(val), val });
             }}
@@ -252,6 +224,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         >
             <div className="fade-edge fade-left" />
             <div className="fade-edge fade-right" />
+            
+            {/* RENDERIZAÇÃO DA MONTANHA (SVG Base) */}
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
                 <defs>
                     <linearGradient id={ID.curveGrad} x1="0" y1="0" x2="1" y2="0">
@@ -271,60 +245,87 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                         <feGaussianBlur stdDeviation="1.2" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
-                    <clipPath id={`chartClip_${instanceId}`}>
-                        {/* 🌟 SOLUÇÃO VISUAL: Corta a linha e a área horizontalmente em 0 e 100 absoluto do SVG, 
-                            mas deixa 50 unidades de folga em Y para não degolar os brilhos da linha no teto */}
+                    <clipPath id={ID.chartClip}>
                         <rect x="0" y="-50" width="100" height="200" />
                     </clipPath>
                 </defs>
 
                 <line x1="0" y1="100" x2="100" y2="100" stroke="#334155" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                {[26, 50, 74].map(tick => (
-                    <line key={tick} x1={tick} y1="100" x2={tick} y2="103" stroke="#475569" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                ))}
-
+                
                 {low95 != null && high95 != null && (
-                    <rect x={ciLowPx} y="0" width={Math.max(0, ciHighPx - ciLowPx)} height="100" fill="rgba(59, 130, 246, 0.05)" className="transition-opacity duration-300 group-hover/chart:opacity-80" clipPath={`url(#chartClip_${instanceId})`} />
+                    <rect x={ciLowPx} y="0" width={Math.max(0, ciHighPx - ciLowPx)} height="100" fill="rgba(59, 130, 246, 0.05)" className="transition-opacity duration-300 group-hover/chart:opacity-80" clipPath={`url(#${ID.chartClip})`} />
                 )}
 
-                <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#chartClip_${instanceId})`} />
-                <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#chartClip_${instanceId})`} />
-                <line x1={xp(p25)} y1="100" x2={xp(p25)} y2={yp(asymmetricGaussianFn(p25))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30 transition-all duration-500" clipPath={`url(#chartClip_${instanceId})`} />
-                <line x1={xp(p75)} y1="100" x2={xp(p75)} y2={yp(asymmetricGaussianFn(p75))} stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="1,1" className="opacity-30 transition-all duration-500" clipPath={`url(#chartClip_${instanceId})`} />
-                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: `url(#${ID.glow})` }} className="transition-all duration-500" clipPath={`url(#chartClip_${instanceId})`} />
+                <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
+                <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" style={{ filter: `url(#${ID.glow})` }} clipPath={`url(#${ID.chartClip})`} />
+                
+                <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: `url(#${ID.glow})` }} className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
 
-                {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2="0" stroke="#ef4444" strokeWidth="3.0" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
-                <line x1={meanPos} y1="100" x2={meanPos} y2="0" stroke="#3b82f6" strokeWidth="2.2" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />
-                {isCurrentVisible && <line x1={currentPos} y1="100" x2={currentPos} y2="0" stroke="white" strokeWidth="1.5" strokeDasharray="2,2" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {/* LINHAS VERTICAIS QUE DESCEM DO PONTO NA CURVA ATÉ O CHÃO */}
+                {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2={targetY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {!resolvedLabels.hideMean && <line x1={meanPos} y1="100" x2={meanPos} y2={meanY} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
+                {isCurrentVisible && <line x1={currentPos} y1="100" x2={currentPos} y2={currentY} stroke="#ffffff" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
             </svg>
 
+            {/* RENDERIZAÇÃO DOS PONTOS CIRCULARES (Fora do SVG para evitar distorção de elipse) */}
             <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: (resolvedLabels.mean - 1) * 15 + '%', transform: meanPos > 90 ? 'translateX(-100%)' : (currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)] mb-1" />
-                    <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-blue-500/20 shadow-lg">
-                        <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
-                        <span className="text-[7.5px] font-black text-blue-300 uppercase tracking-widest opacity-70">Projeção</span>
-                    </div>
-                </div>
                 {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: (resolvedLabels.target - 1) * 15 + '%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)] mb-1" />
-                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-rose-500/20 shadow-lg">
-                            <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
-                            <span className="text-[7.5px] font-black text-rose-300 uppercase tracking-widest opacity-70">Meta</span>
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)] transition-all duration-500" 
+                         style={{ left: `${targetPos}%`, top: `${targetY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                )}
+                {!resolvedLabels.hideMean && (
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-slate-900 shadow-[0_0_8px_rgba(59,130,246,0.8)] transition-all duration-500" 
+                         style={{ left: `${meanPos}%`, top: `${meanY}%`, transform: 'translate(-50%, -50%)', zIndex: 15 }} />
+                )}
+                {isCurrentVisible && (
+                    <div className="absolute w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_12px_white] transition-all duration-500" 
+                         style={{ left: `${currentPos}%`, top: `${currentY}%`, transform: 'translate(-50%, -50%)', zIndex: 25 }} />
+                )}
+            </div>
+
+            {/* RÓTULOS MAIS ALTOS COM "PINOS" DE LIGAÇÃO */}
+            <div className="absolute inset-0 pointer-events-none">
+                {!resolvedLabels.hideMean && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500" 
+                        style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
+                        <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-blue-500/30 shadow-lg">
+                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
+                            <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
+                        {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
+                        <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${12 + (resolvedLabels.mean || 0) * 45}px` }} />
                     </div>
                 )}
+                
+                {isTargetVisible && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500" 
+                        style={{ left: `${Math.max(4, Math.min(targetPos, 96))}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
+                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-rose-500/30 shadow-lg">
+                            <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
+                            <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
+                        </div>
+                        {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
+                        <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${12 + (resolvedLabels.target || 0) * 45}px` }} />
+                    </div>
+                )}
+
+                {isCurrentVisible && (
+                    <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40" 
+                        style={{ left: `${Math.max(4, Math.min(currentPos, 96))}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
+                        <div className="flex flex-col items-center px-2 py-1 rounded-lg bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
+                            <span className="text-[11px] leading-none font-black text-white">{(currentMean ?? 0).toFixed(1)}{unit}</span>
+                            {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
+                            {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
+                        </div>
+                        {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
+                        <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${15 + (resolvedLabels.today || 0) * 45}px` }} />
+                    </div>
+                )}
+
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center opacity-0 group-hover/chart:opacity-100 transition-all duration-500 scale-90 group-hover/chart:scale-100" style={{ left: `${Math.min(targetPos + (100 - targetPos) / 2, 88)}%`, top: '40%', transform: 'translateX(-50%)', filter: `drop-shadow(0 0 10px ${successColor}44)` }}>
                         <span className="text-[40px] font-black transition-colors duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.4)]" style={{ color: successColor }}>{prob ? prob.toFixed(prob < 10 ? 1 : 0) : '0'}%</span>
                         <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-none mt-1 opacity-80" style={{ color: successColor }}>Caminho de Sucesso</span>
-                    </div>
-                )}
-                {isCurrentVisible && (
-                    <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.max(2, Math.min(currentPos, 90))}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white mb-1 shadow-[0_0_8px_white]" />
-                        <span className="text-[11px] font-black text-white px-2 py-0.5 rounded-lg bg-slate-900/90 backdrop-blur-xl border border-white/20 shadow-xl whitespace-nowrap">{(currentMean ?? 0).toFixed(1)}{unit}</span>
                     </div>
                 )}
             </div>
@@ -332,8 +333,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             {hover && (
                 <div className="absolute inset-0 pointer-events-none z-50">
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
-                    <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, yp(asymmetricGaussianFn(hover.val)))}%`, transform: 'translate(-50%, -50%)' }} />
-                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" style={{ left: `${hover.x}%`, top: `${Math.max(25, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
+                    <div className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, curveY(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
+                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" style={{ left: `${hover.x}%`, top: `${Math.max(15, curveY(hover.val) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
                         <span className="text-[15px] font-black tracking-tight leading-none">{hover.val.toFixed(1)}{unit}</span>
                         <div className="flex items-center gap-1 mt-1">
                             <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-slate-500'}`} />
