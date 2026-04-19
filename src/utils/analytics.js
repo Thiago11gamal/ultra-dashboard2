@@ -218,25 +218,30 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
         };
     }
 
-    // Tempo médio por tarefa concluída
+    // Tempo médio por tarefa concluída (Métrica Bruta para Display)
     const minutesPerTask = totalMinutes / completedTasks;
-
-    // Classificação de eficiência
-    // AUDIT-FIX: Interpolação contínua em vez de 4 buckets discretos (50/70/85/100).
-    // Mapeamento: 0 min/task → 100%, 90+ min/task → 50%. Suave e intuitivo.
-    // FIX LÓGICO: Substituição pela fórmula de decaimento exponencial.
-    // Assim, uma tarefa de 4 horas não recebe o mesmo score punitivo que uma de 1.5 horas.
-    const score = Math.max(10, Math.min(100, Math.round(100 * Math.exp(-minutesPerTask / 360))));
-
-    let efficiency = 'excelente';
-    if (score < 60) efficiency = 'precisa_melhorar';
-    else if (score < 75) efficiency = 'regular';
-    else if (score < 90) efficiency = 'boa';
 
     // Taxa de conclusão geral
     const completionRate = Math.round((completedTasks / totalTasks) * 100);
 
-    // Produtividade (tarefas por hora)
+    // FIX MATEMÁTICO: Motor de Eficiência
+    // O modelo antigo dividia minutos integrais (all-time) por tarefas atuais.
+    // Se o usuário limpasse a lixeira (excluísse tarefas concluídas passadas), os minutos se mantinham (histórico),
+    // mas a razão tarefas/minutos colapsava, gerando penalizações falsas gigantes (ex: 300 min/tarefa -> 24% Score).
+    // Solução: Travar a curva exponencial de decaimento em 3 horas e balancear pesadamente (60%) 
+    // com a taxa de checklist real presente.
+    const cappedMinutes = Math.min(minutesPerTask, 180); // Limita a penalidade de tempo a 3h (Exp decai apenas até ~60)
+    const timeScore = Math.round(100 * Math.exp(-cappedMinutes / 360)); 
+    
+    // Score Composto: 40% Velocidade Histórica e 60% Poder de Conclusão Atual
+    const score = Math.round((timeScore * 0.4) + (completionRate * 0.6));
+
+    let efficiency = 'excelente';
+    if (score < 60) efficiency = 'precisa_melhorar';
+    else if (score < 75) efficiency = 'regular';
+    else if (score < 85) efficiency = 'boa';
+
+    // Produtividade (tarefas por hora - apenas display numérico)
     const tasksPerHour = totalMinutes > 0 ?
         (completedTasks / (totalMinutes / 60)).toFixed(1) : 0;
 
