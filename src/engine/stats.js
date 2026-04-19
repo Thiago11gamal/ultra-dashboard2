@@ -178,21 +178,18 @@ export function computeCategoryStats(history, weight, daysValue = 60, maxScore =
         ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, maxScore) * (Number(h.total) || 0), 0) / totalQ
         : mean(scores);
 
-    // FIX: Variância Ponderada pelo esforço real (questões)
+    // FIX: Variância Ponderada baseada em Frequência (Questões)
     let variance = 0;
-    // FIX: Variância amostral requer n > 1 EVENTOS (historyToUse.length > 1), e não apenas questões.
-    // Se o aluno fez 1 simulado de 50 questões, a variância dele com ele mesmo é 0. 
-    // Precisamos cair no prior do standardDeviation.
     if (historyToUse.length > 1 && totalQ > 1) { 
         let wVarSum = 0;
         historyToUse.forEach(h => {
-            const w = (Number(h.total) || 1);
+            const w = (Number(h.total) || 1); // Nunca permitir peso 0 na soma matemática
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
-        // 🎯 MATH FIX: O divisor da variância ponderada deve refletir o espalhamento das provas (N-1),
-        // e não das questões totais. Usamos o divisor de Bessel escalonado pelo peso médio.
-        const n = historyToUse.length;
-        variance = wVarSum / (totalQ * (n - 1) / n);
+        
+        // 🎯 MATH FIX: O estimador correto da variância quando os pesos são 
+        // as frequências exatas (volume de questões) é a soma dos pesos menos 1.
+        variance = wVarSum / (totalQ - 1);
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }

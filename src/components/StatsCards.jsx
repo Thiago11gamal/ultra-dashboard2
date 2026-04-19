@@ -113,8 +113,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Eficiência</span>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2">
-                        {efficiency?.score ?? 0}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-2 truncate">
+                        {Math.round(efficiency?.score || 0)}<span className="text-lg sm:text-2xl text-slate-300 font-bold ml-1">%</span>
                     </div>
                     <div className="mt-auto pt-2 flex flex-col gap-1.5">
                         <div className={`text-xs sm:text-sm ${effTheme.iconColor} capitalize leading-relaxed truncate font-extrabold`}>
@@ -171,8 +171,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3">
-                        {user.xp.toLocaleString('pt-BR')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${user.xp.toLocaleString('pt-PT')} XP`}>
+                        {user.xp.toLocaleString('pt-PT')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
                     <div className="space-y-2 mt-auto pt-2">
                         <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">

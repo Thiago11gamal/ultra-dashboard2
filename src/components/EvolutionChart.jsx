@@ -293,19 +293,27 @@ export default function EvolutionChart({
             .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
-                const totalQ = history.reduce((s, h) => s + (Number(h.total) || 0), 0);
+                
+                // 🎯 MATH FIX: Injetar questões sintéticas para simulados sem volume
+                const totalQ = history.reduce((s, h) => {
+                    let tot = Number(h.total) || 0;
+                    if (tot === 0 && h.score != null) tot = 100; // Base sintética
+                    return s + tot;
+                }, 0);
+
                 const totalCorrect = Math.round(history.reduce((s, h) => {
-                    const raw = Number(h.correct) || 0;
-                    const tot = Number(h.total) || 0;
+                    let tot = Number(h.total) || 0;
+                    if (tot === 0 && h.score != null) tot = 100;
                     // BUG 4b FIX: Use maxScore instead of hardcoded 100
                     return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));
+
                 const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
                 return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, showOnlyFocus, focusSubjectId]);
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore]);
 
     const getInsightText = () => {
         if (!timeline.length || !focusCategory) return "Ainda não existem dados suficientes.";
@@ -382,13 +390,14 @@ export default function EvolutionChart({
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
             .filter(h => {
-                if (!h || !h.date) return false; // <--- PROTEÇÃO AQUI
+                if (!h || !h.date) return false; 
                 const d = new Date(h.date).getTime();
-                return !isNaN(d) && nowMs - d <= sevenDaysMs;
+                // 🛡️ DATA FIX: Garantir que a data é convertível e não gera NaN 
+                return !Number.isNaN(d) && (nowMs - d) <= sevenDaysMs; 
             })
             .reduce((sum, h) => {
                 let q = parseInt(h.total, 10) || 0;
-                // FIX: Se houver nota, mas não houver contagem de questões, assumir carga de base 100
+                // 🛡️ DATA FIX: Resgatar dados de simulados lançados apenas como %
                 if (q === 0 && h.score != null) q = 100;
                 return sum + q;
             }, 0);
