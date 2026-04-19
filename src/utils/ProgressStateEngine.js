@@ -138,7 +138,7 @@ export function analyzeProgressState(scores, config = {}) {
         mean_score: Number(mean.toFixed(2)),
         delta: Number(delta.toFixed(2)),
         variance: Number(variance.toFixed(2)),
-        trend_slope: Number(slope.toFixed(4)),
+        trend_slope: Number(rawSlope.toFixed(4)),
         severity
     };
 }
