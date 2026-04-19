@@ -224,13 +224,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
     // D-10 FIX: Garantir Math.max(0, hojeTop) antes de qualquer operação de tier.
     const safeHojeTop = Math.max(0, hojeTop);
-    const isHighCurve = safeHojeTop < 22;
+    const isHighCurve = safeHojeTop < 25;
     const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget))
-        ? (22 + (tierHoje - 1) * 15 + '%')
-        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 16}px)` : `${safeHojeTop}%`);
+        ? (25 + (tierHoje - 1) * 20 + '%')
+        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 22}px)` : `${safeHojeTop}%`);
 
     return (
-        <div className="relative w-full h-[140px] mb-12 cursor-crosshair group/chart"
+        <div className="relative w-full h-[160px] mt-6 mb-12 cursor-crosshair group/chart"
             onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -293,13 +293,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </svg>
 
             <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '16%' : tierMean === 2 ? '8%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
+                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '24%' : tierMean === 2 ? '12%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
                     <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
                     <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5 whitespace-nowrap">Projeção</span>
                 </div>
                 {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '16%' : tierTarget === 2 ? '8%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
+                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '24%' : tierTarget === 2 ? '12%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
                         <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
                         <span className="text-[7px] font-black text-rose-500/50 uppercase tracking-tighter mt-0.5">Meta</span>
