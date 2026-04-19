@@ -3,8 +3,9 @@ import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush 
 } from 'recharts';
-import { TrendingUp, BarChart3, HelpCircle } from 'lucide-react';
+import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore } from "../../../utils/scoreHelper";
+import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 
 // FIX CRÍTICO: Forçar T12:00:00 para evitar que new Date("YYYY-MM-DD") recue 1 dia em UTC-4.
 // Extracção de data local em vez de toISOString() (que retorna UTC).
@@ -28,8 +29,15 @@ const formatWeek = (isoString) => {
     return `${day}/${month}`;
 };
 
-export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId, maxScore = 100, unit = '%' }) => {
-    const [viewMode, setViewMode] = useState('evolution'); // 'evolution' | 'variation'
+export const WeeklyEvolutionView = ({ 
+    categories, 
+    studyLogs = [],
+    showOnlyFocus, 
+    focusSubjectId, 
+    maxScore = 100, 
+    unit = '%' 
+}) => {
+    const [viewMode, setViewMode] = useState('performance'); // 'evolution' | 'variation' | 'performance'
     const [userToggles, setUserToggles] = useState({});
 
     // Limpa a memória de cliques na legenda sempre que trocar de matéria ou modo
@@ -303,6 +311,12 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                 
                 <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
                     <button 
+                        onClick={() => setViewMode('performance')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        <Zap size={14} /> Desempenho (7 dias)
+                    </button>
+                    <button 
                         onClick={() => setViewMode('evolution')}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
@@ -312,14 +326,23 @@ export const WeeklyEvolutionView = ({ categories, showOnlyFocus, focusSubjectId,
                         onClick={() => setViewMode('variation')}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        <BarChart3 size={14} /> Variação (Delta)
+                        <BarChart3 size={14} /> Delta
                     </button>
                 </div>
             </div>
 
             <div className="h-[380px] w-full mt-2 relative">
                 <ResponsiveContainer width="100%" height="100%">
-                    {viewMode === 'evolution' ? (
+                    {viewMode === 'performance' ? (
+                        <WeeklyPerformanceChart
+                             categories={categories}
+                             studyLogs={studyLogs}
+                             showOnlyFocus={showOnlyFocus}
+                             focusSubjectId={focusSubjectId}
+                             maxScore={maxScore}
+                             unit={unit}
+                        />
+                    ) : viewMode === 'evolution' ? (
                         <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
                             

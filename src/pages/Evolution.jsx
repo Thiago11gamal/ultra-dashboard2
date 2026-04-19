@@ -9,6 +9,7 @@ export default function Evolution() {
     // BUG-03 FIX: Stable references for fallbacks to prevent infinite loops in children
     const contest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const categories = contest?.categories ?? EMPTY_ARRAY;
+    const studyLogs = contest?.studyLogs ?? EMPTY_ARRAY;
     const monteCarloHistory = contest?.monteCarloHistory ?? EMPTY_ARRAY;
     const user = contest?.user;
 
@@ -22,6 +23,7 @@ export default function Evolution() {
             <div className="animate-fade-in">
                 <EvolutionChart
                     categories={categories}
+                    studyLogs={studyLogs}
                     targetScore={user?.targetProbability ?? 70}
                     goalDate={user?.goalDate}
                     monteCarloHistory={monteCarloHistory}

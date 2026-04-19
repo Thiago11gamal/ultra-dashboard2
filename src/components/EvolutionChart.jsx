@@ -72,6 +72,7 @@ export default function EvolutionChart({
     targetScore = 80,
     goalDate,
     monteCarloHistory = [],
+    studyLogs = [],
     unit = '%',
     minScore = 0,
     maxScore = 100
@@ -542,6 +543,7 @@ export default function EvolutionChart({
                 ) : activeEngine === "weekly_diff" ? (
                     <WeeklyEvolutionView
                         categories={categories}
+                        studyLogs={studyLogs}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         maxScore={maxScore}
