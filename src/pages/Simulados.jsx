@@ -95,9 +95,11 @@ export default function Simulados() {
         const todayKey = getDateKey(new Date());
         setData(prev => {
             const existingRows = prev.simuladoRows || [];
-            // BUGFIX CRITICO: Nao deletar rows legadas só porque seu 'createdAt' na importação foi hoje!
-            // Usa 'row.date' como prioridade para garantir a verdadeira sobreposicao de calendario.
-            const nonTodayRows = existingRows.filter(row => !row.createdAt || getDateKey(row.date || row.createdAt) !== todayKey);
+            // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
+            // Apenas deleta as rows autogeradas de hoje, pois elas serão substituídas pela UI atual.
+            const rowsToKeep = existingRows.filter(row => 
+                !(row.isAuto && getDateKey(row.date || row.createdAt) === todayKey)
+            );
 
             // 2. Filter out untouched auto-generated rows to save space
             // BUG FIX: preserve the 'validated' field
@@ -109,7 +111,7 @@ export default function Simulados() {
                 createdAt: row.createdAt || new Date().toISOString()
             }));
 
-            return { ...prev, simuladoRows: [...nonTodayRows, ...validRowsToSave] };
+            return { ...prev, simuladoRows: [...rowsToKeep, ...validRowsToSave] };
         });
     };
 
@@ -236,13 +238,13 @@ export default function Simulados() {
             capturedCount = totalProcessedDisciplines;
 
             const todayKey2 = getDateKey(new Date());
-            // BUGFIX CRITICO: Mesmo alerta, salvaguardando a deleção em lote do Lote de Análise
-            const nonTodayRows = (prev.simuladoRows || []).filter(
-                r => !r.createdAt || getDateKey(r.date || r.createdAt) !== todayKey2
+            // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
+            const rowsToKeep2 = (prev.simuladoRows || []).filter(
+                r => !(r.isAuto && getDateKey(r.date || r.createdAt) === todayKey2)
             );
 
             const validatedRows = [
-                ...nonTodayRows,
+                ...rowsToKeep2,
                 ...rawRows
                     .filter(r => r.subject && r.topic && (Number(r.total) > 0))
                     .map(r => ({

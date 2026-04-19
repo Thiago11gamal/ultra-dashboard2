@@ -531,7 +531,10 @@ export default function VerifiedStats({ categories = [], user }) {
                 recentHistoryForTopics.forEach(h => {
                     if (h.topics) {
                         h.topics.forEach(t => {
-                            const total = Number(t.total) || 0;
+                            let total = Number(t.total) || 0;
+                            const isSynthetic = total === 0 && t.score != null;
+                            if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
+
                             const correct = (t.isPercentage && t.score != null && total > 0)
                                 ? Math.round((Math.min(maxScore, Math.max(0, Number(t.score))) / maxScore) * total)
                                 : (Number(t.correct) || 0);
