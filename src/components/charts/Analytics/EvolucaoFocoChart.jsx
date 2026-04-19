@@ -11,15 +11,8 @@ export function EvolucaoFocoChart({ data }) {
         );
     }
 
-    // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines
-    // FIX: Usar normalizeDate para evitar que YYYY-MM-DD seja interpretado como UTC midnight
-    const sortedData = React.useMemo(() => {
-        return [...data].sort((a, b) => {
-            const dateA = a.data ? (normalizeDate(a.data)?.getTime() ?? 0) : 0;
-            const dateB = b.data ? (normalizeDate(b.data)?.getTime() ?? 0) : 0;
-            return dateA - dateB;
-        });
-    }, [data]);
+    // A ordenação manual de D/M gerava NaN e destruía a ordem cronológica que o mapper já trazia corretamente
+    const sortedData = data;
 
     return (
         <div className="h-[300px] w-full mt-4">
