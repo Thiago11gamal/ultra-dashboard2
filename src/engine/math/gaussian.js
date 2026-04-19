@@ -146,9 +146,14 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             }
         }
         density *= normFactor;
-        if (density > maxY) maxY = density;
         
-        rawData.push({ x, density }); // Guarda temporariamente
+        // Cortar probabilidades matemáticas irreais fora do domínio fechado da prova
+        if (x < minScore || x > maxScore) {
+            density = 0;
+        }
+
+        if (density > maxY) maxY = density;
+        rawData.push({ x, density }); 
     }
 
     // FASE 2: Formatar diretamente para o array final devolvido

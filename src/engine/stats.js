@@ -125,7 +125,13 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const p    = alpha / n;
     const mean = p * maxScore;
 
-    const baseVariance = (alpha * beta) / (n * n * (n + 1));
+    // Incorporação de Correlação Intraclasse (ICC) limitando o "n efetivo".
+    // Impede que o desvio padrão caia a níveis microscópicos irreais à medida que o aluno faz mais provas.
+    const MAX_EFFECTIVE_N = 100; 
+    const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
+    
+    // Variância Bayesiana ancorada no limite de certeza estatística humana
+    const baseVariance = (p * (1 - p)) / (effectiveN + 1);
     const effectiveSd = Math.sqrt(baseVariance); 
 
     // FIX 1.2: Clamping Inteligente.

@@ -328,7 +328,11 @@ export function monteCarloSimulation(
         const detrendedChange = actualChange - (rawDrift * daysBetween);
 
         // M-02 FIX: Resíduo bruto normalizado pelo tempo.
-        return detrendedChange / Math.sqrt(daysBetween);
+        // CORREÇÃO (Fix Matemático 1):
+        // O ruído de observação não deve ser dividido pela raiz de frações de tempo.
+        // Adicionamos um piso de 1 dia (Math.max) para estabilizar a variância.
+        const timeScale = Math.max(1.0, Math.sqrt(daysBetween));
+        return detrendedChange / timeScale;
     }).slice(1) : [];
 
     // Math Fix: Centralizar resíduos para garantir que a média do choque seja rigorosamente zero.
@@ -447,9 +451,11 @@ export function monteCarloSimulation(
         // Cada universo paralelo (simulação) tem um "Teto de Vidro" levemente diferente,
         // gerado pelo erro padrão da regressão linear.
         // SCALE-BOUNDS: clamp to dynamic domain
+        // CORREÇÃO (Fix Matemático 3):
+        // A incerteza do slope de uma regressão linear cresce de forma linear com o tempo (t), e não com a raiz quadrada (sqrt).
         const simMu = Math.max(
             minScore,
-            Math.min(maxScore, longTermMu + (randomNormal(rng) * driftUncertainty * Math.sqrt(simulationDays)))
+            Math.min(maxScore, longTermMu + (randomNormal(rng) * driftUncertainty * simulationDays))
         );
 
         for (let d = 0; d < simulationDays; d++) {
@@ -487,7 +493,10 @@ export function monteCarloSimulation(
             const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.25);
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
-            score += deterministicPull + (shock * binomialVolatility);
+            // CORREÇÃO (Fix Matemático 5):
+            // Remoção da deformação binomial para eliminar o drift espúrio de Itô.
+            // A dinâmica mantém-se exata através da Barreira Absorvente (clamping) aplicada no step seguinte.
+            score += deterministicPull + shock;
 
             // 🎯 ABSORBING BARRIER (Barreira Absorvente por Passo)
             // A truncatura é aplicada A CADA PASSO DIÁRIO, não pós-hoc.

@@ -75,10 +75,14 @@ export function analyzeProgressState(scores, config = {}) {
         denominator += Math.pow(i - xMean, 2);
     }
 
-    const slope = denominator !== 0 ? numerator / denominator : 0;
+    const rawSlope = denominator !== 0 ? numerator / denominator : 0; // Pontos por prova
+    
+    // Normalização assumindo uma média de ~5 provas no período em análise (ex: 30 dias)
+    // para alinhar as dimensões do slope com a tolerância de tendência.
+    const normalizedSlope = rawSlope * 5; 
 
     // 6. Stagnation Detection
-    const stagnated = delta <= stagnation_threshold && Math.abs(slope) <= trend_tolerance;
+    const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
 
     // 7. Semantic Classification
     let state = '';
@@ -110,11 +114,11 @@ export function analyzeProgressState(scores, config = {}) {
 
         // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
         // Se a inclinação (slope) é fortemente negativa, é regressão, independentemente da variância.
-        if (slope < -trend_tolerance) {
+        if (normalizedSlope < -trend_tolerance) {
             state = 'regression';
             label = isVeryUnstable ? 'Queda Acentuada (Instável)' : 'Em regressão';
-            severity = 'high'; // Alerta vermelho mantido
-        } else if (slope > trend_tolerance && !isVeryUnstable) {
+            severity = 'high'; 
+        } else if (normalizedSlope > trend_tolerance && !isVeryUnstable) {
             state = 'progression';
             label = 'Em evolução';
             severity = 'none';
