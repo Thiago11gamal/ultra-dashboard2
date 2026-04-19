@@ -159,7 +159,11 @@ export default function NextGoalCard({ categories = [], simulados = [], studyLog
                     <div className="flex items-center gap-2 mt-2">
                         <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-400 font-medium">
                             <Clock size={12} className={urgencyStyle.textHighlight} />
-                            Tempo sem ver: <span className="text-white font-bold">{urgency?.details?.daysSinceLastStudy ?? 0}d</span>
+                            Tempo sem ver: <span className="text-white font-bold">
+                                {hasSimuladoData && (urgency?.details?.daysSinceLastStudy ?? 0) > 0 
+                                    ? `${urgency.details.daysSinceLastStudy}d` 
+                                    : hasSimuladoData ? '0d' : 'Nunca'}
+                            </span>
                         </span>
                     </div>
                 </div>

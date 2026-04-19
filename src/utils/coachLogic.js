@@ -430,8 +430,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         return {
             score: 0,
             normalizedScore: 0,
-            recommendation: "Erro no cálculo",
-            details: { hasData: false, error: err.message }
+            recommendation: "Erro no cálculo: " + err.message,
+            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, stack: err.stack }
         };
     }
 };
