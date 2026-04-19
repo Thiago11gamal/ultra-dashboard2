@@ -3,7 +3,6 @@ import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from
 
 export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean, prob, sdLeft: propSdLeft, sdRight: propSdRight, kdeData, projectedMean, minScore = 0, maxScore = 100, unit = '%' }) => {
     const [hover, setHover] = useState(null);
-    const clampVisual = (v) => Math.max(0, Math.min(100, v));
 
     // VISUAL-01 FIX: IDs únicos por instância para evitar conflito entre múltiplos GaussianPlot
     const instanceId = useId().replace(/:/g, '');
@@ -24,7 +23,9 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const targetVal = targetScore ?? 70;
 
         // SCALE-BOUNDS FIX: Dynamic domain — adds 10% right-margin so target line is never cut off
-        const domainMin = Math.min(minScore, meanVal, targetVal);
+        // M3 FIX: domainMin must never go below minScore — degenerate data (meanVal < 0) would
+        // otherwise render impossible negative values on the X-axis.
+        const domainMin = minScore;
         const rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
         const domainMax = rawMax;
         const xMin = domainMin;
@@ -319,7 +320,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </div>
 
             {hover && (
-                <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none z-50">
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                     <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, yp(asymmetricGaussianFn(hover.val)))}%`, transform: 'translate(-50%, -50%)' }} />
                     <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(5, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
@@ -333,12 +334,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             )}
 
             <div className="absolute -bottom-5 inset-x-0 h-4 pointer-events-none">
-                {/* SCALE-BOUNDS FIX: Dynamic X-axis ticks based on actual domain */}
                 {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
                     const tickVal = domainMin + f * (domainMax - domainMin);
                     const pct = 2 + f * 96;
                     return (
-                        <span key={f} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: pct === 0 ? 'translateX(0%)' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                        <span key={f} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: f === 0 ? 'translateX(0%)' : f === 1.0 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
                             {Number.isInteger(tickVal) ? tickVal : tickVal.toFixed(1)}{unit}
                         </span>
                     );

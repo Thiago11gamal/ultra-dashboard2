@@ -73,8 +73,11 @@ export default function MonteCarloGauge({
     }, [categoryHistoryHash, categories]);
 
     useEffect(() => {
+        // L2 FIX: Reset timeIndex when dates actually change, not just when their
+        // count changes. If a date is edited/replaced but the total stays the same,
+        // timeIndex would point to the wrong date.
         setTimeIndex(-1);
-    }, [timelineDates.length]);
+    }, [timelineDates.join(',')]);
 
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
@@ -242,8 +245,12 @@ export default function MonteCarloGauge({
             return { date, score: tw > 0 ? sum / tw : -1 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
-        const pooledDailySD = pooledSD;
-        const dailySD = pooledDailySD > 0 ? pooledDailySD : calculateVolatility(globalHistory, maxScore);
+        // M3 FIX: pooledSD is CROSS-SECTIONAL variance (spread between category means), NOT
+        // temporal day-to-day volatility. Using it as forcedVolatility conflates two different
+        // statistical concepts and distorts the simulation. Always derive dailySD from the
+        // actual temporal history of the composite weighted score.
+        const temporalVolatility = calculateVolatility(globalHistory, maxScore);
+        const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
 
         const avgCV = totalWeight > 0
             ? categoryStats.reduce((acc, cat) => {
@@ -453,7 +460,9 @@ export default function MonteCarloGauge({
     const ci95High = simulationData?.data?.ci95High ?? 0;
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-    const prob = safe(probability);
+    // M1 FIX: Clamp prob to [0,100] — floating-point may produce 100.0003,
+    // causing strokeDasharray="100.0003 -0.0003" which is invalid SVG.
+    const prob = Math.min(100, Math.max(0, safe(probability)));
 
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
@@ -565,11 +574,12 @@ export default function MonteCarloGauge({
                             strokeDashoffset={0}
                             style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                         />
-                        {!isFlashing && (
-                            <g
-                                transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
-                                style={{ transition: 'transform 1.5s ease-out' }}
-                            >
+                        {/* V3 FIX: Keep needle visible during flash with reduced opacity instead of
+                            disappearing entirely, which caused a jarring visual jump every 800ms */}
+                        <g
+                            transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
+                            style={{ transition: 'transform 1.5s ease-out', opacity: isFlashing ? 0.3 : 1 }}
+                        >
                                 <circle
                                     cx="4" cy="65" r="4"
                                     fill={gradientColor}
@@ -578,7 +588,6 @@ export default function MonteCarloGauge({
                                 />
                                 <circle cx="4" cy="65" r="2" fill="#fff" opacity="0.8" />
                             </g>
-                        )}
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
                         <span className="text-4xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
@@ -599,7 +608,7 @@ export default function MonteCarloGauge({
                 </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 px-1">
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-6 px-1">
                 {[
                     { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500" },
                     { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white" },
@@ -607,15 +616,23 @@ export default function MonteCarloGauge({
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
-                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400' : 'text-red-400'
+                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400' : 'text-red-400',
+                        small: true,
                     },
-                    { label: "IC 95%", val: `${safe(ci95Low).toFixed(1)}-${safe(ci95High).toFixed(1)}${unit}`, color: "text-green-500" }
+                    {
+                        label: "IC 95%",
+                        // V1 FIX: Use integers to prevent long string truncation in narrow card
+                        val: `${safe(ci95Low).toFixed(0)}–${safe(ci95High).toFixed(0)}${unit}`,
+                        color: "text-green-500",
+                        small: true,
+                        fullVal: `${safe(ci95Low).toFixed(1)}–${safe(ci95High).toFixed(1)}${unit}`,
+                    }
                 ].map((m, i) => (
-                    <div key={i} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center overflow-hidden">
+                    <div key={i} title={m.fullVal ?? m.val} className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center overflow-hidden">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 whitespace-nowrap">
                             {m.label}
                         </span>
-                        <span className={`text-sm font-black ${m.color} truncate w-full text-center`}>
+                        <span className={`${m.small ? 'text-xs' : 'text-sm'} font-black ${m.color} truncate w-full text-center`}>
                             {m.val}
                         </span>
                     </div>
@@ -768,4 +785,3 @@ export default function MonteCarloGauge({
         </div>
     );
 }
-
