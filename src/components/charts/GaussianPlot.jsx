@@ -294,15 +294,19 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '30%' : tierMean === 2 ? '15%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
-                    <span className="text-[10px] font-black text-blue-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
-                    <span className="text-[7px] font-black text-blue-400/70 uppercase tracking-tighter mt-0.5 whitespace-nowrap">Projeção</span>
+                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)] mb-1" />
+                    <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-1 rounded-lg border border-blue-500/20 shadow-xl">
+                        <span className="text-[13px] font-black text-blue-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-none">{mean.toFixed(1)}{unit}</span>
+                        <span className="text-[9px] font-black text-blue-300 uppercase tracking-[0.1em] mt-1 opacity-80">Projeção</span>
+                    </div>
                 </div>
                 {isTargetVisible && (
                     <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '30%' : tierTarget === 2 ? '15%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
-                        <span className="text-[10px] font-black text-rose-400 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
-                        <span className="text-[7px] font-black text-rose-500/50 uppercase tracking-tighter mt-0.5">Meta</span>
+                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,1)] mb-1" />
+                        <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-1 rounded-lg border border-rose-500/20 shadow-xl">
+                            <span className="text-[13px] font-black text-rose-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-none">{targetVal}{unit}</span>
+                            <span className="text-[9px] font-black text-rose-300 uppercase tracking-[0.1em] mt-1 opacity-80">Meta</span>
+                        </div>
                     </div>
                 )}
                 {isTargetVisible && (
@@ -313,8 +317,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 )}
                 {isCurrentVisible && (
                     <div className="absolute flex flex-col items-center transition-all group-hover/chart:opacity-30 duration-500" style={{ left: `${Math.max(2, Math.min(currentPos, 90))}%`, top: finalHojeTop, transform: currentPos > 85 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 10 }}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white mb-1 shadow-[0_0_8px_white]" />
-                        <span className="text-[10px] font-black text-white/90 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-white/20 tracking-tighter shadow-xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}{unit}</span>
+                        <div className="w-2 h-2 rounded-full bg-white mb-1 shadow-[0_0_10px_white]" />
+                        <span className="text-[12px] font-black text-white px-3 py-1 rounded-xl bg-slate-900/90 backdrop-blur-xl border border-white/30 tracking-tight shadow-2xl whitespace-nowrap">Hoje: {(currentMean ?? 0).toFixed(1)}{unit}</span>
                     </div>
                 )}
             </div>
@@ -323,11 +327,11 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 <div className="absolute inset-0 pointer-events-none z-50">
                     <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                     <div className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, yp(asymmetricGaussianFn(hover.val)))}%`, transform: 'translate(-50%, -50%)' }} />
-                    <div className="absolute bg-slate-900/90 backdrop-blur-xl border border-indigo-500/50 text-white p-2 rounded-xl shadow-2xl flex flex-col items-center min-w-[80px]" style={{ left: `${hover.x}%`, top: `${Math.max(25, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
-                        <span className="text-[12px] font-black tracking-tight">{hover.val.toFixed(1)}{unit}</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-                            <span className={`text-[8px] font-black uppercase tracking-widest ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-400'}`}>{hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}</span>
+                    <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/50 text-white p-3 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.7)] flex flex-col items-center min-w-[100px]" style={{ left: `${hover.x}%`, top: `${Math.max(25, yp(asymmetricGaussianFn(hover.val)) - 10)}%`, transform: 'translate(-50%, -100%)' }}>
+                        <span className="text-[18px] font-black tracking-tighter leading-none">{hover.val.toFixed(1)}{unit}</span>
+                        <div className="flex items-center gap-1.5 mt-2">
+                            <div className={`w-2 h-2 rounded-full ${hover.val >= targetVal ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-slate-500'}`} />
+                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${hover.val >= targetVal ? 'text-emerald-400' : 'text-slate-500'}`}>{hover.val >= targetVal ? 'Zona de Sucesso' : 'Abaixo da Meta'}</span>
                         </div>
                     </div>
                 </div>
@@ -338,16 +342,16 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     const tickVal = domainMin + f * (domainMax - domainMin);
                     const pct = 2 + f * 96;
                     return (
-                        <span key={f} className="absolute text-[8px] font-bold text-slate-500/60 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: f === 0 ? 'translateX(0%)' : f === 1.0 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                        <span key={f} className="absolute text-[10px] font-black text-slate-400 uppercase tracking-tighter" style={{ left: `${pct}%`, transform: f === 0 ? 'translateX(0%)' : f === 1.0 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
                             {Number.isInteger(tickVal) ? tickVal : tickVal.toFixed(1)}{unit}
                         </span>
                     );
                 })}
             </div>
 
-            <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-60 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min(ciLowPx, 75)}%`, maxWidth: '25%' }}>
-                <div className="w-2 h-2 rounded-full bg-blue-500/20 border border-blue-400/40" />
-                <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
+            <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-80 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min(ciLowPx, 75)}%`, maxWidth: '25%' }}>
+                <div className="w-2 h-2 rounded-full bg-blue-500/30 border border-blue-400/50" />
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
             </div>
         </div>
     );
