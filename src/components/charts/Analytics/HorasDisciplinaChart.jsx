@@ -15,17 +15,20 @@ export function HorasDisciplinaChart({ data }) {
     // Sort by hours descending
     const sortedData = [...data].sort((a, b) => b.horas - a.horas);
 
+    // FIX: Altura dinâmica! Mínimo de 300px, mas cresce 45px por cada matéria extra
+    const dynamicHeight = Math.max(300, sortedData.length * 45);
+
     return (
-        <div className="h-[300px] w-full mt-4">
+        <div style={{ height: `${dynamicHeight}px` }} className="w-full mt-4 transition-all duration-300">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                     layout="vertical"
                     data={sortedData}
-                    margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                    // Margem left aumentada para acomodar nomes grandes de matérias de Direito
+                    margin={{ top: 5, right: 30, left: 130, bottom: 5 }} 
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
                     
-                    {/* Eixo X com folga dinâmica de 10% (multiplicador 1.1) */}
                     <XAxis 
                         type="number" 
                         stroke="#94a3b8" 
@@ -33,7 +36,7 @@ export function HorasDisciplinaChart({ data }) {
                         domain={[0, dataMax => Math.ceil(dataMax * 1.1)]} 
                         axisLine={false} 
                         tickLine={false}
-                        tickFormatter={(val) => `${val}h`}
+                        tickFormatter={(val) => `${Number(val).toFixed(0)}h`}
                     />
                     
                     <YAxis 
@@ -43,21 +46,21 @@ export function HorasDisciplinaChart({ data }) {
                         fontSize={11} 
                         axisLine={false} 
                         tickLine={false}
-                        width={90}
+                        width={120} // Largura sincronizada com a margem left para não cortar nomes
                     />
                     
                     <Tooltip 
-                        cursor={false}
+                        cursor={{ fill: 'rgba(255,255,255,0.03)' }} // Melhor UX: Dá um destaque na linha onde o mouse passa
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
                         itemStyle={{ padding: '2px 0' }}
-                        formatter={(value) => [`${value} horas`, 'Total']}
+                        formatter={(value) => [`${Number(value).toFixed(1)} horas`, 'Total']}
                     />
                     
                     <Bar 
                         dataKey="horas" 
                         fill="#6366f1" 
-                        radius={[0, 4, 4, 0]} 
-                        barSize={18}
+                        radius={[0, 6, 6, 0]} // Arredondamento um pouco mais elegante
+                        maxBarSize={20} // Evita que matérias únicas fiquem parecendo blocos gigantes
                         name="Horas"
                     >
                         {sortedData.map((entry, index) => (

@@ -13,7 +13,8 @@ export function AnaliseRetencaoChart({ data }) {
     return (
         <div className="h-[320px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                {/* Margens ajustadas para dar respiro aos valores numéricos (left/right) e ao texto inclinado (bottom) */}
+                <ComposedChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 40 }}>
                     <defs>
                         <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
@@ -26,6 +27,7 @@ export function AnaliseRetencaoChart({ data }) {
                     </defs>
 
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    
                     <XAxis 
                         dataKey="nomeTopico" 
                         stroke="#64748b" 
@@ -33,8 +35,13 @@ export function AnaliseRetencaoChart({ data }) {
                         tickLine={false} 
                         axisLine={false} 
                         dy={10}
+                        // CORREÇÃO 1 e 3: Texto inclinado e padding para as barras não colarem na borda
+                        angle={-45}
+                        textAnchor="end"
+                        padding={{ left: 15, right: 15 }}
                     />
                     
+                    {/* CORREÇÃO 2: Labels removidos para evitar poluição visual (a legenda já faz este papel) */}
                     <YAxis 
                         yAxisId="left" 
                         orientation="left" 
@@ -42,7 +49,7 @@ export function AnaliseRetencaoChart({ data }) {
                         fontSize={10} 
                         axisLine={false} 
                         tickLine={false}
-                        label={{ value: 'Dias sem Revisão', angle: -90, position: 'insideLeft', offset: 10, fill: '#64748b', fontSize: 10, fontWeight: 'bold' }}
+                        dx={-5} // Afasta os números levemente do gráfico
                     />
                     
                     <YAxis 
@@ -53,7 +60,7 @@ export function AnaliseRetencaoChart({ data }) {
                         domain={[0, 100]} 
                         axisLine={false} 
                         tickLine={false}
-                        label={{ value: 'Risco de Esquecimento (%)', angle: 90, position: 'insideRight', offset: 10, fill: '#f87171', fontSize: 10, fontWeight: 'bold' }}
+                        dx={5} // Afasta os números levemente do gráfico
                     />
 
                     <Tooltip 
@@ -80,7 +87,8 @@ export function AnaliseRetencaoChart({ data }) {
                         fill="url(#barGradient)" 
                         radius={[6, 6, 0, 0]} 
                         name="Dias sem Revisão" 
-                        barSize={24}
+                        // CORREÇÃO 4: maxBarSize permite que o gráfico seja responsivo em telas menores
+                        maxBarSize={24}
                     />
                     
                     <Line 

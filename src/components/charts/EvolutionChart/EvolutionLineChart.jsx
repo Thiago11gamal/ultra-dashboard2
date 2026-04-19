@@ -117,16 +117,15 @@ export function EvolutionLineChart({
     return (
         <div className="h-[250px] sm:h-[450px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0">
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
-                <ComposedChart data={enhancedChartData} margin={{ top: 20, right: 65, left: 0, bottom: 12 }} style={{ outline: 'none' }} tabIndex="-1">
+                {/* CORREÇÃO AQUI: Aumentamos margin bottom para 20 e adicionamos padding interno no Eixo X */}
+                <ComposedChart data={enhancedChartData} margin={{ top: 20, right: 65, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
-                        {/* CODE-02 FIX: Only generate gradients for active categories to optimize DOM size */}
                         {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map(cat => (
                             <React.Fragment key={`defs_${cat.id}`}>
                                 <linearGradient id={`grad_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor={cat.color} stopOpacity={0.25} />
                                     <stop offset="100%" stopColor={cat.color} stopOpacity={0.01} />
                                 </linearGradient>
-                                {/* FIX: Banda de incerteza usando a cor nativa da mat\u00e9ria e n\u00e3o um verde fixo */}
                                 <linearGradient id={`bayBand_${cat.id}`} x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor={cat.color} stopOpacity={0.18} />
                                     <stop offset="100%" stopColor={cat.color} stopOpacity={0.04} />
@@ -143,13 +142,37 @@ export function EvolutionLineChart({
                         </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="displayDate" tick={{ fontSize: 10, fill: '#64748b' }} dy={8} axisLine={false} tickLine={false} minTickGap={35} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} dx={-4} axisLine={false} tickLine={false} domain={[minScore, maxScore]} allowDataOverflow={true} tickFormatter={(v) => `${v}${unit}`} width={50} />
+                    
+                    {/* CORREÇÃO AQUI: padding evita linhas sendo cortadas no limite esquerdo do gráfico */}
+                    <XAxis 
+                        dataKey="displayDate" 
+                        tick={{ fontSize: 10, fill: '#64748b' }} 
+                        dy={12} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        minTickGap={35} 
+                        padding={{ left: 15, right: 10 }}
+                    />
+                    
+                    <YAxis 
+                        tick={{ fontSize: 10, fill: '#64748b' }} 
+                        dx={-8} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        domain={[minScore, maxScore]} 
+                        allowDataOverflow={true} 
+                        tickFormatter={(v) => `${v}${unit}`} 
+                        width={45} 
+                    />
+                    
                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45} strokeDasharray="0"
                         label={{ value: `Meta ${targetScore}${unit}`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
+                    
                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                         content={<ChartTooltip chartData={enhancedChartData} isCompare={false} />} />
-                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', paddingBottom: '5px' }} />
+                    
+                    {/* Legenda empurrada sutilmente para baixo */}
+                    <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
                     
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const isFocused = focusSubjectId === cat.id;
