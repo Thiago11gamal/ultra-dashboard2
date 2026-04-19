@@ -44,6 +44,13 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
         const handleScroll = () => {
             if (!ticking) {
                 window.requestAnimationFrame(() => {
+                    const isMobileLocal = window.innerWidth < 768; // md breakpoint
+                    if (!isMobileLocal) {
+                        setIsVisible(true);
+                        ticking = false;
+                        return;
+                    }
+
                     const currentScrollY = window.scrollY;
 
                     // Oculta ao rolar para baixo, mostra ao rolar para cima

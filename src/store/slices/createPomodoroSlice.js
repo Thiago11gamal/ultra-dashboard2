@@ -24,10 +24,6 @@ export const createPomodoroSlice = (set, get) => ({
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
         });
-
-        if (!subject && typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('pomodoro-reset'));
-        }
     },
 
     startPomodoroSession: (subject) => {

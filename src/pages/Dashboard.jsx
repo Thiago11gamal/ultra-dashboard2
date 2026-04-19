@@ -44,13 +44,7 @@ export default function Dashboard() {
 
     const setGoalDate = (d) => setData(prev => ({
         ...prev,
-        contests: {
-            ...prev.contests,
-            [activeId]: {
-                ...prev.contests?.[activeId],
-                user: { ...prev.contests?.[activeId]?.user, goalDate: d }
-            }
-        }
+        user: { ...prev.user, goalDate: d }
     }));
 
     const handleStartStudying = (categoryId, taskId) => {
@@ -69,25 +63,18 @@ export default function Dashboard() {
             // Set studying status
             setData(prev => ({
                 ...prev,
-                contests: {
-                    ...prev.contests,
-                    [activeId]: {
-                        ...prev.contests[activeId],
-                        categories: prev.contests[activeId].categories.map(c => ({
-                            ...c,
-                            tasks: (c.tasks || []).map(t => {
-                                if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
-                                if (t.status === 'studying') return { ...t, status: undefined };
-                                return t;
-                            })
-                        }))
-                    }
-                }
+                categories: (prev.categories || []).map(c => ({
+                    ...c,
+                    tasks: (c.tasks || []).map(t => {
+                        if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
+                        if (t.status === 'studying') return { ...t, status: undefined };
+                        return t;
+                    })
+                }))
             }));
             showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+            navigate('/pomodoro');
         }
-
-        navigate('/pomodoro');
     };
 
     return (

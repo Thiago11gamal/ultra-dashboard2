@@ -52,15 +52,18 @@ function AICoachPanel({ activeSubject, stats }) {
 function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     const recommendedTask = useMemo(() => getBestTask(categories), [categories]);
 
-    // Estados de Arraste e Bloqueio
     const [isPanelLocked, setIsPanelLocked] = useState(() => {
-        const saved = localStorage.getItem('focusPanelLocked');
-        return saved ? JSON.parse(saved) : true; // Começa travado por padrão
+        try {
+            const saved = localStorage.getItem('focusPanelLocked');
+            return saved ? JSON.parse(saved) : true; // Começa travado por padrão
+        } catch { return true; }
     });
 
     const [uiPosition, setUiPosition] = useState(() => {
-        const saved = localStorage.getItem('focusPanelPosition');
-        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+        try {
+            const saved = localStorage.getItem('focusPanelPosition');
+            return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+        } catch { return { x: 0, y: 0 }; }
     });
 
     const handleDragEnd = (event, info) => {
@@ -101,6 +104,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
         <motion.div 
             drag={!isPanelLocked}
             dragMomentum={false}
+            initial={uiPosition}
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.02, zIndex: 100 }}
@@ -236,6 +240,8 @@ export default function Pomodoro() {
 
     // Preparar dados do utilizador para passar ao Coach
     const userStats = useMemo(() => {
+        if (!data) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
+
         // Cálculo Inteligente de Fadiga Diária sem Amnésia
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -327,11 +333,19 @@ export default function Pomodoro() {
         }));
     };
 
+    if (!data) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <p className="text-slate-400">Carregando dados...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-[calc(100vh-180px)] flex items-start justify-center pt-32 pb-10 px-4">
-            <div className="flex gap-2 items-start justify-center">
+            <div className="flex gap-2 items-start justify-center w-full max-w-[1340px]">
                 {/* Timer Column — No flex-1 to keep it tight with the side panel */}
-                <div className="w-[850px] shrink-0">
+                <div className="w-full xl:w-[850px] xl:shrink-0 min-w-0">
                     <PomodoroTimer
                         settings={data.settings}
                         onUpdateSettings={updatePomodoroSettings}

@@ -76,7 +76,7 @@ const PerformancePanel = ({ stats, color }) => {
             {history.length > 1 && (
                 <div className="mt-4 pt-4 border-t border-white/5">
                     <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Evolução Recente</p>
-                    <div className="flex items-end h-16 gap-1 w-full overflow-hidden">
+                    <div className="flex items-end h-16 gap-1 w-full overflow-visible">
                         {(() => {
                             const sliced = history.slice(-10);
                             return sliced.map((h, i) => (
@@ -221,6 +221,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     };
     const [isOpen, setIsOpen] = useState(true);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
     const tasks = category.tasks || [];
     const allTasks = category.originalTasks || tasks; // Use original/all tasks for progress bar
@@ -267,9 +268,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Tem certeza que deseja excluir a disciplina "${category.name}" e todas as suas tarefas? Isso não pode ser desfeito.`)) {
-                            onDeleteCategory(category.id);
-                        }
+                        setIsConfirmDeleteOpen(true);
                     }}
                     className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
                     title="Excluir Disciplina Permanente"
@@ -345,6 +344,20 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 title="Novo Assunto"
                 placeholder="Nome do novo assunto..."
             />
+            {isConfirmDeleteOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsConfirmDeleteOpen(false)} />
+                    <div className="bg-slate-900 border border-red-500/50 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col items-center text-center">
+                        <Trash2 size={48} className="text-red-500 mb-4 p-2 bg-red-500/10 rounded-full" />
+                        <h3 className="text-xl font-bold text-white mb-2">Excluir Disciplina?</h3>
+                        <p className="text-sm text-slate-400 mb-6">Tem certeza que deseja excluir <strong>{category.name}</strong> e todas as suas tarefas? Esta ação não pode ser desfeita.</p>
+                        <div className="flex gap-3 w-full">
+                            <button onClick={() => setIsConfirmDeleteOpen(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-slate-700 hover:text-white transition-colors">Cancelar</button>
+                            <button onClick={() => { setIsConfirmDeleteOpen(false); onDeleteCategory(category.id); }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20">Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

@@ -59,12 +59,18 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const svgCircleRef = useRef(null);
     const bottomBarRef = useRef(null);
     const sphereRef = useRef(null);
-    
+    const [uiPosition, setUiPosition] = useState(() => {
+        try {
+            const saved = localStorage.getItem('pomodoroPosition');
+            return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+        } catch { return { x: 0, y: 0 }; }
+    });
+
     // BUG 3 FIX: Persistent Audio Ref to bypass Autoplay Policies
     const alarmAudioRef = useRef(null);
     useEffect(() => {
         try {
-            alarmAudioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleBoAAHjE56dfDgABaL3wq2kbAQBVtfyyRAAWYr3upm8dBQBRs/21bBwGBV687K5wIA0AWLn2sXIfDgBese+3eScSAGK48bN7JxQAaLbut3onFQBxt/SzdiURAHS48bR9Jw8Ab7f1uH4nDwBzt');
+            alarmAudioRef.current = new Audio('/sounds/alarm.wav');
         } catch(e) {}
     }, []);
 
@@ -102,8 +108,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 const newTime = prev - elapsedSeconds;
                                 return newTime > 0 ? newTime : 0;
                             });
-                            setIsRunning(false);
-                            innerTimerRef.current = setTimeout(() => setIsRunning(true), 0);
+                            setIsRunning(true);
                         }, 0);
                     }
                 } else {
@@ -153,11 +158,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const containerRef = useRef(null);
 
-    const [uiPosition, setUiPosition] = useState(() => {
-        const saved = localStorage.getItem('pomodoroPosition');
-        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
-    });
-
+    // O uiPosition foi movido pro início pra evitar order de hook
+    
     // B-10 & B-11 FIX: Viewport-aware safety reset
     // Resets widget position if it gets "lost" off-screen (e.g. window resize)
     useEffect(() => {
@@ -190,7 +192,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const savePomodoroState = useCallback((overrides = {}) => {
         const stateToSave = {
             mode,
-            timeLeft,
+            timeLeft: timeLeftRef.current,
             isRunning,
             sessions,
             completedCycles,
@@ -207,7 +209,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch (err) {
             console.debug('Quota error', err);
         }
-    }, [mode, timeLeft, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
+    }, [mode, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
 
     useEffect(() => {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -536,6 +538,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             initial={{ y: -5, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             style={{
+                                backgroundColor: '#2a1f1a',
                                 backgroundImage: 'url(/header-wood.png)',
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center'
@@ -624,6 +627,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             <motion.div
                 style={{
+                    backgroundColor: '#2a1f1a',
                     backgroundImage: 'url(/wood-texture.png)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
@@ -690,7 +694,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 strokeWidth="10"
                                 strokeLinecap="round"
                                 strokeDasharray={2 * Math.PI * 100}
-                                style={isRunning ? undefined : { strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
+                                style={{ strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
                                 className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
                             />
                         </svg>
@@ -790,6 +794,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             <motion.div
                 style={{
+                    backgroundColor: '#2a1f1a',
                     backgroundImage: 'url(/header-wood.png)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center'
@@ -868,7 +873,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         <div
                                             ref={i === sessions && mode === 'work' ? bottomBarRef : null}
                                             className={`h-full rounded-full ${workProgress > 0 ? 'bg-sky-400' : 'bg-transparent'}`}
-                                            style={i === sessions && mode === 'work' && isRunning ? undefined : { width: `${workProgress}%` }}
+                                            style={{ width: `${workProgress}%` }}
                                         ></div>
                                     </div>
                                     <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
@@ -885,7 +890,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         <div
                                             ref={i === sessions - 1 && mode === 'break' ? sphereRef : null}
                                             className="w-full bg-emerald-500"
-                                            style={i === sessions - 1 && mode === 'break' && isRunning ? undefined : { height: `${breakProgress}%` }}
+                                            style={{ height: `${breakProgress}%` }}
                                         ></div>
                                     </div>
                                     <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
@@ -900,7 +905,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         );
                     })}
                 </div>
-                <div className="h-6 w-full"></div>
             </motion.div>
         </motion.div>
     </div>
