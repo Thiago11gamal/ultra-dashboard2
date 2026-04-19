@@ -46,7 +46,7 @@ const TrashModalContent = ({ isOpen, onClose }) => {
                                         {item.data.name || 'Item sem nome'}
                                     </h4>
                                     <p className="text-xs text-slate-400">
-                                        {item.type === 'contest' ? 'Painel Completo' : 'Matéria'} • Excluído em {new Date(item.deletedAt).toLocaleDateString()}
+                                        {item.type === 'contest' ? 'Painel Completo' : 'Matéria'} • Excluído em {new Date(item.deletedAt).toLocaleDateString('pt-BR')}
                                     </p>
                                 </div>
                                 <button

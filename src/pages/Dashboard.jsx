@@ -31,7 +31,7 @@ export default function Dashboard() {
     const pomodorosCompleted = useAppStore(state => state.appState.contests?.[activeId]?.pomodorosCompleted);
 
     const data = React.useMemo(() => ({
-        categories, simuladoRows, studyLogs, user, pomodorosCompleted 
+        categories, simuladoRows, studyLogs, user, pomodorosCompleted
     }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     if (!data || !data.categories) {
