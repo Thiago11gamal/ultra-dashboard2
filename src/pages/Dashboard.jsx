@@ -23,7 +23,9 @@ export default function Dashboard() {
     const user = useAppStore(state => state.appState.contests[activeId]?.user);
     const pomodorosCompleted = useAppStore(state => state.appState.contests[activeId]?.pomodorosCompleted);
 
-    const data = { categories, simuladoRows, studyLogs, user, pomodorosCompleted };
+    const data = React.useMemo(() => ({
+        categories, simuladoRows, studyLogs, user, pomodorosCompleted 
+    }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     if (!data || !data.categories) {
         return (
@@ -51,14 +53,20 @@ export default function Dashboard() {
             // Set studying status
             setData(prev => ({
                 ...prev,
-                categories: prev.categories.map(c => ({
-                    ...c,
-                    tasks: (c.tasks || []).map(t => {
-                        if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
-                        if (t.status === 'studying') return { ...t, status: undefined };
-                        return t;
-                    })
-                }))
+                contests: {
+                    ...prev.contests,
+                    [activeId]: {
+                        ...prev.contests[activeId],
+                        categories: prev.contests[activeId].categories.map(c => ({
+                            ...c,
+                            tasks: (c.tasks || []).map(t => {
+                                if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
+                                if (t.status === 'studying') return { ...t, status: undefined };
+                                return t;
+                            })
+                        }))
+                    }
+                }
             }));
             showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
         }

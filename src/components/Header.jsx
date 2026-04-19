@@ -48,13 +48,14 @@ export default function Header({
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [trashOpen, setTrashOpen] = useState(false);
     const [localName, setLocalName] = useState(user.name);
+    const [isFocused, setIsFocused] = useState(false);
 
     // Sync localName with prop changes - BUG-FIX: Conditional check to prevent loop
     useEffect(() => {
-        if (user?.name && localName !== user.name) {
+        if (!isFocused && user?.name && localName !== user.name) {
             setLocalName(user.name);
         }
-    }, [user?.name]); // Remove localName from dependencies to avoid triggering itself
+    }, [user?.name, isFocused, localName]); // Sync only when not focused
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
@@ -67,6 +68,7 @@ export default function Header({
     };
 
     const handleNameBlur = () => {
+        setIsFocused(false);
         if (localName !== user.name && onUpdateName) {
             onUpdateName(localName);
         }
@@ -114,7 +116,13 @@ export default function Header({
                         type="text"
                         value={localName}
                         onChange={(e) => setLocalName(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
                         onBlur={handleNameBlur}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.target.blur();
+                            }
+                        }}
                         placeholder="Nome do concurso..."
                         // BUG-FIX: Reduzido de text-[22px] para text-xl para evitar quebra no mobile
                         className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-normal pb-1"
@@ -159,7 +167,13 @@ export default function Header({
                                 type="text"
                                 value={localName}
                                 onChange={(e) => setLocalName(e.target.value)}
+                                onFocus={() => setIsFocused(true)}
                                 onBlur={handleNameBlur}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.target.blur();
+                                    }
+                                }}
                                 placeholder="Digite o nome do concurso..."
                                 // BUG-FIX: Responsividade melhorada (text-xl para lg:text-3xl)
                                 className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 leading-normal"

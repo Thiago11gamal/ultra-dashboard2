@@ -97,7 +97,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
             {/* ─── MOBILE HEADER BAR ─────────────────── */}
             <div className="flex items-center w-full gap-2 py-2 md:hidden">
                 {/* Brand */}
-                <Link to="/" className="flex items-center gap-2 shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10" onClick={() => setCollapsed(true)}>
+                <Link to="/" className="flex items-center gap-2 shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10" onClick={() => { if (setCollapsed) setCollapsed(true); }}>
                     <img src={logo} alt="Logo" className="w-6 h-6 object-contain transition-all duration-300 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
                     <span className="text-[10px] sm:text-xs font-black tracking-tighter text-white uppercase hidden sm:block">Método Arraia</span>
                 </Link>
@@ -115,7 +115,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 >
                     {menuItems.map((item) => {
                         const Icon = item.icon;
-                        const isActive = item.action ? false : location.pathname === item.path;
+                        const isActive = item.action ? false : (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path));
 
                         const buttonContent = (
                             <div className="flex flex-col items-center gap-0.5 px-0.5 min-w-[54px]">
@@ -143,7 +143,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                                 key={item.path}
                                 to={item.path}
                                 data-path={item.path}
-                                onClick={() => setCollapsed(true)}
+                                onClick={() => { if (setCollapsed) setCollapsed(true); }}
                                 className={`shrink-0 p-1.5 rounded-xl transition-all ${item.path === '/pomodoro' ? 'tour-step-3' : ''} ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
                                 title={item.label}
                             >
@@ -211,7 +211,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                         <div className="flex items-center gap-1 md:gap-1.5">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
-                                const isActive = item.action ? false : location.pathname === item.path;
+                                const isActive = item.action ? false : (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path));
 
                                 const buttonContent = (
                                     <>
