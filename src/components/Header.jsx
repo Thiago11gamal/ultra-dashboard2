@@ -171,10 +171,10 @@ export default function Header({
             <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
 
             {/* ─── DESKTOP HEADER ─── */}
-            <header className="hidden md:flex items-center justify-between z-50 relative">
-                <div className="w-1/2 flex flex-col gap-2">
+            <header className="hidden md:flex items-center justify-between z-50 relative pointer-events-none">
+                <div className="flex flex-col gap-2 w-full max-w-[calc(50vw-320px)] min-w-[150px] pointer-events-auto">
                     <div className="relative group flex items-center gap-3">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <input
                                 type="text"
                                 value={localName}
@@ -187,8 +187,8 @@ export default function Header({
                                     }
                                 }}
                                 placeholder="Digite o nome do concurso..."
-                                // BUG-FIX: Responsividade melhorada (text-xl para lg:text-3xl)
-                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 leading-normal"
+                                // BUG-FIX: Responsividade protegendo contra colisão com Sidebar central
+                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 leading-normal truncate"
                             />
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -237,7 +237,7 @@ export default function Header({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 pointer-events-auto">
                     <button
                         onClick={onUndo}
                         className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
@@ -334,7 +334,7 @@ export default function Header({
                         )}
 
                         {profileOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                            <div className="fixed inset-0 z-40 pointer-events-auto" onClick={() => setProfileOpen(false)} />
                         )}
                     </div>
                 </div>
