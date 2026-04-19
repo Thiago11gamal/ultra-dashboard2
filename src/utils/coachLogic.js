@@ -217,7 +217,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             date: s.date
         })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
-        const trend = calculateSlope(trendHistory) * 30; // Unify: calculateSlope returns pp/day, result in pp/30d
+        // CORREÇÃO (Fix Matemático Final - Invariância de Escala):
+        // Garantir que a derivada (slope) e a variância (MSSD) operam no mesmo espaço vetorial 
+        // absoluto (maxScore) que a média e os percentis.
+        const trend = calculateSlope(trendHistory, maxScore) * 30;
 
         // ─────────────────────────────────────────────────────────
         // MC-03: MSSD Volatility — substitui standardDeviation cega
@@ -225,7 +228,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
-            ? calculateVolatility(mcHistory)
+            ? calculateVolatility(mcHistory, maxScore)
             : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : 0);
 
         // ─────────────────────────────────────────────────────────
@@ -530,7 +533,7 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory) * 30 : 0;
+        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, maxScore) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
