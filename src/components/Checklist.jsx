@@ -288,7 +288,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                                 style={{ width: `${progress}%`, backgroundColor: category.color }}
                             />
                         </div>
-                        <span className="text-xs sm:text-sm font-mono flex-shrink-0" style={{ color: category.color }}>
+                        <span className="text-xs sm:text-sm font-mono flex-shrink-0 w-8 sm:w-10 text-right inline-block" style={{ color: category.color }}>
                             {progress}%
                         </span>
                     </>
