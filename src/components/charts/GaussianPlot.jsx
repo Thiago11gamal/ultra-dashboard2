@@ -205,29 +205,35 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
     const hojeYPercent = yp(asymmetricGaussianFn(currentMean ?? mean ?? 0));
     const hojeTop = Math.max(0, hojeYPercent - 12);
-    const collisionMetaMean = isTargetVisible && Math.abs(meanPos - targetPos) < 8;
-    const collisionHojeMean = isCurrentVisible && (Math.abs(currentPos - meanPos) < 8 || currentMean === (mean ?? 0));
-    const collisionHojeTarget = isCurrentVisible && isTargetVisible && Math.abs(currentPos - targetPos) < 8;
-
-    let tierMean = 1, tierTarget = 1, tierHoje = 1;
-    if (collisionHojeMean || collisionMetaMean) {
-        if (collisionMetaMean && collisionHojeMean) tierMean = 3;
-    }
-    if (collisionMetaMean) tierTarget = 2;
-    if (collisionHojeTarget || collisionHojeMean) {
-        const targetImpact = collisionHojeTarget ? tierTarget : 0;
-        const meanImpact = collisionHojeMean ? tierMean : 0;
-        tierHoje = Math.max(targetImpact, meanImpact) + 1;
-    }
-
-    // RIGOR-LABEL-FIX: Se o label "Hoje" estiver muito no topo do gráfico (curva alta) 
-    // e houver colisão horizontal, empurramos ele para baixo para não bater no label de Projeção.
-    // D-10 FIX: Garantir Math.max(0, hojeTop) antes de qualquer operação de tier.
     const safeHojeTop = Math.max(0, hojeTop);
     const isHighCurve = safeHojeTop < 35;
-    const finalHojeTop = (isHighCurve && (collisionHojeMean || collisionHojeTarget))
-        ? (35 + (tierHoje - 1) * 15 + '%')
-        : (tierHoje > 1 ? `calc(${safeHojeTop}% + ${(tierHoje - 1) * 20}px)` : `${safeHojeTop}%`);
+
+    // DYNAMIC COLLISION RESOLVER
+    const resolvedLabels = useMemo(() => {
+        const items = [];
+        if (isTargetVisible) items.push({ id: 'target', x: targetPos });
+        items.push({ id: 'mean', x: meanPos });
+        if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
+
+        const sorted = [...items].sort((a, b) => a.x - b.x);
+        const tracks = {};
+        const COLLISION_THRESHOLD = 14;
+
+        const result = {};
+        sorted.forEach(item => {
+            let level = 1;
+            while (tracks[level] !== undefined && (item.x - tracks[level]) < COLLISION_THRESHOLD) {
+                level++;
+            }
+            tracks[level] = item.x;
+            result[item.id] = level;
+        });
+        return result;
+    }, [targetPos, meanPos, currentPos, isTargetVisible, isCurrentVisible]);
+
+    const finalHojeTop = (isHighCurve)
+        ? (35 + (resolvedLabels.today - 1) * 15 + '%')
+        : (resolvedLabels.today > 1 ? `calc(${safeHojeTop}% + ${(resolvedLabels.today - 1) * 22}px)` : `${safeHojeTop}%`);
 
     return (
         <div className="relative w-full h-[220px] mt-12 mb-6 cursor-crosshair group/chart"
@@ -293,7 +299,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             </svg>
 
             <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: tierMean === 3 ? '30%' : tierMean === 2 ? '15%' : '0%', transform: meanPos > 90 ? 'translateX(-100%)' : (collisionHojeMean && currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
+                <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(meanPos, 90)}%`, top: (resolvedLabels.mean - 1) * 15 + '%', transform: meanPos > 90 ? 'translateX(-100%)' : (currentMean === mean ? 'translateX(-55%)' : 'translateX(-50%)'), zIndex: 30 }}>
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)] mb-1" />
                     <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-blue-500/20 shadow-lg">
                         <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
@@ -301,7 +307,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     </div>
                 </div>
                 {isTargetVisible && (
-                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: tierTarget === 3 ? '30%' : tierTarget === 2 ? '15%' : '0%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
+                    <div className="absolute flex flex-col items-center transition-all duration-500" style={{ left: `${Math.min(targetPos, 90)}%`, top: (resolvedLabels.target - 1) * 15 + '%', transform: targetPos > 90 ? 'translateX(-100%)' : 'translateX(-50%)', zIndex: 20 }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)] mb-1" />
                         <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-1.5 py-0.5 rounded-lg border border-rose-500/20 shadow-lg">
                             <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{targetVal}{unit}</span>
