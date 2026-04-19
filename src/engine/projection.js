@@ -82,8 +82,10 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const wrss = data.reduce((acc, p) =>
         acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
     );
-    // Variância usa (N_eff - 2)
-    const variance = wrss / Math.max(0.001, effectiveN - 2);
+    // BUGFIX M3: O effectiveN (Kish) pode cair para perto de 2 em amostras antigas (λ=0.08).
+    // Quando effectiveN -> 2, a variância explode (wrss / 0.001).
+    // Implementamos um piso de (effectiveN - 1) graduado para estabilizar o erro padrão.
+    const variance = wrss / Math.max(0.5, effectiveN - 1.5);
     // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
@@ -209,7 +211,10 @@ export function calculateVolatility(history, maxScore = 100) {
         const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
 
         const detrendedDiff = diff - (rawDriftVol * daysBetween);
-        const residual = detrendedDiff / Math.sqrt(daysBetween);
+        // BUG 8 FIX: Consistência na normalização do tempo. 
+        // Usamos um piso de 1.0 dia para evitar inflar a volatilidade intraday (daysBetween < 1).
+        const timeScaleVol = Math.max(1.0, Math.sqrt(daysBetween));
+        const residual = detrendedDiff / timeScaleVol;
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
@@ -303,7 +308,9 @@ export function monteCarloSimulation(
     // ESCALA INVARIANTE: O teto 1.5 é escalonado via maxScore.
     const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
-    const driftUncertainty = Math.min(rawDriftUncertainty, (1.5 * scaleFactor) / Math.sqrt(Math.max(1, simulationDays)));
+    // BUG 2 FIX: A incerteza do slope em regressão linear cresce com T, não com sqrt(T).
+    // Removemos a divisão por sqrt(simulationDays) para permitir a expansão linear correta.
+    const driftUncertainty = Math.min(rawDriftUncertainty, 1.5 * scaleFactor);
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
@@ -451,11 +458,15 @@ export function monteCarloSimulation(
         // Cada universo paralelo (simulação) tem um "Teto de Vidro" levemente diferente,
         // gerado pelo erro padrão da regressão linear.
         // SCALE-BOUNDS: clamp to dynamic domain
-        // CORREÇÃO (Fix Matemático 3):
-        // A incerteza do slope de uma regressão linear cresce de forma linear com o tempo (t), e não com a raiz quadrada (sqrt).
+        // BUG 6 FIX: O processo OU é assintótico. Para que a média intersete o alvo no dia T,
+        // o atrator (simMu) deve ser colocado além do alvo projetado.
+        const targetChange = drift * effectiveAttractorDays;
+        const convergenceFactor = 1 - Math.exp(-theta * simulationDays);
+        const adjustedTargetMu = baselineScore + (targetChange / Math.max(0.01, convergenceFactor));
+
         const simMu = Math.max(
             minScore,
-            Math.min(maxScore, longTermMu + (randomNormal(rng) * driftUncertainty * simulationDays))
+            Math.min(maxScore, adjustedTargetMu + (randomNormal(rng) * driftUncertainty * simulationDays))
         );
 
         for (let d = 0; d < simulationDays; d++) {
@@ -493,10 +504,9 @@ export function monteCarloSimulation(
             const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.25);
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
-            // CORREÇÃO (Fix Matemático 5):
-            // Remoção da deformação binomial para eliminar o drift espúrio de Itô.
-            // A dinâmica mantém-se exata através da Barreira Absorvente (clamping) aplicada no step seguinte.
-            score += deterministicPull + shock;
+            // BUG 1 FIX: Re-introdução da Heterocedasticidade Binomial.
+            // O choque Gaussiano é modulado pela volatilidade binomial calculada acima.
+            score += deterministicPull + (shock * binomialVolatility);
 
             // 🎯 ABSORBING BARRIER (Barreira Absorvente por Passo)
             // A truncatura é aplicada A CADA PASSO DIÁRIO, não pós-hoc.

@@ -132,9 +132,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     } else if (rawTarget <= minScore) {
         analyticalProbability = 100;
     } else {
-        // MATH FIX: Se a massa estiver fora do domínio (factor < 1e-10), 
-        // a simulação empírica é mais estável que a aproximação analítica.
-        analyticalProbability = truncNormFactor > 1e-10 
+        // BUG 5 FIX: Redução do floor do truncNormFactor para 1e-18.
+        // O valor 1e-10 era muito alto, distorcendo o cálculo em caudas extremas
+        // onde a massa de probabilidade total do intervalo é minúscula.
+        analyticalProbability = truncNormFactor > 1e-18 
             ? ((clampedPhiTarget - phiMax) / truncNormFactor) * 100 
             : empiricalProbability; 
     }
@@ -151,7 +152,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
         analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
-        sd: Number(projectedSD.toFixed(1)),
+        // BUG 9 FIX: Devolvemos o safeSD (incerteza epistêmica bruta) à UI.
+        // O projectedSD da curva truncada é matematicamente comprimido e geraria
+        // uma falsa sensação de certeza em notas perto das bordas [0, 100].
+        sd: Number((safeSD || projectedSD).toFixed(1)),
         sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
         sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
         ci95Low: Number(displayLow.toFixed(1)),

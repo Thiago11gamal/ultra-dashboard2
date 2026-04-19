@@ -150,14 +150,26 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(maxScore, ciHigh);
 
+    // BUG 10 FIX: Escalonamento de Alpha/Beta.
+    // Se o n total (alpha + beta) exceder o MAX_EFFECTIVE_N, escalonamos os
+    // parâmetros proporcionalmente antes de devolver para persistência.
+    // Isso mantém a plasticidade do modelo para novos simulados (Laplace Smoothing).
+    let alphaOut = alpha;
+    let betaOut = beta;
+    if (n > MAX_EFFECTIVE_N) {
+        const factor = MAX_EFFECTIVE_N / n;
+        alphaOut = alpha * factor;
+        betaOut = beta * factor;
+    }
+
     return {
         mean:  Number(mean.toFixed(2)),
         sd:    Number((effectiveSd * maxScore).toFixed(2)),
         ciLow:  Number(strictLow.toFixed(2)),
         ciHigh: Number(strictHigh.toFixed(2)),
-        alpha,
-        beta,
-        n,
+        alpha: alphaOut,
+        beta:  betaOut,
+        n:     n > MAX_EFFECTIVE_N ? MAX_EFFECTIVE_N : n,
     };
 }
 

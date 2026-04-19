@@ -125,20 +125,27 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             if (bins[j] === 0) continue;
             const binX = plotMin + (j + 0.5) * binWidth;
             
-            // FIX 2 & 13: KDE Boundary Correction (Data Folding Method)
+            // BUG 7 FIX: Boundary Correction (Data Folding Method)
             const invBand = invBandwidth;
-            
-            // Densidade normal da distância
             const dist = (x - binX) * invBand;
             let localDensity = Math.exp(-0.5 * dist * dist);
             
-            // Rebatimento na borda inferior (minScore)
-            const distMin = (x - (2 * minScore - binX)) * invBand;
-            localDensity += Math.exp(-0.5 * distMin * distMin);
+            // RIGOR FIX: Se binX está exatamente na borda (Massa de Dirac), o rebatimento
+            // duplicaria a densidade localmente de forma errônea (1.0 + 1.0).
+            // Aplicamos um fator de atenuação se o ponto estiver a menos de 0.1% do limite.
+            const epsilon = (maxScore - minScore) * 0.001;
+
+            let distMin = 999;
+            if (binX > minScore + epsilon) {
+                distMin = (x - (2 * minScore - binX)) * invBand;
+                localDensity += Math.exp(-0.5 * distMin * distMin);
+            }
             
-            // Rebatimento na borda superior (maxScore)
-            const distMax = (x - (2 * maxScore - binX)) * invBand;
-            localDensity += Math.exp(-0.5 * distMax * distMax);
+            let distMax = 999;
+            if (binX < maxScore - epsilon) {
+                distMax = (x - (2 * maxScore - binX)) * invBand;
+                localDensity += Math.exp(-0.5 * distMax * distMax);
+            }
 
             // RIGOR FIX: Increased Z-cutoff to 4.0 to avoid tail steps in high volatility
             if (Math.abs(dist) < 4.0 || Math.abs(distMin) < 4.0 || Math.abs(distMax) < 4.0) {
@@ -200,12 +207,17 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     if (sd <= 0.0001) return Math.max(min, Math.min(max, mean)); 
     
     // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
-    const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
-    const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
+    // BUG 4 FIX: Underflow de Precisão.
+    // Se o SD é muito baixo e o mean está longe da janela, cdfMax - cdfMin pode ser 0.
+    const diff = cdfMax - cdfMin;
+    if (diff < 1e-16) {
+        // Se a probabilidade acumulada é nula, retornamos o ponto mais provável no intervalo.
+        return Math.max(min, Math.min(max, mean));
+    }
 
     // Sorteia um número uniforme restrito APENAS ao espaço válido da curva
     const u = rng(); 
-    const p = cdfMin + u * (cdfMax - cdfMin);
+    const p = cdfMin + u * diff;
 
     const zScore = inverseNormalCDF(p);
     const rawScore = mean + (zScore * sd);
