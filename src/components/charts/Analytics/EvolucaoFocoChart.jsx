@@ -17,7 +17,8 @@ export function EvolucaoFocoChart({ data }) {
     return (
         <div className="h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
+                {/* Adicionei margin left: -15 para o eixo Y não usar espaço inútil, e right: 10 para não cortar a última data */}
+                <AreaChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
                     {/* ORGANIZAÇÃO: defs sempre no topo do gráfico */}
                     <defs>
                         <linearGradient id="colorFoco" x1="0" y1="0" x2="0" y2="1">
@@ -31,28 +32,28 @@ export function EvolucaoFocoChart({ data }) {
                     <XAxis 
                         dataKey="data" 
                         stroke="#64748b" 
-                        fontSize={10} 
+                        fontSize={11} 
                         tickLine={false} 
                         axisLine={false} 
                         dy={10}
-                        minTickGap={20} // Evita que os textos do eixo X se sobreponham
+                        minTickGap={25} 
                     />
                     
                     <YAxis 
                         stroke="#94a3b8" 
-                        fontSize={10} 
-                        domain={[0, dataMax => Math.ceil(dataMax * 1.2)]} 
+                        fontSize={11} 
+                        domain={[0, dataMax => Math.ceil(dataMax * 1.15)]} // Margem superior levemente menor (15%)
                         axisLine={false} 
                         tickLine={false}
-                        dx={-5} // Afasta o texto levemente
-                        width={40} // Define uma largura fixa para não dançar com números grandes
-                        tickFormatter={(val) => `${Number(val).toFixed(0)}h`} // Garante números limpos
+                        dx={-5} 
+                        width={45} 
+                        tickFormatter={(val) => `${val}h`} 
                     />
                     
                     <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
-                        itemStyle={{ padding: '2px 0' }}
-                        formatter={(value) => [`${Number(value).toFixed(1)} horas`, 'Estudo']}
+                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '12px', fontSize: '13px', backdropFilter: 'blur(8px)' }}
+                        itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                        formatter={(value) => [`${Number(value).toFixed(1)} horas`, 'Tempo Estudado']}
                     />
                     
                     <Area 

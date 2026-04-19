@@ -126,7 +126,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={formattedData}
-                        margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
+                        margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
                     >
                         <defs>
                             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -138,23 +138,23 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         <XAxis 
                             dataKey="displayDate" 
                             stroke="#64748b" 
-                            fontSize={10} 
+                            fontSize={11} 
                             tickLine={false}
                             axisLine={false}
                             dy={10}
-                            minTickGap={30}
+                            minTickGap={25}
                         />
                         <YAxis 
-                            stroke="#64748b" 
-                            fontSize={10} 
+                            stroke="#94a3b8" 
+                            fontSize={11} 
                             tickLine={false}
                             axisLine={false}
-                            dx={-10}
+                            dx={-5}
+                            width={45}
                             domain={[0, 100]}
                             // SCALE-BOUNDS NOTE: Y-axis is ALWAYS probability (0-100%), never the score.
                             // The 'unit' prop only affects the Target display above, not this axis.
                             tickFormatter={(v) => `${v}%`}
-                            label={{ value: 'Prob.', angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 8, fill: '#475569', textAnchor: 'middle' } }}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
                         

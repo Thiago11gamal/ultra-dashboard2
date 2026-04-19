@@ -114,29 +114,42 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
                 <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-1">
                     {topEnemies.map((item, idx) => {
                         const maxImpact = topEnemies[0]?.weightedMissed || 1;
-                        const impactPercent = Math.min(100, Math.round((item.weightedMissed / maxImpact) * 100));
+                        const impactPercent = Math.min(100, Math.max(2, Math.round((item.weightedMissed / maxImpact) * 100))); // Garantir mínimo de 2% para a barra ser visível
 
                         return (
-                            <div key={idx} className="bg-slate-900/40 p-4 rounded-xl border border-red-500/20 flex flex-col group hover:border-red-500/50 transition-colors relative overflow-hidden">
+                            <div key={idx} className="bg-slate-900/60 p-4 sm:p-5 rounded-xl border border-red-500/20 flex flex-col group hover:border-red-500/40 hover:bg-slate-900/80 transition-all relative overflow-hidden mb-3">
                                 {/* Impact Background Bar */}
-                                <div className="absolute left-0 bottom-0 h-1 bg-red-900/30 w-full" />
+                                <div className="absolute left-0 bottom-0 h-1.5 bg-red-950/40 w-full" />
                                 <div
-                                    className={`absolute left-0 bottom-0 h-1 transition-all duration-1000 ease-out flex shadow-[0_0_15px_rgba(239,68,68,0.6)] ${idx === 0 ? 'bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)]' : 'bg-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.4)]'}`}
+                                    className={`absolute left-0 bottom-0 h-1.5 transition-all duration-1000 ease-out flex ${idx === 0 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)]' : 'bg-red-500/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]'}`}
                                     style={{ width: `${impactPercent}%` }}
                                 />
 
-                                <div className="flex items-center justify-between z-10">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-black/50 px-2 py-0.5 rounded-full">{item.category}</span>
-                                            {idx === 0 && <span className="text-[9px] font-bold uppercase text-red-100 bg-red-600 px-2 py-0.5 rounded-full animate-pulse">#1 Inimigo</span>}
+                                <div className="flex items-center justify-between z-10 pb-1">
+                                    <div className="flex-1 pr-4">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-black/60 px-2.5 py-1 rounded-md border border-white/5">
+                                                {item.category}
+                                            </span>
+                                            {idx === 0 && (
+                                                <span className="text-[10px] font-black uppercase text-red-50 bg-red-600/90 px-2 py-1 rounded-md shadow-lg shadow-red-500/20 animate-pulse">
+                                                    #1 Inimigo
+                                                </span>
+                                            )}
                                         </div>
-                                        <h4 className="font-bold text-red-100 text-sm leading-tight">{item.topic}</h4>
+                                        <h4 className="font-semibold text-red-50 text-sm sm:text-base leading-snug">{item.topic}</h4>
                                     </div>
-                                    <div className="text-right flex flex-col items-end shrink-0 pl-3">
-                                        <div className="text-2xl font-black text-red-500 leading-none">-{Number(item.weightedMissed || 0).toFixed(1)}</div>
-                                        <span className="text-[9px] text-red-400 font-bold uppercase tracking-widest mt-0.5">Pontos Perfil</span>
-                                        <span className="text-[10px] text-slate-500 mt-1 font-mono">P: {item.weight}x | Acerto: {item.percentage}%</span>
+                                    
+                                    <div className="text-right flex flex-col items-end shrink-0 border-l border-white/10 pl-4 py-1">
+                                        <div className="text-2xl sm:text-3xl font-black text-red-400 leading-none tracking-tighter">
+                                            -{Number(item.weightedMissed || 0).toFixed(1)}
+                                        </div>
+                                        <span className="text-[10px] sm:text-xs text-red-400/80 font-bold uppercase tracking-widest mt-1">
+                                            Déficit
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 mt-1.5 font-mono font-medium">
+                                            Acerto: <strong className="text-slate-300">{item.percentage}%</strong>
+                                        </span>
                                     </div>
                                 </div>
                             </div>

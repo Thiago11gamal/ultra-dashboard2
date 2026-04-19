@@ -72,7 +72,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
 
             {/* ── Sequência ─────────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 overflow-hidden shadow-2xl">
@@ -189,8 +189,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Data da Prova ───────────────────────────────────────────── */}
-            <div className={`col-span-2 lg:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-5 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
-                ? 'animate-glow-red'
+            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-5 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+                ? 'border-red-500/50 animate-glow-red'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
 
@@ -260,8 +260,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         type="date"
                         value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 absolute pointer-events-none"
-                        style={{ width: '1px', height: '1px', top: '50%', left: '50%' }}
+                        // Modificado para cobrir a área visível do cursor de forma opaca (invisível porém clicável no mobile)
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50"
                         title="Escolher data da prova"
                     />
                     <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
