@@ -4,7 +4,6 @@ import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target, Lock, Unlock, RotateCcw } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 
 // --- NOVO COMPONENTE: AI Productivity Coach ---
@@ -226,7 +225,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
 export default function Pomodoro() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
-    const { updatePomodoroSettings, handleUpdateStudyTime, toggleTask } = useAppStore();
+    const { updatePomodoroSettings, handleUpdateStudyTime } = useAppStore();
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -273,7 +272,7 @@ export default function Pomodoro() {
             settings: data.settings,
             user: data.user // 🎯 Injetar perfil do usuário para cálculo de fadiga elástica
         };
-    }, [currentSessions, data.settings, data.studyLogs, data.user]);
+    }, [currentSessions, data, data.settings, data.studyLogs, data.user]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
