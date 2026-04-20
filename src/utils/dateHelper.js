@@ -82,7 +82,8 @@ export const formatTimeAgo = (date) => {
     if (hours < 1) return 'Agora há pouco';
     if (hours < 24) return `${hours}h atrás`;
     if (days === 1) return 'Ontem';
-    if (days < 7) return `${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
+    // CORREÇÃO 11: Remoção do dead code condicional inatingível 
+    if (days < 7) return `${days} dias atrás`; 
     if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
     return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
 };

@@ -1,14 +1,17 @@
 import React, { useMemo } from 'react';
 import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { normalizeDate } from '../utils/dateHelper'; // IMPORTAÇÃO NECESSÁRIA
 
 // Format minutes to hours:minutes
 // E-01 FIX: Math.round() evita minutos fracionários (ex: 25.5 → "26min")
+// CORREÇÃO 4: Formatação de horas exatas
 const formatDuration = (minutes) => {
     const total = Math.round(minutes || 0);
     const hours = Math.floor(total / 60);
     const mins = total % 60;
     if (hours === 0) return `${mins}min`;
+    if (mins === 0) return `${hours}h`; // Evita exibir "1h 0min"
     return `${hours}h ${mins}min`;
 };
 
@@ -305,9 +308,11 @@ const StudyHistory = React.memo(function StudyHistory({
                                             {onDeleteSession && (
                                                 <button
                                                     onClick={() => {
+                                                        if (!session.id) {
+                                                            showToast('Erro: ID da sessão não encontrado.', 'error');
+                                                            return;
+                                                        }
                                                         if (window.confirm('Excluir esta sessão de estudo? O tempo será subtraído da categoria.')) {
-                                                            // E-03 FIX: Zustand set() retorna void, não boolean.
-                                                            // Usar try/catch em vez de checar resultado.
                                                             try {
                                                                 onDeleteSession(session.id);
                                                                 showToast('Sessão excluída.', 'info');
@@ -337,9 +342,9 @@ const StudyHistory = React.memo(function StudyHistory({
                 </div>
             )}
 
-            {/* Performance Panel */}
+            {/* CORREÇÃO 7: minHeight menor para não criar espaço vazio gigante */}
             {(mode === 'full' || mode === 'performance') && (
-                <div className="relative rounded-2xl overflow-hidden -mt-6" style={{ minHeight: '80vh' }}>
+                <div className="relative rounded-2xl overflow-hidden -mt-6" style={{ minHeight: '400px' }}>
                     {/* Premium Glass Background with animated gradient */}
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
@@ -369,18 +374,23 @@ const StudyHistory = React.memo(function StudyHistory({
                         {(() => {
                             const now = new Date();
                             const todayStr = now.toDateString();
-                            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                            
+                            // CORREÇÃO 5: Cálculo seguro do dia anterior (sem - 24*60*60*1000)
+                            const yesterday = new Date(now);
+                            yesterday.setDate(now.getDate() - 1);
                             const yesterdayStr = yesterday.toDateString();
 
-                            // Only show validated rows (rows that passed analysis validation)
+                            // CORREÇÃO 6: Normalização de UTC para fuso local nas linhas
                             const todayRows = simuladoRows.filter(r => {
                                 if (!r.createdAt || !r.validated) return false;
-                                return new Date(r.date || r.createdAt).toDateString() === todayStr;
+                                const rDate = normalizeDate(r.date || r.createdAt);
+                                return rDate && rDate.toDateString() === todayStr;
                             });
 
                             const yesterdayRows = simuladoRows.filter(r => {
                                 if (!r.createdAt || !r.validated) return false;
-                                return new Date(r.date || r.createdAt).toDateString() === yesterdayStr;
+                                const rDate = normalizeDate(r.date || r.createdAt);
+                                return rDate && rDate.toDateString() === yesterdayStr;
                             });
 
                             const renderSection = (rows, title, icon, isToday, side = 'left') => {
@@ -528,24 +538,24 @@ const StudyHistory = React.memo(function StudyHistory({
                                                                         const TopicIcon = topicStatus.icon;
 
                                                                         return (
-                                                                            <div key={topic.name} className="grid grid-cols-12 gap-4 items-center px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
-                                                                                {/* Topic Name */}
-                                                                                <div className="col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
+                                                                            {/* CORREÇÃO 8: Grid flexível e espaçamento balanceado */}
+                                                                            <div key={topic.name} className="grid grid-cols-12 gap-2 sm:gap-4 items-center px-4 sm:px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
+                                                                                
+                                                                                <div className="col-span-4 sm:col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
                                                                                     {topic.name}
                                                                                 </div>
 
-                                                                                {/* Status Badge */}
                                                                                 <div className="col-span-3 flex justify-center">
-                                                                                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
+                                                                                    <div className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
                                                                                         <TopicIcon size={12} />
                                                                                         <span className="text-[10px] font-bold tracking-wide">{topicStatus.label}</span>
                                                                                     </div>
                                                                                 </div>
 
-                                                                                {/* Performance Ring */}
                                                                                 <div className="col-span-2 flex flex-col items-center justify-center">
                                                                                     <div className="relative w-10 h-10">
-                                                                                        <svg className="w-full h-full -rotate-90">
+                                                                                        {/* CORREÇÃO 9: viewBox obrigatório para manter a geometria SVG */}
+                                                                                        <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
                                                                                             <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
                                                                                             <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
                                                                                                 stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
@@ -561,9 +571,9 @@ const StudyHistory = React.memo(function StudyHistory({
                                                                                     <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
                                                                                 </div>
 
-                                                                                {/* Action */}
-                                                                                <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>
-                                                                                    <span className="text-xs text-slate-200 font-medium">{action}</span>
+                                                                                {/* CORREÇÃO 10: Sem padding Right hardcoded, usa margem fluida */}
+                                                                                <div className="col-span-3 sm:col-span-3 text-right">
+                                                                                    <span className="text-[10px] sm:text-xs text-slate-200 font-medium break-words">{action}</span>
                                                                                 </div>
                                                                             </div>
                                                                         );

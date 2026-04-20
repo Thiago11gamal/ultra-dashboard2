@@ -43,29 +43,45 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     const user     = data.user || { xp: 0, level: 1 };
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
 
-    // ─── BUG 1 FIX: tema calculado a partir do score real ───────────────────
-    const effTheme = useMemo(() => getEfficiencyTheme(efficiency?.score ?? 0), [efficiency?.score]);
+    // CORREÇÃO 1: Evitar penalizar visualmente utilizadores novos com "0%" vermelho
+    const effTheme = useMemo(() => {
+        const hasLogs = data.studyLogs && data.studyLogs.length > 0;
+        if (!hasLogs) return {
+            glow: 'bg-slate-500/10', glowHover: 'group-hover:bg-slate-500/20',
+            gradient: 'from-slate-500/[0.02]', iconBg: 'bg-slate-500/10 group-hover:bg-slate-500/20',
+            iconColor: 'text-slate-400',
+        };
+        return getEfficiencyTheme(efficiency?.score ?? 0);
+    }, [efficiency?.score, data.studyLogs]);
 
-    // Calculate days remaining
+    // CORREÇÃO 2: Alinhamento de fusos para cálculo exacto de dias
     const daysRemaining = useMemo(() => {
         if (!user.goalDate) return null;
 
         const now = new Date();
+        // Força a data de hoje para o meio-dia local
         const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        localToday.setHours(12, 0, 0, 0);
 
         let goal;
         try {
-            const raw = String(user.goalDate).trim();
-            // Try to force noon for YYYY-MM-DD to avoid timezone shifting backwards safely
+            // CORREÇÃO 3: Lidar de forma segura com objectos Timestamp do Firebase
+            let raw = '';
+            if (typeof user.goalDate === 'object' && user.goalDate.seconds) {
+                raw = new Date(user.goalDate.seconds * 1000).toISOString().split('T')[0];
+            } else {
+                raw = String(user.goalDate).trim();
+            }
+            
             const dateParams = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? `${raw}T12:00:00` : raw;
             goal = new Date(dateParams);
             if (isNaN(goal.getTime())) {
-                goal = new Date(raw); // fallback to raw string if parsing failed
+                goal = new Date(raw); 
             }
         } catch(e) { return null; }
         
         if (!goal || isNaN(goal.getTime())) return null;
-        goal.setHours(12, 0, 0, 0);
+        goal.setHours(12, 0, 0, 0); // Garante a mesma base de comparação
 
         const diffTime = goal.getTime() - localToday.getTime();
         return Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -258,10 +274,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     <input
                         ref={dateInputRef}
                         type="date"
-                        value={user.goalDate ? String(user.goalDate).split('T')[0] : ''}
+                        value={(() => {
+                            if (!user.goalDate) return '';
+                            if (typeof user.goalDate === 'object' && user.goalDate.seconds) {
+                                return new Date(user.goalDate.seconds * 1000).toISOString().split('T')[0];
+                            }
+                            return String(user.goalDate).split('T')[0];
+                        })()}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        // Modificado para cobrir a área visível do cursor de forma opaca (invisível porém clicável no mobile)
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50"
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto"
                         title="Escolher data da prova"
                     />
                     <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
