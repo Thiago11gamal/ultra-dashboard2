@@ -171,7 +171,7 @@ export default function EvolutionChart({
             try {
                 // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
                 const bayesian = computeBayesianLevel(hist, 1, 1, maxScore);
-                const vol = calculateVolatility(hist);
+                const vol = calculateVolatility(hist, maxScore);
 
                 // WORKER UPGRADE: Using parallel worker with 5000 simulations
                 const result = await runAnalysis({
@@ -183,6 +183,8 @@ export default function EvolutionChart({
                     forcedVolatility: vol,
                     currentMean: bayesian ? bayesian.mean : undefined,
                     forcedBaseline: bayesian ? bayesian.mean : undefined,
+                    minScore,
+                    maxScore,
                 });
 
                 if (cancelled || !result) return;
@@ -216,7 +218,7 @@ export default function EvolutionChart({
         })();
 
         return () => { cancelled = true; };
-    }, [focusCategory?.id, historyHash, targetScore, projectDays, runAnalysis]);
+    }, [focusCategory?.id, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
