@@ -256,7 +256,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 {/* Right: date picker */}
                 <div 
                     className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside cursor-pointer py-2"
-                    onClick={() => {
+                    onClick={(e) => {
+                        // FIX CRÍTICO: Previne o loop infinito originado pelo Event Bubbling.
+                        // Se o clique já veio do input (via overlay z-50), não fazemos nada.
+                        if (e.target === dateInputRef.current) return;
+
                         try {
                             if (dateInputRef.current) {
                                 if (typeof dateInputRef.current.showPicker === 'function') {
@@ -266,8 +270,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     dateInputRef.current.click();
                                 }
                             }
-                        } catch (e) {
-                            console.error("Picker falhou", e);
+                        } catch (err) {
+                            console.error("Picker falhou", err);
                         }
                     }}
                 >
