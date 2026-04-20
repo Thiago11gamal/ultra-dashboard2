@@ -53,10 +53,10 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 </p>
                 <div className="w-full max-w-md h-32 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={[{ date: '1', probability: 40 }, { date: '2', probability: 60 }, { date: '3', probability: 85 }]}>
+                        <AreaChart data={[{ date: '1', mean: 40 }, { date: '2', mean: 60 }, { date: '3', mean: 85 }]}>
                             <XAxis dataKey="date" hide />
                             <YAxis hide domain={[0, 100]} />
-                            <Area type="monotone" dataKey="probability" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
+                            <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -170,7 +170,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 axisLine={false}
                                 dx={-5}
                                 width={45}
-                                domain={[0, 100]}
+                                // AJUSTE DINÂMICO: Domínio baseado no range do CI para não cortar o cone
+                                domain={['dataMin - 5', 'dataMax + 5']}
                                 tickFormatter={(v) => `${v}${unit === '%' ? '%' : ''}`}
                             />
                             <Tooltip
@@ -180,7 +181,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
                             {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
                             <Area
-                                type="monotone"
+                                type="linear" // MUDANÇA: 'linear' para evitar distorção de Bezier no array ciRange
                                 dataKey="ciRange"
                                 stroke="none"
                                 fillOpacity={1}

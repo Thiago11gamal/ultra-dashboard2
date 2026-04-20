@@ -4,7 +4,7 @@ import { Settings2, Check, Minus, Plus, Activity } from 'lucide-react';
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
     return (
-        <div key={cat.id || cat.name} className="bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex items-center gap-4 hover:border-indigo-500/20 transition-all">
+        <div key={cat.id || cat.name} className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm shadow-inner" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
             <div className="flex-1">
                 <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-1.5">{cat.name || 'Matéria'}</p>
@@ -114,9 +114,17 @@ export const MonteCarloConfig = ({
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     setLocalTarget(val);
-                                    if (setTargetScore) setTargetScore(val);
+                                }}
+                                onMouseUp={() => {
+                                    if (setTargetScore) setTargetScore(localTarget);
+                                }}
+                                onTouchEnd={() => {
+                                    if (setTargetScore) setTargetScore(localTarget);
                                 }}
                                 className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-500 transition-all hover:accent-blue-400" 
+                                style={{
+                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((localTarget - 10) / (100 - 10)) * 100}%, #1e293b ${((localTarget - 10) / (100 - 10)) * 100}%, #1e293b 100%)`
+                                }}
                             />
                         </div>
                         <div className="flex justify-between px-1">

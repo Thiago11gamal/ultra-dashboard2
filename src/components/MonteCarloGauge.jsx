@@ -431,6 +431,10 @@ export default function MonteCarloGauge({
         }
     }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, debouncedTarget]);
 
+    const stableUpdateWeight = useCallback((name, p) => {
+        setWeights({ ...(weights || {}), [name]: p });
+    }, [setWeights, weights]);
+
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
         return (
@@ -724,53 +728,6 @@ export default function MonteCarloGauge({
                 )}
             </div>
 
-            <div className="w-full flex flex-col gap-2 mt-4">
-                <button
-                    onClick={() => setShowPerSubject(!showPerSubject)}
-                    className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors"
-                >
-                    <span>Matérias Analisadas</span>
-                    {perSubjectProbs.length > 0 && (
-                        <ChevronDown size={12} className={`transition-transform duration-300 ${showPerSubject ? 'rotate-180' : ''}`} />
-                    )}
-                </button>
-
-                {showPerSubject && perSubjectProbs.length > 0 && (
-                    <>
-                        <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5 transition-all duration-300">
-                            <div className="flex items-center justify-between px-1 mb-2">
-                                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">Disciplina</span>
-                                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">
-                                    Prob. Individual{!effectiveSimulateToday && <span className="text-amber-500/80 ml-1">({isTimeTraveling ? 'Nesse Dia' : 'Hoje'})</span>}
-                                </span>
-                            </div>
-                            {perSubjectProbs.map(s => {
-                                const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
-                                const barColor = s.prob < 40 ? 'bg-rose-500' : s.prob < 60 ? 'bg-amber-500' : s.prob < 80 ? 'bg-blue-500' : 'bg-emerald-500';
-                                return (
-                                    <div key={s.name} className="flex items-center gap-2 group/row hover:bg-white/5 rounded-lg px-1.5 py-1 transition-colors">
-                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                            {s.trend === 'up' && <TrendingUp size={9} className="text-emerald-400 shrink-0" />}
-                                            {s.trend === 'down' && <TrendingDown size={9} className="text-rose-400 shrink-0" />}
-                                            {(s.trend === 'stable' || !s.trend) && <Minus size={9} className="text-slate-600 shrink-0" />}
-                                            <span className="text-[9px] text-slate-400 truncate">{s.name}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${Math.min(100, s.prob)}%` }} />
-                                            </div>
-                                            <span className={`text-[10px] font-black w-10 text-right ${probColor}`}>{s.prob.toFixed(0)}%</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {!effectiveSimulateToday && !isTimeTraveling && (
-                            <p className="text-[8px] text-slate-600 text-center mt-2 italic">
-                                Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
-                            </p>
-                        )}
-                    </>
                 )}
             </div>
             {!forcedMode && (
@@ -784,7 +741,7 @@ export default function MonteCarloGauge({
                     getEqualWeights={getEqualWeights}
                     weights={weights}
                     setWeights={setWeights}
-                    updateWeight={(name, p) => setWeights({ ...(weights || {}), [name]: p })}
+                    updateWeight={stableUpdateWeight}
                     categories={categories}
                     user={activeUser}
                 />
