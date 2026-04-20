@@ -155,7 +155,7 @@ const PerformanceTable = ({ categories = [] }) => {
 
                                     {/* Taxa Badge */}
                                     <td className="p-5 text-center">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 scale-110' :
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
                                             percentCorrect >= 60 ? 'text-yellow-400' :
                                                 percentCorrect > 0 ? 'text-red-500' :
                                                     'text-slate-500'

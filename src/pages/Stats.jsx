@@ -14,7 +14,7 @@ export default function Stats() {
 
     if (!data || !data.categories) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center justify-center min-h-[80vh]">
                 <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
             </div>
         );
@@ -35,7 +35,7 @@ export default function Stats() {
                         </div>
                         <div>
                             <h2 className="text-sm font-black text-white uppercase tracking-widest leading-none mb-1">Evolução do Foco</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Histórico de Horas Líquidas de Estudo</p>
+                            <p className="text-[11px] text-slate-500 uppercase">Histórico de Horas Líquidas de Estudo</p>
                         </div>
                     </div>
                     <EvolucaoFocoChart data={focusData} />
@@ -48,7 +48,7 @@ export default function Stats() {
                         </div>
                         <div>
                             <h2 className="text-sm font-black text-white uppercase tracking-widest leading-none mb-1">Concentração por Matéria</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Ranking de disciplinas por tempo investido</p>
+                            <p className="text-[11px] text-slate-500 uppercase">Ranking de disciplinas por tempo investido</p>
                         </div>
                     </div>
                     <HorasDisciplinaChart data={subjectData} />

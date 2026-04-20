@@ -179,7 +179,7 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
 
     return (
         <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-1">
+            <div className="grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-normal border-b border-white/5 mb-1">
                 <div className="md:col-span-3">Matéria</div>
                 <div className="text-center md:col-span-2">Status</div>
                 <div className="text-center md:col-span-4">Desvio Padrão (SD)</div>
@@ -189,7 +189,7 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
             {categoryBreakdown.map((cat, idx) => (
                 <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} />
             ))}
-            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5">
+            <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
                     { color: 'bg-purple-500', label: 'SD ≤ 5' },
                     { color: 'bg-blue-500', label: 'SD ≤ 10' },

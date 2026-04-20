@@ -88,7 +88,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     }, [user.goalDate]);
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 animate-fade-in-down">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 auto-rows-fr gap-3 sm:gap-4 animate-fade-in-down">
 
             {/* ── Sequência ─────────────────────────────────────────────────── */}
             <div className="relative glass-hover bg-[#151720]/80 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between group transition-all duration-500 overflow-hidden shadow-2xl">
@@ -156,7 +156,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         </div>
                         <span className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">Equilíbrio</span>
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-white mt-1 mb-2 capitalize truncate">
+                    <div className="text-xl sm:text-2xl font-black text-white mt-1 mb-2 capitalize leading-none line-clamp-2 min-h-[3rem] flex items-center">
                         {balance?.status?.replace(/_/g, ' ') || 'N/A'}
                     </div>
                     <div className="mt-auto pt-2 flex flex-col gap-1.5">

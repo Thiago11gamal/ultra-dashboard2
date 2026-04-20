@@ -327,18 +327,18 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         </h3>
                         <div className="flex gap-2">
                             <button onClick={addTenToAll}
-                                className="text-[10px] font-black bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-2 py-0.5 rounded-lg border border-blue-500/20 transition-all hover:scale-105 active:scale-95">
+                                className="text-[10px] font-black bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-2 py-1 rounded-lg border border-blue-500/20 transition-all hover:scale-105 active:scale-95">
                                 +10
                             </button>
                             <button onClick={resetScores}
-                                className="text-[11px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
+                                className="text-[10px] text-slate-500 hover:text-yellow-400 transition-colors px-2 py-1 rounded-lg hover:bg-yellow-400/10 border border-transparent hover:border-yellow-400/20">
                                 Zerar
                             </button>
                         </div>
                     </div>
 
                     {/* Colunas header */}
-                    <div className="grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
+                    <div className="hidden md:grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 px-1 pb-1 border-b border-slate-700/50 mb-1">
                         {['Matéria', 'Assunto', '✓', 'Total', ''].map((h, i) => (
                             <span key={i} className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center first:text-left">{h}</span>
                         ))}
@@ -360,22 +360,29 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group grid grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
-                                        <input type="text" value={row.subject}
-                                            disabled={true}
-                                            className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
-                                            placeholder="Matéria" />
-                                        <input type="text" value={row.topic}
-                                            disabled={true}
-                                            className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.topics.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
-                                            placeholder="Assunto" />
-                                        <input type="number" min="0" value={row.correct}
-                                            onChange={(e) => updateRow(index, 'correct', e.target.value)}
-                                            className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                        <input type="number" min="0" value={row.total}
-                                            onChange={(e) => updateRow(index, 'total', e.target.value)}
-                                            className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
-                                        <div className="w-[12px]"></div>
+                                        className="group flex flex-col md:grid md:grid-cols-[1fr_1fr_52px_52px_28px] gap-1.5 items-center bg-slate-800/40 hover:bg-slate-800/70 rounded-xl px-2 py-2 md:py-1.5 transition-colors border border-transparent hover:border-slate-700/60">
+                                        
+                                        <div className="flex gap-1.5 w-full md:contents">
+                                            <input type="text" value={row.subject}
+                                                disabled={true}
+                                                className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.subjects.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
+                                                placeholder="Matéria" />
+                                            <input type="text" value={row.topic}
+                                                disabled={true}
+                                                className={`bg-transparent outline-none text-sm w-full min-w-0 h-full px-1 flex items-center ${errorIndices.topics.has(index) ? 'text-red-400 font-bold border-b border-red-500/50' : 'text-slate-400'} cursor-not-allowed`}
+                                                placeholder="Assunto" />
+                                        </div>
+
+                                        <div className="flex gap-1.5 w-full md:contents items-center justify-end md:justify-center mt-1 md:mt-0 pt-1 md:pt-0 border-t border-white/5 md:border-t-0">
+                                            <div className="md:hidden text-[10px] font-bold text-slate-500 uppercase mr-auto">Acertos / Total</div>
+                                            <input type="number" min="0" value={row.correct}
+                                                onChange={(e) => updateRow(index, 'correct', e.target.value)}
+                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-green-400 font-mono text-center w-14 md:w-full focus:border-green-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                            <input type="number" min="0" value={row.total}
+                                                onChange={(e) => updateRow(index, 'total', e.target.value)}
+                                                className="bg-slate-900/60 border border-slate-700/60 rounded-lg outline-none text-sm text-slate-300 font-mono text-center w-14 md:w-full focus:border-blue-500/50 focus:bg-slate-900 transition-colors py-0.5" />
+                                            <div className="w-[12px]"></div>
+                                        </div>
                                     </div>
                                 </React.Fragment>
                             );

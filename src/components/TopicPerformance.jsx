@@ -149,14 +149,14 @@ export default function TopicPerformance({ categories = [] }) {
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span className="font-medium text-slate-200 truncate max-w-[140px]" title={topic.name}>{topic.name}</span>
                                         {/* Balance Badge */}
-                                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 mt-0.5 rounded border leading-none ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border leading-none ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
                                             topic.balance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                                                 'bg-slate-500/10 border-slate-500/20 text-slate-400'
                                             }`}>
                                             Saldo: {topic.balance > 0 ? '+' : ''}{topic.balance}
                                         </span>
                                     </div>
-                                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full border flex items-center gap-1 leading-none ${badgeColor}`}>
+                                    <span className={`text-[11px] font-bold px-2 py-1 rounded-full border flex items-center gap-1 leading-none shrink-0 whitespace-nowrap ${badgeColor}`}>
                                         {icon} {label}
                                     </span>
                                 </div>
