@@ -15,7 +15,16 @@ export function getSortedHistory(history) {
     if (!history) return [];
     return [...history]
         .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+        .sort((a, b) => {
+            // CORREÇÃO: Forçar Meia-Noite UTC absoluto
+            // Evita que o peso de decaimento Exponencial (Lambda) mude
+            // se um aluno resolve a prova às 08h e o outro às 23h.
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            const utc_A = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
+            const utc_B = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
+            return utc_A - utc_B;
+        });
 }
 
 // -----------------------------
@@ -85,7 +94,9 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     // BUGFIX M3: O effectiveN (Kish) pode cair para perto de 2 em amostras antigas (λ=0.08).
     // Quando effectiveN -> 2, a variância explode (wrss / 0.001).
     // Implementamos um piso de (effectiveN - 1) graduado para estabilizar o erro padrão.
-    const variance = wrss / Math.max(0.5, effectiveN - 1.5);
+    // CORREÇÃO: Graus de liberdade exatos para regressão linear (N - 2).
+    // O piso de 0.01 impede divisão nula sem subestimar a incerteza de amostras pequenas.
+    const variance = wrss / Math.max(0.01, effectiveN - 2.0);
     // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
@@ -445,8 +456,6 @@ export function monteCarloSimulation(
     // Até onde o aluno naturalmente chegaria com a tendência atual.
     // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
     const effectiveAttractorDays = 45 * Math.log(1 + simulationDays / 45);
-    // SCALE-BOUNDS: use dynamic bounds instead of hardcoded [0, 100]
-    const longTermMu = Math.min(maxScore, Math.max(minScore, baselineScore + (drift * effectiveAttractorDays)));
 
     const bootstrapInvSqrt = 1.0;
 
@@ -501,7 +510,9 @@ export function monteCarloSimulation(
             // extremes, systematically compressing shocks by ~50% for non-centered scores.
             // New: 4p(1-p) raised to 0.25 gives smoother bounds dampening, preventing
             // harsh density piling at exact 0% and 100% barriers under massive volatility.
-            const binomialVolatility = Math.pow(Math.max(0.001, 4 * p * (1 - p)), 0.25);
+            // CORREÇÃO: Processo de Jacobi Exato (raiz quadrada) para amortecimento de fronteira correto.
+            // Evita colisões violentas em 0 e maxScore que causam bimodalidade.
+            const binomialVolatility = Math.pow(Math.max(0.05, 4 * p * (1 - p)), 0.5);
 
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
             // BUG 1 FIX: Re-introdução da Heterocedasticidade Binomial.

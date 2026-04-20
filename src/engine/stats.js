@@ -36,58 +36,7 @@ export function standardDeviation(arr, maxScore = 100) {
 
 }
 
-/**
- * @internal DEPRECATED / UTILITY: Calcula a tendência histórica (slope) usando OLS linear.
- * Nota: Para o dashboard e Monte Carlo, use calculateSlope de projection.js, 
- * que implementa Regressão Ponderada Temporal (WLS).
- */
-function calculateTrend(history, maxScore = 100) {
-    if (!history || history.length < 3) return 0;
 
-    const sorted = [...history]
-        .filter(h => h && h.date && !isNaN(new Date(h.date)))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    const data = sorted.map(h => {
-        const time = new Date(h.date).getTime();
-        return {
-            x: time / (1000 * 60 * 60 * 24),
-            y: getSafeScore(h, maxScore)
-        };
-    });
-
-    const n = data.length;
-    if (n <= 2) return 0; // RIGOR FIX: Verificação precoce para evitar n-2 = 0
-
-    const x = data.map(p => p.x);
-    const y = data.map(p => p.y);
-    const meanX = mean(x);
-    const meanY = mean(y);
-
-    let num = 0;
-    let den = 0;
-    for (let i = 0; i < n; i++) {
-        const dx = x[i] - meanX;
-        num += dx * (y[i] - meanY);
-        den += dx * dx;
-    }
-
-    if (den === 0) return 0;
-    const slope = num / den;
-
-    let rss = 0;
-    for (let i = 0; i < n; i++) {
-        const pred = meanY + slope * (x[i] - meanX);
-        rss += Math.pow(y[i] - pred, 2);
-    }
-
-    // MATH FIX: Denominador n-2 seguro devido à verificação n > 2 acima
-    const sigma2 = rss / (n - 2);
-    const seSlope = Math.sqrt(sigma2 / den);
-    
-    // ... resto da filtragem por T-score se necessário (usuário pediu foco no den)
-    return slope * 30; 
-}
 
 /**
  * Nível Bayesiano Real — Modelo Beta-Binomial Conjugado
@@ -105,13 +54,12 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             let total   = Number(h.total)   || 0;
             let correct = Number(h.correct) || 0;
             
-            // LOGIC-1 FIX: Se não tem total/correct, usar score para criar entrada sintética (base 100 questões)
-            // BUG 4 FIX: Use maxScore instead of hardcoded 100 for score-to-proportion conversion.
-            // Previously h.score/100 broke for scales like OAB (0-10): score=7 -> pct=0.07 (7%) instead of 0.7 (70%).
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / maxScore));
-                total = SYNTHETIC_TOTAL_QUESTIONS;
-                correct = Math.round(pct * SYNTHETIC_TOTAL_QUESTIONS);
+                // CORREÇÃO A: O N sintético agora escala com a realidade da prova (maxScore)
+                // e não assume rigidamente "100", nivelando a prioridade estatística.
+                total = maxScore > 0 ? maxScore : 100;
+                correct = Math.round(pct * total);
             }
             
             if (total < 1) continue;
@@ -121,39 +69,36 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         }
     }
 
-    const n    = alpha + beta;
-    const p    = alpha / n;
-    const mean = p * maxScore;
-
-    // Incorporação de Correlação Intraclasse (ICC) limitando o "n efetivo".
-    // Impede que o desvio padrão caia a níveis microscópicos irreais à medida que o aluno faz mais provas.
+    const n = alpha + beta;
     const MAX_EFFECTIVE_N = 100; 
     const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
     
-    // Variância Bayesiana ancorada no limite de certeza estatística humana
-    const baseVariance = (p * (1 - p)) / (effectiveN + 1);
-    const effectiveSd = Math.sqrt(baseVariance); 
+    // Média de saída estrita
+    const p = alpha / n;
+    const mean = p * maxScore;
 
-    // FIX 1.2: Clamping Inteligente.
-    // BUG 4b FIX: Scaling by maxScore.
-    const marginOfError = 1.96 * effectiveSd * maxScore;
+    // CORREÇÃO B: Intervalo de Confiança Agresti-Coull.
+    // Adiciona ~2 sucessos e ~2 falhas (z^2/2) para recentrar a variância,
+    // resolvendo o vazamento matemático (IC > 100%) perto das bordas.
+    const z = 1.96;
+    const z2 = z * z;
+    const n_tilde = effectiveN + z2;
+    const p_tilde = (alpha + z2 / 2) / n_tilde;
+
+    const effectiveSd = Math.sqrt((p_tilde * (1 - p_tilde)) / n_tilde);
     
-    // Calcula os limites teóricos
-    let ciLow  = mean - marginOfError;
-    let ciHigh = mean + marginOfError;
+    // Margem ancorada na proporção ajustada
+    const marginOfError = z * effectiveSd * maxScore;
+    let ciLow  = (p_tilde * maxScore) - marginOfError;
+    let ciHigh = (p_tilde * maxScore) + marginOfError;
 
-    // Proteção de segurança
+    // Proteções de Segurança Padrão
     ciHigh = Math.max(mean, ciHigh);
     ciLow = Math.min(mean, ciLow);
 
-    // BUG 4b FIX: Limites estritamente contidos no domínio real [0, maxScore]
     const strictLow = Math.max(0, ciLow);
     const strictHigh = Math.min(maxScore, ciHigh);
 
-    // BUG 10 FIX: Escalonamento de Alpha/Beta.
-    // Se o n total (alpha + beta) exceder o MAX_EFFECTIVE_N, escalonamos os
-    // parâmetros proporcionalmente antes de devolver para persistência.
-    // Isso mantém a plasticidade do modelo para novos simulados (Laplace Smoothing).
     let alphaOut = alpha;
     let betaOut = beta;
     if (n > MAX_EFFECTIVE_N) {
@@ -173,7 +118,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     };
 }
 
-export function computeCategoryStats(history, weight, daysValue = 60, maxScore = 100) {
+export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100) {
     if (!history || history.length === 0) return null;
 
     // MATH FIX: O filtro destruía as amostras que os usuários cadastravam só como "%" (total=0),

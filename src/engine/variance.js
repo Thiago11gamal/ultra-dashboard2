@@ -25,12 +25,10 @@
  * @param {number} totalWeight - Sum of all weights (use 1 if stats weights are normalized)
  * @returns {number} Weighted variance
  */
-// REVISION: Institutional Correlation Factor (Rho)
-// Represents the shared variance between subjects (e.g. test-day performance).
-// 0.15 is a conservative value that interpolation between independence (0) and full correlation (1).
-// Idealmente seria derivado empiricamente da covariância histórica, 
-// mas 0.15 é mantido como configuração "conservadora" configurável.
-export const INTER_SUBJECT_CORRELATION = 0.15;
+// CORREÇÃO: Alinhamento com Modelos TRI (Teoria de Resposta ao Item).
+// 0.25 capta melhor a covariância psicológica (stress do dia) 
+// sem esmagar o Desvio Padrão Agregado (Pooled SD) do candidato.
+export const INTER_SUBJECT_CORRELATION = 0.25;
 
 // FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
 export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
