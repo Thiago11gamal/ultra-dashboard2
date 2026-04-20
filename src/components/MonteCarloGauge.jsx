@@ -587,14 +587,14 @@ export default function MonteCarloGauge({
                             transform={`rotate(${(prob / 100) * 180}, 70, 65)`}
                             style={{ transition: 'transform 1.5s ease-out', opacity: isFlashing ? 0.3 : 1 }}
                         >
-                                <circle
-                                    cx="4" cy="65" r="4"
-                                    fill={gradientColor}
-                                    className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                                    style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
-                                />
-                                <circle cx="4" cy="65" r="2" fill="#fff" opacity="0.8" />
-                            </g>
+                            <circle
+                                cx="4" cy="65" r="4"
+                                fill={gradientColor}
+                                className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+                                style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+                            />
+                            <circle cx="4" cy="65" r="2" fill="#fff" opacity="0.8" />
+                        </g>
                     </svg>
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
                         <span className="text-4xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
