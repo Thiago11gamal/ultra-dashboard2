@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-    monteCarloSimulation,
     computeCategoryStats,
     calculateCurrentWeightedMean,
     computeBayesianLevel,
-    calculateVolatility,
-    runMonteCarloAnalysis
+    calculateVolatility
 } from "../engine";
 import { useChartData } from "../hooks/useChartData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
@@ -170,7 +168,7 @@ export default function EvolutionChart({
             setMcLoading(true);
             try {
                 // BUG 4b FIX: Propagate maxScore to computeBayesianLevel
-                const bayesian = computeBayesianLevel(hist, 1, 1, maxScore);
+                const baye = computeBayesianLevel(hist, 1, 1, maxScore);
                 const vol = calculateVolatility(hist, maxScore);
 
                 // WORKER UPGRADE: Using parallel worker with 5000 simulations
@@ -181,8 +179,8 @@ export default function EvolutionChart({
                     simulations: 5000,
                     projectionDays: projectDays,
                     forcedVolatility: vol,
-                    currentMean: bayesian ? bayesian.mean : undefined,
-                    forcedBaseline: bayesian ? bayesian.mean : undefined,
+                    currentMean: baye ? baye.mean : undefined,
+                    forcedBaseline: baye ? baye.mean : undefined,
                     minScore,
                     maxScore,
                 });
@@ -299,13 +297,13 @@ export default function EvolutionChart({
                 // 🎯 MATH FIX: Injetar questões sintéticas para simulados sem volume
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = 100; // Base sintética
+                    if (tot === 0 && h.score != null) tot = Math.max(1, Math.round(maxScore)); // Base sintética escalada
                     return s + tot;
                 }, 0);
 
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = 100;
+                    if (tot === 0 && h.score != null) tot = Math.max(1, Math.round(maxScore));
                     // BUG 4b FIX: Use maxScore instead of hardcoded 100
                     return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));
@@ -360,13 +358,26 @@ export default function EvolutionChart({
         if (activeEngine === "raw_weekly") {
             const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
             const dayStats = {};
+            const now = new Date();
             categories.forEach(cat => {
-                (cat.simuladoStats?.history || []).forEach(h => {
+                const history = cat.simuladoStats?.history || [];
+                const rawHistory = history
+                    .filter(h => {
+                        const d = normalizeDate(h.date);
+                        return d && d.getTime() <= now.getTime();
+                    })
+                    .map(h => ({
+                        ...h,
+                        score: getSafeScore(h, maxScore)
+                    }))
+                    .sort((a, b) => (normalizeDate(a.date)?.getTime() || 0) - (normalizeDate(b.date)?.getTime() || 0));
+                
+                rawHistory.forEach(h => {
                     const d = normalizeDate(h.date);
                     if (!d) return;
                     const dow = d.getDay();
                     if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
-                    dayStats[dow].correct += (getSafeScore(h, maxScore) / maxScore * (Number(h.total) || 0));
+                    dayStats[dow].correct += (h.score / maxScore * (Number(h.total) || 0));
                     dayStats[dow].total += (Number(h.total) || 0);
                 });
             });

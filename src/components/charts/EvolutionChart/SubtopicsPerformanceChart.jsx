@@ -27,6 +27,8 @@ const MEGA_PALETTE = [
 export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, showOnlyFocus, timeWindow, targetScore = 80, maxScore = 100 }) {
     
     const [viewMode, setViewMode] = useState('lines'); // 'bars' | 'lines'
+    const accuracyUnit = '%';
+    const targetScorePct = maxScore > 0 ? (targetScore / maxScore) * 100 : 0;
 
     // ── CALC LIMITS ──
     const limitMs = useMemo(() => {
@@ -221,7 +223,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                                 tick={{ fontSize: 10, fill: '#64748b' }} 
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                                 tickLine={false} 
-                                tickFormatter={(v) => `${v}%`}
+                                tickFormatter={(v) => `${v}${accuracyUnit}`}
                             />
                             
                             <YAxis 
@@ -245,7 +247,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                                 labelFormatter={(label) => <span className="font-bold text-amber-400">{label}</span>}
                             />
 
-                            <ReferenceLine x={targetScore} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="3 3" />
+                            <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="3 3" />
 
                             <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={26}>
                                 {chartData.map((entry, index) => {
