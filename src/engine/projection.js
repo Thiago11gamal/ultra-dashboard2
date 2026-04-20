@@ -350,7 +350,16 @@ export function monteCarloSimulation(
         // O ruído de observação não deve ser dividido pela raiz de frações de tempo.
         // Adicionamos um piso de 1 dia (Math.max) para estabilizar a variância.
         const timeScale = Math.max(1.0, Math.sqrt(daysBetween));
-        return detrendedChange / timeScale;
+        
+        // 🎯 MATH BUG FIX 2: Reverter a Compressão de Fronteira Histórica.
+        // Precisamos do 'Choque Standardizado'. Se não dividirmos pela restrição
+        // de fronteira daquela data, o Monte Carlo vai amortecer a volatilidade DUAS vezes
+        // (a primeira aqui no passado, a segunda durante o loop de simulação).
+        const currentScoreRange = (maxScore - minScore) || maxScore || 1;
+        const pPrev = Math.max(0.001, Math.min(0.999, (prev - minScore) / currentScoreRange));
+        const historicalBinomialVol = Math.pow(Math.max(0.05, 4 * pPrev * (1 - pPrev)), 0.5);
+
+        return (detrendedChange / timeScale) / historicalBinomialVol;
     }).slice(1) : [];
 
     // Math Fix: Centralizar resíduos para garantir que a média do choque seja rigorosamente zero.

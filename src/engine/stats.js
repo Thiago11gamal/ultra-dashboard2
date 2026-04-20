@@ -73,9 +73,14 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const MAX_EFFECTIVE_N = 100; 
     const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
     
-    // Média de saída estrita
+    // Média de saída estrita (p real)
     const p = alpha / n;
     const mean = p * maxScore;
+
+    // 🎯 MATH BUG FIX 1: Escalar o alpha para a realidade do effectiveN.
+    // Sem isto, alphas gigantescos (>100) criam probabilidades p_tilde > 100%, 
+    // gerando um NaN fatal no cálculo da raiz quadrada abaixo.
+    const effectiveAlpha = p * effectiveN;
 
     // CORREÇÃO B: Intervalo de Confiança Agresti-Coull.
     // Adiciona ~2 sucessos e ~2 falhas (z^2/2) para recentrar a variância,
@@ -83,7 +88,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const z = 1.96;
     const z2 = z * z;
     const n_tilde = effectiveN + z2;
-    const p_tilde = (alpha + z2 / 2) / n_tilde;
+    // Usamos agora o effectiveAlpha em vez do alpha cumulativo bruto
+    const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
     const effectiveSd = Math.sqrt((p_tilde * (1 - p_tilde)) / n_tilde);
     
@@ -150,9 +156,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
         
-        // 🎯 MATH FIX: O estimador correto da variância quando os pesos são 
-        // as frequências exatas (volume de questões) é a soma dos pesos menos 1.
-        variance = wVarSum / (totalQ - 1);
+        // 🎯 MATH BUG FIX 3: Bloqueio estrito de Divisão por Zero.
+        // Se totalQ (volume somado de questões) for exatamente 1 ou inferior (dados sujos),
+        // o denominador forçaria um NaN ou Infinity fatal, corrompendo o painel.
+        variance = wVarSum / Math.max(1, totalQ - 1);
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }
