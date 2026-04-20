@@ -23,7 +23,13 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         const targetVal = targetScore ?? 70;
 
         const domainMin = minScore;
-        const rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
+        let rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
+        
+        // FIX: Se a unidade for %, impedimos que o eixo X ultrapasse o teto lógico de 100% (maxScore)
+        if (unit === '%') {
+            rawMax = Math.min(maxScore, rawMax);
+        }
+        
         const domainMax = rawMax;
         const xMin = domainMin;
         const range = domainMax - domainMin;

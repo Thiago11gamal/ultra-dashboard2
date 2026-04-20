@@ -18,7 +18,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
-                
+
                 const parsed = parseISO(d.date);
                 if (isValid(parsed)) {
                     displayDate = format(parsed, 'dd/MM', { locale: ptBR });
@@ -26,7 +26,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 } else {
                     console.warn('[MonteCarloEvolutionChart] Ignorando data malformada:', d.date);
                 }
-                
+
                 // Cria o array com o limite inferior e superior para o cone de incerteza (Intervalo de Confiança)
                 const mean = d.mean || 0;
                 const low = d.ci95Low !== undefined ? d.ci95Low : mean;
@@ -41,7 +41,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             });
     }, [data]);
 
-    if(formattedData.length === 0) {
+    if (formattedData.length === 0) {
         return (
             <div className="w-full min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-2xl border border-white/5 p-6 overflow-hidden relative">
                 <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
@@ -68,20 +68,20 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         if (active && payload && payload.length) {
             const dataPoint = payload[0].payload;
             const fullDate = dataPoint.fullDate;
-            
+
             // Operador de coalescência nula garante falhas seguras
             const pointTarget = dataPoint.target ?? targetScore;
             const pointMean = dataPoint.mean ?? 0;
             const pointProb = dataPoint.probability ?? 0;
             const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
             const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
-            
+
             const isGood = pointMean >= pointTarget;
-            
+
             return (
                 <div className="bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-xl min-w-[200px]">
                     <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
-                    
+
                     <div className="flex flex-col gap-2">
                         <div className="flex flex-col">
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nota Projetada</span>
@@ -135,87 +135,87 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         </div>
                         <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
                         <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
-                            Aguardando o próximo registro para traçar a evolução. 
-                            <br/><strong className="text-blue-400"> Nota Atual: {formattedData[0].mean.toFixed(1)} {unit}</strong>
+                            Aguardando o próximo registro para traçar a evolução.
+                            <br /><strong className="text-blue-400"> Nota Atual: {formattedData[0].mean.toFixed(1)} {unit}</strong>
                         </p>
                     </div>
                 )}
-                
+
                 {formattedData.length > 1 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                        data={formattedData}
-                        margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
-                    >
-                        <defs>
-                            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.4}/>
-                                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.05}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                        <XAxis 
-                            dataKey="displayDate" 
-                            stroke="#64748b" 
-                            fontSize={11} 
-                            tickLine={false}
-                            axisLine={false}
-                            dy={10}
-                            minTickGap={25}
-                        />
-                        <YAxis 
-                            stroke="#94a3b8" 
-                            fontSize={11} 
-                            tickLine={false}
-                            axisLine={false}
-                            dx={-5}
-                            width={45}
-                            domain={[0, 100]}
-                            tickFormatter={(v) => `${v}${unit === '%' ? '%' : ''}`}
-                        />
-                        <Tooltip 
-                            content={<CustomTooltip />} 
-                            cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }} 
-                        />
-                        
-                        {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
-                        <Area 
-                            type="monotone" 
-                            dataKey="ciRange" 
-                            stroke="none" 
-                            fillOpacity={1} 
-                            fill={`url(#${gradientId})`}
-                            isAnimationActive={true}
-                        />
+                        <AreaChart
+                            data={formattedData}
+                            margin={{ top: 20, right: 10, left: -15, bottom: 5 }}
+                        >
+                            <defs>
+                                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.05} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                            <XAxis
+                                dataKey="displayDate"
+                                stroke="#64748b"
+                                fontSize={11}
+                                tickLine={false}
+                                axisLine={false}
+                                dy={10}
+                                minTickGap={25}
+                            />
+                            <YAxis
+                                stroke="#94a3b8"
+                                fontSize={11}
+                                tickLine={false}
+                                axisLine={false}
+                                dx={-5}
+                                width={45}
+                                domain={[0, 100]}
+                                tickFormatter={(v) => `${v}${unit === '%' ? '%' : ''}`}
+                            />
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
+                            />
 
-                        {/* Linha Principal da Média Projetada */}
-                        <Area 
-                            type="monotone" 
-                            dataKey="mean" 
-                            stroke="#60a5fa" 
-                            strokeWidth={3}
-                            fill="none"
-                            activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
-                            dot={formattedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
+                            {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
+                            <Area
+                                type="monotone"
+                                dataKey="ciRange"
+                                stroke="none"
+                                fillOpacity={1}
+                                fill={`url(#${gradientId})`}
+                                isAnimationActive={true}
+                            />
+
+                            {/* Linha Principal da Média Projetada */}
+                            <Area
+                                type="monotone"
+                                dataKey="mean"
+                                stroke="#60a5fa"
+                                strokeWidth={3}
+                                fill="none"
+                                activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
+                                dot={formattedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
                 ) : formattedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
-                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={[{mean: 0}, {mean: formattedData[0].mean}, {mean: 0}]}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={[{ mean: 0 }, { mean: formattedData[0].mean }, { mean: 0 }]}>
                                 <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                             </AreaChart>
-                         </ResponsiveContainer>
+                        </ResponsiveContainer>
                     </div>
                 )}
             </div>
-            
+
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-50 px-2">
-                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                     A área sombreada representa a incerteza estatística da projeção ao longo do tempo (P5 ~ P95).
-                 </p>
-                 <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {formattedData.length} dias</span>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                    A área sombreada representa a incerteza estatística da projeção ao longo do tempo (P5 ~ P95).
+                </p>
+                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {formattedData.length} dias</span>
             </div>
         </div>
     );
