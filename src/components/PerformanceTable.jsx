@@ -98,7 +98,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                                 <span className="text-xl">{category.icon || '📚'}</span>
                                             </div>
                                             <div className="flex flex-col min-w-0">
-                                                <span className="font-bold text-sm truncate uppercase tracking-tight" style={{ color: category.color }}>
+                                                <span className="font-bold text-sm truncate uppercase tracking-tight max-w-[120px] sm:max-w-[180px] md:max-w-[250px] min-w-0" style={{ color: category.color }}>
                                                     {category.name}
                                                 </span>
                                                 <span className="text-[10px] text-slate-500 font-medium tracking-tight">Level {category.level || 0} Scholar</span>

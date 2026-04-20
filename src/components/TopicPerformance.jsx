@@ -92,8 +92,7 @@ export default function TopicPerformance({ categories = [] }) {
                             <option
                                 key={cat.id}
                                 value={cat.id}
-                                className="bg-slate-900 text-white py-3 font-medium"
-                                style={{ backgroundColor: '#1a1a2e', color: '#fff', padding: '12px' }}
+                                className="bg-slate-900 text-white"
                             >
                                 {cat.name}
                             </option>

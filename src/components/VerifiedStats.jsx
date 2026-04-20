@@ -34,10 +34,10 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
                 </span>
             </div>
         </div>
-        <div className="text-center my-4 relative z-10">
-            <h2 className={`text-lg md:text-[22px] font-black leading-tight drop-shadow-lg ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500 drop-shadow-[0_0_10px_rgba(168,85,247,0.4)]' :
-                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.4)]' :
-                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+        <div className="text-center my-4 relative z-10 pb-1">
+            <h2 className={`text-base sm:text-lg md:text-[22px] font-black leading-tight whitespace-nowrap ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500' :
+                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500' :
+                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500'
                 }`}>
                 {prediction}
             </h2>
@@ -51,7 +51,7 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
                 </div>
             </div>
             <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tendência (5d)</span>
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter md:tracking-wider mb-1">Tendência</span>
                 <div className="flex items-center gap-1.5">
                     {hasEnoughData ? (
                         <>
@@ -127,17 +127,17 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
 
     return (
-        <div className={`grid grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
-            <div className="col-span-3 flex items-center gap-2 min-w-0">
+        <div className={`grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
+            <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
                 <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
                 <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
             </div>
-            <div className="col-span-2 flex justify-center">
+            <div className="flex justify-center md:col-span-2">
                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
                     {cat.status}
                 </span>
             </div>
-            <div className="col-span-4 flex items-center gap-2">
+            <div className="flex items-center gap-2 md:col-span-4">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
@@ -145,7 +145,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
                 </div>
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
             </div>
-            <div className="col-span-1 flex justify-center items-center">
+            <div className="hidden md:flex md:col-span-1 justify-center items-center">
                 {deltaNum > 0 ? (
                     <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
                 ) : deltaNum < 0 ? (
@@ -154,7 +154,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
                     <span className="text-[10px] font-bold text-slate-600">—</span>
                 )}
             </div>
-            <div className="col-span-2 flex flex-col justify-center gap-0.5 min-w-0 pr-1">
+            <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-1">
                 {cat.villains && cat.villains.length > 0 ? (
                     cat.villains.slice(0, 2).map((v) => (
                         <div key={v.name} className="relative flex items-center justify-center text-[12px] leading-tight min-h-[14px]">
@@ -179,12 +179,12 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
 
     return (
         <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-1">
-                <div className="col-span-3">Matéria</div>
-                <div className="col-span-2 text-center">Status</div>
-                <div className="col-span-4 text-center">Desvio Padrão (SD)</div>
-                <div className="col-span-1 text-center">Δ</div>
-                <div className="col-span-2 text-center">Vilões</div>
+            <div className="grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-1">
+                <div className="md:col-span-3">Matéria</div>
+                <div className="text-center md:col-span-2">Status</div>
+                <div className="text-center md:col-span-4">Desvio Padrão (SD)</div>
+                <div className="hidden md:block md:col-span-1 text-center">Δ</div>
+                <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
             {categoryBreakdown.map((cat, idx) => (
                 <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} />
