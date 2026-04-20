@@ -534,16 +534,20 @@ export function monteCarloSimulation(
             // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
             // BUG 1 FIX: Re-introdução da Heterocedasticidade Binomial.
             // O choque Gaussiano é modulado pela volatilidade binomial calculada acima.
-            score += deterministicPull + (shock * binomialVolatility);
+            let newScore = score + deterministicPull + (shock * binomialVolatility);
 
-            // 🎯 ABSORBING BARRIER (Barreira Absorvente por Passo)
-            // A truncatura é aplicada A CADA PASSO DIÁRIO, não pós-hoc.
-            // Motivo matemático: numa prova de 0–100, um score de 102 não existe — o aluno tirou 100.
-            // Ao clampar aqui, o loop OU continua no próximo dia com score=100 (teto real),
-            // e a tração de reversão à média (theta * (mu - 100)) puxa-o naturalmente para baixo.
-            // Resultado: nenhuma acumulação artificial de massa na fronteira (fim do pico espurio bimodal)
-            // e nenhuma ficção (reflexão 102→98 que nunca aconteceu na realidade).
-            score = Math.max(minScore, Math.min(maxScore, score));
+            // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)
+            // 🎯 MATH BUG FIX: Substituímos a barreira Absorvente (clamp) por uma Refletora.
+            // Se a força estocástica o joga para e.g. 102%, a barreira o "rebate" para 98%.
+            // Isso evita a "Massa de Dirac" (pico artificial) nos limites exatos.
+            if (newScore > maxScore) {
+                newScore = maxScore - (newScore - maxScore);
+            } else if (newScore < minScore) {
+                newScore = minScore + (minScore - newScore);
+            }
+            
+            // Final safety clamp just in case of multiple reflections or extreme shocks
+            score = Math.max(minScore, Math.min(maxScore, newScore));
         }
 
         // Score já está no domínio [minScore, maxScore] graças ao step-clamping acima.

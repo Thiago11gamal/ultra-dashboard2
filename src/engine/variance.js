@@ -31,14 +31,18 @@
 export const INTER_SUBJECT_CORRELATION = 0.25;
 
 // FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
-export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    if (totalWeight === 0) return 0;
-
-    // Garantia absoluta de tipo e limite
+export function computeWeightedVariance(stats, _totalWeight, rho = INTER_SUBJECT_CORRELATION) {
+    // 🎯 MATH BUG FIX: Normalização Inviolável.
+    // Se a aplicação passar um totalWeight que não bate com a soma das categorias,
+    // as frações não somariam 1.0, distorcendo a variância coerente.
+    const actualTotalWeight = stats.reduce((acc, cat) => acc + (cat.weight || 0), 0);
+    if (actualTotalWeight === 0) return 0;
+    
+    // Garantia absoluta de tipo e limite para correlação
     const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
 
-    const weights = stats.map(cat => cat.weight / totalWeight);
-    const adjustedSDs = stats.map(cat => cat.sd);
+    const weights = stats.map(cat => (cat.weight || 0) / actualTotalWeight);
+    const adjustedSDs = stats.map(cat => cat.sd || 0);
 
     // 1. Independent Variance Component: Σ (wi² * σi²)
     const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);

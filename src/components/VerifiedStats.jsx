@@ -3,7 +3,6 @@ import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, He
 import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
-import { logger } from '../utils/logger';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
@@ -227,7 +226,7 @@ export default function VerifiedStats({ categories = [], user }) {
         if (!isNaN(parsed) && Math.abs(parsed - targetScore) > 0.01) {
             setTargetScore(parsed);
         }
-    }, [storeTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
@@ -239,7 +238,6 @@ export default function VerifiedStats({ categories = [], user }) {
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
-    const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
 
@@ -326,9 +324,8 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend
-        const dailyScores = dailyHistory.map(h => h.score);
-        const globalAnalysis = analyzeProgressState(dailyScores, {
-            window_size: Math.min(5, dailyScores.length),
+        const globalAnalysis = analyzeProgressState(dailyHistory, {
+            window_size: Math.min(5, dailyHistory.length),
             stagnation_threshold: 4.0,
             low_level_limit: 60,
             high_level_limit: statsTarget,
@@ -337,7 +334,7 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         // Map to UI-compatible format
-        const hasEnoughData = dailyScores.length >= 3;
+        const hasEnoughData = dailyHistory.length >= 3;
         // D-02 FIX: Unificar unidades. PSE retorna pp/sessão. Multiplicamos por 30 (pp/30d) 
         // para alinhar com o Coach e threshold de 0.5.
         const trend30d = globalAnalysis.trend_slope * 30;
@@ -509,10 +506,13 @@ export default function VerifiedStats({ categories = [], user }) {
                     .filter(h => h.date && normalizeDate(h.date) !== null)
                     .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
-                const scores = sortedHistory.slice(-5).map(h => getSafeScore(h, maxScore));
+                const analysisHistory = sortedHistory.slice(-5).map(h => ({
+                    score: getSafeScore(h, maxScore),
+                    date: h.date
+                }));
 
-                const analysis = analyzeProgressState(scores, {
-                    window_size: Math.min(5, scores.length),
+                const analysis = analyzeProgressState(analysisHistory, {
+                    window_size: Math.min(5, analysisHistory.length),
                     stagnation_threshold: 4.0,
                     low_level_limit: 60,
                     high_level_limit: statsTarget,
@@ -611,7 +611,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
-    }, [categories, statsTarget]);
+    }, [categories, statsTarget, maxScore]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">

@@ -811,7 +811,14 @@ export function getCognitiveState(stats) {
         focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
     }
     
-    const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-0.003 * focusMinutes))));
+    // 🎯 MATH BUG FIX: Curva de Fadiga Elástica.
+    // Alunos Nível 1 cansam em ~2h. Alunos Nível 10 aguentam ~3.5h.
+    // O coeficiente de decaimento torna-se elástico em relação à maturidade do aluno.
+    const userLevel = stats.user?.level || 1;
+    const levelMultiplier = 1 + (userLevel * 0.05); 
+    const dynamicDecay = 0.003 / levelMultiplier;
+
+    const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-dynamicDecay * focusMinutes))));
     return fatigueScore; // 100 = descansado, <70 = fadigado
 }
 

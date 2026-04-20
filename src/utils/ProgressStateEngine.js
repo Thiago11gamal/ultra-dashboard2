@@ -48,9 +48,11 @@ export function analyzeProgressState(scores, config = {}) {
     }
 
     // 4. Extract window
-    const recentScores = scores.slice(-safeWindowSize);
+    const recentData = scores.slice(-safeWindowSize);
+    const recentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
+    const recentDates = recentData.map(d => typeof d === 'object' ? new Date(d.date).getTime() : 0);
 
-    // 5.1 Mean (Absolute Level) — B-08 FIX: usar recentScores.length real, não safeWindowSize fixo.
+    // 5.1 Mean (Absolute Level)
     const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
 
     // 5.2 Delta (Mean Absolute Variation)
@@ -60,27 +62,31 @@ export function analyzeProgressState(scores, config = {}) {
     }
     const delta = variationTotal / (recentScores.length - 1);
 
-    // 5.3 Variance (Consistency) — Use sample variance (N-1) not population (N)
+    // 5.3 Variance (Consistency)
     const variance = recentScores.reduce((acc, score) =>
         acc + Math.pow(score - mean, 2), 0) / (recentScores.length - 1);
 
-    // 5.4 Trend (Linear Regression Slope)
+    // 5.4 Trend (Linear Regression Slope - TIME AWARE)
+    // 🎯 MATH BUG FIX: Transição da Regressão Linear do índice (Cego ao tempo) 
+    // para o eixo X de dias reais passados.
     const n = recentScores.length;
-    const xMean = (n - 1) / 2;
+    const startTime = recentDates[0] || Date.now();
+    const xDays = recentDates.map(d => Math.max(0, (d - startTime) / 86400000));
+    const xMean = xDays.reduce((a, b) => a + b, 0) / n;
+
     let numerator = 0;
     let denominator = 0;
 
     for (let i = 0; i < n; i++) {
-        numerator += (i - xMean) * (recentScores[i] - mean);
-        denominator += Math.pow(i - xMean, 2);
+        numerator += (xDays[i] - xMean) * (recentScores[i] - mean);
+        denominator += Math.pow(xDays[i] - xMean, 2);
     }
 
-    const rawSlope = denominator !== 0 ? numerator / denominator : 0; // Pontos por prova
+    // slope em pontos/dia. Se denominator é 0 (todos no mesmo dia), usamos 0.
+    const rawSlope = denominator > 0.0001 ? numerator / denominator : 0; 
     
-    // Normalização assumindo uma média de ~5 provas no período em análise (ex: 30 dias)
-    // para alinhar as dimensões do slope com a tolerância de tendência.
-    const normalizedSlope = rawSlope * 5; 
-
+    // Normalização para 30 dias para alinhar com trend_tolerance (pp/30d)
+    const normalizedSlope = rawSlope * 30;
     // 6. Stagnation Detection
     const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
 
