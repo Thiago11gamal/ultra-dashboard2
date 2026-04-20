@@ -20,8 +20,9 @@ const DEFAULT_CONFIG = {
     MC_PROB_DANGER: 30,
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
-    // Instability calibration (MSSD tem escala menor que stdDev — divisor recalibrado)
-    INSTABILITY_MSSD_DIVISOR: 5,
+    // BUG 5 FIX: MSSD typical is 5-15. Divisor 5 saturated urgency too early.
+    // Recalibrated to 15 to allow full granularity up to high instability.
+    INSTABILITY_MSSD_DIVISOR: 15,
 };
 
 // ==================== FUNÇÕES AUXILIARES ====================
@@ -812,7 +813,7 @@ export function getCognitiveState(stats) {
     }
     
     // 🎯 MATH BUG FIX: Curva de Fadiga Elástica.
-    // Alunos Nível 1 cansam em ~2h. Alunos Nível 10 aguentam ~3.5h.
+    // Alunos Nível 1 cansam em ~2h. Alunos Nível 10 aguentam ~3h.
     // O coeficiente de decaimento torna-se elástico em relação à maturidade do aluno.
     const userLevel = stats.user?.level || 1;
     const levelMultiplier = 1 + (userLevel * 0.05); 

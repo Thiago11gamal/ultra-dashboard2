@@ -110,8 +110,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 
     
     // Margem ancorada na proporção ajustada
     const marginOfError = z * effectiveSd * maxScore;
-    let ciLow  = (p_tilde * maxScore) - marginOfError;
-    let ciHigh = (p_tilde * maxScore) + marginOfError;
+    
+    // BUG 4 FIX: Centrar o CI em mean (p real) para consistência visual reportada.
+    // O clamping posterior garante que o IC respeite os limites do domínio.
+    let ciLow  = mean - marginOfError;
+    let ciHigh = mean + marginOfError;
 
     // Proteções de Segurança Padrão
     ciHigh = Math.max(mean, ciHigh);

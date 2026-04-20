@@ -91,16 +91,14 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const wrss = data.reduce((acc, p) =>
         acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
     );
-    // BUGFIX M3: O effectiveN (Kish) pode cair para perto de 2 em amostras antigas (λ=0.08).
-    // Quando effectiveN -> 2, a variância explode (wrss / 0.001).
-    // Implementamos um piso de (effectiveN - 1) graduado para estabilizar o erro padrão.
-    // CORREÇÃO: Graus de liberdade exatos para regressão linear (N - 2).
-    // O piso de 0.01 impede divisão nula sem subestimar a incerteza de amostras pequenas.
-    const variance = wrss / Math.max(0.01, effectiveN - 2.0);
+    // BUGFIX M3: Kish effectiveN is used for variance of totals, but linear regression
+    // degrees of freedom depend on the actual sample size (N-2).
+    // Using Kish ESS here was inflating variance by ~5x in long histories.
+    const variance = wrss / Math.max(0.01, sortedHistory.length - 2.0);
     // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
-    // Sxx_centered = \\sum w_i (x_i - \\bar{x})^2 = Sxx - Sx^2 / Sw
+    // Sxx_centered = \sum w_i (x_i - \bar{x})^2 = Sxx - Sx^2 / Sw
     const Sxx_centered = Sxx - (Sx * Sx) / Sw;
 
     const slopeStdError = Sxx_centered > 0 ? Math.sqrt(variance / Sxx_centered) : 0;
@@ -188,7 +186,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     return Math.max(minScore, Math.min(maxScore, projected));
 }
 
-export function calculateVolatility(history, maxScore = 100) {
+// MATH BUG FIX 1: Standardization of MSSD Volatility.
+// Standardizing residuals by dividing by binomial volatility removes the boundary effect.
+// This allows measurement of intrinsic learner volatility, preventing "double damping"
+// in Monte Carlo simulations.
+export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     if (!history || history.length < 2) {
         return 1.5;
     }
@@ -206,8 +208,6 @@ export function calculateVolatility(history, maxScore = 100) {
         return Math.max(1.0 * scaleFactor, Math.min(maxScore * 0.15, diff / Math.sqrt(dt)));
     }
     // C2 FIX: Use rawDrift (unbiased WLS slope) for detrending instead of clamped calculateSlope.
-    // calculateSlope applies confidence attenuation + dynamic limits — correct for deterministic
-    // projection but biases statistical detrending, leaving systematic trend in residuals.
     const { slope: rawDriftVol } = weightedRegression(sorted, 0.08, maxScore);
     const now = new Date(sorted[sorted.length - 1].date).getTime();
 
@@ -215,33 +215,33 @@ export function calculateVolatility(history, maxScore = 100) {
     let sumSw = 0;
     let sumWeights = 0;
 
+    const scoreRange = (maxScore - minScore) || maxScore || 1;
+
     for (let i = 1; i < sorted.length; i++) {
         const h0 = sorted[i - 1];
         const h1 = sorted[i];
 
-        const diff = getSafeScore(h1, maxScore) - getSafeScore(h0, maxScore);
+        const prevScore = getSafeScore(h0, maxScore);
+        const actualChange = getSafeScore(h1, maxScore) - prevScore;
         const time1 = new Date(h1.date).getTime();
         const time0 = new Date(h0.date).getTime();
 
         const daysAgo = (now - time1) / (1000 * 60 * 60 * 24);
-        // FIX: Piso de tempo menor (0.1) para registrar a volatilidade extraída
-        // de múltiplos simulados prestados num intervalo menor que 24h.
         const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
-        const daysBetween = Math.min(90, rawDaysBetween); // RIGOR-08 FIX: Aumentado para 90d (era 30) para evitar inflar volatilidade em alunos infrequentes
+        const daysBetween = Math.min(90, rawDaysBetween);
 
-        const detrendedDiff = diff - (rawDriftVol * daysBetween);
-        // BUG 8 FIX: Consistência na normalização do tempo. 
-        // Usamos um piso de 1.0 dia para evitar inflar a volatilidade intraday (daysBetween < 1).
+        const detrendedDiff = actualChange - (rawDriftVol * daysBetween);
         const timeScaleVol = Math.max(1.0, Math.sqrt(daysBetween));
-        const residual = detrendedDiff / timeScaleVol;
+        
+        // BUG 1 FIX: Standardize by binomial volatility to remove boundary effect
+        const pPrev = Math.max(0.001, Math.min(0.999, (prevScore - minScore) / scoreRange));
+        const historicalBinomialVol = Math.pow(Math.max(0.05, 4 * pPrev * (1 - pPrev)), 0.5);
+        
+        const residual = (detrendedDiff / timeScaleVol) / historicalBinomialVol;
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
         const weight = Math.exp(-0.05 * daysAgo);
 
-        // 🎯 BUG-V2 FIX: MSSD Robusto (Outlier Clamping).
-        // Resíduos extremos (> 35pp/√dia) após longos gaps distorcem a volatilidade. 
-        // Clampeamos em 3.5 SDs (assumindo sigma médio ~10) para manter robustez.
-        // ESCALA INVARIANTE: 35 é re-escalonado.
         const scaleFactor = maxScore / 100;
         const clampedResidual = Math.max(-35 * scaleFactor, Math.min(35 * scaleFactor, residual));
         const dailyVariance = clampedResidual * clampedResidual;
@@ -383,7 +383,7 @@ export function monteCarloSimulation(
     const useBootstrap = residuals.length >= 15;
 
     // Calcula volatilidade clássica apenas para fallback
-    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore);
+    const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore, minScore);
 
     const lastScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
     const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h, maxScore), 0));
@@ -474,8 +474,6 @@ export function monteCarloSimulation(
     // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
     const effectiveAttractorDays = 45 * Math.log(1 + simulationDays / 45);
 
-    const bootstrapInvSqrt = 1.0;
-
     // Início do Monte Carlo
     for (let s = 0; s < safeSimulations; s++) {
         let score = baselineScore;
@@ -492,7 +490,7 @@ export function monteCarloSimulation(
 
         const simMu = Math.max(
             minScore,
-            Math.min(maxScore, adjustedTargetMu + (randomNormal(rng) * driftUncertainty * simulationDays))
+            Math.min(maxScore, adjustedTargetMu + (randomNormal(rng) * Math.min(driftUncertainty * simulationDays, 0.25 * scoreRange)))
         );
 
         for (let d = 0; d < simulationDays; d++) {
@@ -505,7 +503,7 @@ export function monteCarloSimulation(
                 // 🎯 ALERTA 3.1 FIX: Usar pathRng para não desalinhar o cache do Box-Muller (rng).
                 if (pathRng() < 0.90) {
                     const randomResidual = residuals[Math.floor(pathRng() * residuals.length)];
-                    shock = randomResidual * bootstrapTargetScale * bootstrapInvSqrt;
+                    shock = randomResidual * bootstrapTargetScale;
                 } else {
                     shock = randomNormal(rng) * sigma;
                 }
