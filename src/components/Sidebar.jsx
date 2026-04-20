@@ -190,7 +190,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                             <path
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                 fill="none"
-                                stroke="#ffffff10"
+                                stroke="var(--glass-border, rgba(255,255,255,0.1))"
                                 strokeWidth="2.5"
                             />
                             <path

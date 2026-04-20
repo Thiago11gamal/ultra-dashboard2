@@ -15,6 +15,7 @@
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --bg-main: radial-gradient(circle at top center, #1e1b4b 0%, #0f172a 100%);
+  --scrollbar-thumb: rgba(129, 140, 248, 0.3);
 }
 
 .light-mode {
@@ -29,6 +30,7 @@
   --text-primary: #1e293b;
   --text-secondary: #64748b;
   --bg-main: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+  --scrollbar-thumb: rgba(139, 92, 246, 0.5);
 }
 
 .light-mode .glass {
@@ -404,9 +406,9 @@ input, textarea, select, button, .neon-text {
   width: 5px; /* Ligeiramente mais largo para facilitar o clique */
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(168, 85, 247, 0.4);
+  background-color: var(--scrollbar-thumb);
   border-radius: 20px;
-  border: 1px solid rgba(15, 23, 42, 0.8); /* Efeito de margem interna no scroll */
+  border: 1px solid var(--glass-border); /* Efeito de margem interna no scroll */
 }
 
 /* CSS View Transitions - Global Defaults */

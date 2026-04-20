@@ -19,7 +19,7 @@ export default function MobilePocketMode({
     const { percentage: levelProgress } = getXPProgress(user.xp || 0);
 
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-200 pb-20">
+        <div className="min-h-screen bg-[var(--gradient-1)] text-[var(--text-primary)] pb-20">
             {/* 1. Ultra-Compact Header */}
             <header className="fixed top-0 left-0 right-0 bg-slate-900/90 backdrop-blur-md z-50 border-b border-white/10 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -42,9 +42,10 @@ export default function MobilePocketMode({
 
                 <button
                     onClick={onExitPocketMode}
-                    className="p-2 text-slate-500 hover:text-white transition-colors"
+                    className="p-3 -mr-2 text-slate-500 hover:text-white transition-colors flex items-center justify-center min-w-[44px] min-h-[44px]"
+                    aria-label="Sair"
                 >
-                    <LogOut size={18} />
+                    <LogOut size={22} />
                 </button>
             </header>
 

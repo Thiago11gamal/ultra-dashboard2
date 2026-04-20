@@ -123,7 +123,7 @@ export default function Header({
                     </div>
                 </div>
 
-                <div className="border-l-[3px] border-purple-500 pl-3 bg-white/[0.02] rounded-r-xl py-1">
+                <div className="border-l-[3px] border-purple-500 pl-3 pr-3 bg-white/[0.02] rounded-r-xl py-1">
                     <input
                         type="text"
                         value={localName}
@@ -135,7 +135,7 @@ export default function Header({
                                 e.target.blur();
                             }
                         }}
-                        placeholder="Nome do concurso..."
+                        placeholder="Seu nome..."
                         /* BUG-FIX: padding inferior (pb-2) aumentado para não cortar o efeito neon */
                         className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none leading-relaxed pb-2 pt-1"
                     />
@@ -189,7 +189,7 @@ export default function Header({
                                         e.target.blur();
                                     }
                                 }}
-                                placeholder="Digite o nome do concurso..."
+                                placeholder="Nome do utilizador..."
                                 /* BUG-FIX: 'truncate' substituído por overflow-hidden whitespace-nowrap, com pb-2 para evitar decapitação das letras */
                                 className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1 pb-2 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis"
                             />
@@ -210,7 +210,7 @@ export default function Header({
                     <div className="flex items-center gap-3">
                         <DateDisplay />
                         {cloudStatus.status !== 'idle' && (
-                            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
+                            <div className={`flex items-center min-w-[135px] justify-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
                                 cloudStatus.status === 'connected' 
                                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
                                     : cloudStatus.status === 'connecting'
