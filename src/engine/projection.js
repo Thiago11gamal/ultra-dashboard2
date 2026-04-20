@@ -129,7 +129,15 @@ export function calculateSlope(history, maxScore = 100) {
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
     const baseLimit = 0.3 * scaleFactor; // Escalonado
-    const absoluteMax = 0.45 * scaleFactor; // Escalonado
+    
+    // 🎯 REFINAMENTO PSICOMÉTRICO: Estrangulamento da Curva de Aprendizagem (Limites Dinâmicos)
+    // Alunos com notas baixas podem ter picos de evolução maiores (catching up).
+    // Alunos na faixa dos 85%+ ficam estrangulados em crescimentos mais lentos (plateau).
+    const currentLevel = getSafeScore(sorted[sorted.length - 1], maxScore) / maxScore; // 0-1
+    const proficiencyFriction = Math.max(0, Math.min(1, currentLevel));
+    
+    // Teto dinâmico: de 0.85pp/dia (início) até 0.25pp/dia (avançado)
+    const absoluteMax = (0.85 - (0.60 * proficiencyFriction)) * scaleFactor;
 
     const dynamicLimit = Math.min(
         absoluteMax,

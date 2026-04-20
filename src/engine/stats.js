@@ -45,9 +45,12 @@ export function standardDeviation(arr, maxScore = 100) {
  * A cada simulado: alpha += acertos, beta += erros.
  * Retorna média posterior + IC 95%.
  */
-export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100) {
+export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 100) {
     let alpha = alpha0;
     let beta  = beta0;
+
+    const now = Date.now();
+    const LAMBDA_FORGET = 0.015; // Decaimento mais suave que o Monte Carlo (meia-vida ~46 dias)
 
     if (history && history.length > 0) {
         for (const h of history) {
@@ -63,9 +66,17 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             }
             
             if (total < 1) continue;
+
+            // 🎯 REFINAMENTO PSICOMÉTRICO: Fator de Esquecimento de Ebbinghaus.
+            // Acertos e erros passados perdem peso ao longo do tempo.
+            const time = h.date ? new Date(h.date).getTime() : now;
+            const daysAgo = Math.max(0, (now - time) / (1000 * 60 * 60 * 24));
+            const weight = Math.exp(-LAMBDA_FORGET * daysAgo);
+
             const safeCorrect = Math.min(total, correct);
-            alpha += safeCorrect;
-            beta  += (total - safeCorrect);
+            // O aluno perde "certeza estatística" sobre o conhecimento passado
+            alpha += (safeCorrect * weight);
+            beta  += ((total - safeCorrect) * weight);
         }
     }
 
