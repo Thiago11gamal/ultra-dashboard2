@@ -174,7 +174,10 @@ export default function Header({
             <header className="hidden md:flex items-center justify-between z-50 relative pointer-events-none">
                 <div className="flex flex-col gap-2 w-full max-w-[calc(50vw-320px)] min-w-[150px] pointer-events-auto">
                     <div className="relative group flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 relative pt-4">
+                            <span className="absolute top-0 left-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                Foco Principal ✏️
+                            </span>
                             <input
                                 type="text"
                                 value={localName}
@@ -188,10 +191,10 @@ export default function Header({
                                 }}
                                 placeholder="Digite o nome do concurso..."
                                 /* BUG-FIX: 'truncate' substituído por overflow-hidden whitespace-nowrap, com pb-2 para evitar decapitação das letras */
-                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 pb-3 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis"
+                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1 pb-2 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis"
                             />
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-end gap-1 self-end pb-2">
                             {cloudStatus.hasConflict && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
@@ -202,9 +205,6 @@ export default function Header({
                                     <span>Forçar Paridade</span>
                                 </button>
                             )}
-                        </div>
-                        <div className="absolute -top-4 left-2 text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                            Foco Principal ✏️
                         </div>
                     </div>
                     <div className="flex items-center gap-3">

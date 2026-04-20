@@ -51,7 +51,7 @@ export default function MobilePocketMode({
             {/* 2. Main Content Area */}
             <main className="pt-20 px-4">
                 {activeTab === 'pomodoro' ? (
-                    <div className="animate-fade-in">
+                    <div className="animate-fade-in pb-24">
                         <PomodoroTimer
                             settings={data.settings}
                             onUpdateSettings={actions.updatePomodoroSettings}

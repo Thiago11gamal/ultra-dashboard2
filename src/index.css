@@ -338,7 +338,7 @@ svg *,
 /* Forçamos os painéis com blur pesado a ter um fundo opaco suave para garantir consistência no PDF exportado */
 .pdf-render-mode .glass, 
 .pdf-render-mode .glass-panel {
-  background: rgba(15, 23, 42, 0.95) !important; /* slate-900 sólido para contraste perfeito */
+  background: var(--gradient-1) !important; /* Dinâmico para respeitar Light/Dark mode no PDF */
 }
 
 @media print {

@@ -118,7 +118,7 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Nav Icons — scrollable */}
                 <div
                     ref={navScrollRef}
-                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 py-1 scroll-smooth"
+                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 py-1 pr-4 scroll-smooth"
                 >
                     {menuItems.map((item) => {
                         const Icon = item.icon;
@@ -169,7 +169,8 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
             <div
                 /* BUG-FIX: z-50 reduzido para z-40 para o Dropdown do Perfil (no Header) poder passar por cima */
                 className={`
-                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-40
+                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-40
+                    ${collapsed ? 'overflow-hidden' : 'overflow-visible'}
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
                         : 'glass-panel w-auto px-5 py-4 rounded-2xl'}
