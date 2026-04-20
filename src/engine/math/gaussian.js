@@ -207,6 +207,9 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     if (sd <= 0.0001) return Math.max(min, Math.min(max, mean)); 
     
     // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
+    const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
+    const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
+
     // BUG 4 FIX: Underflow de Precisão.
     // Se o SD é muito baixo e o mean está longe da janela, cdfMax - cdfMin pode ser 0.
     const diff = cdfMax - cdfMin;
