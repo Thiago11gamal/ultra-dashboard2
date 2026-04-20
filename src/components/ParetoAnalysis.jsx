@@ -37,13 +37,10 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
             }
         });
 
-        // 1. Group by Topic Name (Merge duplicates across simulados)
         const topicMap = {};
         allTopics.forEach(t => {
             const key = `${t.category} - ${t.topic}`;
 
-            // Find category to get weight
-            const cat = categories.find(c => c.name === t.category);
             const weight = 1.0; // Pareto analysis for knowledge gaps should focus on absolute error frequency
 
             if (!topicMap[key]) topicMap[key] = { ...t, count: 1, weight };
@@ -96,7 +93,7 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
             hiddenOpportunities: others.length // Just a count for now
         };
 
-    }, [categories]);
+    }, [categories, maxScore]);
 
     return (
         <div className="glass p-6 h-full flex flex-col border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-red-900/10">

@@ -60,7 +60,7 @@ const WeeklyPerformanceChart = ({
                 history.forEach(h => {
                     const hDate = getDateKey(h.date);
                     if (hDate === dateKey) {
-                        const q = Number(h.total) || 100; // base 100 if missing
+                        const q = Number(h.total) || Math.max(1, Math.round(maxScore || 100)); // base maxScore if missing
                         const score = getSafeScore(h, maxScore);
                         correctTotal += (score / maxScore) * q;
                         questionsTotal += q;

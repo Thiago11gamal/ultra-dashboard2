@@ -367,7 +367,7 @@ export default function VerifiedStats({ categories = [], user }) {
 
             // Use the shared Weighted Regression engine function for total consistency with Monte Carlo Dashboard
             // ensure format is valid (dailyHistory already has { date: number(ms), score: number })
-            let slope = calculateSlope(dailyHistory);
+            let slope = calculateSlope(dailyHistory, maxScore);
             // Engine clamps properly internally, but we can do a hard limit just to be absolutely safe for dates.
             slope = Math.max(-2.0, Math.min(2.0, slope));
 

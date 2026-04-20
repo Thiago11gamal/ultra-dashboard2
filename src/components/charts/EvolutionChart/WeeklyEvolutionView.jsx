@@ -89,7 +89,7 @@ export const WeeklyEvolutionView = ({
                 
                 // MATH FIX: Impedir que testes baseados puramente em porcentagem sem métrica de questões gerem 'missing data' (zeros cegos)
                 if (totalQ === 0 && h.score != null) {
-                    totalQ = 100; // Carga sintética para cálculo WLS
+                    totalQ = Math.max(1, Math.round(maxScore || 100)); // Carga sintética alinhada à escala da prova
                 }
                 
                 weeksTemp[weekStr][itemId].total += totalQ;
@@ -203,7 +203,7 @@ export const WeeklyEvolutionView = ({
             }
         });
         return result;
-    }, [chartData.rankedKeys, userToggles]);
+    }, [rankedKeys, userToggles]);
 
     if (chartData.length < 2) {
         return (

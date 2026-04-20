@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
+import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
