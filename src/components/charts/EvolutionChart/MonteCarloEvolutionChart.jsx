@@ -6,7 +6,6 @@ import { Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// FIX: Adicionada a propriedade 'unit' para flexibilizar a exibição da meta (ex: pts, %, acertos)
 export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = 'pts' }) => {
     const rawId = useId();
     const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
@@ -19,6 +18,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
+                
                 const parsed = parseISO(d.date);
                 if (isValid(parsed)) {
                     displayDate = format(parsed, 'dd/MM', { locale: ptBR });
@@ -26,11 +26,17 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                 } else {
                     console.warn('[MonteCarloEvolutionChart] Ignorando data malformada:', d.date);
                 }
+                
+                // Cria o array com o limite inferior e superior para o cone de incerteza (Intervalo de Confiança)
+                const mean = d.mean || 0;
+                const low = d.ci95Low !== undefined ? d.ci95Low : mean;
+                const high = d.ci95High !== undefined ? d.ci95High : mean;
+
                 return {
                     ...d,
                     displayDate,
                     fullDate,
-                    ciRange: [d.ci95Low ?? d.mean, d.ci95High ?? d.mean]
+                    ciRange: [low, high]
                 };
             });
     }, [data]);
@@ -60,29 +66,42 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
-            // Extraia os valores do payload primeiro para evitar ReferenceError
-            // FIX: Fallback final ?? 0 para prevenir crash se ambos os valores forem undefined
-            const val = payload[0].value ?? payload[0].payload?.probability ?? 0;
-            const fullDate = payload[0].payload.fullDate;
+            const dataPoint = payload[0].payload;
+            const fullDate = dataPoint.fullDate;
             
-            const pointTarget = payload[0].payload.target ?? targetScore;
-            const pointMean = payload[0].payload.mean;
-
-            let isGood = val >= 70.0;
-            if (pointMean != null && pointTarget != null) {
-                isGood = (pointMean >= pointTarget) ? (val >= 50.0) : (val >= 70.0);
-            }
+            // Operador de coalescência nula garante falhas seguras
+            const pointTarget = dataPoint.target ?? targetScore;
+            const pointMean = dataPoint.mean ?? 0;
+            const pointProb = dataPoint.probability ?? 0;
+            const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
+            const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
+            
+            const isGood = pointMean >= pointTarget;
             
             return (
-                <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-xl">
-                    <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1">{fullDate}</p>
-                    <div className="flex items-end gap-2">
-                        <span className={`text-4xl font-black ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
-                            {val.toFixed(1)}%
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-bold mb-1 uppercase tracking-wider">
-                            Probabilidade
-                        </span>
+                <div className="bg-slate-900 border border-white/10 p-4 rounded-xl shadow-2xl backdrop-blur-xl min-w-[200px]">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
+                    
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nota Projetada</span>
+                            <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
+                                {pointMean.toFixed(1)} <span className="text-sm text-slate-500 ml-1">{unit}</span>
+                            </span>
+                        </div>
+
+                        <div className="mt-2 bg-black/40 rounded border border-white/5 p-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
+                                <span className="text-[10px] font-mono text-white">{pointLow.toFixed(1)} ~ {pointHigh.toFixed(1)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-slate-400">Chance de Sucesso:</span>
+                                <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
+                                    {pointProb.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
@@ -99,10 +118,9 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     </div>
                     <div>
                         <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Evolução da Projeção</h4>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Probabilidade Histórica de Aprovação</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trajetória de Notas e Incerteza</p>
                     </div>
                 </div>
-                {/* FIX: Alterado de % fixo para aceitar a unidade dinâmica e evitar conflito com a probabilidade */}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5">
                     <Target size={12} className="text-slate-500" />
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Target: <strong className="text-white">{targetScore} {unit}</strong></span>
@@ -117,8 +135,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                         </div>
                         <p className="text-xs font-black text-slate-200 uppercase tracking-[0.2em]">Ponto Único Registrado</p>
                         <p className="text-[10px] text-slate-500 mt-2 max-w-[200px] leading-relaxed">
-                            Aguardando o próximo registro para traçar sua linha de evolução. 
-                            <strong> Probabilidade Atual: {formattedData[0].probability.toFixed(1)}%</strong>
+                            Aguardando o próximo registro para traçar a evolução. 
+                            <br/><strong className="text-blue-400"> Nota Atual: {formattedData[0].mean.toFixed(1)} {unit}</strong>
                         </p>
                     </div>
                 )}
@@ -131,8 +149,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                     >
                         <defs>
                             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.5}/>
-                                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.0}/>
+                                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.05}/>
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
@@ -152,37 +170,41 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             axisLine={false}
                             dx={-5}
                             width={45}
-                            domain={[0, 100]} // Mantém-se de 0 a 100 se a nota máxima for 100
+                            domain={[0, 100]}
                             tickFormatter={(v) => `${v}${unit === '%' ? '%' : ''}`}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
+                        <Tooltip 
+                            content={<CustomTooltip />} 
+                            cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }} 
+                        />
                         
-                        {/* Área do Intervalo de Confiança (Sombreada, mais clara) */}
+                        {/* Área do Cone de Incerteza (Intervalo de Confiança) */}
                         <Area 
                             type="monotone" 
                             dataKey="ciRange" 
                             stroke="none" 
-                            fill="#60a5fa" 
-                            fillOpacity={0.15}
-                            isAnimationActive={false}
+                            fillOpacity={1} 
+                            fill={`url(#${gradientId})`}
+                            isAnimationActive={true}
                         />
 
-                        {/* Linha da Média Projetada (Linha principal sólida) */}
+                        {/* Linha Principal da Média Projetada */}
                         <Area 
                             type="monotone" 
                             dataKey="mean" 
-                            stroke="#3b82f6" 
+                            stroke="#60a5fa" 
                             strokeWidth={3}
                             fill="none"
-                            activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6', className: "animate-pulse" }}
+                            activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
+                            dot={formattedData.length < 15 ? { r: 4, strokeWidth: 2, fill: '#0f172a', stroke: '#60a5fa' } : false}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
                 ) : formattedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={[{probability: 0}, {probability: formattedData[0].probability}, {probability: 0}]}>
-                                <Area type="monotone" dataKey="probability" stroke="#60a5fa" fill="#60a5fa" />
+                            <AreaChart data={[{mean: 0}, {mean: formattedData[0].mean}, {mean: 0}]}>
+                                <Area type="monotone" dataKey="mean" stroke="#60a5fa" fill="#60a5fa" />
                             </AreaChart>
                          </ResponsiveContainer>
                     </div>
@@ -191,7 +213,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-50 px-2">
                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                     A projeção diária representa o cenário estatístico (Monte Carlo P50) calculado no fim do dia.
+                     A área sombreada representa a incerteza estatística da projeção ao longo do tempo (P5 ~ P95).
                  </p>
                  <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {formattedData.length} dias</span>
             </div>

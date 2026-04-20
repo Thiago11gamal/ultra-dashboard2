@@ -1,11 +1,3 @@
-/**
- * Monte Carlo Web Worker
- * Offloads heavy simulation work from the main thread.
- * 
- * Usando imports diretos garantindo que correções no engine.js principal 
- * como o campo volatility sejam aplicadas aqui sem risco de code stale.
- */
-
 import { monteCarloSimulation } from './projection.js';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from './monteCarlo.js';
 
@@ -22,8 +14,6 @@ self.onmessage = function(e) {
         } else if (type === 'monteCarloSimulation') {
             result = monteCarloSimulation(payload.history, payload.targetScore, payload.projectionDays, payload.simulations, payload.options);
         } else if (type === 'simulateNormalDistribution') {
-            // FIX 5: Convert positional args to object form to support minScore/maxScore
-            // and any future properties through the worker boundary.
             result = simulateNormalDistribution({
                 mean: payload.mean,
                 sd: payload.sd,
