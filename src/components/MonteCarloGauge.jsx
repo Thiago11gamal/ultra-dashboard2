@@ -11,6 +11,7 @@ import {
     simulateNormalDistribution,
     runMonteCarloAnalysis
 } from '../engine/monteCarlo';
+import { normalCDF_complement } from '../engine/math/gaussian';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
@@ -23,6 +24,34 @@ const sanitizeWeightUnit = (value) => {
     if (Number.isNaN(numeric)) return 0;
     return Math.max(0, Math.min(999, numeric));
 };
+
+/**
+ * Regularização Bayesiana da Volatilidade (Shrinkage de Tikhonov)
+ *
+ * Sem dados suficientes, o dailySD empírico pode ser muito alto,
+ * saturando o domínio e tornando a probabilidade não-informativa.
+ * Aplicamos shrinkage em direção a um prior "máximo informativo"
+ * baseado no horizonte de projeção.
+ *
+ * Prior: volatilidade máxima que ainda mantém o IC 95% dentro do domínio.
+ * informativeSD = k × domain / √T  (com k ≈ 0.35 → IC 95% ≈ 70% do domínio)
+ */
+function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
+    // Prior: SD máximo para que 2σ√T ≤ 0.70 × domínio
+    const informativeSD = 0.35 * domain / Math.sqrt(Math.max(1, projectionDays));
+
+    // Peso do prior decresce com histórico. Com 1 ponto → priorStrength=5.
+    // Com 10 pontos → ~2. Com 30+ → ~1 (prior quase ignorado).
+    const priorStrength = Math.max(1.0, 5.0 - Math.log2(historyLength + 1));
+    const n = Math.max(1, historyLength);
+
+    // Média ponderada quadrática (variâncias, não SDs)
+    const regularizedVariance =
+        (dailySD * dailySD * n + informativeSD * informativeSD * priorStrength)
+        / (n + priorStrength);
+
+    return Math.sqrt(regularizedVariance);
+}
 
 export default function MonteCarloGauge({
     categories = [],
@@ -306,13 +335,22 @@ export default function MonteCarloGauge({
             try {
                 let result;
                 if (isFuture && statsData.globalHistory?.length > 0) {
+                    const domain = maxScore - minScore;
+                    const n = statsData.globalHistory.length;
+                    const regularizedSD = regularizeVolatility(
+                        statsData.dailySD,
+                        projectDays,
+                        n,
+                        domain
+                    );
+
                     result = await runAnalysis({
                         values: statsData.globalHistory.map(h => h.score),
                         dates: statsData.globalHistory.map(h => h.date),
                         meta: debouncedTarget,
                         simulations: 5000,
                         projectionDays: projectDays,
-                        forcedVolatility: statsData.dailySD,
+                        forcedVolatility: regularizedSD,
                         forcedBaseline: statsData.bayesianMean,
                         currentMean: statsData.bayesianMean,
                         minScore,
@@ -340,13 +378,22 @@ export default function MonteCarloGauge({
                 if (!cancelled) {
                     let result;
                     if (isFuture && statsData.globalHistory?.length > 0) {
+                        const domain = maxScore - minScore;
+                        const n = statsData.globalHistory.length;
+                        const regularizedSD = regularizeVolatility(
+                            statsData.dailySD,
+                            projectDays,
+                            n,
+                            domain
+                        );
+
                         result = runMonteCarloAnalysis({
                             values: statsData.globalHistory.map(h => h.score),
                             dates: statsData.globalHistory.map(h => h.date),
                             meta: debouncedTarget,
                             simulations: 5000,
                             projectionDays: projectDays,
-                            forcedVolatility: statsData.dailySD,
+                            forcedVolatility: regularizedSD,
                             forcedBaseline: statsData.bayesianMean,
                             currentMean: statsData.bayesianMean,
                             minScore,
@@ -435,6 +482,35 @@ export default function MonteCarloGauge({
         setWeights({ ...(weights || {}), [name]: p });
     }, [setWeights, weights]);
 
+    const sd = simulationData?.data?.sd ?? 0;
+    const sdLeft = simulationData?.data?.sdLeft ?? sd;
+    const sdRight = simulationData?.data?.sdRight ?? sd;
+    const ci95Low = simulationData?.data?.ci95Low ?? 0;
+    const ci95High = simulationData?.data?.ci95High ?? 0;
+
+    const {
+        saturation,
+        projectionConfidence,
+        pAdjusted,
+        pTrend
+    } = useMemo(() => {
+        const domainWidth = maxScore - minScore;
+        const icWidth = ci95High - ci95Low;
+        const sat = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
+        const conf = Math.max(0, 1 - Math.pow(sat, 1.5));
+        const pBaseline = (domainWidth > 0)
+            ? Math.max(0, (maxScore - targetScore) / domainWidth) * 100
+            : 0;
+
+        const adj = probability * conf + pBaseline * (1 - conf);
+
+        const trend = normalCDF_complement(
+            (targetScore - projectedMean) / Math.max(1, sd)
+        ) * 100;
+
+        return { saturation: sat, projectionConfidence: conf, pAdjusted: adj, pTrend: trend };
+    }, [ci95High, ci95Low, maxScore, minScore, targetScore, probability, projectedMean, sd]);
+
     if (!simulationData || simulationData.status === 'waiting') {
         const waitingSubtext = `Lance seu primeiro simulado para ativar a projeção Monte Carlo!`;
         return (
@@ -464,11 +540,6 @@ export default function MonteCarloGauge({
 
     const formatScore = (v) => `${v.toFixed(1)}${unit}`;
 
-    const sd = simulationData?.data?.sd ?? 0;
-    const sdLeft = simulationData?.data?.sdLeft ?? sd;
-    const sdRight = simulationData?.data?.sdRight ?? sd;
-    const ci95Low = simulationData?.data?.ci95Low ?? 0;
-    const ci95High = simulationData?.data?.ci95High ?? 0;
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
     // M1 FIX: Clamp prob to [0,100] — floating-point may produce 100.0003,
@@ -603,7 +674,7 @@ export default function MonteCarloGauge({
                     <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pb-0 z-20">
                         <span className="text-4xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
                             {/* FIX: Probabilidade é sempre %, independente da unidade do concurso */}
-                            {prob.toFixed(1)}%
+                            {pAdjusted.toFixed(1)}%
                         </span>
                     </div>
                 </div>
@@ -617,6 +688,28 @@ export default function MonteCarloGauge({
                         message
                     )}
                 </span>
+
+                {/* Badge de confiança — renderize abaixo da label do gauge */}
+                {saturation > 0.75 && (
+                    <div className="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full
+                                    bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">
+                            {saturation > 0.90
+                                ? '⚠ Dados insuficientes — resultado próximo ao acaso'
+                                : '⚠ Alta incerteza — projeção com baixa confiança'}
+                        </span>
+                        {/* Barra de confiança */}
+                        <div className="w-16 h-1 bg-slate-800 rounded-full overflow-hidden ml-1 border border-white/5">
+                            <div
+                                className="h-full rounded-full bg-amber-400 transition-all duration-700 shadow-[0_0_8px_rgba(251,191,36,0.4)]"
+                                style={{ width: `${projectionConfidence * 100}%` }}
+                            />
+                        </div>
+                        <span className="text-[9px] font-black text-amber-400">
+                            {(projectionConfidence * 100).toFixed(0)}%
+                        </span>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-6 px-1">
@@ -649,6 +742,38 @@ export default function MonteCarloGauge({
                     </div>
                 ))}
             </div>
+
+            {/* Ao lado do gauge principal, abaixo dos 5 cards de stats */}
+            {saturation > 0.75 && (
+                <div className="w-full flex justify-between items-center bg-black/30 rounded-xl px-4 py-2 border border-white/5 mt-2 shadow-lg shadow-amber-500/5 transition-all duration-500">
+                    <div className="flex flex-col items-center">
+                        <span className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">
+                            P (tendência pura)
+                        </span>
+                        <span className="text-sm font-black text-blue-400">
+                            {pTrend.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div className="w-px h-8 bg-white/10" />
+                    <div className="flex flex-col items-center">
+                        <span className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">
+                            P (simulação MC)
+                        </span>
+                        <span className="text-sm font-black text-slate-400 line-through opacity-60">
+                            {probability.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div className="w-px h-8 bg-white/10" />
+                    <div className="flex flex-col items-center">
+                        <span className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">
+                            P (ajustada)
+                        </span>
+                        <span className="text-sm font-black text-amber-400">
+                            {pAdjusted.toFixed(1)}%
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2 block">Projeção de Desempenho</span>
