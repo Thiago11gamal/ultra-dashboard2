@@ -155,11 +155,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         // BUG 9 FIX: Devolvemos o safeSD (incerteza epistêmica bruta) à UI.
         // O projectedSD da curva truncada é matematicamente comprimido e geraria
         // uma falsa sensação de certeza em notas perto das bordas [0, 100].
-        sd: Number((safeSD || projectedSD).toFixed(1)),
+        // FIX: Garantir incerteza mínima estrutural (0.1) para evitar linha plana no gráfico
+        sd: Number(Math.max(0.1, safeSD || projectedSD || 0).toFixed(1)),
         sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
         sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
-        ci95Low: Number(displayLow.toFixed(1)),
-        ci95High: Number(displayHigh.toFixed(1)),
+        ci95Low: Number(Math.min((bayesianCI ? safeMean : displayMean) - 0.1, displayLow).toFixed(1)),
+        ci95High: Number(Math.max((bayesianCI ? safeMean : displayMean) + 0.1, displayHigh).toFixed(1)),
         currentMean: Number((currentMean || safeMean).toFixed(1)),
         projectedMean,
         projectedSD,

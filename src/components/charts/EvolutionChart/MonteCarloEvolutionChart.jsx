@@ -3,7 +3,7 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Target, TrendingUp, AlertCircle } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // FIX: Adicionada a propriedade 'unit' para flexibilizar a exibição da meta (ex: pts, %, acertos)
@@ -19,17 +19,18 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
-                try {
-                    const parsed = parseISO(d.date);
+                const parsed = parseISO(d.date);
+                if (isValid(parsed)) {
                     displayDate = format(parsed, 'dd/MM', { locale: ptBR });
                     fullDate = format(parsed, 'dd MMM yyyy', { locale: ptBR });
-                } catch (e) {
-                    console.error('[MonteCarloEvolutionChart] Invalid date:', d.date);
+                } else {
+                    console.warn('[MonteCarloEvolutionChart] Ignorando data malformada:', d.date);
                 }
                 return {
                     ...d,
                     displayDate,
-                    fullDate
+                    fullDate,
+                    ciRange: [d.ci95Low ?? d.mean, d.ci95High ?? d.mean]
                 };
             });
     }, [data]);
@@ -64,8 +65,8 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
             const val = payload[0].value ?? payload[0].payload?.probability ?? 0;
             const fullDate = payload[0].payload.fullDate;
             
+            const pointTarget = payload[0].payload.target ?? targetScore;
             const pointMean = payload[0].payload.mean;
-            const pointTarget = payload[0].payload.target;
 
             let isGood = val >= 70.0;
             if (pointMean != null && pointTarget != null) {
@@ -151,22 +152,29 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             axisLine={false}
                             dx={-5}
                             width={45}
-                            domain={[0, 100]}
-                            // SCALE-BOUNDS NOTE: Y-axis is ALWAYS probability (0-100%), never the score.
-                            // The 'unit' prop only affects the Target display above, not this axis.
-                            tickFormatter={(v) => `${v}%`}
+                            domain={[0, 100]} // Mantém-se de 0 a 100 se a nota máxima for 100
+                            tickFormatter={(v) => `${v}${unit === '%' ? '%' : ''}`}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff22', strokeWidth: 2, strokeDasharray: '4 4' }} />
                         
+                        {/* Área do Intervalo de Confiança (Sombreada, mais clara) */}
                         <Area 
                             type="monotone" 
-                            dataKey="probability" 
-                            stroke="#60a5fa" 
-                            strokeWidth={4}
-                            fillOpacity={1} 
-                            fill={`url(#${gradientId})`}
-                            activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa', className: "animate-pulse shadow-lg" }}
-                            dot={formattedData.length < 15 ? { r: 5, strokeWidth: 3, fill: '#60a5fa', stroke: '#0f172a' } : false}
+                            dataKey="ciRange" 
+                            stroke="none" 
+                            fill="#60a5fa" 
+                            fillOpacity={0.15}
+                            isAnimationActive={false}
+                        />
+
+                        {/* Linha da Média Projetada (Linha principal sólida) */}
+                        <Area 
+                            type="monotone" 
+                            dataKey="mean" 
+                            stroke="#3b82f6" 
+                            strokeWidth={3}
+                            fill="none"
+                            activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6', className: "animate-pulse" }}
                         />
                     </AreaChart>
                 </ResponsiveContainer>

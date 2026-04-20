@@ -72,12 +72,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     if (plotMax - plotMin < 1) {
         plotMin = Math.max(vMin, projectedMean - 0.5);
         plotMax = Math.min(vMax, projectedMean + 0.5);
-        
+
         // Correct asymmetric squeeze at boundaries respeitando a folga visual
         if (plotMax >= maxScore && maxScore - minScore >= 1) plotMin = Math.max(vMin, vMax - 1);
         if (plotMin <= minScore && maxScore - minScore >= 1) plotMax = Math.min(vMax, vMin + 1);
     }
-    
+
     const plotSteps = 200; // Aumento de resolução visual
     const stepSize = (plotMax - plotMin) / plotSteps;
 
@@ -103,7 +103,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     }
 
     const invBandwidth = 1 / bandwidth;
-    
+
     // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
     // evitar inflar o pico visual quando há muitos outliers fora da tela.
     const normFactor = 1 / (safeSimulations * bandwidth * Math.sqrt(2 * Math.PI));
@@ -114,7 +114,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     // FASE 1: Calcular e encontrar o maxY (sem criar objetos descartáveis)
     for (let i = 0; i <= plotSteps; i++) {
         let x = plotMin + i * stepSize;
-        
+
         // VISUAL FIX: No step mais próximo da média, forçar o valor exato da média 
         // para garantir que o pico da Gaussiana seja capturado no gráfico.
         if (Math.abs(x - projectedMean) < stepSize / 2) x = projectedMean;
@@ -124,12 +124,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
         for (let j = 0; j < BIN_COUNT; j++) {
             if (bins[j] === 0) continue;
             const binX = plotMin + (j + 0.5) * binWidth;
-            
+
             // BUG 7 FIX: Boundary Correction (Data Folding Method)
             const invBand = invBandwidth;
             const dist = (x - binX) * invBand;
             let localDensity = Math.exp(-0.5 * dist * dist);
-            
+
             // RIGOR FIX: Se binX está exatamente na borda (Massa de Dirac), o rebatimento
             // duplicaria a densidade localmente de forma errônea (1.0 + 1.0).
             // Aplicamos um fator de atenuação se o ponto estiver a menos de 0.1% do limite.
@@ -140,7 +140,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
                 distMin = (x - (2 * minScore - binX)) * invBand;
                 localDensity += Math.exp(-0.5 * distMin * distMin);
             }
-            
+
             let distMax = 999;
             if (binX < maxScore - epsilon) {
                 distMax = (x - (2 * maxScore - binX)) * invBand;
@@ -153,14 +153,14 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             }
         }
         density *= normFactor;
-        
+
         // Cortar probabilidades matemáticas irreais fora do domínio fechado da prova
         if (x < minScore || x > maxScore) {
             density = 0;
         }
 
         if (density > maxY) maxY = density;
-        rawData.push({ x, density }); 
+        rawData.push({ x, density });
     }
 
     // FASE 2: Formatar diretamente para o array final devolvido
@@ -181,15 +181,15 @@ export function inverseNormalCDF(p) {
 
     const a = [2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637];
     const b = [-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833];
-    const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 
-               0.0276438810333863, 0.0038405729373609, 0.0003951896511919, 
-               0.0000321767881768, 0.0000002888167364, 0.0000003960315187];
+    const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
+        0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
+        0.0000321767881768, 0.0000002888167364, 0.0000003960315187];
 
     let x = p - 0.5;
     if (Math.abs(x) < 0.42) {
         let r = x * x;
-        return x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) / 
-                   ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1.0);
+        return x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) /
+            ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1.0);
     } else {
         let r = p;
         if (x > 0) r = 1.0 - p;
@@ -204,8 +204,8 @@ export function inverseNormalCDF(p) {
  * Garante números exclusivamente entre [min, max] mantendo a suavidade da curva.
  */
 export function sampleTruncatedNormal(mean, sd, min, max, rng) {
-    if (sd <= 0.0001) return Math.max(min, Math.min(max, mean)); 
-    
+    if (sd <= 0.0001) return Math.max(min, Math.min(max, mean));
+
     // O normalCDF_complement calcula P(X >= z), logo 1 - normalCDF_complement = P(X <= z)
     const cdfMin = 1 - normalCDF_complement((min - mean) / sd);
     const cdfMax = 1 - normalCDF_complement((max - mean) / sd);
@@ -219,7 +219,7 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     }
 
     // Sorteia um número uniforme restrito APENAS ao espaço válido da curva
-    const u = rng(); 
+    const u = rng();
     const p = cdfMin + u * diff;
 
     const zScore = inverseNormalCDF(p);
