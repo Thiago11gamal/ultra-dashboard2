@@ -62,6 +62,82 @@ export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELAT
 }
 
 /**
+ * Estimate inter-subject correlation from historical aligned score rows.
+ * Uses pairwise Pearson correlations with overlap checks and shrinkage toward fallback.
+ *
+ * @param {Object[]} scoreRows - Array of date-aligned rows: { [subjectName]: score }
+ * @param {string[]} subjectNames - Subject names to include
+ * @param {number} fallback - Fallback correlation when data is insufficient
+ * @returns {number} Estimated rho in [0,1]
+ */
+export function estimateInterSubjectCorrelation(
+    scoreRows = [],
+    subjectNames = [],
+    fallback = INTER_SUBJECT_CORRELATION
+) {
+    if (!Array.isArray(scoreRows) || scoreRows.length < 4 || !Array.isArray(subjectNames) || subjectNames.length < 2) {
+        return fallback;
+    }
+
+    const pairwise = [];
+    for (let i = 0; i < subjectNames.length; i++) {
+        for (let j = i + 1; j < subjectNames.length; j++) {
+            const aName = subjectNames[i];
+            const bName = subjectNames[j];
+
+            const xs = [];
+            const ys = [];
+            scoreRows.forEach(row => {
+                const x = Number(row?.[aName]);
+                const y = Number(row?.[bName]);
+                if (Number.isFinite(x) && Number.isFinite(y)) {
+                    xs.push(x);
+                    ys.push(y);
+                }
+            });
+
+            const n = xs.length;
+            if (n < 4) continue;
+
+            const meanX = xs.reduce((acc, v) => acc + v, 0) / n;
+            const meanY = ys.reduce((acc, v) => acc + v, 0) / n;
+
+            let cov = 0;
+            let varX = 0;
+            let varY = 0;
+            for (let k = 0; k < n; k++) {
+                const dx = xs[k] - meanX;
+                const dy = ys[k] - meanY;
+                cov += dx * dy;
+                varX += dx * dx;
+                varY += dy * dy;
+            }
+
+            const denom = Math.sqrt(varX * varY);
+            if (denom <= 0) continue;
+
+            const corr = cov / denom;
+            // Keep only non-negative coherent component for variance interpolation.
+            pairwise.push({ corr: Math.max(0, corr), n });
+        }
+    }
+
+    if (pairwise.length === 0) return fallback;
+
+    // Weight by information size (overlap) and shrink toward fallback for robustness.
+    const totalWeight = pairwise.reduce((acc, p) => acc + Math.sqrt(p.n), 0);
+    const empirical = totalWeight > 0
+        ? pairwise.reduce((acc, p) => acc + p.corr * Math.sqrt(p.n), 0) / totalWeight
+        : fallback;
+
+    const avgOverlap = pairwise.reduce((acc, p) => acc + p.n, 0) / pairwise.length;
+    const shrink = avgOverlap / (avgOverlap + 10); // conservative shrinkage
+    const blended = (shrink * empirical) + ((1 - shrink) * fallback);
+
+    return Math.max(0, Math.min(1, blended));
+}
+
+/**
  * Get variance breakdown for debugging/auditing
  * 
  * @param {Object[]} stats - Array of category statistics
@@ -85,5 +161,6 @@ export function getVarianceBreakdown(stats, totalWeight) {
 export default {
     computeWeightedVariance,
     computePooledSD,
-    getVarianceBreakdown
+    getVarianceBreakdown,
+    estimateInterSubjectCorrelation
 };

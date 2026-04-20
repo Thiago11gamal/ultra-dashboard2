@@ -4,7 +4,8 @@ import {
     computeCategoryStats,
     computeBayesianLevel,
     computeWeightedVariance,
-    calculateVolatility
+    calculateVolatility,
+    estimateInterSubjectCorrelation
 } from '../engine';
 import {
     simulateNormalDistribution,
@@ -213,21 +214,26 @@ export default function MonteCarloGauge({
 
         if (categoryStats.length === 0 || totalWeight === 0) return null;
 
+        const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
+        const scoreRows = sortedDates.map(date => scoresByDate[date] || {});
+        const subjectNames = categoryStats.map(cat => cat.name);
+        const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
+
         const pooledVariance = computeWeightedVariance(
             categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })),
-            totalWeight
+            totalWeight,
+            estimatedRho
         );
         const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
 
         const bayesianMean = weightedBayesianSum / totalWeight;
 
-        const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight);
+        const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
         const weightedLow = Math.max(minScore, bayesianMean - 1.96 * pooledBayesianSD);
         const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
 
-        const sortedDates = Object.keys(scoresByDate).sort((a, b) => new Date(a) - new Date(b));
         const globalHistory = sortedDates.map(date => {
             let sum = 0;
             let tw = 0;
@@ -267,6 +273,7 @@ export default function MonteCarloGauge({
             bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
             globalHistory,
             dailySD,
+            estimatedRho,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
