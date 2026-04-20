@@ -199,7 +199,7 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
         maxScore: objMaxScore,
     } = inputOrMean;
 
-    const resolvedTarget = objTargetScore ?? Number(meta) ?? 0;
+    const resolvedTarget = objTargetScore ?? Number(meta || 0);
 
     // 4° argumento tem prioridade sobre opções do objeto:
     const mergedOptions = {

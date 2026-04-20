@@ -14,6 +14,7 @@ export default function TopicPerformance({ categories = [] }) {
         const category = categories.find(c => c.id === selectedCategoryId);
         if (!category) return [];
         const maxScore = category.maxScore ?? 100;
+        const scoreUnit = maxScore === 100 ? '%' : 'pts';
 
         const stats = category.simuladoStats || { history: [] };
         const history = stats.history || [];
@@ -38,14 +39,17 @@ export default function TopicPerformance({ categories = [] }) {
 
         // Convert to array and calculate stats
         const topicList = Object.entries(topicMap).map(([name, data]) => {
-            const percentage = data.total > 0 ? Math.round((data.correct / data.total) * maxScore) : 0;
+            const normalizedPct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+            const scoreValue = data.total > 0 ? (data.correct / data.total) * maxScore : 0;
             const missed = data.total - data.correct;
             const balance = data.correct - missed;
             return {
                 name,
                 total: data.total,
                 correct: data.correct,
-                percentage,
+                percentage: normalizedPct,
+                scoreValue: Number(scoreValue.toFixed(1)),
+                scoreUnit,
                 balance
             };
         });
@@ -176,7 +180,10 @@ export default function TopicPerformance({ categories = [] }) {
                                         <div className="text-lg font-bold font-mono leading-none">
                                             {topic.percentage}%
                                         </div>
-                                        <div className="text-[10px] text-slate-500 mt-1">
+                                        <div className="text-[10px] text-slate-400 mt-1 font-semibold">
+                                            {topic.scoreValue}{topic.scoreUnit}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 mt-0.5">
                                             {topic.correct}/{topic.total} Acertos
                                         </div>
                                     </div>

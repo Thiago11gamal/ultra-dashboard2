@@ -144,9 +144,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     // MATH FIX: O filtro destruía as amostras que os usuários cadastravam só como "%" (total=0),
     // arruinando regressões inteiras da estatística se não houvesse input manual de volume de questões.
+    const syntheticTotal = Math.max(1, Math.round(maxScore || SYNTHETIC_TOTAL_QUESTIONS));
     const historyWithSynthetics = history.map(h => {
         if ((Number(h.total) || 0) === 0 && h.score != null) {
-            return { ...h, total: SYNTHETIC_TOTAL_QUESTIONS };
+            return { ...h, total: syntheticTotal };
         }
         return h;
     });
@@ -182,7 +183,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
     const safeSD = sd;
 
-    const slopePerDay = calculateSlope(historyToUse);
+    const slopePerDay = calculateSlope(historyToUse, maxScore);
     // Converter para pp/30-dias para comparação com threshold
     // Threshold de 0.5% (base 100) -> proportional limit
     const trendThreshold = 0.005 * maxScore;

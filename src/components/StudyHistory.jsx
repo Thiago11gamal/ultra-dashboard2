@@ -538,7 +538,6 @@ const StudyHistory = React.memo(function StudyHistory({
                                                                         const TopicIcon = topicStatus.icon;
 
                                                                         return (
-                                                                            {/* CORREÇÃO 8: Grid flexível e espaçamento balanceado */}
                                                                             <div key={topic.name} className="grid grid-cols-12 gap-2 sm:gap-4 items-center px-4 sm:px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
                                                                                 
                                                                                 <div className="col-span-4 sm:col-span-4 text-sm font-semibold text-white pr-2 whitespace-normal break-words leading-tight">
