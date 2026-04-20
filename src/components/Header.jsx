@@ -142,9 +142,9 @@ export default function Header({
                     {cloudStatus.hasConflict && (
                         <button
                             onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
-                            className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase"
+                            className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[11px] uppercase font-bold"
                         >
-                            <CloudDownload size={9} /> Sincronizar
+                            <CloudDownload size={14} /> Sincronizar
                         </button>
                     )}
                 </div>
@@ -241,7 +241,6 @@ export default function Header({
                     <button
                         onClick={onUndo}
                         className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
-                        title="Desfazer última ação"
                     >
                         <RotateCcw size={20} />
                         <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-black/80 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -286,7 +285,7 @@ export default function Header({
                                                 {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }}
-                                                    className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                                                    className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                                     title="Excluir Painel"
                                                 >
                                                     <Trash2 size={14} />
