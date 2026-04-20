@@ -136,8 +136,8 @@ export default function Header({
                             }
                         }}
                         placeholder="Nome do concurso..."
-                        // BUG-FIX: Reduzido de text-[22px] para text-xl para evitar quebra no mobile
-                        className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none tracking-tight leading-normal pb-1"
+                        /* BUG-FIX: padding inferior (pb-2) aumentado para não cortar o efeito neon */
+                        className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none leading-relaxed pb-2 pt-1"
                     />
                     {cloudStatus.hasConflict && (
                         <button
@@ -187,8 +187,8 @@ export default function Header({
                                     }
                                 }}
                                 placeholder="Digite o nome do concurso..."
-                                // BUG-FIX: Responsividade protegendo contra colisão com Sidebar central
-                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 leading-normal truncate"
+                                /* BUG-FIX: 'truncate' substituído por overflow-hidden whitespace-nowrap, com pb-2 para evitar decapitação das letras */
+                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-2 pb-3 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis"
                             />
                         </div>
                         <div className="flex flex-col items-end gap-1">

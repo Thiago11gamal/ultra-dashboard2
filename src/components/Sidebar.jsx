@@ -125,9 +125,11 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                         const isActive = item.action ? false : (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path));
 
                         const buttonContent = (
-                            <div className="flex flex-col items-center gap-0.5 px-0.5 min-w-[54px]">
-                                <Icon size={18} className={isActive ? 'text-purple-300' : ''} />
-                                <span className={`text-[8px] font-bold uppercase tracking-tighter ${isActive ? 'text-purple-300' : 'text-slate-500'}`}>
+                            /* BUG-FIX: min-w-[54px] removido e substituído por px-2 flex-1 para se adaptar ao texto */
+                            <div className="flex flex-col items-center justify-center gap-1 px-2 min-w-fit">
+                                <Icon size={20} className={isActive ? 'text-purple-300' : ''} />
+                                {/* BUG-FIX: Fonte aumentada de 8px para 10px e removido o tracking-tighter */}
+                                <span className={`text-[10px] font-bold uppercase ${isActive ? 'text-purple-300' : 'text-slate-500'}`}>
                                     {item.label}
                                 </span>
                             </div>
@@ -163,10 +165,11 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                 {/* Export/Import removed - relocated to Profile Drawer */}
             </div>  {/* end mobile bar */}
 
-            {/* ─── DESKTOP PILL (unchanged) ─────────── */}
+            {/* ─── DESKTOP PILL ─────────── */}
             <div
+                /* BUG-FIX: z-50 reduzido para z-40 para o Dropdown do Perfil (no Header) poder passar por cima */
                 className={`
-                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-50
+                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden z-40
                     ${collapsed
                         ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
                         : 'glass-panel w-auto px-5 py-4 rounded-2xl'}
@@ -199,7 +202,8 @@ export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpe
                             />
                         </svg>
                         <div className="flex flex-col items-center justify-center z-10 w-full h-full pt-1">
-                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-[1px]">Nível</span>
+                            {/* BUG-FIX: Aumentado de text-[7px] para text-[9px] */}
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-[1px]">Nível</span>
                             <span className="text-xl font-black leading-none text-white drop-shadow-md truncate max-w-full px-1">{level}</span>
                         </div>
                     </div>

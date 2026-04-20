@@ -210,31 +210,32 @@ body::before {
   animation: spin-slow 3s linear infinite;
 }
 
-/* Premium Select / Dropdown Styling */
+/* Premium Select / Dropdown Styling - CORRIGIDO PARA LIGHT/DARK MODE */
 select {
-  background-color: #0f0f1a !important;
-  color: #fff !important;
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
   font-weight: 500;
+  border: 1px solid var(--glass-border);
 }
 
 select option {
-  background-color: #1a1a2e !important;
-  color: #e2e8f0 !important;
-  padding: 12px 16px !important;
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
+  padding: 12px 16px;
   font-weight: 500;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 select option:hover,
 select option:focus,
 select option:checked {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%) !important;
-  color: #fff !important;
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  color: #fff;
 }
 
 select:focus {
   outline: none;
-  border-color: #3b82f6 !important;
+  border-color: var(--neon-blue);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
 
@@ -367,6 +368,7 @@ svg *,
     }
 }
 
+/* Fade Edges - CORRIGIDO PARA NÃO FICAR PRETO NO LIGHT MODE */
 .fade-edge {
   position: absolute;
   width: 40px;
@@ -378,12 +380,17 @@ svg *,
 
 .fade-left {
   left: 0;
-  background: linear-gradient(to right, rgb(15, 23, 42), transparent);
+  background: linear-gradient(to right, var(--gradient-1), transparent);
 }
 
 .fade-right {
   right: 0;
-  background: linear-gradient(to left, rgb(15, 23, 42), transparent);
+  background: linear-gradient(to left, var(--gradient-1), transparent);
+}
+
+/* Proteção para o MobilePocketMode no iOS (Home Indicator) */
+.safe-area-pb {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
 /* Prevenção Global de Corte de Fonte (Anti-Clipping) */
