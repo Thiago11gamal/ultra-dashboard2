@@ -3,6 +3,8 @@ import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, Che
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../context/useAuth';
+import { del } from 'idb-keyval';
+import { useAppStore } from '../store/useAppStore';
 import TrashModal from './TrashModal';
 import useClock from '../hooks/useClock';
 import ThemeSwitcher from './header/ThemeSwitcher';
@@ -79,6 +81,14 @@ export default function Header({
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
             try {
+                // 1. Limpa o estado em RAM (preservando configurações estéticas)
+                useAppStore.getState().resetStore();
+                
+                // 2. Destrói fisicamente o banco local do usuário imediatamente
+                await del('ultra-dashboard-storage');
+                localStorage.removeItem('ultra-dashboard-storage');
+                
+                // 3. Prossegue com o logout do Firebase Auth
                 await logout();
             } catch (err) {
                 console.error("Erro ao sair", err);

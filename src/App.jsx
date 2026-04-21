@@ -69,10 +69,6 @@ function MainLayout() {
     lastUpdated: state.appState.lastUpdated
   })));
   
-  // Seletores derivados
-  const contestsCount = Object.keys(contestsMetaList).length;
-  const hasActiveData = !!data;
-  const firstContestId = Object.keys(contestsMetaList)[0];
 
   const setAppState = useAppStore(state => state.setAppState);
   const switchContest = useAppStore(state => state.switchContest);
@@ -137,21 +133,22 @@ function MainLayout() {
     event.target.value = '';
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       showToast('A processar backup... ⏳', 'info');
       
-      // Dá um "respiro" real para a renderização do Toast antes de travar a CPU com processamento pesado
-      await new Promise(resolve => requestAnimationFrame(resolve));
-
-      try {
-        const currentAppState = useAppStore.getState().appState;
-        const result = parseImportedData(e.target.result, currentAppState);
-        setAppState(result.data);
-        showToast('Backup restaurado com sucesso! ✨', 'success');
-      } catch (err) {
-        console.error("Import Error:", err);
-        showToast(`Erro no Backup: ${err.message}`, 'error');
-      }
+      // Joga o processamento pesado para o final da fila de eventos, 
+      // deixando a animação do Toast ocorrer fluida.
+      setTimeout(() => {
+        try {
+          const currentAppState = useAppStore.getState().appState;
+          const result = parseImportedData(e.target.result, currentAppState);
+          setAppState(result.data);
+          showToast('Backup restaurado com sucesso! ✨', 'success');
+        } catch (err) {
+          console.error("Import Error:", err);
+          showToast(`Erro no Backup: ${err.message}`, 'error');
+        }
+      }, 50); // Delay mínimo de 50ms resolve o congelamento da UI
     };
     
     reader.readAsText(file);
@@ -170,44 +167,6 @@ function MainLayout() {
   }, [setAppState, showToast]);
 
 
-  // Derived States are now handled by store selectors at the top of the component
-
-  useEffect(() => {
-    // -------------------------------------------------------------------------
-    // CONTEST CONSISTENCY CHECK (Runs for both Guest & Auth users)
-    // -------------------------------------------------------------------------
-    if (!hasActiveData) {
-        if (contestsCount > 0 && firstContestId) {
-            console.warn("[Sanity] Store inconsistency: Active contest missing. Recovering activeId...");
-            switchContest(firstContestId);
-        } else {
-            console.warn("[Sanity] No contests found. Creating default...");
-            createNewContest();
-        }
-    } else if (contestsCount > 1 && !contestsMetaList[activeContestId]) {
-        console.warn("[Sanity] ActiveId points to deleted contest. Switching to first available...");
-        // This is safe since firstContestId is derived from Object.keys(contests)
-        if (firstContestId) switchContest(firstContestId);
-    } else if (hasActiveData) {
-        // -------------------------------------------------------------------------
-        // CATEGORICAL DEDUPLICATION PASS (Runs unconditionally when store is active)
-        // -------------------------------------------------------------------------
-        const categories = data.categories || [];
-        const names = categories.map(c => normalize(c.name));
-        const hasDuplicates = names.length !== new Set(names).size;
-        
-        if (hasDuplicates) {
-            console.warn("[Sanity] Duplicates detected, triggering merge...");
-            const oldLen = categories.length;
-            safelyMergeDuplicates();
-            const newLen = useAppStore.getState().appState.contests[activeContestId]?.categories?.length || 0;
-            
-            if (newLen < oldLen) {
-                showToast(`Dados reparados: ${oldLen - newLen} duplicidade(s) removida(s). ✨`, 'success');
-            }
-        }
-    }
-  }, [hasActiveData, contestsCount, activeContestId, firstContestId, switchContest, createNewContest, contestsMetaList, safelyMergeDuplicates, showToast]);
 
   if (loading || subLoading) return (
     <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">

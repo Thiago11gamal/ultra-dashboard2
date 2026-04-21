@@ -100,9 +100,6 @@ export const useAppStore = create(
                 // Zundo Options: Limit history to 20 states
                 limit: 20,
                 // BUG 1 FIX: Partialize must include the entire appState tree.
-                // Previously only contests + activeId were saved, so undo() replaced
-                // the root appState with a partial object — wiping trash, version,
-                // dashboardFilter, hasSeenTour, pomodoro, and lastUpdated to undefined.
                 partialize: (state) => ({
                     appState: state.appState
                 }),
@@ -114,6 +111,30 @@ export const useAppStore = create(
             storage: createJSONStorage(() => idbStorage),
             // Don't persist the history/temporal state itself, just the app state
             partialize: (state) => ({ appState: state.appState }),
+
+            // NOVO: Roda nos bastidores antes do App.jsx montar
+            onRehydrateStorage: () => {
+                return (state, error) => {
+                    if (error || !state) return;
+
+                    const { appState } = state;
+                    if (!appState) return;
+                    
+                    const contestsList = Object.keys(appState.contests || {});
+                    
+                    // Sanity Check 1: ID Ativo perdido ou inválido
+                    if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
+                        appState.activeId = contestsList[0];
+                    }
+
+                    // Sanity Check 2: Deduplicação de categorias (Foco no Contest Ativo)
+                    if (appState.contests[appState.activeId]?.categories) {
+                        const categories = appState.contests[appState.activeId].categories;
+                        const unique = Array.from(new Map(categories.map(c => [c.name.toLowerCase().trim(), c])).values());
+                        appState.contests[appState.activeId].categories = unique;
+                    }
+                };
+            },
         }
     )
 );

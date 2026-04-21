@@ -1,5 +1,4 @@
 import { toPng } from 'html-to-image';
-import { jsPDF } from 'jspdf';
 
 export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf', orientation = 'landscape') => {
     const element = document.getElementById(elementId);
@@ -30,6 +29,7 @@ export const exportComponentAsPDF = async (elementId, filename = 'documento.pdf'
         });
 
         // Montar PDF com a imagem perfeita
+        const { jsPDF } = await import('jspdf');
         const pdf = new jsPDF({
             orientation: orientation,
             unit: 'mm',
