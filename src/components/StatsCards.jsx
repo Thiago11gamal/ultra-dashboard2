@@ -222,7 +222,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 </div>
 
                 {/* Left: contador de dias */}
-                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2">
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2">
                     {daysRemaining !== null ? (
                         <div className="flex flex-col items-center">
                             <div className="flex items-baseline gap-1.5 justify-center mb-1">
@@ -258,7 +258,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                 {/* Right: date picker */}
                 <div 
-                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-1/2 group/rightside cursor-pointer py-2"
+                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2 group/rightside cursor-pointer py-2"
                     onClick={(e) => {
                         // FIX CRÍTICO: Previne o loop infinito originado pelo Event Bubbling.
                         // Se o clique já veio do input (via overlay z-50), não fazemos nada.
