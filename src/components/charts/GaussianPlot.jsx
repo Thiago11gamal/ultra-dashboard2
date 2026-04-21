@@ -24,12 +24,12 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         const domainMin = minScore;
         let rawMax = Math.max(maxScore, targetVal * 1.05, meanVal * 1.05);
-        
+
         // FIX: Se a unidade for %, impedimos que o eixo X ultrapasse o teto lógico de 100% (maxScore)
         if (unit === '%') {
             rawMax = Math.min(maxScore, rawMax);
         }
-        
+
         const domainMax = rawMax;
         const xMin = domainMin;
         const range = domainMax - domainMin;
@@ -46,7 +46,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             const t = targetVal;
 
             const getGeomProb = (tVal, mVal, sl, sr) => {
-                const normFactor = 1 / ((sl + sr) * Math.sqrt(Math.PI / 2));
+                const normFactor = 2 / (sl + sr);
                 const pUnderflow = normFactor * sl * normalCDF_complement((mVal - domainMin) / sl);
                 const pOverflow = normFactor * sr * normalCDF_complement((domainMax - mVal) / sr);
                 const truncatedTotal = Math.max(0.01, 1 - pUnderflow - pOverflow);
@@ -313,7 +313,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-blue-500/30 shadow-lg">
-                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{(projectedMean ?? mean).toFixed(1)}{unit}</span>
+                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
                         {/* Linha que conecta a caixa flutuante até a bolinha da curva */}

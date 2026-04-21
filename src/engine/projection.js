@@ -119,7 +119,7 @@ export function calculateSlope(history, maxScore = 100) {
     const scaleFactor = maxScore / 100;
 
     const normalizedStdError = slopeStdError / scaleFactor;
-    
+
     const confidence =
         1 / (1 + normalizedStdError / 0.5);
 
@@ -127,13 +127,13 @@ export function calculateSlope(history, maxScore = 100) {
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
 
     const baseLimit = 0.3 * scaleFactor; // Escalonado
-    
+
     // 🎯 REFINAMENTO PSICOMÉTRICO: Estrangulamento da Curva de Aprendizagem (Limites Dinâmicos)
     // Alunos com notas baixas podem ter picos de evolução maiores (catching up).
     // Alunos na faixa dos 85%+ ficam estrangulados em crescimentos mais lentos (plateau).
     const currentLevel = getSafeScore(sorted[sorted.length - 1], maxScore) / maxScore; // 0-1
     const proficiencyFriction = Math.max(0, Math.min(1, currentLevel));
-    
+
     // Teto dinâmico: de 0.85pp/dia (início) até 0.25pp/dia (avançado)
     const absoluteMax = (0.85 - (0.60 * proficiencyFriction)) * scaleFactor;
 
@@ -232,11 +232,11 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
 
         const detrendedDiff = actualChange - (rawDriftVol * daysBetween);
         const timeScaleVol = Math.max(1.0, Math.sqrt(daysBetween));
-        
+
         // BUG 1 FIX: Standardize by binomial volatility to remove boundary effect
         const pPrev = Math.max(0.001, Math.min(0.999, (prevScore - minScore) / scoreRange));
         const historicalBinomialVol = Math.pow(Math.max(0.05, 4 * pPrev * (1 - pPrev)), 0.5);
-        
+
         const residual = (detrendedDiff / timeScaleVol) / historicalBinomialVol;
 
         // Exponential weight focusing on recent volatility (lambda=0.05)
@@ -314,7 +314,7 @@ export function monteCarloSimulation(
     }
 
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
-    
+
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore)
@@ -340,7 +340,7 @@ export function monteCarloSimulation(
 
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
-        
+
         // FIX: Consistência com o calculateVolatility, permitindo eventos intraday (0.1 dias mínimo)
         const rawDays = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDays); // Alinhar com calculateVolatility
@@ -358,7 +358,7 @@ export function monteCarloSimulation(
         // O ruído de observação não deve ser dividido pela raiz de frações de tempo.
         // Adicionamos um piso de 1 dia (Math.max) para estabilizar a variância.
         const timeScale = Math.max(1.0, Math.sqrt(daysBetween));
-        
+
         // 🎯 MATH BUG FIX 2: Reverter a Compressão de Fronteira Histórica.
         // Precisamos do 'Choque Standardizado'. Se não dividirmos pela restrição
         // de fronteira daquela data, o Monte Carlo vai amortecer a volatilidade DUAS vezes
@@ -539,7 +539,7 @@ export function monteCarloSimulation(
             } else if (newScore < minScore) {
                 newScore = minScore + (minScore - newScore);
             }
-            
+
             // Final safety clamp just in case of multiple reflections or extreme shocks
             score = Math.max(minScore, Math.min(maxScore, newScore));
         }
@@ -582,10 +582,10 @@ export function monteCarloSimulation(
     // O cálculo anterior via zScore puro ignorava o fator de truncamento das barreiras,
     // gerando gaps > 3% em metas extremas (ex: OAB 40 pontos).
     const safeSD = projectedSD || 0.0001;
-    const phiMin    = normalCDF_complement((minScore - projectedMean) / safeSD);
-    const phiMax    = normalCDF_complement((maxScore - projectedMean) / safeSD);
+    const phiMin = normalCDF_complement((minScore - projectedMean) / safeSD);
+    const phiMax = normalCDF_complement((maxScore - projectedMean) / safeSD);
     const phiTarget = normalCDF_complement((targetScore - projectedMean) / safeSD);
-    
+
     // Clamp phiTarget para garantir que fique no domínio [phiMax, phiMin]
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
     const truncNormFactor = Math.max(1e-10, phiMin - phiMax);
