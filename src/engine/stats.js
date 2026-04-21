@@ -67,20 +67,19 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
             if (total < 1) continue;
 
-            // 🎯 REFINAMENTO PSICOMÉTRICO: Fator de Esquecimento de Ebbinghaus.
-            // Acertos e erros passados perdem peso ao longo do tempo.
-            const time = h.date ? new Date(h.date).getTime() : now;
-            const daysAgo = Math.max(0, (now - time) / (1000 * 60 * 60 * 24));
-
-            // 🎯 MATH BUG FIX: Piso de Memória de Longo Prazo.
-            // Impede que o modelo esqueça 100% de dados antigos, o que faria o IC 95% 
-            // ser dominado totalmente pelo fator de correção Agresti-Coull (tendendo a 50/50).
-            const weight = Math.max(0.15, Math.exp(-LAMBDA_FORGET * daysAgo));
-
             const safeCorrect = Math.min(total, correct);
-            // O aluno perde "certeza estatística" sobre o conhecimento passado
-            alpha += (safeCorrect * weight);
-            beta += ((total - safeCorrect) * weight);
+            const acertosHoje = safeCorrect;
+            const errosHoje = total - safeCorrect;
+
+            // 🎯 REFINAMENTO BAYESIANO: Decaimento Temporal de Hiperparâmetros.
+            // Em vez de apenas ponderar a entrada, aplicamos decaimento na inércia anterior
+            // (alphaAnterior * DECAY), permitindo que o sistema esqueça a "identidade antiga"
+            // do aluno e responda rapidamente a mudanças de performance.
+            // Fator 0.985 ≈ Meia-vida de 45 registros.
+            const DECAY_FACTOR = 0.985; 
+            
+            alpha = (alpha * DECAY_FACTOR) + acertosHoje;
+            beta = (beta * DECAY_FACTOR) + errosHoje;
         }
     }
 
@@ -106,7 +105,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     // Usamos agora o effectiveAlpha em vez do alpha cumulativo bruto
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
-    const effectiveSd = Math.sqrt((p_tilde * (1 - p_tilde)) / n_tilde);
+    // BUGFIX M4: Proteção IEEE 754 contra resíduos microscópicos negativos (NaN).
+    const varianceArg = (p_tilde * (1 - p_tilde)) / n_tilde;
+    const effectiveSd = Math.sqrt(Math.max(0, varianceArg));
 
     // Margem ancorada na proporção ajustada
     const marginOfError = z * effectiveSd * maxScore;

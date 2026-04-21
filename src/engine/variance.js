@@ -43,11 +43,10 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     const weights = stats.map(cat => (cat.weight || 0) / effectiveTotalWeight);
     const adjustedSDs = stats.map(cat => cat.sd || 0);
 
-    // 1. Independent Variance Component (Pooled Variance): Σ (wi * σi²)
-    // BUGFIX: Using weighted mean of variances instead of variance of the sum.
-    // This provides a more representative measure of the student's general instability 
-    // across the subject portfolio, rather than the (often over-optimistic) variance of the total.
-    const independentVar = weights.reduce((acc, w, i) => acc + w * Math.pow(adjustedSDs[i], 2), 0);
+    // 1. Independent Variance Component (Weighted Sum of Variances): Σ (wi² * σi²)
+    // BUGFIX: Respeito estrito à variância de uma combinação linear para editais.
+    // O peso (wi) PRECISA ser elevado ao quadrado para a componente independente.
+    const independentVar = weights.reduce((acc, w, i) => acc + Math.pow(w, 2) * Math.pow(adjustedSDs[i], 2), 0);
 
     // 2. Coherent Variance Component (Full Correlation): (Σ wi * σi)²
     const weightedSumSD = weights.reduce((acc, w, i) => acc + (w * adjustedSDs[i]), 0);

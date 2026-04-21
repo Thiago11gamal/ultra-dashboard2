@@ -99,8 +99,8 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     // Using Sw - 2*(Sww/Sw) provides the effective degrees of freedom correction
     // for weighted regression, preventing variance collapse when old points have ~0 weight.
     const weightedDOF = sumW - 2 * (sumW2 / sumW);
-    const variance = wrss / Math.max(0.01, weightedDOF);
-    // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
+    const variance = Math.max(0, wrss / Math.max(0.01, weightedDOF));
+    const stdError = Math.sqrt(variance);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
     // Sxx_centered = \sum w_i (x_i - \bar{x})^2 = Sxx - Sx^2 / Sw
@@ -194,6 +194,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
     const projected =
         currentScore + slope * effectiveDays;
+
+    // BUGFIX M4: Proteção IEEE 754 contra resíduos microscópicos negativos (NaN).
+    const p_tilde = currentScore / maxScore;
+    const n_tilde = sortedHistory.length;
+    const varianceArg = (p_tilde * (1 - p_tilde)) / n_tilde;
+    const effectiveSd = Math.sqrt(Math.max(0, varianceArg));
+
+    // Margem ancorada na proporção ajustada
+    const z = 1.96;
+    const marginOfError = z * effectiveSd * maxScore;
 
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
@@ -532,7 +542,9 @@ export function monteCarloSimulation(
             }
 
             // 🧲 1. A Tração Determinística (Ornstein-Uhlenbeck)
-            const deterministicPull = theta * (simMu - score);
+            // ESCALONAMENTO DE WIENER: Atração e Choque escalonados pelo passo temporal (dt).
+            const dt = 1; // Passo de 1 dia
+            const deterministicPull = theta * (simMu - score) * dt;
 
             // 📊 2. Heterocedasticidade (Difusão de Jacobi)
             // BUGFIX M1: Retorna 1 no meio (50%) e tende a 0 nas bordas (0% ou 100%).
@@ -540,7 +552,8 @@ export function monteCarloSimulation(
             const currentScoreRange = (maxScore - minScore) || maxScore || 1;
             const p = Math.max(0.001, Math.min(0.999, (score - minScore) / currentScoreRange));
             const boundaryCompression = 4 * p * (1 - p);
-            const dynamicSigma = sigma * Math.sqrt(Math.max(0.05, boundaryCompression));
+            // BUGFIX M3: O choque aleatório TEM de ser multiplicado por sqrt(dt)
+            const dynamicSigma = sigma * Math.sqrt(Math.max(0.05, boundaryCompression)) * Math.sqrt(dt);
 
             // ⚙️ 3. O Passo Estocástico (Euler-Maruyama)
             const gaussianNoise = randomNormal(rng);
