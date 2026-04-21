@@ -313,7 +313,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                     <div className="absolute flex flex-col items-center transition-all duration-500"
                         style={{ left: `${Math.max(4, Math.min(meanPos, 96))}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                         <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-lg border border-blue-500/30 shadow-lg">
-                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{mean.toFixed(1)}{unit}</span>
+                            <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{(projectedMean ?? mean ?? 0).toFixed(1)}{unit}</span>
                             <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                         </div>
                         {/* Linha que conecta a caixa flutuante até a bolinha da curva */}
