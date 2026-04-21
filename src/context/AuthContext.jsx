@@ -100,7 +100,8 @@ export function AuthProvider({ children }) {
         loading,
         signup,
         login,
-        logout
+        logout,
+        showDebug
     };
 
     return (

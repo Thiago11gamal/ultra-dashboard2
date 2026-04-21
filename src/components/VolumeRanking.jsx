@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle } from 'lucide-react';
 
 const VolumeRanking = ({ categories = [] }) => {

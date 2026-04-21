@@ -1,7 +1,7 @@
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
 
-export const createContestSlice = (set, get) => ({
+export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
         

@@ -12,7 +12,7 @@ export const normalize = (str) => {
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, "") // Remove accents/diacritics
-        .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "") // Remove non-printable/control chars
+        .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "") // eslint-disable-line no-control-regex
         .replace(/nocoes de\s+/g, "")    // Remove common prefix
         .replace(/[^\p{L}\p{N}\s]/gu, '') // Keep all letters (unicode) and numbers
         .replace(/\s+/g, ' ')           // Collapse multiple spaces

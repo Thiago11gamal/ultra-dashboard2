@@ -1,6 +1,6 @@
 import { validateAppState } from '../schemas';
 
-export const createSettingsSlice = (set, get) => ({
+export const createSettingsSlice = (set) => ({
     setHasSeenTour: (value) => set((state) => {
         if (state.appState.hasSeenTour === value) return;
         state.appState.hasSeenTour = value;

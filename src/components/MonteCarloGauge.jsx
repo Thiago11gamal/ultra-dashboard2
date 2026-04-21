@@ -102,12 +102,13 @@ export default function MonteCarloGauge({
         return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
     }, [categoryHistoryHash, categories]);
 
+    const timelineHash = timelineDates.join(',');
     useEffect(() => {
         // L2 FIX: Reset timeIndex when dates actually change, not just when their
         // count changes. If a date is edited/replaced but the total stays the same,
         // timeIndex would point to the wrong date.
         setTimeIndex(-1);
-    }, [timelineDates.join(',')]);
+    }, [timelineHash]);
 
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
@@ -276,7 +277,7 @@ export default function MonteCarloGauge({
         const globalHistory = sortedDates.map(date => {
             let pooledCorrect = 0;
             let pooledTotal = 0;
-            let tw = 0;
+            // tw removed as it was unused per lint rules
 
             Object.keys(scoresByDate[date]).forEach(name => {
                 const w = weightsByName[name];
@@ -291,7 +292,6 @@ export default function MonteCarloGauge({
 
                     pooledCorrect += correct * w;
                     pooledTotal += total * w;
-                    tw += w;
                 }
             });
 

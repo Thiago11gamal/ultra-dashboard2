@@ -22,8 +22,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 saved.sessionInstanceId === activeSubject.sessionInstanceId) {
                 return saved;
             }
-        } catch (err) {
-            console.debug('Storage read ignored', err);
+        } catch {
+            // Storage read ignored
         }
         return null;
     });
@@ -71,7 +71,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     useEffect(() => {
         try {
             alarmAudioRef.current = new Audio('/sounds/alarm.wav');
-        } catch(e) {}
+        } catch {
+            // Audio initialization failed or not supported in this environment
+        }
     }, []);
 
     useEffect(() => {
@@ -150,8 +152,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     icon: '🍅',
                     tag: 'pomodoro-timer'
                 });
-            } catch (err) {
-                console.debug('Notification ignored', err);
+            } catch {
+                // Notification ignored
             }
         }
     }, []);
@@ -186,7 +188,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setUiPosition(newPos);
         try {
             localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
-        } catch (err) { console.debug('Storage ignored', err); }
+        } catch {
+            // Storage interaction failed
+        }
     };
 
     const savePomodoroState = useCallback((overrides = {}) => {
@@ -206,8 +210,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         try {
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (err) {
-            console.debug('Quota error', err);
+        } catch {
+            // Quota error ignored
         }
     }, [mode, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
 
@@ -273,10 +277,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             alarmAudioRef.current.currentTime = 0;
                             const playPromise = alarmAudioRef.current.play();
                             if (playPromise !== undefined) {
-                                playPromise.catch((err) => { console.debug('Playback ignored', err); });
+                                playPromise.catch(() => {});
                             }
                         }
-                    } catch (err) { console.debug('Audio error', err); }
+                    } catch {
+                        // Audio playback error
+                    }
                 }
                 sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
             }
@@ -291,10 +297,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             alarmAudioRef.current.currentTime = 0;
                             const playPromise = alarmAudioRef.current.play();
                             if (playPromise !== undefined) {
-                                playPromise.catch((err) => { console.debug('Playback ignored', err); });
+                                playPromise.catch(() => {});
                             }
                         }
-                    } catch (err) { console.debug('Audio error', err); }
+                    } catch {
+                        // Audio playback error
+                    }
                 }
                 sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
             }
@@ -604,7 +612,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 setUiPosition({ x: 0, y: 0 });
                                 try {
                                     localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
-                                } catch (err) { console.debug("Ignored storage error", err); }
+                                } catch {
+                                    // Storage interaction failed
+                                }
                             }}
                             className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
                             title="Resetar Posição"
@@ -745,9 +755,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             warmUp.then(() => {
                                                 alarmAudioRef.current.pause();
                                                 alarmAudioRef.current.currentTime = 0;
-                                            }).catch(()=>{});
+                                            }).catch(() => {});
                                         }
-                                    } catch(e) {}
+                                    } catch {
+                                        // Audio interaction failed
+                                    }
                                 }
                                 
                                 setIsRunning(!isRunning);

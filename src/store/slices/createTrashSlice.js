@@ -1,6 +1,6 @@
 import { generateId } from '../../utils/idGenerator';
 
-export const createTrashSlice = (set, get) => ({
+export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
         if (!state.appState.trash) return;
         const index = state.appState.trash.findIndex(t => t.id === trashId);

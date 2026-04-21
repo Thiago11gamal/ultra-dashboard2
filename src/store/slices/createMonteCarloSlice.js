@@ -1,4 +1,4 @@
-export const createMonteCarloSlice = (set, get) => ({
+export const createMonteCarloSlice = (set) => ({
     recordMonteCarloSnapshot: (date, prob, metadata = {}) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];

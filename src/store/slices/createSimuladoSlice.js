@@ -1,4 +1,4 @@
-export const createSimuladoSlice = (set, get) => ({
+export const createSimuladoSlice = (set) => ({
     resetSimuladoStats: () => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData?.categories) return;
@@ -13,7 +13,6 @@ export const createSimuladoSlice = (set, get) => ({
     }),
 
     deleteSimulado: (dateInput) => set((state) => {
-        const targetDay = dateInput.includes('T') ? dateInput.split('T')[0] : dateInput;
         const activeData = state.appState.contests[state.appState.activeId];
         
         const matchesDate = (raw) => {
