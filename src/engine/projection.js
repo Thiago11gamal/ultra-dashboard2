@@ -125,7 +125,7 @@ export function calculateSlope(history, maxScore = 100) {
 
     const historyBoost =
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
-    
+
     const baseLimit = 0.3 * scaleFactor; // Escalonado
 
     // 🎯 REFINAMENTO PSICOMÉTRICO: Estrangulamento da Curva de Aprendizagem (Limites Dinâmicos)
@@ -684,3 +684,4 @@ export default {
     calculateDynamicEMA, // Exportando a nova função
     calculateCurrentWeightedMean
 };
+

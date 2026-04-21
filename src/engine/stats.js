@@ -15,7 +15,7 @@ export function standardDeviation(arr, maxScore = 100) {
     const m = mean(arr);
 
     // B-02 FIX: n=1 has no sample variance, use pure prior (shrinkage)
-    const sampleVar = n > 1 
+    const sampleVar = n > 1
         ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
@@ -47,16 +47,16 @@ export function standardDeviation(arr, maxScore = 100) {
  */
 export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 100) {
     let alpha = alpha0;
-    let beta  = beta0;
+    let beta = beta0;
 
     const now = Date.now();
     const LAMBDA_FORGET = 0.015; // Decaimento mais suave que o Monte Carlo (meia-vida ~46 dias)
 
     if (history && history.length > 0) {
         for (const h of history) {
-            let total   = Number(h.total)   || 0;
+            let total = Number(h.total) || 0;
             let correct = Number(h.correct) || 0;
-            
+
             if (total === 0 && h.score != null) {
                 const pct = Math.min(1, Math.max(0, Number(h.score) / maxScore));
                 // CORREÇÃO A: O N sintético agora escala com a realidade da prova (maxScore)
@@ -64,14 +64,14 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 
                 total = maxScore > 0 ? maxScore : 100;
                 correct = Math.round(pct * total);
             }
-            
+
             if (total < 1) continue;
 
             // 🎯 REFINAMENTO PSICOMÉTRICO: Fator de Esquecimento de Ebbinghaus.
             // Acertos e erros passados perdem peso ao longo do tempo.
             const time = h.date ? new Date(h.date).getTime() : now;
             const daysAgo = Math.max(0, (now - time) / (1000 * 60 * 60 * 24));
-            
+
             // 🎯 MATH BUG FIX: Piso de Memória de Longo Prazo.
             // Impede que o modelo esqueça 100% de dados antigos, o que faria o IC 95% 
             // ser dominado totalmente pelo fator de correção Agresti-Coull (tendendo a 50/50).
@@ -80,14 +80,14 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 
             const safeCorrect = Math.min(total, correct);
             // O aluno perde "certeza estatística" sobre o conhecimento passado
             alpha += (safeCorrect * weight);
-            beta  += ((total - safeCorrect) * weight);
+            beta += ((total - safeCorrect) * weight);
         }
     }
 
     const n = alpha + beta;
-    const MAX_EFFECTIVE_N = 100; 
+    const MAX_EFFECTIVE_N = 100;
     const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
-    
+
     // Média de saída estrita (p real)
     const p = alpha / n;
     const mean = p * maxScore;
@@ -107,13 +107,13 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
     const effectiveSd = Math.sqrt((p_tilde * (1 - p_tilde)) / n_tilde);
-    
+
     // Margem ancorada na proporção ajustada
     const marginOfError = z * effectiveSd * maxScore;
-    
+
     // BUG 4 FIX: Centrar o CI em mean (p real) para consistência visual reportada.
     // O clamping posterior garante que o IC respeite os limites do domínio.
-    let ciLow  = mean - marginOfError;
+    let ciLow = mean - marginOfError;
     let ciHigh = mean + marginOfError;
 
     // Proteções de Segurança Padrão
@@ -132,13 +132,13 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 
     }
 
     return {
-        mean:  Number(mean.toFixed(2)),
-        sd:    Number((effectiveSd * maxScore).toFixed(2)),
-        ciLow:  Number(strictLow.toFixed(2)),
+        mean: Number(mean.toFixed(2)),
+        sd: Number((effectiveSd * maxScore).toFixed(2)),
+        ciLow: Number(strictLow.toFixed(2)),
         ciHigh: Number(strictHigh.toFixed(2)),
         alpha: alphaOut,
-        beta:  betaOut,
-        n:     n > MAX_EFFECTIVE_N ? MAX_EFFECTIVE_N : n,
+        beta: betaOut,
+        n: n > MAX_EFFECTIVE_N ? MAX_EFFECTIVE_N : n,
     };
 }
 
@@ -162,19 +162,19 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const scores = historyToUse.map(h => getSafeScore(h, maxScore));
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
-    const m = totalQ > 0 
+    const m = totalQ > 0
         ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, maxScore) * (Number(h.total) || 0), 0) / totalQ
         : mean(scores);
 
     // FIX: Variância Ponderada baseada em Frequência (Questões)
     let variance = 0;
-    if (historyToUse.length > 1 && totalQ > 1) { 
+    if (historyToUse.length > 1 && totalQ > 1) {
         let wVarSum = 0;
         historyToUse.forEach(h => {
             const w = (Number(h.total) || 1); // Nunca permitir peso 0 na soma matemática
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
         });
-        
+
         // 🎯 MATH BUG FIX 3: Bloqueio estrito de Divisão por Zero.
         // Se totalQ (volume somado de questões) for exatamente 1 ou inferior (dados sujos),
         // o denominador forçaria um NaN ou Infinity fatal, corrompendo o painel.
@@ -182,7 +182,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }
-    
+
     const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
     const safeSD = sd;
 
@@ -199,7 +199,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     return {
         mean: m,
         sd: safeSD,
-        n: historyToUse.length,   
+        n: historyToUse.length,
         weight: weight,
         history: history,
         trend: trendLabel,

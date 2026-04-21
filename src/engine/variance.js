@@ -36,9 +36,9 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     // This respects the function contract while remaining defensive.
     const calculatedTotalWeight = stats.reduce((acc, cat) => acc + (cat.weight || 0), 0);
     const effectiveTotalWeight = (Number.isFinite(totalWeight) && totalWeight > 0) ? totalWeight : calculatedTotalWeight;
-    
+
     if (effectiveTotalWeight === 0) return 0;
-    
+
     // Garantia absoluta de tipo e limite para correlação
     const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
 
