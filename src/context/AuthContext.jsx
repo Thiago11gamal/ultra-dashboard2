@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { AuthContext } from "./AuthContextValue";
+import { useAppStore } from "../store/useAppStore";
 
 
 export function AuthProvider({ children }) {
@@ -40,9 +41,12 @@ export function AuthProvider({ children }) {
         return signInWithEmailAndPassword(auth, email, password);
     }
 
-    function logout() {
+    async function logout() {
         if (!auth) return Promise.resolve();
-        return signOut(auth);
+        await signOut(auth);
+        
+        // 🎯 DATA LEAK PROTECTION: Limpa a memória RAM do app imediatamente após o logout
+        useAppStore.getState().resetStore();
     }
 
     useEffect(() => {

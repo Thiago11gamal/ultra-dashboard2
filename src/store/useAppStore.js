@@ -65,6 +65,25 @@ export const useAppStore = create(
                     lastUpdated: "1970-01-01T00:00:00.000Z"
                 },
 
+                // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
+                resetStore: () => {
+                    set((state) => {
+                        // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
+                        const settings = state.appState.settings;
+                        state.appState = {
+                            contests: { 'default': INITIAL_DATA },
+                            activeId: 'default',
+                            trash: [],
+                            version: 0,
+                            dashboardFilter: 'all',
+                            hasSeenTour: false,
+                            pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
+                            lastUpdated: "1970-01-01T00:00:00.000Z",
+                            settings: settings // Preserva o tema escolhido
+                        };
+                    });
+                },
+
                 // Injetar os Slices
                 ...createPomodoroSlice(set, get),
                 ...createTaskSlice(set, get),

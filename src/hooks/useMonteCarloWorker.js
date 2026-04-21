@@ -7,77 +7,75 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { runMonteCarloAnalysis } from '../engine';
 
-let mcWorker = null;
-let requestId = 0;
-const pendingRequests = new Map();
-
-function getWorker() {
-    if (mcWorker) return mcWorker;
-    try {
-        mcWorker = new Worker(
-            new URL('../engine/mc.worker.js', import.meta.url),
-            { type: 'module' }
-        );
-        mcWorker.onmessage = (e) => {
-            const { id, type, result, error } = e.data;
-            const pending = pendingRequests.get(id);
-            if (!pending) return;
-            pendingRequests.delete(id);
-            if (type === 'error') {
-                pending.reject(new Error(error));
-            } else {
-                pending.resolve(result);
-            }
-        };
-        mcWorker.onerror = (err) => {
-            console.warn('[MC Worker] Error, falling back to main thread:', err.message);
-            // Reject all pending requests so they can fallback
-            for (const [id, pending] of pendingRequests) {
-                pending.reject(new Error('Worker error'));
-                pendingRequests.delete(id);
-            }
-            mcWorker?.terminate();
-            mcWorker = null;
-        };
-        return mcWorker;
-    } catch (e) {
-        console.warn('[MC Worker] Not available, using main thread:', e.message);
-        return null;
-    }
-}
-
 export function useMonteCarloWorker() {
+    const workerRef = useRef(null);
     const abortRef = useRef(null);
     const timeoutRef = useRef(null);
-    // FIX 6: Track the latest request ID to prevent race conditions.
-    // If the user triggers multiple simulations rapidly, only the result
-    // from the most recent request will be resolved — stale results are discarded.
     const requestIdRef = useRef(0);
+    const pendingRequestsRef = useRef(new Map());
 
     useEffect(() => {
+        // 🎯 MEMORY LEAK PROTECTION: O Worker é instanciado apenas quando o componente que o usa está na tela.
+        try {
+            const worker = new Worker(
+                new URL('../engine/mc.worker.js', import.meta.url),
+                { type: 'module' }
+            );
+
+            worker.onmessage = (e) => {
+                const { id, type, result, error } = e.data;
+                const pending = pendingRequestsRef.current.get(id);
+                if (!pending) return;
+                pendingRequestsRef.current.delete(id);
+                if (type === 'error') {
+                    pending.reject(new Error(error));
+                } else {
+                    pending.resolve(result);
+                }
+            };
+
+            worker.onerror = (err) => {
+                console.warn('[MC Worker] Error, falling back to main thread:', err.message);
+                for (const [id, pending] of pendingRequestsRef.current) {
+                    if (pending.workerRef === workerRef) {
+                        pending.reject(new Error('Worker error'));
+                        pendingRequestsRef.current.delete(id);
+                    }
+                }
+                worker.terminate();
+                if (workerRef.current === worker) workerRef.current = null;
+            };
+
+            workerRef.current = worker;
+        } catch (e) {
+            console.warn('[MC Worker] Not available, using main thread:', e.message);
+        }
+
         return () => {
-            // Cleanup on unmount — don't terminate the shared worker
-            if (abortRef.current) {
-                abortRef.current = null;
+            // 🎯 ESSA LINHA SALVA A MEMÓRIA DO USUÁRIO: Mata a thread ao desmontar (ex: sair da página de Evolução)
+            if (workerRef.current) {
+                workerRef.current.terminate();
+                workerRef.current = null;
             }
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
+            }
+            // Limpa pendentes deste worker específico
+            for (const [id, pending] of pendingRequestsRef.current) {
+                pendingRequestsRef.current.delete(id);
             }
         };
     }, []);
 
     const runAnalysis = useCallback(async (...args) => {
-        const worker = getWorker();
+        const worker = workerRef.current;
         
-        // Fallback to main thread if worker not available
         if (!worker) {
             return runMonteCarloAnalysis(...args);
         }
 
-        const id = ++requestId;
-        requestIdRef.current = id; // Track which request is the latest
+        const id = ++requestIdRef.current;
         
-        // Build payload based on argument signature
         let payload;
         if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
             payload = { isObjectCall: true, input: args[0] };
@@ -92,10 +90,9 @@ export function useMonteCarloWorker() {
         }
 
         return new Promise((resolve, reject) => {
-            // FIXED: Scope timeoutId to the specific promise to ensure proper cleanup
             const timeoutId = setTimeout(() => {
-                if (pendingRequests.has(id)) {
-                    pendingRequests.delete(id);
+                if (pendingRequestsRef.current.has(id)) {
+                    pendingRequestsRef.current.delete(id);
                     console.warn(`[MC Worker] Request ${id} timed out, falling back to main thread`);
                     try {
                         resolve(runMonteCarloAnalysis(...args));
@@ -105,19 +102,18 @@ export function useMonteCarloWorker() {
                 }
             }, 5000);
 
-            pendingRequests.set(id, { 
+            pendingRequestsRef.current.set(id, { 
+                workerRef, // Track which worker owner this request
                 resolve: (data) => {
-                    clearTimeout(timeoutId); // FIXED: Immediate cleanup
-                    // ONLY resolve if this is still the most recent request
+                    clearTimeout(timeoutId);
                     if (id === requestIdRef.current) {
                         resolve(data);
                     } else {
-                        // BUG FIX: Prevent Zombie Promises. Free memory and event loop.
                         reject(new Error('AbortError: Superseded by a newer request'));
                     }
                 }, 
                 reject: (err) => {
-                    clearTimeout(timeoutId); // FIXED: Immediate cleanup
+                    clearTimeout(timeoutId);
                     reject(err);
                 }
             });
