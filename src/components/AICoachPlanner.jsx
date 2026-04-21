@@ -1,56 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useAppStore } from '../store/useAppStore';
-import { BrainCircuit, Calendar, GripVertical, Info } from 'lucide-react';
+import { BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { getSafeId } from '../utils/idGenerator';
 
 const DAYS = [
-    { id: 'mon', label: 'Segunda', color: 'blue' },
-    { id: 'tue', label: 'Terça', color: 'purple' },
-    { id: 'wed', label: 'Quarta', color: 'pink' },
-    { id: 'thu', label: 'Quinta', color: 'orange' },
-    { id: 'fri', label: 'Sexta', color: 'emerald' },
-    { id: 'sat', label: 'Sábado', color: 'cyan' },
-    { id: 'sun', label: 'Domingo', color: 'rose' }
+    { id: 'mon', label: 'SEG', full: 'Segunda',  gradient: 'from-violet-600 to-indigo-600',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25', text: 'text-violet-300',  dot: 'bg-violet-500',  over: 'bg-violet-500/8 border-violet-500/40'  },
+    { id: 'tue', label: 'TER', full: 'Terça',    gradient: 'from-sky-500 to-cyan-500',       bg: 'bg-sky-500/10',     border: 'border-sky-500/25',    text: 'text-sky-300',    dot: 'bg-sky-500',     over: 'bg-sky-500/8 border-sky-500/40'        },
+    { id: 'wed', label: 'QUA', full: 'Quarta',   gradient: 'from-pink-500 to-rose-500',      bg: 'bg-pink-500/10',    border: 'border-pink-500/25',   text: 'text-pink-300',   dot: 'bg-pink-500',    over: 'bg-pink-500/8 border-pink-500/40'      },
+    { id: 'thu', label: 'QUI', full: 'Quinta',   gradient: 'from-orange-500 to-amber-500',   bg: 'bg-orange-500/10',  border: 'border-orange-500/25', text: 'text-orange-300', dot: 'bg-orange-500',  over: 'bg-orange-500/8 border-orange-500/40'  },
+    { id: 'fri', label: 'SEX', full: 'Sexta',    gradient: 'from-emerald-500 to-teal-500',   bg: 'bg-emerald-500/10', border: 'border-emerald-500/25',text: 'text-emerald-300',dot: 'bg-emerald-500', over: 'bg-emerald-500/8 border-emerald-500/40'},
+    { id: 'sat', label: 'SAB', full: 'Sábado',   gradient: 'from-cyan-500 to-blue-500',      bg: 'bg-cyan-500/10',    border: 'border-cyan-500/25',   text: 'text-cyan-300',   dot: 'bg-cyan-500',    over: 'bg-cyan-500/8 border-cyan-500/40'      },
+    { id: 'sun', label: 'DOM', full: 'Domingo',  gradient: 'from-rose-500 to-red-500',       bg: 'bg-rose-500/10',    border: 'border-rose-500/25',   text: 'text-rose-300',   dot: 'bg-rose-500',    over: 'bg-rose-500/8 border-rose-500/40'      },
 ];
 
-const colorMap = {
-    blue: { bg: 'bg-blue-500', text: 'group-hover/header:text-blue-400' },
-    purple: { bg: 'bg-purple-500', text: 'group-hover/header:text-purple-400' },
-    pink: { bg: 'bg-pink-500', text: 'group-hover/header:text-pink-400' },
-    orange: { bg: 'bg-orange-500', text: 'group-hover/header:text-orange-400' },
-    emerald: { bg: 'bg-emerald-500', text: 'group-hover/header:text-emerald-400' },
-    cyan: { bg: 'bg-cyan-500', text: 'group-hover/header:text-cyan-400' },
-    rose: { bg: 'bg-rose-500', text: 'group-hover/header:text-rose-400' }
-};
-
-// Usando getSafeId importado de utils/idGenerator
-
-// PASSO 2: TaskCard atualizado para receber stableId
-const TaskCard = ({ task, index, isBacklog, stableId }) => {
-    const fullText = task.text || task.title || "";
+const TaskCard = ({ task, index, isBacklog, stableId, dayColor }) => {
+    const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
     let subject = parts.length > 1 ? parts[0] : fullText;
-    let desc = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? "Revisão Geral" : "");
-
+    let desc    = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? 'Revisão Geral' : '');
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
 
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
-                <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    className={`relative p-2.5 mb-2.5 rounded-xl transition-all shadow-sm group/task flex items-start gap-1.5 ${snapshot.isDragging
-                            ? 'bg-slate-800 border-2 border-purple-500 shadow-xl shadow-purple-500/20 z-50 scale-105 rotate-1'
-                            : 'bg-slate-900/60 border border-white/5 hover:bg-slate-800 hover:border-white/10 hover:shadow-lg'
-                        }`}
-                >
-                    <GripVertical size={13} className="text-slate-700 mt-1 shrink-0 opacity-0 group-hover/task:opacity-100 transition-opacity" />
-                    <div className="flex-1 min-w-0">
-                        <h4 className="text-[10px] sm:text-[11px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-0.5 truncate">{subject}</h4>
-                        {desc && <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium leading-tight truncate">{desc}</p>}
+                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-2.5 mb-2 rounded-xl transition-all select-none ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/10'}`}>
+                    {!isBacklog && dayColor && <div className={`absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b ${dayColor}`} />}
+                    <div className="flex items-start gap-1.5 pl-1">
+                        <GripVertical size={12} className="text-slate-700 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-[10px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-0.5 truncate">{subject}</h4>
+                            {desc && <p className="text-[9px] text-slate-500 font-medium leading-tight truncate">{desc}</p>}
+                        </div>
                     </div>
                 </div>
             )}
@@ -61,245 +42,102 @@ const TaskCard = ({ task, index, isBacklog, stableId }) => {
 const DEFAULT_PLANNER = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
 
 export default function AICoachPlanner() {
-    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    const coachPlanner = activeContest?.coachPlanner || DEFAULT_PLANNER;
-    const coachPlan = activeContest?.coachPlan || [];
-
+    const activeContest  = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const coachPlanner   = activeContest?.coachPlanner || DEFAULT_PLANNER;
+    const coachPlan      = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
-    const setData = useAppStore(state => state.setData);
-
-    // FIX: Bloquear atualização externa durante o arrasto para evitar saltos na UI
+    const setData        = useAppStore(state => state.setData);
     const [isDragging, setIsDragging] = useState(false);
 
     const getInitialColumns = React.useCallback(() => {
         const allAssignedIds = new Set();
-        DAYS.forEach(d => {
-            (coachPlanner[d.id] || []).forEach(t => {
-                const sid = getSafeId(t);
-                if (sid) allAssignedIds.add(sid);
-            });
-        });
-        const activeBacklog = (coachPlan || []).filter(t => {
-            if (!t) return false;
-            const sid = getSafeId(t);
-            return !allAssignedIds.has(sid);
-        });
-
-        return {
-            backlog: activeBacklog,
-            mon: coachPlanner.mon || [],
-            tue: coachPlanner.tue || [],
-            wed: coachPlanner.wed || [],
-            thu: coachPlanner.thu || [],
-            fri: coachPlanner.fri || [],
-            sat: coachPlanner.sat || [],
-            sun: coachPlanner.sun || []
-        };
+        DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
+        const activeBacklog = (coachPlan || []).filter(t => { if (!t) return false; const sid = getSafeId(t); return !allAssignedIds.has(sid); });
+        return { backlog: activeBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
     }, [coachPlan, coachPlanner]);
 
-    // Local state for the drag-and-drop to be extremely responsive
     const [columns, setColumns] = useState(() => getInitialColumns());
-
-    // Effect for external sync only: triggered when prop or store changes.
-    // BUG-SYNC: Only update if not mid-drag to prevent items from vanishing
-    useEffect(() => {
-        if (!isDragging) {
-            setColumns(getInitialColumns());
-        }
+    useEffect(() => { 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (!isDragging) setColumns(getInitialColumns()); 
     }, [getInitialColumns, isDragging]);
 
-    const onDragStart = () => setIsDragging(true);
-
     const onDragEnd = (result) => {
-        // SE NÃO HOUVE DESTINO, CANCELA AQUI
-        if (!result.destination) {
-            setIsDragging(false);
-            return;
-        }
-
+        if (!result.destination) { setIsDragging(false); return; }
         const { source, destination } = result;
-
-        if (source.droppableId === destination.droppableId && source.index === destination.index) {
-            setIsDragging(false);
-            return;
-        }
-
+        if (source.droppableId === destination.droppableId && source.index === destination.index) { setIsDragging(false); return; }
+        
         const startCol = columns[source.droppableId];
         const finishCol = columns[destination.droppableId];
-
-        // Se movendo na mesma coluna
-        if (startCol === finishCol) {
-            const newColList = Array.from(startCol);
-            const [removed] = newColList.splice(source.index, 1);
-            newColList.splice(destination.index, 0, removed);
-
-            const newCols = { ...columns, [source.droppableId]: newColList };
-            setColumns(newCols);
-
-            // Save to store
-            if (source.droppableId !== 'backlog') {
-                const updatedPlanner = { ...coachPlanner, [source.droppableId]: newColList };
-                updateCoachPlanner(updatedPlanner);
-            } else {
-                // BUG-4 FIX: Persistir ordem do backlog no store global
-                // Reconstruímos o coachPlan mantendo a nova ordem do backlog
-                const assignedIds = new Set();
-                Object.values(coachPlanner).forEach(day => day.forEach(t => {
-                    const sid = getSafeId(t);
-                    if (sid) assignedIds.add(sid);
-                }));
-                const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(getSafeId(t)));
-                setData(prev => ({ ...prev, coachPlan: [...newColList, ...assignedTasks] }));
-            }
-
-            // PASSO 4: Timeout mágico para evitar race condition
-            setTimeout(() => {
-                setIsDragging(false);
-            }, 50);
-            return;
-        }
-
-        // Movendo entre colunas
         const startList = Array.from(startCol);
         const [removed] = startList.splice(source.index, 1);
-        const finishList = Array.from(finishCol);
+        const finishList = (source.droppableId === destination.droppableId) ? startList : Array.from(finishCol);
         finishList.splice(destination.index, 0, removed);
 
-        const newCols = {
-            ...columns,
-            [source.droppableId]: startList,
-            [destination.droppableId]: finishList
-        };
+        const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
         setColumns(newCols);
 
-        // Update Store
         const updatedPlanner = { ...coachPlanner };
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
-
         updateCoachPlanner(updatedPlanner);
 
-        // BUG-2 FIX: Sincronizar ordem global se a tarefa voltar para o Backlog
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
-            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => {
-                if (key !== 'backlog') dayTasks.forEach(t => {
-                    const sid = getSafeId(t);
-                    if (sid) assignedIds.add(sid);
-                });
-            });
-            const finishListIds = new Set(finishList.map(f => getSafeId(f)));
-            const otherTasks = (coachPlan || []).filter(t => {
-                const sid = getSafeId(t);
-                return !assignedIds.has(sid) && !finishListIds.has(sid);
-            });
+            Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { if (key !== 'backlog') dayTasks.forEach(t => { const sid = getSafeId(t); if (sid) assignedIds.add(sid); }); });
+            const backlogIds = new Set(finishList.map(f => getSafeId(f)));
+            const otherTasks = (coachPlan || []).filter(t => { const sid = getSafeId(t); return !assignedIds.has(sid) && !backlogIds.has(sid); });
             setData(prev => ({ ...prev, coachPlan: [...finishList, ...otherTasks] }));
         }
-
-        // PASSO 4: Timeout mágico para evitar race condition
-        setTimeout(() => {
-            setIsDragging(false);
-        }, 50);
+        setTimeout(() => setIsDragging(false), 50);
     };
 
     return (
-        <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-            <div className="flex flex-col xl:flex-row gap-6">
-
-                {/* BACKLOG COLUMN */}
-                <div className="w-full xl:w-72 shrink-0">
-                    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 flex flex-col h-full min-h-[400px]">
-                        <div className="flex items-center gap-2 mb-4">
-                            <BrainCircuit size={16} className="text-purple-400" />
-                            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-300">Sugestões (Foco)</h3>
-                            <span className="ml-auto bg-slate-800 text-slate-400 text-[10px] py-0.5 px-2 rounded-full font-bold">
-                                {columns.backlog.length}
-                            </span>
+        <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
+            <div className="flex flex-col xl:flex-row gap-5">
+                <div className="w-full xl:w-64 shrink-0">
+                    <div className="bg-[#09090f] border border-white/[0.07] rounded-2xl p-4 flex flex-col h-full min-h-[400px] relative overflow-hidden">
+                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.06]">
+                            <div className="w-7 h-7 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center"><BrainCircuit size={13} className="text-violet-400" /></div>
+                            <div className="flex-1"><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Sugestões</h3></div>
+                            <span className="bg-violet-500/15 text-violet-300 border border-violet-500/20 text-[10px] font-black py-0.5 px-2 rounded-md">{columns.backlog.length}</span>
                         </div>
-
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
-                                <div
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                    className={`flex-1 transition-all rounded-xl p-1.5 -m-1.5 ${snapshot.isDraggingOver ? 'bg-purple-500/5' : ''}`}
-                                >
-                                    <div className="space-y-2.5">
-                                        {columns.backlog.map((task, idx) => {
-                                            const safeId = getSafeId(task);
-                                            return (
-                                                <TaskCard
-                                                    key={safeId}
-                                                    stableId={safeId}
-                                                    task={task}
-                                                    index={idx}
-                                                    isBacklog={true}
-                                                />
-                                            );
-                                        })}
-                                    </div>
+                                <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 rounded-xl p-1.5 transition-all min-h-[200px] ${snapshot.isDraggingOver ? 'bg-violet-500/5' : ''}`}>
+                                    {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog /> ; })}
                                     {provided.placeholder}
-
-                                    {columns.backlog.length === 0 && (
-                                        <div className="text-center p-4 border border-dashed border-white/10 rounded-xl mt-2">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase">Todas as metas alocadas</p>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </Droppable>
                     </div>
                 </div>
 
-                {/* WEEK PLANNER */}
                 <div className="w-full flex-1 min-w-0">
-                    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-5 overflow-hidden flex flex-col h-full">
-                        <div className="flex items-center gap-2 mb-6 text-slate-400 shrink-0">
-                            <div className="p-1.5 rounded-lg bg-slate-800 border border-white/5">
-                                <Calendar size={14} className="text-purple-400" />
+                    <div className="bg-[#09090f] border border-white/[0.07] rounded-2xl p-5 overflow-hidden flex flex-col h-full relative">
+                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+                        <div className="flex items-center justify-between mb-5 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400" /></div>
+                                <div><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Planeamento Semanal</h3></div>
                             </div>
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Planeamento Semanal</h3>
-                            <div className="ml-auto text-[9px] text-slate-500 font-bold uppercase tracking-widest hidden sm:block italic">Arraste para organizar</div>
                         </div>
-
-                        <div className="overflow-x-auto pb-6 custom-planner-scroll">
-                            <div className="flex gap-4 min-w-[1550px] h-full min-h-[500px] lg:min-h-[600px]">
-                                <style>{`
-                                    .custom-planner-scroll::-webkit-scrollbar { height: 8px; }
-                                    .custom-planner-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
-                                    .custom-planner-scroll::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 10px; border: 2px solid rgba(0,0,0,0.2); }
-                                    .custom-planner-scroll::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.6); }
-                                `}</style>
-                                {DAYS.map(day => (
-                                    <div key={day.id} className="flex-1 flex flex-col min-w-[200px] shrink-0">
-                                        {/* Column Header Design */}
-                                        <div className="text-center py-2.5 px-2 mb-4 rounded-xl border border-white/5 bg-slate-950/40 shadow-inner group/header relative overflow-hidden">
-                                            <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 ${colorMap[day.color]?.bg || 'bg-slate-500'}`} />
-                                            <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors ${colorMap[day.color]?.text || 'text-slate-400'} text-slate-400`}>
-                                                {day.label}
-                                            </h4>
+                        <div className="overflow-x-auto pb-4">
+                            <div className="flex gap-3 min-w-[1500px] min-h-[520px]">
+                                {DAYS.map((day) => (
+                                    <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
+                                        <div className={`mb-3 rounded-xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
+                                            <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${day.gradient} opacity-60`} />
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-[11px] font-black tracking-[0.12em] ${day.text}`}>{day.label}</span>
+                                                <div className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${day.bg} ${day.text} border ${day.border}`}>{columns[day.id]?.length || 0}</div>
+                                            </div>
                                         </div>
-
                                         <Droppable droppableId={day.id}>
                                             {(provided, snapshot) => (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.droppableProps}
-                                                    className={`flex-1 min-h-[400px] lg:min-h-[500px] p-2 rounded-2xl border-2 border-dashed transition-all ${snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
-                                                        }`}
-                                                >
-                                                    {columns[day.id].map((task, idx) => {
-                                                        const safeId = getSafeId(task);
-                                                        return (
-                                                            <TaskCard
-                                                                key={safeId}
-                                                                stableId={safeId}
-                                                                task={task}
-                                                                index={idx}
-                                                                isBacklog={false}
-                                                            />
-                                                        );
-                                                    })}
+                                                <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-200 ${snapshot.isDraggingOver ? `${day.over}` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}>
+                                                    {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} />; })}
                                                     {provided.placeholder}
                                                 </div>
                                             )}
