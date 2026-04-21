@@ -35,12 +35,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
 
     // Memoized Analytics
-    const streak    = useMemo(() => calculateStudyStreak(data.studyLogs || []),                              [data.studyLogs]);
-    const balance   = useMemo(() => analyzeSubjectBalance(data.categories || []),                            [data.categories]);
-    const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []),         [data.categories, data.studyLogs]);
+    const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
+    const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
+    const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []), [data.categories, data.studyLogs]);
 
     // Ensure user data exists
-    const user     = data.user || { xp: 0, level: 1 };
+    const user = data.user || { xp: 0, level: 1 };
     const progress = useMemo(() => getXPProgress(user.xp), [user.xp]);
 
     // CORREÇÃO 1: Evitar penalizar visualmente utilizadores novos com "0%" vermelho
@@ -73,16 +73,16 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             } else {
                 raw = String(user.goalDate).trim().split('T')[0];
             }
-            
+
             const parts = raw.split('-');
             if (parts.length === 3) {
                 // Mês em JS é 0-indexado
                 goal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
             } else {
-                goal = new Date(raw); 
+                goal = new Date(raw);
             }
-        } catch(e) { return null; }
-        
+        } catch (e) { return null; }
+
         if (!goal || isNaN(goal.getTime())) return null;
         goal.setHours(12, 0, 0, 0); // Garante a mesma base de comparação
 
@@ -257,11 +257,27 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 <div className="w-full h-[1px] sm:w-[1px] sm:h-16 bg-white/10 z-10 my-3 sm:mx-3" />
 
                 {/* Right: date picker */}
-                <label 
+                <div
                     className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2 group/rightside cursor-pointer py-2"
+                    onClick={(e) => {
+                        // FIX CRÍTICO: Previne o loop infinito originado pelo Event Bubbling.
+                        // Se o clique já veio do input (via overlay z-50), não fazemos nada.
+                        if (e.target === dateInputRef.current) return;
+
+                        try {
+                            if (dateInputRef.current) {
+                                if (typeof dateInputRef.current.showPicker === 'function') {
+                                    dateInputRef.current.showPicker();
+                                } else {
+                                    dateInputRef.current.focus();
+                                    dateInputRef.current.click();
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Picker falhou", err);
+                        }
+                    }}
                 >
-                    <div className="absolute -inset-2 bg-rose-500/0 group-hover/rightside:bg-rose-500/5 transition-all duration-500 rounded-xl" />
-                    
                     <input
                         ref={dateInputRef}
                         type="date"
@@ -276,13 +292,28 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             } catch(e) { return ''; }
                         })()}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto"
+                        onClick={(e) => {
+                            // Força a abertura do calendário em navegadores modernos
+                            try {
+                                if (dateInputRef.current && dateInputRef.current.showPicker) {
+                                    dateInputRef.current.showPicker();
+                                }
+                            } catch (err) {
+                                console.warn("showPicker não suportado");
+                            }
+                        }}
+                        // Adicionadas classes [&::-webkit...] para esticar a área clicável nativa do calendário
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         title="Escolher data da prova"
                     />
+                    <div className="flex flex-col items-center gap-2 mb-3 pointer-events-none">
+                        <div className={`p-2 rounded-xl transition-all duration-300 ${!user.goalDate ? 'bg-red-600 shadow-lg shadow-red-500/50 scale-110' : 'bg-red-500/10 group-hover/rightside:bg-red-500/20'}`}>
+                            <Calendar size={18} className={`${!user.goalDate ? 'text-white' : 'text-red-400 group-hover/rightside:scale-110 transition-transform'}`} />
+                        </div>
+                        <span className={`text-xs font-black uppercase tracking-widest text-center leading-normal transition-colors ${!user.goalDate ? 'text-red-400 animate-pulse' : 'text-slate-500 group-hover/rightside:text-slate-400'}`}>Data final</span>
+                    </div>
 
-                    <div className="flex flex-col items-center pointer-events-none">
-                        <Calendar className={`mb-1.5 transition-all duration-500 group-hover/rightside:scale-110 group-hover/rightside:rotate-6 ${!user.goalDate ? 'text-red-500 animate-bounce' : 'text-slate-500 group-hover/rightside:text-rose-500'}`} size={24} />
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1 group-hover/rightside:text-rose-400/70 transition-colors">Data Final</span>
+                    <div className="relative group/input flex justify-center w-full pointer-events-none">
                         <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center leading-relaxed ${!user.goalDate ? 'border-red-500/50 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'border-white/10 text-slate-200'}`}>
                             {user.goalDate ? (() => {
                                 try {
@@ -300,11 +331,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     }
                                     if (isNaN(g.getTime())) return 'INVÁLIDA';
                                     return g.toLocaleDateString('pt-BR');
-                                } catch(e) { return 'INVÁLIDA'; }
+                                } catch (e) { return 'INVÁLIDA'; }
                             })() : 'ESCOLHER'}
                         </div>
                     </div>
-                </label>
+                </div>
             </div>
         </div>
     );
