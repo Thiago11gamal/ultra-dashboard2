@@ -50,53 +50,55 @@ export const calculateStudyStreak = (studyLogs) => {
         return { current: 0, best: 0, longest: 0, isActive: false };
     }
 
-    // Agrupar por dia único usando YYYY-MM-DD local
+    // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
     const daySet = new Set(
         studyLogs.map(log => toISODay(log.date)).filter(Boolean)
     );
-    const uniqueDays = Array.from(daySet).sort((a, b) =>
+    const sortedDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)
     );
 
-    const today = toISODay(new Date());
-    const yesterdayObj = new Date();
-    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-    const yesterday = toISODay(yesterdayObj);
+    const todayStr = toISODay(new Date());
+    const lastDayStr = sortedDays[0];
 
-    // 1. Determine start date (Today or Yesterday)
-    let streak = 0;
-    const hasToday = uniqueDays.includes(today);
-    const hasYesterday = uniqueDays.includes(yesterday);
+    // 2. Cálculo do Gap (Perdão do Dia Atual)
+    // BUGFIX: Não usamos diferença em ms do Date.now().
+    // Comparamos a diferença entre as strings de data normalizadas para 12:00:00
+    // para evitar problemas de fuso horário e horário de verão.
+    const t = new Date(todayStr + 'T12:00:00');
+    const l = new Date((lastDayStr || todayStr) + 'T12:00:00');
+    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
 
-    if (!hasToday && !hasYesterday) {
-        const longest = calculateLongest(uniqueDays);
+    // Se o gap for >= 2, ele pulou o dia de ontem INTEIRO. Streak quebrado.
+    if (diffDays >= 2) {
+        const longest = calculateLongest(sortedDays);
         return { current: 0, best: longest, longest, isActive: false };
     }
 
-    // Calculate current streak
-    let dateCursor = new Date();
-    if (!hasToday) dateCursor.setDate(dateCursor.getDate() - 1); // Start from yesterday
+    // 3. Contagem regressiva da Ofensiva
+    let streak = 0;
+    // O cursor começa no último dia de estudo real
+    let dateCursor = new Date(lastDayStr + 'T12:00:00');
 
-    // Now count backwards
-    const maxDays = uniqueDays.length;
-    for (let i = 0; i < maxDays; i++) { // Adaptive safety cap based on unique history length
+    for (let i = 0; i < sortedDays.length * 2; i++) {
         const dString = toISODay(dateCursor);
-        if (uniqueDays.includes(dString)) {
+        if (daySet.has(dString)) {
             streak++;
             dateCursor.setDate(dateCursor.getDate() - 1);
         } else {
-            break;
+            break; // Fim da sequência
         }
     }
 
-    const longest = calculateLongest(uniqueDays);
+    const longest = calculateLongest(sortedDays);
     return {
         current: streak,
-        best: longest, // BUG-L6: Unified alias for store compatibility
+        best: longest,
         longest: longest,
-        isActive: hasToday || hasYesterday
+        isActive: diffDays <= 1 // Ativo se estudou hoje ou ontem
     };
 };
+
 
 const calculateLongest = (uniqueDays) => {
     if (!uniqueDays || uniqueDays.length === 0) return 0;

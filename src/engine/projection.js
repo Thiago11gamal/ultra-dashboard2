@@ -55,7 +55,10 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const data = sortedHistory.map(h => {
         const time = new Date(h.date).getTime();
         const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
-        const weight = Math.exp(-lambda * daysAgo);
+        // BUGFIX: Prevenção de "Viagem no Tempo" (datas futuras destruindo pesos).
+        // Se a data for futura (erro de registro ou clock desync), tratamos como "agora" (daysAgo=0).
+        const safeDaysAgo = Math.max(0, daysAgo);
+        const weight = Math.exp(-lambda * safeDaysAgo);
         // BUGFIX M2: Volume weighting (WLS Refined). 
         // Larger exams have higher square-root information value.
         const volumeWeight = Math.sqrt(Math.max(1, Number(h.total) || 0));
@@ -139,14 +142,21 @@ export function calculateSlope(history, maxScore = 100) {
     // Teto dinâmico: de 0.85pp/dia (início) até 0.25pp/dia (avançado)
     const absoluteMax = (0.85 - (0.60 * proficiencyFriction)) * scaleFactor;
 
-    const dynamicLimit = Math.min(
+    // 🎯 REFINAMENTO: Fricção Direcional (Gravidade Livre vs Platô de Teto)
+    // O absoluteMax (estrangulamento) só deve limitar o crescimento (slope positivo).
+    // Quedas de desempenho (slope negativo) não devem sofrer fricção, permitindo
+    // feedback imediato sobre esquecimento/regressão.
+    const dynamicRiseLimit = Math.min(
         absoluteMax,
         baseLimit * historyBoost
     );
 
+    // Limite de queda mais generoso (sem fricção de teto)
+    const dynamicFallLimit = baseLimit * historyBoost * (n > 10 ? 3 : 2);
+
     const clamped = Math.max(
-        -dynamicLimit,
-        Math.min(dynamicLimit, slope)
+        -dynamicFallLimit,
+        Math.min(dynamicRiseLimit, slope)
     );
 
     return clamped * confidence;

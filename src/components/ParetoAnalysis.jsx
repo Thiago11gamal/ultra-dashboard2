@@ -107,7 +107,7 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
                 </div>
             </div>
 
-            {topEnemies.length > 0 ? (
+            {totalLostPoints > 0 && topEnemies.length > 0 ? (
                 <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-1">
                     {topEnemies.map((item, idx) => {
                         const maxImpact = topEnemies[0]?.weightedMissed || 1;
@@ -160,9 +160,12 @@ export default function ParetoAnalysis({ categories = [], maxScore = 100 }) {
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-                    <CheckCircle2 size={48} className="text-green-500/20 mb-4" />
-                    <p>Sem pontos cegos detectados ainda.</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 text-center px-4">
+                    <CheckCircle2 size={48} className="text-emerald-500/40 mb-4" />
+                    <p className="text-sm font-medium text-emerald-400/80 mb-1">Excelente desempenho!</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-relaxed">
+                        Você não tem pontos cegos críticos mapeados neste período. Continue assim!
+                    </p>
                 </div>
             )}
         </div>
