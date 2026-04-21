@@ -66,16 +66,19 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         let goal;
         try {
             // CORREÇÃO 3: Lidar de forma segura com objectos Timestamp do Firebase
+            // EVITAR new Date(string) puro para datas YYYY-MM-DD para evitar shift de fuso horário.
             let raw = '';
             if (typeof user.goalDate === 'object' && user.goalDate.seconds) {
                 raw = new Date(user.goalDate.seconds * 1000).toISOString().split('T')[0];
             } else {
-                raw = String(user.goalDate).trim();
+                raw = String(user.goalDate).trim().split('T')[0];
             }
             
-            const dateParams = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? `${raw}T12:00:00` : raw;
-            goal = new Date(dateParams);
-            if (isNaN(goal.getTime())) {
+            const parts = raw.split('-');
+            if (parts.length === 3) {
+                // Mês em JS é 0-indexado
+                goal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+            } else {
                 goal = new Date(raw); 
             }
         } catch(e) { return null; }
@@ -205,7 +208,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             </div>
 
             {/* ── Data da Prova ───────────────────────────────────────────── */}
-            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-5 sm:p-6 transition-all duration-700 flex items-center justify-between h-full group shadow-2xl ${!user.goalDate
+            <div className={`col-span-2 md:col-span-2 xl:col-span-1 relative bg-[#151720]/80 border rounded-2xl p-5 sm:p-6 transition-all duration-700 flex flex-col sm:flex-row items-center justify-between h-full group shadow-2xl ${!user.goalDate
                 ? 'border-red-500/50 animate-glow-red'
                 : 'border-white/10 hover:border-rose-500/30'
                 }`}>
@@ -250,8 +253,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                     )}
                 </div>
 
-                {/* Divisor vertical */}
-                <div className="w-[1px] h-16 bg-white/10 z-10 mx-3" />
+                {/* Divisor vertical / horizontal em mobile */}
+                <div className="w-full h-[1px] sm:w-[1px] sm:h-16 bg-white/10 z-10 my-3 sm:mx-3" />
 
                 {/* Right: date picker */}
                 <div 
@@ -304,12 +307,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     if (typeof rawDate === 'object' && rawDate.seconds) {
                                         rawDate = new Date(rawDate.seconds * 1000).toISOString().split('T')[0];
                                     }
-                                    const raw = String(rawDate).trim();
-                                    const dateParams = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? `${raw}T12:00:00` : raw;
-                                    let g = new Date(dateParams);
-                                    if (isNaN(g.getTime())) g = new Date(raw);
+                                    const raw = String(rawDate).trim().split('T')[0];
+                                    const parts = raw.split('-');
+                                    let g;
+                                    if (parts.length === 3) {
+                                        g = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+                                    } else {
+                                        g = new Date(raw);
+                                    }
                                     if (isNaN(g.getTime())) return 'INVÁLIDA';
-                                    g.setHours(12, 0, 0, 0); // Display exactly as noon to avoid -1 day timezone shifts
                                     return g.toLocaleDateString('pt-BR');
                                 } catch(e) { return 'INVÁLIDA'; }
                             })() : 'ESCOLHER'}

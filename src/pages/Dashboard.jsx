@@ -42,10 +42,9 @@ export default function Dashboard() {
         );
     }
 
-    const setGoalDate = (d) => setData(prev => ({
-        ...prev,
-        user: { ...prev.user, goalDate: d }
-    }));
+    const setGoalDate = (d) => setData(draft => {
+        draft.user.goalDate = d;
+    });
 
     const handleStartStudying = (categoryId, taskId) => {
         const cat = data.categories?.find(c => c.id === categoryId);
@@ -61,17 +60,17 @@ export default function Dashboard() {
             });
 
             // Set studying status
-            setData(prev => ({
-                ...prev,
-                categories: (prev.categories || []).map(c => ({
-                    ...c,
-                    tasks: (c.tasks || []).map(t => {
-                        if (t.id === tsk.id && c.id === cat.id) return { ...t, status: 'studying' };
-                        if (t.status === 'studying') return { ...t, status: undefined };
-                        return t;
-                    })
-                }))
-            }));
+            setData(draft => {
+                (draft.categories || []).forEach(c => {
+                    (c.tasks || []).forEach(t => {
+                        if (t.id === tsk.id && c.id === cat.id) {
+                            t.status = 'studying';
+                        } else if (t.status === 'studying') {
+                            t.status = undefined;
+                        }
+                    });
+                });
+            });
             showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
             navigate('/pomodoro');
         }
@@ -92,7 +91,17 @@ export default function Dashboard() {
                 />
             </div>
 
-            <PriorityProgress categories={data.categories} />
+            <PriorityProgress categories={(() => {
+                if (filter === 'all') return data.categories;
+                return (data.categories || []).map(cat => ({
+                    ...cat,
+                    tasks: (cat.tasks || []).filter(task => {
+                        if (filter === 'active') return !task.completed;
+                        if (filter === 'completed') return task.completed;
+                        return true;
+                    })
+                }));
+            })()} />
 
             <div className="mt-4 tour-step-6">
                 <Checklist

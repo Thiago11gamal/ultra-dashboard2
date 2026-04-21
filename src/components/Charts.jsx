@@ -67,7 +67,7 @@ export default function Charts({ data, compact = false }) {
     const barData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
         return {
-            name: cat.name?.split(' ')[0] || 'Unlabeled', // Shortened name
+            name: cat.name && cat.name.length > 12 ? cat.name.substring(0, 10) + '...' : (cat.name || 'Unlabeled'),
             total: tasks.length,
             completed: tasks.filter(t => t.completed).length,
             color: cat.color,
@@ -146,7 +146,7 @@ export default function Charts({ data, compact = false }) {
                             {pieData.map((entry) => (
                                 <div key={entry.name} className="flex items-center gap-2 text-sm">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span className="text-slate-400">{entry.name.split(' ')[0]}</span>
+                                    <span className="text-slate-400">{entry.name && entry.name.length > 12 ? entry.name.substring(0, 10) + '...' : entry.name}</span>
                                 </div>
                             ))}
                         </div>

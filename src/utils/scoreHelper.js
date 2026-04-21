@@ -10,6 +10,12 @@ export function getSafeScore(historyRow, maxScore = 100) {
         let rawScore = historyRow.score;
         if (typeof rawScore === 'string') rawScore = rawScore.replace(',', '.');
         let s = Number(rawScore);
+        
+        // BUGFIX M3: se isPercentage for true, tratamos o score existente como %
+        if (historyRow.isPercentage && s > maxScore) {
+            s = (s / 100) * maxScore;
+        }
+
         return Number.isFinite(s) ? Math.max(0, Math.min(maxScore, s)) : 0;
     }
 
