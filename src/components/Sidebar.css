@@ -1,0 +1,206 @@
+/* Layout Base do Menu */
+.sidebar {
+  width: 280px;
+  background-color: #08090f;
+  border-right: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 24px 12px;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
+  overflow-x: hidden;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+  padding: 24px 10px;
+}
+
+/* Logo */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.sidebar-logo img {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.3));
+  mix-blend-mode: screen;
+}
+
+.sidebar-logo span {
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.sidebar.collapsed .sidebar-logo span {
+  display: none;
+}
+
+/* Divisor */
+.sidebar-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
+  margin: 12px 0;
+  width: 100%;
+}
+
+/* Labels de Seção */
+.sidebar-nav-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 12px 8px 8px;
+  transition: all 0.3s;
+}
+
+.sidebar.collapsed .sidebar-nav-label {
+  display: none;
+}
+
+/* Itens do Menu */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-item svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.6;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-item span {
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+/* Hover State */
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+  transform: translateX(4px);
+}
+
+.sidebar-item:hover svg {
+  opacity: 1;
+  color: #818cf8;
+}
+
+/* Active State */
+.sidebar-item.active {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.12), rgba(129, 140, 248, 0.04));
+  border-color: rgba(129, 140, 248, 0.2);
+  color: #a5b4fc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-item.active svg {
+  color: #818cf8;
+  opacity: 1;
+  filter: drop-shadow(0 0 5px rgba(129, 140, 248, 0.5));
+}
+
+/* Collapsed Adjustments */
+.sidebar.collapsed .sidebar-item {
+  justify-content: center;
+  padding: 12px 0;
+  width: 46px;
+  margin: 6px auto;
+}
+
+.sidebar.collapsed .sidebar-item span {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-item:hover {
+  transform: scale(1.1);
+  background: rgba(129, 140, 248, 0.1);
+}
+
+.sidebar.collapsed .sidebar-item.active::before {
+  left: auto;
+  right: -10px; /* Hide indicator or adjust for collapsed */
+  display: none;
+}
+
+/* Logout Button Special Styling */
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.logout-btn:hover svg {
+  color: #f87171;
+}
+
+/* Mobile responsive sidebar */
+@media (max-width: 1024px) {
+  .sidebar {
+    position: fixed;
+    height: 100vh;
+    left: -280px;
+    width: 260px;
+    z-index: 50;
+  }
+
+  .sidebar-open {
+    left: 0;
+  }
+}
+
+/* Custom scrollbar for sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

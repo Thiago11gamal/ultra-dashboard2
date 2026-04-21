@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight, Download, Upload } from 'lucide-react';
+import { Plus, LayoutDashboard, RotateCcw, CloudDownload, Trash2, LogOut, X, ChevronRight, Download, Upload, Menu } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../context/useAuth';
@@ -61,34 +61,31 @@ export default function Header({
     onExport,
     onImport,
     settings,
-    onThemeChange
+    onThemeChange,
+    onToggleSidebar,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    onOpenTrash
 }) {
     const { logout } = useAuth();
 
     const [profileOpen, setProfileOpen] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [trashOpen, setTrashOpen] = useState(false);
     const [localName, setLocalName] = useState(user.name);
     const [isFocused, setIsFocused] = useState(false);
 
-    // Sync localName with prop changes - BUG-FIX: Conditional check to prevent loop
     useEffect(() => {
-        if (!isFocused && user?.name && localName !== user.name) {
+        if (!isFocused && user?.name) {
             setLocalName(user.name);
         }
-    }, [user?.name, isFocused, localName]); // Sync only when not focused
+    }, [user?.name, isFocused]);
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
             try {
-                // 1. Limpa o estado em RAM (preservando configurações estéticas)
                 useAppStore.getState().resetStore();
-                
-                // 2. Destrói fisicamente o banco local do usuário imediatamente
                 await del('ultra-dashboard-storage');
                 localStorage.removeItem('ultra-dashboard-storage');
-                
-                // 3. Prossegue com o logout do Firebase Auth
                 await logout();
             } catch (err) {
                 console.error("Erro ao sair", err);
@@ -105,28 +102,32 @@ export default function Header({
 
     const toggleProfile = () => setProfileOpen(!profileOpen);
 
-    const handleOpenTrash = useCallback(() => setTrashOpen(true), []);
-    const handleCloseTrash = useCallback(() => setTrashOpen(false), []);
-
     return (
         <>
             {/* ─── MOBILE HEADER ─── */}
-            <div className="md:hidden mb-3">
+            <div className="lg:hidden mb-3">
                 <div className="flex items-center justify-between mb-2.5">
-                    <MobileClockDisplay />
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onToggleSidebar}
+                            className="w-9 h-9 flex items-center justify-center rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+                        >
+                            <LayoutDashboard size={18} />
+                        </button>
+                        <MobileClockDisplay />
+                    </div>
 
                     <div className="flex items-center gap-2">
                         <button
                             onClick={onUndo}
                             className="w-9 h-9 flex items-center justify-center rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
-                            title="Desfazer"
                         >
                             <RotateCcw size={16} />
                         </button>
 
                         <button
                             onClick={() => setDrawerOpen(true)}
-                            className="tour-step-1 w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-base hover:scale-105 transition-transform shadow-lg shadow-purple-500/30 ring-2 ring-purple-500/30"
+                            className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-base shadow-lg"
                         >
                             {user.avatar}
                         </button>
@@ -140,23 +141,10 @@ export default function Header({
                         onChange={(e) => setLocalName(e.target.value)}
                         onFocus={() => setIsFocused(true)}
                         onBlur={handleNameBlur}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.target.blur();
-                            }
-                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                         placeholder="Seu nome..."
-                        /* BUG-FIX: padding inferior (pb-2) aumentado para não cortar o efeito neon */
                         className="w-full bg-transparent text-xl font-black neon-text placeholder:text-slate-600 focus:outline-none leading-relaxed pb-2 pt-1"
                     />
-                    {cloudStatus.hasConflict && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
-                            className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[11px] uppercase font-bold"
-                        >
-                            <CloudDownload size={14} /> Sincronizar
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -170,55 +158,23 @@ export default function Header({
                 onSwitchContest={onSwitchContest}
                 onCreateContest={onCreateContest}
                 onDeleteContest={onDeleteContest}
-                onLogout={handleLogout}
-                onExport={onExport}
-                onImport={onImport}
-                onOpenTrash={handleOpenTrash}
-                settings={settings}
-                onThemeChange={onThemeChange}
             />
-
-            <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
+            
 
             {/* ─── DESKTOP HEADER ─── */}
-            <header className="hidden md:flex items-center justify-between z-50 relative pointer-events-none">
-                <div className="flex flex-col gap-2 w-full max-w-[calc(50vw-320px)] min-w-[150px] pointer-events-auto">
-                    <div className="relative group flex items-center gap-3">
-                        <div className="flex-1 min-w-0 relative pt-4">
-                            <span className="absolute top-0 left-2 text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                Foco Principal ✏️
-                            </span>
-                            <input
-                                type="text"
-                                value={localName}
-                                onChange={(e) => setLocalName(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
-                                onBlur={handleNameBlur}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.target.blur();
-                                    }
-                                }}
-                                placeholder="Nome do utilizador..."
-                                /* BUG-FIX: 'truncate' substituído por overflow-hidden whitespace-nowrap, com pb-2 para evitar decapitação das letras */
-                                className="w-full bg-transparent text-xl lg:text-3xl font-bold neon-text placeholder:text-slate-600 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-2 py-1 pb-2 leading-relaxed overflow-hidden whitespace-nowrap text-ellipsis"
-                            />
-                        </div>
-                        <div className="flex flex-col items-end gap-1 self-end pb-2">
-                            {cloudStatus.hasConflict && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
-                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] uppercase tracking-tighter hover:bg-yellow-500/30 transition-all"
-                                    title="Forçar Paridade"
-                                >
-                                    <CloudDownload size={10} />
-                                    <span>Forçar Paridade</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
+            <header className="hidden lg:flex items-center justify-between py-2 px-8 relative w-full mb-4 min-h-[60px]">
+                {/* Desktop Toggle Button */}
+                <button 
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="p-2 mr-4 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
+                    title={sidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
+                >
+                    <Menu size={20} />
+                </button>
+                {/* ─── LEFT SIDE: DATE & CLOUD ─── */}
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <DateDisplay />
                     <div className="flex items-center gap-3">
-                        <DateDisplay />
                         {cloudStatus.status !== 'idle' && (
                             <div className={`flex items-center min-w-[135px] justify-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
                                 cloudStatus.status === 'connected' 
@@ -239,15 +195,45 @@ export default function Header({
                                     {cloudStatus.status === 'connected' 
                                         ? (cloudStatus.syncing ? 'Sincronizando' : 'Nuvem Ativa')
                                         : cloudStatus.status === 'connecting'
-                                            ? 'Conectando'
+                                            ? 'Conectando...'
                                             : 'Nuvem Offline'}
                                 </span>
                             </div>
                         )}
+                        {cloudStatus.hasConflict && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px] uppercase font-black animate-pulse"
+                                title="Forçar Paridade"
+                            >
+                                <CloudDownload size={12} />
+                                <span>Conflito</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 pointer-events-auto">
+                {/* ─── CENTRAL USER NAME ─── */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group pointer-events-auto z-20">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-[0.3em] font-black opacity-0 group-hover:opacity-100 transition-all duration-300 mb-0.5">
+                        Foco Principal ✏️
+                    </span>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={localName}
+                            onChange={(e) => setLocalName(e.target.value)}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={handleNameBlur}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                            placeholder="Nome do utilizador..."
+                            className="bg-transparent text-center text-xl lg:text-3xl font-black neon-text placeholder:text-slate-700 focus:outline-none focus:border-b-2 focus:border-purple-500 transition-all px-6 py-1 pb-2 leading-relaxed min-w-[300px] lg:min-w-[450px]"
+                        />
+                    </div>
+                </div>
+
+                {/* ─── RIGHT SIDE: CONTROLS ─── */}
+                <div className="flex items-center gap-4 flex-1 justify-end">
                     <button
                         onClick={onUndo}
                         className="p-3 rounded-xl glass hover:bg-white/10 transition-colors text-slate-400 hover:text-white group relative"
@@ -306,14 +292,6 @@ export default function Header({
                                 </div>
                                 <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
                                     <button
-                                        onClick={() => { if (cloudStatus.forcePull) cloudStatus.forcePull(); setProfileOpen(false); }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-yellow-400 hover:bg-yellow-500/10 transition-colors border border-yellow-500/10"
-                                    >
-                                        <Download size={16} />
-                                        <span>Resgatar da Nuvem</span>
-                                    </button>
-
-                                    <button
                                         onClick={() => { onCreateContest(); setProfileOpen(false); }}
                                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
                                     >
@@ -321,7 +299,7 @@ export default function Header({
                                         <span>Criar Novo Painel</span>
                                     </button>
                                     <button
-                                        onClick={() => { handleOpenTrash(); setProfileOpen(false); }}
+                                        onClick={() => { onOpenTrash(); setProfileOpen(false); }}
                                         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 transition-colors"
                                     >
                                         <Trash2 size={16} />
@@ -341,7 +319,6 @@ export default function Header({
                                 </div>
                             </div>
                         )}
-
                         {profileOpen && (
                             <div className="fixed inset-0 z-40 pointer-events-auto" onClick={() => setProfileOpen(false)} />
                         )}

@@ -93,7 +93,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            className={`relative mb-10 w-full rounded-2xl border ${cfg.border} bg-[#08090f] shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
+            className={`relative mb-6 w-full rounded-2xl border ${cfg.border} bg-[#08090f] shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
         >
             <div className={`absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-70`} />
             <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-3xl`} />
@@ -105,7 +105,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-20 pointer-events-none z-0`}
             />
 
-            <div className="relative z-10 p-6 md:p-8">
+            <div className="relative z-10 p-5 md:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-5 border-b border-white/[0.06]">
                     <div className="flex items-center gap-2.5">
                         <div className="relative flex items-center">
@@ -165,7 +165,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         </>
                                     )}
                                 </div>
-                                <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight leading-[1.1] mb-4">
+                                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-[1.1] mb-3">
                                     {suggestion.name}
                                 </h2>
                                 {topic && (

@@ -29,7 +29,7 @@ export default function Tasks() {
                 </div>
             </div>
 
-            <div className="pb-8 border-t border-white/5 pt-24 mt-32">
+            <div className="pb-8 border-t border-white/5 pt-10 mt-10">
                 <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
                     📊 Quadro de Performance
                     <button

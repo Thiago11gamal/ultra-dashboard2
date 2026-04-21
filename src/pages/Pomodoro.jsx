@@ -343,10 +343,10 @@ export default function Pomodoro() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-180px)] flex items-start justify-center pt-32 pb-10 px-4">
-            <div className="flex gap-2 items-start justify-center w-full max-w-[1340px]">
-                {/* Timer Column — No flex-1 to keep it tight with the side panel */}
-                <div className="w-full xl:w-[850px] xl:shrink-0 min-w-0">
+        <div className="min-h-0 flex items-start justify-center pt-2 pb-6 px-0">
+            <div className="flex flex-col xl:flex-row gap-5 items-start justify-center w-full">
+                {/* Timer Column */}
+                <div className="w-full xl:max-w-[750px] min-w-0">
                     <PomodoroTimer
                         settings={data.settings}
                         onUpdateSettings={updatePomodoroSettings}

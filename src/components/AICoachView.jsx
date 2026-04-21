@@ -102,7 +102,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const hasPlan = coachPlan && coachPlan.length > 0;
 
     return (
-        <div id="ai-coach-container" className="space-y-0 pb-20 max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        <div id="ai-coach-container" className="space-y-0 pb-12 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             <div className="relative pt-8 pb-10 mb-4">
                 {/* Background Neural Atmosphere */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '32px 32px' }} />

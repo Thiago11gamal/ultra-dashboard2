@@ -8,6 +8,7 @@ import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import LevelUpToast from './components/LevelUpToast';
 import OnboardingTour from './components/OnboardingTour';
+import TrashModal from './components/TrashModal';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 import Dashboard from './pages/Dashboard';
@@ -32,14 +33,14 @@ import { useAppStore } from './store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useToast } from './hooks/useToast';
-import useMobileDetect from './hooks/useMobileDetect';
+
 import { useGlobalToasts } from './hooks/useGlobalToasts';
 import { useLevelUp } from './hooks/useLevelUp';
 import { useThemeSync } from './hooks/useThemeSync';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
 import useIdleLogout from './hooks/useIdleLogout';
-import { normalize } from './utils/normalization';
+
 
 
 import './components/Loading.css';
@@ -77,9 +78,6 @@ function MainLayout() {
   const updateUserName = useAppStore(state => state.updateUserName);
   const undo = useAppStore(state => state.undo);
   const setThemeMode = useAppStore(state => state.setThemeMode);
-  const safelyMergeDuplicates = useAppStore(state => state.safelyMergeDuplicates);
-
-  const isMobile = useMobileDetect();
 
   // Custom Hooks para lógica global
   const { toasts, removeToast } = useGlobalToasts();
@@ -91,8 +89,10 @@ function MainLayout() {
   useIdleLogout(logout, 60 * 60 * 1000);
 
   // Handle cross-tab sync using real-time listener inside sync context
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   // Auto-save pipeline - now uses the full state from the store's internal reference
   // to avoid re-rendering MainLayout on every minor update (like Pomodoro ticks)
@@ -190,16 +190,22 @@ function MainLayout() {
           </Suspense>
         </div>
       ) : (
-        <>
+          <div className="grid grid-cols-[auto_1fr] w-full min-h-screen overflow-x-hidden">
           <Sidebar
+            onOpenHelp={() => setShowHelpGuide(true)}
+            isOpen={isSidebarOpen}
+            onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
-            user={data.user}
-            isMobile={isMobile}
-            onOpenHelp={() => setShowHelpGuide(true)}
+            contests={contestsMetaList}
+            activeContestId={activeContestId}
+            onSwitchContest={switchContest}
+            onCreateContest={createNewContest}
+            onDeleteContest={deleteContest}
+            onOpenTrash={() => setTrashOpen(true)}
           />
 
-          <main className="pt-24 md:pt-0 px-3 sm:px-6 lg:px-8 pb-20 transition-[padding] duration-300 w-full max-w-[100vw] overflow-x-hidden">
+          <div className="flex flex-col min-h-screen w-full min-w-0 relative">
             <Header
               user={data.user}
               settings={data.settings}
@@ -222,39 +228,46 @@ function MainLayout() {
               onExport={handleExport}
               onImport={handleImport}
               onThemeChange={setThemeMode}
+              onToggleSidebar={() => setIsSidebarOpen(true)}
+              sidebarCollapsed={sidebarCollapsed}
+              setSidebarCollapsed={setSidebarCollapsed}
+              onOpenTrash={() => setTrashOpen(true)}
             />
 
-            {/* Router Outlet com carregamento otimizado */}
-            <div className="animate-page-entrance">
-              <ErrorBoundary>
-                <Suspense fallback={
-                  <div className="flex items-center justify-center p-20 text-purple-400">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-                  </div>
-                }>
-                  <Routes location={location}>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/pomodoro" element={<Pomodoro />} />
-                    <Route path="/tasks" element={<Tasks />} />
-                    <Route path="/simulados" element={<Simulados />} />
-                    <Route path="/stats" element={<Stats />} />
-                    <Route path="/evolution" element={<Evolution />} />
-                    <Route path="/coach" element={<Coach />} />
-                    <Route path="/history" element={<History />} />
-                    <Route path="/sessions" element={<Sessions />} />
-                    <Route path="/heatmap" element={<Activity />} />
-                    <Route path="/retention" element={<Retention />} />
-                    <Route path="/notes" element={<Notes />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-          </main>
-          
-          <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
-          <OnboardingTour />
-        </>
+            <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
+
+            <main className="pt-20 lg:pt-0 flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10">
+              {/* Router Outlet com carregamento otimizado */}
+              <div className="animate-page-entrance">
+                <ErrorBoundary>
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center p-20 text-purple-400">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                    </div>
+                  }>
+                    <Routes location={location}>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/pomodoro" element={<Pomodoro />} />
+                      <Route path="/tasks" element={<Tasks />} />
+                      <Route path="/simulados" element={<Simulados />} />
+                      <Route path="/stats" element={<Stats />} />
+                      <Route path="/evolution" element={<Evolution />} />
+                      <Route path="/coach" element={<Coach />} />
+                      <Route path="/history" element={<History />} />
+                      <Route path="/sessions" element={<Sessions />} />
+                      <Route path="/heatmap" element={<Activity />} />
+                      <Route path="/retention" element={<Retention />} />
+                      <Route path="/notes" element={<Notes />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
+              </div>
+            </main>
+            <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+            <OnboardingTour />
+          </div>
+        </div>
       )}
 
       {levelUpData && (

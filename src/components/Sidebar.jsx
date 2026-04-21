@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
     LayoutDashboard,
     CheckSquare,
     BarChart3,
     Timer,
     FileText,
-    Settings,
-    ChevronUp,
     BrainCircuit,
     Sparkles,
     CalendarDays,
@@ -14,279 +12,258 @@ import {
     HelpCircle,
     Brain,
     TrendingUp,
-    Clock
+    Clock,
+    LogOut,
+    X,
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Trash2,
+    Settings
 } from 'lucide-react';
-import { calculateLevel, calculateProgress } from '../utils/gamification';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { useAuth } from '../context/useAuth';
+import './Sidebar.css';
+import { del } from 'idb-keyval';
+import { useAppStore } from '../store/useAppStore';
 
-export default function Sidebar({ collapsed, setCollapsed, user, isMobile, onOpenHelp }) {
+export default function Sidebar({ 
+    onOpenHelp, 
+    isOpen, 
+    onToggle, 
+    collapsed, 
+    setCollapsed,
+    contests,
+    activeContestId,
+    onSwitchContest,
+    onCreateContest,
+    onDeleteContest,
+    onOpenTrash
+}) {
     const location = useLocation();
-    const navScrollRef = React.useRef(null);
+    const { logout } = useAuth();
 
-    // Auto-scroll mobile nav to active item
-    useEffect(() => {
-        if (navScrollRef.current) {
-            const activeEl = navScrollRef.current.querySelector(`[data-path="${location.pathname}"]`);
-            if (activeEl) {
-                const scrollContainer = navScrollRef.current;
-                const scrollLeft = activeEl.offsetLeft - (scrollContainer.offsetWidth / 2) + (activeEl.offsetWidth / 2);
-                scrollContainer.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+    const handleLogout = async () => {
+        if (window.confirm("Deseja realmente sair?")) {
+            try {
+                useAppStore.getState().resetStore();
+                await del('ultra-dashboard-storage');
+                localStorage.removeItem('ultra-dashboard-storage');
+                await logout();
+            } catch (err) {
+                console.error("Erro ao sair", err);
             }
         }
-    }, [location.pathname]);
-    const [isVisible, setIsVisible] = useState(true);
+    };
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-        let ticking = false;
-
-        const handleScroll = () => {
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    const isMobileLocal = window.innerWidth < 768; // md breakpoint
-                    if (!isMobileLocal) {
-                        setIsVisible(true);
-                        ticking = false;
-                        return;
-                    }
-
-                    const currentScrollY = window.scrollY;
-
-                    // Oculta ao rolar para baixo, mostra ao rolar para cima
-                    if (currentScrollY > 50 && currentScrollY > lastScrollY) {
-                        setIsVisible(false);
-                    } else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
-                        setIsVisible(true);
-                    }
-
-                    lastScrollY = currentScrollY;
-                    ticking = false;
-                });
-                ticking = true;
-            }
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
-    // Gamification Stats
-    const currentXP = user?.xp || 0;
-    const level = calculateLevel(currentXP);
-    const progress = calculateProgress(currentXP);
-
-    const menuItems = [
-        { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/coach', label: 'AI Coach', icon: Sparkles },
-        { path: '/tasks', label: 'Tarefas', icon: CheckSquare },
-        { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit },
-        { path: '/stats', label: 'Estatísticas', icon: BarChart3 },
-        { path: '/evolution', label: 'Evolução', icon: TrendingUp },
-        { path: '/heatmap', label: 'Atividade', icon: CalendarDays },
-        { path: '/sessions', label: 'Sessões', icon: Clock },
-        { path: '/retention', label: 'Retenção', icon: Brain },
-        { path: '/history', label: 'Histórico', icon: History },
-        { path: '/pomodoro', label: 'Pomodoro', icon: Timer },
-        { path: '/notes', label: 'Notas', icon: FileText },
-        { path: '#help', label: 'Ajuda', icon: HelpCircle, action: 'openHelp' },
-    ];
+    const sections = [
+        {
+            label: 'Navegação',
+            items: [
+                { path: '/', label: 'Meu Painel', icon: LayoutDashboard },
+                { path: '/pomodoro', label: 'Cronômetro', icon: Timer },
+                { path: '/sessions', label: 'Sessões', icon: Clock },
+                { path: '/tasks', label: 'Tarefas', icon: CheckSquare },
+            ]
+        },
+        {
+            label: 'Dados & Análise',
+            items: [
+                { path: '/stats', label: 'Estatísticas', icon: BarChart3 },
+                { path: '/evolution', label: 'Evolução', icon: TrendingUp },
+                { path: '/heatmap', label: 'Atividade', icon: CalendarDays },
+                { path: '/retention', label: 'Retenção', icon: Brain },
+                { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit },
+                { path: '/history', label: 'Histórico', icon: History },
+            ]
+        },
+        {
+            label: 'Inteligência',
+            items: [
+                { path: '/coach', label: 'Coach IA', icon: Sparkles },
+                { path: '/notes', label: 'Notas', icon: FileText },
+            ]
+        }    const [contestsExpanded, setContestsExpanded] = React.useState(true);
+    const [settingsExpanded, setSettingsExpanded] = React.useState(false);
 
     return (
-        <div className={`fixed z-40
-            top-0 left-0 w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 backdrop-blur-xl border-b border-white/8 shadow-[0_4px_32px_rgba(0,0,0,0.5)] px-3 py-0
-            md:top-4 md:left-1/2 md:-translate-x-1/2 md:w-auto md:bg-transparent md:bg-none md:backdrop-blur-none md:border-none md:shadow-none md:px-0 md:py-0
-            ${isVisible
-                ? 'translate-y-0 opacity-100 transition-[transform,opacity] duration-300 ease-out md:top-4'
-                : '-translate-y-full opacity-0 transition-[transform,opacity] duration-200 ease-in md:-top-32'
-            } pointer-events-auto`}>
+        <>
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden"
+                    onClick={onToggle}
+                />
+            )}
 
-            {/* ─── MOBILE HEADER BAR ─────────────────── */}
-            <div className="flex items-center w-full gap-2 py-2 md:hidden">
-                {/* Brand */}
-                <Link to="/" className="flex items-center gap-2 shrink-0 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10" onClick={() => { if (setCollapsed) setCollapsed(true); }}>
-                    <img src={logo} alt="Logo" className="w-6 h-6 object-contain transition-all duration-300 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
-                    <span className="text-[10px] sm:text-xs font-black tracking-tighter text-white uppercase hidden sm:block">Método Arraia</span>
-                </Link>
-
-                {/* Level Badge */}
-                <div className="flex items-center gap-1 bg-purple-500/15 border border-purple-500/25 px-2 py-0.5 rounded-full shrink-0">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></div>
-                    <span className="text-[9px] font-black text-purple-300">Nv. {level}</span>
-                </div>
-
-                {/* Nav Icons — scrollable */}
-                <div
-                    ref={navScrollRef}
-                    className="tour-step-2 flex-1 flex items-center gap-0.5 overflow-x-auto lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-1 py-1 pr-4 scroll-smooth"
-                >
-                    {menuItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = item.action ? false : (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path));
-
-                        const buttonContent = (
-                            /* BUG-FIX: min-w-[54px] removido e substituído por px-2 flex-1 para se adaptar ao texto */
-                            <div className="flex flex-col items-center justify-center gap-1 px-2 min-w-fit">
-                                <Icon size={20} className={isActive ? 'text-purple-300' : ''} />
-                                {/* BUG-FIX: Fonte aumentada de 8px para 10px e removido o tracking-tighter */}
-                                <span className={`text-[10px] font-bold uppercase ${isActive ? 'text-purple-300' : 'text-slate-500'}`}>
-                                    {item.label}
-                                </span>
-                            </div>
-                        );
-
-                        if (item.action === 'openHelp') {
-                            return (
-                                <button
-                                    key={item.path}
-                                    onClick={() => { if (onOpenHelp) onOpenHelp(); }}
-                                    className={`shrink-0 p-1.5 rounded-xl transition-all ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
-                                    title={item.label}
-                                >
-                                    {buttonContent}
-                                </button>
-                            );
-                        }
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                data-path={item.path}
-                                onClick={() => { if (setCollapsed) setCollapsed(true); }}
-                                className={`shrink-0 p-1.5 rounded-xl transition-all ${item.path === '/pomodoro' ? 'tour-step-3' : ''} ${isActive ? 'bg-purple-500/25' : 'text-slate-400 hover:text-white hover:bg-white/8'}`}
-                                title={item.label}
-                            >
-                                {buttonContent}
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                {/* Export/Import removed - relocated to Profile Drawer */}
-            </div>  {/* end mobile bar */}
-
-            {/* ─── DESKTOP PILL ─────────── */}
-            <div
-                /* BUG-FIX: z-50 reduzido para z-40 para o Dropdown do Perfil (no Header) poder passar por cima */
-                className={`
-                    hidden md:block transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-40
-                    ${collapsed ? 'overflow-hidden' : 'overflow-visible'}
-                    ${collapsed
-                        ? 'w-14 h-14 rounded-full cursor-pointer bg-slate-900/90 border-2 border-white/10 shadow-2xl shadow-black/50 hover:shadow-purple-500/40 hover:border-purple-500/50 hover:scale-110 group backdrop-blur-md'
-                        : 'glass-panel w-auto px-5 py-4 rounded-2xl'}
-                `}
-                onClick={(e) => {
-                    if (collapsed) {
-                        e.stopPropagation();
-                        setCollapsed(false);
-                    }
-                }}
-            >
-                {collapsed ? (
-                    // Collapsed State: Simple Level Icon
-                    <div className="w-full h-full flex items-center justify-center text-white transition-colors relative">
-                        {/* Circular Progress Micro-indicator */}
-                        <svg className="absolute inset-0 w-full h-full -rotate-90 p-[3px] drop-shadow-[0_0_3px_rgba(234,179,8,0.5)]" viewBox="0 0 36 36">
-                            <path
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none"
-                                stroke="var(--glass-border, rgba(255,255,255,0.1))"
-                                strokeWidth="2.5"
-                            />
-                            <path
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none"
-                                stroke="#a855f7"
-                                strokeWidth="2.5"
-                                strokeDasharray={`${progress}, 100`}
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <div className="flex flex-col items-center justify-center z-10 w-full h-full pt-1">
-                            {/* BUG-FIX: Aumentado de text-[7px] para text-[9px] */}
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-[1px]">Nível</span>
-                            <span className="text-xl font-black leading-none text-white drop-shadow-md truncate max-w-full px-1">{level}</span>
-                        </div>
+            <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+                {/* Logo Area */}
+                <div className="flex items-center justify-between mb-2 px-1">
+                    <div className="sidebar-logo">
+                        <img src={logo} alt="Ultra Dashboard" />
+                        {!collapsed && <span>Método Arraia</span>}
                     </div>
-                ) : (
-                    // Expanded State: Full Menu
-                    <div className="tour-step-2 flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden lg:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mobile-edge-fade pb-1 -mb-1 px-1">
-                        {/* Brand Logo */}
-                        <Link to="/" className="shrink-0 flex items-center gap-3 pr-4 border-r border-white/10 group/brand cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isMobile) setCollapsed(true); }}>
-                            <div className="relative">
-                                <img src={logo} alt="Logo" className="w-8 h-8 object-contain transition-all group-hover/brand:scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]" />
-                            </div>
-                            <span className="font-black text-sm tracking-tighter text-white group-hover/brand:text-purple-300 transition-colors uppercase">MÉTODO ARRAIA</span>
-                        </Link>
+                    
+                    {/* Desktop Collapse Toggle - Hidden for now as it's in the Header */}
+                    
+                    {/* Mobile Close Button */}
+                    <button 
+                        className="lg:hidden p-2 text-slate-500 hover:text-white"
+                        onClick={onToggle}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
 
-                        {/* Navigation Items */}
-                        <div className="flex items-center gap-1 md:gap-1.5">
-                            {menuItems.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = item.action ? false : (item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path));
+                <div className="sidebar-divider"></div>
 
-                                const buttonContent = (
-                                    <>
-                                        <Icon size={20} className={`transition-all duration-300 ${isActive ? 'animate-pulse' : 'group-hover/icon:scale-125 group-hover/icon:-rotate-12'}`} />
-                                    </>
-                                );
-
-                                const className = `shrink-0 p-1.5 rounded-lg transition-all duration-300 group/icon flex items-center justify-center ${item.path === '/pomodoro' ? 'tour-step-3' : ''} ${isActive
-                                    ? 'bg-purple-500/20 text-purple-300'
-                                    : 'hover:bg-white/10 text-slate-400 hover:text-white'
-                                    }`;
-
-                                if (item.action === 'openHelp') {
-                                    return (
-                                        <button
-                                            key={item.path}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (onOpenHelp) onOpenHelp();
-                                                if (isMobile) setCollapsed(true);
-                                            }}
-                                            className={className}
-                                            title={item.label}
-                                        >
-                                            {buttonContent}
-                                        </button>
-                                    );
-                                }
-
-                                return (
-                                    <Link
-                                        key={item.path}
-                                        to={item.path}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (isMobile) setCollapsed(true);
-                                        }}
-                                        className={className}
-                                        title={item.label}
-                                    >
-                                        {buttonContent}
-                                    </Link>
-                                );
-                            })}
-                        </div>
-
-                        {/* Divider */}
-                        <div className="shrink-0 w-px h-6 bg-white/10 mx-0.5"></div>
-
-                        {/* Spacer to push collapse button if needed, or just let it flex */}
-                        {/* Collapse Button */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setCollapsed(true);
-                            }}
-                            className="shrink-0 p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                {/* Nav Sections */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
+                    
+                    {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
+                    <div className="mb-4">
+                        <button 
+                            onClick={() => setContestsExpanded(!contestsExpanded)}
+                            className="sidebar-item group justify-between"
+                            title="Meus Concursos"
                         >
-                            <ChevronUp size={16} />
+                            <div className="flex items-center gap-3">
+                                <Sparkles size={18} className="text-violet-400" />
+                                {!collapsed && <span className="font-bold text-slate-200">Meus Concursos</span>}
+                            </div>
                         </button>
+
+                        <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
+                                {contests && Object.entries(contests).map(([id, contestData]) => {
+                                    const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
+                                    const isActive = id === activeContestId;
+                                    return (
+                                        <div 
+                                            key={id}
+                                            className={`sidebar-item group !py-2 ${isActive ? 'active' : ''}`}
+                                            title={name}
+                                            onClick={() => onSwitchContest(id)}
+                                        >
+                                            <LayoutDashboard size={14} />
+                                            <span className="flex-1 truncate text-[0.8rem]">{name}</span>
+                                            {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                                
+                                <button 
+                                    className="sidebar-item !py-2 text-green-500/80 hover:text-green-400"
+                                    onClick={onCreateContest}
+                                    title="Criar Novo Painel"
+                                >
+                                    <Plus size={14} />
+                                    <span className="text-[0.8rem]">Criar Novo</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Collapsed view special icons */}
+                        {collapsed && (
+                            <div className="mt-1 space-y-1">
+                                <button className="sidebar-item" onClick={onOpenTrash} title="Lixeira">
+                                    <Trash2 size={18} />
+                                </button>
+                                <button className="sidebar-item logout-btn" onClick={handleLogout} title="Sair da Conta">
+                                    <LogOut size={18} />
+                                </button>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
-        </div>
+
+                    <div className="sidebar-divider"></div>
+
+                    {sections.map((section, sIdx) => (
+                        <div key={sIdx} className="mb-6">
+                            <h4 className="sidebar-nav-label">{section.label}</h4>
+                            <nav className="space-y-1">
+                                {section.items.map((item) => {
+                                    const Icon = item.icon;
+                                    const isActive = item.path === '/' 
+                                        ? location.pathname === '/' 
+                                        : location.pathname.startsWith(item.path);
+
+                                    return (
+                                        <Link
+                                            key={item.path}
+                                            to={item.path}
+                                            className={`sidebar-item ${isActive ? 'active' : ''}`}
+                                            title={item.label}
+                                            onClick={() => {
+                                                if (window.innerWidth < 1024) onToggle();
+                                            }}
+                                        >
+                                            <Icon />
+                                            <span>{item.label}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </nav>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="sidebar-footer px-1">
+                    <div className="sidebar-divider"></div>
+                    <nav className="space-y-1">
+                        {/* CONFIGURAÇÕES COLLAPSIBLE SECTION */}
+                        <div className="mb-2">
+                            <button 
+                                onClick={() => setSettingsExpanded(!settingsExpanded)}
+                                className="sidebar-item group"
+                                title="Configurações"
+                            >
+                                <Settings size={18} className="text-slate-400" />
+                                {!collapsed && <span>Configurações</span>}
+                            </button>
+
+                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
+                                    <button 
+                                        className="sidebar-item !py-2"
+                                        onClick={onOpenTrash}
+                                        title="Lixeira"
+                                    >
+                                        <Trash2 size={14} />
+                                        <span className="text-[0.8rem]">Lixeira</span>
+                                    </button>
+
+                                    <button 
+                                        className="sidebar-item !py-2"
+                                        onClick={() => {
+                                            onOpenHelp();
+                                            if (window.innerWidth < 1024) onToggle();
+                                        }}
+                                    >
+                                        <HelpCircle size={14} />
+                                        <span className="text-[0.8rem]">Ajuda</span>
+                                    </button>
+                                    
+                                    <button 
+                                        className="sidebar-item logout-btn !py-2"
+                                        onClick={handleLogout}
+                                    >
+                                        <LogOut size={14} />
+                                        <span className="text-[0.8rem]">Sair da Conta</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+            </aside>
+        </>
     );
 }
