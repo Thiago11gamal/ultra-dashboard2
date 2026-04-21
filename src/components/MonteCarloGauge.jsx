@@ -306,9 +306,6 @@ export default function MonteCarloGauge({
             consistencyScore: Math.max(0, 100 - avgCV)
         };
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
-
-
-    const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
     useEffect(() => {
