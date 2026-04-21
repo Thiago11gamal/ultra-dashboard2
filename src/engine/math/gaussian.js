@@ -133,19 +133,11 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             // RIGOR FIX: Se binX está exatamente na borda (Massa de Dirac), o rebatimento
             // duplicaria a densidade localmente de forma errônea (1.0 + 1.0).
             // Aplicamos um fator de atenuação se o ponto estiver a menos de 0.1% do limite.
-            const epsilon = (maxScore - minScore) * 0.001;
+            let distMin = (x - (2 * minScore - binX)) * invBand;
+            localDensity += Math.exp(-0.5 * distMin * distMin);
 
-            let distMin = 999;
-            if (binX > minScore + epsilon) {
-                distMin = (x - (2 * minScore - binX)) * invBand;
-                localDensity += Math.exp(-0.5 * distMin * distMin);
-            }
-
-            let distMax = 999;
-            if (binX < maxScore - epsilon) {
-                distMax = (x - (2 * maxScore - binX)) * invBand;
-                localDensity += Math.exp(-0.5 * distMax * distMax);
-            }
+            let distMax = (x - (2 * maxScore - binX)) * invBand;
+            localDensity += Math.exp(-0.5 * distMax * distMax);
 
             // RIGOR FIX: Increased Z-cutoff to 4.0 to avoid tail steps in high volatility
             if (Math.abs(dist) < 4.0 || Math.abs(distMin) < 4.0 || Math.abs(distMax) < 4.0) {

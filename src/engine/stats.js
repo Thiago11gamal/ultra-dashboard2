@@ -178,9 +178,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         });
 
         // 🎯 MATH BUG FIX 3: Bloqueio estrito de Divisão por Zero.
-        // Se totalQ (volume somado de questões) for exatamente 1 ou inferior (dados sujos),
-        // o denominador forçaria um NaN ou Infinity fatal, corrompendo o painel.
-        variance = wVarSum / Math.max(1, totalQ - 1);
+        // O correto (estimador de confiabilidade, formulação de Kish simplificada):
+        const numSessions = historyToUse.length;
+        variance = wVarSum / Math.max(1, ((numSessions - 1) / numSessions) * totalQ);
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }

@@ -12,6 +12,7 @@
  * @returns {number} Interpolated percentile value
  */
 export const getPercentile = (arr, p) => {
+    if (!arr || arr.length === 0) return 0;
     const idx = (arr.length - 1) * p;
     const lower = Math.floor(idx);
     const upper = Math.ceil(idx);

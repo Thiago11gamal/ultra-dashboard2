@@ -102,11 +102,9 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const variance = Math.max(0, wrss / Math.max(0.01, weightedDOF));
     const stdError = Math.sqrt(variance);
 
-    // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.
-    // Sxx_centered = \sum w_i (x_i - \bar{x})^2 = Sxx - Sx^2 / Sw
     const Sxx_centered = Sxx - (Sx * Sx) / Sw;
 
-    const slopeStdError = Sxx_centered > 0 ? Math.sqrt(variance / Sxx_centered) : 0;
+    const slopeStdError = Sxx_centered > 1e-8 ? Math.sqrt(variance / Sxx_centered) : 0;
 
     return { slope, intercept, slopeStdError };
 }
@@ -501,6 +499,10 @@ export function monteCarloSimulation(
     // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
     const effectiveAttractorDays = 45 * Math.log(1 + simulationDays / 45);
 
+    // BUG 1 FIX: Adicionar uma salvaguarda para o escopo do domínio 
+    // antes do loop de simulação para evitar colapso de domínio.
+    const safeMaxScore = maxScore <= minScore ? minScore + 1 : maxScore;
+
     // Início do Monte Carlo
     for (let s = 0; s < safeSimulations; s++) {
         // BUGFIX M1: Re-initialize RNG for each universe 's' to ensure independence from 'days' slider
@@ -520,7 +522,7 @@ export function monteCarloSimulation(
         const noisyMu = adjustedTargetMu + epistemicNoise;
 
         // Aplica o clamp apenas APÓS o ruído, preservando a variância nos limites
-        const simMu = Math.max(minScore, Math.min(maxScore, noisyMu));
+        const simMu = Math.max(minScore, Math.min(safeMaxScore, noisyMu));
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;
@@ -530,8 +532,11 @@ export function monteCarloSimulation(
                 // MELHORIA 3: Injeção de "Black Swan". 
                 // Mistura 90% Empírico (Bootstrap) com 10% Gaussiano (Teórico).
                 // 🎯 ALERTA 3.1 FIX: Usar pathRng para não desalinhar o cache do Box-Muller (rng).
-                if (pathRng() < 0.90) {
-                    const idx = Math.min(residuals.length - 1, Math.floor(pathRng() * residuals.length));
+                // BUG 3 FIX: Sempre consumimos dois para manter o estado da semente em paridade.
+                const u = pathRng();
+                const u2 = pathRng();
+                if (u < 0.90) {
+                    const idx = Math.min(residuals.length - 1, Math.floor(u2 * residuals.length));
                     const randomResidual = residuals[idx];
                     shock = randomResidual * bootstrapTargetScale;
                 } else {
@@ -563,9 +568,9 @@ export function monteCarloSimulation(
             // 🎯 BUGFIX M3: Resolving multiple bounces for high-energy shocks.
             // Uses a while loop to ensure the score stays within [minScore, maxScore]
             // regardless of the shock magnitude, preventing "glued to floor/ceiling" artifacts.
-            while (newScore > maxScore || newScore < minScore) {
-                if (newScore > maxScore) {
-                    newScore = maxScore - (newScore - maxScore);
+            while (newScore > safeMaxScore || newScore < minScore) {
+                if (newScore > safeMaxScore) {
+                    newScore = safeMaxScore - (newScore - safeMaxScore);
                 }
                 if (newScore < minScore) {
                     newScore = minScore + (minScore - newScore);
@@ -573,7 +578,7 @@ export function monteCarloSimulation(
             }
 
             // Final safety clamp just in case of multiple reflections or extreme shocks
-            score = Math.max(minScore, Math.min(maxScore, newScore));
+            score = Math.max(minScore, Math.min(safeMaxScore, newScore));
         }
 
         // Score já está no domínio [minScore, maxScore] graças ao step-clamping acima.
