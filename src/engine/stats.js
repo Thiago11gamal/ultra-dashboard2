@@ -45,7 +45,7 @@ export function standardDeviation(arr, maxScore = 100) {
  * A cada simulado: alpha += acertos, beta += erros.
  * Retorna média posterior + IC 95%.
  */
-export function computeBayesianLevel(history, alpha0 = 1, beta0 = 4, maxScore = 100) {
+export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 100) {
     let alpha = alpha0;
     let beta = beta0;
 

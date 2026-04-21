@@ -214,7 +214,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
 
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-50 px-2">
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                    A área sombreada representa a incerteza estatística da projeção ao longo do tempo (P5 ~ P95).
+                    A área sombreada representa o IC 95% da projeção ao longo do tempo (P2.5 ~ P97.5).
                 </p>
                 <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-full border border-white/5">N = {formattedData.length} dias</span>
             </div>

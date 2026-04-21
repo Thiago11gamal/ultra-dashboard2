@@ -7,11 +7,9 @@
 
 /**
  * Compute weighted variance from category statistics
- * Formula: Var = Σ wi² × σi²  (portfolio variance, assuming independence)
- * 
- * We use portfolio variance (w²×σ²) because exam subjects are treated as
- * approximately independent. This produces a realistic Pooled SD of ~5-8%
- * instead of the ~35% that the weighted-average formula (Σ w×σ²) would give.
+ * Formula: Var = (1 - ρ) × [Σ wi² × σi²] + ρ × [Σ (wi × σi)]²
+ * Calcula a variância ponderada interpolando entre a hipótese de independência 
+ * das disciplinas (ρ = 0) e a hipótese de correlação perfeita (ρ = 1).
  * 
  * BUG-M3: This formula is statistically correct under the assumption of
  * independence between subjects. If subjects are strongly correlated

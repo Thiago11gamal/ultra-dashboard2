@@ -457,7 +457,8 @@ export default function MonteCarloGauge({
     }, [simulationData.status, simulationData.data?.probability]);
 
     const probability = simulationData?.data?.probability ?? 0;
-    const projectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
+    const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
+    const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
     const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
 
     const currentMean = (rawCurrentMean === 0 && projectedMean > 0)

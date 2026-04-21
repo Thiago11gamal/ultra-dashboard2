@@ -166,7 +166,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
             median: meanVal, p25: meanVal - 0.674 * rawSdLeft, p75: meanVal + 0.674 * rawSdRight,
             domainMin, domainMax, curveY: calculateCurveY
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean, minScore, maxScore]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, currentMean, minScore, maxScore, unit]);
 
     // POSIÇÕES EXATAS (X e Y acoplados perfeitamente à montanha)
     const targetPos = xp(targetVal);

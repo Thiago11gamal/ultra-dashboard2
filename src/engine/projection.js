@@ -243,7 +243,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         const weight = Math.exp(-0.05 * daysAgo);
 
         const scaleFactor = maxScore / 100;
-        const clampedResidual = Math.max(-35 * scaleFactor, Math.min(35 * scaleFactor, residual));
+        const clampedResidual = Math.max(-35, Math.min(35, residual));
         const dailyVariance = clampedResidual * clampedResidual;
 
         sumSw += dailyVariance * weight;
@@ -500,7 +500,8 @@ export function monteCarloSimulation(
                 // Mistura 90% Empírico (Bootstrap) com 10% Gaussiano (Teórico).
                 // 🎯 ALERTA 3.1 FIX: Usar pathRng para não desalinhar o cache do Box-Muller (rng).
                 if (pathRng() < 0.90) {
-                    const randomResidual = residuals[Math.floor(pathRng() * residuals.length)];
+                    const idx = Math.min(residuals.length - 1, Math.floor(pathRng() * residuals.length));
+                    const randomResidual = residuals[idx];
                     shock = randomResidual * bootstrapTargetScale;
                 } else {
                     shock = randomNormal(rng) * sigma;
