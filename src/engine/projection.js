@@ -16,14 +16,12 @@ export function getSortedHistory(history) {
     return [...history]
         .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
         .sort((a, b) => {
-            // CORREÇÃO: Forçar Meia-Noite UTC absoluto
-            // Evita que o peso de decaimento Exponencial (Lambda) mude
-            // se um aluno resolve a prova às 08h e o outro às 23h.
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
-            const utc_A = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
-            const utc_B = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
-            return utc_A - utc_B;
+            // BUGFIX M2: Use local time methods to avoid UTC-offset grouping errors in regions like Brazil.
+            const local_A = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
+            const local_B = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
+            return local_A - local_B;
         });
 }
 
@@ -169,10 +167,9 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // MELHORIA 2: Ancoragem Dinâmica. Veteranos (história longa) confiam mais na EMA.
-        const emaWeight = Math.min(0.70, 0.10 + (sortedHistory.length * 0.03));
-        const rawWeight = 1 - emaWeight;
-        currentScore = (lastRawScore * rawWeight) + (ema * emaWeight);
+        // BUGFIX M1: EMA already incorporates the lastRawScore in the previous loop.
+        // Re-blending it creates a "double billing" bias that over-penalizes/over-rewards recent outliers.
+        currentScore = ema;
     }
 
     // Relaxed damping: 45 instead of 30, allows more linear projection for longer
@@ -309,10 +306,9 @@ export function monteCarloSimulation(
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // MELHORIA 2: Ancoragem Dinâmica - Veteranos confiam mais no histórico (EMA).
-        const emaWeight = Math.min(0.70, 0.10 + (sortedHistory.length * 0.03));
-        const rawWeight = 1 - emaWeight;
-        baselineScore = (currentScore * rawWeight) + (ema * emaWeight);
+        // BUGFIX M1: EMA already incorporates the currentScore in the previous loop.
+        // Direct assignment prevents "double-billing" the recent outlier.
+        baselineScore = ema;
     }
 
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
@@ -536,13 +532,16 @@ export function monteCarloSimulation(
             let newScore = score + deterministicPull + (shock * binomialVolatility);
 
             // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)
-            // 🎯 MATH BUG FIX: Substituímos a barreira Absorvente (clamp) por uma Refletora.
-            // Se a força estocástica o joga para e.g. 102%, a barreira o "rebate" para 98%.
-            // Isso evita a "Massa de Dirac" (pico artificial) nos limites exatos.
-            if (newScore > maxScore) {
-                newScore = maxScore - (newScore - maxScore);
-            } else if (newScore < minScore) {
-                newScore = minScore + (minScore - newScore);
+            // 🎯 BUGFIX M3: Resolving multiple bounces for high-energy shocks.
+            // Uses a while loop to ensure the score stays within [minScore, maxScore]
+            // regardless of the shock magnitude, preventing "glued to floor/ceiling" artifacts.
+            while (newScore > maxScore || newScore < minScore) {
+                if (newScore > maxScore) {
+                    newScore = maxScore - (newScore - maxScore);
+                }
+                if (newScore < minScore) {
+                    newScore = minScore + (minScore - newScore);
+                }
             }
 
             // Final safety clamp just in case of multiple reflections or extreme shocks
