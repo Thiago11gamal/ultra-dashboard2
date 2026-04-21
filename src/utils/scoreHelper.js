@@ -7,7 +7,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return 0;
 
     if (historyRow.score != null) {
-        let s = Number(historyRow.score);
+        let rawScore = historyRow.score;
+        if (typeof rawScore === 'string') rawScore = rawScore.replace(',', '.');
+        let s = Number(rawScore);
         return Number.isFinite(s) ? Math.max(0, Math.min(maxScore, s)) : 0;
     }
 
@@ -24,7 +26,8 @@ export function getSafeScore(historyRow, maxScore = 100) {
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
     if (total > 0) {
         // BUG 4 FIX: Use maxScore instead of hardcoded 100.
-        return (correct / total) * maxScore;
+        // BUG 1 HARDENING: Strict clamp [0, maxScore] to prevent overflows from typos.
+        return Math.max(0, Math.min(maxScore, (correct / total) * maxScore));
     }
 
     return 0; // Prevenção de NaN

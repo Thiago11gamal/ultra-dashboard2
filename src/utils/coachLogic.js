@@ -481,7 +481,8 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
                 topicMap[name] = { total: 0, correct: 0, lastSeen: new Date(0), completed: false, scores: [] };
             }
             let topicTotal = parseInt(t.total, 10) || 0;
-            let topicCorrect = parseInt(t.correct, 10) || 0;
+            // BUG 2 FIX: Garantir que os acertos nunca excedem o total para não gerar percentagens absurdas (>100%)
+            let topicCorrect = Math.min(topicTotal, parseInt(t.correct, 10) || 0);
 
             if (t.isPercentage && t.score != null) {
                 // FIX: Se for percentual puro mas o usuário deixou 'total' em branco, 
@@ -525,9 +526,12 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
             topicMap[name].completed = !topicMap[name].hasUnfinishedTask;
         }
         
-        if (task.priority === 'high') topicMap[name].manualPriority = 40;
-        else if (task.priority === 'medium') topicMap[name].manualPriority = 20;
-        else topicMap[name].manualPriority = 0;
+        let newTaskPriority = 0;
+        if (task.priority === 'high') newTaskPriority = 40;
+        else if (task.priority === 'medium') newTaskPriority = 20;
+
+        // BUG 3 FIX: Manter sempre o maior nível de urgência encontrado entre múltiplas tarefas
+        topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
     });
 
     const today = new Date();
@@ -844,7 +848,8 @@ export function getBestTask(categories) {
             // Fator 2: Curva de Esquecimento (Dias sem estudar)
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
             if (studiedAt) {
-                const days = (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24);
+                // BUG 4 FIX: Adicionar um piso de 0 para proteger contra "Viagem no Tempo" (desync de relógio)
+                const days = Math.max(0, (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24));
                 score += Math.min(days * 5, 30); // Teto de 30 pontos
             } else {
                 score += 15; // Tarefas novas ganham bônus
