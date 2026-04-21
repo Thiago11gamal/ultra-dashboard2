@@ -13,7 +13,7 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 24px 12px;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
-  overflow-x: hidden;
+  overflow-x: hidden !important;
 }
 
 .sidebar.collapsed {
@@ -115,28 +115,30 @@
 
 /* Hover State */
 .sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--item-color-alpha, rgba(255, 255, 255, 0.05));
   color: #f1f5f9;
   transform: translateX(4px);
+  border-color: var(--item-color-alpha, transparent);
 }
 
 .sidebar-item:hover svg {
   opacity: 1;
-  color: #818cf8;
+  color: var(--item-color, #818cf8);
+  filter: drop-shadow(0 0 8px var(--item-color, #818cf8));
 }
 
 /* Active State */
 .sidebar-item.active {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.12), rgba(129, 140, 248, 0.04));
-  border-color: rgba(129, 140, 248, 0.2);
-  color: #a5b4fc;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, var(--item-color-alpha, rgba(129, 140, 248, 0.12)), rgba(129, 140, 248, 0.02));
+  border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+  color: var(--item-color, #a5b4fc);
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar-item.active svg {
-  color: #818cf8;
+  color: var(--item-color, #818cf8);
   opacity: 1;
-  filter: drop-shadow(0 0 5px rgba(129, 140, 248, 0.5));
+  filter: drop-shadow(0 0 5px var(--item-color, #818cf8));
 }
 
 /* Collapsed Adjustments */
@@ -189,7 +191,7 @@
 
 /* Custom scrollbar for sidebar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -201,6 +203,8 @@
   border-radius: 10px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.1);
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }

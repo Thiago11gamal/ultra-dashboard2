@@ -15,8 +15,6 @@ import {
     Clock,
     LogOut,
     X,
-    ChevronLeft,
-    ChevronRight,
     Plus,
     Trash2,
     Settings
@@ -61,28 +59,29 @@ export default function Sidebar({
         {
             label: 'Navegação',
             items: [
-                { path: '/', label: 'Meu Painel', icon: LayoutDashboard },
-                { path: '/pomodoro', label: 'Cronômetro', icon: Timer },
-                { path: '/sessions', label: 'Sessões', icon: Clock },
-                { path: '/tasks', label: 'Tarefas', icon: CheckSquare },
+                { path: '/', label: 'Meu Painel', icon: LayoutDashboard, color: '#38bdf8' },
+                { path: '/pomodoro', label: 'Cronômetro', icon: Timer, color: '#fb7185' },
+                { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
+                { path: '/tasks', label: 'Tarefas', icon: CheckSquare, color: '#fbbf24' },
             ]
         },
         {
             label: 'Dados & Análise',
             items: [
-                { path: '/stats', label: 'Estatísticas', icon: BarChart3 },
-                { path: '/evolution', label: 'Evolução', icon: TrendingUp },
-                { path: '/heatmap', label: 'Atividade', icon: CalendarDays },
-                { path: '/retention', label: 'Retenção', icon: Brain },
-                { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit },
-                { path: '/history', label: 'Histórico', icon: History },
+                { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
+                { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
+                { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
+                { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
+                { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
+                { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
             ]
         },
         {
             label: 'Inteligência',
             items: [
-                { path: '/coach', label: 'Coach IA', icon: Sparkles },
-                { path: '/notes', label: 'Notas', icon: FileText },
+                { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
+                { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
+            ]
         }
     ];
 
@@ -172,17 +171,7 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        {/* Collapsed view special icons */}
-                        {collapsed && (
-                            <div className="mt-1 space-y-1">
-                                <button className="sidebar-item" onClick={onOpenTrash} title="Lixeira">
-                                    <Trash2 size={18} />
-                                </button>
-                                <button className="sidebar-item logout-btn" onClick={handleLogout} title="Sair da Conta">
-                                    <LogOut size={18} />
-                                </button>
-                            </div>
-                        )}
+                        {/* Collapsed view special icons - REMOVED as requested, now inside Configurações */}
                     </div>
 
                     <div className="sidebar-divider"></div>
@@ -202,12 +191,16 @@ export default function Sidebar({
                                             key={item.path}
                                             to={item.path}
                                             className={`sidebar-item ${isActive ? 'active' : ''}`}
+                                            style={{ 
+                                                '--item-color': item.color,
+                                                '--item-color-alpha': `${item.color}15`
+                                            }}
                                             title={item.label}
                                             onClick={() => {
                                                 if (window.innerWidth < 1024) onToggle();
                                             }}
                                         >
-                                            <Icon />
+                                            <Icon style={{ color: isActive ? item.color : 'inherit' }} />
                                             <span>{item.label}</span>
                                         </Link>
                                     );
@@ -231,33 +224,36 @@ export default function Sidebar({
                                 {!collapsed && <span>Configurações</span>}
                             </button>
 
-                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button 
-                                        className="sidebar-item !py-2"
+                                        className="sidebar-item !py-2 hover:!bg-red-500/10"
                                         onClick={onOpenTrash}
+                                        style={{ '--item-color': '#ef4444' }}
                                         title="Lixeira"
                                     >
-                                        <Trash2 size={14} />
+                                        <Trash2 size={14} style={{ color: '#ef4444' }} />
                                         <span className="text-[0.8rem]">Lixeira</span>
                                     </button>
 
                                     <button 
-                                        className="sidebar-item !py-2"
+                                        className="sidebar-item !py-2 hover:!bg-sky-500/10"
                                         onClick={() => {
                                             onOpenHelp();
                                             if (window.innerWidth < 1024) onToggle();
                                         }}
+                                        style={{ '--item-color': '#0ea5e9' }}
                                     >
-                                        <HelpCircle size={14} />
+                                        <HelpCircle size={14} style={{ color: '#0ea5e9' }} />
                                         <span className="text-[0.8rem]">Ajuda</span>
                                     </button>
                                     
                                     <button 
-                                        className="sidebar-item logout-btn !py-2"
+                                        className="sidebar-item logout-btn !py-2 hover:!bg-rose-500/10"
                                         onClick={handleLogout}
+                                        style={{ '--item-color': '#f43f5e' }}
                                     >
-                                        <LogOut size={14} />
+                                        <LogOut size={14} style={{ color: '#f43f5e' }} />
                                         <span className="text-[0.8rem]">Sair da Conta</span>
                                     </button>
                                 </div>
