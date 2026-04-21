@@ -188,9 +188,10 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 dataByDate[date].global_total = (Number(dataByDate[date].global_total) || 0) + total;
             });
         });
-
-            // 🎯 GLOBAL PERFORMANCE FIX: Substituímos a soma crua diária (que cai para 0 em dias sem estudo)
-            // pela média real das proficiências (bayesianas ou raw) das matérias ativas no dia.
+        dates.forEach(date => {
+            const d = dataByDate[date];
+            let weightedSum = 0;
+            let totalW = 0;
             let sumScores = 0;
             let activeCount = 0;
 
