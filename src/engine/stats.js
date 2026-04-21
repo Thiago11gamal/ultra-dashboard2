@@ -111,10 +111,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     // Margem ancorada na proporção ajustada
     const marginOfError = z * effectiveSd * maxScore;
 
-    // BUG 4 FIX: Centrar o CI em mean (p real) para consistência visual reportada.
-    // O clamping posterior garante que o IC respeite os limites do domínio.
-    let ciLow = mean - marginOfError;
-    let ciHigh = mean + marginOfError;
+    // BUGFIX M1: Center the CI on p_tilde (the Agresti-Coull estimator) instead of raw mean.
+    // This prevents CI lower bounds from becoming overly negative for low-success histories.
+    const centerForCI = p_tilde * maxScore;
+    let ciLow = centerForCI - marginOfError;
+    let ciHigh = centerForCI + marginOfError;
 
     // Proteções de Segurança Padrão
     ciHigh = Math.max(mean, ciHigh);

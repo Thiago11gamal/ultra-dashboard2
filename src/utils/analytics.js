@@ -218,6 +218,17 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
         };
     }
 
+    // BUGFIX M2: Close loophole where checking boxes with zero minutes gave 100% efficiency.
+    if (totalMinutes === 0 && completedTasks > 0) {
+        return {
+            efficiency: 'precisa_melhorar',
+            score: 0,
+            message: 'Ligue o cronômetro para registrar a sua eficiência real.',
+            metrics: { minutesPerTask: 0, completionRate: 0, tasksPerHour: 0, highPriorityRate: 0, totalStudied: 0, totalCompleted: completedTasks },
+            recommendations: [{ type: 'time_tracking', message: 'Lembre-se de usar o Pomodoro para medir seu esforço.', priority: 'high' }]
+        };
+    }
+
     // Tempo médio por tarefa concluída (Métrica Bruta para Display)
     const minutesPerTask = totalMinutes / completedTasks;
 

@@ -126,7 +126,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
         analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(1)),
-        sd: Number((safeSD || projectedSD).toFixed(1)),
+        // BUGFIX M3: Use the empirical projectedSD (effective SD after truncation/squeezing)
+        // instead of the theoretical safeSD. This ensures the displayed value matches the visual chart.
+        sd: Number(projectedSD.toFixed(1)),
         sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
         sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
         ci95Low: Number(displayLow.toFixed(1)),
