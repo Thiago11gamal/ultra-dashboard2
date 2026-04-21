@@ -97,12 +97,12 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         >
             <div className={`absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-70`} />
             <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-3xl`} />
-            
+
             {/* Horizontal Scan Line */}
-            <motion.div 
-                animate={{ top: ['-10%', '110%'] }} 
+            <motion.div
+                animate={{ top: ['-10%', '110%'] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-20 pointer-events-none z-0`} 
+                className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-20 pointer-events-none z-0`}
             />
 
             <div className="relative z-10 p-6 md:p-8">
