@@ -56,13 +56,15 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
         const time = new Date(h.date).getTime();
         const daysAgo = (now - time) / (1000 * 60 * 60 * 24);
         const weight = Math.exp(-lambda * daysAgo);
+        // BUGFIX M2: Volume weighting (WLS Refined). 
+        // Larger exams have higher square-root information value.
+        const volumeWeight = Math.sqrt(Math.max(1, Number(h.total) || 0));
+        const finalWeight = weight * volumeWeight;
 
         return {
             x: -daysAgo,
-            // Bug fix: h.score can be undefined when score is stored in other fields
-            // (percentage, or computed from correct/total). getSafeScore() normalizes all formats.
             y: getSafeScore(h, maxScore),
-            w: weight
+            w: finalWeight
         };
     });
 
@@ -163,12 +165,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     let currentScore = lastRawScore;
 
     if (sortedHistory.length > 2) {
-        let ema = getSafeScore(sortedHistory[0], maxScore);
-        for (let i = 1; i < sortedHistory.length; i++) {
+        // BUGFIX M4: EMA Burn-in Protection. Starts from simple mean of first 3 points 
+        // to avoid anchoring at 0 or a single outlier.
+        const burnIn = Math.min(3, sortedHistory.length);
+        let initialSum = 0;
+        for (let i = 0; i < burnIn; i++) initialSum += getSafeScore(sortedHistory[i], maxScore);
+        
+        let ema = initialSum / burnIn;
+        for (let i = burnIn; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // BUGFIX M1: EMA already incorporates the lastRawScore in the previous loop.
-        // Re-blending it creates a "double billing" bias that over-penalizes/over-rewards recent outliers.
         currentScore = ema;
     }
 
@@ -304,11 +310,16 @@ export function monteCarloSimulation(
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
 
     if (forcedBaseline === undefined && sortedHistory.length > 2) {
-        let ema = getSafeScore(sortedHistory[0], maxScore);
-        for (let i = 1; i < sortedHistory.length; i++) {
+        // BUGFIX M4: EMA Burn-in Protection for baseline.
+        const burnIn = Math.min(3, sortedHistory.length);
+        let initialSum = 0;
+        for (let i = 0; i < burnIn; i++) initialSum += getSafeScore(sortedHistory[i], maxScore);
+
+        let ema = initialSum / burnIn;
+        for (let i = burnIn; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // Incorporate weighted mean into smoothing if available
+        // Incorporate weighted mean (Bayesian Pooling) into smoothing if available
         if (optionsCurrentMean !== undefined) {
             ema = calculateDynamicEMA(optionsCurrentMean, ema, sortedHistory.length + 1);
         }
@@ -513,25 +524,17 @@ export function monteCarloSimulation(
             // 🧲 1. A Tração Determinística (Ornstein-Uhlenbeck)
             const deterministicPull = theta * (simMu - score);
 
-            // 📊 2. Heterocedasticidade (Fator Binomial)
-            // SCALE-BOUNDS FIX: Normalizar pela escala real da prova em vez de 100 fixo.
-            // Mapeia score para [0, 1] relativo ao domínio real da prova.
-            // 🎯 BUG 1.2 FIX: Proteção contra scoreRange = 0 para simulações estritas.
+            // 📊 2. Heterocedasticidade (Difusão de Jacobi)
+            // BUGFIX M1: Retorna 1 no meio (50%) e tende a 0 nas bordas (0% ou 100%).
+            // Esmaga a variância nas fronteiras conforme processo de Jacobi.
             const currentScoreRange = (maxScore - minScore) || maxScore || 1;
             const p = Math.max(0.001, Math.min(0.999, (score - minScore) / currentScoreRange));
-            // BUG 2 FIX: Gentle power-law boundary damping instead of linear compression.
-            // Previously: sqrt(p(1-p))*2 peaked at 1.0 (center) but dropped to 0.44 at
-            // extremes, systematically compressing shocks by ~50% for non-centered scores.
-            // New: 4p(1-p) raised to 0.25 gives smoother bounds dampening, preventing
-            // harsh density piling at exact 0% and 100% barriers under massive volatility.
-            // CORREÇÃO: Processo de Jacobi Exato (raiz quadrada) para amortecimento de fronteira correto.
-            // Evita colisões violentas em 0 e maxScore que causam bimodalidade.
-            const binomialVolatility = Math.pow(Math.max(0.05, 4 * p * (1 - p)), 0.5);
+            const boundaryCompression = 4 * p * (1 - p);
+            const dynamicSigma = sigma * Math.sqrt(Math.max(0.05, boundaryCompression));
 
-            // ⚙️ 3. O Passo Estocástico (Método Numérico de Euler-Maruyama)
-            // BUG 1 FIX: Re-introdução da Heterocedasticidade Binomial.
-            // O choque Gaussiano é modulado pela volatilidade binomial calculada acima.
-            let newScore = score + deterministicPull + (shock * binomialVolatility);
+            // ⚙️ 3. O Passo Estocástico (Euler-Maruyama)
+            const gaussianNoise = randomNormal(rng);
+            let newScore = score + deterministicPull + (gaussianNoise * dynamicSigma);
 
             // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)
             // 🎯 BUGFIX M3: Resolving multiple bounces for high-energy shocks.

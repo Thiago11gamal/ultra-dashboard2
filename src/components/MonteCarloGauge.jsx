@@ -191,7 +191,8 @@ export default function MonteCarloGauge({
     const statsData = useMemo(() => {
         let categoryStats = [];
         let totalWeight = 0;
-        let weightedBayesianSum = 0;
+        let weightedBayesianAlpha = 0;
+        let weightedBayesianBeta = 0;
 
         const scoresByDate = {};
         const weightsByName = {};
@@ -217,14 +218,21 @@ export default function MonteCarloGauge({
 
                 if (stats && weight > 0) {
                     totalWeight += weight;
-                    weightedBayesianSum += baye.mean * weight;
+                    // SIMPSON'S PARADOX PROTECTION: Pool posterior parameters instead of means
+                    weightedBayesianAlpha += baye.alpha * weight;
+                    weightedBayesianBeta += baye.beta * weight;
                     weightsByName[cat.name] = weight;
 
                     history.forEach(h => {
                         const dk = getDateKey(h.date);
                         if (dk) {
                             if (!scoresByDate[dk]) scoresByDate[dk] = {};
-                            scoresByDate[dk][cat.name] = getSafeScore(h, maxScore);
+                            // Store raw metrics for daily pooling (Bugfix M3)
+                            scoresByDate[dk][cat.name] = {
+                                score: getSafeScore(h, maxScore),
+                                correct: Number(h.correct) || 0,
+                                total: Number(h.total) || 0
+                            };
                         }
                     });
 
@@ -255,7 +263,9 @@ export default function MonteCarloGauge({
         );
         const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
 
-        const bayesianMean = weightedBayesianSum / totalWeight;
+        const bayesianMean = (weightedBayesianAlpha + weightedBayesianBeta) > 0
+            ? (weightedBayesianAlpha / (weightedBayesianAlpha + weightedBayesianBeta)) * maxScore
+            : 0;
 
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
@@ -264,20 +274,31 @@ export default function MonteCarloGauge({
         const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
 
         const globalHistory = sortedDates.map(date => {
-            let sum = 0;
+            let pooledCorrect = 0;
+            let pooledTotal = 0;
             let tw = 0;
 
             Object.keys(scoresByDate[date]).forEach(name => {
                 const w = weightsByName[name];
-                const currentScore = scoresByDate[date][name];
+                const metrics = scoresByDate[date][name];
 
-                if (w > 0 && currentScore !== undefined) {
-                    sum += currentScore * w;
+                if (w > 0 && metrics !== undefined) {
+                    // Bayesian Pooling for Daily Global Score
+                    // We treat a 10/10 in subject A and 40/100 in subject B 
+                    // as (10*w + 40*w) / (10*w + 100*w) to handle volume correctly.
+                    const correct = metrics.correct || (metrics.score / maxScore) * 100;
+                    const total = metrics.total || 100;
+
+                    pooledCorrect += correct * w;
+                    pooledTotal += total * w;
                     tw += w;
                 }
             });
 
-            return { date, score: tw > 0 ? sum / tw : -1 };
+            return { 
+                date, 
+                score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 
+            };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
         // M3 FIX: pooledSD is CROSS-SECTIONAL variance (spread between category means), NOT
