@@ -91,10 +91,12 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const wrss = data.reduce((acc, p) =>
         acc + p.w * Math.pow(p.y - (slope * p.x + intercept), 2), 0
     );
-    // BUGFIX M3: Kish effectiveN is used for variance of totals, but linear regression
-    // degrees of freedom depend on the actual sample size (N-2).
-    // Using Kish ESS here was inflating variance by ~5x in long histories.
-    const variance = wrss / Math.max(0.01, sortedHistory.length - 2.0);
+
+    // BUGFIX M3: Unbiased WLS variance estimator for weighted degrees of freedom.
+    // Using Sw - 2*(Sww/Sw) provides the effective degrees of freedom correction
+    // for weighted regression, preventing variance collapse when old points have ~0 weight.
+    const weightedDOF = sumW - 2 * (sumW2 / sumW);
+    const variance = wrss / Math.max(0.01, weightedDOF);
     // Nota: Sw já foi calculado acima como: const Sw = data.reduce((a, p) => a + p.w, 0);
 
     // ⚠️ ALERTA MATEMÁTICO: Sxx DEVE ser a soma dos quadrados CENTRALIZADA na média.

@@ -466,12 +466,19 @@ export const calculatePomodoroStats = (stats) => {
 
         const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + sessionDuration * 60000);
         
-        let minutesToCount = sessionDuration;
-        // Dividir a sessão proporcionalmente se atravessar a meia-noite
-        if (start < startOfDay) {
-            minutesToCount = Math.max(0, Math.round((end.getTime() - startOfDay.getTime()) / 60000));
-            minutesToCount = Math.min(sessionDuration, minutesToCount);
+        const startOfNextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+        // BUGFIX M1: Clamp session duration to the boundaries of "today"
+        const effectiveStart = Math.max(start.getTime(), startOfDay.getTime());
+        const effectiveEnd = Math.min(end.getTime(), startOfNextDay.getTime());
+        
+        let minutesToCount = 0;
+        if (effectiveEnd > effectiveStart) {
+            minutesToCount = Math.round((effectiveEnd - effectiveStart) / 60000);
         }
+        
+        // Safety cap: cannot exceed the session's own duration
+        minutesToCount = Math.min(sessionDuration, minutesToCount);
 
         todayMinutes += minutesToCount;
         // FIX: Adiciona apenas a fração do pomodoro que pertence a "hoje"

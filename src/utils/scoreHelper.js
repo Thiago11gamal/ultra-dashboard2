@@ -16,7 +16,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
 
     // FIX 2.1 (Estrutural): Respeito absoluto à flag isPercentage.
     if (historyRow.isPercentage) {
-        return Number.isFinite(correct) ? Math.max(0, Math.min(maxScore, correct)) : 0;
+        // BUGFIX M2: percentage must be scaled by maxScore (e.g. 80% of 120 = 96)
+        const scoreFromPercentage = (correct / 100) * maxScore;
+        return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(maxScore, scoreFromPercentage)) : 0;
     }
 
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
