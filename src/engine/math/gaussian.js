@@ -92,7 +92,6 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // CORREÇÃO: Adicionado o piso rígido mínimo '0.001' na fórmula de largura de banda.
     // Isso evita que um desvio padrão de 0 cause divisão por zero (Infinity) e oculte o gráfico.
-    const bandwidth = Math.max(0.001, h, binWidth, Math.min(1.0, projectedSD * 0.15));
     const bins = new Float32Array(BIN_COUNT);
 
     for (let i = 0; i < safeSimulations; i++) {

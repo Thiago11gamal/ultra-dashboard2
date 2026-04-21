@@ -307,9 +307,6 @@ export default function MonteCarloGauge({
         };
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
 
-    const statsHash = statsData
-        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}`
-        : 'null';
 
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });

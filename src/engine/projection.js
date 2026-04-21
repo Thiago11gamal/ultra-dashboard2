@@ -488,10 +488,6 @@ export function monteCarloSimulation(
         const convergenceFactor = 1 - Math.exp(-theta * simulationDays);
         const adjustedTargetMu = baselineScore + (targetChange / Math.max(0.01, convergenceFactor));
 
-        const simMu = Math.max(
-            minScore,
-            Math.min(maxScore, adjustedTargetMu + (randomNormal(rng) * Math.min(driftUncertainty * simulationDays, 0.25 * scoreRange)))
-        );
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;
