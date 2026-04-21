@@ -47,6 +47,9 @@ export function AuthProvider({ children }) {
         
         // 🎯 DATA LEAK PROTECTION: Limpa a memória RAM do app imediatamente após o logout
         useAppStore.getState().resetStore();
+        if (useAppStore.temporal) {
+            useAppStore.temporal.getState().clear();
+        }
     }
 
     useEffect(() => {

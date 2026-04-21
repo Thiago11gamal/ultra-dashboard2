@@ -55,7 +55,8 @@ export const getXPProgress = (xpInput) => {
 
     // FIX: Se o progresso for 0 logo após subir de nível, 
     // retornamos 0.5% para melhor feedback visual na UI.
-    const rawPercentage = range > 0 ? ((xp - currentLevelXP) / range) * 100 : 0;
+    const safeXP = Math.max(currentLevelXP, xp);
+    const rawPercentage = range > 0 ? ((safeXP - currentLevelXP) / range) * 100 : 0;
     const percentage = Math.round(Math.max(0, Math.min(100, rawPercentage)));
 
     return {
@@ -78,7 +79,7 @@ export const getTaskXP = (task, completed) => {
     }
     // BUG-12 FIX: Ao desmarcar, usar o XP que foi realmente concedido (se disponível),
     // não o baseXP da prioridade atual. Previne exploit de mudar prioridade após completar.
-    const deduction = task.awardedXP || baseXP;
+    const deduction = task.awardedXP !== undefined ? task.awardedXP : baseXP;
     return -deduction;
 };
 

@@ -120,7 +120,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
         const mergeArrays = (arr1, arr2) => {
             const map = new Map();
-            const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || ''}`;
+            const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || Math.random().toString(36)}`;
             (arr1 || []).forEach(item => map.set(getStableKey(item), item));
             (arr2 || []).forEach(item => map.set(getStableKey(item), item));
             return Array.from(map.values());
@@ -408,12 +408,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                 ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                 : syncState.contests;
 
-            const safeTrash = (syncState.trash || [])
-                .slice(-20) 
-                .map(item => ({
-                    ...item,
-                    data: item.type === 'contest' ? "{truncated}" : item.data 
-                }));
+            const safeTrash = (syncState.trash || []).slice(-20); // Deixe a estrutura intacta para permitir restauração
 
             const stateToSave = cleanUndefined({
                 ...syncState,
@@ -524,12 +519,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                         ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                         : syncState.contests;
 
-                    const safeTrash = (syncState.trash || [])
-                        .slice(-20)
-                        .map(item => ({
-                            ...item,
-                            data: item.type === 'contest' ? "{truncated}" : item.data
-                        }));
+                    const safeTrash = (syncState.trash || []).slice(-20); // Manter arquitetura restaurável
 
                     const stateToSave = cleanUndefined({
                         ...syncState,

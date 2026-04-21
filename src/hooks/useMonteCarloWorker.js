@@ -60,8 +60,9 @@ export function useMonteCarloWorker() {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
-            // Limpa pendentes deste worker específico
+            // Limpa pendentes e timeouts deste worker específico
             for (const [id, pending] of pendingRequestsRef.current) {
+                if (pending.timeoutId) clearTimeout(pending.timeoutId);
                 pendingRequestsRef.current.delete(id);
             }
         };
@@ -104,13 +105,12 @@ export function useMonteCarloWorker() {
 
             pendingRequestsRef.current.set(id, { 
                 workerRef, // Track which worker owner this request
+                timeoutId, // BUG 3 FIX: Guardar referência para limpeza
                 resolve: (data) => {
                     clearTimeout(timeoutId);
-                    if (id === requestIdRef.current) {
-                        resolve(data);
-                    } else {
-                        reject(new Error('AbortError: Superseded by a newer request'));
-                    }
+                    // BUG 5 FIX: Resolver sempre o dado recebido para suportar concorrência nativa.
+                    // O debounce/abort deve ser gerenciado no nível do componente, não no worker.
+                    resolve(data);
                 }, 
                 reject: (err) => {
                     clearTimeout(timeoutId);
