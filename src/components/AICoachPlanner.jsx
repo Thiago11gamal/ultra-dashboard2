@@ -42,11 +42,10 @@ const TaskCard = ({ task, index, isBacklog, stableId }) => {
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`relative p-2.5 mb-2.5 rounded-xl transition-all shadow-sm group/task flex items-start gap-1.5 ${
-                        snapshot.isDragging 
-                            ? 'bg-slate-800 border-2 border-purple-500 shadow-xl shadow-purple-500/20 z-50 scale-105 rotate-1' 
+                    className={`relative p-2.5 mb-2.5 rounded-xl transition-all shadow-sm group/task flex items-start gap-1.5 ${snapshot.isDragging
+                            ? 'bg-slate-800 border-2 border-purple-500 shadow-xl shadow-purple-500/20 z-50 scale-105 rotate-1'
                             : 'bg-slate-900/60 border border-white/5 hover:bg-slate-800 hover:border-white/10 hover:shadow-lg'
-                    }`}
+                        }`}
                 >
                     <GripVertical size={13} className="text-slate-700 mt-1 shrink-0 opacity-0 group-hover/task:opacity-100 transition-opacity" />
                     <div className="flex-1 min-w-0">
@@ -65,7 +64,7 @@ export default function AICoachPlanner() {
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner = activeContest?.coachPlanner || DEFAULT_PLANNER;
     const coachPlan = activeContest?.coachPlan || [];
-    
+
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
     const setData = useAppStore(state => state.setData);
 
@@ -152,7 +151,7 @@ export default function AICoachPlanner() {
                 const assignedTasks = (coachPlan || []).filter(t => assignedIds.has(getSafeId(t)));
                 setData(prev => ({ ...prev, coachPlan: [...newColList, ...assignedTasks] }));
             }
-            
+
             // PASSO 4: Timeout mágico para evitar race condition
             setTimeout(() => {
                 setIsDragging(false);
@@ -177,14 +176,14 @@ export default function AICoachPlanner() {
         const updatedPlanner = { ...coachPlanner };
         if (source.droppableId !== 'backlog') updatedPlanner[source.droppableId] = startList;
         if (destination.droppableId !== 'backlog') updatedPlanner[destination.droppableId] = finishList;
-        
+
         updateCoachPlanner(updatedPlanner);
 
         // BUG-2 FIX: Sincronizar ordem global se a tarefa voltar para o Backlog
         if (destination.droppableId === 'backlog') {
             const assignedIds = new Set();
             Object.entries(updatedPlanner).forEach(([key, dayTasks]) => {
-                if(key !== 'backlog') dayTasks.forEach(t => {
+                if (key !== 'backlog') dayTasks.forEach(t => {
                     const sid = getSafeId(t);
                     if (sid) assignedIds.add(sid);
                 });
@@ -206,7 +205,7 @@ export default function AICoachPlanner() {
     return (
         <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-6">
-                
+
                 {/* BACKLOG COLUMN */}
                 <div className="w-full xl:w-72 shrink-0">
                     <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 flex flex-col h-full min-h-[400px]">
@@ -217,7 +216,7 @@ export default function AICoachPlanner() {
                                 {columns.backlog.length}
                             </span>
                         </div>
-                        
+
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
                                 <div
@@ -229,18 +228,18 @@ export default function AICoachPlanner() {
                                         {columns.backlog.map((task, idx) => {
                                             const safeId = getSafeId(task);
                                             return (
-                                                <TaskCard 
-                                                    key={safeId} 
-                                                    stableId={safeId} 
-                                                    task={task} 
-                                                    index={idx} 
-                                                    isBacklog={true} 
+                                                <TaskCard
+                                                    key={safeId}
+                                                    stableId={safeId}
+                                                    task={task}
+                                                    index={idx}
+                                                    isBacklog={true}
                                                 />
                                             );
                                         })}
                                     </div>
                                     {provided.placeholder}
-                                    
+
                                     {columns.backlog.length === 0 && (
                                         <div className="text-center p-4 border border-dashed border-white/10 rounded-xl mt-2">
                                             <p className="text-[10px] text-slate-500 font-bold uppercase">Todas as metas alocadas</p>
@@ -273,44 +272,43 @@ export default function AICoachPlanner() {
                                 `}</style>
                                 {DAYS.map(day => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[200px] shrink-0">
-                                    {/* Column Header Design */}
-                                    <div className="text-center py-2.5 px-2 mb-4 rounded-xl border border-white/5 bg-slate-950/40 shadow-inner group/header relative overflow-hidden">
-                                        <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 ${colorMap[day.color]?.bg || 'bg-slate-500'}`} />
-                                        <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors ${colorMap[day.color]?.text || 'text-slate-400'} text-slate-400`}>
-                                            {day.label}
-                                        </h4>
+                                        {/* Column Header Design */}
+                                        <div className="text-center py-2.5 px-2 mb-4 rounded-xl border border-white/5 bg-slate-950/40 shadow-inner group/header relative overflow-hidden">
+                                            <div className={`absolute top-0 left-0 w-full h-0.5 opacity-50 ${colorMap[day.color]?.bg || 'bg-slate-500'}`} />
+                                            <h4 className={`text-[10px] font-black tracking-[0.15em] uppercase transition-colors ${colorMap[day.color]?.text || 'text-slate-400'} text-slate-400`}>
+                                                {day.label}
+                                            </h4>
+                                        </div>
+
+                                        <Droppable droppableId={day.id}>
+                                            {(provided, snapshot) => (
+                                                <div
+                                                    ref={provided.innerRef}
+                                                    {...provided.droppableProps}
+                                                    className={`flex-1 min-h-[400px] lg:min-h-[500px] p-2 rounded-2xl border-2 border-dashed transition-all ${snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
+                                                        }`}
+                                                >
+                                                    {columns[day.id].map((task, idx) => {
+                                                        const safeId = getSafeId(task);
+                                                        return (
+                                                            <TaskCard
+                                                                key={safeId}
+                                                                stableId={safeId}
+                                                                task={task}
+                                                                index={idx}
+                                                                isBacklog={false}
+                                                            />
+                                                        );
+                                                    })}
+                                                    {provided.placeholder}
+                                                </div>
+                                            )}
+                                        </Droppable>
                                     </div>
-                                    
-                                    <Droppable droppableId={day.id}>
-                                        {(provided, snapshot) => (
-                                            <div
-                                                ref={provided.innerRef}
-                                                {...provided.droppableProps}
-                                                className={`flex-1 min-h-[400px] lg:min-h-[500px] p-2 rounded-2xl border-2 border-dashed transition-all ${
-                                                    snapshot.isDraggingOver ? 'bg-purple-500/5 border-purple-500/40' : 'bg-black/20 border-white/5 hover:border-white/10'
-                                                }`}
-                                            >
-                                                {columns[day.id].map((task, idx) => {
-                                                    const safeId = getSafeId(task);
-                                                    return (
-                                                        <TaskCard 
-                                                            key={safeId} 
-                                                            stableId={safeId} 
-                                                            task={task} 
-                                                            index={idx} 
-                                                            isBacklog={false} 
-                                                        />
-                                                    );
-                                                })}
-                                                {provided.placeholder}
-                                            </div>
-                                        )}
-                                    </Droppable>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div>
             </div>
         </DragDropContext>

@@ -118,7 +118,7 @@ export default function AICoachView({
 }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
-    
+
     // CORREÇÃO: Capturar o state de forma reativa no início do componente
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner = activeContest?.coachPlanner || {};
@@ -152,7 +152,7 @@ export default function AICoachView({
                         <span className="block text-xl font-black text-white leading-none">{coachPlan ? coachPlan.length : 0}</span>
                         <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Metas Ativas</span>
                     </div>
-                    <button 
+                    <button
                         onClick={handleExport}
                         disabled={isExporting}
                         className="no-print flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white hover:bg-purple-500 text-xs font-bold transition-all shadow-lg shadow-purple-900/20 disabled:opacity-50"
