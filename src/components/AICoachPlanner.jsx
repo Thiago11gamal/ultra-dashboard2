@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+/* eslint-disable no-unused-vars */
+import { motion } from 'framer-motion';
+/* eslint-enable no-unused-vars */
 import { useAppStore } from '../store/useAppStore';
 import { BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { getSafeId } from '../utils/idGenerator';
@@ -105,8 +108,21 @@ export default function AICoachPlanner() {
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
-                                <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 rounded-xl p-1.5 transition-all min-h-[200px] ${snapshot.isDraggingOver ? 'bg-violet-500/5' : ''}`}>
-                                    {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog /> ; })}
+                                <div 
+                                    ref={provided.innerRef} 
+                                    {...provided.droppableProps} 
+                                    className={`flex-1 rounded-xl p-1.5 transition-all min-h-[200px] relative overflow-hidden ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}
+                                >
+                                    {snapshot.isDraggingOver && (
+                                        <motion.div 
+                                            initial={{ opacity: 0 }} 
+                                            animate={{ opacity: 1 }} 
+                                            className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
+                                        />
+                                    )}
+                                    <div className="relative z-10">
+                                        {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog /> ; })}
+                                    </div>
                                     {provided.placeholder}
                                 </div>
                             )}
@@ -136,9 +152,22 @@ export default function AICoachPlanner() {
                                         </div>
                                         <Droppable droppableId={day.id}>
                                             {(provided, snapshot) => (
-                                                <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-200 ${snapshot.isDraggingOver ? `${day.over}` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}>
-                                                    {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} />; })}
-                                                    {provided.placeholder}
+                                                <div 
+                                                    ref={provided.innerRef} 
+                                                    {...provided.droppableProps} 
+                                                    className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
+                                                >
+                                                    {snapshot.isDraggingOver && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, scale: 0.95 }} 
+                                                            animate={{ opacity: 1, scale: 1 }} 
+                                                            className={`absolute inset-0 bg-gradient-to-br ${day.gradient} opacity-[0.07] pointer-events-none`} 
+                                                        />
+                                                    )}
+                                                    <div className="relative z-10 h-full">
+                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} />; })}
+                                                        {provided.placeholder}
+                                                    </div>
                                                 </div>
                                             )}
                                         </Droppable>

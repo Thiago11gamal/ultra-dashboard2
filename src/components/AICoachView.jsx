@@ -103,39 +103,94 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     return (
         <div id="ai-coach-container" className="space-y-0 pb-20 max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-            <div className="relative pt-8 pb-8 mb-2">
-                <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                        <div className="relative">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600/30 to-indigo-600/20 border border-violet-500/25 flex items-center justify-center shadow-xl shadow-violet-900/20">
-                                <Sparkles size={24} className="text-violet-300" />
+            <div className="relative pt-8 pb-10 mb-4">
+                {/* Background Neural Atmosphere */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+                <div className="absolute -top-20 -left-20 w-96 h-96 bg-violet-600/10 blur-[120px] rounded-full pointer-events-none animate-pulse" />
+                <div className="absolute -top-20 -right-20 w-96 h-96 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none animate-pulse" style={{ animationDelay: '1s' }} />
+
+                <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+                    <div className="flex items-center gap-6">
+                        <div className="relative group">
+                            {/* Neural Core Icon Container */}
+                            <div className="w-16 h-16 rounded-2xl bg-[#0d0e1a] border border-violet-500/30 flex items-center justify-center shadow-2xl shadow-violet-900/30 relative overflow-hidden">
+                                <motion.div 
+                                    animate={{ rotate: 360 }} 
+                                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                                    className="absolute inset-0 border-[1.5px] border-dashed border-violet-500/20 rounded-2xl scale-75" 
+                                />
+                                <motion.div 
+                                    animate={{ rotate: -360 }} 
+                                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                                    className="absolute inset-0 border border-indigo-500/10 rounded-full scale-110" 
+                                />
+                                <Sparkles size={28} className="text-violet-300 relative z-10 drop-shadow-[0_0_8px_rgba(167,139,250,0.5)]" />
+                                
+                                {/* Scanning Ray */}
+                                <motion.div 
+                                    animate={{ top: ['-100%', '200%'] }} 
+                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                    className="absolute left-0 right-0 h-1/2 bg-gradient-to-b from-transparent via-violet-500/10 to-transparent pointer-events-none" 
+                                />
                             </div>
-                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-500 border-2 border-[#07080f]">
-                                <motion.div animate={{ scale: [1, 1.8, 1], opacity: [0.8, 0, 0.8] }} transition={{ duration: 2, repeat: Infinity }} className="absolute inset-0 rounded-full bg-violet-500" />
+                            
+                            {/* Sync Status Badge */}
+                            <div className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-md bg-[#07080f] border border-violet-500/40 shadow-lg">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="text-[7px] font-black text-emerald-400 uppercase tracking-tighter">Core Active</span>
+                                </div>
                             </div>
                         </div>
+
                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h1 className="text-2xl font-black tracking-tight text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #60a5fa 100%)' }}>Executive Coach</h1>
-                                <span className="text-[9px] text-violet-400 uppercase tracking-widest font-black bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-md">Beta</span>
+                            <div className="flex items-center gap-3 mb-1.5">
+                                <h1 className="text-3xl font-black tracking-tight text-white leading-none">
+                                    Executive <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Coach</span>
+                                </h1>
+                                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20">
+                                    <div className="w-1 h-1 rounded-full bg-violet-400 animate-ping" />
+                                    <span className="text-[9px] text-violet-300 uppercase tracking-[0.2em] font-black">Neural-V4</span>
+                                </div>
                             </div>
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Inteligência Estratégica de Estudos</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.25em]">Advanced Strategy Hub</p>
+                                <span className="w-1 h-1 rounded-full bg-slate-800" />
+                                <p className="text-[10px] text-indigo-400/70 font-black uppercase tracking-[0.1em]">Synapse Response: 12ms</p>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-right">
-                            <motion.span key={coachPlan.length} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="block text-3xl font-black text-white leading-none">{coachPlan.length}</motion.span>
-                            <span className="text-[9px] text-slate-600 uppercase tracking-widest font-black">Metas Ativas</span>
+
+                    <div className="flex items-center gap-6">
+                        <div className="flex flex-col items-end">
+                            <div className="flex items-baseline gap-2">
+                                <motion.span 
+                                    key={coachPlan.length} 
+                                    initial={{ opacity: 0, scale: 0.8 }} 
+                                    animate={{ opacity: 1, scale: 1 }} 
+                                    className="text-4xl font-black text-white leading-none tracking-tighter"
+                                >
+                                    {coachPlan.length}
+                                </motion.span>
+                                <span className="text-violet-400 font-black text-sm">/ 12</span>
+                            </div>
+                            <span className="text-[9px] text-slate-600 uppercase tracking-[0.2em] font-black mt-1">Carga Operacional</span>
                         </div>
-                        <div className="w-px h-10 bg-white/[0.07]" />
-                        <button onClick={handleExport} disabled={isExporting} className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.08] text-slate-300 hover:bg-white/[0.1] hover:border-white/15 text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50">
-                            {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} className="group-hover:-translate-y-0.5 transition-transform" />}
-                            <span>{isExporting ? 'Exportando…' : 'Salvar Plano'}</span>
+                        
+                        <div className="w-px h-12 bg-white/[0.08]" />
+                        
+                        <button 
+                            onClick={handleExport} 
+                            disabled={isExporting} 
+                            className="group relative flex items-center gap-2.5 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-slate-300 hover:text-white hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 disabled:opacity-50 overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} className="group-hover:-translate-y-0.5 transition-transform duration-300" />}
+                            <span className="text-[10px] font-black uppercase tracking-[0.15em] relative z-10">{isExporting ? 'Processando…' : 'Exportar Plano'}</span>
                         </button>
                     </div>
                 </div>
-                <div className="mt-6 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                <div className="mt-8 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
             </div>
 
             <div className="py-4">
@@ -150,26 +205,45 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             </div>
 
             <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-400 to-indigo-600" />
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Execução Semanal</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white/[0.015] border border-white/[0.05] p-3 rounded-2xl">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3 pl-2">
+                            <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-violet-500 to-indigo-600 shadow-[0_0_12px_rgba(139,92,246,0.3)]" />
+                            <h2 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.25em]">Engine Monitor</h2>
                         </div>
+                        
                         {hasPlan && (
-                            <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl">
-                                {[{ id: 'planner', label: 'Planner', Icon: LayoutGrid }, { id: 'list', label: 'Lista', Icon: List }].map(({ id, label, Icon }) => (
-                                    <button key={id} onClick={() => setViewMode(id)} className={`relative flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${viewMode === id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
-                                        {viewMode === id && <motion.div layoutId="viewTab" className="absolute inset-0 rounded-lg bg-gradient-to-r from-violet-600/80 to-indigo-600/80 border border-violet-500/30" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
-                                        <span className="relative z-10 flex items-center gap-1.5"><Icon size={11} />{label}</span>
+                            <div className="flex items-center p-1 rounded-xl bg-black/40 border border-white/[0.08] shadow-inner">
+                                {[{ id: 'planner', label: 'Neural Planner', Icon: LayoutGrid }, { id: 'list', label: 'Meta Stream', Icon: List }].map(({ id, label, Icon }) => (
+                                    <button 
+                                        key={id} 
+                                        onClick={() => setViewMode(id)} 
+                                        className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${viewMode === id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                    >
+                                        {viewMode === id && (
+                                            <motion.div 
+                                                layoutId="viewTabPremium" 
+                                                className="absolute inset-0 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 shadow-[0_0_20px_rgba(139,92,246,0.2)]" 
+                                                transition={{ type: 'spring', stiffness: 400, damping: 30 }} 
+                                            />
+                                        )}
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            <Icon size={12} className={viewMode === id ? 'text-white' : 'text-slate-500'} />
+                                            {label}
+                                        </span>
                                     </button>
                                 ))}
                             </div>
                         )}
                     </div>
+                    
                     {hasPlan && (
-                        <button onClick={onClearHistory} className="group flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-red-400 uppercase tracking-widest transition-all duration-200 py-1.5 px-3 rounded-lg border border-transparent hover:border-red-500/15 hover:bg-red-500/5">
-                            <Trash2 size={12} className="group-hover:rotate-12 transition-transform" /> Limpar Plano
+                        <button 
+                            onClick={onClearHistory} 
+                            className="group flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black text-slate-500 hover:text-rose-400 uppercase tracking-widest transition-all duration-300 hover:bg-rose-500/5 hover:border-rose-500/20 border border-transparent"
+                        >
+                            <Trash2 size={13} className="group-hover:rotate-12 transition-transform" />
+                            <span>Purge Database</span>
                         </button>
                     )}
                 </div>

@@ -43,12 +43,14 @@ function getUrgencyConfig(score, status = '') {
 function MetricChip({ label, value, index }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="flex flex-col gap-1.5 bg-white/[0.04] border border-white/[0.07] rounded-xl p-3 hover:bg-white/[0.07] transition-colors cursor-default"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.05, duration: 0.4 }}
+            whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 transition-all cursor-default relative overflow-hidden group/chip"
         >
-            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 leading-none truncate">{label}</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors">{label}</span>
             <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate">{value}</span>
         </motion.div>
     );
@@ -91,10 +93,17 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            className={`relative mb-10 w-full rounded-2xl border ${cfg.border} bg-[#08090f] shadow-2xl ${cfg.glow} overflow-hidden`}
+            className={`relative mb-10 w-full rounded-2xl border ${cfg.border} bg-[#08090f] shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
         >
             <div className={`absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-70`} />
             <div className={`absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-3xl`} />
+            
+            {/* Horizontal Scan Line */}
+            <motion.div 
+                animate={{ top: ['-10%', '110%'] }} 
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-20 pointer-events-none z-0`} 
+            />
 
             <div className="relative z-10 p-6 md:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-5 border-b border-white/[0.06]">
