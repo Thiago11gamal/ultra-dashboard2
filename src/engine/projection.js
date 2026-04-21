@@ -125,7 +125,7 @@ export function calculateSlope(history, maxScore = 100) {
 
     const historyBoost =
         Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
-
+    
     const baseLimit = 0.3 * scaleFactor; // Escalonado
 
     // 🎯 REFINAMENTO PSICOMÉTRICO: Estrangulamento da Curva de Aprendizagem (Limites Dinâmicos)
@@ -328,7 +328,7 @@ export function monteCarloSimulation(
     const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
     // BUG 2 FIX: A incerteza do slope em regressão linear cresce com T, não com sqrt(T).
-    // Removemos a divisão por sqrt(simulationDays) para permitir a expansão linear correta.
+    // Removemos a division por sqrt(simulationDays) para permitir a expansão linear correta.
     const driftUncertainty = Math.min(rawDriftUncertainty, 1.5 * scaleFactor);
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
@@ -481,13 +481,15 @@ export function monteCarloSimulation(
         // 🎯 Incerteza Epistêmica sobre o Potencial (Atrator)
         // Cada universo paralelo (simulação) tem um "Teto de Vidro" levemente diferente,
         // gerado pelo erro padrão da regressão linear.
-        // SCALE-BOUNDS: clamp to dynamic domain
-        // BUG 6 FIX: O processo OU é assintótico. Para que a média intersete o alvo no dia T,
-        // o atrator (simMu) deve ser colocado além do alvo projetado.
         const targetChange = drift * effectiveAttractorDays;
         const convergenceFactor = 1 - Math.exp(-theta * simulationDays);
         const adjustedTargetMu = baselineScore + (targetChange / Math.max(0.01, convergenceFactor));
 
+        const epistemicNoise = randomNormal(rng) * driftUncertainty * effectiveAttractorDays;
+        const noisyMu = adjustedTargetMu + epistemicNoise;
+
+        // Aplica o clamp apenas APÓS o ruído, preservando a variância nos limites
+        const simMu = Math.max(minScore, Math.min(maxScore, noisyMu));
 
         for (let d = 0; d < simulationDays; d++) {
             let shock;
