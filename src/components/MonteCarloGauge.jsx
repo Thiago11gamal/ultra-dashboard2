@@ -305,8 +305,6 @@ export default function MonteCarloGauge({
             estimatedRho,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
-    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
-    const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
     useEffect(() => {
         if (!statsData) {
