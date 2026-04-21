@@ -83,8 +83,10 @@ export default function Sidebar({
             items: [
                 { path: '/coach', label: 'Coach IA', icon: Sparkles },
                 { path: '/notes', label: 'Notas', icon: FileText },
-            ]
-        }    const [contestsExpanded, setContestsExpanded] = React.useState(true);
+        }
+    ];
+
+    const [contestsExpanded, setContestsExpanded] = React.useState(true);
     const [settingsExpanded, setSettingsExpanded] = React.useState(false);
 
     return (
