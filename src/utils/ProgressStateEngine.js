@@ -71,7 +71,7 @@ export function analyzeProgressState(scores, config = {}) {
     // para o eixo X de dias reais passados.
     const n = recentScores.length;
     const startTime = recentDates[0] || Date.now();
-    const xDays = recentDates.map(d => Math.max(0, (d - startTime) / 86400000));
+    const xDays = recentDates.map(d => (d - startTime) / 86400000);
     const xMean = xDays.reduce((a, b) => a + b, 0) / n;
 
     let numerator = 0;

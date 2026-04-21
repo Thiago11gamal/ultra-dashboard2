@@ -42,7 +42,11 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             currentMean: Number((currentMean || safeMean).toFixed(1)),
             projectedMean: safeMean,
             projectedSD: 0,
-            kdeData: [{ x: safeMean, y: 1 }], 
+            kdeData: [
+                { x: safeMean - 0.1, y: 0 },
+                { x: safeMean, y: 100 },
+                { x: safeMean + 0.1, y: 0 }
+            ], 
             drift: 0,
             volatility: 0,
             minScore,

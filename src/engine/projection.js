@@ -65,7 +65,7 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
         const finalWeight = weight * volumeWeight;
 
         return {
-            x: -daysAgo,
+            x: -safeDaysAgo,
             y: getSafeScore(h, maxScore),
             w: finalWeight
         };
@@ -206,7 +206,12 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
     // with maxScore > 100 (e.g. concurso 0-120).
-    return Math.max(minScore, Math.min(maxScore, projected));
+    const projectedFinal = Math.max(minScore, Math.min(maxScore, projected));
+
+    return {
+        projected: projectedFinal,
+        marginOfError
+    };
 }
 
 // MATH BUG FIX 1: Standardization of MSSD Volatility.

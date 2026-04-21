@@ -235,7 +235,7 @@ export const analyzeEfficiency = (categories, studyLogs = []) => {
     const minutesPerTask = totalMinutes / completedTasks;
 
     // Taxa de conclusão geral
-    const completionRate = Math.round((completedTasks / totalTasks) * 100);
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     // FIX MATEMÁTICO: Motor de Eficiência
     // O modelo antigo dividia minutos integrais (all-time) por tarefas atuais.
