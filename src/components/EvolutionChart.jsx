@@ -13,8 +13,7 @@ import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
 import { useMonteCarloWorker } from "../hooks/useMonteCarloWorker";
 import { GaussianPlot } from "./charts/GaussianPlot";
-
-const EMPTY_ARRAY = [];
+import { useAppStore } from "../store/useAppStore";
 
 // Sub-components
 import { KpiCard } from "./charts/EvolutionChart/KpiCard";
@@ -27,6 +26,8 @@ import { CriticalTopicsAnalysis } from "./charts/EvolutionChart/CriticalTopicsAn
 import { SubtopicsPerformanceChart } from "./charts/EvolutionChart/SubtopicsPerformanceChart";
 import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvolutionChart";
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
+
+const EMPTY_ARRAY = [];
 
 const ENGINES = [
     {
@@ -63,7 +64,6 @@ const ENGINES = [
     },
 ];
 
-import { useAppStore } from "../store/useAppStore";
 
 export default function EvolutionChart({
     categories = [],
@@ -93,7 +93,11 @@ export default function EvolutionChart({
             const g = new Date(goalDate);
             goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
         } else {
-            goal = new Date(goalDate);
+            if (typeof goalDate === 'object' && goalDate.seconds) {
+                goal = new Date(goalDate.seconds * 1000);
+            } else {
+                goal = new Date(goalDate);
+            }
         }
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;

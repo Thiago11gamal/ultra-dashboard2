@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';

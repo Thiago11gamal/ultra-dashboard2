@@ -11,6 +11,10 @@ export default function Activity() {
     const showToast = useToast();
     const [showResetModal, setShowResetModal] = useState(false);
 
+    if (!data) {
+        return <div className="flex items-center justify-center p-12 text-slate-400">A carregar dados gamificados...</div>;
+    }
+
     const handleResetXP = () => {
         setData(prev => ({ ...prev, user: { ...prev.user, xp: 0, level: 1 } }));
         setShowResetModal(false);
