@@ -299,15 +299,19 @@ export function monteCarloSimulation(
     // Fix: Baseline uses a more responsive EMA or forced value (Bayesian) to avoid anchoring.
     // BUG-04 FIX: Priority to forcedBaseline for stability as requested.
     const currentScore = getSafeScore(sortedHistory[sortedHistory.length - 1], maxScore);
-    let baselineScore = forcedBaseline !== undefined ? forcedBaseline : currentScore;
+    // BUGFIX M2: Priority fallback to optionsCurrentMean (weighted average) to align UI and Chart.
+    const fallbackScore = optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore;
+    let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
 
     if (forcedBaseline === undefined && sortedHistory.length > 2) {
         let ema = getSafeScore(sortedHistory[0], maxScore);
         for (let i = 1; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // BUGFIX M1: EMA already incorporates the currentScore in the previous loop.
-        // Direct assignment prevents "double-billing" the recent outlier.
+        // Incorporate weighted mean into smoothing if available
+        if (optionsCurrentMean !== undefined) {
+            ema = calculateDynamicEMA(optionsCurrentMean, ema, sortedHistory.length + 1);
+        }
         baselineScore = ema;
     }
 
@@ -387,13 +391,7 @@ export function monteCarloSimulation(
     const scoreSum = Math.round(sortedHistory.reduce((s, h) => s + getSafeScore(h, maxScore), 0));
     // BUG-10 FIX: Preservar 2 casas decimais na entropia do seed
     const seed = sortedHistory.length * 997 + scoreSum * 13 + Math.round(lastScore * 100) * 31;
-    const rng = mulberry32(seed);
-
-    // 🎯 ALERTA 3.1 FIX: RNG Isolado para Decisões de Caminho (Path Choice)
-    // Evita consumir o estado do PRNG principal entre chamadas ao Box-Muller (randomNormal),
-    // garantindo que a sequência de choques (volatilidade) seja idêntica com a mesma seed
-    // mesmo se as condições lógicas internas mudarem.
-    const pathRng = mulberry32(seed + 777);
+    // RNG initialization moved inside the loop (Bugfix M1: Seed Desync)
 
     let success = 0;
     // Math fix 2: Welford's online algorithm for numerically stable variance
@@ -474,6 +472,10 @@ export function monteCarloSimulation(
 
     // Início do Monte Carlo
     for (let s = 0; s < safeSimulations; s++) {
+        // BUGFIX M1: Re-initialize RNG for each universe 's' to ensure independence from 'days' slider
+        const rng = mulberry32(seed + s);
+        const pathRng = mulberry32(seed + s + 777);
+        
         let score = baselineScore;
 
         // 🎯 Incerteza Epistêmica sobre o Potencial (Atrator)

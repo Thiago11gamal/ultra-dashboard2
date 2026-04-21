@@ -496,7 +496,10 @@ export const calculatePomodoroStats = (stats) => {
     const streak = calculateStudyStreak(logsObj.studyLogs);
 
     // Calcular progresso da meta (G-01: Used dynamic goal minutes)
-    const progressPercentage = Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100));
+    // BUGFIX M3: Protection against division by zero when goal is 0.
+    const progressPercentage = dailyGoalMinutes > 0 
+        ? Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100))
+        : (todayMinutes > 0 ? 100 : 0);
 
     return {
         todayMinutes,
