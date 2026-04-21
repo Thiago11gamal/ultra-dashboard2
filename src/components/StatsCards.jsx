@@ -187,8 +187,8 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             Nível {progress.level}
                         </span>
                     </div>
-                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${user.xp.toLocaleString('pt-PT')} XP`}>
-                        {user.xp.toLocaleString('pt-PT')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
+                    <div className="text-2xl sm:text-4xl font-black text-white mt-1 mb-3 truncate" title={`${(user.xp || 0).toLocaleString('pt-PT')} XP`}>
+                        {(user.xp || 0).toLocaleString('pt-PT')} <span className="text-lg sm:text-2xl text-slate-300 font-bold">XP</span>
                     </div>
                     <div className="space-y-2 mt-auto pt-2">
                         <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">
@@ -300,7 +300,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         <div className={`w-[120px] bg-slate-900/50 border rounded-lg py-1.5 text-sm font-bold transition-all group-hover/rightside:bg-slate-800 group-hover/rightside:text-white group-hover/rightside:border-white/20 text-center leading-relaxed ${!user.goalDate ? 'border-red-500/50 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'border-white/10 text-slate-200'}`}>
                             {user.goalDate ? (() => {
                                 try {
-                                    const raw = String(user.goalDate).trim();
+                                    let rawDate = user.goalDate;
+                                    if (typeof rawDate === 'object' && rawDate.seconds) {
+                                        rawDate = new Date(rawDate.seconds * 1000).toISOString().split('T')[0];
+                                    }
+                                    const raw = String(rawDate).trim();
                                     const dateParams = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? `${raw}T12:00:00` : raw;
                                     let g = new Date(dateParams);
                                     if (isNaN(g.getTime())) g = new Date(raw);

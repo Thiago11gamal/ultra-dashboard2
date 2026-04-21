@@ -20,7 +20,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             catCounts[catId] = (catCounts[catId] || 0) + (Number(log.minutes) || 0);
         });
         const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
-        const topCategory = categories.find(c => c.id === topCatId)?.name || '-';
+        const topCategory = categories.find(c => String(c.id) === String(topCatId))?.name || '-';
 
         // 2. Group by Date then by Category
         // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD

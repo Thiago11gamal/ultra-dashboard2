@@ -55,7 +55,7 @@ export const useAppStore = create(
         temporal(
             immer((set, get) => ({
                 appState: {
-                    contests: { 'default': INITIAL_DATA },
+                    contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
                     activeId: 'default',
                     trash: [],
                     version: 0,
@@ -71,7 +71,7 @@ export const useAppStore = create(
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;
                         state.appState = {
-                            contests: { 'default': INITIAL_DATA },
+                            contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
                             activeId: 'default',
                             trash: [],
                             version: 0,
