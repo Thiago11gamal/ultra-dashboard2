@@ -77,9 +77,10 @@ export function EvolutionLineChart({
             yPositions.forEach(p => p.yPos += shift);
         }
 
-        // FIX FINAL: Prevenir vazamento no teto (Y > 96%) empurrando o stack inteiro para baixo
-        if (yPositions.length > 0 && yPositions[0].yPos > 96) {
-            const topShift = yPositions[0].yPos - 96;
+        // 🎯 SCALE BUG FIX: O limite de respiro superior deve ser proporcional à pontuação máxima.
+        const topLimit = maxScore * 0.96; 
+        if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
+            const topShift = yPositions[0].yPos - topLimit;
             yPositions.forEach(p => p.yPos -= topShift);
         }
 

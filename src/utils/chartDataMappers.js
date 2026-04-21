@@ -65,19 +65,23 @@ export const mapRetentionData = (categories = []) => {
  * @returns {Array} [{ data, horasEstudadas }]
  */
 export const mapFocusEvolutionData = (studyLogs = []) => {
-    // MATH FIX: Preenchimento de Lacunas Temporais (Time-series Gap Filling).
-    // Gráficos que ignoram dias com "0 horas estudadas" criam uma compressão visual irreal,
-    // mentindo sobre a consistência do aluno e unindo dias distantes como se fossem seguidos.
+    // 🎯 STABILITY FIX: Deterministic date keys instead of toLocaleDateString.
+    // toLocaleDateString depende da localidade do browser e pode falhar o matching.
+    const getDayMonthKey = (dateObj) => {
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        return `${day}/${month}`;
+    };
+
     const last14Days = [];
     const today = new Date();
-    today.setHours(12, 0, 0, 0); // Ancorar no meio-dia para imunidade a fuso horário
+    today.setHours(12, 0, 0, 0); 
     
     for (let i = 13; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         last14Days.push({
-            data: dateStr,
+            data: getDayMonthKey(d),
             horasEstudadas: 0
         });
     }
@@ -87,7 +91,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     logsArray.forEach(log => {
         const parsed = normalizeDate(log.date);
         const logDate = parsed || new Date(log.date);
-        const dateStr = logDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const dateStr = getDayMonthKey(logDate);
         
         const dayMatch = last14Days.find(d => d.data === dateStr);
         if (dayMatch) {

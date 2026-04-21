@@ -43,8 +43,17 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     // Bayesian accumulators — Prior Beta(1,1) Neutral Laplace
     let bayAlpha = 1;
     let bayBeta  = 1;
+    const DECAY_FACTOR = 0.985; // 🎯 MATH SYNC: Mesmo fator do engine (stats.js) para verdade única.
 
-    for (const date of sortedDates) {
+    for (let i = 0; i < sortedDates.length; i++) {
+        const date = sortedDates[i];
+        
+        // 🎯 BAYESIAN DECAY: Aplica o decaimento para que o gráfico reflita 
+        // a melhora recente do aluno, permitindo 'esquecer' o passado.
+        if (i > 0) {
+            bayAlpha *= DECAY_FACTOR;
+            bayBeta *= DECAY_FACTOR;
+        }
         while (histIdx < aggregatedHistory.length) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
@@ -180,26 +189,27 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             });
         });
 
-        dates.forEach(date => {
-            const d = dataByDate[date];
-            
-            // RIGOR-09 FIX: Calcular a média global ponderada real
-            // Se houver pesos definidos e válidos, as matérias sem peso (0) 
-            // não devem influenciar o "Global" do gráfico de evolução.
-            let weightedSum = 0;
-            let totalW = 0;
+            // 🎯 GLOBAL PERFORMANCE FIX: Substituímos a soma crua diária (que cai para 0 em dias sem estudo)
+            // pela média real das proficiências (bayesianas ou raw) das matérias ativas no dia.
+            let sumScores = 0;
+            let activeCount = 0;
 
             activeCategories.forEach(cat => {
                 const score = d[`bay_${cat.id}`] ?? d[`raw_${cat.id}`];
-                const w = weights[cat.id] ?? weights[cat.name] ?? 0; // Fallback 0 se sem pesos
-
-                if (score != null && w > 0) {
-                    weightedSum += score * w;
-                    totalW += w;
+                const w = weights[cat.id] ?? weights[cat.name] ?? 0;
+                
+                if (score != null) {
+                    if (w > 0) {
+                        weightedSum += score * w;
+                        totalW += w;
+                    }
+                    // Fallback para média simples (Global se sem pesos habilitados)
+                    sumScores += score;
+                    activeCount++;
                 }
             });
 
-            d.global_pct = totalW > 0 ? (weightedSum / totalW) : ((d.global_total > 0) ? (d.global_correct / d.global_total) * maxScore : 0);
+            d.global_pct = totalW > 0 ? (weightedSum / totalW) : (activeCount > 0 ? sumScores / activeCount : 0);
         });
 
         return dates.map(d => dataByDate[d]);
