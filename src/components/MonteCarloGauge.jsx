@@ -305,6 +305,14 @@ export default function MonteCarloGauge({
             estimatedRho,
             consistencyScore: Math.max(0, 100 - avgCV)
         };
+    }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
+
+    const statsHash = statsData
+        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}-${statsData.globalHistory.map(h => h.date).join('')}`
+        : 'null';
+
+    const { runAnalysis } = useMonteCarloWorker();
+    const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
     useEffect(() => {
         if (!statsData) {
@@ -807,10 +815,7 @@ export default function MonteCarloGauge({
                                 min="0"
                                 max={timelineDates.length - 1}
                                 value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex}
-                                onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
-                                }}
+                                onChange={(e) => setTimeIndex(parseInt(e.target.value, 10))}
                                 className="w-full appearance-none bg-transparent z-10 
                                 [&::-webkit-slider-runnable-track]:h-2 
                                 [&::-webkit-slider-runnable-track]:bg-slate-800 
