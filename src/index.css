@@ -153,20 +153,13 @@ body::before {
   background-clip: text;
 }
 
-/* Custom scrollbar - Discreto mas visível para orientação */
 .custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  display: block;
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(139, 92, 246, 0.3);
-  border-radius: 20px;
+  display: none;
 }
 
 /* Animations */
