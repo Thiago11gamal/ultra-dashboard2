@@ -34,7 +34,8 @@
 }
 
 .light-mode .glass {
-  background: rgba(255, 255, 255, 0.85) !important; /* Aumentada a opacidade para legibilidade */
+  background: rgba(255, 255, 255, 0.85) !important;
+  /* Aumentada a opacidade para legibilidade */
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -52,7 +53,8 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #0f172a; /* Fallback crucial para evitar tela branca */
+  background-color: #0f172a;
+  /* Fallback crucial para evitar tela branca */
   background-image: var(--bg-main);
   background-attachment: fixed;
   min-height: 100vh;
@@ -78,16 +80,22 @@ body::before {
   animation: meshMove 30s ease-in-out infinite alternate;
   opacity: var(--mesh-opacity, 1);
   /* PERFORM-01: GPU acceleration for fixed mesh */
-  will-change: transform; 
+  will-change: transform;
 }
 
 .light-mode body::before {
-  --mesh-opacity: 0.15; /* Reduzido de 0.3 para não poluir o fundo claro */
+  --mesh-opacity: 0.15;
+  /* Reduzido de 0.3 para não poluir o fundo claro */
 }
 
 @keyframes meshMove {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  100% { transform: translate3d(-20px, -20px, 0) scale(1.05); }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate3d(-20px, -20px, 0) scale(1.05);
+  }
 }
 
 /* Glassmorphism utility */
@@ -128,17 +136,28 @@ body::before {
 .elastic-hover {
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 .elastic-hover:hover {
   transform: scale(1.05) translateY(-2px);
 }
+
 .elastic-hover:active {
   transform: scale(0.95);
 }
 
 /* Page transitions */
 @keyframes pageEntrance {
-  0% { opacity: 0; transform: scale(0.98); filter: blur(4px); }
-  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+    filter: blur(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
 }
 
 .animate-page-entrance {
@@ -164,13 +183,25 @@ body::before {
 
 /* Animations */
 @keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @keyframes pulse-slow {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .animate-pulse-slow {
@@ -194,8 +225,13 @@ body::before {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {
@@ -203,8 +239,13 @@ body::before {
 }
 
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin-slow {
@@ -337,23 +378,27 @@ svg *,
 }
 
 /* Forçamos os painéis com blur pesado a ter um fundo opaco suave para garantir consistência no PDF exportado */
-.pdf-render-mode .glass, 
+.pdf-render-mode .glass,
 .pdf-render-mode .glass-panel {
-  background: var(--gradient-1) !important; /* Dinâmico para respeitar Light/Dark mode no PDF */
+  background: var(--gradient-1) !important;
+  /* Dinâmico para respeitar Light/Dark mode no PDF */
 }
 
 @media print {
   body {
     background: #0f172a !important;
   }
+
   .no-print {
     display: none !important;
   }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 }
+
 /* UI-POLISH: Header protection for narrow mobile */
 @media (max-width: 480px) {
   .md\:hidden.mb-3 {
@@ -387,21 +432,28 @@ svg *,
 }
 
 /* Prevenção Global de Corte de Fonte (Anti-Clipping) */
-input, textarea, select, button, .neon-text {
+input,
+textarea,
+select,
+button,
+.neon-text {
   /* O padding inferior mínimo garante que descenções (como y, g, p) não fiquem para fora da caixa de renderização */
-  padding-bottom: max(0.1em, 2px); 
+  padding-bottom: max(0.1em, 2px);
   /* Evita que navegadores tentem espremer a fonte ignorando a caixa limite */
-  line-height: 1.3; 
+  line-height: 1.3;
 }
 
 /* Ajuste na barra de rolagem customizada para fluidez */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px; /* Ligeiramente mais largo para facilitar o clique */
+  width: 5px;
+  /* Ligeiramente mais largo para facilitar o clique */
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
   border-radius: 20px;
-  border: 1px solid var(--glass-border); /* Efeito de margem interna no scroll */
+  border: 1px solid var(--glass-border);
+  /* Efeito de margem interna no scroll */
 }
 
 /* CSS View Transitions - Global Defaults */

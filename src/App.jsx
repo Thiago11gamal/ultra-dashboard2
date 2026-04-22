@@ -51,7 +51,7 @@ function MainLayout() {
   const location = useLocation();
 
   const activeContestId = useAppStore(state => state.appState.activeId);
-  
+
   // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
   // Retorna apenas IDs e nomes (strings), assim o App.jsx não re-renderiza infinitamente
   const contestsMetaList = useAppStore(useShallow(state => {
@@ -69,7 +69,7 @@ function MainLayout() {
     version: state.appState.version,
     lastUpdated: state.appState.lastUpdated
   })));
-  
+
 
   const setAppState = useAppStore(state => state.setAppState);
   const switchContest = useAppStore(state => state.switchContest);
@@ -97,9 +97,9 @@ function MainLayout() {
   // Auto-save pipeline - now uses the full state from the store's internal reference
   // to avoid re-rendering MainLayout on every minor update (like Pomodoro ticks)
   const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
-    currentUser, 
-    useAppStore.getState().appState, 
-    setAppState, 
+    currentUser,
+    useAppStore.getState().appState,
+    setAppState,
     showToast,
     syncTrigger // Pass trigger to notify hook of changes (version/lastUpdated)
   );
@@ -114,7 +114,7 @@ function MainLayout() {
       delete window.__ULTRA_RESCUE_SUCCESS;
     }
     // Clean-up para evitar vazamentos se o componente for desmontado rapidamente
-    return () => { 
+    return () => {
       if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
         delete window.__ULTRA_RESCUE_SUCCESS;
       }
@@ -135,7 +135,7 @@ function MainLayout() {
     const reader = new FileReader();
     reader.onload = (e) => {
       showToast('A processar backup... ⏳', 'info');
-      
+
       // Joga o processamento pesado para o final da fila de eventos, 
       // deixando a animação do Toast ocorrer fluida.
       setTimeout(() => {
@@ -150,7 +150,7 @@ function MainLayout() {
         }
       }, 50); // Delay mínimo de 50ms resolve o congelamento da UI
     };
-    
+
     reader.readAsText(file);
   }, [setAppState, showToast]);
 
@@ -190,7 +190,7 @@ function MainLayout() {
           </Suspense>
         </div>
       ) : (
-          <div className="grid grid-cols-[auto_1fr] w-full min-h-screen overflow-x-hidden">
+        <div className="grid grid-cols-[auto_1fr] w-full min-h-screen overflow-x-hidden">
           <Sidebar
             onOpenHelp={() => setShowHelpGuide(true)}
             isOpen={isSidebarOpen}

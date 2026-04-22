@@ -159,12 +159,12 @@ export default function Header({
                 onCreateContest={onCreateContest}
                 onDeleteContest={onDeleteContest}
             />
-            
+
 
             {/* ─── DESKTOP HEADER ─── */}
             <header className="hidden lg:flex items-center justify-between py-2 px-8 relative w-full mb-4 min-h-[60px]">
                 {/* Desktop Toggle Button */}
-                <button 
+                <button
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                     className="p-2 mr-4 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
                     title={sidebarCollapsed ? "Expandir Menu" : "Recolher Menu"}
@@ -176,23 +176,20 @@ export default function Header({
                     <DateDisplay />
                     <div className="flex items-center gap-3">
                         {cloudStatus.status !== 'idle' && (
-                            <div className={`flex items-center min-w-[135px] justify-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${
-                                cloudStatus.status === 'connected' 
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                            <div className={`flex items-center min-w-[135px] justify-center gap-2 px-3.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-500 backdrop-blur-md ${cloudStatus.status === 'connected'
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
                                     : cloudStatus.status === 'connecting'
                                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                                         : 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
-                            }`} title={cloudStatus.error || ''}>
+                                }`} title={cloudStatus.error || ''}>
                                 <div className="relative flex items-center justify-center h-full">
-                                    <div className={`absolute w-2.5 h-2.5 rounded-full opacity-40 animate-ping ${
-                                        cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
-                                    }`} />
-                                    <div className={`w-1.5 h-1.5 rounded-full z-10 ${
-                                        cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
-                                    } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
+                                    <div className={`absolute w-2.5 h-2.5 rounded-full opacity-40 animate-ping ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                        }`} />
+                                    <div className={`w-1.5 h-1.5 rounded-full z-10 ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                        } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
                                 </div>
                                 <span className="opacity-90 mt-[1px]">
-                                    {cloudStatus.status === 'connected' 
+                                    {cloudStatus.status === 'connected'
                                         ? (cloudStatus.syncing ? 'Sincronizando' : 'Nuvem Ativa')
                                         : cloudStatus.status === 'connecting'
                                             ? 'Conectando...'

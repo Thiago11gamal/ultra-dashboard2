@@ -26,11 +26,11 @@ import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
 
-export default function Sidebar({ 
-    onOpenHelp, 
-    isOpen, 
-    onToggle, 
-    collapsed, 
+export default function Sidebar({
+    onOpenHelp,
+    isOpen,
+    onToggle,
+    collapsed,
     setCollapsed,
     contests,
     activeContestId,
@@ -92,7 +92,7 @@ export default function Sidebar({
         <>
             {/* Mobile Overlay */}
             {isOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden"
                     onClick={onToggle}
                 />
@@ -105,11 +105,11 @@ export default function Sidebar({
                         <img src={logo} alt="Ultra Dashboard" />
                         {!collapsed && <span>Método Arraia</span>}
                     </div>
-                    
+
                     {/* Desktop Collapse Toggle - Hidden for now as it's in the Header */}
-                    
+
                     {/* Mobile Close Button */}
-                    <button 
+                    <button
                         className="lg:hidden p-2 text-slate-500 hover:text-white"
                         onClick={onToggle}
                     >
@@ -121,10 +121,10 @@ export default function Sidebar({
 
                 {/* Nav Sections */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
-                    
+
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
                     <div className="mb-4">
-                        <button 
+                        <button
                             onClick={() => setContestsExpanded(!contestsExpanded)}
                             className="sidebar-item group justify-between"
                             title="Meus Concursos"
@@ -141,7 +141,7 @@ export default function Sidebar({
                                     const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
                                     const isActive = id === activeContestId;
                                     return (
-                                        <div 
+                                        <div
                                             key={id}
                                             className={`sidebar-item group !py-2 ${isActive ? 'active' : ''}`}
                                             title={name}
@@ -150,7 +150,7 @@ export default function Sidebar({
                                             <LayoutDashboard size={14} />
                                             <span className="flex-1 truncate text-[0.8rem]">{name}</span>
                                             {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
-                                            <button 
+                                            <button
                                                 onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }}
                                                 className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
                                             >
@@ -159,8 +159,8 @@ export default function Sidebar({
                                         </div>
                                     );
                                 })}
-                                
-                                <button 
+
+                                <button
                                     className="sidebar-item !py-2 text-green-500/80 hover:text-green-400"
                                     onClick={onCreateContest}
                                     title="Criar Novo Painel"
@@ -182,8 +182,8 @@ export default function Sidebar({
                             <nav className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    const isActive = item.path === '/' 
-                                        ? location.pathname === '/' 
+                                    const isActive = item.path === '/'
+                                        ? location.pathname === '/'
                                         : location.pathname.startsWith(item.path);
 
                                     return (
@@ -191,7 +191,7 @@ export default function Sidebar({
                                             key={item.path}
                                             to={item.path}
                                             className={`sidebar-item ${isActive ? 'active' : ''}`}
-                                            style={{ 
+                                            style={{
                                                 '--item-color': item.color,
                                                 '--item-color-alpha': `${item.color}15`
                                             }}
@@ -215,7 +215,7 @@ export default function Sidebar({
                     <nav className="space-y-1">
                         {/* CONFIGURAÇÕES COLLAPSIBLE SECTION */}
                         <div className="mb-2">
-                            <button 
+                            <button
                                 onClick={() => setSettingsExpanded(!settingsExpanded)}
                                 className="sidebar-item group"
                                 title="Configurações"
@@ -226,7 +226,7 @@ export default function Sidebar({
 
                             <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
-                                    <button 
+                                    <button
                                         className="sidebar-item !py-2 hover:!bg-red-500/10"
                                         onClick={onOpenTrash}
                                         style={{ '--item-color': '#ef4444' }}
@@ -236,7 +236,7 @@ export default function Sidebar({
                                         <span className="text-[0.8rem]">Lixeira</span>
                                     </button>
 
-                                    <button 
+                                    <button
                                         className="sidebar-item !py-2 hover:!bg-sky-500/10"
                                         onClick={() => {
                                             onOpenHelp();
@@ -247,8 +247,8 @@ export default function Sidebar({
                                         <HelpCircle size={14} style={{ color: '#0ea5e9' }} />
                                         <span className="text-[0.8rem]">Ajuda</span>
                                     </button>
-                                    
-                                    <button 
+
+                                    <button
                                         className="sidebar-item logout-btn !py-2 hover:!bg-rose-500/10"
                                         onClick={handleLogout}
                                         style={{ '--item-color': '#f43f5e' }}
