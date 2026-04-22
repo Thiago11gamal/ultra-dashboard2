@@ -36,9 +36,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const [mode, setMode] = useState(() => getSavedState('mode', 'work'));
-    const defaultTime = useMemo(() => 
+    const defaultTime = useMemo(() =>
         mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60,
-    [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+        [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const sessions = useAppStore(state => state.appState.pomodoro.sessions);
@@ -161,7 +161,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const containerRef = useRef(null);
 
     // O uiPosition foi movido pro início pra evitar order de hook
-    
+
     // B-10 & B-11 FIX: Viewport-aware safety reset
     // Resets widget position if it gets "lost" off-screen (e.g. window resize)
     useEffect(() => {
@@ -169,7 +169,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (uiPosition.x !== 0 || uiPosition.y !== 0) {
                 // If it's significantly off-screen, bring it back to center (0,0 relative)
                 const threshold = 100;
-                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold || 
+                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
                     Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
                     setUiPosition({ x: 0, y: 0 });
                     localStorage.removeItem('pomodoroPosition');
@@ -277,7 +277,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             alarmAudioRef.current.currentTime = 0;
                             const playPromise = alarmAudioRef.current.play();
                             if (playPromise !== undefined) {
-                                playPromise.catch(() => {});
+                                playPromise.catch(() => { });
                             }
                         }
                     } catch {
@@ -297,7 +297,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             alarmAudioRef.current.currentTime = 0;
                             const playPromise = alarmAudioRef.current.play();
                             if (playPromise !== undefined) {
-                                playPromise.catch(() => {});
+                                playPromise.catch(() => { });
                             }
                         }
                     } catch {
@@ -408,7 +408,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 timeLeftRef.current = Math.max(0, timeLeftRef.current - (deltaMs / 1000) * speedRef.current);
                 const current = timeLeftRef.current;
-                
+
                 const fraction = current / currentTotalTime;
                 const displaySecond = Math.ceil(current);
 
@@ -424,7 +424,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
-                    setTimeLeft(current); 
+                    setTimeLeft(current);
                 }
 
                 if (current > 0) {
@@ -482,7 +482,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
         const last = new Date(cat.lastStudiedAt).getTime();
-        
+
         if (isNaN(last)) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
         const now = new Date().getTime();
@@ -540,7 +540,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             >
                 {/* Drag Handle - Apenas visível quando desbloqueado */}
                 {!isLayoutLocked && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 px-6 py-2 rounded-2xl bg-indigo-600/90 text-white shadow-2xl backdrop-blur-md border border-indigo-400/50"
@@ -662,12 +662,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             let label = 'MÉDIA';
                             let levelColor = "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]";
                             let Icon = Activity;
-                            if (priority === 'high') { 
-                                label = 'ALTA'; 
+                            if (priority === 'high') {
+                                label = 'ALTA';
                                 levelColor = "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]";
                                 Icon = AlertCircle;
-                            } else if (priority === 'low') { 
-                                label = 'BAIXA'; 
+                            } else if (priority === 'low') {
+                                label = 'BAIXA';
                                 levelColor = "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]";
                             }
                             return (
@@ -721,8 +721,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor={mode === 'work' ? '#f8fafc' : '#34d399'} />
-                                        <stop offset="100%" stopColor={mode === 'work' ? '#94a3b8' : '#059669'} />
+                                        <stop offset="0%" stopColor="#2e7d32" />
+                                        <stop offset="100%" stopColor="#2e7d32" />
                                     </linearGradient>
                                 </defs>
                                 <motion.circle
@@ -883,7 +883,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     <div className="flex-1 h-full relative group/cell">
                                         <div className="absolute inset-0 bg-white/[0.03] rounded-sm overflow-hidden border border-white/[0.05]">
                                             <motion.div
-                                                className={`h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600 shadow-[0_0_20px_rgba(217,119,6,0.5)]`}
+                                                className={`h-full bg-[#4a6075] opacity-90`}
                                                 initial={{ width: 0 }}
                                                 animate={{ width: `${workProgress}%` }}
                                                 transition={{ duration: 0.5 }}
