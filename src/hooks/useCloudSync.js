@@ -171,15 +171,44 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             }
         });
 
-        // 2. SINCRONIZAÇÃO DE DELEÇÃO (Bug Fix solicitado)
-        // Se um painel existe localmente mas NÃO está na nuvem, e a nuvem é MAIS RECENTE
-        // que a última alteração desse painel local, significa que ele foi deletado em outro dispositivo.
-        Object.keys(localContests).forEach(id => {
+        // 2. SINCRONIZAÇÃO DE DELEÇÃO (Segurança Aumentada)
+        // Se um painel existe localmente mas NÃO está na nuvem, e a nuvem é MAIS RECENTE,
+        // movemos para a lixeira em vez de deletar permanentemente.
+        const localIds = Object.keys(localContests);
+        const cloudIds = Object.keys(cloudContests);
+        
+        // BUG-PREVENTION: Se a nuvem estiver "suspeitamente vazia" (ex: falha de sync parcial),
+        // evitamos deletar múltiplos painéis locais de uma vez.
+        const massDeletionRisk = localIds.length > 2 && cloudIds.length < (localIds.length / 2);
+
+        localIds.forEach(id => {
             if (!cloudContests[id]) {
                 const localTime = new Date(localContests[id]?.lastUpdated || 0).getTime();
-                // Margem de 5s para evitar race conditions de clock
+                
+                // Margem de 5s para evitar race conditions
                 if (cloudFullUpdate > localTime + 5000) {
-                    console.warn(`[Sync] Deletando painel "${id}" localmente (removido na nuvem).`);
+                    if (massDeletionRisk) {
+                        console.warn(`[Sync] Bloqueada deleção em massa do painel "${id}". Nuvem parece incompleta.`);
+                        return;
+                    }
+
+                    console.warn(`[Sync] Movendo painel "${id}" para lixeira (removido na nuvem).`);
+                    
+                    // Move para o trash se ainda não estiver lá
+                    if (!mergedContests.trash) mergedContests.trash = [];
+                    const alreadyInTrash = mergedContests.trash.some(t => t.contestId === id);
+                    
+                    if (!alreadyInTrash) {
+                        mergedContests.trash.push({
+                            id: `sync-trash-${id}-${Date.now()}`,
+                            type: 'contest',
+                            contestId: id,
+                            data: localContests[id],
+                            deletedAt: new Date().toISOString(),
+                            reason: 'cloud-sync'
+                        });
+                    }
+                    
                     delete mergedContests[id];
                 }
             }
