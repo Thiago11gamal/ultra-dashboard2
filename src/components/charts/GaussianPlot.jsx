@@ -197,7 +197,7 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
         if (isCurrentVisible) items.push({ id: 'today', x: currentPos });
 
         const sorted = [...items].sort((a, b) => a.x - b.x);
-        const THRESHOLD = 16; // Distância mínima (em %) para não empilhar
+        const THRESHOLD = 20; // Aumentado de 16 para 20 para evitar sobreposição de rótulos próximos
 
         sorted.forEach((item, i) => {
             item.level = 0;
@@ -380,9 +380,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
                 })}
             </div>
 
-            <div className="absolute -bottom-9 transform -translate-y-1/2 flex items-center gap-1.5 opacity-80 group-hover/chart:opacity-100 transition-opacity" style={{ left: `${Math.min(ciLowPx, 75)}%`, maxWidth: '25%' }}>
-                <div className="w-2 h-2 rounded-full bg-blue-500/30 border border-blue-400/50" />
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
+            {/* IC 95% - Posicionado de forma mais segura dentro do gráfico, no topo esquerdo */}
+            <div className="absolute top-2 left-4 flex items-center gap-2 opacity-60 group-hover/chart:opacity-100 transition-opacity bg-slate-900/40 backdrop-blur-sm px-2 py-1 rounded-md border border-white/5">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500/40 border border-blue-400/50" />
+                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest whitespace-nowrap">IC 95%: {ciLabel}</span>
             </div>
         </div>
     );

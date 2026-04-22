@@ -8,7 +8,7 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
-import { normalCDF_complement, generateKDE } from './math/gaussian.js';
+import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
@@ -360,12 +360,11 @@ export function monteCarloSimulation(
     const drift = calculateSlope(sortedHistory, maxScore); // Tendência clampeada para a média determinística
     const simulationDays = days; // Hoisted for C1 cap below
     // C1 FIX: Cap drift uncertainty to prevent bimodal explosion with short history.
-    // ESCALA INVARIANTE: O teto 1.5 é escalonado via maxScore.
     const scaleFactor = scaleFactorFallback;
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
-    // BUG 2 FIX: A incerteza do slope em regressão linear cresce com T, não com sqrt(T).
-    // Removemos a division por sqrt(simulationDays) para permitir a expansão linear correta.
-    const driftUncertainty = Math.min(rawDriftUncertainty, 1.5 * scaleFactor);
+    // ESCALA INVARIANTE: O teto 1.5 foi reduzido para 0.4 para evitar colapso bimodal
+    // em projeções longas com baixa confiança.
+    const driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor);
 
     // 2. Extrair Resíduos (Bootstrap Source) NORMALIZADOS PELO TEMPO E SEM TENDÊNCIA
     // BUG 2 FIX: use getSafeScore() to handle entries without direct .score field
@@ -445,14 +444,20 @@ export function monteCarloSimulation(
         const inferredSD = Math.max(1.0 * scaleFactorFallback, (ciHigh - ciLow) / 3.92);
         const zScore = (targetScore - baseline) / (Number.isFinite(inferredSD) && inferredSD > 0 ? inferredSD : 1.0 * scaleFactorFallback);
         const rawProb = normalCDF_complement(Number.isFinite(zScore) ? zScore : 0) * 100;
-        const probability = Number.isFinite(rawProb) ? rawProb : 0;
+        // BUGFIX: Generate empirical samples for KDE even in static mode (days=0)
+        // This ensures the visual GaussianPlot uses the same path logic as the projection.
+        const safeSimulations = Math.max(1, simulations);
+        const allFinalScores = new Float64Array(safeSimulations);
+        const rng = mulberry32(seed);
+        for (let i = 0; i < safeSimulations; i++) {
+            allFinalScores[i] = sampleTruncatedNormal(baseline, inferredSD, minScore, maxScore, rng);
+        }
+        allFinalScores.sort((a, b) => a - b);
 
         return {
             probability: Number(probability.toFixed(1)),
             mean: Number(baseline.toFixed(1)),
             sd: Number(inferredSD.toFixed(1)),
-            // BUG 3 FIX: Return all fields that the UI expects so GaussianPlot
-            // doesn't fall back to the geometric solver when in "Hoje" mode.
             sdLeft: Number(inferredSD.toFixed(2)),
             sdRight: Number(inferredSD.toFixed(2)),
             ci95Low: Number(Math.max(minScore, ciLow).toFixed(1)),
@@ -460,8 +465,11 @@ export function monteCarloSimulation(
             currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(1)),
             projectedMean: baseline,
             projectedSD: inferredSD,
+            kdeData: generateKDE(allFinalScores, baseline, inferredSD, safeSimulations, minScore, maxScore),
             drift: 0,
             volatility,
+            minScore,
+            maxScore,
             method: options.bayesianCI ? "bayesian_static" : "normal_static"
         };
     }
