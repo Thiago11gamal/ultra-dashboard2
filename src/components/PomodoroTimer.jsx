@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Brain, Zap } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 
@@ -528,397 +528,361 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [mode, completedCycles, targetCycles]);
 
     return (
-        <div ref={containerRef} className="w-full relative min-h-screen">
+        <div ref={containerRef} className="w-full relative min-h-[80vh] flex flex-col items-center">
             <motion.div
                 drag={!isLayoutLocked}
-                dragMomentum={false}
-                dragConstraints={containerRef}
+                dragMomentum={true}
                 dragElastic={0.1}
                 animate={uiPosition}
                 onDragEnd={handleDragEnd}
-                whileDrag={{ scale: 1.01 }}
-                className={`w-full max-w-3xl mr-0 ml-auto space-y-6 relative font-sans flex flex-col items-center z-50 ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                whileDrag={{ scale: 1.01, zIndex: 1000 }}
+                className={`w-full max-w-3xl space-y-6 relative font-sans flex flex-col items-center ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing z-[1000]' : 'z-50'}`}
             >
-            <div className="relative flex items-center justify-center py-2 w-full px-4">
-                <div className="flex-1 flex justify-center bg-transparent">
-                    {activeSubject ? (
-                        <motion.div
-                            initial={{ y: -5, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            style={{
-                                backgroundColor: '#2a1f1a',
-                                backgroundImage: 'url(/header-wood.png)',
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center'
-                            }}
-                            className={`relative flex items-center gap-3 w-full border border-white/20 rounded-3xl pl-8 pr-12 py-5 transition-all duration-500 shadow-lg max-w-full`}
-                        >
-                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm transition-colors duration-500 bg-[#ead9ce] text-[#5c3d2e] border border-[#c4a48a] shrink-0`}>
-                                {activeSubject.category ? activeSubject.category[0] : '📚'}
-                            </div>
-
-                            <div className="flex flex-col text-left justify-center flex-1 min-w-0 pr-2">
-                                <span className="text-xl font-bold text-white tracking-normal truncate">
-                                    {activeSubject.task}
-                                </span>
-                                <span className={`text-sm font-medium mt-1 transition-colors duration-500 text-stone-200 truncate`}>
-                                    {activeSubject.category}
-                                </span>
-                            </div>
-                        </motion.div>
-                    ) : mode === 'break' ? (
-                        <motion.div
-                            initial={{ y: -5, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            className={`relative flex items-center justify-center gap-3 w-full border border-emerald-500/30 rounded-3xl py-5 transition-all duration-500 shadow-lg max-w-full bg-emerald-900/40`}
-                        >
-                            <span className="text-xl font-bold text-emerald-400 tracking-normal text-center drop-shadow-md">
-                                Relaxando ☕
-                            </span>
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            animate={showWarning ? {
-                                scale: [1, 1.15, 1],
-                                borderColor: ['#ef4444', '#ffffff', '#ef4444'],
-                                backgroundColor: ['#991b1b', '#ef4444', '#991b1b'],
-                                boxShadow: [
-                                    '0 0 20px rgba(239, 68, 68, 0.4)',
-                                    '0 0 60px rgba(239, 68, 68, 0.9)',
-                                    '0 0 20px rgba(239, 68, 68, 0.4)'
-                                ]
-                            } : {}}
-                            transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
-                            onClick={onExit}
-                            className={`flex items-center gap-4 text-white text-base font-black uppercase tracking-widest border-4 border-dashed border-red-500 px-12 py-6 rounded-2xl bg-red-900/80 cursor-pointer hover:scale-105 transition-all shadow-2xl relative z-10 overflow-hidden group`}
-                        >
-                            {showWarning && (
-                                <motion.div
-                                    animate={{ opacity: [0.1, 0.3, 0.1] }}
-                                    transition={{ duration: 0.4, repeat: Infinity }}
-                                    className="absolute inset-0 bg-white"
-                                />
-                            )}
-                            <AlertCircle className={showWarning ? "text-white animate-bounce shrink-0" : "text-stone-500 shrink-0"} size={32} />
-                            <span className="relative z-10 drop-shadow-md">Selecionar um assunto para começar</span>
-                        </motion.div>
-                    )}
-                </div>
-
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    {!isLayoutLocked && (
-                        <button
-                            onClick={() => {
-                                setUiPosition({ x: 0, y: 0 });
-                                try {
-                                    localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
-                                } catch {
-                                    // Storage interaction failed
-                                }
-                            }}
-                            className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
-                            title="Resetar Posição"
-                        >
-                            <RotateCcw size={14} />
-                            <span className="text-[10px] font-bold uppercase">Resetar</span>
-                        </button>
-                    )}
-                    <button
-                        onClick={() => setIsLayoutLocked(!isLayoutLocked)}
-                        className={`p-3 rounded-xl transition-all duration-300 ${isLayoutLocked
-                            ? 'text-stone-600 hover:text-stone-400'
-                            : 'bg-[#292524] text-stone-200 border border-stone-700'
-                            }`}
+                {/* Drag Handle - Apenas visível quando desbloqueado */}
+                {!isLayoutLocked && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 px-6 py-2 rounded-2xl bg-indigo-600/90 text-white shadow-2xl backdrop-blur-md border border-indigo-400/50"
                     >
-                        {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
-                    </button>
-                </div>
-            </div>
-
-            <motion.div
-                style={{
-                    backgroundColor: '#2a1f1a',
-                    backgroundImage: 'url(/wood-texture.png)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
-                }}
-                animate={showWarning ? { x: [-10, 10, -10, 10, 0] } : {}}
-                transition={{ duration: 0.4 }}
-                whileDrag={{ scale: 1.01 }}
-                className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
-                    ${!isLayoutLocked ? 'ring-2 ring-stone-600' : ''}
-                    ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
-            >
-                <div className="relative z-10 w-full flex flex-col items-center">
-                    {(() => {
-                        if (!activeSubject) return null;
-                        const priority = activeSubject.priority || 'medium';
-                        let label = 'MÉDIA';
-                        let levelColor = "text-stone-950 bg-amber-400 border-amber-500 shadow-lg shadow-black/40";
-                        if (priority === 'high') { label = 'ALTA'; levelColor = "text-white bg-red-600 border-red-700 shadow-lg shadow-black/40"; }
-                        else if (priority === 'low') { label = 'BAIXA'; levelColor = "text-white bg-emerald-600 border-emerald-700 shadow-lg shadow-black/40"; }
-                        return (
-                            <div className="absolute top-6 left-6 flex flex-col items-center gap-1">
-                                <div className={`px-3 py-2 rounded-lg border flex flex-col items-center justify-center ${levelColor}`}>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Prioridade</span>
-                                    <span className="text-sm font-bold">{label}</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {activeSubject && retention && (
-                        <div className="absolute top-6 right-6 flex flex-col items-center gap-1">
-                            <div className={`px-3 py-2 rounded-lg border flex flex-col items-center justify-center bg-[#1c1917] ${retention.border} shadow-lg shadow-black/40`}>
-                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 text-slate-400">Retenção</span>
-                                <span className={`text-sm font-bold ${retention.color}`}>{retention.val}%</span>
-                            </div>
+                        <div className="flex gap-1">
+                            {[1, 2, 3].map(i => <div key={i} className="w-1 h-1 bg-white rounded-full animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />)}
                         </div>
-                    )}
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Modo Movimentação Livre</span>
+                    </motion.div>
+                )}
 
-                    <div className={`flex items-center gap-1 mb-8 bg-[#1c1917] p-2 rounded-full border border-stone-800 ${!activeSubject ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <button
-                            onClick={() => { setMode('work'); setTimeLeft(safeSettings.pomodoroWork * 60); setIsRunning(false); }}
-                            disabled={!activeSubject}
-                            className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'work' ? 'bg-[#292524] text-emerald-400 shadow-sm border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
-                        >
-                            Foco
-                        </button>
-                        <button
-                            onClick={() => { setMode('break'); setTimeLeft(safeSettings.pomodoroBreak * 60); setIsRunning(false); }}
-                            disabled={!activeSubject}
-                            className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 ${mode === 'break' ? 'bg-[#292524] text-emerald-400 border border-stone-700' : 'text-stone-500 hover:text-stone-300'}`}
-                        >
-                            Pausa
-                        </button>
-                    </div>
+                <div className="relative flex items-center justify-center py-2 w-full px-4">
+                    <div className="flex-1 flex justify-center bg-transparent">
+                        {activeSubject ? (
+                            <motion.div
+                                initial={{ y: -5, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                style={{
+                                    backgroundColor: '#2a1f1a',
+                                    backgroundImage: 'url(/header-wood.png)',
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                }}
+                                className={`relative flex items-center gap-3 w-full border border-white/20 rounded-3xl pl-8 pr-12 py-5 transition-all duration-500 shadow-lg max-w-full`}
+                            >
+                                <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm transition-colors duration-500 bg-[#ead9ce] text-[#5c3d2e] border border-[#c4a48a] shrink-0`}>
+                                    {activeSubject.category ? activeSubject.category[0] : '📚'}
+                                </div>
 
-                    <div className={`relative mb-6 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_70px_rgba(255,0,0,1)] ring-2 ring-[#ff0000]' : ''}`}>
-                        <svg className="w-56 h-56 transform -rotate-90">
-                            <circle cx="112" cy="112" r="100" fill="none" stroke="#44403c" strokeWidth="10" strokeLinecap="round" />
-                            <circle
-                                ref={svgCircleRef}
-                                cx="112" cy="112" r="100" fill="none"
-                                stroke="currentColor"
-                                strokeWidth="10"
-                                strokeLinecap="round"
-                                strokeDasharray={2 * Math.PI * 100}
-                                style={{ strokeDashoffset: 2 * Math.PI * 100 * (1 - progress / 100) }}
-                                className={`${mode === 'work' ? 'text-stone-200' : 'text-stone-400'}`}
-                            />
-                        </svg>
-
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span ref={clockRef} className={`text-5xl font-bold tracking-tighter transition-colors duration-500 text-stone-200`}>
-                                {formatTime(timeLeft)}
-                            </span>
-
-                            <div className={`mt-3 flex items-center gap-2 px-3 py-1 rounded-full ${theme.bg} border border-stone-700 transition-colors duration-500`}>
-                                <div className={`w-2 h-2 rounded-full ${isRunning
-                                    ? (mode === 'work' && timeLeft <= 10 ? 'animate-pulse bg-[#ff0000] shadow-[0_0_15px_rgba(255,0,0,1)]' : 'animate-pulse bg-stone-200')
-                                    : 'bg-stone-600'}`}></div>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isRunning ? 'text-emerald-500' : 'text-stone-400'}`}>
-                                    {isRunning ? (mode === 'work' ? 'Focando' : 'Pausa') : 'Pausado'}
+                                <div className="flex flex-col text-left justify-center flex-1 min-w-0 pr-2">
+                                    <span className="text-xl font-bold text-white tracking-normal truncate">
+                                        {activeSubject.task}
+                                    </span>
+                                    <span className={`text-sm font-medium mt-1 transition-colors duration-500 text-stone-200 truncate`}>
+                                        {activeSubject.category}
+                                    </span>
+                                </div>
+                            </motion.div>
+                        ) : mode === 'break' ? (
+                            <motion.div
+                                initial={{ y: -5, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                className={`relative flex items-center justify-center gap-3 w-full border border-emerald-500/30 rounded-3xl py-5 transition-all duration-500 shadow-lg max-w-full bg-emerald-900/40`}
+                            >
+                                <span className="text-xl font-bold text-emerald-400 tracking-normal text-center drop-shadow-md">
+                                    Relaxando ☕
                                 </span>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                animate={showWarning ? {
+                                    scale: [1, 1.15, 1],
+                                    borderColor: ['#ef4444', '#ffffff', '#ef4444'],
+                                    backgroundColor: ['#991b1b', '#ef4444', '#991b1b'],
+                                    boxShadow: [
+                                        '0 0 20px rgba(239, 68, 68, 0.4)',
+                                        '0 0 60px rgba(239, 68, 68, 0.9)',
+                                        '0 0 20px rgba(239, 68, 68, 0.4)'
+                                    ]
+                                } : {}}
+                                transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0, ease: "easeInOut" }}
+                                onClick={onExit}
+                                className={`flex items-center gap-4 text-white text-base font-black uppercase tracking-widest border-4 border-dashed border-red-500 px-12 py-6 rounded-2xl bg-red-900/80 cursor-pointer hover:scale-105 transition-all shadow-2xl relative z-10 overflow-hidden group`}
+                            >
+                                {showWarning && (
+                                    <motion.div
+                                        animate={{ opacity: [0.1, 0.3, 0.1] }}
+                                        transition={{ duration: 0.4, repeat: Infinity }}
+                                        className="absolute inset-0 bg-white"
+                                    />
+                                )}
+                                <AlertCircle className={showWarning ? "text-white animate-bounce shrink-0" : "text-stone-500 shrink-0"} size={32} />
+                                <span className="relative z-10 drop-shadow-md">Selecionar um assunto para começar</span>
+                            </motion.div>
+                        )}
+                    </div>
+
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        {!isLayoutLocked && (
+                            <button
+                                onClick={() => {
+                                    setUiPosition({ x: 0, y: 0 });
+                                    try {
+                                        localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
+                                    } catch {
+                                        // Storage interaction failed
+                                    }
+                                }}
+                                className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
+                                title="Resetar Posição"
+                            >
+                                <RotateCcw size={14} />
+                                <span className="text-[10px] font-bold uppercase">Resetar</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setIsLayoutLocked(!isLayoutLocked)}
+                            className={`p-3 rounded-xl transition-all duration-300 ${isLayoutLocked
+                                ? 'text-stone-600 hover:text-stone-400'
+                                : 'bg-[#292524] text-stone-200 border border-stone-700'
+                                }`}
+                        >
+                            {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    style={{
+                        backgroundColor: '#2a1f1a',
+                        backgroundImage: 'url(/wood-texture.png)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
+                    }}
+                    className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
+                        ${!isLayoutLocked ? 'ring-2 ring-indigo-500/50' : ''}
+                        ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
+                >
+                    <div className="relative z-10 w-full flex flex-col items-center">
+                        {(() => {
+                            if (!activeSubject) return null;
+                            const priority = activeSubject.priority || 'medium';
+                            let label = 'MÉDIA';
+                            let levelColor = "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]";
+                            let Icon = Activity;
+                            if (priority === 'high') { 
+                                label = 'ALTA'; 
+                                levelColor = "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]";
+                                Icon = AlertCircle;
+                            } else if (priority === 'low') { 
+                                label = 'BAIXA'; 
+                                levelColor = "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]";
+                            }
+                            return (
+                                <div className="absolute top-6 left-6">
+                                    <div className={`px-4 py-2 rounded-2xl border backdrop-blur-md flex items-center gap-3 ${levelColor}`}>
+                                        <div className="relative">
+                                            <Icon size={14} className="animate-pulse" />
+                                            <div className="absolute inset-0 blur-sm opacity-50"><Icon size={14} /></div>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-60">Prioridade</span>
+                                            <span className="text-xs font-black tracking-widest">{label}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {activeSubject && retention && (
+                            <div className="absolute top-6 right-6">
+                                <div className={`px-4 py-2 rounded-2xl border backdrop-blur-md bg-black/40 flex items-center gap-3 ${retention.border} shadow-2xl`}>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 text-slate-400">Saúde Neural</span>
+                                        <span className={`text-xs font-black tracking-widest ${retention.color}`}>{retention.val}%</span>
+                                    </div>
+                                    <div className={`w-8 h-8 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center ${retention.color}`}>
+                                        <Brain size={14} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className={`flex items-center gap-1 mb-10 bg-black/40 p-1.5 rounded-2xl border border-white/10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                            <button
+                                onClick={() => { setMode('work'); setTimeLeft(safeSettings.pomodoroWork * 60); setIsRunning(false); }}
+                                className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-500 ${mode === 'work' ? 'bg-white/10 text-white shadow-xl border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Foco
+                            </button>
+                            <button
+                                onClick={() => { setMode('break'); setTimeLeft(safeSettings.pomodoroBreak * 60); setIsRunning(false); }}
+                                className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-500 ${mode === 'break' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Pausa
+                            </button>
+                        </div>
+
+                        <div className={`relative mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
+                            <svg className="w-64 h-64 transform -rotate-90 relative z-10">
+                                <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" strokeLinecap="round" />
+                                <defs>
+                                    <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stopColor={mode === 'work' ? '#f8fafc' : '#34d399'} />
+                                        <stop offset="100%" stopColor={mode === 'work' ? '#94a3b8' : '#059669'} />
+                                    </linearGradient>
+                                </defs>
+                                <motion.circle
+                                    ref={svgCircleRef}
+                                    cx="128" cy="128" r="110" fill="none"
+                                    stroke="url(#timerGradient)"
+                                    strokeWidth="12"
+                                    strokeLinecap="round"
+                                    strokeDasharray={2 * Math.PI * 110}
+                                    initial={{ strokeDashoffset: 2 * Math.PI * 110 }}
+                                    animate={{ strokeDashoffset: 2 * Math.PI * 110 * (1 - progress / 100) }}
+                                    className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                                />
+                            </svg>
+
+                            <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                                <span ref={clockRef} className="text-6xl font-black tracking-tighter text-white drop-shadow-2xl">
+                                    {formatTime(timeLeft)}
+                                </span>
+
+                                <div className={`mt-4 flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md`}>
+                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${isRunning
+                                        ? (mode === 'work' && timeLeft <= 10 ? 'animate-pulse text-red-500 bg-red-500' : 'animate-pulse text-emerald-400 bg-emerald-400')
+                                        : 'text-slate-600 bg-slate-600'}`}></div>
+                                    <span className={`text-[9px] font-black uppercase tracking-[0.3em] ${isRunning ? 'text-white' : 'text-slate-500'}`}>
+                                        {isRunning ? (mode === 'work' ? 'Protocolo Foco' : 'Recuperação') : 'Sessão Pausada'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`flex items-center gap-6 z-10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                            <motion.button
+                                whileHover={{ scale: 1.1, rotate: -15 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={reset}
+                                className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all shadow-2xl"
+                                title="Reiniciar"
+                            >
+                                <RotateCcw size={22} />
+                            </motion.button>
+
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                    if (mode === 'work' && !activeSubject) {
+                                        setShowWarning(true);
+                                        setTimeout(() => setShowWarning(false), 3000);
+                                        return;
+                                    }
+                                    setIsRunning(!isRunning);
+                                }}
+                                className={`w-24 h-24 rounded-3xl flex items-center justify-center transition-all duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 ${isRunning ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20 hover:border-white'}`}
+                            >
+                                {isRunning ? <Pause size={40} fill="currentColor" /> : <Play size={40} fill="currentColor" className="ml-2" />}
+                            </motion.button>
+
+                            <motion.button
+                                whileHover={{ scale: 1.1, rotate: 15 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={skip}
+                                className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all shadow-2xl"
+                                title="Pular"
+                            >
+                                <SkipForward size={22} />
+                            </motion.button>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    className="w-full px-10 pt-8 pb-10 rounded-[2.5rem] relative overflow-hidden bg-black/40 border border-white/10 backdrop-blur-2xl shadow-2xl"
+                >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
+                    <div className="flex items-center justify-between mb-8 relative z-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-indigo-400 shadow-inner">
+                                <Zap size={20} />
+                            </div>
+                            <div className="flex flex-col">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Progressão de Ciclos</h3>
+                                <span className="text-sm font-bold text-white mt-1">Eficiência Operacional</span>
+                            </div>
+                        </div>
+                        <div className={`flex items-center gap-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
+                                    disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
+                                    className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-all flex items-center justify-center"
+                                >
+                                    -
+                                </button>
+                                <button
+                                    onClick={() => setTargetCycles(targetCycles + 1)}
+                                    disabled={!activeSubject}
+                                    className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-all flex items-center justify-center"
+                                >
+                                    +
+                                </button>
+                            </div>
+                            <div className="flex flex-col items-end">
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-black text-white tabular-nums tracking-tighter">{completedCycles}</span>
+                                    <span className="text-sm font-black text-slate-600">/ {targetCycles}</span>
+                                </div>
+                                <span className="text-[9px] font-black uppercase text-indigo-400 tracking-[0.3em]">Unidades</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className={`flex items-center gap-4 z-10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={reset}
-                            disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
-                            title="Reiniciar Timer"
-                        >
-                            <RotateCcw size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
-                        </motion.button>
+                    <div className="flex items-center gap-3 h-4 w-full relative z-10">
+                        {Array.from({ length: targetCycles }).map((_, i) => {
+                            let workProgress = 0;
+                            let breakProgress = 0;
 
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                                if (mode === 'work' && !activeSubject) {
-                                    setShowWarning(true);
-                                    setTimeout(() => setShowWarning(false), 3000);
-                                    return;
-                                }
-                                
-                                // Unlock Audio Context on first explicit user interaction
-                                if (!isRunning && alarmAudioRef.current) {
-                                    try {
-                                        const warmUp = alarmAudioRef.current.play();
-                                        if (warmUp !== undefined) {
-                                            warmUp.then(() => {
-                                                alarmAudioRef.current.pause();
-                                                alarmAudioRef.current.currentTime = 0;
-                                            }).catch(() => {});
-                                        }
-                                    } catch {
-                                        // Audio interaction failed
-                                    }
-                                }
-                                
-                                setIsRunning(!isRunning);
-                            }}
-                            // REMOVIDO: disabled={!activeSubject} -> O warning agora vai funcionar!
-                            className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-500 ${theme.button}`}
-                        >
-                            {isRunning
-                                ? <Pause size={36} fill="currentColor" className="text-emerald-400 opacity-100" />
-                                : <Play size={36} fill="currentColor" className="ml-1 text-emerald-400 opacity-100" />}
-                        </motion.button>
-
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={skip}
-                            disabled={!activeSubject}
-                            className="w-12 h-12 rounded-xl bg-[#1c1917] border border-stone-600 text-stone-100 hover:bg-[#3f2e26] hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg shadow-black/50"
-                            title="Pular Etapa"
-                        >
-                            <SkipForward size={20} strokeWidth={3} className="text-amber-400 group-hover:text-amber-300 transition-colors" />
-                        </motion.button>
-                    </div>
-
-                    {activeSubject && (
-                        <div className="absolute bottom-6 right-6 flex items-center gap-2 bg-[#1c1917] p-1.5 rounded-xl border border-stone-800 shadow-lg z-20">
-                            {[1, 10, 100].map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => setSpeed(s)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${speed === s
-                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                        : 'text-stone-500 hover:text-stone-300 hover:bg-[#292524]'
-                                        }`}
-                                >
-                                    {s}x
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                </div>
-            </motion.div>
-
-            <motion.div
-                style={{
-                    backgroundColor: '#2a1f1a',
-                    backgroundImage: 'url(/header-wood.png)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                }}
-                className={`w-full px-8 sm:px-12 pt-6 pb-8 rounded-2xl relative overflow-hidden border border-white/20
-                    ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
-            >
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${theme.bg} border border-stone-700 text-stone-200 transition-colors duration-500`}>
-                            <Activity size={18} />
-                        </div>
-                        <div className="flex flex-col">
-                            <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-wide">Seu Progresso</h3>
-                            <span className="text-xs font-bold text-stone-200 mt-0.5">
-                                Constância é a chave
-                            </span>
-                        </div>
-                    </div>
-                    <div className={`flex items-center gap-4 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
-                                disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
-                                className="px-2 py-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-bold uppercase transition-colors"
-                                title="Remover Ciclo"
-                            >
-                                -1 Ciclo
-                            </button>
-                            <button
-                                onClick={() => setTargetCycles(targetCycles + 1)}
-                                disabled={!activeSubject}
-                                className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-bold uppercase transition-colors"
-                                title="Adicionar Ciclo"
-                            >
-                                +1 Ciclo
-                            </button>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <span className="text-2xl font-bold text-stone-200 tabular-nums">
-                                {completedCycles}<span className="text-stone-400 mx-1">/</span>{targetCycles}
-                            </span>
-                            <span className="text-[10px] font-bold uppercase text-stone-200 tracking-wider">Ciclos</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 h-8 w-full">
-                    {Array.from({ length: targetCycles }).map((_, i) => {
-
-                        let workProgress = 0;
-                        let breakProgress = 0;
-
-                        if (i < sessions) {
-                            workProgress = 100;
-                        } else if (i === sessions && mode === 'work') {
-                            const workTotalTime = safeSettings.pomodoroWork * 60;
-                            const hasTimePassed = timeLeft < workTotalTime;
-                            workProgress = (isRunning || hasTimePassed) ? progress : 0;
-                        }
-
-                        if (i < sessions) {
-                            if (i === sessions - 1 && mode === 'break') {
-                                breakProgress = progress;
-                            } else {
-                                breakProgress = 100;
+                            if (i < sessions) {
+                                workProgress = 100;
+                            } else if (i === sessions && mode === 'work') {
+                                workProgress = progress;
                             }
-                        }
 
-                        const isWarning = i === sessions && mode === 'work' && timeLeft <= 10;
+                            if (i < sessions) {
+                                if (i === sessions - 1 && mode === 'break') {
+                                    breakProgress = progress;
+                                } else {
+                                    breakProgress = 100;
+                                }
+                            }
 
-                        return (
-                            <React.Fragment key={i}>
-                                <div className="flex-1 h-3 relative shrink-0">
-                                    <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden">
-                                        <div
-                                            ref={i === sessions && mode === 'work' ? bottomBarRef : null}
-                                            className={`h-full rounded-full ${workProgress > 0 ? 'bg-sky-400' : 'bg-transparent'}`}
-                                            style={{ width: `${workProgress}%` }}
-                                        ></div>
+                            return (
+                                <React.Fragment key={i}>
+                                    <div className="flex-1 h-full relative group/cell">
+                                        <div className="absolute inset-0 bg-white/[0.03] rounded-sm overflow-hidden border border-white/[0.05]">
+                                            <motion.div
+                                                className={`h-full bg-gradient-to-r from-indigo-500 to-sky-400 shadow-[0_0_15px_rgba(99,102,241,0.4)]`}
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${workProgress}%` }}
+                                                transition={{ duration: 0.5 }}
+                                            />
+                                        </div>
+                                        {/* Break indicator dot */}
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2">
+                                            <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${breakProgress > 0 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)] scale-125' : 'bg-white/10'}`} />
+                                        </div>
                                     </div>
-                                    <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
-                                    {workProgress > 0 && (
-                                        <div
-                                            className={`absolute inset-0 rounded-full pointer-events-none transition-opacity duration-300 ${isWarning ? 'shadow-[0_0_15px_rgba(255,80,80,0.8)] animate-pulse' : 'shadow-[0_0_8px_rgba(56,189,248,0.5)]'}`}
-                                            style={{ opacity: workProgress / 100 }}
-                                        />
-                                    )}
-                                </div>
-
-                                <div className="w-6 h-6 relative shrink-0">
-                                    <div className="absolute inset-0 bg-[#292524] rounded-full overflow-hidden flex items-end">
-                                        <div
-                                            ref={i === sessions - 1 && mode === 'break' ? sphereRef : null}
-                                            className="w-full bg-emerald-500"
-                                            style={{ height: `${breakProgress}%` }}
-                                        ></div>
-                                    </div>
-                                    <div className="absolute inset-0 border border-stone-800 rounded-full pointer-events-none" />
-                                    {breakProgress > 0 && (
-                                        <div
-                                            className="absolute inset-0 rounded-full pointer-events-none shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-opacity duration-300"
-                                            style={{ opacity: breakProgress / 100 }}
-                                        />
-                                    )}
-                                </div>
-                            </React.Fragment>
-                        );
-                    })}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
                 </div>
             </motion.div>
-        </motion.div>
-    </div>
-);
+        </div>
+    );
 }
