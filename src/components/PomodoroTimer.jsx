@@ -688,7 +688,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         <div className={`relative mt-12 mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
                             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
                             <svg className="w-64 h-64 transform -rotate-90 relative z-10">
-                                <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="14" strokeLinecap="round" />
+                                <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                                         <stop offset="0%" stopColor="#22c55e" />
