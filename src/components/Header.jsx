@@ -140,7 +140,7 @@ export default function Header({
 
 
             {/* ─── DESKTOP HEADER ─── */}
-            <header className="hidden lg:flex items-center justify-center py-1 px-4 fixed top-0 left-0 right-0 lg:left-[var(--sidebar-width,0)] z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[48px] transition-all duration-300">
+            <header className="hidden lg:flex items-center justify-center py-2 px-4 sticky top-0 z-[110] backdrop-blur-xl bg-[#0a0f1e]/85 border-b border-white/[0.05] min-h-[56px] transition-all duration-300 w-full">
                 <div className="w-full max-w-[1500px] flex items-center relative h-full">
                     {/* ─── LEFT SIDE ─── */}
                     <div className="flex items-center gap-4 flex-1 min-w-0 pr-24">

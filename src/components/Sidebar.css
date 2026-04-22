@@ -160,7 +160,8 @@
 
 .sidebar.collapsed .sidebar-item.active::before {
   left: auto;
-  right: -10px; /* Hide indicator or adjust for collapsed */
+  right: -10px;
+  /* Hide indicator or adjust for collapsed */
   display: none;
 }
 
