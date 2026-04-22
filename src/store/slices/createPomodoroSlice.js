@@ -4,7 +4,6 @@ export const createPomodoroSlice = (set, get) => ({
             if (!subject) {
                 state.appState.pomodoro.sessions = 0;
                 state.appState.pomodoro.completedCycles = 0;
-                state.appState.pomodoro.targetCycles = 1;
                 state.appState.pomodoro.activeSubject = null;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -17,7 +16,6 @@ export const createPomodoroSlice = (set, get) => ({
             if (isNewSession) {
                 state.appState.pomodoro.sessions = 0;
                 state.appState.pomodoro.completedCycles = 0;
-                state.appState.pomodoro.targetCycles = 1;
             }
 
             state.appState.pomodoro.activeSubject = subject;

@@ -242,9 +242,13 @@ export const validateAppState = (data) => {
       contests: validatedContests,
       activeId: activeId,
       dashboardFilter: d.dashboardFilter || 'all',
-      pomodoro: d.pomodoro && typeof d.pomodoro === 'object'
-        ? d.pomodoro
-        : { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
+      pomodoro: {
+        activeSubject: d.pomodoro?.activeSubject || null,
+        sessions: Number(d.pomodoro?.sessions) || 0,
+        targetCycles: Number(d.pomodoro?.targetCycles) || 1,
+        completedCycles: Number(d.pomodoro?.completedCycles) || 0,
+        ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {})
+      },
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;

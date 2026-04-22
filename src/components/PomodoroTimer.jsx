@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Brain, Zap } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Brain, Zap, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 
@@ -106,10 +106,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         }
 
                         timerRef.current = setTimeout(() => {
-                            setTimeLeft(prev => {
-                                const newTime = prev - elapsedSeconds;
-                                return newTime > 0 ? newTime : 0;
-                            });
+                            const newTime = parsed.timeLeft - elapsedSeconds;
+                            if (newTime <= 0) {
+                                setTimeLeft(0);
+                                return;
+                            }
+                            setTimeLeft(newTime);
                             setIsRunning(true);
                         }, 0);
                     }
@@ -313,6 +315,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (sVal >= tVal && tVal > 0) {
                 onFullCycleComplete?.();
                 setIsRunning(false);
+                setSessions(0);
+                setCompletedCycles(0);
                 savePomodoroState({
                     isRunning: false,
                     sessions: 0,
@@ -398,7 +402,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const currentTotalTime = mode === 'work'
                 ? safeSettings.pomodoroWork * 60
                 : safeSettings.pomodoroBreak * 60;
-            const circumference = 2 * Math.PI * 100;
+            const circumference = 2 * Math.PI * 110;
 
             let lastDisplayedSecond = Math.ceil(timeLeftRef.current);
 
@@ -418,12 +422,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
                 }
 
-                if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
+                if (svgCircleRef.current) {
+                    // Start at full circle (fraction 1), empty to 0
+                    svgCircleRef.current.style.strokeDashoffset = circumference * (1 - (1 - fraction)); // Wait, user says 0 at end
+                    svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
+                }
+                
                 if (bottomBarRef.current && mode === 'work') {
                     const totalProgress = ((sessions + (1 - fraction)) / (targetCycles || 1)) * 100;
                     bottomBarRef.current.style.width = `${Math.min(100, totalProgress)}%`;
                 }
-                if (sphereRef.current && mode === 'break') sphereRef.current.style.height = `${(1 - fraction) * 100}%`;
+                
+                // Sphere ref update for break balls
+                const activeBreakBall = document.getElementById(`break-ball-${sessions}`);
+                if (activeBreakBall && mode === 'break') {
+                    activeBreakBall.style.height = `${(1 - fraction) * 100}%`;
+                }
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
@@ -481,7 +495,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const retention = useMemo(() => {
         if (!activeSubject) return null;
-        const cat = categories.find(c => c.name === activeSubject.category);
+        const cat = categories.find(c => c.id === activeSubject.categoryId);
         if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
         const last = new Date(cat.lastStudiedAt).getTime();
@@ -706,8 +720,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     strokeWidth="14"
                                     strokeLinecap="round"
                                     strokeDasharray={2 * Math.PI * 110}
-                                    initial={{ strokeDashoffset: 2 * Math.PI * 110 }}
-                                    animate={{ strokeDashoffset: 2 * Math.PI * 110 * (1 - progress / 100) }}
                                     className="drop-shadow-sm"
                                 />
                             </svg>
@@ -791,11 +803,47 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
 
                 <div
-                    className="w-full px-6 md:px-14 py-8 md:py-10 rounded-2xl relative overflow-hidden bg-[#b08e6b] border-2 border-[#94785a] shadow-xl group/bottom"
+                    className="w-full px-10 md:px-14 py-8 md:py-10 rounded-xl relative overflow-hidden bg-[#b08e6b] border-2 border-[#94785a] shadow-xl group/bottom"
                 >
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                        <div className="flex flex-col min-w-[150px]">
-                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DE CICLOS</h3>
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                        <div className="flex flex-col gap-4">
+                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DE CICLOS</h3>
+                            
+                            {/* Visualização de Módulos e Descansos */}
+                            <div className="flex items-center gap-3 ml-2">
+                                {Array.from({ length: targetCycles || 1 }).map((_, i) => (
+                                    <React.Fragment key={i}>
+                                        {/* Módulo (Trabalho) */}
+                                        <div className="relative group/mod">
+                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${
+                                                i < sessions 
+                                                ? 'bg-[#2d1a12] border-[#2d1a12] shadow-lg shadow-black/10' 
+                                                : (i === sessions && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
+                                            }`}>
+                                                {i < sessions && <CheckCircle2 size={10} className="text-[#b08e6b]" />}
+                                                {i === sessions && mode === 'work' && <div className="w-1.5 h-1.5 rounded-full bg-[#2d1a12] animate-ping" />}
+                                            </div>
+                                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/mod:opacity-100 transition-opacity">M{i+1}</span>
+                                        </div>
+
+                                        {/* Bolinha de Descanso (entre módulos) */}
+                                        {i < (targetCycles || 1) - 1 && (
+                                            <div className="relative w-3.5 h-3.5 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/15 overflow-hidden shadow-inner flex items-center justify-center">
+                                                <div 
+                                                    id={`break-ball-${i + 1}`}
+                                                    className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-linear"
+                                                    style={{ 
+                                                        height: (sessions > i + 1 ? '100%' : '0%') 
+                                                    }}
+                                                />
+                                                {mode === 'break' && sessions === i + 1 && (
+                                                    <div className="relative z-10 w-1 h-1 rounded-full bg-white/40 animate-pulse" />
+                                                )}
+                                            </div>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </div>
                         </div>
 
                         <div className={`flex items-center gap-4 md:gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
@@ -826,14 +874,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     </div>
 
                     <div className="relative w-full h-3 bg-white/20 rounded-md overflow-hidden mb-2">
-                        {/* Barra de Progresso Azul (Sincronizada com o cronômetro) */}
+                        {/* Barra de Progresso Azul (Sincronizada via RAF através do bottomBarRef) */}
                         <div
                             ref={bottomBarRef}
                             className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all duration-100 ease-linear"
-                            style={{ width: `${Math.min(100, ((sessions + (progress / 100)) / (targetCycles || 1)) * 100)}%` }}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40 z-10">
-                            {Math.round(Math.min(100, ((sessions + (progress / 100)) / (targetCycles || 1)) * 100))}%
+                            {Math.round(Math.min(100, ((sessions + (mode === 'work' ? (1 - timeLeft / (totalTime || 1)) : 0)) / (targetCycles || 1)) * 100))}%
                         </div>
                     </div>
                 </div>

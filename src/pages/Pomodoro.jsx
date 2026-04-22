@@ -360,7 +360,7 @@ export default function Pomodoro() {
             settings: data.settings,
             user: data.user // 🎯 Injetar perfil do usuário para cálculo de fadiga elástica
         };
-    }, [currentSessions, data, data.settings, data.studyLogs, data.user]);
+    }, [currentSessions, data]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
