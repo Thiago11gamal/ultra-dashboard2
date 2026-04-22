@@ -607,14 +607,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 } : {}}
                                 transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0 }}
                                 onClick={onExit}
-                                className="w-full bg-black/40 backdrop-blur-3xl border-2 border-dashed border-white/10 rounded-[2.5rem] py-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-black/60 hover:border-white/30 transition-all group shadow-2xl"
+                                className="w-full bg-red-950/20 backdrop-blur-3xl border border-dashed border-red-500/30 rounded-2xl py-4 flex flex-row items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 hover:border-red-500/50 transition-all group shadow-2xl"
                             >
-                                <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 group-hover:text-white group-hover:scale-110 transition-all">
-                                    <AlertCircle size={32} />
+                                <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-all">
+                                    <AlertCircle size={20} />
                                 </div>
-                                <div className="flex flex-col items-center">
-                                    <span className="text-xs font-black text-slate-500 uppercase tracking-[0.4em] group-hover:text-indigo-400 transition-colors">Inicialização Necessária</span>
-                                    <h2 className="text-lg font-black text-white mt-1">SELECIONE UM VETOR DE ESTUDO</h2>
+                                <div className="flex flex-col items-start text-left">
+                                    <span className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] transition-colors">Inicialização Necessária</span>
+                                    <h2 className="text-sm font-black text-red-500 mt-0.5">SELECIONE UM VETOR DE ESTUDO</h2>
                                 </div>
                             </motion.div>
                         )}
