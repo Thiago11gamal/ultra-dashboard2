@@ -630,7 +630,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         backgroundPosition: 'center',
                         boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
                     }}
-                    className={`w-full border-[6px] border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-xl relative overflow-hidden flex flex-col items-center justify-center shadow-[inset_0_10px_60px_rgba(0,0,0,0.8),0_20px_50px_rgba(0,0,0,0.5)]
+                    className={`w-full border-[6px] border-[#3f2e26] transition-all duration-500 ease-out pt-12 pb-10 px-10 rounded-xl relative overflow-hidden flex flex-col items-center justify-start shadow-[inset_0_10px_60px_rgba(0,0,0,0.8),0_20px_50px_rgba(0,0,0,0.5)]
                         ${!isLayoutLocked ? 'ring-2 ring-indigo-500/50' : ''}
                         ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
                 >
@@ -678,14 +678,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
                         )}
 
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                        <div className="flex items-center gap-6 mb-12 z-30">
                             <span className={`text-[9px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
                             <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
                             <span className={`text-[9px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
                         </div>
 
 
-                        <div className={`relative mt-16 mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
+                        <div className={`relative mt-12 mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
                             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
                             <svg className="w-64 h-64 transform -rotate-90 relative z-10">
                                 <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="14" strokeLinecap="round" />
