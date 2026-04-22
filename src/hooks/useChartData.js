@@ -48,15 +48,17 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     for (let i = 0; i < sortedDates.length; i++) {
         const date = sortedDates[i];
         
-        // 🎯 BAYESIAN DECAY: Aplica o decaimento para que o gráfico reflita 
-        // a melhora recente do aluno, permitindo 'esquecer' o passado.
-        if (i > 0) {
-            bayAlpha *= DECAY_FACTOR;
-            bayBeta *= DECAY_FACTOR;
-        }
         while (histIdx < aggregatedHistory.length) {
             const key = aggregatedHistory[histIdx].date;
             if (key && key <= date) {
+                // 🎯 BAYESIAN DECAY: Aplica o decaimento para cada entrada (ou data agregada)
+                // para que o gráfico reflita a melhora recente do aluno.
+                // Sync with stats.js: applies DECAY_FACTOR per entry in the loop.
+                if (bayAlpha + bayBeta > 2) { // Only decay if we have a history beyond prior Beta(1,1)
+                    bayAlpha *= DECAY_FACTOR;
+                    bayBeta *= DECAY_FACTOR;
+                }
+
                 const entry   = aggregatedHistory[histIdx];
                 let total   = Number(entry.total)   || 0;
                 let correct = Number(entry.correct) || 0;

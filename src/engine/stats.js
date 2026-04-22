@@ -53,7 +53,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const LAMBDA_FORGET = 0.015; // Decaimento mais suave que o Monte Carlo (meia-vida ~46 dias)
 
     if (history && history.length > 0) {
-        for (const h of history) {
+        for (let i = 0; i < history.length; i++) {
+            const h = history[i];
             let total = Number(h.total) || 0;
             let correct = Number(h.correct) || 0;
 
@@ -72,14 +73,16 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const errosHoje = total - safeCorrect;
 
             // 🎯 REFINAMENTO BAYESIANO: Decaimento Temporal de Hiperparâmetros.
-            // Em vez de apenas ponderar a entrada, aplicamos decaimento na inércia anterior
-            // (alphaAnterior * DECAY), permitindo que o sistema esqueça a "identidade antiga"
-            // do aluno e responda rapidamente a mudanças de performance.
-            // Fator 0.985 ≈ Meia-vida de 45 registros.
+            // BUG-06 FIX: O decaimento agora é proporcional ao gap de tempo (dias)
+            // entre os simulados, tratando de forma justa alunos com histórico espaçado.
             const DECAY_FACTOR = 0.985; 
+            const entryDate = new Date(h.date);
+            const prevDate = i > 0 ? new Date(history[i-1].date) : entryDate;
+            const gapDays = Math.max(1, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
+            const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
             
-            alpha = (alpha * DECAY_FACTOR) + acertosHoje;
-            beta = (beta * DECAY_FACTOR) + errosHoje;
+            alpha = (alpha * entryDecay) + acertosHoje;
+            beta = (beta * entryDecay) + errosHoje;
         }
     }
 

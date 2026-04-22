@@ -12,16 +12,28 @@ export const createGamificationSlice = (set, get) => ({
             const currentXP = activeData.user.xp || 0;
             const currentMaxLevel = activeData.user.level || 1;
             
-            let newXP = Math.max(0, currentXP + xpGained);
+            // FIX A: Don't reduce XP below the threshold of the current achieved level
+            // Prevents "negative progress" bars and inconsistency with calculatedLevel
+            const minXPForLevel = Math.pow(currentMaxLevel - 1, 2) * 100;
+            let newXP = Math.max(minXPForLevel, currentXP + xpGained);
 
             const currentAchievements = activeData.user.achievements || [];
             
-            // Stats for achievement check
+            // Stats for achievement check (Hardened for legacy data)
             const stats = {
                 completedTasks: activeData.categories?.reduce((sum, cat) => sum + (cat.tasks?.filter(t => t.completed)?.length || 0), 0) || 0,
                 currentStreak: calculateStudyStreak(activeData.studyLogs || []).current,
-                totalQuestions: activeData.categories?.reduce((sum, cat) => sum + (cat.simuladoStats?.history?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0), 0) || 0,
-                hasPerfectScore: activeData.categories?.some(cat => cat.simuladoStats?.history?.some(h => h.score >= (cat.maxScore ?? 100) || (h.correct === h.total && h.total > 0))) || false,
+                totalQuestions: activeData.categories?.reduce((sum, cat) => {
+                    const hist = cat.simuladoStats?.history;
+                    const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
+                    return sum + (histArr?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0);
+                }, 0) || 0,
+                hasPerfectScore: activeData.categories?.some(cat => {
+                    const hist = cat.simuladoStats?.history;
+                    const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
+                    const maxS = cat.maxScore ?? 100;
+                    return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
+                }) || false,
                 pomodorosCompleted: activeData.studySessions?.length || 0,
                 studiedEarly: activeData.user?.studiedEarly || false,
                 studiedLate: activeData.user?.studiedLate || false

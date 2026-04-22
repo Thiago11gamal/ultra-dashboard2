@@ -84,8 +84,8 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
-    // FIX: Injectar categoryId na hash para prevenir colisões entre matérias com a mesma amostra
-    const hash = `${categoryId}-${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
+    // FIX: Injectar categoryId e maxScore na hash para prevenir colisões entre matérias ou escalas de prova diferentes
+    const hash = `${categoryId}-${maxScore}-${history.length}-${sumCorrect}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -184,6 +184,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 averageScore = notaBruta;
             }
         } else {
+            // BUG-19 FIX: Fallback deve respeitar a escala da prova (50% do maxScore)
             averageScore = maxScore / 2;
         }
 
@@ -242,7 +243,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // --- COMPONENTS ---
 
         // A. Performance Score
-        const scoreComponent = Math.min(cfg.SCORE_MAX, (maxScore - averageScore) * (cfg.SCORE_MAX / maxScore));
+        // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
+        const normalizedAvg = (averageScore / maxScore) * 100;
+        const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - normalizedAvg) * (cfg.SCORE_MAX / 100));
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;

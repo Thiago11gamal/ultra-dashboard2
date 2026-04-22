@@ -195,9 +195,14 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             ? local.activeId
             : (cloud.activeId && mergedContests[cloud.activeId] ? cloud.activeId : local.activeId);
 
+        // BUG FIX: Spread order must respect temporal superiority.
+        // If cloud is newer, it should provide the base for top-level fields (filter, pomodoro, etc.)
+        const isCloudNewer = cloudFullUpdate > localFullUpdate;
+        
+        const base = isCloudNewer ? { ...local, ...cloud } : { ...cloud, ...local };
+
         return {
-            ...cloud,
-            ...local,
+            ...base,
             contests: mergedContests,
             activeId: activeId || local.activeId || cloud.activeId,
             version: Math.max(local.version ?? 0, cloud.version ?? 0),

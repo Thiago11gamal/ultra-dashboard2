@@ -332,7 +332,7 @@ export function monteCarloSimulation(
     const fallbackScore = optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore;
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
 
-    if (forcedBaseline === undefined && sortedHistory.length > 2) {
+    if (sortedHistory.length > 2) {
         // BUGFIX M4: EMA Burn-in Protection for baseline.
         const burnIn = Math.min(3, sortedHistory.length);
         let initialSum = 0;
@@ -342,11 +342,16 @@ export function monteCarloSimulation(
         for (let i = burnIn; i < sortedHistory.length; i++) {
             ema = calculateDynamicEMA(getSafeScore(sortedHistory[i], maxScore), ema, i + 1);
         }
-        // Incorporate weighted mean (Bayesian Pooling) into smoothing if available
-        if (optionsCurrentMean !== undefined) {
-            ema = calculateDynamicEMA(optionsCurrentMean, ema, sortedHistory.length + 1);
+        
+        if (forcedBaseline === undefined) {
+            baselineScore = ema;
         }
-        baselineScore = ema;
+    }
+
+    // Bayesian Pooling: Incorporate weighted mean into smoothing if available
+    // BUG-05 FIX: Move out of conditional to ensure optionsCurrentMean is always factored in
+    if (optionsCurrentMean !== undefined) {
+        baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1);
     }
 
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
@@ -455,7 +460,7 @@ export function monteCarloSimulation(
         allFinalScores.sort((a, b) => a - b);
 
         return {
-            probability: Number(probability.toFixed(1)),
+            probability: Number(rawProb.toFixed(1)),
             mean: Number(baseline.toFixed(1)),
             sd: Number(inferredSD.toFixed(1)),
             sdLeft: Number(inferredSD.toFixed(2)),

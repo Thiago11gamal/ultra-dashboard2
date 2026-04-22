@@ -125,22 +125,23 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             if (bins[j] === 0) continue;
             const binX = plotMin + (j + 0.5) * binWidth;
 
-            // BUG 7 FIX: Boundary Correction (Data Folding Method)
-            const invBand = invBandwidth;
-            const dist = (x - binX) * invBand;
-            let localDensity = Math.exp(-0.5 * dist * dist);
+            // BUG 7 FIX: Linear Boundary Correction (Renormalization)
+            // Instead of folding (reflection), we divide by the integral of the kernel inside the domain
+            // to prevent artificial peaks at the edges while maintaining total probability = 1.
+            const dist = (x - binX) * invBandwidth;
+            const kernelVal = Math.exp(-0.5 * dist * dist);
+            
+            // Calculate how much of this kernel's mass is within [minScore, maxScore]
+            // P(minScore <= X <= maxScore) = Φ((max-binX)/h) - Φ((min-binX)/h)
+            // We use the 1 - complement logic from normalCDF_complement
+            const phiMax = 1 - normalCDF_complement((maxScore - binX) * invBandwidth);
+            const phiMin = 1 - normalCDF_complement((minScore - binX) * invBandwidth);
+            const kernelArea = Math.max(0.01, phiMax - phiMin);
+            
+            const localDensity = kernelVal / kernelArea;
 
-            // RIGOR FIX: Se binX está exatamente na borda (Massa de Dirac), o rebatimento
-            // duplicaria a densidade localmente de forma errônea (1.0 + 1.0).
-            // Aplicamos um fator de atenuação se o ponto estiver a menos de 0.1% do limite.
-            let distMin = (x - (2 * minScore - binX)) * invBand;
-            localDensity += Math.exp(-0.5 * distMin * distMin);
-
-            let distMax = (x - (2 * maxScore - binX)) * invBand;
-            localDensity += Math.exp(-0.5 * distMax * distMax);
-
-            // RIGOR FIX: Increased Z-cutoff to 4.0 to avoid tail steps in high volatility
-            if (Math.abs(dist) < 4.0 || Math.abs(distMin) < 4.0 || Math.abs(distMax) < 4.0) {
+            // Z-cutoff to avoid tail steps in high volatility
+            if (Math.abs(dist) < 4.0) {
                 density += bins[j] * localDensity;
             }
         }
