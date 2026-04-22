@@ -419,7 +419,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 }
 
                 if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
-                if (bottomBarRef.current && mode === 'work') bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
+                if (bottomBarRef.current && mode === 'work') {
+                    const totalProgress = ((sessions + (1 - fraction)) / (targetCycles || 1)) * 100;
+                    bottomBarRef.current.style.width = `${Math.min(100, totalProgress)}%`;
+                }
                 if (sphereRef.current && mode === 'break') sphereRef.current.style.height = `${(1 - fraction) * 100}%`;
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
@@ -558,26 +561,26 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <motion.div
                                 initial={{ y: -5, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="relative flex items-center gap-6 w-full bg-[#f5eadd] border-2 border-[#d9c5b2] rounded-[2.5rem] p-8 transition-all duration-500 shadow-xl group overflow-hidden"
+                                className="relative flex items-center gap-6 w-full bg-[#b08e6b] border-2 border-[#94785a] rounded-[2.5rem] p-8 transition-all duration-500 shadow-xl group overflow-hidden"
                             >
-                                <div className="w-16 h-16 rounded-full bg-white border-2 border-[#d9c5b2] flex items-center justify-center text-[#2d1a12] shadow-sm group-hover:scale-105 transition-transform duration-500">
+                                <div className="w-16 h-16 rounded-full bg-white border-2 border-[#d9c5b2] flex items-center justify-center text-[#2d1a12] shadow-sm group-hover:scale-105 transition-transform duration-500 flex-shrink-0">
                                     <div className="text-2xl font-black">b</div>
                                 </div>
                                 <div className="flex flex-col text-left flex-1 min-w-0 relative z-10">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e]" />
-                                        <span className="text-[11px] font-black text-[#2d1a12] uppercase tracking-[0.3em]">PROTOCOLO ATIVO</span>
-                                    </div>
                                     <h2 className="text-4xl font-black text-[#2d1a12] tracking-tight mt-1 truncate">
                                         {activeSubject.task}
                                     </h2>
                                     <span className="text-[12px] font-black text-[#8b5e3c] uppercase tracking-[0.2em] mt-1 truncate">
-                                        VETOR: {activeSubject.category}
+                                        MATÉRIA: {activeSubject.category}
                                     </span>
                                 </div>
                                 <button 
-                                    onClick={() => setIsLayoutLocked(!isLayoutLocked)}
-                                    className="absolute right-8 top-1/2 -translate-y-1/2 text-[#2d1a12]/40 hover:text-[#2d1a12] transition-colors"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsLayoutLocked(!isLayoutLocked);
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="absolute right-8 top-1/2 -translate-y-1/2 text-[#2d1a12]/40 hover:text-[#2d1a12] transition-colors z-[1100] cursor-pointer"
                                 >
                                     {isLayoutLocked ? <Lock size={24} /> : <Unlock size={24} />}
                                 </button>
@@ -627,7 +630,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         backgroundPosition: 'center',
                         boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
                     }}
-                    className={`w-full border-4 border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-2xl
+                    className={`w-full border-[6px] border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-[inset_0_10px_60px_rgba(0,0,0,0.8),0_20px_50px_rgba(0,0,0,0.5)]
                         ${!isLayoutLocked ? 'ring-2 ring-indigo-500/50' : ''}
                         ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
                 >
@@ -648,13 +651,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             }
                             return (
                                 <div className="absolute top-6 left-6">
-                                    <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl flex items-center gap-3 bg-black/60 border-amber-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.3)]`}>
+                                    <div className={`px-5 py-2.5 rounded-xl border border-white/5 backdrop-blur-3xl flex items-center gap-3 bg-gradient-to-br from-black/90 to-black/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_10px_20px_rgba(0,0,0,0.4)]`}>
                                         <div className="relative">
-                                            <Icon size={16} className="text-amber-400" />
+                                            <Icon size={16} className="text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]" />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-500/60">Prioridade</span>
-                                            <span className="text-xs font-black tracking-widest text-amber-400">{label}</span>
+                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-500/40">SINAL: PRIORIDADE</span>
+                                            <span className="text-xs font-black tracking-widest text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">{label}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -663,44 +666,49 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         {activeSubject && retention && (
                             <div className="absolute top-6 right-6">
-                                <div className={`px-4 py-2 rounded-2xl border backdrop-blur-md bg-black/60 border-emerald-500/30 flex items-center gap-3 shadow-2xl`}>
+                                <div className={`px-4 py-2 rounded-xl border border-white/5 backdrop-blur-3xl bg-gradient-to-br from-black/90 to-black/70 flex items-center gap-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_10px_20px_rgba(0,0,0,0.4)]`}>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500/60">Saúde Neural</span>
-                                        <span className={`text-xs font-black tracking-widest text-emerald-400`}>{retention.val}%</span>
+                                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500/40">CORE: NEURAL</span>
+                                        <span className={`text-xs font-black tracking-widest text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]`}>{retention.val}%</span>
                                     </div>
-                                    <div className={`w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400`}>
+                                    <div className={`w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400`}>
                                         <Brain size={16} />
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
-                            <span className={`text-[10px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
-                            <span className={`text-[10px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                            <span className={`text-[9px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                            <span className={`text-[9px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
                         </div>
 
 
-                        <div className={`relative mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
+                        <div className={`relative mt-16 mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
                             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
-                            <svg className="w-72 h-72 transform -rotate-90 relative z-10">
-                                <circle cx="144" cy="144" r="120" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="16" strokeLinecap="round" />
+                             <svg className="w-64 h-64 transform -rotate-90 relative z-10">
+                                <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="14" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                                         <stop offset="0%" stopColor="#22c55e" />
-                                        <stop offset="100%" stopColor="#22c55e" />
+                                        <stop offset="100%" stopColor="#10b981" />
                                     </linearGradient>
+                                    <filter id="glow">
+                                        <feGaussianBlur stdDeviation="4" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
                                 </defs>
                                 <motion.circle
                                     ref={svgCircleRef}
-                                    cx="144" cy="144" r="120" fill="none"
+                                    cx="128" cy="128" r="110" fill="none"
                                     stroke="url(#timerGradient)"
-                                    strokeWidth="16"
+                                    strokeWidth="14"
                                     strokeLinecap="round"
-                                    strokeDasharray={2 * Math.PI * 120}
-                                    initial={{ strokeDashoffset: 2 * Math.PI * 120 }}
-                                    animate={{ strokeDashoffset: 2 * Math.PI * 120 * (1 - progress / 100) }}
-                                    className="drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                                    strokeDasharray={2 * Math.PI * 110}
+                                    initial={{ strokeDashoffset: 2 * Math.PI * 110 }}
+                                    animate={{ strokeDashoffset: 2 * Math.PI * 110 * (1 - progress / 100) }}
+                                    className="drop-shadow-sm"
                                 />
                             </svg>
 
@@ -719,21 +727,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         <div className={`flex items-end gap-12 z-10 mt-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                             <div className="flex flex-col items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
+                                 <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={reset}
-                                    className="w-20 h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center transition-all shadow-2xl group"
+                                    className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center transition-all shadow-[0_10px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)] group active:shadow-inner"
                                 >
-                                    <RotateCcw size={32} />
+                                    <RotateCcw size={24} className="group-hover:rotate-[-45deg] transition-transform duration-500" />
                                 </motion.button>
-                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">REINICIAR</span>
+                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">REINICIAR</span>
                             </div>
 
                             <div className="flex flex-col items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                 <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         if (mode === 'work' && !activeSubject) {
                                             setShowWarning(true);
@@ -742,29 +750,29 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         }
                                         setIsRunning(!isRunning);
                                     }}
-                                    className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl border-4 ${isRunning ? 'bg-white text-black border-white' : 'bg-[#22c55e] text-white border-[#22c55e] shadow-[0_0_30px_rgba(34,197,94,0.3)]'}`}
+                                    className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.2)] border-4 ${isRunning ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-black border-white' : 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.2)]'}`}
                                 >
                                     {isRunning ? <Pause size={56} fill="currentColor" /> : <Play size={56} fill="currentColor" className="ml-2" />}
                                 </motion.button>
-                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">{isRunning ? 'PAUSAR' : 'CONTINUAR'}</span>
+                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{isRunning ? 'PAUSAR' : 'CONTINUAR'}</span>
                             </div>
 
                             <div className="flex flex-col items-center gap-3">
                                 <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={skip}
-                                    className="w-20 h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center transition-all shadow-2xl group"
+                                    className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center transition-all shadow-[0_10px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)] group active:shadow-inner"
                                 >
-                                    <SkipForward size={32} />
+                                    <SkipForward size={24} className="group-hover:translate-x-1 transition-transform" />
                                 </motion.button>
-                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">PULAR</span>
+                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">PULAR</span>
                             </div>
                         </div>
 
                         {/* Speed Telemetry Controls */}
                         {activeSubject && (
-                            <div className="absolute bottom-8 right-8 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
+                             <div className="absolute bottom-10 right-10 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
                                 {[1, 10, 100].map(s => (
                                     <button
                                         key={s}
@@ -783,15 +791,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
 
                 <div
-                    className="w-full px-10 py-6 rounded-[2.5rem] relative overflow-hidden bg-[#f5eadd] border-2 border-[#d9c5b2] shadow-xl group/bottom"
+                    className="w-full px-6 md:px-14 py-8 md:py-10 rounded-2xl relative overflow-hidden bg-[#b08e6b] border-2 border-[#94785a] shadow-xl group/bottom"
                 >
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <div className="flex flex-col">
-                            <h3 className="text-[10px] font-black text-[#8b5e3c] uppercase tracking-[0.3em]">PROGRESSO DE CICLOS</h3>
-                            <span className="text-lg font-black text-[#2d1a12] mt-1">Eficiência Operacional</span>
+                        <div className="flex flex-col min-w-[150px]">
+                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DE CICLOS</h3>
                         </div>
                         
-                        <div className={`flex items-center gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                        <div className={`flex items-center gap-4 md:gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
@@ -810,22 +817,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
                             <div className="flex flex-col items-end">
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-5xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{completedCycles}</span>
-                                    <span className="text-xl font-black text-[#2d1a12]/20">/ {targetCycles}</span>
+                                    <span className="text-5xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{sessions}</span>
+                                    <span className="text-xl font-black text-[#f5eadd]">/ {targetCycles || 1}</span>
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-[#8b5e3c] tracking-[0.3em]">MÓDULOS</span>
+                                <span className="text-[10px] font-black uppercase text-[#2d1a12]/60 tracking-[0.3em]">MÓDULOS</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="relative w-full h-3 bg-white/50 rounded-full overflow-hidden mb-2">
-                        <motion.div 
-                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(completedCycles / targetCycles) * 100}%` }}
+                    <div className="relative w-full h-3 bg-white/20 rounded-md overflow-hidden mb-2">
+                        {/* Barra de Progresso Azul (Sincronizada com o cronômetro) */}
+                        <div 
+                            ref={bottomBarRef}
+                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all duration-100 ease-linear"
+                            style={{ width: `${Math.min(100, ((sessions + (progress / 100)) / (targetCycles || 1)) * 100)}%` }}
                         />
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40">
-                            {Math.round((completedCycles / targetCycles) * 100)}%
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40 z-10">
+                            {Math.round(Math.min(100, ((sessions + (progress / 100)) / (targetCycles || 1)) * 100))}%
                         </div>
                     </div>
                 </div>
