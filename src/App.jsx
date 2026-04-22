@@ -236,7 +236,7 @@ function MainLayout() {
 
             <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
-            <main className="pt-20 lg:pt-0 flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10">
+            <main className="pt-[95px] lg:pt-[56px] flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10">
               {/* Router Outlet com carregamento otimizado */}
               <div className="animate-page-entrance">
                 <ErrorBoundary>

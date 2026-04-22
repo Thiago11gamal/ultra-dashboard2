@@ -737,28 +737,30 @@ export default function MonteCarloGauge({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4 px-1 w-full">
                 {[
-                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500" },
-                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white" },
-                    { label: "Projeção", val: formatScore(safe(projectedMean)), color: "text-blue-400" },
+                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500", weight: "font-black" },
+                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white", weight: "font-black" },
+                    { label: "Projeção", val: formatScore(safe(projectedMean)), color: "text-blue-400", weight: "font-black" },
                     {
                         label: "Incerteza",
                         val: uncertaintyLabel,
-                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400' : 'text-red-400',
+                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400/80' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400/80' : 'text-red-400/80',
                         small: true,
+                        weight: "font-bold"
                     },
                     {
                         label: "IC 95%",
                         val: `${safe(ci95Low).toFixed(0)}–${safe(ci95High).toFixed(0)}${unit}`,
-                        color: "text-green-500",
+                        color: "text-green-500/80",
                         small: true,
+                        weight: "font-bold",
                         fullVal: `${safe(ci95Low).toFixed(1)}–${safe(ci95High).toFixed(1)}${unit}`,
                     }
                 ].map((m, i) => (
-                    <div key={i} title={m.fullVal ?? m.val} className={`bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center justify-center overflow-hidden w-full ${i === 4 ? 'col-span-2 sm:col-span-1 md:col-span-1' : ''}`}>
-                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 whitespace-nowrap">
+                    <div key={i} title={m.fullVal ?? m.val} className={`bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center overflow-hidden w-full transition-colors hover:bg-black/50 ${i === 4 ? 'col-span-2 sm:col-span-1 md:col-span-1' : ''}`}>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 whitespace-nowrap">
                             {m.label}
                         </span>
-                        <span className={`${m.small ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'} font-black ${m.color} truncate w-full text-center`}>
+                        <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} ${m.weight} ${m.color} truncate w-full text-center`}>
                             {m.val}
                         </span>
                     </div>

@@ -42,6 +42,11 @@ export default function Sidebar({
     const location = useLocation();
     const { logout } = useAuth();
 
+    React.useEffect(() => {
+        const width = collapsed ? '72px' : '260px';
+        document.documentElement.style.setProperty('--sidebar-width', width);
+    }, [collapsed]);
+
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
             try {

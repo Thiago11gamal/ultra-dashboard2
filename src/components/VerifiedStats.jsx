@@ -630,28 +630,26 @@ export default function VerifiedStats({ categories = [], user }) {
             </div>
 
             {/* Bottom Row: Monte Carlo Side-by-Side */}
-            <div className="mt-8 mb-4">
-                <div className="flex items-center justify-between mb-4">
+            <div className="mt-4 mb-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
                             <Activity size={20} className="text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-white">Simulação de Monte Carlo</h2>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Análise de Probabilidade de Aprovação</p>
+                            <h2 className="text-lg font-black text-white tracking-tight">Simulação de Monte Carlo</h2>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Análise de Probabilidade de Aprovação</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowConfig(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-xl text-xs font-bold text-slate-300 transition-all shadow-lg"
-                        >
-                            <Settings2 size={16} />
-                            Configurar Pesos e Meta
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setShowConfig(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/80 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all shadow-lg active:scale-95"
+                    >
+                        <Settings2 size={14} />
+                        Configurar Pesos e Meta
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <MonteCarloGauge
                         categories={categories}
                         goalDate={user?.goalDate}
