@@ -96,13 +96,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         >
             {/* Background Atmosphere */}
             <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
-            
+
             {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
 
             {/* Neural Grid Overlay */}
-            <div className="absolute inset-0 opacity-[0.02] pointer-events-none" 
-                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+            <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
             {/* Scanning Laser */}
             <motion.div
@@ -132,7 +132,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Análise de Redes Neurais em Tempo Real</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         {urgency.crunchMultiplier > 1 && (
                             <motion.div
@@ -176,11 +176,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                         </span>
                                     )}
                                 </div>
-                                
+
                                 <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
                                     {suggestion.name}
                                 </h2>
-                                
+
                                 {topic && (
                                     <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl border text-base font-black tracking-tight ${cfg.badge} hover:scale-105 transition-transform cursor-default`}>
                                         <Target size={18} />
@@ -192,7 +192,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.recommendation && (
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         className="relative rounded-2xl overflow-hidden border border-white/5 bg-black/20 group/quote"
@@ -259,7 +259,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
                             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[35deg] pointer-events-none"
                         />
-                        
+
                         {loading
                             ? <><Loader2 size={20} className="animate-spin" /><span>Sincronizando Heurísticas…</span></>
                             : <><Zap size={20} className="fill-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" /><span>Recalcular Estratégia de IA</span></>

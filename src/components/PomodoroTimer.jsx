@@ -574,7 +574,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         MATÉRIA: {activeSubject.category}
                                     </span>
                                 </div>
-                                <button 
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsLayoutLocked(!isLayoutLocked);
@@ -687,7 +687,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         <div className={`relative mt-16 mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
                             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
-                             <svg className="w-64 h-64 transform -rotate-90 relative z-10">
+                            <svg className="w-64 h-64 transform -rotate-90 relative z-10">
                                 <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="14" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -727,7 +727,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         <div className={`flex items-end gap-12 z-10 mt-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                             <div className="flex flex-col items-center gap-3">
-                                 <motion.button
+                                <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={reset}
@@ -739,7 +739,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
 
                             <div className="flex flex-col items-center gap-3">
-                                 <motion.button
+                                <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => {
@@ -772,7 +772,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         {/* Speed Telemetry Controls */}
                         {activeSubject && (
-                             <div className="absolute bottom-10 right-10 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
+                            <div className="absolute bottom-10 right-10 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
                                 {[1, 10, 100].map(s => (
                                     <button
                                         key={s}
@@ -797,7 +797,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         <div className="flex flex-col min-w-[150px]">
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DE CICLOS</h3>
                         </div>
-                        
+
                         <div className={`flex items-center gap-4 md:gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                             <div className="flex items-center gap-2">
                                 <button
@@ -827,7 +827,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                     <div className="relative w-full h-3 bg-white/20 rounded-md overflow-hidden mb-2">
                         {/* Barra de Progresso Azul (Sincronizada com o cronômetro) */}
-                        <div 
+                        <div
                             ref={bottomBarRef}
                             className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all duration-100 ease-linear"
                             style={{ width: `${Math.min(100, ((sessions + (progress / 100)) / (targetCycles || 1)) * 100)}%` }}
