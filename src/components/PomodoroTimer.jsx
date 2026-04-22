@@ -558,25 +558,29 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <motion.div
                                 initial={{ y: -5, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="relative flex items-center gap-6 w-full bg-gradient-to-br from-[#f5eadd] to-[#d9c5b2] border-4 border-[#b38b6d] rounded-[2.5rem] p-6 transition-all duration-500 shadow-[inset_0_2px_10px_rgba(255,255,255,0.5),0_15px_40px_rgba(0,0,0,0.3)] group overflow-hidden"
+                                className="relative flex items-center gap-6 w-full bg-[#f5eadd] border-2 border-[#d9c5b2] rounded-[2.5rem] p-8 transition-all duration-500 shadow-xl group overflow-hidden"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-40 pointer-events-none" />
-                                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                                <div className="w-16 h-16 rounded-2xl bg-black/5 border border-[#3a261c]/20 flex items-center justify-center text-[#3a261c] shadow-[inset_0_2px_5px_rgba(0,0,0,0.1)] group-hover:scale-105 transition-transform duration-500">
-                                    <div className="text-2xl font-black">{activeSubject.category ? activeSubject.category[0] : '📚'}</div>
+                                <div className="w-16 h-16 rounded-full bg-white border-2 border-[#d9c5b2] flex items-center justify-center text-[#2d1a12] shadow-sm group-hover:scale-105 transition-transform duration-500">
+                                    <div className="text-2xl font-black">b</div>
                                 </div>
                                 <div className="flex flex-col text-left flex-1 min-w-0 relative z-10">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-[#d97706] animate-pulse shadow-[0_0_8px_#d97706]" />
-                                        <span className="text-[10px] font-black text-[#8b5e3c] uppercase tracking-[0.4em]">Protocolo Ativo</span>
+                                        <div className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e]" />
+                                        <span className="text-[11px] font-black text-[#2d1a12] uppercase tracking-[0.3em]">PROTOCOLO ATIVO</span>
                                     </div>
-                                    <h2 className="text-2xl font-black text-[#2d1a12] tracking-tight mt-1 truncate drop-shadow-sm">
+                                    <h2 className="text-4xl font-black text-[#2d1a12] tracking-tight mt-1 truncate">
                                         {activeSubject.task}
                                     </h2>
-                                    <span className="text-[11px] font-black text-[#8b5e3c]/60 uppercase tracking-[0.2em] mt-0.5 truncate">
-                                        Vetor: {activeSubject.category}
+                                    <span className="text-[12px] font-black text-[#8b5e3c] uppercase tracking-[0.2em] mt-1 truncate">
+                                        VETOR: {activeSubject.category}
                                     </span>
                                 </div>
+                                <button 
+                                    onClick={() => setIsLayoutLocked(!isLayoutLocked)}
+                                    className="absolute right-8 top-1/2 -translate-y-1/2 text-[#2d1a12]/40 hover:text-[#2d1a12] transition-colors"
+                                >
+                                    {isLayoutLocked ? <Lock size={24} /> : <Unlock size={24} />}
+                                </button>
                             </motion.div>
                         ) : mode === 'break' ? (
                             <motion.div
@@ -613,34 +617,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         )}
                     </div>
 
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                        {!isLayoutLocked && (
-                            <button
-                                onClick={() => {
-                                    setUiPosition({ x: 0, y: 0 });
-                                    try {
-                                        localStorage.setItem('pomodoroPosition', JSON.stringify({ x: 0, y: 0 }));
-                                    } catch {
-                                        // Storage interaction failed
-                                    }
-                                }}
-                                className="p-3 rounded-xl bg-stone-800 text-stone-300 border border-stone-700 hover:text-white hover:bg-stone-700 transition-all shadow-lg flex items-center gap-2"
-                                title="Resetar Posição"
-                            >
-                                <RotateCcw size={14} />
-                                <span className="text-[10px] font-bold uppercase">Resetar</span>
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setIsLayoutLocked(!isLayoutLocked)}
-                            className={`p-3 rounded-xl transition-all duration-300 ${isLayoutLocked
-                                ? 'text-stone-600 hover:text-stone-400'
-                                : 'bg-[#292524] text-stone-200 border border-stone-700'
-                                }`}
-                        >
-                            {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
-                        </button>
-                    </div>
                 </div>
 
                 <div
@@ -672,14 +648,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             }
                             return (
                                 <div className="absolute top-6 left-6">
-                                    <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl flex items-center gap-3 bg-black/40 ${levelColor.split(' ').filter(c => !c.startsWith('bg-')).join(' ')} shadow-[0_10px_30px_rgba(0,0,0,0.3)]`}>
+                                    <div className={`px-5 py-2.5 rounded-2xl border-2 backdrop-blur-xl flex items-center gap-3 bg-black/60 border-amber-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.3)]`}>
                                         <div className="relative">
-                                            <Icon size={14} className="animate-pulse" />
-                                            <div className="absolute inset-0 blur-sm opacity-50"><Icon size={14} /></div>
+                                            <Icon size={16} className="text-amber-400" />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-60">Prioridade</span>
-                                            <span className="text-xs font-black tracking-widest">{label}</span>
+                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-500/60">Prioridade</span>
+                                            <span className="text-xs font-black tracking-widest text-amber-400">{label}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -688,123 +663,115 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                         {activeSubject && retention && (
                             <div className="absolute top-6 right-6">
-                                <div className={`px-4 py-2 rounded-2xl border backdrop-blur-md bg-black/40 flex items-center gap-3 ${retention.border} shadow-2xl`}>
+                                <div className={`px-4 py-2 rounded-2xl border backdrop-blur-md bg-black/60 border-emerald-500/30 flex items-center gap-3 shadow-2xl`}>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 text-slate-400">Saúde Neural</span>
-                                        <span className={`text-xs font-black tracking-widest ${retention.color}`}>{retention.val}%</span>
+                                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500/60">Saúde Neural</span>
+                                        <span className={`text-xs font-black tracking-widest text-emerald-400`}>{retention.val}%</span>
                                     </div>
-                                    <div className={`w-8 h-8 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center ${retention.color}`}>
-                                        <Brain size={14} />
+                                    <div className={`w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400`}>
+                                        <Brain size={16} />
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        <div className={`flex items-center gap-1 mb-10 bg-black/40 p-1.5 rounded-2xl border border-white/10 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <button
-                                onClick={() => { setMode('work'); setTimeLeft(safeSettings.pomodoroWork * 60); setIsRunning(false); }}
-                                className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-500 ${mode === 'work' ? 'bg-white/10 text-white shadow-xl border border-white/10' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                Foco
-                            </button>
-                            <button
-                                onClick={() => { setMode('break'); setTimeLeft(safeSettings.pomodoroBreak * 60); setIsRunning(false); }}
-                                className={`px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-500 ${mode === 'break' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-                            >
-                                Pausa
-                            </button>
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
+                            <span className={`text-[10px] font-black uppercase tracking-[0.4em] transition-opacity ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
                         </div>
+
 
                         <div className={`relative mb-8 transition-all duration-500 rounded-full ${mode === 'work' && timeLeft <= 10 ? 'animate-pulse shadow-[0_0_80px_rgba(239,68,68,0.4)]' : ''}`}>
                             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.02] to-transparent blur-2xl" />
-                            <svg className="w-64 h-64 transform -rotate-90 relative z-10">
-                                <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" strokeLinecap="round" />
+                            <svg className="w-72 h-72 transform -rotate-90 relative z-10">
+                                <circle cx="144" cy="144" r="120" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="16" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#2e7d32" />
-                                        <stop offset="100%" stopColor="#2e7d32" />
+                                        <stop offset="0%" stopColor="#22c55e" />
+                                        <stop offset="100%" stopColor="#22c55e" />
                                     </linearGradient>
                                 </defs>
                                 <motion.circle
                                     ref={svgCircleRef}
-                                    cx="128" cy="128" r="110" fill="none"
+                                    cx="144" cy="144" r="120" fill="none"
                                     stroke="url(#timerGradient)"
-                                    strokeWidth="12"
+                                    strokeWidth="16"
                                     strokeLinecap="round"
-                                    strokeDasharray={2 * Math.PI * 110}
-                                    initial={{ strokeDashoffset: 2 * Math.PI * 110 }}
-                                    animate={{ strokeDashoffset: 2 * Math.PI * 110 * (1 - progress / 100) }}
-                                    className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                                    strokeDasharray={2 * Math.PI * 120}
+                                    initial={{ strokeDashoffset: 2 * Math.PI * 120 }}
+                                    animate={{ strokeDashoffset: 2 * Math.PI * 120 * (1 - progress / 100) }}
+                                    className="drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                                 />
                             </svg>
 
                             <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                                <span ref={clockRef} className="text-6xl font-black tracking-tighter text-white drop-shadow-2xl">
+                                <span ref={clockRef} className="text-7xl font-black tracking-tight text-white drop-shadow-2xl">
                                     {formatTime(timeLeft)}
                                 </span>
 
-                                <div className={`mt-4 flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md`}>
-                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${isRunning
-                                        ? (mode === 'work' && timeLeft <= 10 ? 'animate-pulse text-red-500 bg-red-500' : 'animate-pulse text-emerald-400 bg-emerald-400')
-                                        : 'text-slate-600 bg-slate-600'}`}></div>
-                                    <span className={`text-[9px] font-black uppercase tracking-[0.3em] ${isRunning ? 'text-white' : 'text-slate-500'}`}>
-                                        {isRunning ? (mode === 'work' ? 'Protocolo Foco' : 'Recuperação') : 'Sessão Pausada'}
+                                <div className={`mt-2 flex flex-col items-center`}>
+                                    <span className={`text-[11px] font-black uppercase tracking-[0.4em] text-white`}>
+                                        {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : 'Recuperação') : 'SESSÃO PAUSADA'}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className={`flex items-center gap-10 z-10 mt-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <motion.button
-                                whileHover={{ scale: 1.15, rotate: -15 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={reset}
-                                className="w-18 h-18 md:w-20 md:h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-slate-400 hover:text-amber-400 hover:border-amber-500/50 flex items-center justify-center transition-all shadow-[0_15px_40px_rgba(0,0,0,0.4)] group"
-                                title="Reiniciar Sistema"
-                            >
-                                <RotateCcw size={28} className="group-hover:rotate-[-90deg] transition-transform duration-700" />
-                            </motion.button>
+                        <div className={`flex items-end gap-12 z-10 mt-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                            <div className="flex flex-col items-center gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={reset}
+                                    className="w-20 h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center transition-all shadow-2xl group"
+                                >
+                                    <RotateCcw size={32} />
+                                </motion.button>
+                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">REINICIAR</span>
+                            </div>
 
-                            <motion.button
-                                whileHover={{ scale: 1.05, boxShadow: isRunning ? '0 0 50px rgba(239,68,68,0.2)' : '0 0 60px rgba(255,255,255,0.15)' }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => {
-                                    if (mode === 'work' && !activeSubject) {
-                                        setShowWarning(true);
-                                        setTimeout(() => setShowWarning(false), 3000);
-                                        return;
-                                    }
-                                    setIsRunning(!isRunning);
-                                }}
-                                className={`w-32 h-32 md:w-36 md:h-36 rounded-full flex items-center justify-center transition-all duration-500 shadow-[0_25px_60px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(255,255,255,0.2)] border-4 ${isRunning ? 'bg-gradient-to-br from-white to-slate-200 text-black border-white' : 'bg-black/60 backdrop-blur-3xl text-white border-white/20 hover:border-white hover:bg-black/40'}`}
-                            >
-                                {isRunning ? <Pause size={56} strokeWidth={3} fill="currentColor" /> : <Play size={56} strokeWidth={3} fill="currentColor" className="ml-2" />}
-                            </motion.button>
+                            <div className="flex flex-col items-center gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => {
+                                        if (mode === 'work' && !activeSubject) {
+                                            setShowWarning(true);
+                                            setTimeout(() => setShowWarning(false), 3000);
+                                            return;
+                                        }
+                                        setIsRunning(!isRunning);
+                                    }}
+                                    className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl border-4 ${isRunning ? 'bg-white text-black border-white' : 'bg-[#22c55e] text-white border-[#22c55e] shadow-[0_0_30px_rgba(34,197,94,0.3)]'}`}
+                                >
+                                    {isRunning ? <Pause size={56} fill="currentColor" /> : <Play size={56} fill="currentColor" className="ml-2" />}
+                                </motion.button>
+                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">{isRunning ? 'PAUSAR' : 'CONTINUAR'}</span>
+                            </div>
 
-                            <motion.button
-                                whileHover={{ scale: 1.15, rotate: 15 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={skip}
-                                className="w-18 h-18 md:w-20 md:h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/50 flex items-center justify-center transition-all shadow-[0_15px_40px_rgba(0,0,0,0.4)] group"
-                                title="Pular Ciclo"
-                            >
-                                <SkipForward size={28} className="group-hover:translate-x-1 transition-transform" />
-                            </motion.button>
+                            <div className="flex flex-col items-center gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={skip}
+                                    className="w-20 h-20 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center transition-all shadow-2xl group"
+                                >
+                                    <SkipForward size={32} />
+                                </motion.button>
+                                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">PULAR</span>
+                            </div>
                         </div>
 
                         {/* Speed Telemetry Controls */}
                         {activeSubject && (
-                            <div className="absolute bottom-8 right-8 flex items-center gap-2 bg-black/90 backdrop-blur-3xl p-2 rounded-2xl border-2 border-white/5 shadow-[0_10px_40px_rgba(0,0,0,0.6),inset_0_0_15px_rgba(255,255,255,0.05)] z-[100] group/speed">
-                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-white/10 border border-white/10 backdrop-blur-md opacity-0 group-hover/speed:opacity-100 transition-opacity">
-                                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Warp Speed</span>
-                                </div>
+                            <div className="absolute bottom-8 right-8 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
                                 {[1, 10, 100].map(s => (
                                     <button
                                         key={s}
                                         onClick={() => setSpeed(s)}
-                                        className={`px-5 py-2.5 rounded-xl text-[11px] font-black font-mono transition-all duration-500 border-2 ${speed === s
-                                            ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.5)] scale-105'
-                                            : 'bg-white/5 text-slate-500 border-transparent hover:text-white hover:bg-white/10'
+                                        className={`px-3 py-1 rounded-full text-[10px] font-black transition-all duration-500 ${speed === s
+                                            ? 'bg-white text-black'
+                                            : 'text-white/40 hover:text-white'
                                             }`}
                                     >
                                         {s}X
@@ -816,89 +783,53 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
 
                 <div
-                    className="w-full px-10 pt-8 pb-10 rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#f2e6d9] to-[#e6d5c3] border-4 border-[#c4a48a] shadow-xl group/bottom"
+                    className="w-full px-10 py-6 rounded-[2.5rem] relative overflow-hidden bg-[#f5eadd] border-2 border-[#d9c5b2] shadow-xl group/bottom"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-40 pointer-events-none" />
-                    {/* Subtle Wood Grain Pattern Overlay */}
-                    <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/wood-pattern.png")' }} />
-
-                    <div className="flex items-center justify-between mb-8 relative z-10">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-[#5c3d2e]/15 border-2 border-[#5c3d2e]/30 flex items-center justify-center text-[#3a261c] shadow-[inset_0_2px_5px_rgba(0,0,0,0.1)]">
-                                <Zap size={20} />
-                            </div>
-                            <div className="flex flex-col">
-                                <h3 className="text-xs font-black text-[#8b5e3c]/60 uppercase tracking-[0.3em]">Progressão de Ciclos</h3>
-                                <span className="text-sm font-bold text-[#3a261c] mt-1">Eficiência Operacional</span>
-                            </div>
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <div className="flex flex-col">
+                            <h3 className="text-[10px] font-black text-[#8b5e3c] uppercase tracking-[0.3em]">PROGRESSO DE CICLOS</h3>
+                            <span className="text-lg font-black text-[#2d1a12] mt-1">Eficiência Operacional</span>
                         </div>
-                        <div className={`flex items-center gap-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                        
+                        <div className={`flex items-center gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
                                     disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
-                                    className="w-8 h-8 rounded-lg bg-[#5c3d2e]/5 border border-[#5c3d2e]/10 text-[#5c3d2e] hover:bg-[#5c3d2e]/10 transition-all flex items-center justify-center"
+                                    className="w-10 h-10 rounded-xl bg-white border border-[#d9c5b2] text-[#2d1a12] hover:bg-stone-50 transition-all flex items-center justify-center font-bold"
                                 >
                                     -
                                 </button>
                                 <button
                                     onClick={() => setTargetCycles(targetCycles + 1)}
                                     disabled={!activeSubject}
-                                    className="w-8 h-8 rounded-lg bg-[#5c3d2e]/5 border border-[#5c3d2e]/10 text-[#5c3d2e] hover:bg-[#5c3d2e]/10 transition-all flex items-center justify-center"
+                                    className="w-10 h-10 rounded-xl bg-white border border-[#d9c5b2] text-[#2d1a12] hover:bg-stone-50 transition-all flex items-center justify-center font-bold"
                                 >
                                     +
                                 </button>
                             </div>
                             <div className="flex flex-col items-end">
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-black text-[#2d1a12] tabular-nums tracking-tighter drop-shadow-sm">{completedCycles}</span>
-                                    <span className="text-sm font-black text-[#8b5e3c]/40">/ {targetCycles}</span>
+                                    <span className="text-5xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{completedCycles}</span>
+                                    <span className="text-xl font-black text-[#2d1a12]/20">/ {targetCycles}</span>
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-[#8b5e3c] tracking-[0.3em]">Módulos</span>
+                                <span className="text-[10px] font-black uppercase text-[#8b5e3c] tracking-[0.3em]">MÓDULOS</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 h-4 w-full relative z-10">
-                        {Array.from({ length: targetCycles }).map((_, i) => {
-                            let workProgress = 0;
-                            let breakProgress = 0;
-
-                            if (i < sessions) {
-                                workProgress = 100;
-                            } else if (i === sessions && mode === 'work') {
-                                workProgress = progress;
-                            }
-
-                            if (i < sessions) {
-                                if (i === sessions - 1 && mode === 'break') {
-                                    breakProgress = progress;
-                                } else {
-                                    breakProgress = 100;
-                                }
-                            }
-
-                            return (
-                                <React.Fragment key={i}>
-                                    <div className="flex-1 h-full relative group/cell">
-                                        <div className="absolute inset-0 bg-white/[0.03] rounded-sm overflow-hidden border border-white/[0.05]">
-                                            <motion.div
-                                                className={`h-full bg-[#4a6075] opacity-90`}
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${workProgress}%` }}
-                                                transition={{ duration: 0.5 }}
-                                            />
-                                        </div>
-                                        {/* Break indicator dot */}
-                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2">
-                                            <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${breakProgress > 0 ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)] scale-125' : 'bg-white/10'}`} />
-                                        </div>
-                                    </div>
-                                </React.Fragment>
-                            );
-                        })}
+                    <div className="relative w-full h-3 bg-white/50 rounded-full overflow-hidden mb-2">
+                        <motion.div 
+                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(completedCycles / targetCycles) * 100}%` }}
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40">
+                            {Math.round((completedCycles / targetCycles) * 100)}%
+                        </div>
                     </div>
                 </div>
+
             </motion.div>
         </div>
     );
