@@ -561,7 +561,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <motion.div
                                 initial={{ y: -5, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="relative flex items-center gap-6 w-full bg-[#b08e6b] border-2 border-[#94785a] rounded-[2.5rem] p-8 transition-all duration-500 shadow-xl group overflow-hidden"
+                                className="relative flex items-center gap-6 w-full bg-[#b08e6b] border-2 border-[#94785a] rounded-xl p-8 transition-all duration-500 shadow-xl group overflow-hidden"
                             >
                                 <div className="w-16 h-16 rounded-full bg-white border-2 border-[#d9c5b2] flex items-center justify-center text-[#2d1a12] shadow-sm group-hover:scale-105 transition-transform duration-500 flex-shrink-0">
                                     <div className="text-2xl font-black">b</div>
@@ -589,7 +589,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 backdrop-blur-3xl border border-emerald-500/30 rounded-[2.5rem] py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)] group"
+                                className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 backdrop-blur-3xl border border-emerald-500/30 rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)] group"
                             >
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                                     <Zap size={24} className="animate-pulse" />
@@ -607,7 +607,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 } : {}}
                                 transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0 }}
                                 onClick={onExit}
-                                className="w-full bg-red-950/20 backdrop-blur-3xl border border-dashed border-red-500/30 rounded-2xl py-4 flex flex-row items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 hover:border-red-500/50 transition-all group shadow-2xl"
+                                className="w-full bg-red-950/20 backdrop-blur-3xl border border-dashed border-red-500/30 rounded-xl py-4 flex flex-row items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 hover:border-red-500/50 transition-all group shadow-2xl"
                             >
                                 <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-all">
                                     <AlertCircle size={20} />
@@ -630,7 +630,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         backgroundPosition: 'center',
                         boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)'
                     }}
-                    className={`w-full border-[6px] border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-[2rem] relative overflow-hidden flex flex-col items-center justify-center shadow-[inset_0_10px_60px_rgba(0,0,0,0.8),0_20px_50px_rgba(0,0,0,0.5)]
+                    className={`w-full border-[6px] border-[#3f2e26] transition-all duration-500 ease-out p-6 rounded-xl relative overflow-hidden flex flex-col items-center justify-center shadow-[inset_0_10px_60px_rgba(0,0,0,0.8),0_20px_50px_rgba(0,0,0,0.5)]
                         ${!isLayoutLocked ? 'ring-2 ring-indigo-500/50' : ''}
                         ${showWarning ? 'ring-4 ring-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]' : ''}`}
                 >

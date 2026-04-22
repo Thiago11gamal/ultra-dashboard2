@@ -53,20 +53,20 @@ function AICoachPanel({ activeSubject, stats }) {
     };
 
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`relative rounded-[2.5rem] border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-xl p-8 mb-8 overflow-hidden group shadow-2xl`}
+            className={`relative rounded-xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-xl p-8 mb-8 overflow-hidden group shadow-2xl`}
         >
             {/* Background Animated Gradient */}
             <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-40 pointer-events-none`} />
-            
+
             {/* Cyber Grid Overlay */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
             {/* Scanline Effect */}
-            <motion.div 
+            <motion.div
                 animate={{ top: ['-100%', '200%'] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 className={`absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-20 pointer-events-none z-20`}
@@ -74,7 +74,7 @@ function AICoachPanel({ activeSubject, stats }) {
 
             <div className="flex items-center gap-8 relative z-10">
                 <div className="relative shrink-0">
-                    <motion.div 
+                    <motion.div
                         animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
                         transition={{ duration: 3, repeat: Infinity }}
                         className={`absolute inset-0 rounded-full blur-2xl ${theme.accent}`}
@@ -92,12 +92,12 @@ function AICoachPanel({ activeSubject, stats }) {
                         </div>
                         <div className={`h-[1px] flex-1 bg-gradient-to-r from-white/10 to-transparent`} />
                     </div>
-                    
+
                     <h3 className="text-2xl font-black text-white mb-2 tracking-tight flex items-baseline gap-2">
                         {insight.title}
                         <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse`} />
                     </h3>
-                    
+
                     <p className="text-base text-slate-300 leading-relaxed font-medium">
                         {formatText(insight.text)}
                     </p>
@@ -160,7 +160,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     }, [categories, recommendedTask]);
 
     return (
-        <motion.div 
+        <motion.div
             drag={!isPanelLocked}
             dragMomentum={true}
             dragElastic={0.1}
@@ -182,11 +182,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                 )}
                 <button
                     onClick={toggleLock}
-                    className={`p-3 rounded-2xl transition-all duration-300 shadow-2xl backdrop-blur-xl border ${
-                        isPanelLocked 
-                        ? 'bg-slate-900/60 text-slate-500 border-white/5 hover:border-white/20 hover:text-slate-300' 
+                    className={`p-3 rounded-2xl transition-all duration-300 shadow-2xl backdrop-blur-xl border ${isPanelLocked
+                        ? 'bg-slate-900/60 text-slate-500 border-white/5 hover:border-white/20 hover:text-slate-300'
                         : 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/40'
-                    }`}
+                        }`}
                 >
                     {isPanelLocked ? <Lock size={18} /> : <Unlock size={18} />}
                 </button>
@@ -198,13 +197,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
 
             {/* Recommended Action Card */}
             {recommendedTask && !activeSubject && (
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="mb-6 group/rec relative bg-[#0d0e1a] border border-indigo-500/20 rounded-[2.5rem] p-7 backdrop-blur-2xl overflow-hidden shadow-2xl"
+                    className="mb-6 group/rec relative bg-[#0d0e1a] border border-indigo-500/20 rounded-xl p-7 backdrop-blur-2xl overflow-hidden shadow-2xl"
                 >
                     <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
-                    
+
                     <div className="flex items-center justify-between mb-5">
                         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 flex items-center gap-2">
                             <Zap size={12} className="fill-indigo-400" /> Prioridade de ROI
@@ -224,7 +223,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                         </span>
                         <ChevronRight size={18} className="relative z-10 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
-                    
+
                     <div className="mt-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10">
@@ -238,9 +237,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
             )}
 
             {/* Next Actions List */}
-            <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-[2.5rem] p-8 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
+            <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-xl p-8 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-                
+
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
@@ -272,13 +271,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
                                     onClick={() => onStartTask(task)}
-                                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 group text-left relative overflow-hidden ${isActive
-                                            ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                                            : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
+                                    className={`w-full flex items-center gap-4 p-4 rounded-lg border transition-all duration-300 group text-left relative overflow-hidden ${isActive
+                                        ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
+                                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
                                         }`}
                                 >
                                     <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${isActive ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-transparent group-hover:bg-white/10'}`} />
-                                    
+
                                     <div
                                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg transition-transform group-hover:scale-110"
                                         style={{ backgroundColor: `${task.catColor}15`, border: `1px solid ${task.catColor}30` }}
@@ -333,26 +332,26 @@ export default function Pomodoro() {
         // Cálculo Inteligente de Fadiga Diária sem Amnésia
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        
+
         let consecutiveStudyMinutes = 0;
         const recentLogs = [...(data.studyLogs || [])]
             .filter(log => new Date(log.date || 0).getTime() >= startOfToday)
             .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()); // newest first
-            
+
         let lastTimeBoundary = now.getTime();
-        
+
         for (const log of recentLogs) {
             const logEnd = new Date(log.date || 0).getTime();
             const gapInMinutes = (lastTimeBoundary - logEnd) / (1000 * 60);
-            
+
             // Se houve um hiato de descanso de mais de 90 minutos, a estafa resetou organicamente
             if (gapInMinutes > 90) {
                 break;
             }
-            
+
             consecutiveStudyMinutes += (Number(log.minutes) || 0);
             // O início dessa sessão de log marca a próxima fronteira
-            lastTimeBoundary = logEnd - ((Number(log.minutes) || 0) * 60 * 1000); 
+            lastTimeBoundary = logEnd - ((Number(log.minutes) || 0) * 60 * 1000);
         }
 
         return {
