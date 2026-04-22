@@ -7,8 +7,7 @@ import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
 import TrashModal from './TrashModal';
 import useClock from '../hooks/useClock';
-import ThemeSwitcher from './header/ThemeSwitcher';
-import ProfileDrawer from './header/ProfileDrawer';
+
 
 /* ─────────────────────────────────────────────────────────
    Helper Components
@@ -60,8 +59,6 @@ export default function Header({
     cloudStatus = { connected: false, syncing: false },
     onExport,
     onImport,
-    settings,
-    onThemeChange,
     onToggleSidebar,
     sidebarCollapsed,
     setSidebarCollapsed,
@@ -69,8 +66,6 @@ export default function Header({
 }) {
     const { logout } = useAuth();
 
-    const [profileOpen, setProfileOpen] = useState(false);
-    const [drawerOpen, setDrawerOpen] = useState(false);
     const [localName, setLocalName] = useState(user.name);
     const [isFocused, setIsFocused] = useState(false);
 
@@ -100,7 +95,7 @@ export default function Header({
         }
     };
 
-    const toggleProfile = () => setProfileOpen(!profileOpen);
+
 
     return (
         <>
@@ -125,12 +120,7 @@ export default function Header({
                             <RotateCcw size={16} />
                         </button>
 
-                        <button
-                            onClick={() => setDrawerOpen(true)}
-                            className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-base shadow-lg"
-                        >
-                            {user.avatar}
-                        </button>
+
                     </div>
                 </div>
 
@@ -148,17 +138,7 @@ export default function Header({
                 </div>
             </div>
 
-            {/* Profile side drawer (mobile) */}
-            <ProfileDrawer
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-                user={user}
-                contests={contests}
-                activeContestId={activeContestId}
-                onSwitchContest={onSwitchContest}
-                onCreateContest={onCreateContest}
-                onDeleteContest={onDeleteContest}
-            />
+
 
 
             {/* ─── DESKTOP HEADER ─── */}
@@ -243,83 +223,7 @@ export default function Header({
 
                     <TimeDisplay />
 
-                    <div className="relative">
-                        <button
-                            onClick={toggleProfile}
-                            className="tour-step-1 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-2xl hover:scale-105 transition-transform cursor-pointer"
-                        >
-                            {user.avatar}
-                        </button>
 
-                        {profileOpen && (
-                            <div className="absolute right-0 top-full mt-4 w-64 max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar bg-slate-900/98 border border-white/10 rounded-xl p-2 shadow-2xl z-50 animate-fade-in-down backdrop-blur-md">
-                                <div className="px-3 py-2 border-b border-white/10 mb-2">
-                                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Meus Painéis</p>
-                                </div>
-                                <div className="space-y-1">
-                                    {contests && Object.entries(contests).map(([id, contestData]) => (
-                                        <div
-                                            key={id}
-                                            className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors group ${id === activeContestId ? 'bg-purple-500/20 border border-purple-500/30' : 'hover:bg-white/5'}`}
-                                        >
-                                            <button
-                                                onClick={() => {
-                                                    if (id !== activeContestId) onSwitchContest(id);
-                                                    setProfileOpen(false);
-                                                }}
-                                                className={`flex-1 flex items-center gap-3 text-left overflow-hidden ${id === activeContestId ? 'text-purple-300' : 'text-slate-300'}`}
-                                            >
-                                                <LayoutDashboard size={16} className="shrink-0" />
-                                                <span className="truncate text-sm">
-                                                    {typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome'}
-                                                </span>
-                                            </button>
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                {id === activeContestId && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-2"></div>}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onDeleteContest(id); }}
-                                                    className="p-1.5 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                                                    title="Excluir Painel"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
-                                    <button
-                                        onClick={() => { onCreateContest(); setProfileOpen(false); }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors"
-                                    >
-                                        <Plus size={16} />
-                                        <span>Criar Novo Painel</span>
-                                    </button>
-                                    <button
-                                        onClick={() => { onOpenTrash(); setProfileOpen(false); }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 transition-colors"
-                                    >
-                                        <Trash2 size={16} />
-                                        <span>Lixeira</span>
-                                    </button>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                                    >
-                                        <LogOut size={16} />
-                                        <span>Sair da Conta</span>
-                                    </button>
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-white/10">
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest px-1 mb-2">Aparência</p>
-                                    <ThemeSwitcher currentMode={settings?.darkMode} onThemeChange={onThemeChange} />
-                                </div>
-                            </div>
-                        )}
-                        {profileOpen && (
-                            <div className="fixed inset-0 z-40 pointer-events-auto" onClick={() => setProfileOpen(false)} />
-                        )}
-                    </div>
                 </div>
             </header>
         </>
