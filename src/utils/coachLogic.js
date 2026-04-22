@@ -644,8 +644,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         for (let i = 0; i < iterations; i++) {
             const weakTopic = weakTopics[i] || null;
-            const priorityLabel = allGeneratedTasks.length < 3 ? '[AÇÃO CRÍTICA] ' : '';
-            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[Revisão Geral] `;
+            const priorityLabel = allGeneratedTasks.length < 3 ? '[PROTOCOLO PRIORITÁRIO] ' : '';
+            const topicLabel = weakTopic ? `${priorityLabel}[${weakTopic.name}] ` : `${priorityLabel}[OTIMIZAÇÃO DE BASE] `;
             
             // Unique ID per topic string to avoid react-beautiful-dnd collisions
             const uniqueIdSuffix = weakTopic ? (weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '') + weakTopic.total) : `geral-${i}`;
@@ -660,7 +660,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-danger-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🚨 Alerta Vermelho! Projeção Matemática indica ampla reprovação. Medidas drásticas agora!`,
+                    text: `${cat.name}: ${topicLabel}🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance. Medidas drásticas necessárias.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -678,7 +678,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-chaos-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🌪️ Você é estatisticamente imprevisível. Consolide antes de avançar!`,
+                    text: `${cat.name}: ${topicLabel}🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado. Consolide o núcleo antes de avançar.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -696,7 +696,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
                     id: `${cat.id}-mc-safe-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}🏆 Sucesso quase certo (${probPct}%). Modo manutenção ativado.`,
+                    text: `${cat.name}: ${topicLabel}🏆 CRUZEIRO SEGURO: Estabilidade operacional em ${probPct}%. Mantenha o fluxo de manutenção.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -727,7 +727,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             if (trapCheck.isTrap && i === 0) {
                 allGeneratedTasks.push({
                     id: `${cat.id}-trap-${uniqueIdSuffix}`,
-                    text: `${cat.name}: ${topicLabel}⚠️ Alerta de Método. Foco TOTAL em exercícios hoje!`,
+                    text: `${cat.name}: ${topicLabel}⚠️ ANOMALIA DE MÉTODO: Teoria excedente. Foco TOTAL em processamento de questões.`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -876,8 +876,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (!activeSubject) {
         return {
             type: 'info',
-            title: 'Aguardando Sessão',
-            text: 'Selecione a ação recomendada abaixo para iniciar o rastreamento cognitivo.',
+            title: 'STATUS: STANDBY',
+            text: 'Aguardando inicialização do protocolo de foco. Selecione um vetor de estudo abaixo para ativar o rastreamento neural.',
             color: 'indigo',
             iconType: 'Brain'
         };
@@ -885,12 +885,11 @@ export function getCoachInsight(activeSubject, stats) {
 
     const fatigueScore = getCognitiveState(stats);
 
-    // BUG 3 FIX: O Bloqueio Cego. A Urgência (Fadiga) DEVE interceptar antes da recompensa (Ultra Foco)
     if (fatigueScore < 70) {
         return {
             type: 'danger',
-            title: 'Fadiga Cognitiva Detectada',
-            text: `Sua disposição cognitiva caiu para **${fatigueScore}%**. Continuar agora gera retornos decrescentes. Sugerimos uma pausa imediata.`,
+            title: 'ALERTA: ESGOTAMENTO NEURAL',
+            text: `Carga cognitiva em nível crítico (**${fatigueScore}%**). Taxa de retenção em declínio acentuado. Protocolo de resfriamento (pausa) recomendado.`,
             color: 'red',
             iconType: 'Alert'
         };
@@ -899,8 +898,8 @@ export function getCoachInsight(activeSubject, stats) {
     if (stats.pomodorosCompleted >= 3) {
         return {
             type: 'success',
-            title: 'Modo Ultra Foco',
-            text: `Série de alta performance! Sua disposição está blindada em **${fatigueScore}%**. Capitalize neste estado de fluxo.`,
+            title: 'ESTADO: SINCRONIA TOTAL',
+            text: `Sincronia neural otimizada! Estabilidade cognitiva blindada em **${fatigueScore}%**. Fluxo de dados em alta fidelidade detectado.`,
             color: 'emerald',
             iconType: 'Zap'
         };
@@ -908,8 +907,8 @@ export function getCoachInsight(activeSubject, stats) {
 
     return {
         type: 'info',
-        title: 'Sessão Calibrada',
-        text: `Motor ativado. Disposição calculada em **${fatigueScore}%**. Foco total em **${activeSubject.task || 'ação'}**.`,
+        title: 'SESSÃO: OPERACIONAL',
+        text: `Frequência de foco sintonizada. Disposição operacional calculada em **${fatigueScore}%**. Escaneando vetor: **${activeSubject.task || 'ação'}**.`,
         color: 'indigo',
         iconType: 'Brain'
     };
