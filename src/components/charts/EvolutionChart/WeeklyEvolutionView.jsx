@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { 
-    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush 
+import {
+    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore } from "../../../utils/scoreHelper";
@@ -29,13 +29,13 @@ const formatWeek = (isoString) => {
     return `${day}/${month}`;
 };
 
-export const WeeklyEvolutionView = ({ 
-    categories, 
+export const WeeklyEvolutionView = ({
+    categories,
     studyLogs = [],
-    showOnlyFocus, 
-    focusSubjectId, 
-    maxScore = 100, 
-    unit = '%' 
+    showOnlyFocus,
+    focusSubjectId,
+    maxScore = 100,
+    unit = '%'
 }) => {
     const [viewMode, setViewMode] = useState('performance'); // 'evolution' | 'variation' | 'performance'
     const [userToggles, setUserToggles] = useState({});
@@ -47,8 +47,8 @@ export const WeeklyEvolutionView = ({
 
     // 2. PROCESSAMENTO DOMINADO
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
-        let itemsMap = {}; 
-        
+        let itemsMap = {};
+
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 itemsMap[cat.id] = { name: cat.name.replace(/Direito /gi, 'D. ').substring(0, 12), color: cat.color };
@@ -58,10 +58,10 @@ export const WeeklyEvolutionView = ({
             if (cat) {
                 (cat.simuladoStats?.history || []).forEach(h => {
                     if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => { 
+                        h.topics.forEach(t => {
                             const tName = String(t.name || '').trim();
                             if (!tName) return;
-                            itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color }; 
+                            itemsMap[tName.toLowerCase()] = { name: tName.substring(0, 12), color: cat.color };
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
@@ -74,24 +74,24 @@ export const WeeklyEvolutionView = ({
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {} };
 
-        const weeksTemp = {}; 
-        
+        const weeksTemp = {};
+
         const processHistory = (historyArray, itemId) => {
             historyArray.forEach(h => {
                 const weekStr = getMondayStr(h.date);
                 if (!weekStr) return;
-                
+
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
-                
+
                 let totalQ = Number(h.total) || 0;
                 let score = getSafeScore(h, maxScore);
-                
+
                 // MATH FIX: Impedir que testes baseados puramente em porcentagem sem métrica de questões gerem 'missing data' (zeros cegos)
                 if (totalQ === 0 && h.score != null) {
                     totalQ = Math.max(1, Math.round(maxScore || 100)); // Carga sintética alinhada à escala da prova
                 }
-                
+
                 weeksTemp[weekStr][itemId].total += totalQ;
                 weeksTemp[weekStr][itemId].correct += (score / maxScore) * totalQ;
             });
@@ -107,11 +107,11 @@ export const WeeklyEvolutionView = ({
                         h.topics.forEach(t => {
                             const tName = String(t.name || '').trim();
                             if (!tName) return;
-                            processHistory([{...t, date: h.date}], tName.toLowerCase());
+                            processHistory([{ ...t, date: h.date }], tName.toLowerCase());
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        processHistory([{...h}], tName.toLowerCase());
+                        processHistory([{ ...h }], tName.toLowerCase());
                     }
                 });
             }
@@ -124,9 +124,9 @@ export const WeeklyEvolutionView = ({
         if (sortedWeeks.length > 0) {
             const firstWeek = new Date(`${sortedWeeks[0].week}T12:00:00`);
             const lastWeek = new Date(`${sortedWeeks[sortedWeeks.length - 1].week}T12:00:00`);
-            
+
             const curr = new Date(firstWeek);
-            
+
             while (curr <= lastWeek) {
                 const y = curr.getFullYear();
                 const m = String(curr.getMonth() + 1).padStart(2, '0');
@@ -136,35 +136,35 @@ export const WeeklyEvolutionView = ({
                 curr.setDate(curr.getDate() + 7);
             }
         }
-        
+
         // 🌟 SOLUÇÃO 1: BURACO TEMPORAL VENCIDO
         const memoryByItem = {}; // { [id]: { pct, total } }
 
         const finalData = filledWeeks.map((weekObj) => {
             const dataPoint = { week: weekObj.week, displayDate: formatWeek(weekObj.week) };
-            
+
             validIds.forEach(id => {
                 const currentData = weekObj[id];
-                
+
                 if (currentData && currentData.total > 0) {
                     const currentPct = Number(((currentData.correct / currentData.total) * maxScore).toFixed(1));
                     dataPoint[id] = currentPct;
-                    
+
                     // Pega o Delta contra a memória passada
                     if (memoryByItem[id]) {
                         dataPoint[`delta_${id}`] = Number((currentPct - memoryByItem[id].pct).toFixed(1));
-                        
+
                         // 🌟 SOLUÇÃO 2: METADADOS NO TOOLTIP
-                        dataPoint[`meta_${id}`] = { 
-                            currTot: currentData.total, 
+                        dataPoint[`meta_${id}`] = {
+                            currTot: currentData.total,
                             prevPct: memoryByItem[id].pct,
-                            prevTot: memoryByItem[id].total 
+                            prevTot: memoryByItem[id].total
                         };
                     } else {
                         dataPoint[`delta_${id}`] = null;
                         dataPoint[`meta_${id}`] = { currTot: currentData.total, prevPct: null, prevTot: 0 };
                     }
-                    
+
                     // Atualiza a memória viva
                     memoryByItem[id] = { pct: currentPct, total: currentData.total };
                 } else {
@@ -237,20 +237,20 @@ export const WeeklyEvolutionView = ({
                         {payload.map((entry, idx) => {
                             const isDelta = entry.dataKey.startsWith('delta_');
                             const baseKey = isDelta ? entry.dataKey.replace('delta_', '') : entry.dataKey;
-                            
+
                             // Se a key tá oculta no click, pula no Tooltip pra manter sincro visual
                             if (hiddenKeys[baseKey]) return null;
-                            
+
                             const val = entry.value;
                             if (val == null) return null;
-                            
+
                             const meta = entry.payload[`meta_${baseKey}`];
-                            
+
                             if (isDelta) {
                                 // Design para Variação
                                 const color = val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8';
                                 const prefix = val > 0 ? '+' : '';
-                                
+
                                 return (
                                     <div key={idx} className="flex flex-col gap-1">
                                         <div className="flex justify-between items-center text-[10px]">
@@ -308,21 +308,21 @@ export const WeeklyEvolutionView = ({
                         {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                 </div>
-                
+
                 <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-lg p-1">
-                    <button 
+                    <button
                         onClick={() => setViewMode('performance')}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <Zap size={14} /> Desempenho (7 dias)
                     </button>
-                    <button 
+                    <button
                         onClick={() => setViewMode('evolution')}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                         <TrendingUp size={14} /> Evolução
                     </button>
-                    <button 
+                    <button
                         onClick={() => setViewMode('variation')}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
@@ -334,45 +334,45 @@ export const WeeklyEvolutionView = ({
             <div className="h-[380px] w-full mt-2 relative">
                 {viewMode === 'performance' ? (
                     <WeeklyPerformanceChart
-                         categories={categories}
-                         studyLogs={studyLogs}
-                         showOnlyFocus={showOnlyFocus}
-                         focusSubjectId={focusSubjectId}
-                         maxScore={maxScore}
-                         unit={unit}
+                        categories={categories}
+                        studyLogs={studyLogs}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                        maxScore={maxScore}
+                        unit={unit}
                     />
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">
                         {viewMode === 'evolution' ? (
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                                
+
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis domain={[0, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}${unit}`} />
-                                
+
                                 <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#ffffff15', strokeWidth: 2 }} />
-                                
-                                <Legend 
+
+                                <Legend
                                     onClick={handleLegendClick}
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
+                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
                                     iconType="circle"
                                     formatter={(value, entry) => (
-                                        <span style={{ 
-                                            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff', 
+                                        <span style={{
+                                            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff',
                                             textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
                                             transition: 'all 0.3s'
                                         }}>
                                             {value}
                                         </span>
-                                    )} 
+                                    )}
                                 />
-                                
+
                                 {chartData.length > 4 && (
-                                    <Brush 
-                                        dataKey="displayDate" 
-                                        height={20} 
-                                        stroke="#4f46e5" 
-                                        fill="#0f172a" 
+                                    <Brush
+                                        dataKey="displayDate"
+                                        height={20}
+                                        stroke="#4f46e5"
+                                        fill="#0f172a"
                                         tickFormatter={() => ''}
                                         className="opacity-80"
                                         travellerWidth={8}
@@ -380,39 +380,39 @@ export const WeeklyEvolutionView = ({
                                 )}
 
                                 {keys.map(key => (
-                                    <Line 
+                                    <Line
                                         key={key}
-                                        type="monotone" 
-                                        dataKey={key} 
+                                        type="monotone"
+                                        dataKey={key}
                                         name={activeKeys[key].name}
-                                        stroke={activeKeys[key].color} 
+                                        stroke={activeKeys[key].color}
                                         strokeWidth={3}
                                         hide={hiddenKeys[key]}
                                         dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
                                         activeDot={{ r: 6, strokeWidth: 0 }}
-                                        connectNulls={true} 
+                                        connectNulls={true}
                                     />
                                 ))}
                             </LineChart>
                         ) : (
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                                
+
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
                                 <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}${unit}`} />
-                                
+
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
                                 <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
-                                
-                                <Legend 
+
+                                <Legend
                                     onClick={handleLegendClick}
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }} 
-                                    iconType="circle" 
+                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
+                                    iconType="circle"
                                     formatter={(value, entry) => {
                                         const baseKey = entry.dataKey.replace('delta_', '');
                                         return (
-                                            <span style={{ 
-                                                color: hiddenKeys[baseKey] ? '#475569' : '#fff', 
+                                            <span style={{
+                                                color: hiddenKeys[baseKey] ? '#475569' : '#fff',
                                                 textDecoration: hiddenKeys[baseKey] ? 'line-through' : 'none',
                                                 transition: 'all 0.3s'
                                             }}>
@@ -421,13 +421,13 @@ export const WeeklyEvolutionView = ({
                                         );
                                     }}
                                 />
-                                
+
                                 {chartData.length > 4 && (
-                                    <Brush 
-                                        dataKey="displayDate" 
-                                        height={20} 
-                                        stroke="#4f46e5" 
-                                        fill="#0f172a" 
+                                    <Brush
+                                        dataKey="displayDate"
+                                        height={20}
+                                        stroke="#4f46e5"
+                                        fill="#0f172a"
                                         tickFormatter={() => ''}
                                         className="opacity-80"
                                         travellerWidth={8}
@@ -435,11 +435,11 @@ export const WeeklyEvolutionView = ({
                                 )}
 
                                 {keys.map(key => (
-                                    <Bar 
+                                    <Bar
                                         key={`delta_${key}`}
-                                        dataKey={`delta_${key}`} 
+                                        dataKey={`delta_${key}`}
                                         name={`${activeKeys[key].name} (Var.)`}
-                                        fill={activeKeys[key].color} 
+                                        fill={activeKeys[key].color}
                                         radius={[4, 4, 4, 4]}
                                         hide={hiddenKeys[key]}
                                     >
@@ -455,7 +455,7 @@ export const WeeklyEvolutionView = ({
                     </ResponsiveContainer>
                 )}
             </div>
-            
+
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800 shrink-0 select-none">

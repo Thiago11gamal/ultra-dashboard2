@@ -25,7 +25,7 @@ const MEGA_PALETTE = [
 ];
 
 export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, showOnlyFocus, timeWindow, targetScore = 80, maxScore = 100 }) {
-    
+
     const [viewMode, setViewMode] = useState('lines'); // 'bars' | 'lines'
     const accuracyUnit = '%';
     const targetScorePct = maxScore > 0 ? (targetScore / maxScore) * 100 : 0;
@@ -72,13 +72,13 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     if (!topicMap[key]) {
                         topicMap[key] = { name: n, correct: 0, total: 0 };
                     }
-                    
+
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
-                    const correctCount = total > 0 
+                    const correctCount = total > 0
                         ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
                         : (Number(t.correct) || 0);
-                    
+
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
                 });
@@ -105,11 +105,11 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {}; // { "DD/MM": { dateLabel, originalDate, [topic_total]: x, [topic_correct]: y } }
         const topTopicSet = new Set();
-        
+
         relevantCategories.forEach(cat => {
             const history = cat.simuladoStats?.history || [];
             if (!history.length) return;
-            
+
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
                 const d = normalizeDate(h.date);
@@ -121,22 +121,22 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 if (!d) continue;
                 const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 const dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                
+
                 if (!dateMap[dateKey]) {
                     dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
                 }
-                
+
                 (h.topics || []).forEach(t => {
                     const topicName = String(t.name || '').trim();
                     if (!topicName) return;
                     topTopicSet.add(topicName);
-                    
+
                     const total = parseInt(t.total, 10) || 0;
                     if (total === 0) return;
-                    const correct = total > 0 
+                    const correct = total > 0
                         ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
                         : (Number(t.correct) || 0);
-                    
+
                     const totKey = `${topicName}_total`;
                     const corKey = `${topicName}_correct`;
 
@@ -149,9 +149,9 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                 });
             }
         });
-        
+
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
-        
+
         // Converter as somas diárias em % de acerto
         series.forEach(entry => {
             topTopicSet.forEach(topic => {
@@ -167,7 +167,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
         series = series.filter(entry => {
             return Array.from(topTopicSet).some(topic => entry[topic] !== undefined);
         });
-        
+
         return { timeSeriesData: series, uniqueTopics: Array.from(topTopicSet) };
     }, [relevantCategories, limitMs, maxScore]);
 
@@ -176,7 +176,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
 
     return (
         <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]">
-             
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
                     <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
@@ -184,15 +184,15 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     </h3>
                     <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
                 </div>
-                
+
                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-xl shadow-inner shrink-0 w-full sm:w-auto">
-                    <button 
+                    <button
                         onClick={() => setViewMode('bars')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
                     >
                         Ranking (Barras)
                     </button>
-                    <button 
+                    <button
                         onClick={() => setViewMode('lines')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
                     >
@@ -215,30 +215,30 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: -5, bottom: 0 }}>
                             <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                            
-                            <XAxis 
-                                type="number" 
-                                domain={[0, 100]} 
-                                stroke="#ffffff" 
-                                tick={{ fontSize: 10, fill: '#64748b' }} 
-                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
-                                tickLine={false} 
+
+                            <XAxis
+                                type="number"
+                                domain={[0, 100]}
+                                stroke="#ffffff"
+                                tick={{ fontSize: 10, fill: '#64748b' }}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                tickLine={false}
                                 tickFormatter={(v) => `${v}${accuracyUnit}`}
                             />
-                            
-                            <YAxis 
-                                type="category" 
-                                dataKey="name" 
-                                stroke="#ffffff" 
-                                tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }} 
-                                axisLine={false} 
-                                tickLine={false} 
-                                width={110} 
+
+                            <YAxis
+                                type="category"
+                                dataKey="name"
+                                stroke="#ffffff"
+                                tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 500 }}
+                                axisLine={false}
+                                tickLine={false}
+                                width={110}
                             />
-                            
-                            <Tooltip 
-                                cursor={{ fill: 'rgba(255,255,255,0.03)' }} 
-                                contentStyle={CustomTooltipStyle} 
+
+                            <Tooltip
+                                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0' }}
                                 formatter={(value, name, props) => {
                                     const entry = props.payload;
@@ -251,17 +251,17 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
 
                             <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={26}>
                                 {chartData.map((entry, index) => {
-                                    let barColor = "#ef4444"; 
-                                    if (entry.accuracy >= targetScore) barColor = "#10b981"; 
-                                    else if (entry.accuracy >= 60) barColor = "#f59e0b"; 
+                                    let barColor = "#ef4444";
+                                    if (entry.accuracy >= targetScore) barColor = "#10b981";
+                                    else if (entry.accuracy >= 60) barColor = "#f59e0b";
                                     return <Cell key={`cell-${index}`} fill={barColor} />;
                                 })}
-                                <LabelList 
-                                    dataKey="accuracy" 
-                                    position="right" 
+                                <LabelList
+                                    dataKey="accuracy"
+                                    position="right"
                                     formatter={(val) => `${val}%`}
-                                    style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} 
-                                    offset={8} 
+                                    style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }}
+                                    offset={8}
                                 />
                             </Bar>
                         </BarChart>
@@ -277,33 +277,33 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                         <ResponsiveContainer width="100%" height={750}>
                             <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: -20, bottom: 50 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                
-                                <XAxis 
-                                    dataKey="dateLabel" 
-                                    stroke="#64748b" 
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }} 
-                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
-                                    tickLine={false} 
+
+                                <XAxis
+                                    dataKey="dateLabel"
+                                    stroke="#64748b"
+                                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                    tickLine={false}
                                 />
-                                
-                                <YAxis 
-                                    stroke="#64748b" 
-                                    domain={[0, 100]} 
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }} 
-                                    axisLine={false} 
-                                    tickLine={false} 
+
+                                <YAxis
+                                    stroke="#64748b"
+                                    domain={[0, 100]}
+                                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                    axisLine={false}
+                                    tickLine={false}
                                     tickFormatter={(v) => `${v}%`}
                                 />
-                                
-                                <Tooltip 
+
+                                <Tooltip
                                     contentStyle={CustomTooltipStyle}
                                     formatter={(value, name) => [`${value}%`, name]}
                                     labelFormatter={(label) => <span className="text-amber-400 font-bold">{label}</span>}
                                 />
-                                
+
                                 <ReferenceLine y={targetScore} stroke="rgba(52, 211, 153, 0.4)" strokeDasharray="4 4" label={{ position: 'top', value: 'META', fill: '#6ee7b7', fontSize: 10 }} />
 
-                                <Legend 
+                                <Legend
                                     wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
                                     iconType="circle"
                                 />
@@ -321,7 +321,7 @@ export function SubtopicsPerformanceChart({ categories = [], focusSubjectId, sho
                                             dot={{ r: 4, fill: '#0f172a', strokeWidth: 2, stroke: color }}
                                             activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
                                             // connectNulls evita que a linha quebre se o usuário não fez simulado desse tópico no dia específico
-                                            connectNulls={true} 
+                                            connectNulls={true}
                                         />
                                     );
                                 })}

@@ -7,11 +7,11 @@ import {
 import { ChartTooltip } from "../ChartTooltip";
 import { normalizeDate } from '../../../utils/dateHelper';
 
-export function EvolutionLineChart({ 
-    filteredChartData, 
-    activeCategories, 
-    engine, 
-    targetScore, 
+export function EvolutionLineChart({
+    filteredChartData,
+    activeCategories,
+    engine,
+    targetScore,
     focusSubjectId,
     showOnlyFocus,
     minScore = 0,
@@ -62,7 +62,7 @@ export function EvolutionLineChart({
     // Compute adjusted Y positions for labels once per render to avoid O(N*M) in renderCustomLabel
     const yAdjustedMap = React.useMemo(() => {
         if (!finalPoints.length) return {};
-        
+
         const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         const MIN_PCT_DISTANCE = 4.5;
 
@@ -78,7 +78,7 @@ export function EvolutionLineChart({
         }
 
         // 🎯 SCALE BUG FIX: O limite de respiro superior deve ser proporcional à pontuação máxima.
-        const topLimit = maxScore * 0.96; 
+        const topLimit = maxScore * 0.96;
         if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
             const topShift = yPositions[0].yPos - topLimit;
             yPositions.forEach(p => p.yPos -= topShift);
@@ -93,11 +93,11 @@ export function EvolutionLineChart({
 
     const renderCustomLabel = (props, catId, catColor) => {
         const { x, y, index, value, viewBox } = props;
-        
+
         if (index === filteredChartData.length - 1 && value != null) {
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
-            
+
             if (adjustedY !== undefined && adjustedY !== value) {
                 // BUG 4b FIX: Use maxScore instead of hardcoded 100
                 const pxPerPct = (viewBox?.height > 0) ? viewBox.height / maxScore : 2.5;
@@ -143,38 +143,38 @@ export function EvolutionLineChart({
                         </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    
+
                     {/* CORREÇÃO AQUI: padding evita linhas sendo cortadas no limite esquerdo do gráfico */}
-                    <XAxis 
-                        dataKey="displayDate" 
-                        tick={{ fontSize: 10, fill: '#64748b' }} 
-                        dy={12} 
-                        axisLine={false} 
-                        tickLine={false} 
-                        minTickGap={35} 
+                    <XAxis
+                        dataKey="displayDate"
+                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        dy={12}
+                        axisLine={false}
+                        tickLine={false}
+                        minTickGap={35}
                         padding={{ left: 15, right: 10 }}
                     />
-                    
-                    <YAxis 
-                        tick={{ fontSize: 10, fill: '#64748b' }} 
-                        dx={-8} 
-                        axisLine={false} 
-                        tickLine={false} 
-                        domain={[minScore, maxScore]} 
-                        allowDataOverflow={true} 
-                        tickFormatter={(v) => `${v}${unit}`} 
-                        width={45} 
+
+                    <YAxis
+                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        dx={-8}
+                        axisLine={false}
+                        tickLine={false}
+                        domain={[minScore, maxScore]}
+                        allowDataOverflow={true}
+                        tickFormatter={(v) => `${v}${unit}`}
+                        width={45}
                     />
-                    
+
                     <ReferenceLine y={targetScore} stroke="#22c55e" strokeOpacity={0.45} strokeDasharray="0"
                         label={{ value: `Meta ${targetScore}${unit}`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
-                    
+
                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
                         content={<ChartTooltip chartData={enhancedChartData} isCompare={false} />} />
-                    
+
                     {/* Legenda empurrada sutilmente para baixo */}
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />
-                    
+
                     {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const isFocused = focusSubjectId === cat.id;
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
