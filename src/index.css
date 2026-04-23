@@ -441,7 +441,7 @@ button,
 /* Ajuste na barra de rolagem customizada - PREMIUM PINK THEME */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+  scrollbar-color: #8b5cf6 transparent;
   overflow-x: hidden !important;
 }
 
@@ -456,14 +456,13 @@ button,
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.25);
+  background: #8b5cf6;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: background 0.3s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5);
+  background: #a855f7;
 }
 
 /* CSS View Transitions - Global Defaults */
