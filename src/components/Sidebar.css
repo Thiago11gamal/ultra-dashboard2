@@ -201,16 +201,23 @@
 
 /* Active State */
 .sidebar-item.active {
-  background: linear-gradient(135deg, var(--item-color-alpha, rgba(129, 140, 248, 0.12)), rgba(129, 140, 248, 0.02));
+  background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.15)) 0%, transparent 100%);
   border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.2));
   color: #ffffff;
-  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.3);
+  font-weight: 800;
+  box-shadow: inset 4px 0 0 0 var(--item-color, #818cf8);
 }
 
 .sidebar-item.active svg {
   color: var(--item-color, #818cf8);
   opacity: 1;
-  filter: drop-shadow(0 0 5px var(--item-color, #818cf8));
+  filter: drop-shadow(0 0 8px var(--item-color, #818cf8));
+  transform: scale(1.15);
+}
+
+.sidebar-item.active span {
+  color: var(--item-color, #ffffff);
+  text-shadow: 0 0 10px var(--item-color-alpha, transparent);
 }
 
 /* Collapsed Adjustments */
