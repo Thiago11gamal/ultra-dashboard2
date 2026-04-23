@@ -198,6 +198,7 @@ const sanitizeContest = (data) => {
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
     monteCarloHistory: Array.isArray(source.monteCarloHistory) ? source.monteCarloHistory : [],
+    contestName: source.contestName || source.user?.name || "Novo Concurso",
     lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };
 };

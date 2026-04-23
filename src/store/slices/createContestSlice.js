@@ -19,6 +19,7 @@ export const createContestSlice = (set) => ({
         const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
         const newContestData = {
             ...initialClone,
+            contestName: "Novo Concurso",
             simuladoRows: [],
             simulados: [],
             categories: [],

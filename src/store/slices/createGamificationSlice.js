@@ -91,6 +91,7 @@ export const createGamificationSlice = (set, get) => ({
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData.user) activeData.user = {};
         activeData.user.name = name;
+        activeData.contestName = name; // Sync high-level name for sidebar
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
