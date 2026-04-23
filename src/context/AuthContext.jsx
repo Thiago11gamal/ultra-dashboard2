@@ -27,11 +27,9 @@ export function AuthProvider({ children }) {
                 });
                 // Força o reload para que o token reflita o displayName
                 await userCredential.user.reload();
-                // BUG 4 FIX: Não chamar setCurrentUser manualmente aqui.
-                // O listener onAuthStateChanged já vai receber o evento de criação
-                // de conta e atualizar o currentUser como single source of truth.
-                // Chamar setCurrentUser aqui cria race condition: o estado é setado
-                // com um objeto user que pode ficar stale quando o listener dispara.
+                // BUG 4 FIX: A race condition do onAuthStateChanged exige o set manual aqui
+                // após o profile update e reload para garantir displayName imediato.
+                setCurrentUser({ ...auth.currentUser });
                 return auth.currentUser;
             });
     }

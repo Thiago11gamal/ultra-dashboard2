@@ -76,7 +76,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const sphereRef = useRef(null);
 
     const timeLeftRef = useRef(timeLeft);
-    useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
     const modeRef = useRef(mode);
     useEffect(() => { modeRef.current = mode; }, [mode]);
@@ -850,6 +849,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             return;
                                         }
                                         setIsRunning(!isRunning);
+                                        
+                                        // FIX: Audio Autoplay protection. 
+                                        // Iniciar/carregar a instância no primeiro clique do utilizador.
+                                        if (!isRunning && alarmAudioRef.current) {
+                                            const audio = alarmAudioRef.current;
+                                            audio.muted = true;
+                                            audio.play().then(() => {
+                                                audio.pause();
+                                                audio.muted = false;
+                                            }).catch(() => {});
+                                        }
                                     }}
                                     className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.2)] border-4 ${isRunning ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-black border-white' : 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.2)]'}`}
                                 >

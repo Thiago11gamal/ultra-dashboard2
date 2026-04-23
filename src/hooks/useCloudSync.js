@@ -9,6 +9,8 @@ import { useAppStore } from '../store/useAppStore';
 // Remove propriedades nulas/indefinidas de forma segura sem travar a main thread
 const cleanUndefined = (obj) => {
     if (obj === null || typeof obj !== 'object') return obj;
+    // Evita destruir Objetos de Data
+    if (obj instanceof Date) return obj; 
     if (Array.isArray(obj)) return obj.map(cleanUndefined).filter(i => i !== undefined);
     return Object.fromEntries(
         Object.entries(obj)
@@ -122,7 +124,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
         const mergeArrays = (arr1, arr2) => {
             const map = new Map();
-            const getStableKey = (item) => item.id || `${item.date || ''}-${item.categoryId || ''}-${item.taskId || Math.random().toString(36)}`;
+            const getStableKey = (item) => {
+                if (item.id) return item.id;
+                // Se não há ID claro, a assinatura do objeto atua como ID para evitar clones infinitos
+                return `${item.date || ''}-${item.categoryId || ''}-${item.taskId || JSON.stringify(item)}`;
+            };
             (arr1 || []).forEach(item => map.set(getStableKey(item), item));
             (arr2 || []).forEach(item => map.set(getStableKey(item), item));
             return Array.from(map.values());
@@ -173,15 +179,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             }
         });
 
-        // 2. SINCRONIZAÇÃO DE DELEÇÃO (Segurança Aumentada)
+        // SINCRONIZAÇÃO DE DELEÇÃO (Segurança Aumentada)
         // Se um painel existe localmente mas NÃO está na nuvem, e a nuvem é MAIS RECENTE,
         // movemos para a lixeira em vez de deletar permanentemente.
         const localIds = Object.keys(localContests);
-        const cloudIds = Object.keys(cloudContests);
-        
-        // BUG-PREVENTION: Se a nuvem estiver "suspeitamente vazia" (ex: falha de sync parcial),
-        // evitamos deletar múltiplos painéis locais de uma vez.
-        const massDeletionRisk = localIds.length > 2 && cloudIds.length < (localIds.length / 2);
 
         localIds.forEach(id => {
             if (!cloudContests[id]) {
@@ -189,10 +190,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 
                 // Margem de 5s para evitar race conditions
                 if (cloudFullUpdate > localTime + 5000) {
-                    if (massDeletionRisk) {
-                        console.warn(`[Sync] Bloqueada deleção em massa do painel "${id}". Nuvem parece incompleta.`);
-                        return;
-                    }
 
                     console.warn(`[Sync] Movendo painel "${id}" para lixeira (removido na nuvem).`);
                     
@@ -490,7 +487,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
                     // FIX: Enviar como Blob para garantir o Content-Type: application/json
                     const blob = new Blob([payload], { type: 'application/json' });
-                    navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, blob);
+                    
+                    fetch(import.meta.env.VITE_SYNC_BEACON_URL, {
+                        method: 'POST',
+                        body: blob,
+                        keepalive: true // Funciona mesmo com a aba a fechar, suportando payloads maiores
+                    }).catch(err => console.debug('[Sync] Fetch keepalive error:', err));
                 } catch(err) { logger.warn('[Sync] Beacon error:', err); }
             }
 

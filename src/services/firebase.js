@@ -47,6 +47,18 @@ if (!derivedProjectId) {
         }
     }
     
+    // Try from authDomain (alternative suffixes like .web.app or custom subdomains)
+    if (!derivedProjectId && rawConfig.authDomain) {
+        const authDom = clean(rawConfig.authDomain);
+        if (authDom) {
+            if (authDom.includes('.web.app')) {
+                derivedProjectId = authDom.split('.web.app')[0];
+            } else if (authDom.includes('.firebaseapp.com')) {
+                derivedProjectId = authDom.split('.firebaseapp.com')[0];
+            }
+        }
+    }
+    
     if (derivedProjectId) {
         console.warn(`[Firebase] VITE_FIREBASE_PROJECT_ID missing. Derived: ${derivedProjectId}`);
     }
