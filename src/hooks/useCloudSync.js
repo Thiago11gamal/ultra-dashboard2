@@ -17,7 +17,7 @@ const cleanUndefined = (obj) => {
     );
 };
 
-export function useCloudSync(currentUser, initialAppState, setAppState, showToast, syncTrigger) {
+export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const showToastRef = useRef(showToast);
     useEffect(() => {
         showToastRef.current = showToast;
@@ -41,7 +41,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
     }, []);
     const [hasConflict, setHasConflict] = useState(false);
 
-    const appStateRef = useRef(initialAppState);
+    const appStateRef = useRef(useAppStore.getState().appState);
     useEffect(() => {
         // Subscribe to store changes to keep the ref always up to date
         // and eliminate stale closures from syncTrigger dependencies.
@@ -446,8 +446,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
             const safeTrash = (syncState.trash || []).slice(-20); // Deixe a estrutura intacta para permitir restauração
 
+            const currentData = useAppStore.getState().appState;
             const stateToSave = cleanUndefined({
-                ...syncState,
+                ...currentData,
                 contests: safeContests,
                 trash: safeTrash,
                 history: [],
@@ -557,8 +558,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
                     const safeTrash = (syncState.trash || []).slice(-20); // Manter arquitetura restaurável
 
+                    const currentData = useAppStore.getState().appState;
                     const stateToSave = cleanUndefined({
-                        ...syncState,
+                        ...currentData,
                         contests: safeContests,
                         trash: safeTrash,
                         history: [],

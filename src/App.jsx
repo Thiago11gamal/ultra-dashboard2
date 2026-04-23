@@ -94,11 +94,9 @@ function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
 
-  // Auto-save pipeline - now uses the full state from the store's internal reference
-  // to avoid re-rendering MainLayout on every minor update (like Pomodoro ticks)
+  // Auto-save pipeline
   const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
     currentUser,
-    useAppStore.getState().appState,
     setAppState,
     showToast,
     syncTrigger // Pass trigger to notify hook of changes (version/lastUpdated)

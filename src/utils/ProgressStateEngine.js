@@ -82,8 +82,12 @@ export function analyzeProgressState(scores, config = {}) {
         denominator += Math.pow(xDays[i] - xMean, 2);
     }
 
-    // slope em pontos/dia. Se denominator é 0 (todos no mesmo dia), usamos 0.
-    const rawSlope = denominator > 0.0001 ? numerator / denominator : 0; 
+    // FIX: Clamp do denominador para impedir distorção por "Time Crunch" (testes em curtos intervalos)
+    // Se o denominador for menor que 0.25 (1/4 de dia), assumimos um valor seguro para diluir o impacto
+    const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
+
+    // slope em pontos/dia.
+    const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0; 
     
     // Normalização para 30 dias para alinhar com trend_tolerance (pp/30d)
     const normalizedSlope = rawSlope * 30;

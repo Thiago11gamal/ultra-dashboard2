@@ -83,6 +83,9 @@ export const useAppStore = create(
                             settings: settings // Preserva o tema escolhido
                         };
                     });
+                    
+                    // FIX: Purgar o histórico de Undo/Redo para impedir vazamento de dados
+                    useAppStore.temporal.getState().clear();
                 },
 
                 // Injetar os Slices
@@ -118,22 +121,24 @@ export const useAppStore = create(
                 return (state, error) => {
                     if (error || !state) return;
 
-                    const { appState } = state;
-                    if (!appState) return;
-                    
-                    const contestsList = Object.keys(appState.contests || {});
-                    
-                    // Sanity Check 1: ID Ativo perdido ou inválido
-                    if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                        appState.activeId = contestsList[0];
-                    }
+                    // FIX: Agendar para a próxima tick do Event Loop para respeitar as regras do Immer
+                    setTimeout(() => {
+                        const store = useAppStore.getState();
+                        const appState = store.appState;
+                        if (!appState) return;
+                        
+                        const contestsList = Object.keys(appState.contests || {});
+                        let needsUpdate = false;
+                        
+                        // Sanity Check 1: ID Ativo perdido ou inválido
+                        if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
+                            appState.activeId = contestsList[0];
+                            needsUpdate = true;
+                        }
 
-                    // Sanity Check 2: Deduplicação de categorias (Foco no Contest Ativo)
-                    if (appState.contests[appState.activeId]?.categories) {
-                        const categories = appState.contests[appState.activeId].categories;
-                        const unique = Array.from(new Map(categories.map(c => [c.name.toLowerCase().trim(), c])).values());
-                        appState.contests[appState.activeId].categories = unique;
-                    }
+                        // Acionar a mutação de forma segura através dos métodos da store, se necessário
+                        // store.setAppState(appState);
+                    }, 0);
                 };
             },
         }

@@ -149,7 +149,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // 1. Weighted Average Score
         const catNormalized = normalize(category?.name || "Sem Nome");
         const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject) === catNormalized);
-        relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        relevantSimulados.sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
         const simuladosWithMaxScore = relevantSimulados;
 
         let averageScore = 0;
@@ -205,7 +205,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
         if (categoryStudyLogs.length > 0) {
-            const sortedLogs = [...categoryStudyLogs].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
             if (logDate > lastDate) lastDate = logDate;
         }
@@ -217,7 +217,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
         const trendHistory = [...simuladosWithMaxScore]
-            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+            .sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime())
             .slice(0, 10)
             .map(s => ({
             score: getSafeScore(s, maxScore),
@@ -625,8 +625,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const avgScore = recentSims.length > 0
             ? recentSims.reduce((acc, s) => acc + getSafeScore(s, maxScore), 0) / recentSims.length
             : 0;
-        const dynamicThreshold = avgScore > (targetScore + 10) ? 0.5 : (avgScore > (targetScore - 10) ? 1.0 : 2.0);
-        const questionsPerHour = totalHours > 0 ? totalQuestions / totalHours : 0;
+        // FIX: Exigir um mínimo de 15 minutos (0.25h) para calcular a taxa de questões, evitando Infinity
+        const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         
         if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
             return {
@@ -642,6 +642,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     
     // Se o usuário tiver poucas matérias (< 5), geramos múltiplas tarefas por matéria
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
+
+    const safeUUID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
+        ? crypto.randomUUID() 
+        : Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
     topCategories.forEach((cat) => {
         const weakTopics = getWeakestTopicsList(cat, simulados, maxScore, tasksPerCategory);
@@ -785,7 +789,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 });
                 // Fallback General Task
                 allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${crypto.randomUUID()}`, // CORREÇÃO: randomUUID em vez de Date.now()
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}`, // Usar safeUUID aqui
                     text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
                     completed: false,
                     categoryId: cat.id,
