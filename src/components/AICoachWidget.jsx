@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     BrainCircuit, Zap, Target, Sparkles,
     ChevronDown, AlertTriangle, TrendingDown,
-    Clock, CheckCircle2, Database, Flame
+    Clock, CheckCircle2, Database, Flame, Loader2
 } from 'lucide-react';
 
 function getUrgencyConfig(score, status = '') {
