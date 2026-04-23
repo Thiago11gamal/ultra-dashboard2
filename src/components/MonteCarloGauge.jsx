@@ -822,33 +822,33 @@ export default function MonteCarloGauge({
             </div>
 
 
-                {timelineDates.length > 1 && (
-                    <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
-                        <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
-                            ⏳ Máquina do Tempo
-                        </span>
-                        <div className="flex justify-between items-end mb-4 px-1">
-                            <div className="flex items-center gap-2">
-                                <History size={10} className="text-slate-500" />
-                                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Evolução Histórica</span>
-                            </div>
-                            <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded backdrop-blur-sm border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition-all duration-300">
-                                {timeIndex === -1 || timeIndex === timelineDates.length - 1
-                                    ? 'Estado Atual (Hoje)'
-                                    : new Date(timelineDates[timeIndex] + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
+            {timelineDates.length > 1 && (
+                <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
+                    <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
+                        ⏳ Máquina do Tempo
+                    </span>
+                    <div className="flex justify-between items-end mb-4 px-1">
+                        <div className="flex items-center gap-2">
+                            <History size={10} className="text-slate-500" />
+                            <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Evolução Histórica</span>
                         </div>
-                        <div className="relative w-full flex items-center group-hover/timeline:scale-[1.01] transition-transform">
-                            <input
-                                type="range"
-                                min="0"
-                                max={timelineDates.length - 1}
-                                value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex}
-                                onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
-                                }}
-                                className="w-full appearance-none bg-transparent z-10 
+                        <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded backdrop-blur-sm border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition-all duration-300">
+                            {timeIndex === -1 || timeIndex === timelineDates.length - 1
+                                ? 'Estado Atual (Hoje)'
+                                : new Date(timelineDates[timeIndex] + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                    </div>
+                    <div className="relative w-full flex items-center group-hover/timeline:scale-[1.01] transition-transform">
+                        <input
+                            type="range"
+                            min="0"
+                            max={timelineDates.length - 1}
+                            value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
+                            }}
+                            className="w-full appearance-none bg-transparent z-10 
                                 [&::-webkit-slider-runnable-track]:h-2 
                                 [&::-webkit-slider-runnable-track]:bg-slate-800 
                                 [&::-webkit-slider-runnable-track]:rounded-full 
@@ -862,15 +862,15 @@ export default function MonteCarloGauge({
                                 [&::-webkit-slider-thumb]:border 
                                 [&::-webkit-slider-thumb]:border-white/90
                                 cursor-pointer"
-                            />
-                            <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
-                                {timelineDates.map((_, i) => (
-                                    <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length - 1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
-                                ))}
-                            </div>
+                        />
+                        <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
+                            {timelineDates.map((_, i) => (
+                                <div key={i} className={`w-0.5 h-full rounded-full ${i === (timeIndex === -1 ? timelineDates.length - 1 : timeIndex) ? 'bg-indigo-400' : 'bg-slate-400'}`} />
+                            ))}
                         </div>
                     </div>
-                )}
+                </div>
+            )}
 
             <div className="w-full flex flex-col gap-2 mt-auto pt-4">
                 <button
