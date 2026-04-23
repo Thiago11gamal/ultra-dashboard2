@@ -1,3 +1,4 @@
+import { XP_CONFIG } from '../config/gamification';
 // XP_CONFIG movido para src/config/gamification.js para centralização de verdade (Bug 1).
 
 /**
