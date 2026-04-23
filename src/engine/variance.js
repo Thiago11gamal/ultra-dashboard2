@@ -30,9 +30,21 @@ export const INTER_SUBJECT_CORRELATION = 0.25;
 
 // FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
 export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
+    if (!Array.isArray(stats) || stats.length === 0) return 0;
+
     // BUG 7 FIX: Use the provided totalWeight if valid, otherwise fallback to calculated total.
     // This respects the function contract while remaining defensive.
-    const calculatedTotalWeight = stats.reduce((acc, cat) => acc + (cat.weight || 0), 0);
+    const toFiniteNonNegative = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+
+    const toFiniteSd = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+
+    const calculatedTotalWeight = stats.reduce((acc, cat) => acc + toFiniteNonNegative(cat?.weight), 0);
     const effectiveTotalWeight = (Number.isFinite(totalWeight) && totalWeight > 0) ? totalWeight : calculatedTotalWeight;
 
     if (effectiveTotalWeight === 0) return 0;
@@ -40,8 +52,8 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     // Garantia absoluta de tipo e limite para correlação
     const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
 
-    const weights = stats.map(cat => (cat.weight || 0) / effectiveTotalWeight);
-    const adjustedSDs = stats.map(cat => cat.sd || 0);
+    const weights = stats.map(cat => toFiniteNonNegative(cat?.weight) / effectiveTotalWeight);
+    const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
     // 1. Independent Variance Component (Weighted Sum of Variances): Σ (wi² * σi²)
     // BUGFIX: Respeito estrito à variância de uma combinação linear para editais.

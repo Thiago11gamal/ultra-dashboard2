@@ -6,6 +6,7 @@
 import { mulberry32, randomNormal, makeNormalRng } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
+import { logger } from '../utils/logger.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
@@ -659,7 +660,7 @@ export function monteCarloSimulation(
 
     const gap = Math.abs(empiricalProbability - analyticalProbability);
     if (gap > 3 && projectedSD > 0.1) {
-        console.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
+        logger.warn(`MC gap: empírica=${empiricalProbability.toFixed(1)} analítica=${analyticalProbability.toFixed(1)} gap=${gap.toFixed(1)}`);
     }
 
     // BUG 5 FIX: Compute median for asymmetric sdLeft/sdRight anchoring
@@ -737,4 +738,3 @@ export default {
     calculateDynamicEMA, // Exportando a nova função
     calculateCurrentWeightedMean
 };
-

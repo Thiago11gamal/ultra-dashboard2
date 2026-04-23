@@ -88,6 +88,17 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     }
 
     const n = alpha + beta;
+    if (!Number.isFinite(n) || n <= 0) {
+        return {
+            mean: 0,
+            sd: 0,
+            ciLow: 0,
+            ciHigh: 0,
+            alpha: alpha0,
+            beta: beta0,
+            n: 0,
+        };
+    }
     const MAX_EFFECTIVE_N = 100;
     const effectiveN = Math.min(n, MAX_EFFECTIVE_N);
 
