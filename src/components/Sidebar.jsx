@@ -90,7 +90,7 @@ export default function Sidebar({
         }
     ];
 
-    const [contestsExpanded, setContestsExpanded] = React.useState(true);
+    const [contestsExpanded, setContestsExpanded] = React.useState(false);
     const [settingsExpanded, setSettingsExpanded] = React.useState(false);
 
     return (
@@ -128,7 +128,7 @@ export default function Sidebar({
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
 
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
-                    <div className="mb-4">
+                    <div className="mb-2">
                         <button
                             onClick={() => {
                                 if (collapsed) {
@@ -191,7 +191,7 @@ export default function Sidebar({
                     <div className="sidebar-divider"></div>
 
                     {sections.map((section, sIdx) => (
-                        <div key={sIdx} className="mb-6">
+                        <div key={sIdx} className="mb-4">
                             <h4 className="sidebar-nav-label">{section.label}</h4>
                             <nav className="space-y-1">
                                 {section.items.map((item) => {

@@ -62,7 +62,7 @@
 .sidebar-divider {
   height: 1px;
   background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
-  margin: 12px 0;
+  margin: 8px 0;
   width: 100%;
 }
 
