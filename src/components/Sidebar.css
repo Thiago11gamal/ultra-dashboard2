@@ -236,6 +236,16 @@
   -ms-overflow-style: none !important;
 }
 
+/* Force icons to white when collapsed */
+.sidebar.collapsed .sidebar-item svg {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+.sidebar.collapsed .sidebar-item.active svg {
+  opacity: 1 !important;
+}
+
 .sidebar.collapsed .sidebar-item span {
   opacity: 0;
   pointer-events: none;
