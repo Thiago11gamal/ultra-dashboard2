@@ -228,6 +228,7 @@ export default function VerifiedStats({ categories = [], user }) {
         }
     }, [storeTarget, targetScore]);
     const [showConfig, setShowConfig] = React.useState(false);
+    const [showSubjects, setShowSubjects] = React.useState(false);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
     const [statsTarget, setStatsTarget] = React.useState(targetScore);
@@ -649,7 +650,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         Configurar Pesos e Meta
                     </button>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                     <MonteCarloGauge
                         categories={categories}
                         goalDate={user?.goalDate}
@@ -658,6 +659,8 @@ export default function VerifiedStats({ categories = [], user }) {
                         forcedMode="today"
                         forcedTitle="Status Atual"
                         maxScore={maxScore}
+                        syncShowSubjects={showSubjects}
+                        onSyncShowSubjects={setShowSubjects}
                     />
                     <MonteCarloGauge
                         categories={categories}
@@ -667,6 +670,8 @@ export default function VerifiedStats({ categories = [], user }) {
                         forcedMode="future"
                         forcedTitle="Projeção Futura"
                         maxScore={maxScore}
+                        syncShowSubjects={showSubjects}
+                        onSyncShowSubjects={setShowSubjects}
                     />
                 </div>
             </div>

@@ -63,10 +63,16 @@ export default function MonteCarloGauge({
     unit = '%',
     minScore = 0,
     maxScore = 100,
+    syncShowSubjects,
+    onSyncShowSubjects,
 }) {
     const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
-    const [showPerSubject, setShowPerSubject] = useState(false);
+    const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
+
+    // Prioritize sync prop if provided
+    const showPerSubject = syncShowSubjects !== undefined ? syncShowSubjects : localShowPerSubject;
+    const setShowPerSubject = onSyncShowSubjects !== undefined ? onSyncShowSubjects : setLocalShowPerSubject;
 
     const [timeIndex, setTimeIndex] = useState(-1);
 
@@ -445,10 +451,18 @@ export default function MonteCarloGauge({
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
+        
         return statsData.categoryStats
             .filter(cat => cat.weight > 0)
             .map(cat => {
-                const baseline = cat.bayesianMean ?? cat.mean;
+                const currentBaseline = cat.bayesianMean ?? cat.mean;
+                const slopePerDay = (cat.trendValue || 0) / 30;
+                
+                // Se estivermos no modo futuro, projetamos o baseline individual da matéria
+                const baseline = (!effectiveSimulateToday && projectDays > 0)
+                    ? Math.max(minScore, Math.min(maxScore, currentBaseline + (slopePerDay * projectDays)))
+                    : currentBaseline;
+
                 const result = simulateNormalDistribution({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
@@ -458,6 +472,7 @@ export default function MonteCarloGauge({
                     minScore,
                     maxScore,
                 });
+
                 return {
                     name: cat.name,
                     prob: result.probability,
@@ -466,7 +481,7 @@ export default function MonteCarloGauge({
                 };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status, minScore, maxScore]);
+    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status, minScore, maxScore, effectiveSimulateToday, projectDays]);
 
     const [isFlashing, setIsFlashing] = useState(false);
     useEffect(() => {
@@ -592,7 +607,7 @@ export default function MonteCarloGauge({
     const message = baseMessage + timeLabel;
 
     return (
-        <div className={`glass p-5 rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full h-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-5 rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full h-fit self-start sticky top-28 max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
 
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
@@ -889,9 +904,14 @@ export default function MonteCarloGauge({
                                 );
                             })}
                         </div>
-                        {!effectiveSimulateToday && !isTimeTraveling && (
+                        {effectiveSimulateToday && !isTimeTraveling && (
                             <p className="text-[8px] text-slate-600 text-center mt-2 italic">
-                                Probabilidades individuais baseadas no desempenho atual (sem projeção de tendência).
+                                Probabilidades baseadas no desempenho atual. Abra o painel ao lado para ver a projeção.
+                            </p>
+                        )}
+                        {!effectiveSimulateToday && !isTimeTraveling && (
+                            <p className="text-[8px] text-indigo-400/60 text-center mt-2 italic font-medium">
+                                Probabilidades individuais projetadas considerando sua tendência de evolução.
                             </p>
                         )}
                     </>
