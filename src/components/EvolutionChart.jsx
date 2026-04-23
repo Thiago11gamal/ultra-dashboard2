@@ -502,17 +502,33 @@ export default function EvolutionChart({
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
                     <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
-                    <div className="flex overflow-x-auto pb-2 sm:pb-4 gap-2 w-full"
+                    <div className="flex overflow-x-auto pb-4 gap-3.5 w-full px-1 no-scrollbar scroll-smooth"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {ENGINES.map((eng) => {
                             const active = activeEngine === eng.id;
                             return (
-                                <button key={eng.id} onClick={() => setActiveEngine(eng.id)}
-                                    className={`shrink-0 group flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-300 border ${active ? 'shadow-lg' : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 hover:border-slate-600'}`}
-                                    style={active ? { backgroundColor: `${eng.color}18`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}22` } : {}}>
-                                    <span className="text-base">{eng.emoji}</span>
-                                    <span className="whitespace-nowrap">{eng.label}</span>
-                                    {active && <span className="w-1.5 h-1.5 rounded-full ml-1 animate-pulse shrink-0" style={{ backgroundColor: eng.color }} />}
+                                <button
+                                    key={eng.id}
+                                    onClick={() => setActiveEngine(eng.id)}
+                                    className={`shrink-0 group flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[11px] sm:text-[13px] font-black tracking-tight transition-all duration-300 border ${active
+                                        ? 'shadow-[0_8px_20px_-6px_rgba(0,0,0,0.5)] scale-[1.02]'
+                                        : 'bg-white/[0.03] border-white/[0.08] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20'
+                                        }`}
+                                    style={active ? {
+                                        backgroundColor: `${eng.color}15`,
+                                        borderColor: `${eng.color}88`,
+                                        color: eng.color,
+                                        boxShadow: `0 0 25px ${eng.color}15`
+                                    } : {}}
+                                >
+                                    <span className="text-lg group-hover:scale-110 transition-transform duration-300">{eng.emoji}</span>
+                                    <span className="whitespace-nowrap uppercase tracking-wider">{eng.label}</span>
+                                    {active && (
+                                        <div className="relative flex items-center justify-center ml-1">
+                                            <div className="absolute w-2 h-2 rounded-full animate-ping opacity-40" style={{ backgroundColor: eng.color }} />
+                                            <div className="w-1.5 h-1.5 rounded-full z-10" style={{ backgroundColor: eng.color }} />
+                                        </div>
+                                    )}
                                 </button>
                             );
                         })}
