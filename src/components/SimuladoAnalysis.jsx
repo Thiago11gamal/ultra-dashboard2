@@ -196,7 +196,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                 // 1. Group and Calculate
                 validRows.forEach(row => {
-                    const subj = row.subject.trim();
+                    const subj = String(row.subject || "").trim();
+                    if (!subj) return;
+
                     if (!disciplinesMap[subj]) {
                         disciplinesMap[subj] = {
                             name: subj,
@@ -225,7 +227,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     }
 
                     disciplinesMap[subj].topics.push({
-                        name: row.topic,
+                        name: String(row.topic || ""),
                         correct,
                         total,
                         percentage: pct,
@@ -240,7 +242,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 // 2. Format Output
                 const disciplines = Object.values(disciplinesMap).map(d => {
                     // Sort topics by lowest percentage (worst first)
-                    d.topics.sort((a, b) => a.percentage - b.percentage);
+                    d.topics.sort((a, b) => (a.percentage || 0) - (b.percentage || 0));
 
                     const discPct = d.totalQuestions > 0 ? Math.round((d.totalCorrect / d.totalQuestions) * 100) : 0;
 
@@ -261,7 +263,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 });
 
                 // Sort Disciplines by Performance (Worst First) to highlight problems
-                disciplines.sort((a, b) => a.percentage - b.percentage);
+                disciplines.sort((a, b) => (a.percentage || 0) - (b.percentage || 0));
 
                 // 3. General Insight
                 const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
@@ -285,9 +287,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
 
             } catch (err) {
-                console.error("Analysis Error:", err);
+                console.error("ANALYSIS FATAL ERROR:", err);
                 setAnalysisData(null);
-                setError("Erro ao processar dados.");
+                setError(`Erro no processamento: ${err.message || "Verifique os dados digitados"}`);
             } finally {
                 setLoading(false);
             }

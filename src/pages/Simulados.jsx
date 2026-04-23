@@ -116,157 +116,172 @@ export default function Simulados() {
     };
 
     const handleSimuladoAnalysis = (payload) => {
-        // Captura a contagem diretamente no callback, evitando leitura assíncrona de getState()
-        let capturedCount = 0;
+        try {
+            // Captura a contagem diretamente no callback, evitando leitura assíncrona de getState()
+            let capturedCount = 0;
 
-        setData(prev => {
-            const analysisResult = payload.analysis || payload;
-            const rawRows = payload.rawRows || [];
+            setData(prev => {
+                const analysisResult = payload.analysis || payload;
+                const rawRows = payload.rawRows || [];
 
-            const categoriesSource = Array.isArray(prev.categories) ? prev.categories : [];
-            const newCategories = JSON.parse(JSON.stringify(categoriesSource));
-            let totalProcessedDisciplines = 0;
+                const categoriesSource = Array.isArray(prev.categories) ? prev.categories : [];
+                // Hardened deep clone
+                let newCategories;
+                try {
+                    newCategories = JSON.parse(JSON.stringify(categoriesSource));
+                } catch (e) {
+                    console.error("Clone failed, using shallow copy", e);
+                    newCategories = [...categoriesSource].map(c => ({ ...c }));
+                }
 
-            // BUG-07: Processamento unificado suportando tanto o formato 'disciplines' 
-            // quanto o formato de objeto direto (para maior resiliência).
-            const dataToProcess = analysisResult.disciplines || analysisResult;
+                let totalProcessedDisciplines = 0;
 
-            if (Array.isArray(dataToProcess)) {
-                // Formato de array (disciplines)
-                dataToProcess.forEach(disc => {
-                    const discNameNorm = normalize(disc.name);
-                    let catIdx = newCategories.findIndex(c => normalize(c.name) === discNameNorm);
-                    if (catIdx === -1) {
-                        catIdx = newCategories.findIndex(c => 
-                            aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
-                        );
-                    }
+                // BUG-07: Processamento unificado suportando tanto o formato 'disciplines' 
+                // quanto o formato de objeto direto (para maior resiliência).
+                const dataToProcess = analysisResult.disciplines || analysisResult;
 
-                    if (catIdx !== -1) {
-                        totalProcessedDisciplines++;
-                        const cat = newCategories[catIdx];
-                        if (!cat.simuladoStats) {
-                            cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+                if (Array.isArray(dataToProcess)) {
+                    // Formato de array (disciplines)
+                    dataToProcess.forEach(disc => {
+                        if (!disc || !disc.name) return;
+                        const discNameNorm = normalize(disc.name);
+                        let catIdx = newCategories.findIndex(c => c && c.name && normalize(c.name) === discNameNorm);
+                        if (catIdx === -1) {
+                            catIdx = newCategories.findIndex(c => 
+                                c && c.name && aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
+                            );
                         }
 
-                        const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
-                        const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
-                        
-                        const finalC = Number(disc.totalCorrect);
-                        const finalQ = Number(disc.totalQuestions);
+                        if (catIdx !== -1) {
+                            totalProcessedDisciplines++;
+                            const cat = newCategories[catIdx];
+                            if (!cat.simuladoStats) {
+                                cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+                            }
 
-                        if (finalQ > 0) {
-                            const maxScore = cat.maxScore ?? 100;
-                            filteredHistory.push({
-                                date: getDateKey(new Date()),
-                                correct: finalC,
-                                total: finalQ,
-                                score: (finalC / finalQ) * maxScore,
-                                isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
-                                topics: disc.topics || [] 
-                            });
+                            const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
+                            const todayKey = getDateKey(new Date());
+                            const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
+                            
+                            const finalC = Number(disc.totalCorrect || 0);
+                            const finalQ = Number(disc.totalQuestions || 0);
 
-                            const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
-                            cat.simuladoStats = {
-                                ...cat.simuladoStats,
-                                history: filteredHistory.slice(-50),
-                                average: Number(statsResult.mean.toFixed(1)),
-                                trend: statsResult.trend || 'stable',
-                                lastAttempt: (finalC / finalQ) * maxScore,
-                                level: statsResult.level || (
-                                    statsResult.mean > 0.7 * maxScore ? 'ALTO' : 
-                                    statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
-                                )
-                            };
+                            if (finalQ > 0) {
+                                const maxScore = Number(cat.maxScore) || 100;
+                                filteredHistory.push({
+                                    date: getDateKey(new Date()),
+                                    correct: finalC,
+                                    total: finalQ,
+                                    score: (finalC / finalQ) * maxScore,
+                                    isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
+                                    topics: disc.topics || [] 
+                                });
+
+                                const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
+                                cat.simuladoStats = {
+                                    ...cat.simuladoStats,
+                                    history: filteredHistory.slice(-50),
+                                    average: Number((statsResult?.mean || 0).toFixed(1)),
+                                    trend: statsResult?.trend || 'stable',
+                                    lastAttempt: (finalC / finalQ) * maxScore,
+                                    level: statsResult?.level || (
+                                        (statsResult?.mean || 0) > 0.7 * maxScore ? 'ALTO' : 
+                                        (statsResult?.mean || 0) > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
+                                    )
+                                };
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    // Formato de objeto (rawSubject -> stats)
+                    Object.entries(dataToProcess || {}).forEach(([rawSubject, stats]) => {
+                        if (!rawSubject || !stats) return;
+                        const discNameNorm = normalize(rawSubject);
+                        let catIdx = newCategories.findIndex(c => c && c.name && normalize(c.name) === discNameNorm);
+                        if (catIdx === -1) {
+                            catIdx = newCategories.findIndex(c => 
+                                c && c.name && aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
+                            );
+                        }
+
+                        if (catIdx !== -1) {
+                            totalProcessedDisciplines++;
+                            const cat = newCategories[catIdx];
+                            if (!cat.simuladoStats) {
+                                cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
+                            }
+
+                            const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
+                            const todayKey = getDateKey(new Date());
+                            const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
+                            
+                            const finalC = Number(stats.totalCorrect || 0);
+                            const finalQ = Number(stats.totalQuestions || 0);
+
+                            if (finalQ > 0) {
+                                const maxScore = Number(cat.maxScore) || 100;
+                                filteredHistory.push({
+                                    date: getDateKey(new Date()),
+                                    correct: finalC,
+                                    total: finalQ,
+                                    score: (finalC / finalQ) * maxScore,
+                                    isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
+                                    topics: stats.topics || []
+                                });
+
+                                const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
+                                cat.simuladoStats = {
+                                    ...cat.simuladoStats,
+                                    history: filteredHistory.slice(-50),
+                                    average: Number((statsResult?.mean || 0).toFixed(1)),
+                                    trend: statsResult?.trend || 'stable',
+                                    lastAttempt: (finalC / finalQ) * maxScore,
+                                    level: statsResult?.level || (
+                                        (statsResult?.mean || 0) > 0.7 * maxScore ? 'ALTO' : 
+                                        (statsResult?.mean || 0) > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
+                                    )
+                                };
+                            }
+                        }
+                    });
+                }
+
+                capturedCount = totalProcessedDisciplines;
+
+                const todayKey2 = getDateKey(new Date());
+                // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
+                const rowsToKeep2 = (prev.simuladoRows || []).filter(
+                    r => !(r.isAuto && getDateKey(r.date || r.createdAt) === todayKey2)
+                );
+
+                const validatedRows = [
+                    ...rowsToKeep2,
+                    ...rawRows
+                        .filter(r => r && r.subject && r.topic && (Number(r.total) > 0))
+                        .map(r => ({
+                            ...r,
+                            createdAt: r.createdAt || new Date().toISOString(),
+                            validated: true
+                        }))
+                ].slice(-300);
+
+                return {
+                    ...prev,
+                    categories: newCategories,
+                    simuladoRows: validatedRows,
+                    lastUpdated: new Date().toISOString()
+                };
+            }, true);
+
+            if (capturedCount > 0) {
+                showToast('Simulado processado com sucesso!', 'success');
+                useAppStore.getState().awardExperience(500);
             } else {
-                // Formato de objeto (rawSubject -> stats)
-                Object.entries(dataToProcess).forEach(([rawSubject, stats]) => {
-                    const discNameNorm = normalize(rawSubject);
-                    let catIdx = newCategories.findIndex(c => normalize(c.name) === discNameNorm);
-                    if (catIdx === -1) {
-                        catIdx = newCategories.findIndex(c => 
-                            aliases[normalize(c.name)]?.some(a => normalize(a) === discNameNorm)
-                        );
-                    }
-
-                    if (catIdx !== -1) {
-                        totalProcessedDisciplines++;
-                        const cat = newCategories[catIdx];
-                        if (!cat.simuladoStats) {
-                            cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
-                        }
-
-                        const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
-                        const todayKey = getDateKey(new Date());
-                        const filteredHistory = history.filter(h => h && h.date && getDateKey(new Date(h.date)) !== todayKey);
-                        
-                        const finalC = Number(stats.totalCorrect);
-                        const finalQ = Number(stats.totalQuestions);
-
-                        if (finalQ > 0) {
-                            const maxScore = cat.maxScore ?? 100;
-                            filteredHistory.push({
-                                date: getDateKey(new Date()),
-                                correct: finalC,
-                                total: finalQ,
-                                score: (finalC / finalQ) * maxScore,
-                                isPercentage: true,  // BUGFIX M1: flag inequívoca para getSafeScore
-                                topics: stats.topics || []
-                            });
-
-                            const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
-                            cat.simuladoStats = {
-                                ...cat.simuladoStats,
-                                history: filteredHistory.slice(-50),
-                                average: Number(statsResult.mean.toFixed(1)),
-                                trend: statsResult.trend || 'stable',
-                                lastAttempt: (finalC / finalQ) * maxScore,
-                                level: statsResult.level || (
-                                    statsResult.mean > 0.7 * maxScore ? 'ALTO' : 
-                                    statsResult.mean > 0.4 * maxScore ? 'MÉDIO' : 'BAIXO'
-                                )
-                            };
-                        }
-                    }
-                });
+                showToast('Nenhuma matéria correspondente encontrada.', 'warning');
             }
-
-            capturedCount = totalProcessedDisciplines;
-
-            const todayKey2 = getDateKey(new Date());
-            // BUGFIX CRITICO: Preservar dados importados via CSV no dia de hoje (isAuto falso).
-            const rowsToKeep2 = (prev.simuladoRows || []).filter(
-                r => !(r.isAuto && getDateKey(r.date || r.createdAt) === todayKey2)
-            );
-
-            const validatedRows = [
-                ...rowsToKeep2,
-                ...rawRows
-                    .filter(r => r.subject && r.topic && (Number(r.total) > 0))
-                    .map(r => ({
-                        ...r,
-                        createdAt: r.createdAt || new Date().toISOString(),
-                        validated: true
-                    }))
-            ].slice(-300);
-
-            return {
-                ...prev,
-                categories: newCategories,
-                simuladoRows: validatedRows,
-                lastUpdated: new Date().toISOString()
-            };
-        }, true);
-
-        if (capturedCount > 0) {
-            showToast('Simulado processado com sucesso!', 'success');
-            useAppStore.getState().awardExperience(500);
-        } else {
-            showToast('Nenhuma matéria correspondente encontrada.', 'warning');
+        } catch (err) {
+            console.error("FATAL ERROR IN handleSimuladoAnalysis:", err);
+            showToast('Erro fatal ao salvar simulado. Verifique os logs.', 'error');
         }
     };
 
