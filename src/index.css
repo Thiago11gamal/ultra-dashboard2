@@ -173,12 +173,7 @@ body::before {
 }
 
 .custom-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  display: none;
+  /* Scrollbar visible and styled in the end of file */
 }
 
 /* Animations */
@@ -443,17 +438,32 @@ button,
   line-height: 1.3;
 }
 
-/* Ajuste na barra de rolagem customizada para fluidez */
+/* Ajuste na barra de rolagem customizada - PREMIUM PINK THEME */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+  overflow-x: hidden !important;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
-  /* Ligeiramente mais largo para facilitar o clique */
+  height: 0;
+  display: block !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb);
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 20px;
-  border: 1px solid var(--glass-border);
-  /* Efeito de margem interna no scroll */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
 }
 
 /* CSS View Transitions - Global Defaults */

@@ -238,11 +238,7 @@
   }
 }
 
-.custom-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
+/* Scrollbar style removed to allow global pink theme */
 
-.custom-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+
+
