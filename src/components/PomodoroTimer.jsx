@@ -41,12 +41,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    const sessions = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.sessions || 0);
+    const sessions = Number(useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.sessions || 1));
     const setSessions = useAppStore(state => state.setPomodoroSessions);
     const targetCycles = useAppStore(state => state.appState.pomodoro.targetCycles);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completedCycles = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.completedCycles || 0);
     const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
+
+    // FIX: Sanitize corrupted sessions state (e.g., the '1004' bug)
+    useEffect(() => {
+        if (sessions > 20 || sessions < 1 || isNaN(sessions)) {
+            setSessions(1);
+        }
+    }, [sessions, setSessions]);
 
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
@@ -244,14 +251,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setSessionHistory(prev => [...prev, newHistoryItem]);
 
         if (completedMode === 'work') {
-            const newSessions = sessions + 1;
-            setSessions(newSessions);
             onSessionComplete?.();
 
             if (activeSubject && onUpdateStudyTime) {
                 if (isNatural) {
-                    // BUG FIX: Se completou naturalmente, garante a glória total em vez de sofrer cortes 
-                    // de arredondamento por milissegundos devidos a "browser throttling".
                     onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
                 } else {
                     const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
@@ -270,8 +273,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             savePomodoroState({
                 mode: 'break',
                 timeLeft: breakTime,
-                isRunning: false,
-                sessions: newSessions
+                isRunning: false
             });
 
             if (isNatural) {
@@ -317,11 +319,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (sVal >= tVal && tVal > 0) {
                 onFullCycleComplete?.();
                 setIsRunning(false);
-                setSessions(0);
+                setSessions(1);
                 setCompletedCycles(0);
                 savePomodoroState({
                     isRunning: false,
-                    sessions: 0,
+                    sessions: 1,
                     completedCycles: 0,
                     activeTaskId: null,
                     sessionInstanceId: null
@@ -330,6 +332,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             }
 
             setMode('work');
+            const newSessions = sessions + 1;
+            setSessions(newSessions);
             const workTime = (safeSettings.pomodoroWork || 25) * 60;
             setTimeLeft(workTime);
             setIsRunning(false);
@@ -337,6 +341,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 mode: 'work',
                 timeLeft: workTime,
                 isRunning: false,
+                sessions: newSessions,
                 completedCycles: newCompletedCycles
             });
         }
@@ -813,7 +818,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 >
                     <div className="flex items-center justify-between mb-6 relative z-10">
                         <div className="flex flex-col gap-4">
-                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DE CICLOS</h3>
+                            <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DOS CICLOS</h3>
 
                             {/* Visualização de Módulos e Descansos */}
                             <div className="flex items-center gap-3 ml-2">
@@ -821,12 +826,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     <React.Fragment key={i}>
                                         {/* Módulo (Trabalho) */}
                                         <div className="relative group/mod">
-                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${i < sessions
+                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${
+                                                    (i < sessions - 1) || (i === sessions - 1 && mode === 'break')
                                                     ? 'bg-[#2d1a12] border-[#2d1a12] shadow-lg shadow-black/10'
-                                                    : (i === sessions && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
+                                                    : (i === sessions - 1 && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
                                                 }`}>
-                                                {i < sessions && <CheckCircle2 size={10} className="text-[#b08e6b]" />}
-                                                {i === sessions && mode === 'work' && <div className="w-1.5 h-1.5 rounded-full bg-[#2d1a12] animate-ping" />}
+                                                {((i < sessions - 1) || (i === sessions - 1 && mode === 'break')) && <CheckCircle2 size={10} className="text-[#b08e6b]" />}
+                                                {i === sessions - 1 && mode === 'work' && <div className="w-1.5 h-1.5 rounded-full bg-[#2d1a12] animate-ping" />}
                                             </div>
                                             <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/mod:opacity-100 transition-opacity">M{i + 1}</span>
                                         </div>
@@ -838,7 +844,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     id={`break-ball-${i + 1}`}
                                                     className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"
                                                     style={{
-                                                        height: sessions > i + 1 
+                                                        height: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
                                                             ? '100%' 
                                                             : (sessions === i + 1 && mode === 'break' 
                                                                 ? (isRunning ? undefined : `${(1 - timeLeft / (totalTime || 1)) * 100}%`) 
@@ -877,7 +883,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     <span className="text-5xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{sessions}</span>
                                     <span className="text-xl font-black text-[#f5eadd]">/ {targetCycles || 1}</span>
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-[#2d1a12]/60 tracking-[0.3em]">MÓDULOS</span>
+                                <span className="text-[10px] font-black uppercase text-[#2d1a12]/60 tracking-[0.3em]">CICLOS</span>
                             </div>
                         </div>
                     </div>

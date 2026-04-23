@@ -323,7 +323,7 @@ export default function Pomodoro() {
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
     // CORREÇÃO 1: Pegar os ciclos atuais da sessão do store em vez do histórico all-time
-    const currentSessions = useAppStore(state => state.appState.pomodoro.sessions) || 0;
+    const currentSessions = useAppStore(state => state.appState.pomodoro.sessions) || 1;
 
     // Preparar dados do utilizador para passar ao Coach
     const userStats = useMemo(() => {

@@ -61,7 +61,7 @@ export const useAppStore = create(
                     version: 0,
                     dashboardFilter: 'all',
                     hasSeenTour: false,
-                    pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
+                    pomodoro: { activeSubject: null, sessions: 1, targetCycles: 1, completedCycles: 0 },
                     lastUpdated: "1970-01-01T00:00:00.000Z"
                 },
 
@@ -77,7 +77,7 @@ export const useAppStore = create(
                             version: 0,
                             dashboardFilter: 'all',
                             hasSeenTour: false,
-                            pomodoro: { activeSubject: null, sessions: 0, targetCycles: 1, completedCycles: 0 },
+                            pomodoro: { activeSubject: null, sessions: 1, targetCycles: 1, completedCycles: 0 },
                             lastUpdated: "1970-01-01T00:00:00.000Z",
                             settings: settings // Preserva o tema escolhido
                         };

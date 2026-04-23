@@ -4,8 +4,10 @@ export const createPomodoroSlice = (set, get) => ({
             const activeData = state.appState.contests[state.appState.activeId];
             if (!subject) {
                 if (activeData?.settings) {
-                    activeData.settings.sessions = 0;
+                    activeData.settings.sessions = 1;
                     activeData.settings.completedCycles = 0;
+                    state.appState.pomodoro.sessions = 1;
+                    state.appState.pomodoro.completedCycles = 0;
                 }
                 state.appState.pomodoro.activeSubject = null;
                 state.appState.version = (state.appState.version || 0) + 1;
@@ -17,8 +19,10 @@ export const createPomodoroSlice = (set, get) => ({
             const isNewSession = !current || !subject.sessionInstanceId || (current.sessionInstanceId !== subject.sessionInstanceId);
             
             if (isNewSession && activeData?.settings) {
-                activeData.settings.sessions = 0;
+                activeData.settings.sessions = 1;
                 activeData.settings.completedCycles = 0;
+                state.appState.pomodoro.sessions = 1;
+                state.appState.pomodoro.completedCycles = 0;
             }
 
             state.appState.pomodoro.activeSubject = subject;
@@ -39,6 +43,7 @@ export const createPomodoroSlice = (set, get) => ({
         if (activeData?.settings) {
             activeData.settings.sessions = count;
         }
+        state.appState.pomodoro.sessions = count;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
