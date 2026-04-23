@@ -662,7 +662,7 @@ export default function MonteCarloGauge({
             </div>
 
             <div className="w-full flex flex-col items-center justify-center min-h-[160px] mb-4">
-                <div className={`w-full bg-black/40 rounded-2xl p-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''} shadow-inner`}>
+                <div className={`w-full bg-black/40 rounded-2xl p-4 border-none flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
                     <div className="relative mb-2">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isFlashing ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                         <svg width="260" height="130" viewBox="0 -6 140 76" className="overflow-visible relative z-10 scale-110">
@@ -796,7 +796,7 @@ export default function MonteCarloGauge({
 
 
             {timelineDates.length > 1 && (
-                <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
+                <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border-none relative group/timeline">
                     <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
                         ⏳ Máquina do Tempo
                     </span>
@@ -821,19 +821,19 @@ export default function MonteCarloGauge({
                                 const val = Number(e.target.value);
                                 setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
                             }}
-                            className="w-full appearance-none bg-transparent z-10 
-                                [&::-webkit-slider-runnable-track]:h-2 
-                                [&::-webkit-slider-runnable-track]:bg-slate-800 
+                            className="w-full appearance-none bg-transparent z-10 focus:outline-none
+                                [&::-webkit-slider-runnable-track]:h-1.5 
+                                [&::-webkit-slider-runnable-track]:bg-slate-800/50 
                                 [&::-webkit-slider-runnable-track]:rounded-full 
                                 [&::-webkit-slider-thumb]:appearance-none
                                 [&::-webkit-slider-thumb]:w-4 
                                 [&::-webkit-slider-thumb]:h-4 
-                                [&::-webkit-slider-thumb]:bg-indigo-500/80
+                                [&::-webkit-slider-thumb]:bg-indigo-500
                                 [&::-webkit-slider-thumb]:rounded-full 
-                                [&::-webkit-slider-thumb]:-mt-1
-                                [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(99,102,241,0.4)] 
-                                [&::-webkit-slider-thumb]:border 
-                                [&::-webkit-slider-thumb]:border-white/90
+                                [&::-webkit-slider-thumb]:-mt-1.25
+                                [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(99,102,241,0.5)] 
+                                [&::-webkit-slider-thumb]:border-2
+                                [&::-webkit-slider-thumb]:border-indigo-400/50
                                 cursor-pointer"
                         />
                         <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
