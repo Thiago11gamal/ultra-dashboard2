@@ -424,18 +424,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
                 }
 
+                // Sincronização do Círculo
                 if (svgCircleRef.current) {
-                    // Start at full circle (fraction 1), empty to 0
-                    svgCircleRef.current.style.strokeDashoffset = circumference * (1 - (1 - fraction)); // Wait, user says 0 at end
                     svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
                 }
 
-                if (bottomBarRef.current && mode === 'work') {
-                    const totalProgress = ((sessions + (1 - fraction)) / (targetCycles || 1)) * 100;
-                    bottomBarRef.current.style.width = `${Math.min(100, totalProgress)}%`;
+                // Sincronização da Barra Azul (Foco)
+                if (bottomBarRef.current) {
+                    if (mode === 'work') {
+                        bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
+                    } else {
+                        bottomBarRef.current.style.width = '0%';
+                    }
                 }
 
-                // Sphere ref update for break balls
+                // Sincronização da Bolinha Verde (Descanso)
                 const activeBreakBall = document.getElementById(`break-ball-${sessions}`);
                 if (activeBreakBall && mode === 'break') {
                     activeBreakBall.style.height = `${(1 - fraction) * 100}%`;
@@ -707,8 +710,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
                                 <defs>
                                     <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#22c55e" />
-                                        <stop offset="100%" stopColor="#10b981" />
+                                        <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : '#22c55e'} />
+                                        <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : '#10b981'} />
                                     </linearGradient>
                                     <filter id="glow">
                                         <feGaussianBlur stdDeviation="4" result="blur" />
@@ -722,6 +725,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     strokeWidth="14"
                                     strokeLinecap="round"
                                     strokeDasharray={2 * Math.PI * 110}
+                                    style={{ strokeDashoffset: isRunning ? undefined : (2 * Math.PI * 110) * (timeLeft / (totalTime || 1)) }}
                                     className="drop-shadow-sm"
                                 />
                             </svg>
@@ -832,9 +836,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             <div className="relative w-3.5 h-3.5 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/15 overflow-hidden shadow-inner flex items-center justify-center">
                                                 <div
                                                     id={`break-ball-${i + 1}`}
-                                                    className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-linear"
+                                                    className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"
                                                     style={{
-                                                        height: (sessions > i + 1 ? '100%' : '0%')
+                                                        height: sessions > i + 1 
+                                                            ? '100%' 
+                                                            : (sessions === i + 1 && mode === 'break' 
+                                                                ? (isRunning ? undefined : `${(1 - timeLeft / (totalTime || 1)) * 100}%`) 
+                                                                : '0%')
                                                     }}
                                                 />
                                                 {mode === 'break' && sessions === i + 1 && (
@@ -878,10 +886,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         {/* Barra de Progresso Azul (Sincronizada via RAF através do bottomBarRef) */}
                         <div
                             ref={bottomBarRef}
-                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)] transition-all duration-100 ease-linear"
+                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                            style={{ width: isRunning ? undefined : (mode === 'work' ? `${(1 - timeLeft / (totalTime || 1)) * 100}%` : '0%') }}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40 z-10">
-                            {Math.round(Math.min(100, ((sessions + (mode === 'work' ? (1 - timeLeft / (totalTime || 1)) : 0)) / (targetCycles || 1)) * 100))}%
+                            {Math.round(mode === 'work' ? (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100 : 0)}%
                         </div>
                     </div>
                 </div>
