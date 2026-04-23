@@ -845,7 +845,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DOS CICLOS</h3>
-                            
+
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
                                     <button
@@ -912,22 +912,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                             : '0%')
                                                 }}
                                             >
-                                                <div 
+                                                <div
                                                     id={`break-wave-${i + 1}`}
-                                                    className="liquid-wave" 
-                                                    style={{ 
-                                                        top: (i < sessions - 1) 
-                                                            ? '-250%' 
-                                                            : (sessions === i + 1 && mode === 'break' 
-                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%` 
-                                                                : '100%') 
-                                                    }} 
+                                                    className="liquid-wave"
+                                                    style={{
+                                                        top: (i < sessions - 1)
+                                                            ? '-250%'
+                                                            : (sessions === i + 1 && mode === 'break'
+                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%`
+                                                                : '100%')
+                                                    }}
                                                 />
                                             </div>
                                             {mode === 'break' && sessions === i + 1 && (
                                                 <div className="relative z-10 w-2 h-2 rounded-full bg-white/40 animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
                                             )}
-                                            
+
                                             <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#2d1a12] text-[#b08e6b] text-[6px] font-black px-1.5 py-0.5 rounded opacity-0 group-hover/ball:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                                                 PAUSA 5'
                                             </div>
