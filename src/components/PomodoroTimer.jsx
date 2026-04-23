@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Brain, Zap, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
+import { useToast } from '../hooks/useToast';
 
 export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
@@ -119,7 +120,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             if (newTime <= 0) {
                                 setTimeLeft(0);
                                 setIsRunning(false);
-                                setTimeout(handleTimerComplete, 0);
+                                
+                                // Forçar o modo atualizado antes de disparar o complete
+                                setMode(parsed.mode); 
+                                
+                                // Damos um pequeno delay para garantir que o React fez o commit do estado
+                                setTimeout(() => {
+                                    transitionSession(parsed.mode, 'natural');
+                                }, 100);
                                 return;
                             }
                             setTimeLeft(newTime);
@@ -144,6 +152,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [speed, setSpeed] = useState(1);
     const [showWarning, setShowWarning] = useState(false);
+    const showToast = useToast();
 
     useEffect(() => {
         if (targetCycles === 1 && defaultTargetCycles !== 1) {
@@ -551,6 +560,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         transitionSession(mode, 'skip');
     };
 
+    const handleManualExit = () => {
+        // Se o utilizador sair a meio, salvamos o tempo que ele já acumulou nas sessões anteriores
+        if (accumulatedMinutes > 0 && activeSubject && onUpdateStudyTime) {
+            onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
+            setAccumulatedMinutes(0);
+            showToast(`Salvamento parcial: ${accumulatedMinutes} minutos registados.`, 'success');
+        }
+        
+        // Limpar o cache de estado do pomodoro para não tentar "retomar" numa matéria vazia
+        localStorage.removeItem('pomodoroState');
+        
+        onExit();
+    };
+
     const formatTime = (seconds) => {
         const safeSecs = Math.max(0, seconds);
         const secsInt = Math.ceil(safeSecs);
@@ -691,7 +714,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     backgroundColor: ['rgba(153, 27, 27, 0.2)', 'rgba(153, 27, 27, 0.4)', 'rgba(153, 27, 27, 0.2)']
                                 } : {}}
                                 transition={{ duration: 0.4, repeat: showWarning ? Infinity : 0 }}
-                                onClick={onExit}
+                                onClick={handleManualExit}
                                 className="w-full bg-red-950/20 backdrop-blur-3xl border border-dashed border-red-500/30 rounded-xl py-4 flex flex-row items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40 hover:border-red-500/50 transition-all group shadow-2xl"
                             >
                                 <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-all">

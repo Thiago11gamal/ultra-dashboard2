@@ -69,6 +69,8 @@ export const createPomodoroSlice = (set, get) => ({
         if (activeData?.settings) {
             activeData.settings.completedCycles = completed;
         }
+        state.appState.pomodoro.completedCycles = completed;
+        
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
