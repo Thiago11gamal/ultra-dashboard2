@@ -56,7 +56,8 @@ export default function Dashboard() {
                 taskId: tsk.id,
                 category: cat.name,
                 task: tsk.title || tsk.text || 'Estudo',
-                priority: tsk.priority
+                priority: tsk.priority,
+                source: 'dashboard'
             });
 
             // Set studying status
