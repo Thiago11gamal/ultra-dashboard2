@@ -20,9 +20,9 @@ const DEFAULT_CONFIG = {
     MC_PROB_DANGER: 30,
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
-    // BUG 5 FIX: MSSD typical is 5-15. Divisor 5 saturated urgency too early.
-    // Recalibrated to 15 to allow full granularity up to high instability.
-    INSTABILITY_MSSD_DIVISOR: 15,
+    // BUG 5 FIX: MSSD typical is 5-15. Divisor calibrated to 10 to sync with Monte Carlo 
+    // (volatility < 10% scale).
+    INSTABILITY_MSSD_DIVISOR: 10,
 };
 
 // ==================== FUNÇÕES AUXILIARES ====================

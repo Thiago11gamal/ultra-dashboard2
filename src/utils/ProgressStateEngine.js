@@ -7,10 +7,10 @@
 
 const DEFAULT_CONFIG = {
     window_size: 10,
-    stagnation_threshold: 4.0, // Aumentado para tolerar mais ruído
+    stagnation_threshold: 5.0, // Alinhado com estabilidade de 5% da escala (rigoroso)
     low_level_limit: 60,
     high_level_limit: 75,
-    mastery_limit: 85,
+    mastery_limit: 80, // Sincronizado com targetScore padrão
     trend_tolerance: 0.5 // Alinhado com 0.5 pp/30d (unificado)
 };
 
