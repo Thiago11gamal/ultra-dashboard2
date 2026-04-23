@@ -393,21 +393,55 @@ export default function Pomodoro() {
         navigate(returnPath);
     };
 
-    const handleStartTask = (task) => {
-        useAppStore.getState().startPomodoroSession({
+    const handleStartTask = (task, forcedSessionId = null) => {
+        const sessionId = forcedSessionId || Date.now().toString();
+        useAppStore.getState().setPomodoroActiveSubject({
             categoryId: task.catId,
             taskId: task.id,
             category: task.catName,
             task: task.text || task.title || 'Estudo',
-            priority: task.priority
+            priority: task.priority,
+            sessionInstanceId: sessionId
         });
     };
 
-    const handleFullCycleComplete = (totalMinutes) => {
-        if (activeSubject) {
-            // Mensagem mais impactante confirmando o salvamento
-            showToast(`Série finalizada! ${totalMinutes} minutos salvos com sucesso no seu histórico. 🚀💎`, 'success');
-            setTimeout(() => { handleExit(); }, 2000);
+    const handleFullCycleComplete = (totalMinutes = 0) => {
+        // CORREÇÃO: Usar ref ou valor direto caso activeSubject esteja instável
+        const currentSubject = activeSubject || useAppStore.getState().appState.pomodoro.activeSubject;
+        
+        if (currentSubject) {
+            showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
+            
+            const state = useAppStore.getState();
+            const activeId = state.appState.activeId;
+            const currentCategories = state.appState.contests[activeId]?.categories || [];
+            
+            // Busca o próximo melhor assunto
+            const nextTask = getBestTask(currentCategories, currentSubject.taskId);
+            
+            if (nextTask) {
+                const nextSessionId = Date.now().toString();
+                try {
+                    const settings = state.appState.contests[activeId]?.settings || {};
+                    localStorage.setItem('pomodoroState', JSON.stringify({
+                        mode: 'work',
+                        timeLeft: (settings.pomodoroWork || 25) * 60,
+                        isRunning: true,
+                        savedAt: Date.now(),
+                        activeTaskId: nextTask.id,
+                        sessionInstanceId: nextSessionId 
+                    }));
+                } catch (e) {
+                    console.error("Erro ao preparar auto-start:", e);
+                }
+
+                setTimeout(() => {
+                    showToast(`Neural Core: Próximo vetor detectado. Iniciando ${nextTask.text || nextTask.title}... ⚡`, 'info');
+                    handleStartTask(nextTask, nextSessionId);
+                }, 3500); 
+            } else {
+                setTimeout(() => { handleExit(); }, 4500);
+            }
         } else {
             handleExit();
         }

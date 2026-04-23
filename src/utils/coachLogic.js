@@ -834,13 +834,13 @@ export function getCognitiveState(stats) {
  * Algoritmo de Prioridade (ROI)
  * Descobre exatamente o que você deve estudar agora com base em múltiplos fatores.
  */
-export function getBestTask(categories) {
+export function getBestTask(categories, excludeTaskId = null) {
     let bestTask = null;
     let highestScore = -Infinity;
 
     (categories || []).forEach(cat => {
         (cat.tasks || []).forEach(task => {
-            if (task.completed) return;
+            if (task.completed || (excludeTaskId && task.id === excludeTaskId)) return;
 
             let score = 0;
             

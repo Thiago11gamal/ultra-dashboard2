@@ -279,34 +279,39 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const tVal = Number(targetCycles);
 
             if (sVal >= tVal && tVal > 0) {
-                if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
-                    onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
-                }
-                
-                if (isNatural) {
-                    if (safeSettings.soundEnabled && alarmAudioRef.current) {
-                        try {
-                            alarmAudioRef.current.currentTime = 0;
-                            alarmAudioRef.current.play().catch(() => {});
-                        } catch (e) {}
-                    }
-                    sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
-                }
-
-                setAccumulatedMinutes(0);
-                
-                onFullCycleComplete?.(newAccumulated);
                 setIsRunning(false);
-                setSessions(1);
-                setCompletedCycles(0);
-                savePomodoroState({
-                    isRunning: false,
-                    sessions: 1,
-                    completedCycles: 0,
-                    activeTaskId: null,
-                    sessionInstanceId: null,
-                    accumulatedMinutes: 0
-                });
+                
+                try {
+                    if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
+                        onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
+                    }
+                    
+                    if (isNatural) {
+                        if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                            try {
+                                alarmAudioRef.current.currentTime = 0;
+                                alarmAudioRef.current.play().catch(() => {});
+                            } catch (e) {}
+                        }
+                        sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
+                    }
+
+                    setAccumulatedMinutes(0);
+                    
+                    // IMPORTANTE: onFullCycleComplete deve ser o último para permitir que o timer limpe seu estado
+                    onFullCycleComplete?.(newAccumulated);
+                    
+                    setSessions(1);
+                    setCompletedCycles(0);
+                    
+                    // Não salvamos o estado de "parado" se vamos pular pro próximo, 
+                    // para evitar que o overwrite do Pomodoro.jsx seja anulado.
+                    // Mas limpamos por segurança.
+                    localStorage.removeItem('pomodoroState');
+                } catch (err) {
+                    console.error("Erro na transição final:", err);
+                    onExit?.();
+                }
                 return;
             }
 
@@ -362,34 +367,32 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const tVal = Number(targetCycles);
 
             if (sVal >= tVal && tVal > 0) {
-                if (activeSubject && onUpdateStudyTime && accumulatedMinutes > 0) {
-                    onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
-                }
-
-                if (isNatural) {
-                    if (safeSettings.soundEnabled && alarmAudioRef.current) {
-                        try {
-                            alarmAudioRef.current.currentTime = 0;
-                            alarmAudioRef.current.play().catch(() => {});
-                        } catch (e) {}
-                    }
-                    sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${accumulatedMinutes} minutos salvos com sucesso!`);
-                }
-
-                setAccumulatedMinutes(0);
-
-                onFullCycleComplete?.(accumulatedMinutes);
                 setIsRunning(false);
-                setSessions(1);
-                setCompletedCycles(0);
-                savePomodoroState({
-                    isRunning: false,
-                    sessions: 1,
-                    completedCycles: 0,
-                    activeTaskId: null,
-                    sessionInstanceId: null,
-                    accumulatedMinutes: 0
-                });
+                try {
+                    if (activeSubject && onUpdateStudyTime && accumulatedMinutes > 0) {
+                        onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
+                    }
+
+                    if (isNatural) {
+                        if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                            try {
+                                alarmAudioRef.current.currentTime = 0;
+                                alarmAudioRef.current.play().catch(() => {});
+                            } catch (e) {}
+                        }
+                        sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${accumulatedMinutes} minutos salvos com sucesso!`);
+                    }
+
+                    setAccumulatedMinutes(0);
+
+                    onFullCycleComplete?.(accumulatedMinutes);
+                    setSessions(1);
+                    setCompletedCycles(0);
+                    localStorage.removeItem('pomodoroState');
+                } catch (err) {
+                    console.error("Erro na transição final (skip):", err);
+                    onExit?.();
+                }
                 return;
             }
 
@@ -410,6 +413,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification]);
 
     const handleTimerComplete = useCallback(() => {
+        setIsRunning(false);
         transitionSession(mode, 'natural');
     }, [transitionSession, mode]);
 
