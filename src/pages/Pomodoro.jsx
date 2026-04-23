@@ -311,7 +311,13 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
 }
 
 export default function Pomodoro() {
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const activeId = useAppStore(state => state.appState.activeId);
+    const contest = useAppStore(state => state.appState.contests[activeId]);
+    const categories = useAppStore(state => state.appState.contests[activeId]?.categories || []);
+    const settings = useAppStore(state => state.appState.contests[activeId]?.settings || {});
+    const studyLogs = useAppStore(state => state.appState.contests[activeId]?.studyLogs || []);
+    const user = useAppStore(state => state.appState.contests[activeId]?.user || null);
+
     const setData = useAppStore(state => state.setData);
     const { updatePomodoroSettings, handleUpdateStudyTime } = useAppStore();
 
@@ -328,14 +334,14 @@ export default function Pomodoro() {
 
     // Preparar dados do utilizador para passar ao Coach
     const userStats = useMemo(() => {
-        if (!data) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
+        if (!contest) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
 
         // Cálculo Inteligente de Fadiga Diária sem Amnésia
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
         let consecutiveStudyMinutes = 0;
-        const recentLogs = [...(data.studyLogs || [])]
+        const recentLogs = [...(studyLogs || [])]
             .filter(log => new Date(log.date || 0).getTime() >= startOfToday)
             .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()); // newest first
 
@@ -358,14 +364,14 @@ export default function Pomodoro() {
         return {
             pomodorosCompleted: currentSessions,
             consecutiveMinutes: consecutiveStudyMinutes,
-            settings: data.settings,
-            user: data.user // 🎯 Injetar perfil do usuário para cálculo de fadiga elástica
+            settings: settings,
+            user: user // 🎯 Injetar perfil do usuário para cálculo de fadiga elástica
         };
-    }, [currentSessions, data]);
+    }, [currentSessions, contest, studyLogs, settings, user]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
-            const cat = data.categories?.find(c => c.id === location.state.categoryId);
+            const cat = categories?.find(c => c.id === location.state.categoryId);
             const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
             if (cat && tsk) {
                 useAppStore.getState().startPomodoroSession({
@@ -377,7 +383,7 @@ export default function Pomodoro() {
                 });
             }
         }
-    }, [location.state, data.categories, activeSubject]);
+    }, [location.state, categories, activeSubject]);
 
     // Cleanup timeouts on unmount
     useEffect(() => {
@@ -424,6 +430,7 @@ export default function Pomodoro() {
             
             if (isFromDashboard) {
                 // Se veio do dashboard, retorna pra lá conforme solicitado
+                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => { 
                     showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
                     handleExit(); 
@@ -451,11 +458,13 @@ export default function Pomodoro() {
                     }));
                 } catch (e) {}
 
+                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => {
                     showToast(`Neural Core: Próximo vetor detectado. Iniciando ${nextTask.text || nextTask.title}... ⚡`, 'info');
                     handleStartTask(nextTask, nextSessionId, 'neural_core');
                 }, 3500); 
             } else {
+                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 4500);
             }
         } else {
@@ -470,7 +479,7 @@ export default function Pomodoro() {
         }));
     };
 
-    if (!data) {
+    if (!contest) {
         return (
             <div className="flex items-center justify-center p-12">
                 <p className="text-slate-400">Carregando dados...</p>
@@ -484,10 +493,10 @@ export default function Pomodoro() {
                 {/* Timer Column */}
                 <div className="w-full xl:max-w-[750px] min-w-0">
                     <PomodoroTimer
-                        settings={data.settings}
+                        settings={settings}
                         onUpdateSettings={updatePomodoroSettings}
                         activeSubject={activeSubject}
-                        categories={data.categories || []}
+                        categories={categories || []}
                         onStartStudying={() => { }}
                         onUpdateStudyTime={handleUpdateStudyTime}
                         onExit={handleExit}
@@ -500,7 +509,7 @@ export default function Pomodoro() {
 
                 {/* Side Panel — desktop only */}
                 <FocusPanel
-                    categories={data.categories || []}
+                    categories={categories || []}
                     activeSubject={activeSubject}
                     onStartTask={handleStartTask}
                     stats={userStats}

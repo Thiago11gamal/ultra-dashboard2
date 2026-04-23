@@ -42,11 +42,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    const sessions = Number(useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.sessions || 1));
+    const sessions = useAppStore(state => state.appState.pomodoro.sessions || 1);
     const setSessions = useAppStore(state => state.setPomodoroSessions);
     const targetCycles = useAppStore(state => state.appState.pomodoro.targetCycles);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
-    const completedCycles = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.completedCycles || 0);
+    const completedCycles = useAppStore(state => state.appState.pomodoro.completedCycles || 0);
     const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
     const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
@@ -95,24 +95,33 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 const now = Date.now();
                 const msSinceSave = now - (parsed.savedAt || 0);
+                
+                // DATA LEAK PROTECTION: Se os dados forem muito antigos (> 24h), ignorar
                 if (msSinceSave > 24 * 60 * 60 * 1000) return;
 
                 if (parsed.isRunning && parsed.savedAt) {
                     const elapsedSeconds = Math.floor(msSinceSave / 1000);
                     if (elapsedSeconds > 0) {
-                        if (parsed.timeLeft - elapsedSeconds < -300) {
+                        // ZOMBIE PROTECTION: Se passou tempo demais (ex: 30 min além do fim), 
+                        // não engatilha transição automática para não pular matéria sozinho.
+                        if (parsed.timeLeft - elapsedSeconds < -1800) {
                             localStorage.removeItem('pomodoroState');
                             return;
                         }
+
                         timerRef.current = setTimeout(() => {
                             const newTime = parsed.timeLeft - elapsedSeconds;
                             if (newTime <= 0) {
                                 setTimeLeft(0);
                                 setIsRunning(false);
                                 setMode(parsed.mode);
-                                setTimeout(() => {
-                                    transitionSession(parsed.mode, 'natural', 0);
-                                }, 100);
+                                
+                                // Apenas transiciona se for "recente" (evita sustos ao abrir o PC de manhã)
+                                if (msSinceSave < 30 * 60 * 1000) {
+                                    setTimeout(() => {
+                                        transitionSession(parsed.mode, 'natural', 0);
+                                    }, 100);
+                                }
                                 return;
                             }
                             setTimeLeft(newTime);
@@ -397,7 +406,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 completedCycles: newCompletedCycles
             });
         }
-    }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification]);
+    }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification, accumulatedMinutes, setAccumulatedMinutes, onExit]);
 
     const handleTimerComplete = useCallback(() => {
         setIsRunning(false);
@@ -512,6 +521,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
+                    // Forçamos o update do timeLeft apenas 1 vez por segundo via React
+                    // para manter sincronia com outros componentes sem sobrecarregar o render
                     setTimeLeft(current);
                 }
 
@@ -526,14 +537,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
 
     const isHandlingCompleteRef = React.useRef(false);
+    const completeTimeoutRef = React.useRef(null);
     useEffect(() => {
         if (timeLeft <= 0 && isRunning && !isHandlingCompleteRef.current) {
             isHandlingCompleteRef.current = true;
-            setTimeout(() => {
+            if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
+            completeTimeoutRef.current = setTimeout(() => {
                 handleTimerComplete();
                 isHandlingCompleteRef.current = false;
             }, 0);
         }
+        return () => {
+            if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
+        };
     }, [timeLeft, isRunning, handleTimerComplete]);
 
     const reset = () => {
@@ -933,7 +949,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
                                                         ? '100%'
                                                         : (sessions === i + 1 && mode === 'work'
-                                                            ? (isRunning ? undefined : `${(1 - timeLeft / (totalTime || 1)) * 100}%`)
+                                                            ? `${(1 - timeLeft / (totalTime || 1)) * 100}%`
                                                             : '0%')
                                                 }}
                                             />
