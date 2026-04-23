@@ -64,6 +64,11 @@
   background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
   margin: 8px 0;
   width: 100%;
+  transition: opacity 0.3s;
+}
+
+.sidebar.collapsed .sidebar-divider {
+  display: none;
 }
 
 /* Hierarquia de Itens (Concursos) */
@@ -140,8 +145,7 @@
 }
 
 .sidebar.collapsed .sidebar-nav-label {
-  opacity: 0;
-  transform: translateX(-10px);
+  display: none;
 }
 
 /* Itens do Menu */
@@ -214,7 +218,22 @@
   justify-content: center;
   padding: 12px 0;
   width: 46px;
-  margin: 6px auto;
+  margin: 2px auto;
+}
+
+.sidebar.collapsed .mb-4,
+.sidebar.collapsed .mb-2 {
+  margin-bottom: 0 !important;
+}
+
+/* Hide scrollbar when collapsed */
+.sidebar.collapsed .custom-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.sidebar.collapsed .custom-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .sidebar.collapsed .sidebar-item span {

@@ -45,6 +45,11 @@ export default function Sidebar({
     React.useEffect(() => {
         const width = collapsed ? '70px' : '280px';
         document.documentElement.style.setProperty('--sidebar-width', width);
+
+        // Garantir que as configurações comecem fechadas ao expandir o menu
+        if (!collapsed) {
+            setSettingsExpanded(false);
+        }
     }, [collapsed]);
 
     const handleLogout = async () => {
@@ -245,7 +250,7 @@ export default function Sidebar({
                                 <span>Configurações</span>
                             </button>
 
-                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         className="sidebar-item !py-2 hover:!bg-red-500/10"
