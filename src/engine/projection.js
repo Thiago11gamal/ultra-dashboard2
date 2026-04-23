@@ -3,7 +3,7 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
-import { mulberry32, randomNormal } from './random.js';
+import { mulberry32, randomNormal, makeNormalRng } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 
@@ -201,8 +201,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
     // Margem ancorada na proporção ajustada
     // Margem ancorada na projeção (IC 95%)
-    const z = 1.96;
-    const marginOfError = z * (projectedSD || effectiveSd) * maxScore;
+    const marginOfError = z * effectiveSd * maxScore;
 
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
