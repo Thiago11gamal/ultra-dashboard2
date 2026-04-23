@@ -297,7 +297,7 @@ export default function EvolutionChart({
             .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
-                
+
                 // 🎯 MATH FIX: Injetar questões sintéticas para simulados sem volume
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
@@ -375,7 +375,7 @@ export default function EvolutionChart({
                         score: getSafeScore(h, maxScore)
                     }))
                     .sort((a, b) => (normalizeDate(a.date)?.getTime() || 0) - (normalizeDate(b.date)?.getTime() || 0));
-                
+
                 rawHistory.forEach(h => {
                     const d = normalizeDate(h.date);
                     if (!d) return;
@@ -407,10 +407,10 @@ export default function EvolutionChart({
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         const recentVolumeAlert = (focusCategory.simuladoStats?.history || [])
             .filter(h => {
-                if (!h || !h.date) return false; 
+                if (!h || !h.date) return false;
                 const d = new Date(h.date).getTime();
                 // 🛡️ DATA FIX: Garantir que a data é convertível e não gera NaN 
-                return !Number.isNaN(d) && (nowMs - d) <= sevenDaysMs; 
+                return !Number.isNaN(d) && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
                 let q = parseInt(h.total, 10) || 0;
@@ -476,7 +476,7 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="relative z-10">
+            <div className="relative z-0 mb-24 sm:mb-32">
                 <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-4 mb-0 sm:mb-1 pl-1">
                     Nível Bayesiano por Disciplina • clique para focar
                 </p>
@@ -498,7 +498,7 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-3 sm:p-5 shadow-xl w-full min-w-0 transition-all duration-500">
+            <div className="relative z-10 rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur p-4 sm:p-6 shadow-xl w-full min-w-0 transition-all duration-500">
                 <div className="relative w-full">
                     {/* Fade indicators for hidden tabs */}
                     <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-slate-900/90 to-transparent z-10 sm:hidden" />
