@@ -154,42 +154,40 @@ export default function Header({
                             <Menu size={18} />
                         </button>
 
-                        <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
                             <DateDisplay />
-                            <div className="flex items-center gap-3">
-                                {cloudStatus.status !== 'idle' && (
-                                    <div className={`flex items-center min-w-[110px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${cloudStatus.status === 'connected'
-                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400/90 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
-                                        : cloudStatus.status === 'connecting'
-                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400/90 shadow-[0_0_15px_rgba(245,158,11,0.05)]'
-                                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400/90 shadow-[0_0_15px_rgba(244,63,94,0.05)]'
-                                        }`} title={cloudStatus.error || ''}>
-                                        <div className="relative flex items-center justify-center">
-                                            <div className={`absolute w-1.5 h-1.5 rounded-full opacity-40 animate-ping ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
-                                                }`} />
-                                            <div className={`w-1 h-1 rounded-full z-10 ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
-                                                } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
-                                        </div>
-                                        <span className="opacity-70">
-                                            {cloudStatus.status === 'connected'
-                                                ? (cloudStatus.syncing ? 'Syncing' : 'Nuvem Ativa')
-                                                : cloudStatus.status === 'connecting'
-                                                    ? 'Conectando'
-                                                    : 'Offline'}
-                                        </span>
+                            {cloudStatus.status !== 'idle' && (
+                                <div className={`flex items-center min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${cloudStatus.status === 'connected'
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400/90 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                                    : cloudStatus.status === 'connecting'
+                                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-400/90 shadow-[0_0_15px_rgba(245,158,11,0.05)]'
+                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400/90 shadow-[0_0_15px_rgba(244,63,94,0.05)]'
+                                    }`} title={cloudStatus.error || ''}>
+                                    <div className="relative flex items-center justify-center">
+                                        <div className={`absolute w-1.5 h-1.5 rounded-full opacity-40 animate-ping ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                            }`} />
+                                        <div className={`w-1 h-1 rounded-full z-10 ${cloudStatus.status === 'connected' ? 'bg-emerald-400' : cloudStatus.status === 'connecting' ? 'bg-amber-400' : 'bg-rose-400'
+                                            } ${cloudStatus.syncing ? 'animate-pulse' : ''}`} />
                                     </div>
-                                )}
-                                {cloudStatus.hasConflict && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
-                                        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[8px] uppercase font-black animate-pulse"
-                                        title="Forçar Paridade"
-                                    >
-                                        <CloudDownload size={9} />
-                                        <span>Conflito</span>
-                                    </button>
-                                )}
-                            </div>
+                                    <span className="opacity-70">
+                                        {cloudStatus.status === 'connected'
+                                            ? (cloudStatus.syncing ? 'Syncing' : 'Nuvem Ativa')
+                                            : cloudStatus.status === 'connecting'
+                                                ? 'Conectando'
+                                                : 'Offline'}
+                                    </span>
+                                </div>
+                            )}
+                            {cloudStatus.hasConflict && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); if (cloudStatus.forcePull) cloudStatus.forcePull(); }}
+                                    className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[8px] uppercase font-black animate-pulse"
+                                    title="Forçar Paridade"
+                                >
+                                    <CloudDownload size={9} />
+                                    <span>Conflito</span>
+                                </button>
+                            )}
                         </div>
                     </div>
 
