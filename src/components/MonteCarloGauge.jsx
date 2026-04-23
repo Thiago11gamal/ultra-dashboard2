@@ -592,7 +592,7 @@ export default function MonteCarloGauge({
     const message = baseMessage + timeLabel;
 
     return (
-        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full h-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-5 rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full h-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
 
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
@@ -601,7 +601,7 @@ export default function MonteCarloGauge({
             )}
 
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 relative z-10">
                 <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -613,28 +613,26 @@ export default function MonteCarloGauge({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1 min-h-[22px]">
                         {forcedMode && (
                             <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border ${forcedMode === 'today' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
                                 {forcedTitle || (forcedMode === 'today' ? 'Modo: Hoje' : 'Modo: Futuro')}
                             </div>
                         )}
-
-                        {!effectiveSimulateToday && simulationData?.data?.currentMean != null && (
-                            <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner group-hover:border-blue-500/30 transition-all">
-                                <span className="text-[8px] font-bold text-slate-500 uppercase">Delta</span>
-                                <span className={`text-[9px] font-black ${(simulationData?.data?.mean - simulationData?.data?.currentMean) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {(simulationData?.data?.mean - simulationData?.data?.currentMean) > 0 ? `+${(simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}` : (simulationData?.data?.mean - simulationData?.data?.currentMean).toFixed(1)}pp
-                                </span>
+                        {!forcedMode && (
+                            <div className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Status Atual</span>
                             </div>
                         )}
-
-                        {!effectiveSimulateToday && projectDays > 0 && (
-                            <div className="flex items-center gap-1 bg-white/5 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/10 shadow-inner">
-                                <Clock size={10} className={`${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`} />
-                                <span className={`text-[9px] font-black ${projectDays <= 30 ? 'text-rose-400' : projectDays <= 60 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                    {projectDays}d {isTimeTraveling ? 'na projeção' : 'restantes'}
+                        {saturation > 0.75 && (
+                            <div className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center gap-1.5 shadow-sm">
+                                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest">
+                                    {saturation > 0.90 ? '⚠ Dados Insuficientes' : '⚠ Alta Incerteza'}
                                 </span>
+                                <div className="w-8 h-1 bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-amber-500" style={{ width: `${projectionConfidence * 100}%` }} />
+                                </div>
+                                <span className="text-[8px] font-black text-amber-400">{(projectionConfidence * 100).toFixed(0)}%</span>
                             </div>
                         )}
                     </div>
@@ -663,7 +661,8 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className={`w-full bg-black/30 rounded-xl p-4 mb-3 border border-white/5 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''}`}>
+            <div className="w-full flex flex-col items-center justify-center min-h-[160px] mb-4">
+                <div className={`w-full bg-black/40 rounded-2xl p-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''} shadow-inner`}>
                 <div className="relative mb-2">
                     <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isFlashing ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
                     <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
@@ -701,99 +700,73 @@ export default function MonteCarloGauge({
                         </span>
                     </div>
                 </div>
-                <span className={`mt-2 text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                <span className={`mt-2 text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
                     {isFlashing ? (
                         <span className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
-                            Simulando cenários...
+                            Simulando...
                         </span>
                     ) : (
-                        message
+                        "Resumo Estatístico"
                     )}
                 </span>
 
-                {/* Badge de confiança — renderize abaixo da label do gauge */}
-                {saturation > 0.75 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-3 px-4 py-2 rounded-xl sm:rounded-full bg-amber-500/10 border border-amber-500/30 shadow-lg shadow-amber-500/5 w-full max-w-sm mx-auto text-center">
-                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-400">
-                            {saturation > 0.90
-                                ? '⚠ Dados insuficientes'
-                                : '⚠ Alta incerteza'}
-                        </span>
-                        {/* Barra de confiança */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
-                            <div className="w-full sm:w-16 h-1.5 sm:h-1 bg-slate-800 rounded-full overflow-hidden border border-white/5">
-                                <div
-                                    className="h-full rounded-full bg-amber-400 transition-all duration-700 shadow-[0_0_8px_rgba(251,191,36,0.4)]"
-                                    style={{ width: `${projectionConfidence * 100}%` }}
-                                />
-                            </div>
-                            <span className="text-[9px] font-black text-amber-400">
-                                {(projectionConfidence * 100).toFixed(0)}%
+                </div>
+            </div>
+
+            <div className="min-h-[110px] flex flex-col justify-center gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 px-1 w-full">
+                    {[
+                        { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500", weight: "font-black" },
+                        { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white", weight: "font-black" },
+                        { label: "Projeção", val: formatScore(safe(projectedMean)), color: "text-blue-400", weight: "font-black" },
+                        {
+                            label: "Incerteza",
+                            val: uncertaintyLabel,
+                            color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400/80' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400/80' : 'text-red-400/80',
+                            small: true,
+                            weight: "font-bold"
+                        },
+                        {
+                            label: "IC 95%",
+                            val: `${safe(ci95Low).toFixed(0)}–${safe(ci95High).toFixed(0)}${unit}`,
+                            color: "text-green-500/80",
+                            small: true,
+                            weight: "font-bold",
+                            fullVal: `${safe(ci95Low).toFixed(1)}–${safe(ci95High).toFixed(1)}${unit}`,
+                        }
+                    ].map((m, i) => (
+                        <div key={i} title={m.fullVal ?? m.val} className={`bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center overflow-hidden w-full transition-colors hover:bg-black/50 h-14 ${i === 4 ? 'col-span-2 sm:col-span-1 md:col-span-1' : ''}`}>
+                            <span className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 whitespace-nowrap">
+                                {m.label}
                             </span>
+                            <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} ${m.weight} ${m.color} truncate w-full text-center`}>
+                                {m.val}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+
+                {saturation > 0.75 && (
+                    <div className="w-full grid grid-cols-3 bg-black/40 rounded-xl p-2 border border-white/5 shadow-lg shadow-amber-500/5 transition-all duration-500 divide-x divide-white/10 h-12">
+                        <div className="flex flex-col items-center justify-center px-1">
+                            <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (tendência)</span>
+                            <span className="text-xs sm:text-sm font-black text-blue-400">{pTrend.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center px-1">
+                            <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (simulação)</span>
+                            <span className="text-xs sm:text-sm font-black text-slate-400 line-through opacity-40">{probability.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center px-1">
+                            <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (ajustada)</span>
+                            <span className="text-xs sm:text-sm font-black text-amber-400">{pAdjusted.toFixed(1)}%</span>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4 px-1 w-full">
-                {[
-                    { label: "Sua Meta", val: `${safe(targetScore).toFixed(0)}${unit}`, color: "text-rose-500", weight: "font-black" },
-                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: formatScore(safe(currentMean)), color: "text-white", weight: "font-black" },
-                    { label: "Projeção", val: formatScore(safe(projectedMean)), color: "text-blue-400", weight: "font-black" },
-                    {
-                        label: "Incerteza",
-                        val: uncertaintyLabel,
-                        color: Math.max(sdLeft, sdRight) <= 5 ? 'text-emerald-400/80' : Math.max(sdLeft, sdRight) <= 10 ? 'text-yellow-400/80' : 'text-red-400/80',
-                        small: true,
-                        weight: "font-bold"
-                    },
-                    {
-                        label: "IC 95%",
-                        val: `${safe(ci95Low).toFixed(0)}–${safe(ci95High).toFixed(0)}${unit}`,
-                        color: "text-green-500/80",
-                        small: true,
-                        weight: "font-bold",
-                        fullVal: `${safe(ci95Low).toFixed(1)}–${safe(ci95High).toFixed(1)}${unit}`,
-                    }
-                ].map((m, i) => (
-                    <div key={i} title={m.fullVal ?? m.val} className={`bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center overflow-hidden w-full transition-colors hover:bg-black/50 ${i === 4 ? 'col-span-2 sm:col-span-1 md:col-span-1' : ''}`}>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1 whitespace-nowrap">
-                            {m.label}
-                        </span>
-                        <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} ${m.weight} ${m.color} truncate w-full text-center`}>
-                            {m.val}
-                        </span>
-                    </div>
-                ))}
-            </div>
-
-            {/* Ao lado do gauge principal, abaixo dos 5 cards de stats */}
-            {saturation > 0.75 && (
-                <div className="w-full grid grid-cols-3 bg-black/30 rounded-xl p-2 border border-white/5 mt-2 mb-2 shadow-lg shadow-amber-500/5 transition-all duration-500 divide-x divide-white/10">
-                    <div className="flex flex-col items-center justify-center px-1">
-                        <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (tendência)</span>
-                        <span className="text-xs sm:text-sm font-black text-blue-400">
-                            {pTrend.toFixed(1)}%
-                        </span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center px-1">
-                        <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (simulação)</span>
-                        <span className="text-xs sm:text-sm font-black text-slate-400 line-through opacity-60">
-                            {probability.toFixed(1)}%
-                        </span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center px-1">
-                        <span className="text-[7px] sm:text-[8px] text-slate-500 uppercase tracking-wider mb-0.5 text-center">P (ajustada)</span>
-                        <span className="text-xs sm:text-sm font-black text-amber-400">
-                            {pAdjusted.toFixed(1)}%
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            <div className="w-full bg-black/30 rounded-xl p-4 mb-3 border border-white/5 flex-1 flex flex-col min-h-[320px]">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3 px-1 w-full">
+            <div className="w-full bg-black/40 rounded-2xl p-6 mb-4 border border-white/5 flex-1 flex flex-col min-h-[340px] shadow-inner">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4 px-1 w-full">
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider w-full text-center sm:text-left">Projeção de Desempenho</span>
                     <div className="flex flex-wrap justify-center sm:justify-end gap-x-3 gap-y-1 w-full">
                         <span className="text-[9px] text-slate-400 flex items-center gap-1 whitespace-nowrap"><div className="w-2 h-0.5 bg-white/40 rounded-full"></div>{isTimeTraveling ? "Nesse Dia" : "Hoje"}</span>
