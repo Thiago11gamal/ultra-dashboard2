@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, ChevronDown, Clock } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, ChevronDown, Clock, FileText, History } from 'lucide-react';
 import {
     computeCategoryStats,
     computeBayesianLevel,
@@ -792,7 +792,7 @@ export default function MonteCarloGauge({
                 </div>
             )}
 
-            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5 flex-1 flex flex-col">
+            <div className="w-full bg-black/30 rounded-xl p-4 mb-3 border border-white/5 flex-1 flex flex-col min-h-[320px]">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3 px-1 w-full">
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider w-full text-center sm:text-left">Projeção de Desempenho</span>
                     <div className="flex flex-wrap justify-center sm:justify-end gap-x-3 gap-y-1 w-full">
@@ -823,12 +823,15 @@ export default function MonteCarloGauge({
 
 
                 {timelineDates.length > 1 && (
-                    <div className="w-full mt-6 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
+                    <div className="w-full mt-4 px-3 py-4 bg-black/40 rounded-xl border border-white/5 relative group/timeline">
                         <span className="absolute -top-2.5 left-4 px-2 bg-slate-900 text-[9px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/20">
                             ⏳ Máquina do Tempo
                         </span>
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <span className="text-[9px] text-slate-500 uppercase tracking-widest">Evolução Histórica</span>
+                        <div className="flex justify-between items-end mb-4 px-1">
+                            <div className="flex items-center gap-2">
+                                <History size={10} className="text-slate-500" />
+                                <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Evolução Histórica</span>
+                            </div>
                             <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded backdrop-blur-sm border border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition-all duration-300">
                                 {timeIndex === -1 || timeIndex === timelineDates.length - 1
                                     ? 'Estado Atual (Hoje)'
@@ -874,7 +877,10 @@ export default function MonteCarloGauge({
                     onClick={() => setShowPerSubject(!showPerSubject)}
                     className="group w-full flex items-center justify-between px-4 py-3 bg-slate-900/50 hover:bg-slate-800/80 border border-white/10 rounded-xl transition-all duration-300"
                 >
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Matérias Analisadas</span>
+                    <div className="flex items-center gap-2">
+                        <FileText size={12} className="text-slate-400 group-hover:text-blue-400 transition-colors" />
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Matérias Analisadas</span>
+                    </div>
                     {perSubjectProbs.length > 0 && (
                         <ChevronDown size={12} className={`transition-transform duration-300 ${showPerSubject ? 'rotate-180' : ''}`} />
                     )}
@@ -893,12 +899,12 @@ export default function MonteCarloGauge({
                                 const probColor = s.prob < 40 ? 'text-rose-400' : s.prob < 60 ? 'text-amber-400' : s.prob < 80 ? 'text-blue-400' : 'text-emerald-400';
                                 const barColor = s.prob < 40 ? 'bg-rose-500' : s.prob < 60 ? 'bg-amber-500' : s.prob < 80 ? 'bg-blue-500' : 'bg-emerald-500';
                                 return (
-                                    <div key={s.name} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-2 rounded-md transition-colors">
-                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                            {s.trend === 'up' && <TrendingUp size={9} className="text-emerald-400 shrink-0" />}
-                                            {s.trend === 'down' && <TrendingDown size={9} className="text-rose-400 shrink-0" />}
-                                            {(s.trend === 'stable' || !s.trend) && <Minus size={9} className="text-slate-600 shrink-0" />}
-                                            <span className="text-[9px] text-slate-400 truncate">{s.name}</span>
+                                    <div key={s.name} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0 hover:bg-white/[0.03] px-2 rounded-lg transition-all duration-300">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            {s.trend === 'up' && <TrendingUp size={10} className="text-emerald-400 shrink-0" />}
+                                            {s.trend === 'down' && <TrendingDown size={10} className="text-rose-400 shrink-0" />}
+                                            {(s.trend === 'stable' || !s.trend) && <Minus size={10} className="text-slate-600 shrink-0" />}
+                                            <span className="text-[10px] text-slate-300 font-medium truncate min-w-0">{s.name}</span>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
