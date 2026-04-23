@@ -81,4 +81,10 @@ export const createPomodoroSlice = (set, get) => ({
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
+
+    setPomodoroAccumulatedMinutes: (minutes) => set((state) => {
+        state.appState.pomodoro.accumulatedMinutes = minutes;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    }),
 });

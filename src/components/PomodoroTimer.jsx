@@ -47,6 +47,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completedCycles = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.completedCycles || 0);
     const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
+    const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
+    const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
     // FIX: Sanitize corrupted sessions state (e.g., the '1004' bug)
     useEffect(() => {
@@ -253,22 +255,26 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (completedMode === 'work') {
             onSessionComplete?.();
 
-            if (activeSubject && onUpdateStudyTime) {
-                if (isNatural) {
-                    onUpdateStudyTime(activeSubject.categoryId, safeSettings.pomodoroWork, activeSubject.taskId);
-                } else {
-                    const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
-                    const actualElapsedMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
-                    if (actualElapsedMinutes > 0) {
-                        onUpdateStudyTime(activeSubject.categoryId, actualElapsedMinutes, activeSubject.taskId);
-                    }
-                }
+            let sessionMinutes = 0;
+            if (isNatural) {
+                sessionMinutes = safeSettings.pomodoroWork;
+            } else {
+                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
+                sessionMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
             }
+
+            const newAccumulated = accumulatedMinutes + sessionMinutes;
+            setAccumulatedMinutes(newAccumulated);
 
             const sVal = Number(sessions);
             const tVal = Number(targetCycles);
 
             if (sVal >= tVal && tVal > 0) {
+                if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
+                    onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
+                }
+                setAccumulatedMinutes(0);
+                
                 onFullCycleComplete?.();
                 setIsRunning(false);
                 setSessions(1);
@@ -278,7 +284,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     sessions: 1,
                     completedCycles: 0,
                     activeTaskId: null,
-                    sessionInstanceId: null
+                    sessionInstanceId: null,
+                    accumulatedMinutes: 0
                 });
                 return;
             }
@@ -335,6 +342,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const tVal = Number(targetCycles);
 
             if (sVal >= tVal && tVal > 0) {
+                if (activeSubject && onUpdateStudyTime && accumulatedMinutes > 0) {
+                    onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
+                }
+                setAccumulatedMinutes(0);
+
                 onFullCycleComplete?.();
                 setIsRunning(false);
                 setSessions(1);
@@ -344,7 +356,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     sessions: 1,
                     completedCycles: 0,
                     activeTaskId: null,
-                    sessionInstanceId: null
+                    sessionInstanceId: null,
+                    accumulatedMinutes: 0
                 });
                 return;
             }
