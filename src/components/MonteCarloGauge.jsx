@@ -665,7 +665,7 @@ export default function MonteCarloGauge({
                 <div className={`w-full bg-black/40 rounded-2xl p-4 border border-white/5 flex flex-col items-center transition-all duration-700 ${isFlashing ? 'blur-sm' : ''} shadow-inner`}>
                     <div className="relative mb-2">
                         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 blur-2xl transition-all duration-700 ${isFlashing ? 'scale-150 opacity-40' : ''}`}><div className="w-24 h-24 rounded-full" style={{ backgroundColor: gradientColor }} /></div>
-                        <svg width="200" height="100" viewBox="0 -6 140 76" className="overflow-visible relative z-10">
+                        <svg width="260" height="130" viewBox="0 -6 140 76" className="overflow-visible relative z-10 scale-110">
                             <path d="M 4 65 A 66 66 0 0 1 136 65" fill="none" stroke="#1e293b" strokeWidth="10" strokeLinecap="round" />
                             <path
                                 d="M 4 65 A 66 66 0 0 1 136 65"
@@ -685,22 +685,22 @@ export default function MonteCarloGauge({
                                 style={{ transition: 'transform 1.5s ease-out', opacity: isFlashing ? 0.3 : 1 }}
                             >
                                 <circle
-                                    cx="4" cy="65" r="4"
+                                    cx="4" cy="65" r="5"
                                     fill={gradientColor}
-                                    className="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                                    style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+                                    className="drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]"
+                                    style={{ filter: `drop-shadow(0 0 8px ${gradientColor})` }}
                                 />
-                                <circle cx="4" cy="65" r="2" fill="#fff" opacity="0.8" />
+                                <circle cx="4" cy="65" r="2.5" fill="#fff" opacity="0.9" />
                             </g>
                         </svg>
-                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center z-20">
-                            <span className="text-4xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
+                        <div className="absolute inset-x-0 bottom-1 flex items-end justify-center z-20">
+                            <span className="text-5xl font-black transition-all duration-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" style={{ color: getGradientColor(prob) }}>
                                 {/* FIX: Probabilidade é sempre %, independente da unidade do concurso */}
                                 {pAdjusted.toFixed(1)}%
                             </span>
                         </div>
                     </div>
-                    <span className={`mt-2 text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
+                    <span className={`mt-3 text-[11px] font-black uppercase tracking-widest px-5 py-2 rounded-full bg-black/40 border border-white/10 shadow-lg transition-all duration-500 ${isFlashing ? 'bg-blue-500/20 border-blue-500/50' : ''} group-hover:border-white/20`} style={{ color: isFlashing ? '#60a5fa' : gradientColor }}>
                         {isFlashing ? (
                             <span className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
