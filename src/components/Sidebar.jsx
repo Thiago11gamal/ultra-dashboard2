@@ -179,8 +179,8 @@ export default function Sidebar({
                                     title="Criar Novo Painel"
                                 >
                                     <div className="nested-item-marker !bg-green-500/20"></div>
-                                    <Plus size={14} />
-                                    <span className="text-[0.8rem]">Criar Novo</span>
+                                    <Plus size={14} className="text-emerald-400" />
+                                    <span className="text-[0.8rem] text-emerald-400 font-bold">Criar Novo</span>
                                 </button>
                             </div>
                         </div>

@@ -114,6 +114,10 @@
   color: #a855f7;
 }
 
+.text-emerald-400 {
+  color: #34d399 !important;
+}
+
 .nested-container .sidebar-item.active svg {
   color: #ffffff;
   opacity: 1;
