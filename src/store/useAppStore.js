@@ -67,6 +67,7 @@ export const useAppStore = create(
 
                 // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
                 resetStore: () => {
+                    localStorage.removeItem('pomodoroState');
                     set((state) => {
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;

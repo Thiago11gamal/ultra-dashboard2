@@ -38,8 +38,9 @@ export const createStudySlice = (set, get) => ({
                 }
             }
 
-            const baseXP = XP_CONFIG.pomodoro.base;
-            const bonusXP = taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+            const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1; 
+            const baseXP = Math.floor(minutes * xpPerMinute);
+            const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
             const startHour = new Date(now).getHours();
             if (activeData.user) {
                 if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
@@ -68,8 +69,9 @@ export const createStudySlice = (set, get) => ({
 
             const session = activeData.studySessions[sessionIndex];
             
-            const baseXP = XP_CONFIG.pomodoro.base;
-            const bonusXP = session.taskId ? XP_CONFIG.pomodoro.bonusWithTask : 0;
+            const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
+            const baseXP = Math.floor((session.duration || 0) * xpPerMinute);
+            const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
             xpToDeduct = baseXP + bonusXP;
 
             const category = activeData.categories.find(c => c.id === session.categoryId);

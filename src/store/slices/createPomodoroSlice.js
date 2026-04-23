@@ -78,6 +78,13 @@ export const createPomodoroSlice = (set, get) => ({
     updatePomodoroSettings: (settings) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
+        
+        // BUG 4 FIX: Verificação de identidade para evitar loops infinitos de re-render
+        const isIdentical = Object.keys(settings).every(
+            key => activeData.settings?.[key] === settings[key]
+        );
+        if (isIdentical) return;
+
         activeData.settings = { ...(activeData.settings || {}), ...settings };
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

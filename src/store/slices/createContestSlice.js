@@ -6,6 +6,16 @@ export const createContestSlice = (set) => ({
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
         
         state.appState.activeId = targetId;
+        
+        // BUG 2 FIX: Limpar pomodoro ao trocar de concurso para evitar corrupção de dados
+        if (state.appState.pomodoro.activeSubject) {
+            state.appState.pomodoro = { 
+                activeSubject: null, 
+                sessions: 1, targetCycles: 1, completedCycles: 0, accumulatedMinutes: 0 
+            };
+            localStorage.removeItem('pomodoroState');
+        }
+
         const activeData = state.appState.contests[targetId];
         if (activeData && !activeData.coachPlanner) {
             activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
@@ -52,6 +62,14 @@ export const createContestSlice = (set) => ({
             state.appState.activeId = 'default';
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];
+            // Limpa o pomodoro se o concurso ativo foi deletado
+            if (state.appState.pomodoro.activeSubject) {
+                state.appState.pomodoro = { 
+                    activeSubject: null, 
+                    sessions: 1, targetCycles: 1, completedCycles: 0, accumulatedMinutes: 0 
+                };
+                localStorage.removeItem('pomodoroState');
+            }
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
