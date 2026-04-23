@@ -7,8 +7,6 @@ import { del } from 'idb-keyval';
 import { useAppStore } from '../store/useAppStore';
 import TrashModal from './TrashModal';
 import useClock from '../hooks/useClock';
-import RescueModal from './RescueModal';
-import { ShieldAlert } from 'lucide-react';
 
 
 
@@ -65,11 +63,9 @@ export default function Header({
     onToggleSidebar,
     sidebarCollapsed,
     setSidebarCollapsed,
-    onOpenTrash,
-    onInjectBackup
+    onOpenTrash
 }) {
     const { logout } = useAuth();
-    const [isRescueOpen, setIsRescueOpen] = useState(false);
 
     const [localName, setLocalName] = useState(user.name);
     const [isFocused, setIsFocused] = useState(false);
@@ -193,15 +189,6 @@ export default function Header({
                                         <span>Conflito</span>
                                     </button>
                                 )}
-                                
-                                <button
-                                    onClick={() => setIsRescueOpen(true)}
-                                    className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] uppercase font-black hover:bg-amber-500/20 transition-all"
-                                    title="Resgate Profundo (Firestore)"
-                                >
-                                    <ShieldAlert size={9} />
-                                    <span>Resgate</span>
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -243,12 +230,6 @@ export default function Header({
                     </div>
                 </div>
             </header>
-
-            <RescueModal 
-                isOpen={isRescueOpen} 
-                onClose={() => setIsRescueOpen(false)} 
-                onInject={onInjectBackup}
-            />
         </>
     );
 }
