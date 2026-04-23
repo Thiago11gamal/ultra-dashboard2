@@ -63,7 +63,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                     bayBeta *= entryDecay;
                 }
 
-                const entry   = aggregatedHistory[histIdx];
+                // entry já foi declarado acima na linha 55
                 let total   = Number(entry.total)   || 0;
                 let correct = Number(entry.correct) || 0;
                 
