@@ -429,12 +429,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     svgCircleRef.current.style.strokeDashoffset = circumference * (1 - (1 - fraction)); // Wait, user says 0 at end
                     svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
                 }
-                
+
                 if (bottomBarRef.current && mode === 'work') {
                     const totalProgress = ((sessions + (1 - fraction)) / (targetCycles || 1)) * 100;
                     bottomBarRef.current.style.width = `${Math.min(100, totalProgress)}%`;
                 }
-                
+
                 // Sphere ref update for break balls
                 const activeBreakBall = document.getElementById(`break-ball-${sessions}`);
                 if (activeBreakBall && mode === 'break') {
@@ -810,32 +810,31 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     <div className="flex items-center justify-between mb-6 relative z-10">
                         <div className="flex flex-col gap-4">
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DE CICLOS</h3>
-                            
+
                             {/* Visualização de Módulos e Descansos */}
                             <div className="flex items-center gap-3 ml-2">
                                 {Array.from({ length: targetCycles || 1 }).map((_, i) => (
                                     <React.Fragment key={i}>
                                         {/* Módulo (Trabalho) */}
                                         <div className="relative group/mod">
-                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${
-                                                i < sessions 
-                                                ? 'bg-[#2d1a12] border-[#2d1a12] shadow-lg shadow-black/10' 
-                                                : (i === sessions && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
-                                            }`}>
+                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${i < sessions
+                                                    ? 'bg-[#2d1a12] border-[#2d1a12] shadow-lg shadow-black/10'
+                                                    : (i === sessions && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
+                                                }`}>
                                                 {i < sessions && <CheckCircle2 size={10} className="text-[#b08e6b]" />}
                                                 {i === sessions && mode === 'work' && <div className="w-1.5 h-1.5 rounded-full bg-[#2d1a12] animate-ping" />}
                                             </div>
-                                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/mod:opacity-100 transition-opacity">M{i+1}</span>
+                                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/mod:opacity-100 transition-opacity">M{i + 1}</span>
                                         </div>
 
                                         {/* Bolinha de Descanso (entre módulos) */}
                                         {i < (targetCycles || 1) - 1 && (
                                             <div className="relative w-3.5 h-3.5 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/15 overflow-hidden shadow-inner flex items-center justify-center">
-                                                <div 
+                                                <div
                                                     id={`break-ball-${i + 1}`}
                                                     className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-linear"
-                                                    style={{ 
-                                                        height: (sessions > i + 1 ? '100%' : '0%') 
+                                                    style={{
+                                                        height: (sessions > i + 1 ? '100%' : '0%')
                                                     }}
                                                 />
                                                 {mode === 'break' && sessions === i + 1 && (
