@@ -56,7 +56,7 @@ function MainLayout() {
   // Retorna apenas IDs e nomes (strings), assim o App.jsx não re-renderiza infinitamente
   const contestsMetaList = useAppStore(useShallow(state => {
     return Object.keys(state.appState.contests).reduce((acc, key) => {
-      acc[key] = state.appState.contests[key]?.user?.name || 'Sem nome';
+      acc[key] = state.appState.contests[key]?.contestName || 'Sem nome';
       return acc;
     }, {});
   }));

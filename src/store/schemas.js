@@ -193,6 +193,8 @@ const sanitizeContest = (data) => {
       pomodoroBreak: Number(source.settings?.pomodoroBreak) || 5,
       pomodoroLongBreak: Number(source.settings?.pomodoroLongBreak) || 15,
       longBreakAfter: Number(source.settings?.longBreakAfter) || 4,
+      sessions: Number(source.settings?.sessions) || 0,
+      completedCycles: Number(source.settings?.completedCycles) || 0,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
     monteCarloHistory: Array.isArray(source.monteCarloHistory) ? source.monteCarloHistory : [],
@@ -244,9 +246,7 @@ export const validateAppState = (data) => {
       dashboardFilter: d.dashboardFilter || 'all',
       pomodoro: {
         activeSubject: d.pomodoro?.activeSubject || null,
-        sessions: Number(d.pomodoro?.sessions) || 0,
         targetCycles: Number(d.pomodoro?.targetCycles) || 1,
-        completedCycles: Number(d.pomodoro?.completedCycles) || 0,
         ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {})
       },
       history: Array.isArray(d.history) ? d.history : [],

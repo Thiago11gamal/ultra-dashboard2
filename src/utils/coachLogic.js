@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
     SRS_BOOST: 20,
     BASE_HOURS_THRESHOLD: 5,
     // Monte Carlo Coach config
-    MC_SIMULATIONS: 800,
+    MC_SIMULATIONS: 5000,
     MC_MIN_DATA_POINTS: 5,
     // BUG-19 FIX: monteCarloSimulation retorna probabilidade na escala 0-100,
     // não 0-1. Limiares corrigidos para escala percentual.
@@ -337,7 +337,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // FIX: Denominador rígido para garantir ranqueamento justo. 
         // Bónus (priorityBoost, srsBoost) empurram a nota contra um teto fixo.
         // Base fixa + Headroom máximo (25 para MC + 30 Priority + 20 SRS)
-        const RAW_MAX_ACTUAL = RAW_MAX_BASE + 75; 
+        const RAW_MAX_ACTUAL = cfg.SCORE_MAX + effectiveRecencyMax + cfg.INSTABILITY_MAX + 75; 
 
         const rawScore = (scoreComponent + recencyComponent + instabilityComponent + priorityBoost + srsBoost + mcUrgencyBoost) - rotationPenalty;
 

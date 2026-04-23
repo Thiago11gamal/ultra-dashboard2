@@ -59,11 +59,7 @@ export const createSettingsSlice = (set) => ({
         let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
         if (!nextState) return;
 
-        if (nextState.lastUpdated === state.appState.lastUpdated && 
-            nextState.version === state.appState.version && 
-            nextState !== state.appState) {
-            return;
-        }
+        if (nextState === state.appState) return;
 
         nextState = validateAppState(nextState);
 

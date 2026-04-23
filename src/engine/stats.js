@@ -79,7 +79,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const entryDate = new Date(h.date);
             const prevDate = i > 0 ? new Date(history[i-1].date) : entryDate;
             const gapDays = Math.max(1, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
-            const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
+            const entryDecay = i > 0 ? Math.pow(DECAY_FACTOR, gapDays) : 1.0;
             
             alpha = (alpha * entryDecay) + acertosHoje;
             beta = (beta * entryDecay) + errosHoje;

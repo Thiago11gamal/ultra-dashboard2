@@ -448,7 +448,8 @@ export const calculatePomodoroStats = (stats) => {
     // Get dynamic goal (B-11 FIX: Link dashboard UI to dynamic goal engine)
     const dynamicGoal = calculateDailyPomodoroGoal(categories, user);
     const dailyGoalPomodoros = dynamicGoal.daily;
-    const dailyGoalMinutes = dailyGoalPomodoros * 25; // Standard 25m pomodoro sessions
+    const pomodoroDuration = settings?.pomodoroWork || 25;
+    const dailyGoalMinutes = dailyGoalPomodoros * pomodoroDuration;
 
     const now = new Date();
 
@@ -505,8 +506,7 @@ export const calculatePomodoroStats = (stats) => {
     });
 
     // Calcular a série de dias (streak)
-    const logsObj = { studyLogs: studySessions.map(s => ({ date: s.startTime })) };
-    const streak = calculateStudyStreak(logsObj.studyLogs);
+    const streak = calculateStudyStreak(studySessions.map(s => ({ date: s.startTime })));
 
     // Calcular progresso da meta (G-01: Used dynamic goal minutes)
     // BUGFIX M3: Protection against division by zero when goal is 0.

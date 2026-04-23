@@ -113,7 +113,9 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
 
         const localContests = local.contests || {};
         const cloudContests = cloud.contests || {};
+        // --- Merge Contests ---
         const mergedContests = { ...localContests };
+        const newTrashItems = [];
 
         const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
         const localFullUpdate = new Date(local.lastUpdated || 0).getTime();
@@ -195,11 +197,10 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     console.warn(`[Sync] Movendo painel "${id}" para lixeira (removido na nuvem).`);
                     
                     // Move para o trash se ainda não estiver lá
-                    if (!mergedContests.trash) mergedContests.trash = [];
-                    const alreadyInTrash = mergedContests.trash.some(t => t.contestId === id);
+                    const alreadyInTrash = (local.trash || []).some(t => t.contestId === id);
                     
                     if (!alreadyInTrash) {
-                        mergedContests.trash.push({
+                        newTrashItems.push({
                             id: `sync-trash-${id}-${Date.now()}`,
                             type: 'contest',
                             contestId: id,
@@ -233,6 +234,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
         return {
             ...base,
             contests: mergedContests,
+            trash: [...(local.trash || []), ...(cloud.trash || []), ...newTrashItems],
             activeId: activeId || local.activeId || cloud.activeId,
             version: Math.max(local.version ?? 0, cloud.version ?? 0),
             lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()

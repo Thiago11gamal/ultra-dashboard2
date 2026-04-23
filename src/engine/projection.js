@@ -200,8 +200,9 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const effectiveSd = Math.sqrt(Math.max(0, varianceArg));
 
     // Margem ancorada na proporção ajustada
+    // Margem ancorada na projeção (IC 95%)
     const z = 1.96;
-    const marginOfError = z * effectiveSd * maxScore;
+    const marginOfError = z * (projectedSD || effectiveSd) * maxScore;
 
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
@@ -525,6 +526,7 @@ export function monteCarloSimulation(
     for (let s = 0; s < safeSimulations; s++) {
         // BUGFIX M1: Re-initialize RNG for each universe 's' to ensure independence from 'days' slider
         const rng = mulberry32(seed + s);
+        const normalRng = makeNormalRng(rng);
         const pathRng = mulberry32(seed + s + 777);
         
         let score = baselineScore;
@@ -536,7 +538,7 @@ export function monteCarloSimulation(
         const convergenceFactor = 1 - Math.exp(-theta * simulationDays);
         const adjustedTargetMu = baselineScore + (targetChange / Math.max(0.01, convergenceFactor));
 
-        const epistemicNoise = randomNormal(rng) * driftUncertainty * effectiveAttractorDays;
+        const epistemicNoise = normalRng() * driftUncertainty * effectiveAttractorDays;
         const noisyMu = adjustedTargetMu + epistemicNoise;
 
         // Aplica o clamp apenas APÓS o ruído, preservando a variância nos limites
@@ -558,10 +560,10 @@ export function monteCarloSimulation(
                     const randomResidual = residuals[idx];
                     shock = randomResidual * bootstrapTargetScale;
                 } else {
-                    shock = randomNormal(rng) * sigma;
+                    shock = normalRng() * sigma;
                 }
             } else {
-                shock = randomNormal(rng) * sigma;
+                shock = normalRng() * sigma;
             }
 
             // 🧲 1. A Tração Determinística (Ornstein-Uhlenbeck)
@@ -579,7 +581,7 @@ export function monteCarloSimulation(
             const dynamicSigma = sigma * Math.sqrt(Math.max(0.05, boundaryCompression)) * Math.sqrt(dt);
 
             // ⚙️ 3. O Passo Estocástico (Euler-Maruyama)
-            const gaussianNoise = randomNormal(rng);
+            const gaussianNoise = normalRng();
             let newScore = score + deterministicPull + (gaussianNoise * dynamicSigma);
 
             // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)

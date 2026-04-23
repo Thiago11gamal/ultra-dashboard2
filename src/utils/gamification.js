@@ -1,19 +1,4 @@
-// XP Configuration (Fair System)
-export const XP_CONFIG = {
-    task: {
-        high: 200,      // Tarefas prioritárias valem mais
-        medium: 150,    // Padrão
-        low: 100        // Incentiva fazer as difíceis primeiro
-    },
-    pomodoro: {
-        base: 100,              // XP por pomodoro completo
-        bonusWithTask: 100      // Bônus se estava focado em uma tarefa
-    },
-    streak: {
-        daily: 25,      // XP por dia de estudo consecutivo
-        weekly: 200     // Bônus ao completar 7 dias seguidos
-    }
-};
+// XP_CONFIG movido para src/config/gamification.js para centralização de verdade (Bug 1).
 
 /**
  * Sistema de nivelamento PROGRESSIVO (não linear)

@@ -41,11 +41,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    const sessions = useAppStore(state => state.appState.pomodoro.sessions);
+    const sessions = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.sessions || 0);
     const setSessions = useAppStore(state => state.setPomodoroSessions);
     const targetCycles = useAppStore(state => state.appState.pomodoro.targetCycles);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
-    const completedCycles = useAppStore(state => state.appState.pomodoro.completedCycles);
+    const completedCycles = useAppStore(state => state.appState.contests[state.appState.activeId]?.settings?.completedCycles || 0);
     const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
 
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
@@ -109,6 +109,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             const newTime = parsed.timeLeft - elapsedSeconds;
                             if (newTime <= 0) {
                                 setTimeLeft(0);
+                                setIsRunning(false);
+                                setTimeout(handleTimerComplete, 0);
                                 return;
                             }
                             setTimeLeft(newTime);

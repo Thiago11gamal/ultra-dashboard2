@@ -22,8 +22,9 @@ export function getSafeScore(historyRow, maxScore = 100) {
     const total = Number(historyRow.total) || 0;
     const correct = Number(historyRow.correct) || 0;
 
-    // FIX 2.1 (Estrutural): Respeito absoluto à flag isPercentage.
-    if (historyRow.isPercentage) {
+    // FIX 2.1 (Estrutural): Respeito à flag isPercentage apenas se o volume for desconhecido.
+    // Se o usuário forneceu total e acertos, o cálculo direto é mais preciso.
+    if (historyRow.isPercentage && total === 0) {
         // BUGFIX M2: percentage must be scaled by maxScore (e.g. 80% of 120 = 96)
         const scoreFromPercentage = (correct / 100) * maxScore;
         return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(maxScore, scoreFromPercentage)) : 0;
