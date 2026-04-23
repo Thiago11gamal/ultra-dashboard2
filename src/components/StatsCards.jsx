@@ -289,7 +289,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     return new Date(raw.seconds * 1000).toISOString().split('T')[0];
                                 }
                                 return String(raw).trim().split('T')[0];
-                            } catch(e) { return ''; }
+                            } catch (e) { return ''; }
                         })()}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
                         onClick={(e) => {
