@@ -11,14 +11,14 @@
   left: 0;
   z-index: 100;
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1), padding 0.5s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
-  padding: 24px 12px;
+  padding: 24px 0px 24px 12px;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
   overflow-x: hidden !important;
 }
 
 .sidebar.collapsed {
   width: 70px;
-  padding: 24px 10px;
+  padding: 24px 0px 24px 10px;
 }
 
 /* Logo */

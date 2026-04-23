@@ -125,7 +125,7 @@ export default function Sidebar({
                 <div className="sidebar-divider"></div>
 
                 {/* Nav Sections */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pl-1 pr-3">
 
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
                     <div className="mb-2">
