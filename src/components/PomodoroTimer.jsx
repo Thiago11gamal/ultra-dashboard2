@@ -1008,4 +1008,3 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         </div>
     );
 }
-}
