@@ -476,7 +476,7 @@ export default function EvolutionChart({
                 </div>
             </div>
 
-            <div className="relative z-0 mb-24 sm:mb-32">
+            <div className="relative z-0 mb-12 sm:mb-16">
                 <p className="text-[10px] sm:text-xs text-slate-500 uppercase font-black tracking-[0.15em] leading-loose py-2 sm:py-4 mb-0 sm:mb-1 pl-1">
                     Nível Bayesiano por Disciplina • clique para focar
                 </p>
@@ -592,7 +592,7 @@ export default function EvolutionChart({
                         unit={unit}
                     />
                 ) : filteredChartData.length < 2 ? (
-                    <div className="h-[340px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
+                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para desenhar a linha</p>

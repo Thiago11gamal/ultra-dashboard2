@@ -352,7 +352,7 @@ const StudyHistory = React.memo(function StudyHistory({
                     <div className="absolute inset-[1px] rounded-2xl border border-indigo-500/20"></div>
 
                     {/* Content */}
-                    <div className="relative p-6 flex flex-col h-full" style={{ minHeight: 'calc(80vh - 2rem)' }}>
+                    <div className="relative p-6 flex flex-col h-full" style={{ minHeight: '280px' }}>
                         {/* Quick Legend - Now at top right */}
                         <div className="flex justify-end mb-4">
                             <div className="flex items-center gap-3 text-[10px]">
