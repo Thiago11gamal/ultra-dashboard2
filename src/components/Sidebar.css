@@ -10,7 +10,7 @@
   top: 0;
   left: 0;
   z-index: 100;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1), padding 0.5s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
   padding: 24px 12px;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
   overflow-x: hidden !important;
@@ -48,10 +48,14 @@
   -webkit-text-fill-color: transparent;
   white-space: nowrap;
   letter-spacing: -0.02em;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform-origin: left;
 }
 
 .sidebar.collapsed .sidebar-logo span {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-10px);
 }
 
 /* Divisor */
@@ -70,11 +74,13 @@
   text-transform: uppercase;
   letter-spacing: 0.15em;
   padding: 12px 8px 8px;
-  transition: all 0.3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
 }
 
 .sidebar.collapsed .sidebar-nav-label {
-  display: none;
+  opacity: 0;
+  transform: translateX(-10px);
 }
 
 /* Itens do Menu */
@@ -110,7 +116,8 @@
 .sidebar-item span {
   white-space: nowrap;
   opacity: 1;
-  transition: opacity 0.3s;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
 }
 
 /* Hover State */
@@ -150,7 +157,10 @@
 }
 
 .sidebar.collapsed .sidebar-item span {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-15px);
+  position: absolute;
 }
 
 .sidebar.collapsed .sidebar-item:hover {

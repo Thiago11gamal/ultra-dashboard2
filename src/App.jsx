@@ -91,7 +91,7 @@ function MainLayout() {
   // Handle cross-tab sync using real-time listener inside sync context
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
 
   // Auto-save pipeline - now uses the full state from the store's internal reference

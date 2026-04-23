@@ -43,7 +43,7 @@ export default function Sidebar({
     const { logout } = useAuth();
 
     React.useEffect(() => {
-        const width = collapsed ? '72px' : '260px';
+        const width = collapsed ? '70px' : '280px';
         document.documentElement.style.setProperty('--sidebar-width', width);
     }, [collapsed]);
 
@@ -108,7 +108,7 @@ export default function Sidebar({
                 <div className="flex items-center justify-between mb-2 px-1">
                     <div className="sidebar-logo">
                         <img src={logo} alt="Ultra Dashboard" />
-                        {!collapsed && <span>Método Arraia</span>}
+                        <span>Método Arraia</span>
                     </div>
 
                     {/* Desktop Collapse Toggle - Hidden for now as it's in the Header */}
@@ -136,7 +136,7 @@ export default function Sidebar({
                         >
                             <div className="flex items-center gap-3">
                                 <Sparkles size={18} className="text-violet-400" />
-                                {!collapsed && <span className="font-bold text-slate-200">Meus Concursos</span>}
+                                <span className="font-bold text-slate-200">Meus Concursos</span>
                             </div>
                         </button>
 
@@ -226,7 +226,7 @@ export default function Sidebar({
                                 title="Configurações"
                             >
                                 <Settings size={18} className="text-slate-400" />
-                                {!collapsed && <span>Configurações</span>}
+                                <span>Configurações</span>
                             </button>
 
                             <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
