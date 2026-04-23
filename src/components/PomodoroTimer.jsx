@@ -273,9 +273,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
                     onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
                 }
+                
+                if (isNatural) {
+                    if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                        try {
+                            alarmAudioRef.current.currentTime = 0;
+                            alarmAudioRef.current.play().catch(() => {});
+                        } catch (e) {}
+                    }
+                    sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
+                }
+
                 setAccumulatedMinutes(0);
                 
-                onFullCycleComplete?.();
+                onFullCycleComplete?.(newAccumulated);
                 setIsRunning(false);
                 setSessions(1);
                 setCompletedCycles(0);
@@ -345,9 +356,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (activeSubject && onUpdateStudyTime && accumulatedMinutes > 0) {
                     onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
                 }
+
+                if (isNatural) {
+                    if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                        try {
+                            alarmAudioRef.current.currentTime = 0;
+                            alarmAudioRef.current.play().catch(() => {});
+                        } catch (e) {}
+                    }
+                    sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${accumulatedMinutes} minutos salvos com sucesso!`);
+                }
+
                 setAccumulatedMinutes(0);
 
-                onFullCycleComplete?.();
+                onFullCycleComplete?.(accumulatedMinutes);
                 setIsRunning(false);
                 setSessions(1);
                 setCompletedCycles(0);

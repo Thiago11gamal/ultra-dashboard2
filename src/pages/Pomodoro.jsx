@@ -403,12 +403,11 @@ export default function Pomodoro() {
         });
     };
 
-    const handleFullCycleComplete = () => {
+    const handleFullCycleComplete = (totalMinutes) => {
         if (activeSubject) {
-            // CORREÇÃO 2: Removida a chamada automática para toggleTask().
-            // Tarefas de concurso são contínuas e não devem ser concluídas sozinhas pelo timer.
-            showToast('Ciclo de foco finalizado! Elevando produtividade.', 'info');
-            setTimeout(() => { handleExit(); }, 1000);
+            // Mensagem mais impactante confirmando o salvamento
+            showToast(`Série finalizada! ${totalMinutes} minutos salvos com sucesso no seu histórico. 🚀💎`, 'success');
+            setTimeout(() => { handleExit(); }, 2000);
         } else {
             handleExit();
         }
