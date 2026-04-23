@@ -190,7 +190,7 @@ function MainLayout() {
           </Suspense>
         </div>
       ) : (
-        <div className="grid grid-cols-[auto_1fr] w-full min-h-screen overflow-x-hidden">
+        <div className="grid grid-cols-[auto_1fr] w-full h-screen overflow-hidden">
           <Sidebar
             onOpenHelp={() => setShowHelpGuide(true)}
             isOpen={isSidebarOpen}
@@ -205,7 +205,7 @@ function MainLayout() {
             onOpenTrash={() => setTrashOpen(true)}
           />
 
-          <div className="flex flex-col min-h-screen w-full min-w-0 relative">
+          <div className="flex flex-col h-screen w-full min-w-0 relative">
             <Header
               user={data.user}
               settings={data.settings}
@@ -236,7 +236,7 @@ function MainLayout() {
 
             <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
-            <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-6 lg:mt-8">
+            <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-6 lg:mt-8 overflow-y-auto custom-scrollbar">
               {/* Router Outlet com carregamento otimizado */}
               <div className="animate-page-entrance">
                 <ErrorBoundary>
