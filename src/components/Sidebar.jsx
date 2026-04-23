@@ -130,7 +130,14 @@ export default function Sidebar({
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
                     <div className="mb-4">
                         <button
-                            onClick={() => setContestsExpanded(!contestsExpanded)}
+                            onClick={() => {
+                                if (collapsed) {
+                                    setCollapsed(false);
+                                    setContestsExpanded(true);
+                                } else {
+                                    setContestsExpanded(!contestsExpanded);
+                                }
+                            }}
                             className="sidebar-item group justify-between"
                             title="Meus Concursos"
                         >
@@ -223,7 +230,14 @@ export default function Sidebar({
                         {/* CONFIGURAÇÕES COLLAPSIBLE SECTION */}
                         <div className="mb-2">
                             <button
-                                onClick={() => setSettingsExpanded(!settingsExpanded)}
+                                onClick={() => {
+                                    if (collapsed) {
+                                        setCollapsed(false);
+                                        setSettingsExpanded(true);
+                                    } else {
+                                        setSettingsExpanded(!settingsExpanded);
+                                    }
+                                }}
                                 className="sidebar-item group"
                                 title="Configurações"
                             >
