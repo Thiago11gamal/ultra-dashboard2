@@ -141,17 +141,18 @@ export default function Sidebar({
                         </button>
 
                         <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
+                            <div className="nested-container space-y-1">
                                 {contests && Object.entries(contests).map(([id, contestData]) => {
                                     const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
                                     const isActive = id === activeContestId;
                                     return (
                                         <div
                                             key={id}
-                                            className={`sidebar-item group !py-2 ${isActive ? 'active' : ''}`}
+                                            className={`sidebar-item group !py-2 relative ${isActive ? 'active' : ''}`}
                                             title={name}
                                             onClick={() => onSwitchContest(id)}
                                         >
+                                            <div className="nested-item-marker"></div>
                                             <LayoutDashboard size={14} />
                                             <span className="flex-1 truncate text-[0.8rem]">{name}</span>
                                             {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
@@ -166,10 +167,11 @@ export default function Sidebar({
                                 })}
 
                                 <button
-                                    className="sidebar-item !py-2 text-green-500/80 hover:text-green-400"
+                                    className="sidebar-item !py-2 text-green-500/80 hover:text-green-400 relative"
                                     onClick={onCreateContest}
                                     title="Criar Novo Painel"
                                 >
+                                    <div className="nested-item-marker !bg-green-500/20"></div>
                                     <Plus size={14} />
                                     <span className="text-[0.8rem]">Criar Novo</span>
                                 </button>

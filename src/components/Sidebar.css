@@ -66,6 +66,44 @@
   width: 100%;
 }
 
+/* Hierarquia de Itens (Concursos) */
+.nested-container {
+  margin-left: 20px;
+  padding-left: 12px;
+  border-left: 1.5px solid rgba(16, 185, 129, 0.15); /* Emerald 500 */
+  position: relative;
+  transition: border-color 0.3s ease;
+}
+
+.nested-container:hover {
+  border-left-color: rgba(16, 185, 129, 0.4);
+}
+
+.nested-item-marker {
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 8px;
+  height: 1.5px;
+  background: rgba(16, 185, 129, 0.15);
+  transition: all 0.3s ease;
+}
+
+.sidebar-item:hover .nested-item-marker {
+  width: 12px;
+  background: rgba(16, 185, 129, 0.6);
+}
+
+.sidebar.collapsed .nested-container {
+  border-left: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.sidebar.collapsed .nested-item-marker {
+  display: none;
+}
+
 /* Labels de Seção */
 .sidebar-nav-label {
   font-size: 0.65rem;
