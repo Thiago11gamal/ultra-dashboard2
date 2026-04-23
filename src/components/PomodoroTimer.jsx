@@ -265,6 +265,24 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 }
             }
 
+            const sVal = Number(sessions);
+            const tVal = Number(targetCycles);
+
+            if (sVal >= tVal && tVal > 0) {
+                onFullCycleComplete?.();
+                setIsRunning(false);
+                setSessions(1);
+                setCompletedCycles(0);
+                savePomodoroState({
+                    isRunning: false,
+                    sessions: 1,
+                    completedCycles: 0,
+                    activeTaskId: null,
+                    sessionInstanceId: null
+                });
+                return;
+            }
+
             setMode('break');
             const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
             setTimeLeft(breakTime);
@@ -434,19 +452,27 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
                 }
 
-                // Sincronização da Barra Azul (Foco)
-                if (bottomBarRef.current) {
+                // Sincronização das Barras Azuis (Foco)
+                const activeWorkFill = document.getElementById(`work-fill-${sessions}`);
+                if (activeWorkFill) {
                     if (mode === 'work') {
-                        bottomBarRef.current.style.width = `${(1 - fraction) * 100}%`;
+                        activeWorkFill.style.width = `${(1 - fraction) * 100}%`;
                     } else {
-                        bottomBarRef.current.style.width = '0%';
+                        activeWorkFill.style.width = '100%';
                     }
                 }
 
                 // Sincronização da Bolinha Verde (Descanso)
                 const activeBreakBall = document.getElementById(`break-ball-${sessions}`);
+                const activeBreakWave = document.getElementById(`break-wave-${sessions}`);
                 if (activeBreakBall && mode === 'break') {
-                    activeBreakBall.style.height = `${(1 - fraction) * 100}%`;
+                    const fillHeight = (1 - fraction) * 100;
+                    activeBreakBall.style.height = `${fillHeight}%`;
+                    if (activeBreakWave) {
+                        // The top position of the wave should move from bottom (100%) to top (0%)
+                        // But since it's a large circle, we offset it
+                        activeBreakWave.style.top = `${100 - fillHeight - 150}%`;
+                    }
                 }
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
@@ -816,87 +842,99 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 <div
                     className="w-full px-10 md:px-14 py-8 md:py-10 rounded-xl relative overflow-hidden bg-[#b08e6b] border-2 border-[#94785a] shadow-xl group/bottom"
                 >
-                    <div className="flex items-center justify-between mb-6 relative z-10">
-                        <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex items-center justify-between">
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em] ml-2">PROGRESSO DOS CICLOS</h3>
-
-                            {/* Visualização de Módulos e Descansos */}
-                            <div className="flex items-center gap-3 ml-2">
-                                {Array.from({ length: targetCycles || 1 }).map((_, i) => (
-                                    <React.Fragment key={i}>
-                                        {/* Módulo (Trabalho) */}
-                                        <div className="relative group/mod">
-                                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${
-                                                    (i < sessions - 1) || (i === sessions - 1 && mode === 'break')
-                                                    ? 'bg-[#2d1a12] border-[#2d1a12] shadow-lg shadow-black/10'
-                                                    : (i === sessions - 1 && mode === 'work' ? 'border-[#2d1a12] bg-[#2d1a12]/10 animate-pulse' : 'border-[#2d1a12]/20')
-                                                }`}>
-                                                {((i < sessions - 1) || (i === sessions - 1 && mode === 'break')) && <CheckCircle2 size={10} className="text-[#b08e6b]" />}
-                                                {i === sessions - 1 && mode === 'work' && <div className="w-1.5 h-1.5 rounded-full bg-[#2d1a12] animate-ping" />}
-                                            </div>
-                                            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/mod:opacity-100 transition-opacity">M{i + 1}</span>
-                                        </div>
-
-                                        {/* Bolinha de Descanso (entre módulos) */}
-                                        {i < (targetCycles || 1) - 1 && (
-                                            <div className="relative w-3.5 h-3.5 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/15 overflow-hidden shadow-inner flex items-center justify-center">
-                                                <div
-                                                    id={`break-ball-${i + 1}`}
-                                                    className="absolute bottom-0 left-0 right-0 bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"
-                                                    style={{
-                                                        height: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
-                                                            ? '100%' 
-                                                            : (sessions === i + 1 && mode === 'break' 
-                                                                ? (isRunning ? undefined : `${(1 - timeLeft / (totalTime || 1)) * 100}%`) 
-                                                                : '0%')
-                                                    }}
-                                                />
-                                                {mode === 'break' && sessions === i + 1 && (
-                                                    <div className="relative z-10 w-1 h-1 rounded-full bg-white/40 animate-pulse" />
-                                                )}
-                                            </div>
-                                        )}
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className={`flex items-center gap-4 md:gap-8 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
-                                    disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
-                                    className="w-10 h-10 rounded-xl bg-white border border-[#d9c5b2] text-[#2d1a12] hover:bg-stone-50 transition-all flex items-center justify-center font-bold"
-                                >
-                                    -
-                                </button>
-                                <button
-                                    onClick={() => setTargetCycles(targetCycles + 1)}
-                                    disabled={!activeSubject}
-                                    className="w-10 h-10 rounded-xl bg-white border border-[#d9c5b2] text-[#2d1a12] hover:bg-stone-50 transition-all flex items-center justify-center font-bold"
-                                >
-                                    +
-                                </button>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-5xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{sessions}</span>
-                                    <span className="text-xl font-black text-[#f5eadd]">/ {targetCycles || 1}</span>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setTargetCycles(Math.max(completedCycles < 1 ? 1 : completedCycles, targetCycles - 1))}
+                                        disabled={!activeSubject || targetCycles <= Math.max(completedCycles < 1 ? 1 : completedCycles, 1)}
+                                        className="w-8 h-8 rounded-lg bg-white/10 border border-[#2d1a12]/20 text-[#2d1a12] hover:bg-white/20 transition-all flex items-center justify-center font-bold"
+                                    >
+                                        -
+                                    </button>
+                                    <button
+                                        onClick={() => setTargetCycles(targetCycles + 1)}
+                                        disabled={!activeSubject}
+                                        className="w-8 h-8 rounded-lg bg-white/10 border border-[#2d1a12]/20 text-[#2d1a12] hover:bg-white/20 transition-all flex items-center justify-center font-bold"
+                                    >
+                                        +
+                                    </button>
                                 </div>
-                                <span className="text-[10px] font-black uppercase text-[#2d1a12]/60 tracking-[0.3em]">CICLOS</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{sessions}</span>
+                                    <span className="text-sm font-black text-[#2d1a12]/40">/ {targetCycles || 1}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="relative w-full h-3 bg-white/20 rounded-md overflow-hidden mb-2">
-                        {/* Barra de Progresso Azul (Sincronizada via RAF através do bottomBarRef) */}
-                        <div
-                            ref={bottomBarRef}
-                            className="absolute inset-y-0 left-0 bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
-                            style={{ width: isRunning ? undefined : (mode === 'work' ? `${(1 - timeLeft / (totalTime || 1)) * 100}%` : '0%') }}
-                        />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-[#2d1a12]/40 z-10">
-                            {Math.round(mode === 'work' ? (1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100 : 0)}%
+                        {/* Barra Segmentada de Progresso */}
+                        <div className="flex items-center gap-4 w-full">
+                            {Array.from({ length: targetCycles || 1 }).map((_, i) => (
+                                <React.Fragment key={i}>
+                                    {/* Barra de Trabalho (Azul) */}
+                                    <div className="flex-1 relative group/work">
+                                        <div className="work-segment-bar bg-[#2d1a12]/10">
+                                            <div
+                                                id={`work-fill-${i + 1}`}
+                                                className="work-segment-fill"
+                                                style={{
+                                                    width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
+                                                        ? '100%'
+                                                        : (sessions === i + 1 && mode === 'work'
+                                                            ? `${(1 - timeLeft / (totalTime || 1)) * 100}%`
+                                                            : '0%')
+                                                }}
+                                            />
+                                            {/* Icone de Check se completo */}
+                                            {((i < sessions - 1) || (i === sessions - 1 && mode === 'break')) && (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <CheckCircle2 size={8} className="text-white/80" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[7px] font-black text-[#2d1a12]/40 opacity-0 group-hover/work:opacity-100 transition-opacity">CICLO {i + 1}</span>
+                                    </div>
+
+                                    {/* Bolinha de Descanso (Verde) */}
+                                    {i < (targetCycles || 1) - 1 && (
+                                        <div className="relative w-6 h-6 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/20 overflow-hidden shadow-inner flex items-center justify-center liquid-container group/ball flex-shrink-0">
+                                            <div
+                                                id={`break-ball-${i + 1}`}
+                                                className="absolute bottom-0 left-0 right-0 bg-emerald-500/80 transition-all duration-300"
+                                                style={{
+                                                    height: (i < sessions - 1)
+                                                        ? '100%'
+                                                        : (sessions === i + 1 && mode === 'break'
+                                                            ? `${(1 - timeLeft / (totalTime || 1)) * 100}%`
+                                                            : '0%')
+                                                }}
+                                            >
+                                                <div 
+                                                    id={`break-wave-${i + 1}`}
+                                                    className="liquid-wave" 
+                                                    style={{ 
+                                                        top: (i < sessions - 1) 
+                                                            ? '-250%' 
+                                                            : (sessions === i + 1 && mode === 'break' 
+                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%` 
+                                                                : '100%') 
+                                                    }} 
+                                                />
+                                            </div>
+                                            {mode === 'break' && sessions === i + 1 && (
+                                                <div className="relative z-10 w-2 h-2 rounded-full bg-white/40 animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+                                            )}
+                                            
+                                            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#2d1a12] text-[#b08e6b] text-[6px] font-black px-1.5 py-0.5 rounded opacity-0 group-hover/ball:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                                PAUSA 5'
+                                            </div>
+                                        </div>
+                                    )}
+                                </React.Fragment>
+                            ))}
                         </div>
                     </div>
                 </div>

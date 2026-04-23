@@ -472,3 +472,53 @@ button,
   animation-duration: 0.25s;
   animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
 }
+
+/* Liquid Fill Animation for Pomodoro Break Balls */
+@keyframes wave {
+  0% { transform: translateX(-50%) rotate(0deg); }
+  100% { transform: translateX(-50%) rotate(360deg); }
+}
+
+.liquid-container {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.work-segment-bar {
+  position: relative;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.work-segment-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+  transition: width 0.3s ease-out;
+}
+
+.liquid-wave {
+  position: absolute;
+  top: -150%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 40%;
+  animation: wave 5s infinite linear;
+  pointer-events: none;
+}
+
+.liquid-wave:nth-child(2) {
+  border-radius: 35%;
+  background: rgba(16, 185, 129, 0.2);
+  animation: wave 7s infinite linear;
+  top: -155%;
+}
