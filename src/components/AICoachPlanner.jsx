@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-/* eslint-disable no-unused-vars */
-import { motion } from 'framer-motion';
-/* eslint-enable no-unused-vars */
+import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { getSafeId } from '../utils/idGenerator';
 
 const DAYS = [
@@ -17,7 +15,7 @@ const DAYS = [
     { id: 'sun', label: 'DOM', full: 'Domingo',  gradient: 'from-rose-500 to-red-500',       bg: 'bg-rose-500/10',    border: 'border-rose-500/25',   text: 'text-rose-300',   dot: 'bg-rose-500',    over: 'bg-rose-500/8 border-rose-500/40'      },
 ];
 
-const TaskCard = ({ task, index, isBacklog, stableId, dayColor }) => {
+const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro }) => {
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
     let subject = parts.length > 1 ? parts[0] : fullText;
@@ -35,6 +33,15 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor }) => {
                             <h4 className="text-[10px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-0.5 truncate">{subject}</h4>
                             {desc && <p className="text-[9px] text-slate-500 font-medium leading-tight truncate">{desc}</p>}
                         </div>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onStartPomodoro?.(task);
+                            }}
+                            className="w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                        >
+                            <Play size={10} fill="currentColor" />
+                        </button>
                     </div>
                 </div>
             )}
@@ -50,6 +57,8 @@ export default function AICoachPlanner() {
     const coachPlan      = useMemo(() => activeContest?.coachPlan || [], [activeContest?.coachPlan]);
     const updateCoachPlanner = useAppStore(state => state.updateCoachPlanner);
     const setData        = useAppStore(state => state.setData);
+    const startNeuralSession = useAppStore(state => state.startNeuralSession);
+    const navigate = useNavigate();
     const [isDragging, setIsDragging] = useState(false);
 
     const getInitialColumns = React.useCallback(() => {
@@ -100,6 +109,18 @@ export default function AICoachPlanner() {
         setTimeout(() => setIsDragging(false), 50);
     };
 
+    const handleStartTask = (task, columnId) => {
+        const tasksInColumn = columns[columnId] || [];
+        const taskIndex = tasksInColumn.findIndex(t => getSafeId(t) === getSafeId(task));
+        if (taskIndex !== -1) {
+            startNeuralSession(tasksInColumn, taskIndex);
+            navigate('/pomodoro');
+        } else {
+            startNeuralSession([task], 0);
+            navigate('/pomodoro');
+        }
+    };
+
     return (
         <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-5">
@@ -126,7 +147,7 @@ export default function AICoachPlanner() {
                                         />
                                     )}
                                     <div className="relative z-10">
-                                        {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog /> ; })}
+                                        {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={(t) => handleStartTask(t, 'backlog')} /> ; })}
                                     </div>
                                     {provided.placeholder}
                                 </div>
@@ -170,7 +191,7 @@ export default function AICoachPlanner() {
                                                         />
                                                     )}
                                                     <div className="relative z-10 h-full">
-                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} />; })}
+                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
                                                         {provided.placeholder}
                                                     </div>
                                                 </div>

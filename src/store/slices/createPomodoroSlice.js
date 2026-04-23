@@ -70,4 +70,64 @@ export const createPomodoroSlice = (set, get) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
+
+    // --- NEURAL CORE SEQUENCING ---
+    startNeuralSession: (tasks, startIndex = 0) => {
+        if (!tasks || tasks.length === 0) return;
+        
+        const task = tasks[startIndex];
+        const subject = {
+            taskId: task.id || task.text,
+            task: task.text || task.title,
+            category: (task.text || task.title).split(':')[0] || 'Geral',
+            categoryId: task.categoryId || 'default',
+            priority: 'high',
+            sessionInstanceId: Date.now().toString()
+        };
+
+        set((state) => {
+            state.appState.pomodoro.activeSubject = subject;
+            state.appState.pomodoro.neuralQueue = tasks;
+            state.appState.pomodoro.neuralMode = true;
+            state.appState.pomodoro.sessions = 1;
+            state.appState.pomodoro.completedCycles = 0;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+        });
+    },
+
+    advanceNeuralQueue: () => {
+        const { neuralQueue, activeSubject } = get().appState.pomodoro;
+        if (!neuralQueue || neuralQueue.length === 0) return false;
+
+        const currentIndex = neuralQueue.findIndex(t => (t.id || t.text) === activeSubject?.taskId);
+        if (currentIndex === -1 || currentIndex >= neuralQueue.length - 1) {
+            // Fim da fila
+            set((state) => {
+                state.appState.pomodoro.neuralMode = false;
+                state.appState.pomodoro.neuralQueue = [];
+            });
+            return false;
+        }
+
+        const nextTask = neuralQueue[currentIndex + 1];
+        const nextSubject = {
+            taskId: nextTask.id || nextTask.text,
+            task: nextTask.text || nextTask.title,
+            category: (nextTask.text || nextTask.title).split(':')[0] || 'Geral',
+            categoryId: nextTask.categoryId || 'default',
+            priority: 'high',
+            sessionInstanceId: Date.now().toString()
+        };
+
+        set((state) => {
+            state.appState.pomodoro.activeSubject = nextSubject;
+            state.appState.pomodoro.sessions = 1;
+            state.appState.pomodoro.completedCycles = 0;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+        });
+
+        return true;
+    }
 });

@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 /* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from 'framer-motion';
 /* eslint-enable no-unused-vars */
-import { Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target } from 'lucide-react';
+import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target } from 'lucide-react';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
+import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
 
-function AICoachCard({ task, idx }) {
+function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
@@ -48,6 +49,15 @@ function AICoachCard({ task, idx }) {
                     {subjectPart}
                 </span>
                 <div className={`w-1.5 h-1.5 rounded-full ${col.dot} opacity-60 group-hover:opacity-100 transition-opacity mt-1`} />
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onStartPomodoro?.(task);
+                    }}
+                    className="ml-2 w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-500 hover:text-white hover:border-violet-400 transition-all shadow-lg"
+                >
+                    <Play size={12} fill="currentColor" />
+                </button>
             </div>
             <div className="relative z-10 flex-1 mb-4">
                 <h3 className="text-base font-black text-white leading-snug mb-1.5 group-hover:text-slate-100 transition-colors tracking-tight">
@@ -92,6 +102,19 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
+    const startNeuralSession = useAppStore(state => state.startNeuralSession);
+    const navigate = useNavigate();
+
+    const handleStartNeural = (task) => {
+        // No Meta Stream, a "fila" é a lista completa de tarefas não alocadas
+        const allAssignedIds = new Set();
+        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
+        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(t)));
+        
+        const taskIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+        startNeuralSession(unallocatedTasks, taskIndex !== -1 ? taskIndex : 0);
+        navigate('/pomodoro');
+    };
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -261,7 +284,14 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             {(() => {
                                 const allAssignedIds = new Set();
                                 Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-                                return coachPlan.filter(task => !allAssignedIds.has(getSafeId(task))).map((task, idx) => <AICoachCard key={getSafeId(task) || idx} task={task} idx={idx} />);
+                                return coachPlan.filter(task => !allAssignedIds.has(getSafeId(task))).map((task, idx) => (
+                                    <AICoachCard 
+                                        key={getSafeId(task) || idx} 
+                                        task={task} 
+                                        idx={idx} 
+                                        onStartPomodoro={handleStartNeural}
+                                    />
+                                ));
                             })()}
                         </motion.div>
                     )}

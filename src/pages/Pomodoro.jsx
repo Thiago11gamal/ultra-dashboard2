@@ -413,27 +413,59 @@ export default function Pomodoro() {
 
     const handleStartTask = (task, forcedSessionId = null, source = 'neural_core') => {
         const sessionId = forcedSessionId || Date.now().toString();
-        useAppStore.getState().setPomodoroActiveSubject({
-            categoryId: task.catId,
-            taskId: task.id,
-            category: task.catName,
-            task: task.text || task.title || 'Estudo',
-            priority: task.priority,
-            source: source,
-            sessionInstanceId: sessionId
-        });
+        
+        // Se iniciamos do painel neural (FocusPanel), podemos criar uma fila 
+        // automática com as outras tarefas de alta prioridade.
+        if (source === 'neural_core' && !useAppStore.getState().appState.pomodoro.neuralMode) {
+            const highPriority = [];
+            categories.forEach(cat => {
+                cat.tasks.filter(t => !t.completed && t.priority === 'high').forEach(t => {
+                    highPriority.push({ ...t, categoryId: cat.id, catName: cat.name });
+                });
+            });
+            
+            // Inicia a sessão neural com esta lista
+            const startIndex = highPriority.findIndex(t => t.id === task.id);
+            useAppStore.getState().startNeuralSession(highPriority, startIndex !== -1 ? startIndex : 0);
+        } else {
+            useAppStore.getState().setPomodoroActiveSubject({
+                categoryId: task.catId || task.categoryId,
+                taskId: task.id,
+                category: task.catName || task.category,
+                task: task.text || task.title || 'Estudo',
+                priority: task.priority,
+                source: source,
+                sessionInstanceId: sessionId
+            });
+        }
     };
 
     const handleFullCycleComplete = (totalMinutes = 0) => {
         const currentSubject = activeSubject || useAppStore.getState().appState.pomodoro.activeSubject;
-        
+        const { neuralMode } = useAppStore.getState().appState.pomodoro;
+        const advanceNeuralQueue = useAppStore.getState().advanceNeuralQueue;
+
         if (currentSubject) {
-            const isFromDashboard = currentSubject.source === 'dashboard';
-            
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
-            
+
+            // 🎯 PRIORIDADE: Neural Core Queue Flow
+            if (neuralMode) {
+                const hasNext = advanceNeuralQueue();
+                if (hasNext) {
+                    const nextSubject = useAppStore.getState().appState.pomodoro.activeSubject;
+                    showToast(`Neural Core: Sequenciando próxima meta... ⚡`, 'info');
+                    // O PomodoroTimer vai reiniciar via prop 'key' no render
+                    return;
+                } else {
+                    showToast('Neural Core: Plano de execução concluído! 🏆', 'success');
+                    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+                    completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 3000);
+                    return;
+                }
+            }
+
+            const isFromDashboard = currentSubject.source === 'dashboard';
             if (isFromDashboard) {
-                // Se veio do dashboard, retorna pra lá conforme solicitado
                 if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => { 
                     showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
@@ -442,7 +474,7 @@ export default function Pomodoro() {
                 return;
             }
 
-            // Se veio do Neural Core (ou fonte desconhecida), tenta pular para o próximo
+            // Fallback: Tenta pular para o próximo baseado em heurística (se não for neural)
             const state = useAppStore.getState();
             const activeId = state.appState.activeId;
             const currentCategories = state.appState.contests[activeId]?.categories || [];
@@ -450,22 +482,10 @@ export default function Pomodoro() {
             
             if (nextTask) {
                 const nextSessionId = Date.now().toString();
-                try {
-                    const settings = state.appState.contests[activeId]?.settings || {};
-                    localStorage.setItem('pomodoroState', JSON.stringify({
-                        mode: 'work',
-                        timeLeft: (settings.pomodoroWork || 25) * 60,
-                        isRunning: true,
-                        savedAt: Date.now(),
-                        activeTaskId: nextTask.id,
-                        sessionInstanceId: nextSessionId 
-                    }));
-                } catch (e) {}
-
                 if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => {
-                    showToast(`Neural Core: Próximo vetor detectado. Iniciando ${nextTask.text || nextTask.title}... ⚡`, 'info');
-                    handleStartTask(nextTask, nextSessionId, 'neural_core');
+                    showToast(`Próximo vetor detectado: ${nextTask.text || nextTask.title}... ⚡`, 'info');
+                    handleStartTask(nextTask, nextSessionId, 'auto_jump');
                 }, 3500); 
             } else {
                 if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
