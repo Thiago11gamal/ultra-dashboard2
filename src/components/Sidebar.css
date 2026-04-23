@@ -70,7 +70,8 @@
 .nested-container {
   margin-left: 20px;
   padding-left: 12px;
-  border-left: 1.5px solid rgba(16, 185, 129, 0.15); /* Emerald 500 */
+  border-left: 1.5px solid rgba(16, 185, 129, 0.15);
+  /* Emerald 500 */
   position: relative;
   transition: border-color 0.3s ease;
 }
@@ -98,6 +99,24 @@
   border-left: none;
   margin-left: 0;
   padding-left: 0;
+}
+
+.nested-container .sidebar-item {
+  color: #8b5cf6;
+}
+
+.nested-container .sidebar-item svg {
+  color: #ffffff;
+  opacity: 0.8;
+}
+
+.nested-container .sidebar-item.active {
+  color: #a855f7;
+}
+
+.nested-container .sidebar-item.active svg {
+  color: #ffffff;
+  opacity: 1;
 }
 
 .sidebar.collapsed .nested-item-marker {
@@ -239,6 +258,3 @@
 }
 
 /* Scrollbar style removed to allow global pink theme */
-
-
-

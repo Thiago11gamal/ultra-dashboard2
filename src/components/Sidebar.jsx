@@ -143,7 +143,7 @@ export default function Sidebar({
                         >
                             <div className="flex items-center gap-3">
                                 <Sparkles size={18} className="text-violet-400" />
-                                <span className="font-bold text-white">Meus Concursos</span>
+                                <span className="font-bold text-slate-200">Meus Concursos</span>
                             </div>
                         </button>
 
