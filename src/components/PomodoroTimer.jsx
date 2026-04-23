@@ -61,8 +61,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
     const timerRef = useRef(null);
-    const innerTimerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
+    const skipTimeoutRef = useRef(null); // Ref para limpar o timeout de skip
     const isSkippingRef = useRef(false);
 
     const clockRef = useRef(null);
@@ -87,46 +87,31 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, []);
 
     useEffect(() => {
-        if (savedState) {
+        const initFromStorage = () => {
+            if (!savedState) return;
             try {
                 const parsed = savedState;
-
-                if (activeSubject && parsed.sessionInstanceId !== activeSubject.sessionInstanceId) {
-                    return;
-                }
+                if (activeSubject && parsed.sessionInstanceId !== activeSubject.sessionInstanceId) return;
 
                 const now = Date.now();
                 const msSinceSave = now - (parsed.savedAt || 0);
-                if (msSinceSave > 24 * 60 * 60 * 1000) {
-                    return;
-                }
+                if (msSinceSave > 24 * 60 * 60 * 1000) return;
 
                 if (parsed.isRunning && parsed.savedAt) {
                     const elapsedSeconds = Math.floor(msSinceSave / 1000);
-
                     if (elapsedSeconds > 0) {
                         if (parsed.timeLeft - elapsedSeconds < -300) {
                             localStorage.removeItem('pomodoroState');
-                            setTimeout(() => {
-                                setMode('work');
-                                setTimeLeft((safeSettings.pomodoroWork || 25) * 60);
-                                setIsRunning(false);
-                            }, 0);
                             return;
                         }
-
                         timerRef.current = setTimeout(() => {
                             const newTime = parsed.timeLeft - elapsedSeconds;
                             if (newTime <= 0) {
                                 setTimeLeft(0);
                                 setIsRunning(false);
-                                
-                                // Forçar o modo atualizado antes de disparar o complete
-                                setMode(parsed.mode); 
-                                
-                                // Damos um pequeno delay para garantir que o React fez o commit do estado
+                                setMode(parsed.mode);
                                 setTimeout(() => {
-                                    transitionSession(parsed.mode, 'natural');
+                                    transitionSession(parsed.mode, 'natural', 0);
                                 }, 100);
                                 return;
                             }
@@ -134,20 +119,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             setIsRunning(true);
                         }, 0);
                     }
-                } else {
-                    if (msSinceSave > 12 * 60 * 60 * 1000) {
-                        localStorage.removeItem('pomodoroState');
-                    }
                 }
             } catch (err) {
                 console.error("Resume logic error", err);
             }
-        }
-        return () => {
-            clearTimeout(timerRef.current);
-            clearTimeout(innerTimerRef.current);
         };
-    }, [activeSubject, safeSettings, savedState]);
+
+        initFromStorage();
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+        };
+    }, [activeSubject, savedState, transitionSession]);
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
     const [speed, setSpeed] = useState(1);
@@ -248,11 +233,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         };
     }, [savePomodoroState]);
 
-    const transitionSession = useCallback((completedMode, source = 'natural') => {
+    const transitionSession = useCallback((completedMode, source = 'natural', forcedTimeLeft = null) => {
         if (source === 'skip') {
             if (isSkippingRef.current) return;
             isSkippingRef.current = true;
-            setTimeout(() => { isSkippingRef.current = false; }, 500);
+            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+            skipTimeoutRef.current = setTimeout(() => { isSkippingRef.current = false; }, 500);
         }
 
         const isNatural = source === 'natural';
@@ -268,7 +254,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (isNatural) {
                 sessionMinutes = safeSettings.pomodoroWork;
             } else {
-                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - timeLeftRef.current;
+                const effectiveTimeLeft = forcedTimeLeft !== null ? forcedTimeLeft : timeLeftRef.current;
+                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - effectiveTimeLeft;
                 sessionMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
             }
 
@@ -280,30 +267,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             if (sVal >= tVal && tVal > 0) {
                 setIsRunning(false);
-                
+
                 try {
                     if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
                         onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
                     }
-                    
+
                     if (isNatural) {
                         if (safeSettings.soundEnabled && alarmAudioRef.current) {
                             try {
                                 alarmAudioRef.current.currentTime = 0;
-                                alarmAudioRef.current.play().catch(() => {});
-                            } catch (e) {}
+                                alarmAudioRef.current.play().catch(() => { });
+                            } catch (e) { }
                         }
                         sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
                     }
 
                     setAccumulatedMinutes(0);
-                    
+
                     // IMPORTANTE: onFullCycleComplete deve ser o último para permitir que o timer limpe seu estado
                     onFullCycleComplete?.(newAccumulated);
-                    
+
                     setSessions(1);
                     setCompletedCycles(0);
-                    
+
                     // Não salvamos o estado de "parado" se vamos pular pro próximo, 
                     // para evitar que o overwrite do Pomodoro.jsx seja anulado.
                     // Mas limpamos por segurança.
@@ -377,8 +364,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         if (safeSettings.soundEnabled && alarmAudioRef.current) {
                             try {
                                 alarmAudioRef.current.currentTime = 0;
-                                alarmAudioRef.current.play().catch(() => {});
-                            } catch (e) {}
+                                alarmAudioRef.current.play().catch(() => { });
+                            } catch (e) { }
                         }
                         sendNotification('🏆 Missão Cumprida!', `Série de ${tVal} ciclos finalizada. ${accumulatedMinutes} minutos salvos com sucesso!`);
                     }
@@ -414,7 +401,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const handleTimerComplete = useCallback(() => {
         setIsRunning(false);
-        transitionSession(mode, 'natural');
+        transitionSession(mode, 'natural', 0);
     }, [transitionSession, mode]);
 
     const speedRef = useRef(speed);
@@ -571,10 +558,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setAccumulatedMinutes(0);
             showToast(`Salvamento parcial: ${accumulatedMinutes} minutos registados.`, 'success');
         }
-        
+
         // Limpar o cache de estado do pomodoro para não tentar "retomar" numa matéria vazia
         localStorage.removeItem('pomodoroState');
-        
+
         onExit();
     };
 
@@ -946,7 +933,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
                                                         ? '100%'
                                                         : (sessions === i + 1 && mode === 'work'
-                                                            ? `${(1 - timeLeft / (totalTime || 1)) * 100}%`
+                                                            ? (isRunning ? undefined : `${(1 - timeLeft / (totalTime || 1)) * 100}%`)
                                                             : '0%')
                                                 }}
                                             />
@@ -978,11 +965,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     id={`break-wave-${i + 1}`}
                                                     className="liquid-wave"
                                                     style={{
-                                                        top: (i < sessions - 1)
-                                                            ? '-250%'
+                                                        transform: (i < sessions - 1)
+                                                            ? 'translateY(-150%)'
                                                             : (sessions === i + 1 && mode === 'break'
-                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%`
-                                                                : '100%')
+                                                                ? `translateY(${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%)`
+                                                                : 'translateY(100%)')
                                                     }}
                                                 />
                                             </div>
@@ -1004,4 +991,5 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             </motion.div>
         </div>
     );
+}
 }

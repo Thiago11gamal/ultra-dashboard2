@@ -318,6 +318,7 @@ export default function Pomodoro() {
     const location = useLocation();
     const navigate = useNavigate();
     const showToast = useToast();
+    const completionTimeoutRef = React.useRef(null);
 
     const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
@@ -342,7 +343,7 @@ export default function Pomodoro() {
 
         for (const log of recentLogs) {
             const logEnd = new Date(log.date || 0).getTime();
-            const gapInMinutes = (lastTimeBoundary - logEnd) / (1000 * 60);
+            const gapInMinutes = Math.max(0, (lastTimeBoundary - logEnd) / (1000 * 60));
 
             // Se houve um hiato de descanso de mais de 90 minutos, a estafa resetou organicamente
             if (gapInMinutes > 90) {
@@ -377,6 +378,13 @@ export default function Pomodoro() {
             }
         }
     }, [location.state, data.categories, activeSubject]);
+
+    // Cleanup timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+        };
+    }, []);
 
     const handleExit = () => {
         if (activeSubject) {
@@ -416,7 +424,7 @@ export default function Pomodoro() {
             
             if (isFromDashboard) {
                 // Se veio do dashboard, retorna pra lá conforme solicitado
-                setTimeout(() => { 
+                completionTimeoutRef.current = setTimeout(() => { 
                     showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
                     handleExit(); 
                 }, 3000);
@@ -443,12 +451,12 @@ export default function Pomodoro() {
                     }));
                 } catch (e) {}
 
-                setTimeout(() => {
+                completionTimeoutRef.current = setTimeout(() => {
                     showToast(`Neural Core: Próximo vetor detectado. Iniciando ${nextTask.text || nextTask.title}... ⚡`, 'info');
                     handleStartTask(nextTask, nextSessionId, 'neural_core');
                 }, 3500); 
             } else {
-                setTimeout(() => { handleExit(); }, 4500);
+                completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 4500);
             }
         } else {
             handleExit();
