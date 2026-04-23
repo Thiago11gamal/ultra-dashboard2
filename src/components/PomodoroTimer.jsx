@@ -51,6 +51,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
+    const [isLayoutLocked, setIsLayoutLocked] = useState(true);
+    const [speed, setSpeed] = useState(1);
+    const [showWarning, setShowWarning] = useState(false);
+    const showToast = useToast();
+
     // FIX: Sanitize corrupted sessions state (e.g., the '1004' bug)
     useEffect(() => {
         if (sessions > 20 || sessions < 1 || isNaN(sessions)) {
@@ -62,13 +67,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
-    const skipTimeoutRef = useRef(null); // Ref para limpar o timeout de skip
+    const skipTimeoutRef = useRef(null); 
     const isSkippingRef = useRef(false);
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const bottomBarRef = useRef(null);
     const sphereRef = useRef(null);
+
+    const timeLeftRef = useRef(timeLeft);
+    useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
+    const modeRef = useRef(mode);
+    useEffect(() => { modeRef.current = mode; }, [mode]);
+
+    const speedRef = useRef(speed || 1);
+    useEffect(() => { speedRef.current = speed; }, [speed]);
+
     const [uiPosition, setUiPosition] = useState(() => {
         try {
             const saved = localStorage.getItem('pomodoroPosition');
@@ -76,171 +91,46 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch { return { x: 0, y: 0 }; }
     });
 
-    // BUG 3 FIX: Persistent Audio Ref to bypass Autoplay Policies
     const alarmAudioRef = useRef(null);
     useEffect(() => {
         try {
             alarmAudioRef.current = new Audio('/sounds/alarm.wav');
-        } catch {
-            // Audio initialization failed or not supported in this environment
-        }
-    }, []);
-
-    useEffect(() => {
-        const initFromStorage = () => {
-            if (!savedState) return;
-            try {
-                const parsed = savedState;
-                if (activeSubject && parsed.sessionInstanceId !== activeSubject.sessionInstanceId) return;
-
-                const now = Date.now();
-                const msSinceSave = now - (parsed.savedAt || 0);
-                
-                // DATA LEAK PROTECTION: Se os dados forem muito antigos (> 24h), ignorar
-                if (msSinceSave > 24 * 60 * 60 * 1000) return;
-
-                if (parsed.isRunning && parsed.savedAt) {
-                    const elapsedSeconds = Math.floor(msSinceSave / 1000);
-                    if (elapsedSeconds > 0) {
-                        // ZOMBIE PROTECTION: Se passou tempo demais (ex: 30 min além do fim), 
-                        // não engatilha transição automática para não pular matéria sozinho.
-                        if (parsed.timeLeft - elapsedSeconds < -1800) {
-                            localStorage.removeItem('pomodoroState');
-                            return;
-                        }
-
-                        timerRef.current = setTimeout(() => {
-                            const newTime = parsed.timeLeft - elapsedSeconds;
-                            if (newTime <= 0) {
-                                setTimeLeft(0);
-                                setIsRunning(false);
-                                setMode(parsed.mode);
-                                
-                                // Apenas transiciona se for "recente" (evita sustos ao abrir o PC de manhã)
-                                if (msSinceSave < 30 * 60 * 1000) {
-                                    setTimeout(() => {
-                                        transitionSession(parsed.mode, 'natural', 0);
-                                    }, 100);
-                                }
-                                return;
-                            }
-                            setTimeLeft(newTime);
-                            setIsRunning(true);
-                        }, 0);
-                    }
-                }
-            } catch (err) {
-                console.error("Resume logic error", err);
-            }
-        };
-
-        initFromStorage();
-
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
-        };
-    }, [activeSubject, savedState, transitionSession]);
-
-    const [isLayoutLocked, setIsLayoutLocked] = useState(true);
-    const [speed, setSpeed] = useState(1);
-    const [showWarning, setShowWarning] = useState(false);
-    const showToast = useToast();
-
-    useEffect(() => {
-        if (targetCycles === 1 && defaultTargetCycles !== 1) {
-            setTargetCycles(defaultTargetCycles);
-        }
-    }, [defaultTargetCycles, targetCycles, setTargetCycles]);
-
-    useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        } catch { }
     }, []);
 
     const sendNotification = useCallback((title, body) => {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-                new Notification(title, {
-                    body,
-                    icon: '🍅',
-                    tag: 'pomodoro-timer'
-                });
-            } catch {
-                // Notification ignored
-            }
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+            new Notification(title, { body, icon: '/favicon.ico' });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification(title, { body, icon: '/favicon.ico' });
+                }
+            });
         }
     }, []);
-
-    const containerRef = useRef(null);
-
-    // O uiPosition foi movido pro início pra evitar order de hook
-
-    // B-10 & B-11 FIX: Viewport-aware safety reset
-    // Resets widget position if it gets "lost" off-screen (e.g. window resize)
-    useEffect(() => {
-        const checkPos = () => {
-            if (uiPosition.x !== 0 || uiPosition.y !== 0) {
-                // If it's significantly off-screen, bring it back to center (0,0 relative)
-                const threshold = 100;
-                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
-                    Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
-                    setUiPosition({ x: 0, y: 0 });
-                    localStorage.removeItem('pomodoroPosition');
-                }
-            }
-        };
-        window.addEventListener('resize', checkPos);
-        return () => window.removeEventListener('resize', checkPos);
-    }, [uiPosition]);
-
-    const handleDragEnd = (event, info) => {
-        const newPos = {
-            x: uiPosition.x + info.offset.x,
-            y: uiPosition.y + info.offset.y
-        };
-        setUiPosition(newPos);
-        try {
-            localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
-        } catch {
-            // Storage interaction failed
-        }
-    };
-
     const savePomodoroState = useCallback((overrides = {}) => {
-        const stateToSave = {
-            mode,
-            timeLeft: timeLeftRef.current,
-            isRunning,
-            sessions,
-            completedCycles,
-            targetCycles,
-            sessionHistory,
-            savedAt: Date.now(),
-            activeTaskId: activeSubject?.taskId,
-            sessionInstanceId: activeSubject?.sessionInstanceId,
-            ...overrides
-        };
-
+        if (typeof window === 'undefined') return;
         try {
+            const stateToSave = {
+                mode: modeRef.current,
+                timeLeft: timeLeftRef.current,
+                isRunning: isRunning,
+                savedAt: Date.now(),
+                activeTaskId: activeSubject?.taskId,
+                sessionInstanceId: activeSubject?.sessionInstanceId,
+                sessionHistory,
+                sessions,
+                completedCycles,
+                ...overrides
+            };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch {
-            // Quota error ignored
+        } catch (err) {
+            console.debug('Pomodoro state save failed', err);
         }
-    }, [mode, isRunning, sessions, completedCycles, targetCycles, sessionHistory, activeSubject]);
+    }, [isRunning, activeSubject, sessionHistory, sessions, completedCycles]);
 
-    useEffect(() => {
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => {
-            savePomodoroState();
-        }, 1000);
-
-        return () => {
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        };
-    }, [savePomodoroState]);
 
     const transitionSession = useCallback((completedMode, source = 'natural', forcedTimeLeft = null) => {
         if (source === 'skip') {
@@ -293,16 +183,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     }
 
                     setAccumulatedMinutes(0);
-
-                    // IMPORTANTE: onFullCycleComplete deve ser o último para permitir que o timer limpe seu estado
                     onFullCycleComplete?.(newAccumulated);
-
                     setSessions(1);
                     setCompletedCycles(0);
-
-                    // Não salvamos o estado de "parado" se vamos pular pro próximo, 
-                    // para evitar que o overwrite do Pomodoro.jsx seja anulado.
-                    // Mas limpamos por segurança.
                     localStorage.removeItem('pomodoroState');
                 } catch (err) {
                     console.error("Erro na transição final:", err);
@@ -332,9 +215,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 playPromise.catch(() => { });
                             }
                         }
-                    } catch {
-                        // Audio playback error
-                    }
+                    } catch { }
                 }
                 sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
             }
@@ -352,9 +233,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 playPromise.catch(() => { });
                             }
                         }
-                    } catch {
-                        // Audio playback error
-                    }
+                    } catch { }
                 }
                 sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
             }
@@ -380,7 +259,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     }
 
                     setAccumulatedMinutes(0);
-
                     onFullCycleComplete?.(accumulatedMinutes);
                     setSessions(1);
                     setCompletedCycles(0);
@@ -408,16 +286,125 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
     }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification, accumulatedMinutes, setAccumulatedMinutes, onExit]);
 
+    useEffect(() => {
+        const initFromStorage = () => {
+            if (!savedState) return;
+            try {
+                const parsed = savedState;
+                if (activeSubject && parsed.sessionInstanceId !== activeSubject.sessionInstanceId) return;
+
+                const now = Date.now();
+                const msSinceSave = now - (parsed.savedAt || 0);
+                
+                if (msSinceSave > 24 * 60 * 60 * 1000) return;
+
+                if (parsed.isRunning && parsed.savedAt) {
+                    const elapsedSeconds = Math.floor(msSinceSave / 1000);
+                    if (elapsedSeconds > 0) {
+                        if (parsed.timeLeft - elapsedSeconds < -1800) {
+                            localStorage.removeItem('pomodoroState');
+                            return;
+                        }
+
+                        timerRef.current = setTimeout(() => {
+                            const newTime = parsed.timeLeft - elapsedSeconds;
+                            if (newTime <= 0) {
+                                setTimeLeft(0);
+                                setIsRunning(false);
+                                setMode(parsed.mode);
+                                if (msSinceSave < 30 * 60 * 1000) {
+                                    setTimeout(() => {
+                                        transitionSession(parsed.mode, 'natural', 0);
+                                    }, 100);
+                                }
+                                return;
+                            }
+                            setTimeLeft(newTime);
+                            setIsRunning(true);
+                        }, 0);
+                    }
+                }
+            } catch (err) {
+                console.error("Resume logic error", err);
+            }
+        };
+
+        initFromStorage();
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+        };
+    }, [activeSubject, savedState, transitionSession]);
+
+
+    useEffect(() => {
+        if (targetCycles === 1 && defaultTargetCycles !== 1) {
+            setTargetCycles(defaultTargetCycles);
+        }
+    }, [defaultTargetCycles, targetCycles, setTargetCycles]);
+
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+
+    const containerRef = useRef(null);
+
+    // O uiPosition foi movido pro início pra evitar order de hook
+
+    // B-10 & B-11 FIX: Viewport-aware safety reset
+    // Resets widget position if it gets "lost" off-screen (e.g. window resize)
+    useEffect(() => {
+        const checkPos = () => {
+            if (uiPosition.x !== 0 || uiPosition.y !== 0) {
+                // If it's significantly off-screen, bring it back to center (0,0 relative)
+                const threshold = 100;
+                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
+                    Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
+                    setUiPosition({ x: 0, y: 0 });
+                    localStorage.removeItem('pomodoroPosition');
+                }
+            }
+        };
+        window.addEventListener('resize', checkPos);
+        return () => window.removeEventListener('resize', checkPos);
+    }, [uiPosition]);
+
+    const handleDragEnd = (event, info) => {
+        const newPos = {
+            x: uiPosition.x + info.offset.x,
+            y: uiPosition.y + info.offset.y
+        };
+        setUiPosition(newPos);
+        try {
+            localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
+        } catch {
+            // Storage interaction failed
+        }
+    };
+
+
+    useEffect(() => {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+            savePomodoroState();
+        }, 1000);
+
+        return () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        };
+    }, [savePomodoroState]);
+
+
     const handleTimerComplete = useCallback(() => {
         setIsRunning(false);
         transitionSession(mode, 'natural', 0);
     }, [transitionSession, mode]);
 
-    const speedRef = useRef(speed);
-    useEffect(() => { speedRef.current = speed; }, [speed]);
-
-    const timeLeftRef = useRef(timeLeft);
-    useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
     // CORREÇÃO: Usar Screen Wake Lock API em vez do hack de mousemove
     const wakeLockRef = useRef(null);

@@ -67,14 +67,17 @@ export default function Header({
 }) {
     const { logout } = useAuth();
 
+    const [prevUserName, setPrevUserName] = useState(user.name);
     const [localName, setLocalName] = useState(user.name);
     const [isFocused, setIsFocused] = useState(false);
 
-    useEffect(() => {
-        if (!isFocused && user?.name) {
+    // Derived state sync: update localName only when user.name changes from outside
+    if (user.name !== prevUserName) {
+        setPrevUserName(user.name);
+        if (!isFocused) {
             setLocalName(user.name);
         }
-    }, [user?.name, isFocused]);
+    }
 
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {

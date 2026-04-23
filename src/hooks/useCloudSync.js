@@ -479,10 +479,10 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
             try {
                 const currentStr = stateStringForSync(appStateRef.current);
                 if (lastSyncedRef.current !== currentStr) {
-                    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch (err) { console.debug('Storage error', err); }
+                    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch (err) { logger.warn('[Sync] LocalStorage error on unload:', err); }
                     isDirty = true;
                 }
-            } catch (err) { console.debug('State sync error', err); }
+            } catch (err) { logger.warn('[Sync] State sync error on unload:', err); }
             
             if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
                 try {
@@ -490,7 +490,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     // FIX: Enviar como Blob para garantir o Content-Type: application/json
                     const blob = new Blob([payload], { type: 'application/json' });
                     navigator.sendBeacon(import.meta.env.VITE_SYNC_BEACON_URL, blob);
-                } catch(err) { console.debug('Beacon error', err); }
+                } catch(err) { logger.warn('[Sync] Beacon error:', err); }
             }
 
             performEmergencySync();
@@ -571,7 +571,7 @@ export function useCloudSync(currentUser, initialAppState, setAppState, showToas
                     
                     lastSyncedRef.current = currentStateString;
                     
-                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(err) { console.debug('Storage error', err); }
+                    try { localStorage.removeItem('ultra-sync-dirty'); } catch(err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
                     
                     lastError = null;
                     break;

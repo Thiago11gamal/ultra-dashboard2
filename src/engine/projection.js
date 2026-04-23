@@ -9,6 +9,7 @@ import { getPercentile } from './math/percentile.js';
 
 // Helper: Complementary Cumulative Distribution Function (1 - CDF) for Normal(0,1)
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
+import { Z_95 } from './math/constants.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
@@ -201,7 +202,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
     // Margem ancorada na proporção ajustada
     // Margem ancorada na projeção (IC 95%)
-    const marginOfError = z * effectiveSd * maxScore;
+    const marginOfError = Z_95 * effectiveSd * maxScore;
 
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams
@@ -219,12 +220,12 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 // This allows measurement of intrinsic learner volatility, preventing "double damping"
 // in Monte Carlo simulations.
 export function calculateVolatility(history, maxScore = 100, minScore = 0) {
-    if (!history || history.length < 2) {
-        return 1.5;
-    }
-
     // Ensure sorted history
     const sorted = getSortedHistory(history);
+
+    if (sorted.length < 2) {
+        return 1.5;
+    }
 
     // BUGFIX M1: Para exatamente 2 pontos (1 resíduo), a centralização falha. 
     // Extraímos a volatilidade empiricamente pelo 'spread normalizado'.
@@ -312,6 +313,7 @@ export function monteCarloSimulation(
     // composite global history instead of the caller-computed weighted mean.
     const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100 } = options;
     const sortedHistory = getSortedHistory(history);
+    const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     // Safety check - allow at least 1 point for a flat projection
     if (!sortedHistory || sortedHistory.length < 1) return {
@@ -322,7 +324,7 @@ export function monteCarloSimulation(
         ci95High: 0,
         currentMean: 0,
         drift: 0,
-        volatility: 0
+        volatility: 1.5 * scaleFactorFallback
     };
 
     // Fix: Baseline uses a more responsive EMA or forced value (Bayesian) to avoid anchoring.
@@ -353,8 +355,6 @@ export function monteCarloSimulation(
     if (optionsCurrentMean !== undefined) {
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1);
     }
-
-    const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     // 🎯 1. Calcular Tendência (Drift) + Incerteza (Epistemic)
     const { slope: rawDrift, slopeStdError } = sortedHistory.length > 1
@@ -445,7 +445,6 @@ export function monteCarloSimulation(
             ciHigh: baseline + (volatility * 1.96)
         };
         // REVISION: Escalonamento do SD e Conversão p/ Z-score
-        const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
         const inferredSD = Math.max(1.0 * scaleFactorFallback, (ciHigh - ciLow) / 3.92);
         const zScore = (targetScore - baseline) / (Number.isFinite(inferredSD) && inferredSD > 0 ? inferredSD : 1.0 * scaleFactorFallback);
         const rawProb = normalCDF_complement(Number.isFinite(zScore) ? zScore : 0) * 100;

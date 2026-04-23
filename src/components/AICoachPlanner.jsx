@@ -60,10 +60,15 @@ export default function AICoachPlanner() {
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());
-    useEffect(() => { 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        if (!isDragging) setColumns(getInitialColumns()); 
-    }, [getInitialColumns, isDragging]);
+    const [prevStoreHash, setPrevStoreHash] = useState(() => JSON.stringify({ coachPlan, coachPlanner }));
+
+    const currentStoreHash = JSON.stringify({ coachPlan, coachPlanner });
+    if (currentStoreHash !== prevStoreHash) {
+        setPrevStoreHash(currentStoreHash);
+        if (!isDragging) {
+            setColumns(getInitialColumns());
+        }
+    }
 
     const onDragEnd = (result) => {
         if (!result.destination) { setIsDragging(false); return; }

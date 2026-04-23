@@ -132,18 +132,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
-        const examDate = new Date(options.user.goalDate);
-        // FIX: Proteger contra datas inválidas na string
-        if (!isNaN(examDate.getTime())) {
-            const today = new Date();
-            daysToExam = Math.ceil((examDate - today) / (1000 * 60 * 60 * 24));
+        try {
+            const examDate = new Date(options.user.goalDate);
+            // FIX: Proteger contra datas inválidas na string
+            if (!isNaN(examDate.getTime())) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                daysToExam = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            }
+        } catch (e) {
+            console.warn("[CoachLogic] Invalid goalDate:", options.user.goalDate);
         }
     }
 
     try {
         // 1. Weighted Average Score
-        const catNormalized = normalize(category.name);
-        const relevantSimulados = simulados.filter(s => normalize(s.subject) === catNormalized);
+        const catNormalized = normalize(category?.name || "Sem Nome");
+        const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject) === catNormalized);
         relevantSimulados.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         const simuladosWithMaxScore = relevantSimulados;
 
@@ -231,7 +236,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory, maxScore)
-            : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : 0);
+            : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : (lastNScores.length === 1 ? 5 : 10)); // Higher fallback for uncertainty
 
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
@@ -434,11 +439,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         return result;
     } catch (err) {
+        console.error("[CoachLogic] Critical error in calculateUrgency:", err);
         return {
             score: 0,
             normalizedScore: 0,
             recommendation: "Erro no cálculo: " + err.message,
-            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, stack: err.stack }
+            details: { hasData: false, daysSinceLastStudy: 0, error: err.message, stack: err.stack, humanReadable: { "Status": "Erro" } }
         };
     }
 };

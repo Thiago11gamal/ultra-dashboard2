@@ -75,15 +75,14 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
-    useEffect(() => {
-        if (!categories.length) return;
-        if (!focusSubjectId || !categories.some(c => c.id === focusSubjectId)) {
-            if (categories.length > 0) {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setFocusSubjectId(categories[0].id);
-            }
+    const [prevCategories, setPrevCategories] = useState(categories);
+    // Sync focusSubjectId if categories change
+    if (categories !== prevCategories) {
+        setPrevCategories(categories);
+        if (categories.length > 0 && (!focusSubjectId || !categories.some(c => c.id === focusSubjectId))) {
+            setFocusSubjectId(categories[0].id);
         }
-    }, [categories, focusSubjectId]);
+    }
 
     const focusCategory = useMemo(() => {
         const found = categories.find(c => c.id === focusSubjectId);
@@ -109,10 +108,15 @@ export default function EvolutionChart({ categories = [], targetScore = 80, goal
         return map;
     }, [categories, timeline]);
 
+    const [prevFocusId, setPrevFocusId] = useState(focusCategory?.id);
     const [mcProjection, setMcProjection] = useState(null);
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+
+    if (focusCategory?.id !== prevFocusId) {
+        setPrevFocusId(focusCategory?.id);
         setMcProjection(null);
+    }
+
+    useEffect(() => {
         if (!focusCategory?.simuladoStats?.history) return;
         
         const hist = [...focusCategory.simuladoStats.history]

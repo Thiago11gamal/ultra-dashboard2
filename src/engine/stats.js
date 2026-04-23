@@ -2,6 +2,7 @@ export const SYNTHETIC_TOTAL_QUESTIONS = 100;
 import { getSafeScore } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
 import { calculateSlope } from './projection.js';
+import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
@@ -31,8 +32,8 @@ export function standardDeviation(arr, maxScore = 100) {
 
     // 🎯 MATH FIX: Piso dinâmico microscópico. 
     // Mantém a segurança de Z-Score sem destruir a precisão matemática de um estudo consistente.
-    const MIN_SD_FLOOR = 0.0001 * maxScore;
-    return Math.max(MIN_SD_FLOOR, Math.sqrt(adjustedVar));
+    const finalSdFloor = MIN_SD_FLOOR * maxScore;
+    return Math.max(finalSdFloor, Math.sqrt(adjustedVar));
 
 }
 
@@ -102,8 +103,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     // CORREÇÃO B: Intervalo de Confiança Agresti-Coull.
     // Adiciona ~2 sucessos e ~2 falhas (z^2/2) para recentrar a variância,
     // resolvendo o vazamento matemático (IC > 100%) perto das bordas.
-    const z = 1.96;
-    const z2 = z * z;
+    const z2 = Z_95 * Z_95;
     const n_tilde = effectiveN + z2;
     // Usamos agora o effectiveAlpha em vez do alpha cumulativo bruto
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
@@ -113,7 +113,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const effectiveSd = Math.sqrt(Math.max(0, varianceArg));
 
     // Margem ancorada na proporção ajustada
-    const marginOfError = z * effectiveSd * maxScore;
+    const marginOfError = Z_95 * effectiveSd * maxScore;
 
     // BUGFIX M1: Center the CI on p_tilde (the Agresti-Coull estimator) instead of raw mean.
     // This prevents CI lower bounds from becoming overly negative for low-success histories.

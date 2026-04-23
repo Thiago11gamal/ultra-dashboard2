@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target, Lock, Unlock, RotateCcw } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 
 // --- NOVO COMPONENTE: AI Productivity Coach ---
@@ -109,7 +109,10 @@ function AICoachPanel({ activeSubject, stats }) {
 
 // Focus Panel: Atualizado para incluir o AICoachPanel e manter a lista de prioridades
 function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
-    const recommendedTask = useMemo(() => getBestTask(categories), [categories]);
+    const recommendedTask = useMemo(() => {
+        if (!categories || categories.length === 0) return null;
+        return getBestTask(categories);
+    }, [categories]);
 
     const [isPanelLocked, setIsPanelLocked] = useState(() => {
         try {
@@ -317,6 +320,7 @@ export default function Pomodoro() {
     const settings = useAppStore(state => state.appState.contests[activeId]?.settings || {});
     const studyLogs = useAppStore(state => state.appState.contests[activeId]?.studyLogs || []);
     const user = useAppStore(state => state.appState.contests[activeId]?.user || null);
+    const isHydrated = !!contest && !!categories;
 
     const setData = useAppStore(state => state.setData);
     const { updatePomodoroSettings, handleUpdateStudyTime } = useAppStore();
@@ -479,10 +483,13 @@ export default function Pomodoro() {
         }));
     };
 
-    if (!contest) {
+    if (!isHydrated) {
         return (
-            <div className="flex items-center justify-center p-12">
-                <p className="text-slate-400">Carregando dados...</p>
+            <div className="flex items-center justify-center p-12 min-h-screen bg-[#0a0f1e]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 size={32} className="animate-spin text-indigo-400" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Carregando Sistema Neural...</p>
+                </div>
             </div>
         );
     }
