@@ -84,6 +84,16 @@ export const useAppStore = create(
                     });
                 },
 
+                // 💉 INJEÇÃO DE EMERGÊNCIA: Sobrescreve o estado inteiro com um backup.
+                forceSetAppState: (newState) => {
+                    set((state) => {
+                        state.appState = {
+                            ...newState,
+                            lastUpdated: new Date().toISOString(), // Garante que será sincronizado de volta
+                        };
+                    });
+                },
+
                 // Injetar os Slices
                 ...createPomodoroSlice(set, get),
                 ...createTaskSlice(set, get),

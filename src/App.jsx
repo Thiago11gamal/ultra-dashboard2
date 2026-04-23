@@ -78,6 +78,7 @@ function MainLayout() {
   const updateUserName = useAppStore(state => state.updateUserName);
   const undo = useAppStore(state => state.undo);
   const setThemeMode = useAppStore(state => state.setThemeMode);
+  const forceSetAppState = useAppStore(state => state.forceSetAppState);
 
   // Custom Hooks para lógica global
   const { toasts, removeToast } = useGlobalToasts();
@@ -232,6 +233,7 @@ function MainLayout() {
               sidebarCollapsed={sidebarCollapsed}
               setSidebarCollapsed={setSidebarCollapsed}
               onOpenTrash={() => setTrashOpen(true)}
+              onInjectBackup={forceSetAppState}
             />
 
             <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />

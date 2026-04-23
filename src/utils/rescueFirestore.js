@@ -11,8 +11,8 @@
 async function resgatarBackupDoFirestore() {
     console.log("[Rescue] Iniciando resgate via Firestore...");
     
-    // O ID que você achou no print: 291jO0zyhCeHAM4RylplwFiSOOC3
-    const backupId = "291jO0zyhCeHAM4RylplwFiSOOC3";
+    // O ID que você achou no print: 291jO0zyhCeHAM4RylpwFiSO0C3
+    const backupId = "291jO0zyhCeHAM4RylpwFiSO0C3";
     
     try {
         // Tentamos acessar o banco diretamente pela instância ativa no app
