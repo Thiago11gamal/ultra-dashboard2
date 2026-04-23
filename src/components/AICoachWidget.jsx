@@ -50,8 +50,8 @@ function MetricChip({ label, value, index }) {
             className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 transition-all cursor-default relative overflow-hidden group/chip"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors">{label}</span>
-            <span className="text-base font-black text-slate-100 tracking-tight leading-none truncate">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate">{value}</span>
         </motion.div>
     );
 }
@@ -177,13 +177,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     )}
                                 </div>
 
-                                <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
+                                <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
                                     {suggestion.name}
                                 </h2>
 
                                 {topic && (
-                                    <div className={`inline-flex items-center gap-3 px-6 py-4 rounded-2xl border text-lg font-black tracking-tight ${cfg.badge} hover:scale-105 transition-transform cursor-default`}>
-                                        <Target size={20} />
+                                    <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl border text-base font-black tracking-tight ${cfg.badge} hover:scale-105 transition-transform cursor-default`}>
+                                        <Target size={18} />
                                         <span>{topic.name}</span>
                                     </div>
                                 )}
@@ -199,7 +199,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     >
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${cfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
                                         <div className="p-5">
-                                            <p className="text-sm text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors">
+                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors">
                                                 "{suggestion.urgency.recommendation}"
                                             </p>
                                         </div>
