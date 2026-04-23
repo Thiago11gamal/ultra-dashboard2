@@ -25,40 +25,40 @@ export function HorasDisciplinaChart({ data }) {
                     layout="vertical"
                     data={sortedData}
                     // Margem left aumentada para acomodar nomes grandes de matérias de Direito
-                    margin={{ top: 5, right: 30, left: 130, bottom: 5 }} 
+                    margin={{ top: 5, right: 30, left: 130, bottom: 5 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
-                    
-                    <XAxis 
-                        type="number" 
-                        stroke="#94a3b8" 
-                        fontSize={10} 
-                        domain={[0, dataMax => Math.ceil(dataMax * 1.1)]} 
-                        axisLine={false} 
+
+                    <XAxis
+                        type="number"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        domain={[0, dataMax => Math.ceil(dataMax * 1.1)]}
+                        axisLine={false}
                         tickLine={false}
                         tickFormatter={(val) => `${Number(val).toFixed(0)}h`}
                     />
-                    
-                    <YAxis 
-                        type="category" 
-                        dataKey="disciplina" 
-                        stroke="#f1f5f9" 
-                        fontSize={11} 
-                        axisLine={false} 
+
+                    <YAxis
+                        type="category"
+                        dataKey="disciplina"
+                        stroke="#f1f5f9"
+                        fontSize={11}
+                        axisLine={false}
                         tickLine={false}
                         width={120} // Largura sincronizada com a margem left para não cortar nomes
                     />
-                    
-                    <Tooltip 
+
+                    <Tooltip
                         cursor={{ fill: 'rgba(255,255,255,0.03)' }} // Melhor UX: Dá um destaque na linha onde o mouse passa
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
                         itemStyle={{ padding: '2px 0' }}
                         formatter={(value) => [`${Number(value).toFixed(1)} horas`, 'Total']}
                     />
-                    
-                    <Bar 
-                        dataKey="horas" 
-                        fill="#6366f1" 
+
+                    <Bar
+                        dataKey="horas"
+                        fill="#6366f1"
                         radius={[0, 6, 6, 0]} // Arredondamento um pouco mais elegante
                         maxBarSize={20} // Evita que matérias únicas fiquem parecendo blocos gigantes
                         name="Horas"

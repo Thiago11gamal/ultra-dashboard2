@@ -295,9 +295,9 @@ export default function MonteCarloGauge({
                 }
             });
 
-            return { 
-                date, 
-                score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 
+            return {
+                date,
+                score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1
             };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
@@ -592,13 +592,14 @@ export default function MonteCarloGauge({
     const message = baseMessage + timeLabel;
 
     return (
-        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
+        <div className={`glass p-4 rounded-3xl relative flex flex-col border-l-4 border-blue-500 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group transition-all duration-500 shadow-2xl w-full h-full max-w-full ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
 
             {isFlashing && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-3xl">
                     <div className="w-full h-1/2 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent absolute top-0 left-0 animate-scan-fast" />
                 </div>
             )}
+
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10">
                 <div className="flex flex-col gap-2">
@@ -791,7 +792,7 @@ export default function MonteCarloGauge({
                 </div>
             )}
 
-            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5">
+            <div className="w-full bg-black/30 rounded-xl p-4 mb-4 border border-white/5 flex-1 flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3 px-1 w-full">
                     <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider w-full text-center sm:text-left">Projeção de Desempenho</span>
                     <div className="flex flex-wrap justify-center sm:justify-end gap-x-3 gap-y-1 w-full">
@@ -800,7 +801,7 @@ export default function MonteCarloGauge({
                         <span className="text-[9px] text-slate-400 flex items-center gap-1 whitespace-nowrap"><div className="w-2 h-0.5 bg-red-500 rounded-full"></div>Meta</span>
                     </div>
                 </div>
-                <div className="w-full h-[260px] px-2 flex items-center mb-6">
+                <div className="w-full h-[260px] px-2 flex items-center mb-6 flex-1">
                     <GaussianPlot
                         mean={safe(projectedMean)}
                         sd={safe(sd)}
@@ -818,6 +819,7 @@ export default function MonteCarloGauge({
                         maxScore={maxScore}
                     />
                 </div>
+            </div>
 
 
                 {timelineDates.length > 1 && (
@@ -847,15 +849,15 @@ export default function MonteCarloGauge({
                                 [&::-webkit-slider-runnable-track]:h-2 
                                 [&::-webkit-slider-runnable-track]:bg-slate-800 
                                 [&::-webkit-slider-runnable-track]:rounded-full 
-                                [&::-webkit-slider-thumb]:appearance-none 
-                                [&::-webkit-slider-thumb]:w-5 
-                                [&::-webkit-slider-thumb]:h-5 
-                                [&::-webkit-slider-thumb]:bg-indigo-500 
+                                [&::-webkit-slider-thumb]:appearance-none
+                                [&::-webkit-slider-thumb]:w-4 
+                                [&::-webkit-slider-thumb]:h-4 
+                                [&::-webkit-slider-thumb]:bg-indigo-500/80
                                 [&::-webkit-slider-thumb]:rounded-full 
-                                [&::-webkit-slider-thumb]:-mt-1.5 
-                                [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(99,102,241,0.8)] 
-                                [&::-webkit-slider-thumb]:border-2 
-                                [&::-webkit-slider-thumb]:border-white
+                                [&::-webkit-slider-thumb]:-mt-1
+                                [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(99,102,241,0.4)] 
+                                [&::-webkit-slider-thumb]:border 
+                                [&::-webkit-slider-thumb]:border-white/90
                                 cursor-pointer"
                             />
                             <div className="absolute inset-x-0 h-2 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-2.5 opacity-40">
@@ -866,9 +868,8 @@ export default function MonteCarloGauge({
                         </div>
                     </div>
                 )}
-            </div>
 
-            <div className="w-full flex flex-col gap-2 mt-4">
+            <div className="w-full flex flex-col gap-2 mt-auto pt-4">
                 <button
                     onClick={() => setShowPerSubject(!showPerSubject)}
                     className="group w-full flex items-center justify-between px-4 py-3 bg-slate-900/50 hover:bg-slate-800/80 border border-white/10 rounded-xl transition-all duration-300"

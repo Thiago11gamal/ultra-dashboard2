@@ -8,7 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 
 export default function Stats() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
-    
+
     const focusData = useMemo(() => mapFocusEvolutionData(data?.studyLogs || []), [data?.studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(data?.studyLogs || [], data?.categories || []), [data?.studyLogs, data?.categories]);
 

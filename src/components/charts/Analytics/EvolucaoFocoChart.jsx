@@ -22,47 +22,47 @@ export function EvolucaoFocoChart({ data }) {
                     {/* ORGANIZAÇÃO: defs sempre no topo do gráfico */}
                     <defs>
                         <linearGradient id="colorFoco" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                         </linearGradient>
                     </defs>
 
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    
-                    <XAxis 
-                        dataKey="data" 
-                        stroke="#64748b" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        dy={10}
-                        minTickGap={25} 
-                    />
-                    
-                    <YAxis 
-                        stroke="#94a3b8" 
-                        fontSize={11} 
-                        domain={[0, dataMax => Math.ceil(dataMax * 1.15)]} // Margem superior levemente menor (15%)
-                        axisLine={false} 
+
+                    <XAxis
+                        dataKey="data"
+                        stroke="#64748b"
+                        fontSize={11}
                         tickLine={false}
-                        dx={-5} 
-                        width={45} 
-                        tickFormatter={(val) => `${val}h`} 
+                        axisLine={false}
+                        dy={10}
+                        minTickGap={25}
                     />
-                    
-                    <Tooltip 
+
+                    <YAxis
+                        stroke="#94a3b8"
+                        fontSize={11}
+                        domain={[0, dataMax => Math.ceil(dataMax * 1.15)]} // Margem superior levemente menor (15%)
+                        axisLine={false}
+                        tickLine={false}
+                        dx={-5}
+                        width={45}
+                        tickFormatter={(val) => `${val}h`}
+                    />
+
+                    <Tooltip
                         contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '12px', fontSize: '13px', backdropFilter: 'blur(8px)' }}
                         itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                         formatter={(value) => [`${Number(value).toFixed(1)} horas`, 'Tempo Estudado']}
                     />
-                    
-                    <Area 
-                        type="monotoneX" 
-                        dataKey="horasEstudadas" 
-                        stroke="#8b5cf6" 
+
+                    <Area
+                        type="monotoneX"
+                        dataKey="horasEstudadas"
+                        stroke="#8b5cf6"
                         strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorFoco)" 
+                        fillOpacity={1}
+                        fill="url(#colorFoco)"
                         name="Horas Estudadas"
                     />
                 </AreaChart>
