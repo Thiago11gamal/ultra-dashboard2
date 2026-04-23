@@ -787,10 +787,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         }
                     }
                 });
-                // Fallback General Task
+            } else if (i === 0) { 
+                // BUG FIX: O Fallback Geral só deve entrar na 1ª iteração, 
+                // e APENAS se não houver um tópico fraco explícito cobrindo a quota.
                 allGeneratedTasks.push({
-                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}`, // Usar safeUUID aqui
-                    text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões`,
+                    id: `${cat.id}-general-review-${uniqueIdSuffix}-${safeUUID}`,
+                    text: `${cat.name}: ${topicLabel}Revisar erros e fazer 10 questões gerais`,
                     completed: false,
                     categoryId: cat.id,
                     analysis: {
@@ -820,7 +822,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
  * Baseada no modelo de decaimento: R(t) = 100 * e^(-0.003 * t)
  */
 export function getCognitiveState(stats) {
-    // BUG 4 FIX: Fadiga agora engloba sessões consecutivas recentes do dia + progresso da sessão atual vazada
+    // FIX: Prevenção contra undefined na fase de hidratação do Zustand
+    if (!stats) return 100; 
+
     let focusMinutes = stats.consecutiveMinutes || 0;
     
     // Fallback ou acréscimo se a pessoa acabou de fechar pomodoros na sessão ativa

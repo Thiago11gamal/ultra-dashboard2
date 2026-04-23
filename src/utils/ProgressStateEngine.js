@@ -50,7 +50,16 @@ export function analyzeProgressState(scores, config = {}) {
     // 4. Extract window
     const recentData = scores.slice(-safeWindowSize);
     const recentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
-    const recentDates = recentData.map(d => typeof d === 'object' ? new Date(d.date).getTime() : 0);
+    // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
+    const recentDates = recentData.map((d, index) => {
+        if (typeof d === 'object') {
+            const time = new Date(d.date).getTime();
+            // Se a data for inválida, criamos uma data sintética linear baseada no índice para não quebrar o declive
+            return isNaN(time) ? Date.now() + (index * 86400000) : time; 
+        }
+        // Se d for primitivo, simula um intervalo de 1 dia por teste
+        return Date.now() + (index * 86400000); 
+    });
 
     // 5.1 Mean (Absolute Level)
     const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;

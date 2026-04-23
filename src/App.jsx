@@ -61,7 +61,16 @@ function MainLayout() {
     }, {});
   }));
 
-  const data = useAppStore(state => state.appState.contests[activeContestId]);
+  // PERF FIX: Selecionar estritamente o necessário para a UI de topo,
+  // evitando re-renders globais quando timers (Pomodoro) ou tarefas mudam.
+  const headerData = useAppStore(useShallow(state => {
+    const contest = state.appState.contests[activeContestId];
+    return {
+      exists: !!contest,
+      user: contest?.user,
+      settings: contest?.settings
+    };
+  }));
 
   // Use a stable reference for cloud sync without forcing re-renders on every state tick
   // by only selecting the properties that actually need to trigger a sync cycle.
@@ -103,7 +112,7 @@ function MainLayout() {
   );
 
   // --- THEME SYNC ---
-  useThemeSync(data?.settings?.darkMode);
+  useThemeSync(headerData.settings?.darkMode);
 
   // --- RESCUE NOTIFICATION ---
   useEffect(() => {
@@ -177,7 +186,7 @@ function MainLayout() {
   // A verificação de assinatura agora atua como um Overlay impenetrável
   // para não quebrar a árvore de hidratação do React Router.
 
-  if (!data) return <div className="loading-screen">Carregando Store...</div>;
+  if (!headerData.exists) return <div className="loading-screen">Carregando Store...</div>;
 
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
@@ -205,8 +214,8 @@ function MainLayout() {
 
           <div className="flex flex-col h-screen w-full min-w-0 relative">
             <Header
-              user={data.user}
-              settings={data.settings}
+              user={headerData.user}
+              settings={headerData.settings}
               contests={contestsMetaList}
               activeContestId={activeContestId}
               onSwitchContest={switchContest}
@@ -215,7 +224,7 @@ function MainLayout() {
               onUndo={handleUndo}
               onCloudRestore={handleCloudRestore}
               onUpdateName={updateUserName}
-              currentData={data}
+              currentData={{}}
               cloudStatus={{
                 status: cloudStatus,
                 error: cloudError,
