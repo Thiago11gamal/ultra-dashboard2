@@ -137,25 +137,19 @@ export const useAppStore = create(
                 return (state, error) => {
                     if (error || !state) return;
 
-                    // FIX: Agendar para a próxima tick do Event Loop para respeitar as regras do Immer
-                    setTimeout(() => {
-                        const store = useAppStore.getState();
-                        const appState = store.appState;
-                        if (!appState) return;
-                        
+                    // FIX: Validação SÍNCRONA do activeId para evitar Flash of Unstyled Content (FOUC) ou crash
+                    const appState = state.appState;
+                    if (appState) {
                         const contestsList = Object.keys(appState.contests || {});
-                        let needsUpdate = false;
-                        
-                        // BUG 3 FIX: Correct mutation pattern for Immer.
-                        // Direct mutation of the draft state is safer and more efficient.
                         if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            useAppStore.setState((state) => {
-                                state.appState.activeId = contestsList[0];
-                            });
+                            // Muta diretamente o estado hidratado antes de ser libertado para a UI
+                            state.appState.activeId = contestsList[0];
                         }
+                    }
 
-                        // Acionar a mutação de forma segura através dos métodos da store, se necessário
-                        // store.setAppState(appState);
+                    // Agenda outras rotinas secundárias para o próximo tick, se necessário
+                    setTimeout(() => {
+                        // Quaisquer ações pesadas de Pós-Hidratação ficam aqui
                     }, 0);
                 };
             },

@@ -82,8 +82,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const gapDays = Math.max(1, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
             const entryDecay = i > 0 ? Math.pow(DECAY_FACTOR, gapDays) : 1.0;
             
-            alpha = (alpha * entryDecay) + acertosHoje;
-            beta = (beta * entryDecay) + errosHoje;
+            // MATH FIX: Limite Inferior (Math.max) para nunca decair abaixo do Prior de Laplace (1,1)
+            alpha = Math.max(alpha0, alpha * entryDecay) + acertosHoje;
+            beta = Math.max(beta0, beta * entryDecay) + errosHoje;
         }
     }
 

@@ -94,7 +94,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const displayMean = bayesianCI ? safeMean : projectedMean;
 
     // FORÇAR INCERTEZA MÍNIMA: Evitar que o cone colapse num traço liso na UI
-    const MIN_SPREAD = 0.5;
+    // MATH FIX: Tornar o spread proporcional à escala total do concurso (0.5% do maxScore)
+    // Garante que o cone não fique gigante num teste de 10 pontos ou invisível num de 1000.
+    const MIN_SPREAD = Math.max(0.5, maxScore * 0.005);
+    
     if (rawHigh - rawLow < MIN_SPREAD) {
         rawLow = Math.max(minScore, displayMean - MIN_SPREAD / 2);
         rawHigh = Math.min(maxScore, displayMean + MIN_SPREAD / 2);
