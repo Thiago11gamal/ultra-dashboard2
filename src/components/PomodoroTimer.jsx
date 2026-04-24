@@ -41,7 +41,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
 
-    // CORREÇÃO CRÍTICA: Optional Chaining (?.) em TODOS os seletores do Zustand
     const sessions = useAppStore(state => state.appState?.pomodoro?.sessions || 1);
     const setSessions = useAppStore(state => state.setPomodoroSessions);
 
@@ -99,7 +98,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const saveTimeoutRef = useRef(null);
     const resumeTransitionTimeoutRef = useRef(null);
     const transitionUnlockTimeoutRef = useRef(null);
-    isTransitioningRef = useRef(false);
+    const isTransitioningRef = useRef(false);
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
@@ -167,16 +166,23 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 ...overrides
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (err) {
-            console.debug('Pomodoro state save failed', err);
-        }
+        } catch (err) { }
     }, [isRunning, activeSubject, sessionHistory]);
 
+    // LÓGICA DE TRANSIÇÃO BLINDADA (Corrige o Loop Infinito)
     const transitionSession = useCallback((completedMode, source = 'natural', forcedTimeLeft = null) => {
-        if (source === 'natural') {
-            if (isTransitioningRef.current) return;
-            isTransitioningRef.current = true;
+        if (isTransitioningRef.current) {
+            console.debug('Transição bloqueada - Prevenção de Loop');
+            return;
         }
+        isTransitioningRef.current = true;
+
+        const releaseLock = () => {
+            if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
+            transitionUnlockTimeoutRef.current = setTimeout(() => {
+                isTransitioningRef.current = false;
+            }, 300); // 300ms garante que o React processou todos os estados
+        };
 
         const currentSessions = sessionsRef.current;
         const currentTargetCycles = targetCyclesRef.current || 1;
@@ -225,18 +231,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     accumulatedMinutesRef.current = 0;
                     sessionsRef.current = 1;
                     completedCyclesRef.current = 0;
-                    modeRef.current = 'work';
+                    modeRef.current = 'work'; // Estado Interno
 
                     setAccumulatedMinutes(0);
-                    onFullCycleComplete?.(newAccumulated);
                     setSessions(1);
                     setCompletedCycles(0);
+                    setMode('work'); // CORREÇÃO: O Loop infinito acontecia pela falta desta linha
+                    
+                    onFullCycleComplete?.(newAccumulated);
                     localStorage.removeItem('pomodoroState');
                 } catch (err) {
                     console.error("Erro na transição final:", err);
                     onExit?.();
                 }
-                if (source === 'natural') isTransitioningRef.current = false;
+                releaseLock();
                 return;
             }
 
@@ -299,18 +307,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     accumulatedMinutesRef.current = 0;
                     sessionsRef.current = 1;
                     completedCyclesRef.current = 0;
-                    modeRef.current = 'work';
+                    modeRef.current = 'work'; // Estado interno
 
                     setAccumulatedMinutes(0);
-                    onFullCycleComplete?.(currentAccumulated);
                     setSessions(1);
                     setCompletedCycles(0);
+                    setMode('work'); // CORREÇÃO: Quebra o loop
+
+                    onFullCycleComplete?.(currentAccumulated);
                     localStorage.removeItem('pomodoroState');
                 } catch (err) {
                     console.error("Erro na transição final:", err);
                     onExit?.();
                 }
-                if (source === 'natural') isTransitioningRef.current = false;
+                releaseLock();
                 return;
             }
 
@@ -333,18 +343,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             });
         }
 
-        if (source === 'natural') {
-            if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
-            transitionUnlockTimeoutRef.current = setTimeout(() => {
-                isTransitioningRef.current = false;
-            }, 100);
-        }
+        releaseLock();
     }, [safeSettings, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, setCompletedCycles, onFullCycleComplete, savePomodoroState, sendNotification, setAccumulatedMinutes, onExit]);
 
+    // Proteção contra redução dinâmica da meta originando loop
     useEffect(() => {
         if (mode === 'break' && sessions >= targetCycles && targetCycles > 0) {
-            setIsRunning(false);
-            transitionSession('break', 'forced', 0);
+            if (!isTransitioningRef.current) {
+                setIsRunning(false);
+                transitionSession('break', 'forced', 0);
+            }
         }
     }, [targetCycles, mode, sessions, transitionSession]);
 
@@ -387,9 +395,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         }, 0);
                     }
                 }
-            } catch (err) {
-                console.error("Resume logic error", err);
-            }
+            } catch (err) {}
         };
 
         initFromStorage();
@@ -457,6 +463,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         transitionSession(modeRef.current, 'natural', 0);
     }, [transitionSession]);
 
+    // Referência mutável para evitar reinstalações da animação
+    const handleTimerCompleteRef = useRef(handleTimerComplete);
+    useEffect(() => {
+        handleTimerCompleteRef.current = handleTimerComplete;
+    }, [handleTimerComplete]);
+
     const wakeLockRef = useRef(null);
     useEffect(() => {
         const requestWakeLock = async () => {
@@ -464,9 +476,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (wakeLockRef.current) return;
                 try {
                     wakeLockRef.current = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.debug('Wake Lock falhou:', err);
-                }
+                } catch (err) {}
             }
         };
 
@@ -498,6 +508,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         };
     }, [isRunning]);
 
+    // LÓGICA DE ANIMAÇÃO OTIMIZADA (Menos Renderizações)
     useEffect(() => {
         let rafId;
         let lastTickTime = performance.now();
@@ -512,9 +523,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             const cachedClock = clockRef.current;
             const cachedCircle = svgCircleRef.current;
-            const cachedWorkFill = document.getElementById(`work-fill-${sessions}`);
-            const cachedBreakBall = document.getElementById(`break-ball-${sessions}`);
-            const cachedBreakWave = document.getElementById(`break-wave-${sessions}`);
 
             const tick = (now) => {
                 const deltaMs = now - lastTickTime;
@@ -526,6 +534,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 const fraction = current / (currentTotalTime || 1);
                 const displaySecond = Math.ceil(current);
 
+                // Update DOM elements directly for extreme performance 
                 if (cachedClock && displaySecond !== lastDisplayedSecond) {
                     const mins = Math.floor(displaySecond / 60);
                     const secs = displaySecond % 60;
@@ -536,10 +545,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     cachedCircle.style.strokeDashoffset = circumference * fraction;
                 }
 
+                // Update Progress bars DOM directly
+                const cachedWorkFill = document.getElementById(`work-fill-${sessions}`);
                 if (cachedWorkFill && mode === 'work') {
                     cachedWorkFill.style.width = `${(1 - fraction) * 100}%`;
                 }
 
+                const cachedBreakBall = document.getElementById(`break-ball-${sessions}`);
+                const cachedBreakWave = document.getElementById(`break-wave-${sessions}`);
                 if (cachedBreakBall && mode === 'break') {
                     const fillHeight = (1 - fraction) * 100;
                     cachedBreakBall.style.height = `${fillHeight}%`;
@@ -550,11 +563,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
-                    setTimeLeft(current);
+                    setTimeLeft(current); // Keep state synced for UI buttons
 
                     if (current <= 0) {
                         cancelAnimationFrame(rafId);
-                        handleTimerComplete();
+                        handleTimerCompleteRef.current(); // Callback blindado
                         return;
                     }
                 }
@@ -565,7 +578,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             rafId = requestAnimationFrame(tick);
         }
         return () => cancelAnimationFrame(rafId);
-    }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, sessions, handleTimerComplete]);
+    }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, sessions]); // Reduzidas dependências soltas
 
     const reset = () => {
         if (isTransitioningRef.current) return;
@@ -694,29 +707,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const totalTime = mode === 'work' ? Math.max(1, safeSettings.pomodoroWork * 60) : Math.max(1, safeSettings.pomodoroBreak * 60);
-
-    const rawProgress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
-    const progress = (timeLeft >= totalTime || timeLeft <= 0) ? (timeLeft <= 0 ? 100 : 0) : Math.max(0, Math.min(100, rawProgress || 0));
-
+    
+    // Retention check (optional, isolated error catch)
     const retention = useMemo(() => {
         if (!activeSubject) return null;
-        const cat = categories.find(c => c.id === activeSubject.categoryId);
-        if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
+        try {
+            const cat = categories.find(c => c.id === activeSubject.categoryId);
+            if (!cat || !cat.lastStudiedAt) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
-        const last = new Date(cat.lastStudiedAt).getTime();
+            const last = new Date(cat.lastStudiedAt).getTime();
+            if (isNaN(last)) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
 
-        if (isNaN(last)) return { val: 100, label: 'Novo', color: 'text-emerald-400', border: 'border-emerald-500' };
+            const now = new Date().getTime();
+            const diffHours = Math.max(0, now - last) / (1000 * 60 * 60);
+            const days = diffHours / 24;
+            const val = Math.max(0, Math.round(100 * Math.exp(-days / 7)));
 
-        const now = new Date().getTime();
-        const diffHours = Math.max(0, now - last) / (1000 * 60 * 60);
-        const days = diffHours / 24;
-        const val = Math.max(0, Math.round(100 * Math.exp(-days / 7)));
-
-        if (val >= 80) return { val, label: 'Ótimo', color: 'text-emerald-400', border: 'border-emerald-500/30' };
-        if (val >= 60) return { val, label: 'Bom', color: 'text-green-400', border: 'border-green-500/30' };
-        if (val >= 40) return { val, label: 'Atenção', color: 'text-yellow-400', border: 'border-yellow-500/30' };
-        if (val >= 20) return { val, label: 'Crítico', color: 'text-orange-400', border: 'border-orange-500/30' };
-        return { val, label: 'Urgente!', color: 'text-red-400', border: 'border-red-500/30' };
+            if (val >= 80) return { val, label: 'Ótimo', color: 'text-emerald-400', border: 'border-emerald-500/30' };
+            if (val >= 60) return { val, label: 'Bom', color: 'text-green-400', border: 'border-green-500/30' };
+            if (val >= 40) return { val, label: 'Atenção', color: 'text-yellow-400', border: 'border-yellow-500/30' };
+            if (val >= 20) return { val, label: 'Crítico', color: 'text-orange-400', border: 'border-orange-500/30' };
+            return { val, label: 'Urgente!', color: 'text-red-400', border: 'border-red-500/30' };
+        } catch (_) {
+            return null;
+        }
     }, [activeSubject, categories]);
 
     return (
