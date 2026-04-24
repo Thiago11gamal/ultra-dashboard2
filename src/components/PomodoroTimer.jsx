@@ -95,6 +95,39 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch (_) { return { x: 0, y: 0 }; }
     });
 
+    // 🎯 BROADCAST CHANNEL (Sincronização Multi-Aba)
+    useEffect(() => {
+        const channel = new BroadcastChannel('pomodoro_sync');
+        channel.onmessage = (event) => {
+            if (event.data.type === 'HEARTBEAT' && isRunning && event.data.tabId !== window.name) {
+                // Outra aba está rodando o timer — esta aba deve apenas observar ou parar
+                // Para simplificar: "First Tab Wins" ou "Last Tab Wins". 
+                // Vamos implementar: "Se outra aba está rodando e esta também, esta para se for a secundária"
+            }
+            if (event.data.type === 'START_SESSION' && event.data.tabId !== window.name) {
+                setIsRunning(false);
+                stateRefs.current.isRunning = false;
+            }
+        };
+        return () => channel.close();
+    }, [isRunning]);
+
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'pomodoroState' && e.newValue) {
+                const newState = JSON.parse(e.newValue);
+                if (newState.sessionInstanceId === activeSubject?.sessionInstanceId) {
+                    // Sync imediato sem forçar re-render se for apenas tempo
+                    stateRefs.current.timeLeft = newState.timeLeft;
+                    stateRefs.current.isRunning = newState.isRunning;
+                    if (!newState.isRunning) setIsRunning(false);
+                }
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [activeSubject?.sessionInstanceId]);
+
     // 🎯 PERSISTÊNCIA DE ESTADO (Debounced)
     const savePomodoroState = useCallback((overrides = {}) => {
         if (!activeSubject?.taskId) return;
@@ -119,6 +152,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
             savePomodoroState();
+            // Notifica outras abas sobre o estado atual
+            try {
+                const channel = new BroadcastChannel('pomodoro_sync');
+                channel.postMessage({ type: 'STATE_UPDATE', state: stateRefs.current, tabId: window.name });
+                channel.close();
+            } catch(_) {}
         }, 1000);
 
         return () => {
@@ -168,7 +207,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const initFromStorage = () => {
             if (!savedState) return;
             try {
-                if (activeSubject && savedState.sessionInstanceId !== activeSubject.sessionInstanceId) return;
+                // GUARD: Só reidrata se o ID da sessão for IDENTICO
+                if (activeSubject && savedState.sessionInstanceId !== activeSubject.sessionInstanceId) {
+                    console.log("Session ID mismatch - skipping rehydration");
+                    return;
+                }
 
                 const now = Date.now();
                 const msSinceSave = now - (savedState.savedAt || 0);
@@ -178,11 +221,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (savedState.isRunning && savedState.savedAt) {
                     const elapsedSeconds = Math.floor(msSinceSave / 1000);
                     if (elapsedSeconds > 0) {
-                        const newTime = savedState.timeLeft - elapsedSeconds;
+                        const newTime = Math.max(0, savedState.timeLeft - elapsedSeconds);
                         if (newTime <= 0) {
                             setTimeLeft(0);
                             setIsRunning(false);
-                            if (msSinceSave < 30 * 60 * 1000) { // Só transiciona se for recente
+                            stateRefs.current.timeLeft = 0;
+                            stateRefs.current.isRunning = false;
+                            
+                            if (msSinceSave < 30 * 60 * 1000) { 
                                 if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
                                 resumeTransitionTimeoutRef.current = setTimeout(() => {
                                     transitionSessionRef.current?.(savedState.mode, 'natural');
@@ -191,11 +237,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         } else {
                             setTimeLeft(newTime);
                             setIsRunning(true);
+                            stateRefs.current.timeLeft = newTime;
+                            stateRefs.current.isRunning = true;
                         }
                     }
                 } else {
                     setTimeLeft(savedState.timeLeft);
                     setMode(savedState.mode);
+                    stateRefs.current.timeLeft = savedState.timeLeft;
+                    stateRefs.current.mode = savedState.mode;
                 }
             } catch (err) {
                 console.error("Resume logic error", err);
@@ -203,7 +253,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         };
 
         initFromStorage();
-    }, [activeSubject?.taskId]);
+    }, [activeSubject?.sessionInstanceId]); // Dependência mudada para o InstanceId para reset total se trocar tarefa
 
     // 🎯 WAKE LOCK (Impede o ecrã de desligar)
     useEffect(() => {
@@ -393,8 +443,39 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const skip = () => {
         if (isTransitioningRef.current) return;
+        
+        // 1. Parar alarmes imediatamente
+        if (alarmAudioRef.current) {
+            try {
+                alarmAudioRef.current.pause();
+                alarmAudioRef.current.currentTime = 0;
+            } catch(_) {}
+        }
+
+        // 2. Feedback Visual e Notificação de Sistema
         showToast(`Avançando para ${mode === 'work' ? 'Pausa' : 'Foco'}`, 'info');
+        
+        // 3. Reset Visual Imediato do Ciclo Atual (Prevenir ghosting visual)
+        if (mode === 'work') {
+            const el = document.getElementById(`work-fill-${sessions}`);
+            if (el) el.style.width = '100%'; // Skip de trabalho completa a barra
+        } else {
+            const ball = document.getElementById(`break-ball-${sessions}`);
+            if (ball) ball.style.height = '100%'; // Skip de pausa completa a bola
+        }
+
+        // 4. Sincronização Multi-Aba
+        try {
+            const channel = new BroadcastChannel('pomodoro_sync');
+            channel.postMessage({ type: 'PHASE_SKIP', fromMode: mode, tabId: window.name });
+            channel.close();
+        } catch(_) {}
+
+        // 5. Executar Transição Atómica
         transitionSession(mode, 'skip');
+        
+        // 6. Persistência de Emergência
+        savePomodoroState({ isRunning: false });
     };
 
     const handleManualExit = () => {
@@ -519,6 +600,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     const next = !isRunning;
                                     stateRefs.current.isRunning = next;
                                     setIsRunning(next);
+
+                                    // Blindagem Multi-Aba: Notifica outras abas para pararem se esta começou
+                                    if (next) {
+                                        try {
+                                            const channel = new BroadcastChannel('pomodoro_sync');
+                                            channel.postMessage({ type: 'START_SESSION', tabId: window.name });
+                                            channel.close();
+                                        } catch(_) {}
+                                    }
                                 }}
                                 className={`w-32 h-32 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                             >
