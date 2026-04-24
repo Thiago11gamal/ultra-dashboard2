@@ -30,6 +30,12 @@ const sanitizeCategory = (cat) => ({
     })) : []
 });
 
+const sanitizeContest = (contest) => ({
+    ...contest,
+    user: contest?.user && typeof contest.user === 'object' ? contest.user : {},
+    categories: Array.isArray(contest?.categories) ? contest.categories.map(sanitizeCategory) : [],
+});
+
 export const parseImportedData = (content, currentAppState) => {
     try {
         if (!content) throw new Error("Arquivo vazio");
@@ -46,7 +52,16 @@ export const parseImportedData = (content, currentAppState) => {
             if (!validateFullBackup(imported)) {
                 throw new Error("Backup completo corrompido ou inválido.");
             }
-            return { type: 'FULL_RESTORE', data: imported };
+            const sanitizedContests = Object.fromEntries(
+                Object.entries(imported.contests).map(([id, contest]) => [id, sanitizeContest(contest)])
+            );
+            return {
+                type: 'FULL_RESTORE',
+                data: {
+                    ...imported,
+                    contests: sanitizedContests
+                }
+            };
         }
 
         // Strategy 2: Single Contest Data (Old Format or Partial Export)

@@ -627,6 +627,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             : 0;
         // FIX: Exigir um mínimo de 15 minutos (0.25h) para calcular a taxa de questões, evitando Infinity
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
+        const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
         
         if (totalHours > 5 && questionsPerHour < dynamicThreshold) {
             return {
