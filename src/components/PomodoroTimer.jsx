@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Lock, Unlock, Activity, AlertCircle, Brain, Zap, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Lock, Unlock, Activity, AlertCircle, Brain, Zap, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
@@ -320,7 +320,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     setCompletedCycles(0);
                     localStorage.removeItem('pomodoroState');
                 } catch (err) {
-                    console.error("Erro na transição final (skip):", err);
+                    console.error("Erro na transição final:", err);
                     onExit?.();
                 }
                 if (source === 'natural') isTransitioningRef.current = false;
@@ -673,46 +673,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }, 150);
     };
 
-    const skip = () => {
-        if (isTransitioningRef.current) return;
-        isTransitioningRef.current = true;
 
-        // 1. Stop the timer FIRST to prevent rAF race conditions
-        setIsRunning(false);
-
-        const currentMode = modeRef.current;
-        const nextModeLabel = currentMode === 'work' ? 'Pausa' : 'Próximo Foco';
-        showToast(`Avançando para ${nextModeLabel}`, 'info');
-
-        // 2. Mark the skipped segment as visually complete
-        if (currentMode === 'work') {
-            const fill = document.getElementById(`work-fill-${sessionsRef.current}`);
-            if (fill) fill.style.width = '100%';
-        } else {
-            const ball = document.getElementById(`break-ball-${sessionsRef.current}`);
-            if (ball) ball.style.height = '100%';
-        }
-
-        // 3. Execute the transition (updates refs and React state)
-        transitionSession(currentMode, 'skip');
-
-        // 4. Update clock and SVG AFTER transition (reads from updated refs)
-        const newTime = timeLeftRef.current;
-        if (clockRef.current) {
-            const mins = Math.floor(newTime / 60);
-            const secs = newTime % 60;
-            clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        }
-        if (svgCircleRef.current) {
-            svgCircleRef.current.style.strokeDashoffset = 2 * Math.PI * 110;
-        }
-
-        // 5. Unlock transition after delay
-        if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
-        transitionUnlockTimeoutRef.current = setTimeout(() => {
-            isTransitioningRef.current = false;
-        }, 250);
-    };
 
     const handleManualExit = () => {
         const finalMinutes = accumulatedMinutesRef.current;
@@ -950,8 +911,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
                         </div>
 
-                        <div className={`flex items-end gap-12 z-10 mt-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
-                            <div className="flex flex-col items-center gap-3">
+                        <div className={`grid grid-cols-3 items-center justify-center gap-4 z-10 mt-10 w-full max-w-2xl px-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                            {/* RESET AREA */}
+                            <div className="flex flex-col items-center gap-3 order-1">
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
@@ -963,7 +925,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">REINICIAR</span>
                             </div>
 
-                            <div className="flex flex-col items-center gap-3">
+                            {/* MAIN CONTROL AREA */}
+                            <div className="flex flex-col items-center gap-4 order-2 scale-110">
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
@@ -988,38 +951,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 >
                                     {isRunning ? <Pause size={56} fill="currentColor" /> : <Play size={56} fill="currentColor" className="ml-2" />}
                                 </motion.button>
-                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{isRunning ? 'PAUSAR' : 'CONTINUAR'}</span>
+                                <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] drop-shadow-md">{isRunning ? 'PAUSAR PROTOCOLO' : 'INICIAR SESSÃO'}</span>
                             </div>
 
-                            <div className="flex flex-col items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={skip}
-                                    className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center transition-all shadow-[0_10px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)] group active:shadow-inner"
-                                >
-                                    <SkipForward size={24} className="group-hover:translate-x-1 transition-transform" />
-                                </motion.button>
-                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">PULAR</span>
+                            {/* SPEED AREA (BALANCING RESET) */}
+                            <div className="flex flex-col items-center gap-3 order-3">
+                                <div className="flex flex-col items-center bg-black/30 backdrop-blur-md p-2 rounded-2xl border border-white/5 shadow-inner">
+                                    <div className="flex items-center gap-1">
+                                        {[1, 10, 100].map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => setSpeed(s)}
+                                                className={`w-10 h-8 rounded-lg text-[10px] font-black transition-all duration-500 flex items-center justify-center ${speed === s
+                                                    ? 'bg-white text-black shadow-lg scale-110'
+                                                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                {s}X
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">VELOCIDADE</span>
                             </div>
                         </div>
-
-                        {activeSubject && (
-                            <div className="absolute bottom-10 right-10 flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/10 shadow-2xl z-[100]">
-                                {[1, 10, 100].map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setSpeed(s)}
-                                        className={`px-3 py-1 rounded-full text-[10px] font-black transition-all duration-500 ${speed === s
-                                            ? 'bg-white text-black'
-                                            : 'text-white/40 hover:text-white'
-                                            }`}
-                                    >
-                                        {s}X
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
 
