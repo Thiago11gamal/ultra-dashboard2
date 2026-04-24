@@ -90,26 +90,37 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch (_) { return { x: 0, y: 0 }; }
     });
 
-    // 🎯 BROADCAST CHANNEL (Sincronização Multi-Aba)
+    // 🎯 BROADCAST CHANNEL (Sincronização Multi-Aba com Proteção)
     useEffect(() => {
-        const channel = new BroadcastChannel('pomodoro_sync');
-        channel.onmessage = (event) => {
-            if (event.data.type === 'START_SESSION' && event.data.tabId !== window.name) {
-                setIsRunning(false);
-                stateRefs.current.isRunning = false;
-            }
+        let channel = null;
+        try {
+            channel = new BroadcastChannel('pomodoro_sync');
+            channel.onmessage = (event) => {
+                if (event.data?.type === 'START_SESSION' && event.data?.tabId !== window.name) {
+                    setIsRunning(false);
+                    stateRefs.current.isRunning = false;
+                }
+            };
+        } catch (e) {
+            console.warn('[Pomodoro] BroadcastChannel not supported or failed:', e);
+        }
+        return () => {
+            try { channel?.close(); } catch (_) { }
         };
-        return () => channel.close();
     }, []);
 
     useEffect(() => {
         const handleStorageChange = (e) => {
             if (e.key === 'pomodoroState' && e.newValue) {
-                const newState = JSON.parse(e.newValue);
-                if (newState.activeTaskId === activeSubject?.taskId) {
-                    stateRefs.current.timeLeft = newState.timeLeft;
-                    stateRefs.current.isRunning = newState.isRunning;
-                    if (!newState.isRunning) setIsRunning(false);
+                try {
+                    const newState = JSON.parse(e.newValue);
+                    if (newState && newState.activeTaskId === activeSubject?.taskId) {
+                        stateRefs.current.timeLeft = newState.timeLeft ?? stateRefs.current.timeLeft;
+                        stateRefs.current.isRunning = newState.isRunning ?? false;
+                        if (!newState.isRunning) setIsRunning(false);
+                    }
+                } catch (err) {
+                    console.error('[Pomodoro] Failed to parse storage sync:', err);
                 }
             }
         };
@@ -125,7 +136,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (!activeSubject?.taskId) return;
         try {
             const current = stateRefs.current;
-            localStorage.setItem('pomodoroState', JSON.stringify({
+            const stateToSave = {
                 activeTaskId: activeSubject.taskId,
                 mode: current.mode,
                 timeLeft: current.timeLeft,
@@ -135,9 +146,21 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 accumulatedMinutes: current.accumulatedMinutes,
                 savedAt: Date.now(),
                 ...overrides
-            }));
-        } catch (_) { }
+            };
+            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        } catch (e) {
+            console.error('[Pomodoro] Critical: Failed to save state to localStorage:', e);
+        }
     }, [activeSubject]);
+
+    // PROTEÇÃO: Salva o estado ao desmontar o componente para evitar perda de tempo
+    useEffect(() => {
+        return () => {
+            if (stateRefs.current.isRunning) {
+                savePomodoroState({ isRunning: false });
+            }
+        };
+    }, [savePomodoroState]);
 
     // 🎯 TRANSIÇÃO DE SESSÃO COM PREVENÇÃO DE VAZAMENTO DE DADOS
     const transitionSession = useCallback((completedMode, source = 'natural') => {
@@ -201,29 +224,43 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }, 50);
     }, [safeSettings, completePomodoroPhase, savePomodoroState, onUpdateStudyTime, activeSubject, onFullCycleComplete]);
 
-    // 🎯 MOTOR DE ANIMAÇÃO (60FPS)
+    // 🎯 MOTOR DE ANIMAÇÃO (60FPS com Shielding)
     useEffect(() => {
         let rafId;
         let lastTickTime = performance.now();
+        let stallCounter = 0;
 
         const tick = (now) => {
             const deltaMs = now - lastTickTime;
             lastTickTime = now;
 
+            // Stall Detection: Se o delta for insano (> 1s) ou o componente parou de responder
+            if (deltaMs > 1000) {
+                console.warn('[Pomodoro] Engine stall detected. Resynchronizing...');
+                rafId = requestAnimationFrame(tick);
+                return;
+            }
+
             if (stateRefs.current.isRunning && stateRefs.current.timeLeft > 0) {
-                const currentTotalTime = stateRefs.current.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+                const currentTotalTime = stateRefs.current.mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
                 const circumference = 2 * Math.PI * 110;
                 
-                const newTime = Math.max(0, stateRefs.current.timeLeft - (deltaMs / 1000) * speedRef.current);
+                // Cálculo de precisão nanométrica
+                const deltaSeconds = (deltaMs / 1000) * (speedRef.current || 1);
+                const newTime = Math.max(0, stateRefs.current.timeLeft - deltaSeconds);
                 stateRefs.current.timeLeft = newTime;
 
                 const fraction = newTime / (currentTotalTime || 1);
                 const displaySecond = Math.ceil(newTime);
 
+                // Batching visual updates
                 if (clockRef.current) {
                     const mins = Math.floor(displaySecond / 60);
                     const secs = displaySecond % 60;
-                    clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    const timeString = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    if (clockRef.current.textContent !== timeString) {
+                        clockRef.current.textContent = timeString;
+                    }
                 }
 
                 if (svgCircleRef.current) {
@@ -233,10 +270,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 const s = stateRefs.current.sessions;
                 if (stateRefs.current.mode === 'work') {
                     const el = document.getElementById(`work-fill-${s}`);
-                    if (el) el.style.width = `${(1 - fraction) * 100}%`;
+                    if (el) el.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
                 } else {
                     const ball = document.getElementById(`break-ball-${s}`);
-                    if (ball) ball.style.height = `${(1 - fraction) * 100}%`;
+                    if (ball) ball.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
                 }
 
                 if (newTime <= 0) {
@@ -245,11 +282,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     rafId = requestAnimationFrame(tick);
                 }
             } else {
+                // Se estiver pausado, mantém o loop vivo mas leve
                 rafId = requestAnimationFrame(tick);
             }
         };
         rafId = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(rafId);
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+        };
     }, [safeSettings, transitionSession]);
 
     // 🎯 UTILITÁRIOS BLINDADOS

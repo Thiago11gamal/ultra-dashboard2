@@ -43,10 +43,18 @@ const idbStorage = {
         return null;
     },
     setItem: async (name, value) => {
-        await idbSet(name, value);
+        try {
+            await idbSet(name, value);
+        } catch (e) {
+            console.error("[Storage] Failed to save to IndexedDB:", e);
+        }
     },
     removeItem: async (name) => {
-        await idbDel(name);
+        try {
+            await idbDel(name);
+        } catch (e) {
+            console.error("[Storage] Failed to remove from IndexedDB:", e);
+        }
     },
 };
 

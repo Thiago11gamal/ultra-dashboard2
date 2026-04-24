@@ -85,14 +85,22 @@ export const createPomodoroSlice = (set, get) => ({
     completePomodoroPhase: (isManual = false) => {
         set((state) => {
             const p = state.appState.pomodoro;
-            const settings = state.appState.contests[state.appState.activeId]?.settings || { pomodoroWork: 25, pomodoroBreak: 5 };
+            if (!p) return; // Shield: prevent crash if pomodoro state is missing
+
+            const activeId = state.appState.activeId;
+            const settings = state.appState.contests[activeId]?.settings || { pomodoroWork: 25, pomodoroBreak: 5 };
             
+            // Garantia de tipos e valores padrão
+            const workDuration = settings.pomodoroWork || 25;
+            const targetCycles = p.targetCycles || 1;
+
             if (p.mode === 'work') {
                 if (!isManual) {
-                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + (settings.pomodoroWork || 25);
+                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + workDuration;
                 }
 
-                if (p.sessions >= (p.targetCycles || 1)) {
+                if (p.sessions >= targetCycles) {
+                    // Reset do Ciclo Completo
                     p.sessions = 1;
                     p.completedCycles = 0;
                     p.accumulatedMinutes = 0;
@@ -101,8 +109,9 @@ export const createPomodoroSlice = (set, get) => ({
                     p.mode = 'break';
                 }
             } else {
+                // Fim da Pausa -> Próxima Sessão de Trabalho
                 p.completedCycles = (p.completedCycles || 0) + 1;
-                p.sessions = (p.sessions || 1) + 1;
+                p.sessions = Math.max(1, (p.sessions || 1) + 1);
                 p.mode = 'work';
             }
 
@@ -111,17 +120,18 @@ export const createPomodoroSlice = (set, get) => ({
         });
     },
 
-    // RETROCESSO ATÓMICO - Volta para a fase anterior
+    // RETROCESSO ATÓMICO - Volta para a fase anterior com limites de segurança
     rewindPomodoroPhase: () => {
         set((state) => {
             const p = state.appState.pomodoro;
+            if (!p) return;
             
             if (p.mode === 'break') {
                 // Se está em pausa, volta para o trabalho da mesma sessão
                 p.mode = 'work';
             } else if (p.sessions > 1) {
                 // Se está em trabalho (não na primeira), volta para a pausa da sessão anterior
-                p.sessions = p.sessions - 1;
+                p.sessions = Math.max(1, p.sessions - 1);
                 p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
                 p.mode = 'break';
             } else {
@@ -129,6 +139,7 @@ export const createPomodoroSlice = (set, get) => ({
                 p.mode = 'work';
                 p.sessions = 1;
                 p.completedCycles = 0;
+                p.accumulatedMinutes = 0;
             }
 
             state.appState.version = (state.appState.version || 0) + 1;
