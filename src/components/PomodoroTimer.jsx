@@ -911,7 +911,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             </div>
                         </div>
 
-                        <div className={`grid grid-cols-3 items-center justify-center gap-4 z-10 mt-10 w-full max-w-2xl px-6 ${!activeSubject ? 'opacity-30 pointer-events-none' : ''}`}>
+                        <div className={`grid grid-cols-3 items-center justify-center gap-4 z-10 mt-10 w-full max-w-2xl px-6 ${(!activeSubject && mode === 'work') ? 'opacity-30 pointer-events-none' : ''}`}>
                             {/* RESET AREA */}
                             <div className="flex flex-col items-center gap-3 order-1">
                                 <motion.button
@@ -931,12 +931,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => {
+                                        if (isTransitioningRef.current) return;
+
                                         if (mode === 'work' && !activeSubject) {
                                             setShowWarning(true);
                                             setTimeout(() => setShowWarning(false), 3000);
                                             return;
                                         }
-                                        setIsRunning(!isRunning);
+
+                                        // Hardening: Sync ref before starting to prevent stuck at 0
+                                        if (!isRunning) {
+                                            timeLeftRef.current = timeLeft;
+                                        }
+
+                                        setIsRunning(prev => !prev);
 
                                         if (!isRunning && alarmAudioRef.current) {
                                             const audio = alarmAudioRef.current;
