@@ -69,12 +69,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const speedRef = useRef(1);
     useEffect(() => { speedRef.current = speed; }, [speed]);
 
+    const isMounted = useRef(true);
+    const transitionTimeoutRef = useRef(null);
     const isTransitioningRef = useRef(false);
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const alarmAudioRef = useRef(null);
-    const syncChannelRef = useRef(null); // Refatoração: Instância única do BroadcastChannel
-    const workFillsRef = useRef([]); // Refatoração: Arrays de Refs para substituir document.getElementById
+    const syncChannelRef = useRef(null);
+    const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
     const showToast = useToast();
 
@@ -92,7 +94,16 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch (_) { return { x: 0, y: 0 }; }
     });
 
-    // 🎯 BROADCAST CHANNEL (Sincronização Multi-Aba Otimizada)
+    // Controle de Montagem e Limpeza de Timeouts
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+            if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+        };
+    }, []);
+
+    // Sincronização Multi-Aba
     useEffect(() => {
         try {
             syncChannelRef.current = new BroadcastChannel('pomodoro_sync');
@@ -103,7 +114,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 }
             };
         } catch (e) {
-            console.warn('[Pomodoro] BroadcastChannel not supported or failed:', e);
+            console.warn('[Pomodoro] BroadcastChannel not supported:', e);
         }
         return () => {
             try { syncChannelRef.current?.close(); } catch (_) { }
@@ -120,9 +131,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         stateRefs.current.isRunning = newState.isRunning ?? false;
                         if (!newState.isRunning) setIsRunning(false);
                     }
-                } catch (err) {
-                    console.error('[Pomodoro] Failed to parse storage sync:', err);
-                }
+                } catch (err) {}
             }
         };
         window.addEventListener('storage', handleStorageChange);
@@ -149,9 +158,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 ...overrides
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (e) {
-            console.error('[Pomodoro] Critical: Failed to save state to localStorage:', e);
-        }
+        } catch (e) {}
     }, [activeSubject]);
 
     useEffect(() => {
@@ -188,10 +195,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         completePomodoroPhase(isManual);
 
-        setTimeout(() => {
-            if (isEndingCycle && onFullCycleComplete) {
-                onFullCycleComplete(finalMinutes);
-            }
+        transitionTimeoutRef.current = setTimeout(() => {
+            if (!isMounted.current) return;
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
@@ -214,10 +219,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             } catch(_) {}
 
             isTransitioningRef.current = false;
+
+            if (isEndingCycle && onFullCycleComplete) {
+                onFullCycleComplete(finalMinutes);
+            }
         }, 50);
     }, [safeSettings, completePomodoroPhase, savePomodoroState, onUpdateStudyTime, activeSubject, onFullCycleComplete]);
 
-    // 🎯 MOTOR DE ANIMAÇÃO BLINDADO
+    // Motor de Animação Blindado contra Stall
     useEffect(() => {
         let rafId;
         let lastTickTime = performance.now();
@@ -226,11 +235,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const deltaMs = now - lastTickTime;
             lastTickTime = now;
 
-            // CORREÇÃO CRÍTICA: Lida com saídas da aba sem ignorar o tempo (Background Throttling)
-            if (deltaMs > 1000) {
-                console.warn(`[Pomodoro] Aba inativa detectada (${deltaMs}ms). Aplicando tempo acumulado...`);
-            }
-
+            // Correção Background Throttling: Não ignora o tempo acumulado
             if (stateRefs.current.isRunning && stateRefs.current.timeLeft > 0) {
                 const currentTotalTime = stateRefs.current.mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
                 const circumference = 2 * Math.PI * 110;
@@ -251,9 +256,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     }
                 }
 
-                if (svgCircleRef.current) {
-                    svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
-                }
+                if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
 
                 const s = stateRefs.current.sessions;
                 if (stateRefs.current.mode === 'work') {
@@ -272,16 +275,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             }
         };
         rafId = requestAnimationFrame(tick);
-        return () => {
-            if (rafId) cancelAnimationFrame(rafId);
-        };
+        return () => { if (rafId) cancelAnimationFrame(rafId); };
     }, [safeSettings, transitionSession]);
 
     const reset = () => {
         if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch(_) {} }
-        showToast('A retroceder fase...', 'info');
-
+        
         const s = sessions;
         if (mode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '0%';
@@ -291,7 +291,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         rewindPomodoroPhase();
 
-        // Evita condição de corrida lendo diretamente o Zustand atualizado
         const newState = useAppStore.getState().appState.pomodoro;
         const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         
@@ -313,8 +312,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const skip = () => {
         if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch(_) {} }
-        showToast('Fase ignorada', 'success');
-
+        
         const s = sessions;
         if (mode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '100%';
@@ -334,7 +332,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
         if (finalMinutes > 0 && activeSubject && onUpdateStudyTime) {
             onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
-            showToast(`Parcial: ${finalMinutes} min.`, 'success');
         }
         setAccumulatedMinutes(0);
         localStorage.removeItem('pomodoroState');
@@ -353,7 +350,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             <motion.div
                 drag={!isLayoutLocked}
                 dragMomentum={true}
-                dragConstraints={{ left: -800, right: 800, top: -500, bottom: 500 }} // Previne arrastamento irreversível para fora do ecrã
+                dragConstraints={{ left: -800, right: 800, top: -500, bottom: 500 }}
                 animate={uiPosition}
                 onDragEnd={(_, info) => setUiPosition({ x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y })}
                 className={`w-full max-w-3xl space-y-6 relative flex flex-col items-center ${!isLayoutLocked ? 'cursor-grab z-[1000]' : 'z-50'}`}
@@ -443,17 +440,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 onClick={() => {
                                     if (mode === 'work' && !activeSubject) return;
 
-                                    // Hack de Autoplay: Desbloqueia o áudio silenciosamente na primeira interação
                                     if (alarmAudioRef.current && alarmAudioRef.current.paused && alarmAudioRef.current.currentTime === 0) {
                                         alarmAudioRef.current.volume = 0;
-                                        const playPromise = alarmAudioRef.current.play();
-                                        if (playPromise !== undefined) {
-                                            playPromise.then(() => {
-                                                alarmAudioRef.current.pause();
-                                                alarmAudioRef.current.currentTime = 0;
-                                                alarmAudioRef.current.volume = 1;
-                                            }).catch(() => {});
-                                        }
+                                        alarmAudioRef.current.play().then(() => {
+                                            alarmAudioRef.current.pause();
+                                            alarmAudioRef.current.currentTime = 0;
+                                            alarmAudioRef.current.volume = 1;
+                                        }).catch(() => {});
                                     }
 
                                     const next = !isRunning;
