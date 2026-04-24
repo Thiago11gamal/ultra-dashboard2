@@ -56,7 +56,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
-    // SYNCHRONOUS REFS (Para cliques ultra-rápidos à prova de falhas)
+    // SYNCHRONOUS REFS
     const sessionsRef = useRef(sessions);
     useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
 
@@ -189,170 +189,178 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             isTransitioningRef.current = true;
         }
 
-        const currentSessions = sessionsRef.current;
-        const currentTargetCycles = targetCyclesRef.current || 1;
-        const currentCompletedCycles = completedCyclesRef.current;
-        const currentAccumulated = accumulatedMinutesRef.current;
+        try {
+            const currentSessions = sessionsRef.current;
+            const currentTargetCycles = targetCyclesRef.current || 1;
+            const currentCompletedCycles = completedCyclesRef.current;
+            const currentAccumulated = accumulatedMinutesRef.current;
 
-        const isNatural = source === 'natural';
-        const completedDuration = completedMode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
+            const isNatural = source === 'natural';
+            const completedDuration = completedMode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
 
-        setSessionHistory(prev => [...prev, { type: completedMode, duration: completedDuration }]);
+            setSessionHistory(prev => [...prev, { type: completedMode, duration: completedDuration }]);
 
-        if (completedMode === 'work') {
-            onSessionComplete?.();
+            if (completedMode === 'work') {
+                onSessionComplete?.();
 
-            let sessionMinutes = 0;
-            if (isNatural) {
-                sessionMinutes = safeSettings.pomodoroWork;
+                let sessionMinutes = 0;
+                if (isNatural) {
+                    sessionMinutes = safeSettings.pomodoroWork;
+                } else {
+                    const effectiveTimeLeft = forcedTimeLeft !== null ? forcedTimeLeft : timeLeftRef.current;
+                    const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - effectiveTimeLeft;
+                    sessionMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
+                }
+
+                const newAccumulated = currentAccumulated + sessionMinutes;
+                accumulatedMinutesRef.current = newAccumulated; // Síncrono
+                setAccumulatedMinutes(newAccumulated);
+
+                if (currentSessions >= currentTargetCycles && currentTargetCycles > 0) {
+                    setIsRunning(false);
+
+                    try {
+                        if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
+                            onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
+                        }
+
+                        if (isNatural) {
+                            if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                                try {
+                                    alarmAudioRef.current.currentTime = 0;
+                                    alarmAudioRef.current.play().catch(() => { });
+                                } catch (e) { }
+                            }
+                            sendNotification('🏆 Missão Cumprida!', `Série de ${currentTargetCycles} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
+                        }
+
+                        // Reset de Refs síncronos
+                        accumulatedMinutesRef.current = 0;
+                        sessionsRef.current = 1;
+                        completedCyclesRef.current = 0;
+                        modeRef.current = 'work';
+
+                        setAccumulatedMinutes(0);
+                        onFullCycleComplete?.(newAccumulated);
+                        setSessions(1);
+                        setCompletedCycles(0);
+                        localStorage.removeItem('pomodoroState');
+                    } catch (err) {
+                        console.error("Erro na transição final:", err);
+                        onExit?.();
+                    }
+                    return;
+                }
+
+                modeRef.current = 'break';
+                setMode('break');
+                const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
+                setTimeLeft(breakTime);
+                timeLeftRef.current = breakTime;
+                setIsRunning(false);
+
+                savePomodoroState({
+                    mode: 'break',
+                    timeLeft: breakTime,
+                    isRunning: false,
+                    accumulatedMinutes: newAccumulated
+                });
+
+                if (isNatural) {
+                    if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                        try {
+                            alarmAudioRef.current.currentTime = 0;
+                            alarmAudioRef.current.play().catch(() => { });
+                        } catch (_) { }
+                    }
+                    sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
+                }
             } else {
-                const effectiveTimeLeft = forcedTimeLeft !== null ? forcedTimeLeft : timeLeftRef.current;
-                const actualElapsedSeconds = (safeSettings.pomodoroWork * 60) - effectiveTimeLeft;
-                sessionMinutes = Math.floor(Math.max(0, actualElapsedSeconds) / 60);
-            }
+                const newCompletedCycles = currentCompletedCycles + 1;
+                completedCyclesRef.current = newCompletedCycles; // Síncrono
+                setCompletedCycles(newCompletedCycles);
 
-            const newAccumulated = currentAccumulated + sessionMinutes;
-            accumulatedMinutesRef.current = newAccumulated; // Síncrono
-            setAccumulatedMinutes(newAccumulated);
+                const isTerminalBreak = currentSessions >= currentTargetCycles && currentTargetCycles > 0;
+                if (isNatural) {
+                    if (!isTerminalBreak && safeSettings.soundEnabled && alarmAudioRef.current) {
+                        try {
+                            alarmAudioRef.current.currentTime = 0;
+                            alarmAudioRef.current.play().catch(() => { });
+                        } catch (_) { }
+                    }
+                    sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
+                }
 
-            if (currentSessions >= currentTargetCycles && currentTargetCycles > 0) {
+                if (currentSessions >= currentTargetCycles && currentTargetCycles > 0) {
+                    setIsRunning(false);
+                    try {
+                        if (activeSubject && onUpdateStudyTime && currentAccumulated > 0) {
+                            onUpdateStudyTime(activeSubject.categoryId, currentAccumulated, activeSubject.taskId);
+                        }
+
+                        if (isNatural) {
+                            if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                                try {
+                                    alarmAudioRef.current.currentTime = 0;
+                                    alarmAudioRef.current.play().catch(() => { });
+                                } catch (e) { }
+                            }
+                            sendNotification('🏆 Missão Cumprida!', `Série de ${currentTargetCycles} ciclos finalizada. ${currentAccumulated} minutos salvos com sucesso!`);
+                        }
+
+                        // Reset de Refs síncronos
+                        accumulatedMinutesRef.current = 0;
+                        sessionsRef.current = 1;
+                        completedCyclesRef.current = 0;
+                        modeRef.current = 'work';
+
+                        setAccumulatedMinutes(0);
+                        onFullCycleComplete?.(currentAccumulated);
+                        setSessions(1);
+                        setCompletedCycles(0);
+                        localStorage.removeItem('pomodoroState');
+                    } catch (err) {
+                        console.error("Erro na transição final:", err);
+                        onExit?.();
+                    }
+                    return;
+                }
+
+                modeRef.current = 'work';
+                setMode('work');
+                const newSessions = currentSessions + 1;
+                sessionsRef.current = newSessions; // Síncrono
+                setSessions(newSessions);
+                const workTime = (safeSettings.pomodoroWork || 25) * 60;
+                setTimeLeft(workTime);
+                timeLeftRef.current = workTime;
                 setIsRunning(false);
 
-                try {
-                    if (activeSubject && onUpdateStudyTime && newAccumulated > 0) {
-                        onUpdateStudyTime(activeSubject.categoryId, newAccumulated, activeSubject.taskId);
-                    }
-
-                    if (isNatural) {
-                        if (safeSettings.soundEnabled && alarmAudioRef.current) {
-                            try {
-                                alarmAudioRef.current.currentTime = 0;
-                                alarmAudioRef.current.play().catch(() => { });
-                            } catch (e) { }
-                        }
-                        sendNotification('🏆 Missão Cumprida!', `Série de ${currentTargetCycles} ciclos finalizada. ${newAccumulated} minutos salvos com sucesso!`);
-                    }
-
-                    // Reset de Refs síncronos
-                    accumulatedMinutesRef.current = 0;
-                    sessionsRef.current = 1;
-                    completedCyclesRef.current = 0;
-                    modeRef.current = 'work';
-
-                    setAccumulatedMinutes(0);
-                    onFullCycleComplete?.(newAccumulated);
-                    setSessions(1);
-                    setCompletedCycles(0);
-                    localStorage.removeItem('pomodoroState');
-                } catch (err) {
-                    console.error("Erro na transição final:", err);
-                    onExit?.();
-                }
-                if (source === 'natural') isTransitioningRef.current = false;
-                return;
+                savePomodoroState({
+                    mode: 'work',
+                    timeLeft: workTime,
+                    isRunning: false,
+                    sessions: newSessions,
+                    completedCycles: newCompletedCycles
+                });
             }
-
-            modeRef.current = 'break';
-            setMode('break');
-            const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
-            setTimeLeft(breakTime);
-            timeLeftRef.current = breakTime;
-            setIsRunning(false);
-
-            savePomodoroState({
-                mode: 'break',
-                timeLeft: breakTime,
-                isRunning: false,
-                accumulatedMinutes: newAccumulated
-            });
-
-            if (isNatural) {
-                if (safeSettings.soundEnabled && alarmAudioRef.current) {
-                    try {
-                        alarmAudioRef.current.currentTime = 0;
-                        alarmAudioRef.current.play().catch(() => { });
-                    } catch (_) { }
-                }
-                sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
+        } finally {
+            if (source === 'natural') {
+                if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
+                transitionUnlockTimeoutRef.current = setTimeout(() => {
+                    isTransitioningRef.current = false;
+                }, 150);
             }
-        } else {
-            const newCompletedCycles = currentCompletedCycles + 1;
-            completedCyclesRef.current = newCompletedCycles; // Síncrono
-            setCompletedCycles(newCompletedCycles);
-
-            const isTerminalBreak = currentSessions >= currentTargetCycles && currentTargetCycles > 0;
-            if (isNatural) {
-                if (!isTerminalBreak && safeSettings.soundEnabled && alarmAudioRef.current) {
-                    try {
-                        alarmAudioRef.current.currentTime = 0;
-                        alarmAudioRef.current.play().catch(() => { });
-                    } catch (_) { }
-                }
-                sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
-            }
-
-            if (currentSessions >= currentTargetCycles && currentTargetCycles > 0) {
-                setIsRunning(false);
-                try {
-                    if (activeSubject && onUpdateStudyTime && currentAccumulated > 0) {
-                        onUpdateStudyTime(activeSubject.categoryId, currentAccumulated, activeSubject.taskId);
-                    }
-
-                    if (isNatural) {
-                        if (safeSettings.soundEnabled && alarmAudioRef.current) {
-                            try {
-                                alarmAudioRef.current.currentTime = 0;
-                                alarmAudioRef.current.play().catch(() => { });
-                            } catch (e) { }
-                        }
-                        sendNotification('🏆 Missão Cumprida!', `Série de ${currentTargetCycles} ciclos finalizada. ${currentAccumulated} minutos salvos com sucesso!`);
-                    }
-
-                    // Reset de Refs síncronos
-                    accumulatedMinutesRef.current = 0;
-                    sessionsRef.current = 1;
-                    completedCyclesRef.current = 0;
-                    modeRef.current = 'work';
-
-                    setAccumulatedMinutes(0);
-                    onFullCycleComplete?.(currentAccumulated);
-                    setSessions(1);
-                    setCompletedCycles(0);
-                    localStorage.removeItem('pomodoroState');
-                } catch (err) {
-                    console.error("Erro na transição final:", err);
-                    onExit?.();
-                }
-                if (source === 'natural') isTransitioningRef.current = false;
-                return;
-            }
-
-            modeRef.current = 'work';
-            setMode('work');
-            const newSessions = currentSessions + 1;
-            sessionsRef.current = newSessions; // Síncrono
-            setSessions(newSessions);
-            const workTime = (safeSettings.pomodoroWork || 25) * 60;
-            setTimeLeft(workTime);
-            timeLeftRef.current = workTime;
-            setIsRunning(false);
-
-            savePomodoroState({
-                mode: 'work',
-                timeLeft: workTime,
-                isRunning: false,
-                sessions: newSessions,
-                completedCycles: newCompletedCycles
-            });
-        }
-
-        if (source === 'natural') {
-            if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
-            transitionUnlockTimeoutRef.current = setTimeout(() => {
-                isTransitioningRef.current = false;
-            }, 100);
         }
     }, [safeSettings, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, setCompletedCycles, onFullCycleComplete, savePomodoroState, sendNotification, setAccumulatedMinutes, onExit]);
+
+    // Correção: Validação de alteração de metas a meio de uma pausa
+    useEffect(() => {
+        if (mode === 'break' && sessions >= targetCycles && targetCycles > 0) {
+            setIsRunning(false);
+            transitionSession('break', 'forced', 0);
+        }
+    }, [targetCycles, mode, sessions, transitionSession]);
 
     useEffect(() => {
         const initFromStorage = () => {
@@ -367,7 +375,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (msSinceSave > 24 * 60 * 60 * 1000) return;
 
                 if (parsed.isRunning && parsed.savedAt) {
-                    const elapsedSeconds = Math.floor(msSinceSave / 1000);
+                    // Correção: Multiplicador de velocidade no tempo de inatividade
+                    const elapsedSeconds = Math.floor(msSinceSave / 1000) * speedRef.current;
                     if (elapsedSeconds > 0) {
                         if (parsed.timeLeft - elapsedSeconds < -1800) {
                             localStorage.removeItem('pomodoroState');
@@ -406,7 +415,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
     }, [activeSubject, savedState, transitionSession]);
-
 
     useEffect(() => {
         if (targetCycles === 1 && defaultTargetCycles !== 1) {
@@ -460,6 +468,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [savePomodoroState]);
 
     const handleTimerComplete = useCallback(() => {
+        if (isTransitioningRef.current) return;
         setIsRunning(false);
         transitionSession(modeRef.current, 'natural', 0);
     }, [transitionSession]);
@@ -673,10 +682,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }, 150);
     };
 
-
-
+    // Correção: Recuperação dos minutos parciais do ciclo em andamento
     const handleManualExit = () => {
-        const finalMinutes = accumulatedMinutesRef.current;
+        let finalMinutes = accumulatedMinutesRef.current;
+        
+        if (modeRef.current === 'work') {
+            const totalWorkSeconds = (safeSettings.pomodoroWork || 25) * 60;
+            const elapsedSeconds = totalWorkSeconds - timeLeftRef.current;
+            const currentCycleMinutes = Math.floor(Math.max(0, elapsedSeconds) / 60);
+            finalMinutes += currentCycleMinutes;
+        }
+
         if (finalMinutes > 0 && activeSubject && onUpdateStudyTime) {
             onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
             accumulatedMinutesRef.current = 0;
@@ -939,14 +955,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             return;
                                         }
 
-                                        // Hardening: Sync ref before starting to prevent stuck at 0
-                                        if (!isRunning) {
+                                        const willRun = !isRunning;
+
+                                        // Correção: Sincronização visual segura ao pausar
+                                        if (isRunning) {
+                                            setTimeLeft(timeLeftRef.current);
+                                        } else {
+                                            // Hardening: Sincronização segura ao iniciar
                                             timeLeftRef.current = timeLeft;
                                         }
 
-                                        setIsRunning(prev => !prev);
+                                        setIsRunning(willRun);
 
-                                        if (!isRunning && alarmAudioRef.current) {
+                                        if (willRun && alarmAudioRef.current) {
                                             const audio = alarmAudioRef.current;
                                             audio.muted = true;
                                             audio.play().then(() => {
