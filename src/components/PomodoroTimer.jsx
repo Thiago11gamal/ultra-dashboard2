@@ -69,6 +69,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const saveTimeoutRef = useRef(null);
     const skipTimeoutRef = useRef(null);
     const isSkippingRef = useRef(false);
+    const isTransitioningRef = useRef(false); // NEW: State machine lock
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
@@ -139,6 +140,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
 
     const transitionSession = useCallback((completedMode, source = 'natural', forcedTimeLeft = null) => {
+        if (isTransitioningRef.current) return;
+        isTransitioningRef.current = true;
+
         if (source === 'skip') {
             if (isSkippingRef.current) return;
             isSkippingRef.current = true;
@@ -156,7 +160,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             onSessionComplete?.();
 
             let sessionMinutes = 0;
-            if (isNatural) {
+            if (isNatural || source === 'skip') {
                 sessionMinutes = safeSettings.pomodoroWork;
             } else {
                 const effectiveTimeLeft = forcedTimeLeft !== null ? forcedTimeLeft : timeLeftRef.current;
@@ -204,7 +208,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
             setTimeLeft(breakTime);
             timeLeftRef.current = breakTime; // FIX: Direct ref update
-            setIsRunning(false);
+            setIsRunning(false); // Symmetrical: Always pause after manual or natural skip
 
             savePomodoroState({
                 mode: 'break',
@@ -283,7 +287,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const workTime = (safeSettings.pomodoroWork || 25) * 60;
             setTimeLeft(workTime);
             timeLeftRef.current = workTime; // FIX: Direct ref update
-            setIsRunning(false);
+            setIsRunning(false); // Symmetrical: Always pause after manual or natural skip
             savePomodoroState({
                 mode: 'work',
                 timeLeft: workTime,
@@ -292,6 +296,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 completedCycles: newCompletedCycles
             });
         }
+        
+        // Finalize transition
+        setTimeout(() => {
+            isTransitioningRef.current = false;
+        }, 100);
     }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification, accumulatedMinutes, setAccumulatedMinutes, onExit]);
 
     useEffect(() => {
@@ -470,6 +479,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             let lastDisplayedSecond = Math.ceil(timeLeftRef.current);
 
+            // OPTIMIZATION: Cache DOM elements once per session
+            const cachedClock = clockRef.current;
+            const cachedCircle = svgCircleRef.current;
+            const cachedWorkFill = document.getElementById(`work-fill-${sessions}`);
+            const cachedBreakBall = document.getElementById(`break-ball-${sessions}`);
+            const cachedBreakWave = document.getElementById(`break-wave-${sessions}`);
+
             const tick = (now) => {
                 const deltaMs = now - lastTickTime;
                 lastTickTime = now;
@@ -477,77 +493,59 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 timeLeftRef.current = Math.max(0, timeLeftRef.current - (deltaMs / 1000) * speedRef.current);
                 const current = timeLeftRef.current;
 
-                const fraction = current / currentTotalTime;
+                const fraction = current / (currentTotalTime || 1);
                 const displaySecond = Math.ceil(current);
 
-                if (clockRef.current && displaySecond !== lastDisplayedSecond) {
+                if (cachedClock && displaySecond !== lastDisplayedSecond) {
                     const mins = Math.floor(displaySecond / 60);
                     const secs = displaySecond % 60;
-                    clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    cachedClock.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
                 }
 
-                // Sincronização do Círculo
-                if (svgCircleRef.current) {
-                    svgCircleRef.current.style.strokeDashoffset = circumference * fraction;
+                if (cachedCircle) {
+                    cachedCircle.style.strokeDashoffset = circumference * fraction;
                 }
 
-                // Sincronização das Barras Azuis (Foco)
-                const activeWorkFill = document.getElementById(`work-fill-${sessions}`);
-                if (activeWorkFill) {
-                    if (mode === 'work') {
-                        activeWorkFill.style.width = `${(1 - fraction) * 100}%`;
-                    } else {
-                        activeWorkFill.style.width = '100%';
-                    }
+                if (cachedWorkFill && mode === 'work') {
+                    cachedWorkFill.style.width = `${(1 - fraction) * 100}%`;
                 }
 
-                // Sincronização da Bolinha Verde (Descanso)
-                const activeBreakBall = document.getElementById(`break-ball-${sessions}`);
-                const activeBreakWave = document.getElementById(`break-wave-${sessions}`);
-                if (activeBreakBall && mode === 'break') {
+                if (cachedBreakBall && mode === 'break') {
                     const fillHeight = (1 - fraction) * 100;
-                    activeBreakBall.style.height = `${fillHeight}%`;
-                    if (activeBreakWave) {
-                        // The top position of the wave should move from bottom (100%) to top (0%)
-                        // But since it's a large circle, we offset it
-                        activeBreakWave.style.top = `${100 - fillHeight - 150}%`;
+                    cachedBreakBall.style.height = `${fillHeight}%`;
+                    if (cachedBreakWave) {
+                        cachedBreakWave.style.top = `${100 - fillHeight - 150}%`;
                     }
                 }
 
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
-                    // Forçamos o update do timeLeft apenas 1 vez por segundo via React
-                    // para manter sincronia com outros componentes sem sobrecarregar o render
                     setTimeLeft(current);
+                    
+                    if (current <= 0) {
+                        cancelAnimationFrame(rafId);
+                        handleTimerComplete();
+                        return;
+                    }
                 }
 
-                if (current > 0) {
-                    rafId = requestAnimationFrame(tick);
-                }
+                rafId = requestAnimationFrame(tick);
             };
 
             rafId = requestAnimationFrame(tick);
         }
         return () => cancelAnimationFrame(rafId);
-    }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+    }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, sessions, handleTimerComplete]);
 
     const isHandlingCompleteRef = React.useRef(false);
     const completeTimeoutRef = React.useRef(null);
-    useEffect(() => {
-        if (timeLeft <= 0 && isRunning && !isHandlingCompleteRef.current) {
-            isHandlingCompleteRef.current = true;
-            if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
-            completeTimeoutRef.current = setTimeout(() => {
-                handleTimerComplete();
-                isHandlingCompleteRef.current = false;
-            }, 0);
-        }
-        return () => {
-            if (completeTimeoutRef.current) clearTimeout(completeTimeoutRef.current);
-        };
-    }, [timeLeft, isRunning, handleTimerComplete]);
+    // NEW: Removed old useEffect for timeLeft <= 0 to prevent render-phase race conditions
+    // Completion logic is now handled directly inside the tick function above.
 
     const reset = () => {
+        if (isTransitioningRef.current) return;
+        isTransitioningRef.current = true;
+
         let newMode = mode;
         let newSessions = sessions;
         let newCompletedCycles = completedCycles;
@@ -581,6 +579,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const resetTime = newMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
         
         // Atualizar Estados Locais
+        setIsRunning(false); // FIX: Always pause after rewind as requested
         setMode(newMode);
         setTimeLeft(resetTime);
         timeLeftRef.current = resetTime;
@@ -605,14 +604,52 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         savePomodoroState({
             mode: newMode,
             timeLeft: resetTime,
+            isRunning: false,
             sessions: newSessions,
             completedCycles: newCompletedCycles,
             accumulatedMinutes: newAccumulatedMinutes
         });
+
+        // OPTIMIZATION: Manually clear ALL progress segments in the DOM to prevent "ghost" bars
+        // This ensures the visual state is reset before the next frame even starts
+        for (let i = 1; i <= (targetCycles || 4); i++) {
+            const fill = document.getElementById(`work-fill-${i}`);
+            if (fill) fill.style.width = i < newSessions ? '100%' : '0%';
+            
+            const ball = document.getElementById(`break-ball-${i}`);
+            if (ball) ball.style.height = i < newSessions ? '100%' : '0%';
+        }
+
+        setTimeout(() => {
+            isTransitioningRef.current = false;
+        }, 150);
     };
 
     const skip = () => {
-        setIsRunning(false);
+        if (isTransitioningRef.current) return;
+        // The isTransitioningRef will be set to true inside transitionSession
+        
+        const nextModeLabel = mode === 'work' ? 'Pausa' : 'Próximo Foco';
+        showToast(`Avançando para ${nextModeLabel}`, 'info');
+
+        // Immediate DOM synchronization for symmetry with 'Reset'
+        const nextTime = mode === 'work' ? (safeSettings.pomodoroBreak || 5) * 60 : (safeSettings.pomodoroWork || 25) * 60;
+        if (clockRef.current) {
+            const mins = Math.floor(nextTime / 60);
+            const secs = nextTime % 60;
+            clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+        if (svgCircleRef.current) {
+            const circumference = 2 * Math.PI * 110;
+            svgCircleRef.current.style.strokeDashoffset = circumference;
+        }
+
+        // Manually reset the NEXT session's bar in the DOM to prevent it from "inheriting" old widths
+        if (mode === 'break') {
+            const nextWorkFill = document.getElementById(`work-fill-${sessions + 1}`);
+            if (nextWorkFill) nextWorkFill.style.width = '0%';
+        }
+
         transitionSession(mode, 'skip');
     };
 
@@ -989,14 +1026,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     </button>
                                 </div>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{sessions}</span>
+                                    <span className="text-3xl font-black text-[#2d1a12] tabular-nums tracking-tighter">{completedCycles}</span>
                                     <span className="text-sm font-black text-[#2d1a12]/40">/ {targetCycles || 1}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Barra Segmentada de Progresso */}
-                        <div className="flex items-center gap-4 w-full">
+                        <div 
+                            key={`segments-${sessions}-${mode}`}
+                            className="flex flex-1 items-center gap-1.5 h-16 px-4"
+                        >
                             {Array.from({ length: targetCycles || 1 }).map((_, i) => (
                                 <React.Fragment key={i}>
                                     {/* Barra de Trabalho (Azul) */}
@@ -1008,9 +1048,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                 style={{
                                                     width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break'))
                                                         ? '100%'
-                                                        : (sessions === i + 1 && mode === 'work'
-                                                            ? `${(1 - timeLeft / (totalTime || 1)) * 100}%`
-                                                            : '0%')
+                                                        : '0%'
                                                 }}
                                             />
                                             {/* Icone de Check se completo */}
@@ -1043,9 +1081,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     style={{
                                                         top: (i < sessions - 1)
                                                             ? '-150%'
-                                                            : (sessions === i + 1 && mode === 'break'
-                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%`
-                                                                : '100%')
+                                                            : '100%'
                                                     }}
                                                 />
                                             </div>
