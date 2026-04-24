@@ -387,12 +387,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
+            if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
+        };
+    }, [activeSubject, savedState, transitionSession]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
             if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
             if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
-    }, [activeSubject, savedState, transitionSession]);
+    }, []);
 
 
     useEffect(() => {
