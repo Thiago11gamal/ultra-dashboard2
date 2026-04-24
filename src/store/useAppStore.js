@@ -82,6 +82,21 @@ export const useAppStore = create(
                     lastUpdated: "1970-01-01T00:00:00.000Z"
                 },
 
+                // FIX: Actions globais que faltavam e causavam Crash no Dashboard
+                setDashboardFilter: (filter) => set((state) => {
+                    state.appState.dashboardFilter = filter;
+                }),
+
+                setData: (updater) => set((state) => {
+                    const activeData = state.appState.contests[state.appState.activeId];
+                    if (activeData) {
+                        updater(activeData);
+                        state.appState.version = (state.appState.version || 0) + 1;
+                        state.appState.lastUpdated = new Date().toISOString();
+                        localStorage.setItem('ultra-sync-dirty', 'true');
+                    }
+                }),
+
                 // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
                 resetStore: () => {
                     localStorage.removeItem('pomodoroState');

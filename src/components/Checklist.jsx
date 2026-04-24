@@ -289,8 +289,11 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     )}
 
                     <div className="p-4 space-y-3 pb-8">
-                        {(category.tasks || []).length === 0 ? (
-                            <p className="text-center text-slate-500 text-sm py-2">Nenhum assunto cadastrado.</p>
+                        {/* FIX: Lógica aprimorada para evitar falsa mensagem de vazio */}
+                        {(category.originalTasks || []).length === 0 ? (
+                            <p className="text-center text-slate-500 text-sm py-2">Nenhum assunto cadastrado nesta disciplina.</p>
+                        ) : (category.tasks || []).length === 0 ? (
+                            <p className="text-center text-slate-500 text-sm py-2">Nenhum assunto encontrado para o filtro atual.</p>
                         ) : (
                             category.tasks.map(task => (
                                 <TaskItem
@@ -322,7 +325,11 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
             <PromptModal
                 isOpen={isTaskModalOpen}
                 onClose={() => setIsTaskModalOpen(false)}
-                onConfirm={(title) => onAddTask(category.id, title)}
+                // FIX: Fecha o modal logo após disparar a ação
+                onConfirm={(title) => {
+                    onAddTask(category.id, title);
+                    setIsTaskModalOpen(false);
+                }}
                 title="Novo Assunto"
                 placeholder="Nome do novo assunto..."
             />
@@ -454,7 +461,11 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             <PromptModal
                 isOpen={isCatModalOpen}
                 onClose={() => setIsCatModalOpen(false)}
-                onConfirm={(name) => onAddCategory(name)}
+                // FIX: Fecha o modal logo após disparar a ação
+                onConfirm={(name) => {
+                    onAddCategory(name);
+                    setIsCatModalOpen(false);
+                }}
                 title="Nova Disciplina"
                 placeholder="Nome da nova disciplina..."
             />
