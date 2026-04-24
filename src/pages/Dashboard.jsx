@@ -20,15 +20,24 @@ export default function Dashboard() {
     const showToast = useToast();
     const navigate = useNavigate();
 
-    // FIX: Usar o filtro do store em vez do useState local
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
-
     const activeId = useAppStore(state => state.appState.activeId);
-    const categories = useAppStore(state => state.appState.contests?.[activeId]?.categories);
-    const simuladoRows = useAppStore(state => state.appState.contests?.[activeId]?.simuladoRows);
-    const studyLogs = useAppStore(state => state.appState.contests?.[activeId]?.studyLogs);
-    const user = useAppStore(state => state.appState.contests?.[activeId]?.user);
-    const pomodorosCompleted = useAppStore(state => state.appState.contests?.[activeId]?.pomodorosCompleted);
+    
+    // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários
+    const { categories, simuladoRows, studyLogs, user, pomodorosCompleted } = useAppStore(state => state.appState.contests?.[activeId] || {});
+
+    // Filtro centralizado aplicado a todos os componentes relevantes
+    const filteredCategories = React.useMemo(() => {
+        if (filter === 'all') return categories || [];
+        return (categories || []).map(cat => ({
+            ...cat,
+            tasks: (cat.tasks || []).filter(task => {
+                if (filter === 'active') return !task.completed;
+                if (filter === 'completed') return task.completed;
+                return true;
+            })
+        }));
+    }, [categories, filter]);
 
     const data = React.useMemo(() => ({
         categories, simuladoRows, studyLogs, user, pomodorosCompleted
@@ -60,17 +69,20 @@ export default function Dashboard() {
                 source: 'dashboard'
             });
 
-            // Set studying status
+            // Set studying status garantindo que opera apenas no concurso ativo
             setData(draft => {
-                (draft.categories || []).forEach(c => {
-                    (c.tasks || []).forEach(t => {
-                        if (t.id === tsk.id && c.id === cat.id) {
-                            t.status = 'studying';
-                        } else if (t.status === 'studying') {
-                            t.status = undefined;
-                        }
+                const activeContest = draft.appState?.contests?.[activeId];
+                if (activeContest && activeContest.categories) {
+                    activeContest.categories.forEach(c => {
+                        (c.tasks || []).forEach(t => {
+                            if (t.id === tsk.id && c.id === cat.id) {
+                                t.status = 'studying';
+                            } else if (t.status === 'studying') {
+                                t.status = undefined;
+                            }
+                        });
                     });
-                });
+                }
             });
             showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
             navigate('/pomodoro');
@@ -85,24 +97,14 @@ export default function Dashboard() {
 
             <div className="tour-step-5">
                 <NextGoalCard
-                    categories={data.categories}
+                    categories={filteredCategories}
                     simulados={data.simuladoRows || []}
                     studyLogs={data.studyLogs || []}
                     onStartStudying={handleStartStudying}
                 />
             </div>
 
-            <PriorityProgress categories={(() => {
-                if (filter === 'all') return data.categories;
-                return (data.categories || []).map(cat => ({
-                    ...cat,
-                    tasks: (cat.tasks || []).filter(task => {
-                        if (filter === 'active') return !task.completed;
-                        if (filter === 'completed') return task.completed;
-                        return true;
-                    })
-                }));
-            })()} />
+            <PriorityProgress categories={filteredCategories} />
 
             <div className="mt-4 tour-step-6">
                 <Checklist

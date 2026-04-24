@@ -13,28 +13,23 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             monthOffset > 0 ? addMonths(base, monthOffset) : base;
     }, [monthOffset]);
 
-    // Generate calendar data
     const calendarData = useMemo(() => {
         const start = startOfMonth(currentMonth);
         const end = endOfMonth(currentMonth);
         const days = eachDayOfInterval({ start, end });
 
-        // Create a map of date -> minutes studied
         const studyMap = {};
         studyLogs.forEach(log => {
-            // PERFORMANCE-02: Use centralized normalizeDate to avoid timezone drift
             const rawDate = normalizeDate(log.date);
             if (!rawDate) return;
             const dateKey = format(rawDate, 'yyyy-MM-dd');
             studyMap[dateKey] = (studyMap[dateKey] || 0) + (log.minutes || 0);
         });
 
-        // Build week rows
         const weeks = [];
         let currentWeek = [];
 
-        // Add empty cells for days before month starts
-        const startDay = getDay(start); // 0 = Sunday
+        const startDay = getDay(start);
         for (let i = 0; i < startDay; i++) {
             currentWeek.push(null);
         }
@@ -62,7 +57,6 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             }
         });
 
-        // Add remaining days
         if (currentWeek.length > 0) {
             while (currentWeek.length < 7) {
                 currentWeek.push(null);
@@ -70,7 +64,6 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             weeks.push(currentWeek);
         }
 
-        // Stats — filter to current month only
         const totalDays = days.length;
         const monthKeys = new Set(days.map(day => format(day, 'yyyy-MM-dd')));
         const studiedDays = days.filter(day => {
@@ -81,26 +74,27 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
             .filter(([key]) => monthKeys.has(key))
             .reduce((acc, [, mins]) => acc + mins, 0);
 
-        const h = Math.floor(totalMinutes / 60);
-        const m = Math.round(totalMinutes % 60);
+        // Otimização: Arredondamento antes da divisão previne bugs como "1h 60m"
+        const roundedTotalMins = Math.round(totalMinutes);
+        const h = Math.floor(roundedTotalMins / 60);
+        const m = roundedTotalMins % 60;
         const totalTimeStr = `${h}h${m > 0 ? ` ${m}m` : ''}`;
 
         return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };
     }, [currentMonth, studyLogs]);
 
     const levelColors = [
-        'bg-slate-800/40 border-white/5', // 0 - No study
-        'bg-emerald-900/40 border-emerald-800/50', // 1 - < 30 min
-        'bg-emerald-600/50 border-emerald-500/50', // 2 - 30-60 min
-        'bg-emerald-500/80 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)]', // 3 - 60-120 min
-        'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900', // 4 - > 120 min
+        'bg-slate-800/40 border-white/5',
+        'bg-emerald-900/40 border-emerald-800/50',
+        'bg-emerald-600/50 border-emerald-500/50',
+        'bg-emerald-500/80 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)]',
+        'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900',
     ];
 
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     return (
         <div className="w-full max-w-2xl mx-auto">
-            {/* Month Navigation */}
             <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -126,7 +120,6 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                 </div>
             </div>
 
-            {/* Week Day Labels */}
             <div className="grid grid-cols-7 gap-2 mb-3">
                 {weekDays.map(day => (
                     <div key={day} className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
@@ -135,22 +128,22 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                 ))}
             </div>
 
-            {/* Calendar Grid */}
             <div className="grid grid-cols-7 gap-2">
                 {calendarData.weeks.flatMap((week, weekIndex) => 
                     week.map((day, dayIndex) => (
                         <div
                             key={`${weekIndex}-${dayIndex}`}
+                            tabIndex={day ? 0 : -1}
+                            aria-label={day ? `${Math.round(day.minutes)} minutos estudados em ${format(day.date, "dd 'de' MMMM", { locale: ptBR })}` : 'Sem dados de estudo'}
                             className={`
-                                w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative
+                                w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative focus:outline-none focus:ring-2 focus:ring-emerald-400
                                 ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}
                                 ${day?.isToday ? 'ring-2 ring-emerald-500 ring-inset z-10' : ''}
                                 ${day ? 'hover:scale-110 hover:z-20 hover:border-white/50' : ''}
                             `}
                         >
-                            {/* Tooltip Premium com Enquadramento Dinâmico */}
                             {day && (
-                                <div className={`absolute bottom-full mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0 ${dayIndex === 0 ? 'left-[-10px]' : dayIndex === 6 ? 'right-[-10px]' : 'left-1/2 -translate-x-1/2'}`}>
+                                <div className={`absolute bottom-full mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0 focus-within:opacity-100 focus-within:translate-y-0 ${dayIndex === 0 ? 'left-[-10px]' : dayIndex === 6 ? 'right-[-10px]' : 'left-1/2 -translate-x-1/2'}`}>
                                     <div className={`absolute -bottom-2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45 ${dayIndex === 0 ? 'left-6' : dayIndex === 6 ? 'right-6' : 'left-1/2 -translate-x-1/2'}`}></div>
                                     <p className="relative z-10 text-[10px] text-slate-400 font-bold capitalize mb-1 tracking-widest">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
                                     <p className="relative z-10 text-sm font-black text-white">
@@ -165,9 +158,7 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                 )}
             </div>
 
-            {/* Legend & Stats */}
             <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-                {/* Legend */}
                 <div className="flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-full border border-white/5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Menos</span>
                     <div className="flex gap-1.5 mx-2">
@@ -178,7 +169,6 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mais</span>
                 </div>
 
-                {/* Stats */}
                 <div className="flex items-center gap-4 bg-slate-900/50 px-5 py-2.5 rounded-2xl border border-white/5">
                     <div className="text-center">
                         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Dias Ativos</div>
