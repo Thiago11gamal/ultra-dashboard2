@@ -68,6 +68,28 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         stateRefs.current = { mode, timeLeft, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes };
     }, [mode, timeLeft, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes]);
 
+    useEffect(() => {
+        if (!activeSubject?.taskId || !activeSubject?.sessionInstanceId) return;
+        try {
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                activeTaskId: activeSubject.taskId,
+                sessionInstanceId: activeSubject.sessionInstanceId,
+                mode,
+                timeLeft,
+                isRunning
+            }));
+        } catch (_) { }
+    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode, timeLeft, isRunning]);
+
+    useEffect(() => {
+        if (!activeSubject) {
+            setIsRunning(false);
+            setMode('work');
+            setTimeLeft(safeSettings.pomodoroWork * 60);
+            localStorage.removeItem('pomodoroState');
+        }
+    }, [activeSubject, safeSettings.pomodoroWork]);
+
     const speedRef = useRef(1);
     const [speed, setSpeed] = useState(1);
     useEffect(() => { speedRef.current = speed; }, [speed]);
@@ -91,6 +113,20 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
         } catch (_) { return { x: 0, y: 0 }; }
     });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked));
+            localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition));
+        } catch (_) { }
+    }, [isLayoutLocked, uiPosition]);
+
+    useEffect(() => {
+        const safeTarget = Number(targetCycles);
+        if (!Number.isFinite(safeTarget) || safeTarget < 1) {
+            setTargetCycles(Math.max(1, Number(defaultTargetCycles) || 1));
+        }
+    }, [targetCycles, defaultTargetCycles, setTargetCycles]);
 
     useEffect(() => {
         try { alarmAudioRef.current = new Audio('/sounds/alarm.wav'); } catch (_) { }
