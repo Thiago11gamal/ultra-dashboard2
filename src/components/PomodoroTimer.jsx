@@ -83,6 +83,13 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const speedRef = useRef(speed || 1);
     useEffect(() => { speedRef.current = speed; }, [speed]);
 
+    // FIX: Sync ref with state when not running (for reset/skip/transition)
+    useEffect(() => {
+        if (!isRunning) {
+            timeLeftRef.current = timeLeft;
+        }
+    }, [timeLeft, isRunning]);
+
     const [uiPosition, setUiPosition] = useState(() => {
         try {
             const saved = localStorage.getItem('pomodoroPosition');
@@ -196,6 +203,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setMode('break');
             const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
             setTimeLeft(breakTime);
+            timeLeftRef.current = breakTime; // FIX: Direct ref update
             setIsRunning(false);
 
             savePomodoroState({
@@ -274,6 +282,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setSessions(newSessions);
             const workTime = (safeSettings.pomodoroWork || 25) * 60;
             setTimeLeft(workTime);
+            timeLeftRef.current = workTime; // FIX: Direct ref update
             setIsRunning(false);
             savePomodoroState({
                 mode: 'work',
@@ -542,6 +551,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setIsRunning(false);
         const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         setTimeLeft(resetTime);
+        timeLeftRef.current = resetTime; // FIX: Direct ref update
         savePomodoroState({
             timeLeft: resetTime,
             isRunning: false
@@ -978,11 +988,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                     id={`break-wave-${i + 1}`}
                                                     className="liquid-wave"
                                                     style={{
-                                                        transform: (i < sessions - 1)
-                                                            ? 'translateY(-150%)'
+                                                        top: (i < sessions - 1)
+                                                            ? '-150%'
                                                             : (sessions === i + 1 && mode === 'break'
-                                                                ? `translateY(${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%)`
-                                                                : 'translateY(100%)')
+                                                                ? `${100 - (1 - timeLeft / (totalTime || 1)) * 100 - 150}%`
+                                                                : '100%')
                                                     }}
                                                 />
                                             </div>
