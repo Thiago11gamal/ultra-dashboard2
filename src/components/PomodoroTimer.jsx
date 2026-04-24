@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap } from 'lucide-react';
+import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap, SkipForward } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
@@ -488,9 +488,11 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                     <h2 className="text-3xl font-black text-[#2d1a12] tracking-tight truncate">{activeSubject.task}</h2>
                                     <span className="text-[10px] font-black text-[#8b5e3c] uppercase tracking-[0.2em] truncate">MATÉRIA: {activeSubject.category}</span>
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); setIsLayoutLocked(!isLayoutLocked); }} className="absolute right-8 text-[#2d1a12]/40 hover:text-[#2d1a12] cursor-pointer">
-                                    {isLayoutLocked ? <Lock size={20} /> : <Unlock size={20} />}
-                                </button>
+                                <div className="absolute right-8 flex items-center gap-4">
+                                    <button onClick={(e) => { e.stopPropagation(); setIsLayoutLocked(!isLayoutLocked); }} className="text-[#2d1a12]/40 hover:text-[#2d1a12] cursor-pointer transition-colors">
+                                        {isLayoutLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                                    </button>
+                                </div>
                             </motion.div>
                         ) : mode === 'break' ? (
                             <div className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 border border-emerald-500/30 rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)]">
@@ -513,6 +515,19 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}
                     className="w-full border-[6px] border-[#3f2e26] pt-12 pb-20 px-10 rounded-xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a]"
                 >
+                    <div className="absolute top-4 right-6 z-[60]">
+                        <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
+                            {[1, 10, 100].map(s => (
+                                <button 
+                                    key={s} 
+                                    onClick={() => setSpeed(s)} 
+                                    className={`w-12 h-9 rounded-lg text-[11px] font-black transition-all ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-[0_0_15px_rgba(176,142,107,0.4)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    {s}X
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="flex items-center gap-6 mb-12 z-30">
                         <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
@@ -584,12 +599,8 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         </div>
 
                         <div className="flex flex-col items-center gap-3">
-                            <div className="flex bg-black/30 p-2 rounded-2xl border border-white/5">
-                                {[1, 10, 100].map(s => (
-                                    <button key={s} onClick={() => setSpeed(s)} className={`w-10 h-8 rounded-lg text-[10px] font-black ${speed === s ? 'bg-white text-black' : 'text-white/40'}`}>{s}X</button>
-                                ))}
-                            </div>
-                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">VELOCIDADE</span>
+                            <button onClick={skip} className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center shadow-lg transition-all active:scale-95"><SkipForward size={24} /></button>
+                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">PULAR</span>
                         </div>
                     </div>
                 </div>
@@ -600,8 +611,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DOS CICLOS</h3>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-3 bg-white/10 p-1 rounded-lg">
-                                    <button onClick={skip} className="px-3 py-1.5 rounded-md bg-white/10 text-[#2d1a12] text-[10px] font-black hover:bg-white/20 transition-all uppercase tracking-widest">Pular</button>
-                                    <div className="w-px h-3 bg-[#2d1a12]/20" />
                                     <div className="flex items-center gap-1 px-1">
                                         <button onClick={() => {
                                             const current = stateRefs.current;
