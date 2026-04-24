@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
 import PromptModal from './PromptModal';
 
@@ -333,7 +334,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                 title="Novo Assunto"
                 placeholder="Nome do novo assunto..."
             />
-            {isConfirmDeleteOpen && (
+            {isConfirmDeleteOpen && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsConfirmDeleteOpen(false)} />
                     <div className="bg-slate-900 border border-red-500/50 rounded-2xl w-full max-w-sm shadow-2xl relative z-10 p-6 flex flex-col items-center text-center">
@@ -345,7 +346,8 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                             <button onClick={() => { setIsConfirmDeleteOpen(false); onDeleteCategory(category.id); }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20">Excluir</button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div >
     );
