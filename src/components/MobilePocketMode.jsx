@@ -55,12 +55,13 @@ export default function MobilePocketMode({
                     <div className="animate-fade-in pb-24">
                         <PomodoroTimer
                             settings={data.settings}
-                            onUpdateSettings={actions.updatePomodoroSettings}
                             activeSubject={activeSubject}
                             onFullCycleComplete={actions.finishStudying}
                             categories={data.categories}
-                            onStartStudying={actions.startStudying}
                             onUpdateStudyTime={actions.handleUpdateStudyTime}
+                            onExit={onExitPocketMode}
+                            onSessionComplete={() => {}}
+                            defaultTargetCycles={1}
                         />
                     </div>
                 ) : (

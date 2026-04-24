@@ -400,7 +400,7 @@ export default function Pomodoro() {
                     category: cat.name,
                     task: tsk.title || tsk.text || 'Estudo',
                     priority: tsk.priority,
-                    source: 'dashboard'
+                    source: location.state?.from || 'dashboard'
                 });
             }
         }
