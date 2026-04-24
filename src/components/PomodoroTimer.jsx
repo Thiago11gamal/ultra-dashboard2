@@ -82,10 +82,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
-    const skipTimeoutRef = useRef(null);
     const resumeTransitionTimeoutRef = useRef(null);
     const transitionUnlockTimeoutRef = useRef(null);
-    const isSkippingRef = useRef(false);
     const isTransitioningRef = useRef(false); // NEW: State machine lock
 
     const clockRef = useRef(null);
@@ -176,15 +174,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, []);
 
     const transitionSession = useCallback((completedMode, source = 'natural', forcedTimeLeft = null) => {
-        if (source === 'skip' && isSkippingRef.current) return;
         if (isTransitioningRef.current) return;
         isTransitioningRef.current = true;
-
-        if (source === 'skip') {
-            isSkippingRef.current = true;
-            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
-            skipTimeoutRef.current = setTimeout(() => { isSkippingRef.current = false; }, 500);
-        }
 
         const isNatural = source === 'natural';
         const completedDuration = completedMode === 'work' ? safeSettings.pomodoroWork : safeSettings.pomodoroBreak;
@@ -395,7 +386,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
             if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
             if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
