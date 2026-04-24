@@ -51,7 +51,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
-    const [isLayoutLocked, setIsLayoutLocked] = useState(true);
+    const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        try {
+            const saved = localStorage.getItem('pomodoroLayoutLocked');
+            return saved ? JSON.parse(saved) : true;
+        } catch { return true; }
+    });
+
+    const toggleLayoutLock = (e) => {
+        e.stopPropagation();
+        const newState = !isLayoutLocked;
+        setIsLayoutLocked(newState);
+        try {
+            localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
+        } catch { }
+    };
     const [speed, setSpeed] = useState(1);
     const [showWarning, setShowWarning] = useState(false);
     const showToast = useToast();
@@ -454,9 +469,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
 
         // Lidar com visibilidade da página (Wake lock cai se a aba ficar oculta)
-        const handleVisibilityChange = () => {
+        const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible' && isRunning) {
-                requestWakeLock();
+                // CORREÇÃO: Limpar o lock antigo antes de pedir um novo
+                await releaseWakeLock();
+                await requestWakeLock();
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -781,10 +798,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                     </span>
                                 </div>
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsLayoutLocked(!isLayoutLocked);
-                                    }}
+                                    onClick={toggleLayoutLock}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="absolute right-8 top-1/2 -translate-y-1/2 text-[#2d1a12]/40 hover:text-[#2d1a12] transition-colors z-[1100] cursor-pointer"
                                 >

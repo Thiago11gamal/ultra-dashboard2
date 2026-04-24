@@ -128,6 +128,22 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
         } catch { return { x: 0, y: 0 }; }
     });
 
+    useEffect(() => {
+        const checkPos = () => {
+            if (uiPosition.x !== 0 || uiPosition.y !== 0) {
+                const threshold = 100;
+                // Se o painel for arrastado para muito longe e o ecrã redimensionar, volta à origem
+                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
+                    Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
+                    setUiPosition({ x: 0, y: 0 });
+                    localStorage.removeItem('focusPanelPosition');
+                }
+            }
+        };
+        window.addEventListener('resize', checkPos);
+        return () => window.removeEventListener('resize', checkPos);
+    }, [uiPosition]);
+
     const handleDragEnd = (event, info) => {
         const newPos = {
             x: uiPosition.x + info.offset.x,
@@ -420,7 +436,7 @@ export default function Pomodoro() {
         if (source === 'neural_core' && !useAppStore.getState().appState.pomodoro.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
-                cat.tasks.filter(t => !t.completed && t.priority === 'high').forEach(t => {
+                (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
                     highPriority.push({ ...t, categoryId: cat.id, catName: cat.name });
                 });
             });
