@@ -146,14 +146,12 @@ export const useAppStore = create(
                         const contestsList = Object.keys(appState.contests || {});
                         let needsUpdate = false;
                         
-                        // Sanity Check 1: ID Ativo perdido ou inválido
+                        // BUG 3 FIX: Correct mutation pattern for Immer.
+                        // Direct mutation of the draft state is safer and more efficient.
                         if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            useAppStore.setState((state) => ({
-                                appState: {
-                                    ...state.appState,
-                                    activeId: contestsList[0]
-                                }
-                            }));
+                            useAppStore.setState((state) => {
+                                state.appState.activeId = contestsList[0];
+                            });
                         }
 
                         // Acionar a mutação de forma segura através dos métodos da store, se necessário

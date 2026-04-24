@@ -110,11 +110,12 @@ export default function MonteCarloGauge({
 
     const timelineHash = timelineDates.join(',');
     useEffect(() => {
-        // L2 FIX: Reset timeIndex when dates actually change, not just when their
-        // count changes. If a date is edited/replaced but the total stays the same,
-        // timeIndex would point to the wrong date.
-        setTimeIndex(-1);
-    }, [timelineHash]);
+        // BUG 4 FIX: Only reset timeIndex if it becomes invalid for the new timeline.
+        // Aggressive reset on every hash change disrupted historical analysis.
+        if (timeIndex >= timelineDates.length) {
+            setTimeIndex(-1);
+        }
+    }, [timelineHash, timelineDates.length, timeIndex]);
 
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
@@ -131,9 +132,11 @@ export default function MonteCarloGauge({
 
         let goal;
         if (typeof goalDate === 'string') {
+            // BUG 5 FIX: Standardize all dates to Local Time to prevent "Timezone Drift" (+/- 1 day error).
+            // Converting UTC format to Local ensures subtraction is anchored to the user's current day.
             if (goalDate.includes('T')) {
                 const g = new Date(goalDate);
-                goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+                goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
             } else {
                 const p = goalDate.split('-');
                 if (p.length === 3) {
@@ -148,7 +151,7 @@ export default function MonteCarloGauge({
         goal.setHours(0, 0, 0, 0);
 
         if (isNaN(goal.getTime())) return 30;
-        const diffTime = goal - currentDate;
+        const diffTime = goal.getTime() - currentDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
     }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
@@ -508,12 +511,22 @@ export default function MonteCarloGauge({
 
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
-            recordMonteCarloSnapshot(today, Number(prob.toFixed(1)), {
-                mean: Number(currentMean.toFixed(1)),
-                target: Number(debouncedTarget.toFixed(1))
-            });
+            const currentProb = Number(prob.toFixed(1));
+            
+            // BUG 1 FIX: Infinite Render Loop Protection.
+            // Only update snapshot if values actually changed. Updating appState triggers
+            // categories re-render, which could re-trigger the simulation in a loop.
+            const history = useAppStore.getState().appState.contests[activeId]?.monteCarloHistory || {};
+            const existing = history[today];
+            
+            if (!existing || existing.prob !== currentProb || existing.target !== Number(debouncedTarget.toFixed(1))) {
+                recordMonteCarloSnapshot(today, currentProb, {
+                    mean: Number(currentMean.toFixed(1)),
+                    target: Number(debouncedTarget.toFixed(1))
+                });
+            }
         }
-    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, debouncedTarget]);
+    }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, debouncedTarget, activeId]);
 
     const stableUpdateWeight = useCallback((name, p) => {
         setWeights((prevWeights) => ({ ...(prevWeights || {}), [name]: p }));
@@ -579,9 +592,12 @@ export default function MonteCarloGauge({
 
 
     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-    // M1 FIX: Clamp prob to [0,100] — floating-point may produce 100.0003,
-    // causing strokeDasharray="100.0003 -0.0003" which is invalid SVG.
+    // BUG 6 FIX: Absolute clamping and rounding for SVG strokeDasharray.
+    // Floating point noise (e.g. 100.00000000001) could lead to negative offsets 
+    // and crash rendering in sensitive browsers like Safari.
     const prob = Math.min(100, Math.max(0, safe(probability)));
+    const roundedProb = Math.round(prob * 100) / 100;
+    const inverseProb = Math.max(0, 100 - roundedProb);
 
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 
@@ -689,7 +705,7 @@ export default function MonteCarloGauge({
                                 strokeWidth="10"
                                 strokeLinecap="round"
                                 pathLength="100"
-                                strokeDasharray={`${prob} ${100 - prob}`}
+                                strokeDasharray={`${roundedProb} ${inverseProb}`}
                                 strokeDashoffset={0}
                                 style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
                             />

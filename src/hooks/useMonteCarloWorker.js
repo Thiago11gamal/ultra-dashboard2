@@ -95,9 +95,28 @@ export function useMonteCarloWorker() {
             const timeoutId = setTimeout(() => {
                 if (pendingRequestsRef.current.has(id)) {
                     pendingRequestsRef.current.delete(id);
-                    console.warn(`[MC Worker] Request ${id} timed out.`);
-                    // FIX 2: Não fazer fallback para a main thread se o worker deu timeout.
-                    // Se o worker não conseguiu em 10s, a thread principal vai travar a UI se tentar.
+                    console.warn(`[MC Worker] Request ${id} timed out. Recycling worker thread.`);
+                    
+                    // BUG 2 FIX: Kill the zombie worker that is still looping in background.
+                    // If we just reject, the worker continues to burn CPU.
+                    if (workerRef.current) {
+                        workerRef.current.terminate();
+                        workerRef.current = null;
+                        
+                        // Instantiate a fresh worker for subsequent requests.
+                        try {
+                            const newWorker = new Worker(
+                                new URL('../engine/mc.worker.js', import.meta.url),
+                                { type: 'module' }
+                            );
+                            newWorker.onmessage = worker.onmessage;
+                            newWorker.onerror = worker.onerror;
+                            workerRef.current = newWorker;
+                        } catch (e) {
+                            console.error('[MC Worker] Failed to recycle worker:', e);
+                        }
+                    }
+                    
                     reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
             }, 10000);
