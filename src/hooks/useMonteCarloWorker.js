@@ -63,6 +63,7 @@ export function useMonteCarloWorker() {
             // Limpa pendentes e timeouts deste worker específico
             for (const [id, pending] of pendingRequestsRef.current) {
                 if (pending.timeoutId) clearTimeout(pending.timeoutId);
+                pending.reject(new Error('Worker foi encerrado (component unmounted).'));
                 pendingRequestsRef.current.delete(id);
             }
         };

@@ -516,8 +516,8 @@ export default function MonteCarloGauge({
     }, [simulationData?.status, simulationData?.data?.probability, effectiveSimulateToday, recordMonteCarloSnapshot, timeIndex, timelineDates, currentMean, debouncedTarget]);
 
     const stableUpdateWeight = useCallback((name, p) => {
-        setWeights({ ...(weights || {}), [name]: p });
-    }, [setWeights, weights]);
+        setWeights((prevWeights) => ({ ...(prevWeights || {}), [name]: p }));
+    }, [setWeights]);
 
     const sd = simulationData?.data?.sd ?? 0;
     const sdLeft = simulationData?.data?.sdLeft ?? sd;
@@ -722,7 +722,7 @@ export default function MonteCarloGauge({
                                 Simulando...
                             </span>
                         ) : (
-                            "Resumo Estatístico"
+                            message
                         )}
                     </span>
 

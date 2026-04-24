@@ -89,18 +89,21 @@ export const createCategorySlice = (set, get) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
-    setMonteCarloWeights: (weights) => set((state) => {
+    setMonteCarloWeights: (weightsUpdate) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
-        if (!activeData || !weights) return;
+        if (!activeData || !weightsUpdate) return;
 
-        activeData.mcWeights = weights;
+        const currentWeights = activeData.mcWeights || {};
+        const nextWeights = typeof weightsUpdate === 'function' ? weightsUpdate(currentWeights) : weightsUpdate;
+
+        activeData.mcWeights = nextWeights;
         if (activeData.categories) {
             activeData.categories.forEach(cat => {
-                if (weights[cat.id] !== undefined) {
-                    cat.weight = weights[cat.id];
-                } else if (weights[cat.name] !== undefined) {
-                    cat.weight = weights[cat.name];
+                if (nextWeights[cat.id] !== undefined) {
+                    cat.weight = nextWeights[cat.id];
+                } else if (nextWeights[cat.name] !== undefined) {
+                    cat.weight = nextWeights[cat.name];
                 }
             });
         }

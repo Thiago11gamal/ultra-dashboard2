@@ -37,7 +37,7 @@ const idbStorage = {
                 return localValue;
             } catch (e) {
                 console.error("[Storage] Migration failed, falling back to local memory.", e);
-                return null;
+                return localValue;
             }
         }
         return null;
@@ -148,8 +148,12 @@ export const useAppStore = create(
                         
                         // Sanity Check 1: ID Ativo perdido ou inválido
                         if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            appState.activeId = contestsList[0];
-                            needsUpdate = true;
+                            useAppStore.setState((state) => ({
+                                appState: {
+                                    ...state.appState,
+                                    activeId: contestsList[0]
+                                }
+                            }));
                         }
 
                         // Acionar a mutação de forma segura através dos métodos da store, se necessário
