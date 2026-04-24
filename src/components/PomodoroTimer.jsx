@@ -4,7 +4,40 @@ import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
 
-export default function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
+// 🛡️ [SHIELD-01] PomodoroErrorBoundary: Impede que erros internos derrubem o Dashboard
+class PomodoroErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() { return { hasError: true }; }
+    componentDidCatch(error, errorInfo) {
+        console.error("Critical Pomodoro Failure:", error, errorInfo);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="w-full p-8 bg-red-950/20 border border-red-500/30 rounded-xl flex flex-col items-center gap-4 text-center">
+                    <AlertCircle className="text-red-500" size={48} />
+                    <h2 className="text-xl font-black text-red-500 uppercase tracking-widest">Protocolo de Emergência Ativado</h2>
+                    <p className="text-sm text-red-200/60 max-w-md">O motor do cronómetro encontrou uma instabilidade crítica. Os seus dados foram preservados.</p>
+                    <button 
+                        onClick={() => {
+                            localStorage.removeItem('pomodoroState');
+                            window.location.reload();
+                        }}
+                        className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-black rounded-lg transition-all uppercase text-xs tracking-widest"
+                    >
+                        Reiniciar Motor Neural
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
     const safeSettings = useMemo(() => ({
         pomodoroWork: settings?.pomodoroWork || 25,
@@ -108,8 +141,30 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         try {
             const saved = localStorage.getItem('pomodoroPosition');
             return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch (_) { return { x: 0, y: 0 }; }
+        } catch (_) { 
+            console.warn('[Shield] Failed to load UI position');
+            return { x: 0, y: 0 }; 
+        }
     });
+
+    // 🛡️ [SHIELD-02] Prop Safety Wrappers
+    const safeOnUpdateStudyTime = useCallback((...args) => {
+        if (typeof onUpdateStudyTime === 'function' && isMountedRef.current) {
+            try { onUpdateStudyTime(...args); } catch (e) { console.error('[Shield] Callback Error (onUpdateStudyTime):', e); }
+        }
+    }, [onUpdateStudyTime]);
+
+    const safeOnFullCycleComplete = useCallback((...args) => {
+        if (typeof onFullCycleComplete === 'function' && isMountedRef.current) {
+            try { onFullCycleComplete(...args); } catch (e) { console.error('[Shield] Callback Error (onFullCycleComplete):', e); }
+        }
+    }, [onFullCycleComplete]);
+
+    const safeOnExit = useCallback((...args) => {
+        if (typeof onExit === 'function' && isMountedRef.current) {
+            try { onExit(...args); } catch (e) { console.error('[Shield] Callback Error (onExit):', e); }
+        }
+    }, [onExit]);
 
     // Sincronização Multi-Aba
     useEffect(() => {
@@ -197,8 +252,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const sessionMinutes = (completedMode === 'work' && !isManual) ? (safeSettings.pomodoroWork || 25) : 0;
         const finalMinutes = stateRefs.current.accumulatedMinutes + sessionMinutes;
 
-        if (isEndingCycle && onUpdateStudyTime && activeSubject) {
-            onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
+        if (isEndingCycle && activeSubject) {
+            safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
 
         // completePomodoroPhase(isManual); // Mover para dentro do setTimeout
@@ -235,8 +290,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
             isTransitioningRef.current = false;
 
-            if (isEndingCycle && onFullCycleComplete) {
-                onFullCycleComplete(finalMinutes);
+            if (isEndingCycle) {
+                safeOnFullCycleComplete(finalMinutes);
             }
         }, 50);
     }, [safeSettings, completePomodoroPhase, savePomodoroState, onUpdateStudyTime, activeSubject, onFullCycleComplete]);
@@ -345,12 +400,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const totalWorkSeconds = safeSettings.pomodoroWork * 60;
             finalMinutes += Math.floor(Math.max(0, totalWorkSeconds - current.timeLeft) / 60);
         }
-        if (finalMinutes > 0 && activeSubject && onUpdateStudyTime) {
-            onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
+        if (finalMinutes > 0 && activeSubject) {
+            safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
         setAccumulatedMinutes(0);
-        localStorage.removeItem('pomodoroState');
-        onExit();
+        try { localStorage.removeItem('pomodoroState'); } catch(_) {}
+        safeOnExit();
     };
 
     const formatTime = (seconds) => {
@@ -554,5 +609,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
             </motion.div>
         </div>
+    );
+}
+
+// 🛡️ [SHIELD-03] Export Blindado
+export default function ProtectedPomodoro(props) {
+    return (
+        <PomodoroErrorBoundary>
+            <PomodoroTimer {...props} />
+        </PomodoroErrorBoundary>
     );
 }
