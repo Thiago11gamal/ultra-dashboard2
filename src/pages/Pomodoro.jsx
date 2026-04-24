@@ -4,12 +4,20 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Target, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight, BrainCircuit, Zap, AlertTriangle, Flame, Sparkles, Lock, Unlock, RotateCcw, Loader2 } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 
-// --- NOVO COMPONENTE: AI Productivity Coach ---
+// CORREÇÃO CRÍTICA: Proteção contra undefined no Painel IA
 function AICoachPanel({ activeSubject, stats }) {
-    const insight = getCoachInsight(activeSubject, stats);
+    const defaultInsight = {
+        title: 'Sistema Ativo',
+        text: 'Pronto para iniciar os seus ciclos de foco.',
+        color: 'indigo',
+        iconType: 'Brain'
+    };
+    
+    // Fallback absoluto caso a função de inteligência crashe
+    const insight = getCoachInsight(activeSubject, stats) || defaultInsight;
 
     const icons = {
         'Brain': <BrainCircuit size={42} strokeWidth={1.5} />,
@@ -44,9 +52,10 @@ function AICoachPanel({ activeSubject, stats }) {
         }
     };
 
-    const theme = colorMap[insight.color] || colorMap.indigo;
+    const theme = colorMap[insight?.color] || colorMap.indigo;
 
     const formatText = (text) => {
+        if (!text) return '';
         return text.split('**').map((part, i) =>
             i % 2 === 1 ? <strong key={i} className={`font-black text-white ${theme.text} drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]`}>{part}</strong> : part
         );
@@ -58,14 +67,11 @@ function AICoachPanel({ activeSubject, stats }) {
             animate={{ opacity: 1, scale: 1 }}
             className={`relative rounded-xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-xl p-8 mb-8 overflow-hidden group shadow-2xl`}
         >
-            {/* Background Animated Gradient */}
             <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-40 pointer-events-none`} />
 
-            {/* Cyber Grid Overlay */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-            {/* Scanline Effect */}
             <motion.div
                 animate={{ top: ['-100%', '200%'] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
@@ -80,7 +86,7 @@ function AICoachPanel({ activeSubject, stats }) {
                         className={`absolute inset-0 rounded-full blur-2xl ${theme.accent}`}
                     />
                     <div className={`relative w-20 h-20 rounded-3xl border ${theme.border} bg-black/40 flex items-center justify-center ${theme.text} shadow-inner`}>
-                        {icons[insight.iconType] || <BrainCircuit size={42} />}
+                        {icons[insight?.iconType] || <BrainCircuit size={42} />}
                     </div>
                 </div>
 
@@ -94,12 +100,12 @@ function AICoachPanel({ activeSubject, stats }) {
                     </div>
 
                     <h3 className="text-2xl font-black text-white mb-2 tracking-tight flex items-baseline gap-2">
-                        {insight.title}
+                        {insight?.title || 'Analisando'}
                         <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse`} />
                     </h3>
 
                     <p className="text-base text-slate-300 leading-relaxed font-medium">
-                        {formatText(insight.text)}
+                        {formatText(insight?.text)}
                     </p>
                 </div>
             </div>
@@ -107,7 +113,7 @@ function AICoachPanel({ activeSubject, stats }) {
     );
 }
 
-// Focus Panel: Atualizado para incluir o AICoachPanel e manter a lista de prioridades
+// Focus Panel
 function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     const recommendedTask = useMemo(() => {
         if (!categories || categories.length === 0) return null;
@@ -117,14 +123,14 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
     const [isPanelLocked, setIsPanelLocked] = useState(() => {
         try {
             const saved = localStorage.getItem('focusPanelLocked');
-            return saved ? JSON.parse(saved) : true;
+            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true;
         } catch { return true; }
     });
 
     const [uiPosition, setUiPosition] = useState(() => {
         try {
             const saved = localStorage.getItem('focusPanelPosition');
-            return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : { x: 0, y: 0 };
         } catch { return { x: 0, y: 0 }; }
     });
 
@@ -132,7 +138,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
         const checkPos = () => {
             if (uiPosition.x !== 0 || uiPosition.y !== 0) {
                 const threshold = 100;
-                // Se o painel for arrastado para muito longe e o ecrã redimensionar, volta à origem
                 if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
                     Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
                     setUiPosition({ x: 0, y: 0 });
@@ -152,7 +157,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
         setUiPosition(newPos);
         try {
             localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
-        } catch (err) { console.debug('Storage ignored', err); }
+        } catch (err) {}
     };
 
     const toggleLock = () => {
@@ -188,7 +193,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
             whileDrag={{ scale: 1.02, zIndex: 100 }}
             className={`hidden xl:flex flex-col w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
-            {/* Controles de Painel */}
             <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-1">
                 {!isPanelLocked && (
                     <button
@@ -214,7 +218,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
 
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
-            {/* Recommended Action Card */}
             {recommendedTask && !activeSubject && (
                 <motion.div
                     initial={{ opacity: 0, x: 20 }}
@@ -255,7 +258,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
                 </motion.div>
             )}
 
-            {/* Next Actions List */}
             <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-xl p-8 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
 
@@ -330,13 +332,15 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats }) {
 }
 
 export default function Pomodoro() {
-    const activeId = useAppStore(state => state.appState.activeId);
-    const contest = useAppStore(state => state.appState.contests[activeId]);
-    const categories = useAppStore(state => state.appState.contests[activeId]?.categories || []);
-    const settings = useAppStore(state => state.appState.contests[activeId]?.settings || {});
-    const studyLogs = useAppStore(state => state.appState.contests[activeId]?.studyLogs || []);
-    const user = useAppStore(state => state.appState.contests[activeId]?.user || null);
-    const isHydrated = !!contest && !!categories;
+    const activeId = useAppStore(state => state.appState?.activeId);
+    const contest = useAppStore(state => state.appState?.contests?.[activeId]);
+    const categories = useAppStore(state => state.appState?.contests?.[activeId]?.categories || []);
+    const settings = useAppStore(state => state.appState?.contests?.[activeId]?.settings || {});
+    const studyLogs = useAppStore(state => state.appState?.contests?.[activeId]?.studyLogs || []);
+    const user = useAppStore(state => state.appState?.contests?.[activeId]?.user || null);
+    
+    // Hidratação validada
+    const isHydrated = !!activeId && !!contest;
 
     const setData = useAppStore(state => state.setData);
     const { handleUpdateStudyTime } = useAppStore();
@@ -346,24 +350,21 @@ export default function Pomodoro() {
     const showToast = useToast();
     const completionTimeoutRef = React.useRef(null);
 
-    const activeSubject = useAppStore(state => state.appState.pomodoro.activeSubject);
+    const activeSubject = useAppStore(state => state.appState?.pomodoro?.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
-    // CORREÇÃO 1: Pegar os ciclos atuais da sessão do store em vez do histórico all-time
-    const currentSessions = useAppStore(state => state.appState.pomodoro.sessions) || 1;
+    const currentSessions = useAppStore(state => state.appState?.pomodoro?.sessions) || 1;
 
-    // Preparar dados do utilizador para passar ao Coach
     const userStats = useMemo(() => {
         if (!contest) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
 
-        // Cálculo Inteligente de Fadiga Diária sem Amnésia
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
         let consecutiveStudyMinutes = 0;
         const recentLogs = [...(studyLogs || [])]
             .filter(log => new Date(log.date || 0).getTime() >= startOfToday)
-            .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()); // newest first
+            .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
         let lastTimeBoundary = now.getTime();
 
@@ -371,13 +372,11 @@ export default function Pomodoro() {
             const logEnd = new Date(log.date || 0).getTime();
             const gapInMinutes = Math.max(0, (lastTimeBoundary - logEnd) / (1000 * 60));
 
-            // Se houve um hiato de descanso de mais de 90 minutos, a estafa resetou organicamente
             if (gapInMinutes > 90) {
                 break;
             }
 
             consecutiveStudyMinutes += (Number(log.minutes) || 0);
-            // O início dessa sessão de log marca a próxima fronteira
             lastTimeBoundary = logEnd - ((Number(log.minutes) || 0) * 60 * 1000);
         }
 
@@ -385,7 +384,7 @@ export default function Pomodoro() {
             pomodorosCompleted: currentSessions,
             consecutiveMinutes: consecutiveStudyMinutes,
             settings: settings,
-            user: user // 🎯 Injetar perfil do usuário para cálculo de fadiga elástica
+            user: user
         };
     }, [currentSessions, contest, studyLogs, settings, user]);
 
@@ -406,7 +405,20 @@ export default function Pomodoro() {
         }
     }, [location.state, categories, activeSubject]);
 
-    // Cleanup timeouts on unmount
+    // TOLERÂNCIA ALONGADA para a Válvula de Escape 
+    useEffect(() => {
+        let timeoutId;
+        if (!isHydrated) {
+            timeoutId = setTimeout(() => {
+                showToast('Contexto pendente. Retornando ao Dashboard...', 'warning');
+                navigate('/');
+            }, 6000); 
+        }
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [isHydrated, navigate, showToast]);
+
     useEffect(() => {
         return () => {
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
@@ -431,9 +443,7 @@ export default function Pomodoro() {
     const handleStartTask = (task, forcedSessionId = null, source = 'neural_core') => {
         const sessionId = forcedSessionId || Date.now().toString();
         
-        // Se iniciamos do painel neural (FocusPanel), podemos criar uma fila 
-        // automática com as outras tarefas de alta prioridade.
-        if (source === 'neural_core' && !useAppStore.getState().appState.pomodoro.neuralMode) {
+        if (source === 'neural_core' && !useAppStore.getState().appState?.pomodoro?.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
                 (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
@@ -441,7 +451,6 @@ export default function Pomodoro() {
                 });
             });
             
-            // Inicia a sessão neural com esta lista
             const startIndex = highPriority.findIndex(t => t.id === task.id);
             useAppStore.getState().startNeuralSession(highPriority, startIndex !== -1 ? startIndex : 0);
         } else {
@@ -458,22 +467,20 @@ export default function Pomodoro() {
     };
 
     const handleFullCycleComplete = (totalMinutes = 0) => {
-        const currentSubject = activeSubject || useAppStore.getState().appState.pomodoro.activeSubject;
-        const { neuralMode } = useAppStore.getState().appState.pomodoro;
+        const currentSubject = activeSubject || useAppStore.getState().appState?.pomodoro?.activeSubject;
+        const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const advanceNeuralQueue = useAppStore.getState().advanceNeuralQueue;
 
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
 
-            // Fluxo 1: Iniciado pelo painel lateral (Próximas Ações / Neural Core)
             if (neuralMode || currentSubject.source === 'neural_core') {
                 const hasNext = advanceNeuralQueue();
                 if (hasNext) {
                     showToast(`Sequenciando próxima meta do painel... ⚡`, 'info');
-                    return; // O Pomodoro reinicia automaticamente na próxima tarefa
+                    return; 
                 } else {
                     showToast('Todas as ações concluídas! 🏆', 'success');
-                    // Finaliza os estudos, zera o relógio e PERMANECE na tela
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                     completionTimeoutRef.current = setTimeout(() => { 
                         useAppStore.getState().setPomodoroActiveSubject(null); 
@@ -482,18 +489,16 @@ export default function Pomodoro() {
                 }
             }
 
-            // Fluxo 2: Iniciado pelo Dashboard
             const isFromDashboard = currentSubject.source === 'dashboard';
             if (isFromDashboard) {
                 if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => { 
                     showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
-                    handleExit(); // handleExit usa o navigate para voltar ao Dashboard
+                    handleExit(); 
                 }, 3000);
                 return;
             }
 
-            // Fallback default de segurança
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 3000);
         } else {
@@ -514,6 +519,9 @@ export default function Pomodoro() {
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 size={32} className="animate-spin text-indigo-400" />
                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Carregando Sistema Neural...</p>
+                    <p className="text-slate-600 font-medium text-[9px] text-center mt-2 max-w-[250px]">
+                        Autenticando parâmetros de foco.<br/>Se não escolheu uma tarefa, voltaremos ao Dashboard em breve.
+                    </p>
                 </div>
             </div>
         );
@@ -522,7 +530,6 @@ export default function Pomodoro() {
     return (
         <div className="min-h-0 flex items-start justify-center pt-2 pb-6 px-0">
             <div className="flex flex-col xl:flex-row gap-5 items-start justify-center w-full">
-                {/* Timer Column */}
                 <div className="w-full xl:max-w-[750px] min-w-0">
                     <PomodoroTimer
                         settings={settings}
@@ -537,7 +544,6 @@ export default function Pomodoro() {
                     />
                 </div>
 
-                {/* Side Panel — desktop only */}
                 <FocusPanel
                     categories={categories || []}
                     activeSubject={activeSubject}
