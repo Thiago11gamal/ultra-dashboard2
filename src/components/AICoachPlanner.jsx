@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -71,13 +72,15 @@ export default function AICoachPlanner() {
     const [columns, setColumns] = useState(() => getInitialColumns());
     const [prevStoreHash, setPrevStoreHash] = useState(() => JSON.stringify({ coachPlan, coachPlanner }));
 
-    const currentStoreHash = JSON.stringify({ coachPlan, coachPlanner });
-    if (currentStoreHash !== prevStoreHash) {
-        setPrevStoreHash(currentStoreHash);
-        if (!isDragging) {
-            setColumns(getInitialColumns());
+    useEffect(() => {
+        const currentStoreHash = JSON.stringify({ coachPlan, coachPlanner });
+        if (currentStoreHash !== prevStoreHash) {
+            setPrevStoreHash(currentStoreHash);
+            if (!isDragging) {
+                setColumns(getInitialColumns());
+            }
         }
-    }
+    }, [coachPlan, coachPlanner, prevStoreHash, isDragging, getInitialColumns]);
 
     const onDragEnd = (result) => {
         if (!result.destination) { setIsDragging(false); return; }

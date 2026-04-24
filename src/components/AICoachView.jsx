@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-/* eslint-disable no-unused-vars */
-import { motion, AnimatePresence } from 'framer-motion';
-/* eslint-enable no-unused-vars */
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target } from 'lucide-react';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
@@ -37,10 +34,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const col = CARD_COLORS[idx % CARD_COLORS.length];
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.07, ease: 'easeOut' }}
+        <div
             className={`group relative flex flex-col p-5 rounded-2xl bg-[#0a0c14] border border-white/[0.06] border-l-2 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden`}
         >
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.015] blur-2xl rounded-full pointer-events-none" />
@@ -69,30 +63,28 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <div className="relative z-10 mt-auto pt-3 border-t border-white/[0.06]">
                     <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-300 transition-colors py-1">
                         <BrainCircuit size={11} /> Insight do Coach
-                        <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronDown size={11} /></motion.div>
+                        <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={11} /></div>
                     </button>
-                    <AnimatePresence>
-                        {isExpanded && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                                <div className="pt-3 space-y-2">
-                                    <p className="text-xs text-slate-400 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/5">{task.analysis.reason}</p>
-                                    {task.analysis.metrics && (
-                                        <div className="flex flex-wrap gap-1.5 pt-1">
-                                            {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                                <div key={key} className="bg-white/[0.04] border border-white/5 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                                                    <span className="text-[9px] text-slate-600 uppercase tracking-widest font-bold">{key}</span>
-                                                    <span className="text-[10px] font-mono text-slate-300 font-bold">{value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    {isExpanded && (
+                        <div className="overflow-hidden transition-all duration-200">
+                            <div className="pt-3 space-y-2">
+                                <p className="text-xs text-slate-400 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/5">{task.analysis.reason}</p>
+                                {task.analysis.metrics && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {Object.entries(task.analysis.metrics).map(([key, value]) => (
+                                            <div key={key} className="bg-white/[0.04] border border-white/5 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                                                <span className="text-[9px] text-slate-600 uppercase tracking-widest font-bold">{key}</span>
+                                                <span className="text-[10px] font-mono text-slate-300 font-bold">{value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
-        </motion.div>
+        </div>
     );
 }
 
@@ -137,23 +129,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <div className="relative group">
                             {/* Neural Core Icon Container */}
                             <div className="w-16 h-16 rounded-2xl bg-[#0d0e1a] border border-violet-500/30 flex items-center justify-center shadow-2xl shadow-violet-900/30 relative overflow-hidden">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                                    className="absolute inset-0 border-[1.5px] border-dashed border-violet-500/20 rounded-2xl scale-75"
+                                <div
+                                    className="absolute inset-0 border-[1.5px] border-dashed border-violet-500/20 rounded-2xl scale-75 animate-[spin_8s_linear_infinite]"
                                 />
-                                <motion.div
-                                    animate={{ rotate: -360 }}
-                                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                                    className="absolute inset-0 border border-indigo-500/10 rounded-full scale-110"
+                                <div
+                                    className="absolute inset-0 border border-indigo-500/10 rounded-full scale-110 animate-[spin_12s_linear_infinite_reverse]"
                                 />
                                 <Sparkles size={28} className="text-violet-300 relative z-10 drop-shadow-[0_0_8px_rgba(167,139,250,0.5)]" />
 
                                 {/* Scanning Ray */}
-                                <motion.div
-                                    animate={{ top: ['-100%', '200%'] }}
-                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                    className="absolute left-0 right-0 h-1/2 bg-gradient-to-b from-transparent via-violet-500/10 to-transparent pointer-events-none"
+                                <div
+                                    className="absolute left-0 right-0 h-1/2 bg-gradient-to-b from-transparent via-violet-500/10 to-transparent pointer-events-none animate-[scan_3s_linear_infinite]"
                                 />
                             </div>
 
@@ -187,14 +173,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     <div className="flex items-center gap-6">
                         <div className="flex flex-col items-end">
                             <div className="flex items-baseline gap-2">
-                                <motion.span
-                                    key={coachPlan.length}
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
+                                <span
                                     className="text-4xl font-black text-white leading-none tracking-tighter"
                                 >
                                     {coachPlan.length}
-                                </motion.span>
+                                </span>
                                 <span className="text-violet-400 font-black text-sm">/ 12</span>
                             </div>
                             <span className="text-[9px] text-slate-600 uppercase tracking-[0.2em] font-black mt-1">Carga Operacional</span>
@@ -220,10 +203,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 {suggestedFocus ? (
                     <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
                 ) : (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10 p-10 rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                    <div className="mb-10 p-10 rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
                         <Target size={28} className="text-slate-600 mx-auto mb-3" />
                         <p className="text-xs text-slate-500 font-black uppercase tracking-widest">Clique em "Recalcular" para gerar uma análise</p>
-                    </motion.div>
+                    </div>
                 )}
             </div>
 
@@ -244,10 +227,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${viewMode === id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         {viewMode === id && (
-                                            <motion.div
-                                                layoutId="viewTabPremium"
+                                            <div
                                                 className="absolute inset-0 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 shadow-[0_0_20px_rgba(139,92,246,0.2)]"
-                                                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                                             />
                                         )}
                                         <span className="relative z-10 flex items-center gap-2">
@@ -271,16 +252,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     )}
                 </div>
 
-                <AnimatePresence mode="wait">
+                <div className="transition-all duration-300">
                     {!hasPlan ? (
-                        <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-24 text-center space-y-4 rounded-2xl border border-white/[0.05] bg-white/[0.01]">
+                        <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 rounded-2xl border border-white/[0.05] bg-white/[0.01]">
                             <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center"><Compass size={22} className="text-slate-500" /></div>
                             <div><p className="text-sm font-black text-slate-400 tracking-tight">Nenhum plano ativo</p><p className="text-xs text-slate-600 mt-1 max-w-[260px] mx-auto leading-relaxed">Solicite uma análise para gerar metas personalizadas de estudo.</p></div>
-                        </motion.div>
+                        </div>
                     ) : viewMode === 'planner' ? (
-                        <motion.div key="planner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><AICoachPlanner /></motion.div>
+                        <div key="planner"><AICoachPlanner /></div>
                     ) : (
-                        <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div key="list" className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {(() => {
                                 const allAssignedIds = new Set();
                                 Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
@@ -293,9 +274,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     />
                                 ));
                             })()}
-                        </motion.div>
+                        </div>
                     )}
-                </AnimatePresence>
+                </div>
             </div>
         </div>
     );

@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { getSafeScore } from '../utils/scoreHelper';
-
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 
 export default function TopicPerformance({ categories = [] }) {
@@ -106,17 +104,8 @@ export default function TopicPerformance({ categories = [] }) {
             </div>
 
             {/* Content List */}
-            <motion.div
-                key={selectedCategoryId} // Helps reset animation on category change
-                variants={{
-                    hidden: { opacity: 0 },
-                    show: {
-                        opacity: 1,
-                        transition: { staggerChildren: 0.1 }
-                    }
-                }}
-                initial="hidden"
-                animate="show"
+            <div
+                key={selectedCategoryId}
                 className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3"
             >
                 {aggregatedData.length > 0 ? (
@@ -137,13 +126,9 @@ export default function TopicPerformance({ categories = [] }) {
                         }
 
                         return (
-                            <motion.div
+                            <div
                                 key={topic.name}
-                                variants={{
-                                    hidden: { opacity: 0, y: 10 },
-                                    show: { opacity: 1, y: 0 }
-                                }}
-                                className="bg-white/5 border border-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors group"
+                                className="bg-white/5 border border-white/5 rounded-xl p-3 hover:bg-white/10 transition-all duration-300 group animate-in fade-in slide-in-from-bottom-2"
                             >
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-2 min-w-0">
@@ -164,13 +149,11 @@ export default function TopicPerformance({ categories = [] }) {
                                 <div className="flex items-center gap-4">
                                     {/* Progress Bar Container */}
                                     <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden relative shadow-inner">
-                                        <motion.div
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${topic.percentage}%` }}
-                                            transition={{ duration: 0.8, delay: 0.3 }}
-                                            className={`h-full rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(255,255,255,0.15)] ${topic.percentage >= 80 ? 'bg-green-500 shadow-green-500/30' :
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-700 shadow-[0_0_12px_rgba(255,255,255,0.15)] ${topic.percentage >= 80 ? 'bg-green-500 shadow-green-500/30' :
                                                 topic.percentage <= 40 ? 'bg-red-500 shadow-red-500/30' : 'bg-yellow-500 shadow-yellow-500/30'
                                                 }`}
+                                            style={{ width: `${topic.percentage}%` }}
                                         />
                                     </div>
 
@@ -187,7 +170,7 @@ export default function TopicPerformance({ categories = [] }) {
                                         </div>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </div>
                         );
                     })
                 ) : (
@@ -197,7 +180,7 @@ export default function TopicPerformance({ categories = [] }) {
                         <p className="text-xs mt-2">Importe um simulado para ver a análise.</p>
                     </div>
                 )}
-            </motion.div>
+            </div>
         </div>
     );
 }

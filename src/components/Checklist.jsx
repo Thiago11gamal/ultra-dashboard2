@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, Plus, Trash2, TrendingUp, TrendingDown, Minus, BarChart2, Play } from 'lucide-react';
 import PromptModal from './PromptModal';
 
@@ -31,11 +30,6 @@ const PerformancePanel = ({ stats, color }) => {
 
     return (
         <div className="relative p-4 mx-4 mb-4 bg-gradient-to-r from-slate-900 to-slate-800/50 rounded-xl border border-white/10 shadow-inner group">
-            {/* Background Layer for Overflow Safety */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                {/* No specific background artifacts yet */}
-            </div>
-
             {/* Header */}
             <div className="relative z-10 flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider leading-relaxed py-1">
                 <BarChart2 size={16} style={{ color }} />
@@ -43,7 +37,6 @@ const PerformancePanel = ({ stats, color }) => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
                 {/* General Average */}
                 <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center">
                     <span className="text-xs text-slate-500 uppercase font-bold mb-1">Média Geral</span>
@@ -108,10 +101,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
     const priority = priorityColors[safePriority] || priorityColors.medium;
 
     return (
-        <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+        <div
             className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.07] transition-all group shadow-sm hover:shadow-md ${task.completed ? 'opacity-40' : ''}`}
         >
             {/* Checkbox */}
@@ -174,7 +164,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                         <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.15em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] whitespace-nowrap relative z-10 flex items-center justify-center">
                             RETORNAR
                             {/* Slide-in Play icon on hover */}
-                            <Play size={9} className="fill-white opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-1 group-hover:translate-x-1.5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)" />
+                            <Play size={9} className="fill-white opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-1 group-hover:translate-x-1.5 transition-all duration-500" />
                         </span>
                     </button>
                 ) : (
@@ -207,7 +197,7 @@ const TaskItem = ({ task, onToggle, onDelete, onTogglePriority, onTriggerPlay })
                     <Trash2 size={14} />
                 </button>
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -231,17 +221,11 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
         ? Math.round((completedCount / allTasks.length) * 100)
         : 0;
 
-    // For display "X de Y concluídas", we probably still want to show the TOTAL progress, not the filtered count.
-    // "completedCount" here is global completed count.
-    // "tasks.length" in render is filtered count. Let's adjust the text below too?
-    // Actually, "X de Y" usually implies Total. Let's use Global stats for the header info.
-
     return (
         <div className="glass overflow-hidden shadow-lg transition-all duration-500 hover:shadow-purple-500/5 hover:-translate-y-1 relative group border border-white/5">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.02] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
             {/* Header */}
             <div className="w-full flex items-center gap-2 p-3 sm:p-5 hover:bg-white/5 transition-colors">
-                {/* Clickable area for accordion toggle */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
                     className="flex items-center gap-2 sm:gap-4 flex-1 cursor-pointer min-w-0"
@@ -264,7 +248,6 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     </div>
                 </div>
 
-                {/* Delete Category Button - ULTRA VISIBLE */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -276,7 +259,6 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
                     <Trash2 size={16} strokeWidth={3} />
                 </button>
 
-                {/* Right side: Progress + Toggle */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
                     className="flex items-center justify-end gap-2 sm:gap-4 cursor-pointer flex-shrink-0"
@@ -422,10 +404,10 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
             {/* Precision Aligned Header Row */}
             <div className="hidden sm:flex items-center justify-between px-5 py-3 mb-1 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 opacity-70 leading-normal">
                 <div className="flex-1 flex items-center gap-4">
-                    <div className="w-10 flex-shrink-0"></div> {/* Match Icon (24px) + Gap (16px) */}
+                    <div className="w-10 flex-shrink-0"></div>
                     <div className="w-64 md:w-80 lg:w-96 flex-shrink-0 mr-4">Disciplina</div>
                 </div>
-                <div className="w-12"></div> {/* Trash Placeholder */}
+                <div className="w-12"></div>
                 <div className="w-32 md:w-40 flex-shrink-0 text-right pr-9">Progresso</div>
             </div>
 
@@ -440,7 +422,6 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
                         onAddTask={(catId, title) => {
                             if (onAddTask) {
                                 onAddTask(catId, title);
-                                // UX Improvement: If filter is hiding new tasks (e.g. 'completed'), switch to 'all'
                                 if (filter === 'completed') {
                                     setFilter('all');
                                 }

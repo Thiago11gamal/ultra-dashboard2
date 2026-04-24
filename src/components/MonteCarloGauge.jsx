@@ -77,7 +77,7 @@ export default function MonteCarloGauge({
     const [timeIndex, setTimeIndex] = useState(-1);
 
     const activeId = useAppStore(state => state.appState.activeId);
-    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || null);
+    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
 
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
@@ -514,15 +514,19 @@ export default function MonteCarloGauge({
             const currentProb = Number(prob.toFixed(1));
             
             // BUG 1 FIX: Infinite Render Loop Protection.
-            // Only update snapshot if values actually changed. Updating appState triggers
-            // categories re-render, which could re-trigger the simulation in a loop.
+            // Only update snapshot if values actually changed SIGNIFICANTLY. 
+            // Updating appState triggers categories re-render, which could re-trigger the simulation.
             const history = useAppStore.getState().appState.contests[activeId]?.monteCarloHistory || {};
             const existing = history[today];
             
-            if (!existing || existing.prob !== currentProb || existing.target !== Number(debouncedTarget.toFixed(1))) {
+            const currentTarget = Number(debouncedTarget.toFixed(1));
+            const probChanged = !existing || Math.abs(existing.prob - currentProb) > 0.05;
+            const targetChanged = !existing || existing.target !== currentTarget;
+
+            if (probChanged || targetChanged) {
                 recordMonteCarloSnapshot(today, currentProb, {
                     mean: Number(currentMean.toFixed(1)),
-                    target: Number(debouncedTarget.toFixed(1))
+                    target: currentTarget
                 });
             }
         }
@@ -596,8 +600,9 @@ export default function MonteCarloGauge({
     // Floating point noise (e.g. 100.00000000001) could lead to negative offsets 
     // and crash rendering in sensitive browsers like Safari.
     const prob = Math.min(100, Math.max(0, safe(probability)));
-    const roundedProb = Math.round(prob * 100) / 100;
-    const inverseProb = Math.max(0, 100 - roundedProb);
+    const roundedProb = Math.min(100, Math.max(0, Math.round(prob * 100) / 100));
+    // 🎨 VISUAL FIX: Ensure the sum is exactly 100.0 to prevent gaps in the SVG circle
+    const inverseProb = parseFloat((100 - roundedProb).toFixed(2));
 
     const uncertaintyLabel = `-${sdLeft.toFixed(1)} / +${sdRight.toFixed(1)}`;
 

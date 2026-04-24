@@ -89,15 +89,24 @@ export default function EvolutionChart({
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         let goal;
-        if (typeof goalDate === 'string' && goalDate.includes('T')) {
-            const g = new Date(goalDate);
-            goal = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
-        } else {
-            if (typeof goalDate === 'object' && goalDate.seconds) {
-                goal = new Date(goalDate.seconds * 1000);
+        
+        if (typeof goalDate === 'string') {
+            // FIX: Standardize all dates to Local Time to prevent "Timezone Drift".
+            if (goalDate.includes('T')) {
+                const g = new Date(goalDate);
+                goal = new Date(g.getFullYear(), g.getMonth(), g.getDate());
             } else {
-                goal = new Date(goalDate);
+                const p = goalDate.split('-');
+                if (p.length === 3) {
+                    goal = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+                } else {
+                    goal = new Date(goalDate);
+                }
             }
+        } else if (typeof goalDate === 'object' && goalDate.seconds) {
+            goal = new Date(goalDate.seconds * 1000);
+        } else {
+            goal = new Date(goalDate);
         }
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;
@@ -147,7 +156,7 @@ export default function EvolutionChart({
     const historyArray = focusCategory?.simuladoStats?.history ?? EMPTY_ARRAY;
     const historyHash = useMemo(() =>
         historyArray.map(h => `${h?.date || 'nodate'}:${h?.score ?? h?.correct ?? 0}`).join('|'),
-        [focusCategory?.id, focusCategory?.simuladoStats?.history]
+        [focusCategory?.id, historyArray]
     );
 
     useEffect(() => {
@@ -220,7 +229,7 @@ export default function EvolutionChart({
         })();
 
         return () => { cancelled = true; };
-    }, [focusCategory?.id, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;
@@ -301,13 +310,14 @@ export default function EvolutionChart({
                 // 🎯 MATH FIX: Injetar questões sintéticas para simulados sem volume
                 const totalQ = history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = Math.max(1, Math.round(maxScore)); // Base sintética escalada
+                    // FIX: Use nominal weight (100) instead of maxScore (points) to avoid scale distortion.
+                    if (tot === 0 && h.score != null) tot = 100; 
                     return s + tot;
                 }, 0);
 
                 const totalCorrect = Math.round(history.reduce((s, h) => {
                     let tot = Number(h.total) || 0;
-                    if (tot === 0 && h.score != null) tot = Math.max(1, Math.round(maxScore));
+                    if (tot === 0 && h.score != null) tot = 100;
                     // BUG 4b FIX: Use maxScore instead of hardcoded 100
                     return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));

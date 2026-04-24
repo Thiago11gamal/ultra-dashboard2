@@ -474,7 +474,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         } finally {
             if (isMountedRef.current) setInternalSyncing(false);
         }
-    }, [currentUser?.uid, setInternalSyncing]);
+    }, [currentUser?.uid, setInternalSyncing, confirmParity]);
 
     useEffect(() => {
         if (!currentUser?.uid || !db) return;
@@ -643,7 +643,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [syncTrigger, parityTick, currentUser?.uid, setInternalSyncing]);
+    }, [syncTrigger, parityTick, currentUser?.uid, setInternalSyncing, confirmParity]);
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState) {

@@ -93,7 +93,7 @@ export function CriticalTopicsAnalysis({ categories = [], maxScore = 100 }) {
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [categories, startDate, endDate]);
+    }, [categories, startDate, endDate, maxScore]);
 
     const pointLeakageData = useMemo(() => {
         if (!categories || !categories.length) return [];
