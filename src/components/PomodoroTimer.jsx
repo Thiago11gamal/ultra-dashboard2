@@ -21,7 +21,7 @@ class PomodoroErrorBoundary extends React.Component {
                     <AlertCircle className="text-red-500" size={48} />
                     <h2 className="text-xl font-black text-red-500 uppercase tracking-widest">Protocolo de Emergência Ativado</h2>
                     <p className="text-sm text-red-200/60 max-w-md">O motor do cronómetro encontrou uma instabilidade crítica. Os seus dados foram preservados.</p>
-                    <button 
+                    <button
                         onClick={() => {
                             localStorage.removeItem('pomodoroState');
                             window.location.reload();
@@ -93,9 +93,9 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     });
 
     useEffect(() => {
-        stateRefs.current = { 
-            ...stateRefs.current, 
-            mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes 
+        stateRefs.current = {
+            ...stateRefs.current,
+            mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
         };
     }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes]);
 
@@ -108,9 +108,32 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const svgCircleRef = useRef(null);
     const alarmAudioRef = useRef(null);
     const syncChannelRef = useRef(null);
-    const workFillsRef = useRef([]); 
+    const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
     const showToast = useToast();
+
+    // 🛡️ [SHIELD-04] Sincronização de Estado Local com o Store
+    // Garante que o cronómetro reseta quando mudamos de tarefa ou modo via Sidebar/Store
+    useEffect(() => {
+        if (!isTransitioningRef.current) {
+            const newTotalTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+            
+            // Só resetamos se não estiver a correr ou se a tarefa mudou completamente
+            const taskChanged = activeSubject?.taskId !== stateRefs.current.lastTaskId;
+            if (!stateRefs.current.isRunning || taskChanged) {
+                setTimeLeft(newTotalTime);
+                stateRefs.current.timeLeft = newTotalTime;
+                stateRefs.current.lastTaskId = activeSubject?.taskId;
+                
+                if (clockRef.current) {
+                    const mins = Math.floor(newTotalTime / 60);
+                    const secs = newTotalTime % 60;
+                    clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+                if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
+            }
+        }
+    }, [activeSubject?.taskId, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
 
     // 🟢 CÓDIGO NOVO 1: Controlo de Montagem para evitar Race Conditions
     const isMountedRef = useRef(true);
@@ -141,19 +164,19 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         try {
             const saved = localStorage.getItem('pomodoroPosition');
             return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch (_) { 
+        } catch (_) {
             console.warn('[Shield] Failed to load UI position');
-            return { x: 0, y: 0 }; 
+            return { x: 0, y: 0 };
         }
     });
 
     // 🛡️ [SHIELD-04] Persistência de UI
     useEffect(() => {
-        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch(_) {}
+        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch (_) { }
     }, [isLayoutLocked]);
 
     useEffect(() => {
-        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch(_) {}
+        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch (_) { }
     }, [uiPosition]);
 
     // 🛡️ [SHIELD-02] Prop Safety Wrappers
@@ -189,7 +212,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         stateRefs.current.isRunning = true;
                         showToast('Protocolo ativo em outra aba 🖥️', 'info');
                         break;
-                    
+
                     case 'PAUSE_SESSION':
                         setIsRunning(false);
                         stateRefs.current.isRunning = false;
@@ -202,7 +225,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         // Reset/Troca de fase forçada por outra aba
                         setIsRunning(false);
                         stateRefs.current.isRunning = false;
-                        
+
                         // Recarrega o estado do localStorage após um curto delay para garantir consistência
                         setTimeout(() => {
                             try {
@@ -211,7 +234,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                     if (saved.timeLeft !== undefined) setTimeLeft(saved.timeLeft);
                                     if (saved.mode !== undefined) stateRefs.current.mode = saved.mode;
                                 }
-                            } catch(_) {}
+                            } catch (_) { }
                         }, 100);
                         break;
                 }
@@ -234,7 +257,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         stateRefs.current.isRunning = newState.isRunning ?? false;
                         if (!newState.isRunning) setIsRunning(false);
                     }
-                } catch (err) {}
+                } catch (err) { }
             }
         };
         window.addEventListener('storage', handleStorageChange);
@@ -261,7 +284,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 ...overrides
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (e) {}
+        } catch (e) { }
     }, [activeSubject]);
 
     useEffect(() => {
@@ -288,7 +311,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         const currentSessions = stateRefs.current.sessions;
         const currentTarget = stateRefs.current.targetCycles;
         const isEndingCycle = currentSessions >= currentTarget && stateRefs.current.mode === 'work';
-        
+
         const sessionMinutes = (completedMode === 'work' && !isManual) ? (safeSettings.pomodoroWork || 25) : 0;
         const finalMinutes = stateRefs.current.accumulatedMinutes + sessionMinutes;
 
@@ -310,7 +333,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-            
+
             setTimeLeft(resetTime);
             stateRefs.current.timeLeft = resetTime;
             stateRefs.current.mode = newState.mode;
@@ -323,10 +346,10 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
             savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
-            
+
             try {
                 syncChannelRef.current?.postMessage({ type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE', toMode: newState.mode, tabId: window.name });
-            } catch(_) {}
+            } catch (_) { }
 
             isTransitioningRef.current = false;
 
@@ -349,7 +372,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (stateRefs.current.isRunning && stateRefs.current.timeLeft > 0) {
                 const currentTotalTime = stateRefs.current.mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
                 const circumference = 2 * Math.PI * 110;
-                
+
                 const deltaSeconds = (deltaMs / 1000) * (speedRef.current || 1);
                 const newTime = Math.max(0, stateRefs.current.timeLeft - deltaSeconds);
                 stateRefs.current.timeLeft = newTime;
@@ -390,8 +413,8 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
     const reset = () => {
         if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch(_) {} }
-        
+        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
+
         showToast('Voltando fase...', 'info');
 
         // 1. Limpamos o visual da fase atual antes de voltar
@@ -408,7 +431,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         // 3. Descobrimos o novo estado após o retrocesso
         const newState = useAppStore.getState().appState.pomodoro;
         const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-        
+
         // 4. Pausamos e reiniciamos o relógio com os dados da nova fase
         setIsRunning(false);
         setTimeLeft(resetTime);
@@ -424,13 +447,13 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
         try {
             syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name });
-        } catch(_) {}
+        } catch (_) { }
     };
 
     const skip = () => {
         if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch(_) {} }
-        
+        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
+
         const s = sessions;
         if (mode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '100%';
@@ -452,7 +475,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
         setAccumulatedMinutes(0);
-        try { localStorage.removeItem('pomodoroState'); } catch(_) {}
+        try { localStorage.removeItem('pomodoroState'); } catch (_) { }
         safeOnExit();
     };
 
@@ -518,9 +541,9 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     <div className="absolute top-4 right-6 z-[60]">
                         <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
                             {[1, 10, 100].map(s => (
-                                <button 
-                                    key={s} 
-                                    onClick={() => setSpeed(s)} 
+                                <button
+                                    key={s}
+                                    onClick={() => setSpeed(s)}
                                     className={`w-12 h-9 rounded-lg text-[11px] font-black transition-all ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-[0_0_15px_rgba(176,142,107,0.4)]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
                                 >
                                     {s}X
@@ -579,18 +602,18 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                             alarmAudioRef.current.pause();
                                             alarmAudioRef.current.currentTime = 0;
                                             alarmAudioRef.current.volume = 1;
-                                        }).catch(() => {});
+                                        }).catch(() => { });
                                     }
 
                                     const next = !isRunning;
                                     stateRefs.current.isRunning = next;
                                     setIsRunning(next);
                                     try {
-                                        syncChannelRef.current?.postMessage({ 
-                                            type: next ? 'START_SESSION' : 'PAUSE_SESSION', 
-                                            tabId: window.name 
+                                        syncChannelRef.current?.postMessage({
+                                            type: next ? 'START_SESSION' : 'PAUSE_SESSION',
+                                            tabId: window.name
                                         });
-                                    } catch(_) {}
+                                    } catch (_) { }
                                 }}
                                 className={`w-36 h-36 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                             >
@@ -635,11 +658,11 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                             <div
                                                 ref={el => workFillsRef.current[i] = el}
                                                 className="h-full bg-blue-500 will-change-[width]"
-                                                style={{ 
-                                                    width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' : 
-                                                           (i === sessions - 1 && mode === 'work') ? 
-                                                                (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
-                                                           : '0%',
+                                                style={{
+                                                    width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' :
+                                                        (i === sessions - 1 && mode === 'work') ?
+                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
+                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
                                             />
@@ -650,10 +673,10 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                             <div
                                                 ref={el => breakBallsRef.current[i] = el}
                                                 className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
-                                                style={{ 
-                                                    height: (i < sessions - 1) ? '100%' : 
-                                                            (sessions === i + 1 && mode === 'break') ? 
-                                                                (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
+                                                style={{
+                                                    height: (i < sessions - 1) ? '100%' :
+                                                        (sessions === i + 1 && mode === 'break') ?
+                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
                                                             : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}
@@ -670,7 +693,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     );
 }
 
-// 🛡️ [SHIELD-03] Export Blindado
+// 🛡️ [SHIELD-06] Final Blindagem Auditada
 export default function ProtectedPomodoro(props) {
     return (
         <PomodoroErrorBoundary>
