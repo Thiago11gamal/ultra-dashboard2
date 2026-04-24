@@ -98,18 +98,15 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const [sessionHistory, setSessionHistory] = useState(() => getSavedState('sessionHistory', []));
 
-    const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
-    const skipTimeoutRef = useRef(null);
     const resumeTransitionTimeoutRef = useRef(null);
     const transitionUnlockTimeoutRef = useRef(null);
-    const isSkippingRef = useRef(false);
     const isTransitioningRef = useRef(false); 
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const bottomBarRef = useRef(null);
-    const sphereRef = useRef(null);
+
 
     const timeLeftRef = useRef(timeLeft);
 
@@ -377,7 +374,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             return;
                         }
 
-                        timerRef.current = setTimeout(() => {
+                        setTimeout(() => {
                             const newTime = parsed.timeLeft - elapsedSeconds;
                             if (newTime <= 0) {
                                 setTimeLeft(0);
@@ -404,9 +401,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         initFromStorage();
 
         return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-            if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
             if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
             if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
@@ -870,25 +865,31 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             if (!activeSubject) return null;
                             const priority = activeSubject.priority || 'medium';
                             let label = 'MÉDIA';
-                            let levelColor = "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]";
+                            let iconColor = 'text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]';
+                            let labelColor = 'text-amber-500/40';
+                            let valueColor = 'text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]';
                             let Icon = Activity;
                             if (priority === 'high') {
                                 label = 'ALTA';
-                                levelColor = "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]";
+                                iconColor = 'text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]';
+                                labelColor = 'text-red-500/40';
+                                valueColor = 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]';
                                 Icon = AlertCircle;
                             } else if (priority === 'low') {
                                 label = 'BAIXA';
-                                levelColor = "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]";
+                                iconColor = 'text-emerald-400 drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]';
+                                labelColor = 'text-emerald-500/40';
+                                valueColor = 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]';
                             }
                             return (
                                 <div className="absolute top-6 left-6">
                                     <div className={`px-5 py-2.5 rounded-xl border border-white/5 backdrop-blur-3xl flex items-center gap-3 bg-gradient-to-br from-black/90 to-black/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_10px_20px_rgba(0,0,0,0.4)]`}>
                                         <div className="relative">
-                                            <Icon size={16} className="text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]" />
+                                            <Icon size={16} className={iconColor} />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-500/40">SINAL: PRIORIDADE</span>
-                                            <span className="text-xs font-black tracking-widest text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">{label}</span>
+                                            <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${labelColor}`}>SINAL: PRIORIDADE</span>
+                                            <span className={`text-xs font-black tracking-widest ${valueColor}`}>{label}</span>
                                         </div>
                                     </div>
                                 </div>
