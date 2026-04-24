@@ -69,16 +69,33 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const speedRef = useRef(1);
     useEffect(() => { speedRef.current = speed; }, [speed]);
 
-    const isMounted = useRef(true);
     const transitionTimeoutRef = useRef(null);
     const isTransitioningRef = useRef(false);
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const alarmAudioRef = useRef(null);
     const syncChannelRef = useRef(null);
-    const workFillsRef = useRef([]);
+    const workFillsRef = useRef([]); 
     const breakBallsRef = useRef([]);
     const showToast = useToast();
+
+    // 🟢 CÓDIGO NOVO 1: Controlo de Montagem para evitar Race Conditions
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
+    // 🟢 CÓDIGO NOVO 2: Garbage Collector Manual para as Refs dos Ciclos
+    useEffect(() => {
+        // Se o utilizador reduzir o targetCycles, removemos os elementos DOM antigos da memória
+        if (workFillsRef.current.length > targetCycles) {
+            workFillsRef.current = workFillsRef.current.slice(0, targetCycles);
+        }
+        if (breakBallsRef.current.length > targetCycles) {
+            breakBallsRef.current = breakBallsRef.current.slice(0, targetCycles);
+        }
+    }, [targetCycles]);
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
         try {
@@ -93,15 +110,6 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
         } catch (_) { return { x: 0, y: 0 }; }
     });
-
-    // Controle de Montagem e Limpeza de Timeouts
-    useEffect(() => {
-        isMounted.current = true;
-        return () => {
-            isMounted.current = false;
-            if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
-        };
-    }, []);
 
     // Sincronização Multi-Aba
     useEffect(() => {
@@ -195,8 +203,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
         completePomodoroPhase(isManual);
 
-        transitionTimeoutRef.current = setTimeout(() => {
-            if (!isMounted.current) return;
+        setTimeout(() => {
+            // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
+            if (!isMountedRef.current || !clockRef.current) {
+                isTransitioningRef.current = false;
+                return; // Aborta a atualização visual se o componente já não existe
+            }
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;

@@ -29,9 +29,10 @@ const idbStorage = {
                 // Migrate the raw string to IndexedDB
                 await idbSet(name, localValue);
                 
-                // FIX: Confirmar a gravação no IndexedDB antes de destruir o backup do localStorage
+                // 🟢 CÓDIGO NOVO 4: Validação estrita antes de destruir o backup
                 const confirmSave = await idbGet(name);
-                if (confirmSave !== undefined) {
+                // Garantir que não é nulo, não é undefined e tem dados (evita guardar "{}" vazio)
+                if (confirmSave !== undefined && confirmSave !== null && String(confirmSave).length > 5) {
                     localStorage.removeItem(name); 
                 }
                 return localValue;
