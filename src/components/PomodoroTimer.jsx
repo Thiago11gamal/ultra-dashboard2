@@ -67,7 +67,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
-    const skipTimeoutRef = useRef(null); 
+    const skipTimeoutRef = useRef(null);
     const isSkippingRef = useRef(false);
 
     const clockRef = useRef(null);
@@ -303,7 +303,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 const now = Date.now();
                 const msSinceSave = now - (parsed.savedAt || 0);
-                
+
                 if (msSinceSave > 24 * 60 * 60 * 1000) return;
 
                 if (parsed.isRunning && parsed.savedAt) {
@@ -548,13 +548,66 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, [timeLeft, isRunning, handleTimerComplete]);
 
     const reset = () => {
-        setIsRunning(false);
-        const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+        let newMode = mode;
+        let newSessions = sessions;
+        let newCompletedCycles = completedCycles;
+        let newAccumulatedMinutes = accumulatedMinutes;
+
+        if (mode === 'break') {
+            // Se estou na pausa, volto para o início do FOCO deste mesmo ciclo
+            newMode = 'work';
+            // Ao voltar para o foco do mesmo ciclo, precisamos subtrair o tempo que foi acumulado na transição para a pausa
+            newAccumulatedMinutes = Math.max(0, accumulatedMinutes - (safeSettings.pomodoroWork || 25));
+            showToast('Retornando ao início do Foco', 'info');
+        } else {
+            // Se estou no foco
+            if (sessions > 1) {
+                // Se não é o primeiro ciclo, volto para a PAUSA do ciclo anterior
+                newMode = 'break';
+                newSessions = sessions - 1;
+                newCompletedCycles = Math.max(0, completedCycles - 1);
+                // accumulatedMinutes permanece o mesmo, pois o foco do ciclo anterior já está lá e voltamos para a pausa subsequente
+                showToast(`Retornando à Pausa do Ciclo ${newSessions}`, 'info');
+            } else {
+                // Se é o primeiro ciclo, apenas reinicio o tempo do Foco 1
+                newMode = 'work';
+                newSessions = 1;
+                newCompletedCycles = 0;
+                newAccumulatedMinutes = 0;
+                showToast('Reiniciando Ciclo 1', 'info');
+            }
+        }
+
+        const resetTime = newMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+        
+        // Atualizar Estados Locais
+        setMode(newMode);
         setTimeLeft(resetTime);
-        timeLeftRef.current = resetTime; // FIX: Direct ref update
+        timeLeftRef.current = resetTime;
+        
+        // Atualizar Store Global
+        setSessions(newSessions);
+        setCompletedCycles(newCompletedCycles);
+        setAccumulatedMinutes(newAccumulatedMinutes);
+
+        // Feedback visual imediato
+        if (clockRef.current) {
+            const mins = Math.floor(resetTime / 60);
+            const secs = resetTime % 60;
+            clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+        
+        if (svgCircleRef.current) {
+            const circumference = 2 * Math.PI * 110;
+            svgCircleRef.current.style.strokeDashoffset = circumference;
+        }
+
         savePomodoroState({
+            mode: newMode,
             timeLeft: resetTime,
-            isRunning: false
+            sessions: newSessions,
+            completedCycles: newCompletedCycles,
+            accumulatedMinutes: newAccumulatedMinutes
         });
     };
 
@@ -859,7 +912,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             return;
                                         }
                                         setIsRunning(!isRunning);
-                                        
+
                                         // FIX: Audio Autoplay protection. 
                                         // Iniciar/carregar a instância no primeiro clique do utilizador.
                                         if (!isRunning && alarmAudioRef.current) {
@@ -868,7 +921,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                             audio.play().then(() => {
                                                 audio.pause();
                                                 audio.muted = false;
-                                            }).catch(() => {});
+                                            }).catch(() => { });
                                         }
                                     }}
                                     className={`w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.2)] border-4 ${isRunning ? 'bg-gradient-to-b from-stone-50 to-stone-200 text-black border-white' : 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.2)]'}`}
