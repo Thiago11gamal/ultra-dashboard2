@@ -41,6 +41,8 @@ export default function Sidebar({
 }) {
     const location = useLocation();
     const { logout } = useAuth();
+    const [contestsExpanded, setContestsExpanded] = React.useState(false);
+    const [settingsExpanded, setSettingsExpanded] = React.useState(false);
 
     React.useEffect(() => {
         const width = collapsed ? '70px' : '280px';
@@ -94,9 +96,6 @@ export default function Sidebar({
             ]
         }
     ];
-
-    const [contestsExpanded, setContestsExpanded] = React.useState(false);
-    const [settingsExpanded, setSettingsExpanded] = React.useState(false);
 
     return (
         <>

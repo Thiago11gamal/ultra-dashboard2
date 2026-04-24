@@ -273,7 +273,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return;
         }
 
-        logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO PARA UID: ${currentUser.uid}`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
+        logger.styled(`[Firebase-Diag] TESTANDO CONEXÃO DE BACKUP DO UTILIZADOR`, "color: #a855f7; font-weight: bold; background: #a855f710; padding: 4px; border-radius: 4px;");
 
         const safetyBootTimeout = setTimeout(() => {
             if (!isParityValidatedRef.current) {
@@ -484,7 +484,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             
             if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
                 try {
-                    const payload = JSON.stringify({ uid: currentUser.uid, state: appStateRef.current });
+                    const appState = appStateRef.current || {};
+                    const payload = JSON.stringify({
+                        uid: currentUser.uid,
+                        lastUpdated: appState.lastUpdated || null,
+                        version: appState.version || 0,
+                        activeId: appState.activeId || null,
+                        dirty: true
+                    });
                     // FIX: Enviar como Blob para garantir o Content-Type: application/json
                     const blob = new Blob([payload], { type: 'application/json' });
                     

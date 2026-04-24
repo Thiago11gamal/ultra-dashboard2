@@ -443,7 +443,7 @@ export const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
  * G-02 FIX: Recovers duration from startTime/endTime if duration field is 0.
  */
 export const calculatePomodoroStats = (stats) => {
-    const { studySessions = [], categories = [], user = {} } = stats || {};
+    const { studySessions = [], categories = [], user = {}, settings = {} } = stats || {};
 
     // Get dynamic goal (B-11 FIX: Link dashboard UI to dynamic goal engine)
     const dynamicGoal = calculateDailyPomodoroGoal(categories, user);

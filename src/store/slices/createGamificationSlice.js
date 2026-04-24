@@ -1,6 +1,7 @@
 import { calculateLevel } from '../../utils/gamification';
 import { calculateStudyStreak } from '../../utils/analytics';
 import { ACHIEVEMENTS } from '../../config/gamification';
+import { getSafeScore } from '../../utils/scoreHelper';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {
