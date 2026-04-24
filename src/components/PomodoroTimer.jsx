@@ -281,6 +281,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const current = stateRefs.current;
         const resetTime = current.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         
+        // Sincronização imediata para evitar race conditions
+        stateRefs.current.isRunning = false;
+        stateRefs.current.timeLeft = resetTime;
+        
         setIsRunning(false);
         setTimeLeft(resetTime);
         showToast('Fase reiniciada', 'info');
