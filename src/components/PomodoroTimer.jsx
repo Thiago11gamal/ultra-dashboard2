@@ -206,7 +206,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             onSessionComplete?.();
 
             let sessionMinutes = 0;
-            if (isNatural || source === 'skip') {
+            if (isNatural) {
                 sessionMinutes = safeSettings.pomodoroWork;
             } else {
                 const effectiveTimeLeft = forcedTimeLeft !== null ? forcedTimeLeft : timeLeftRef.current;
@@ -662,7 +662,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const target = targetCyclesRef.current || 4;
         for (let i = 1; i <= target; i++) {
             const fill = document.getElementById(`work-fill-${i}`);
-            if (fill) fill.style.width = i < newSessions ? '100%' : '0%';
+            if (fill) {
+                if (i < newSessions) fill.style.width = '100%';
+                else if (i === newSessions && newMode === 'break') fill.style.width = '100%';
+                else fill.style.width = '0%';
+            }
 
             const ball = document.getElementById(`break-ball-${i}`);
             if (ball) ball.style.height = i < newSessions ? '100%' : '0%';
@@ -676,27 +680,43 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     const skip = () => {
         if (isTransitioningRef.current) return;
+        isTransitioningRef.current = true;
+
+        // 1. Stop the timer FIRST to prevent rAF race conditions
+        setIsRunning(false);
+
         const currentMode = modeRef.current;
         const nextModeLabel = currentMode === 'work' ? 'Pausa' : 'Próximo Foco';
         showToast(`Avançando para ${nextModeLabel}`, 'info');
 
-        const nextTime = currentMode === 'work' ? (safeSettings.pomodoroBreak || 5) * 60 : (safeSettings.pomodoroWork || 25) * 60;
+        // 2. Mark the skipped segment as visually complete
+        if (currentMode === 'work') {
+            const fill = document.getElementById(`work-fill-${sessionsRef.current}`);
+            if (fill) fill.style.width = '100%';
+        } else {
+            const ball = document.getElementById(`break-ball-${sessionsRef.current}`);
+            if (ball) ball.style.height = '100%';
+        }
+
+        // 3. Execute the transition (updates refs and React state)
+        transitionSession(currentMode, 'skip');
+
+        // 4. Update clock and SVG AFTER transition (reads from updated refs)
+        const newTime = timeLeftRef.current;
         if (clockRef.current) {
-            const mins = Math.floor(nextTime / 60);
-            const secs = nextTime % 60;
+            const mins = Math.floor(newTime / 60);
+            const secs = newTime % 60;
             clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         }
         if (svgCircleRef.current) {
-            const circumference = 2 * Math.PI * 110;
-            svgCircleRef.current.style.strokeDashoffset = circumference;
+            svgCircleRef.current.style.strokeDashoffset = 2 * Math.PI * 110;
         }
 
-        if (currentMode === 'break') {
-            const nextWorkFill = document.getElementById(`work-fill-${sessionsRef.current + 1}`);
-            if (nextWorkFill) nextWorkFill.style.width = '0%';
-        }
-
-        transitionSession(currentMode, 'skip');
+        // 5. Unlock transition after delay
+        if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
+        transitionUnlockTimeoutRef.current = setTimeout(() => {
+            isTransitioningRef.current = false;
+        }, 250);
     };
 
     const handleManualExit = () => {
