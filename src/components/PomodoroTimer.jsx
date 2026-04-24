@@ -46,6 +46,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
+    const rewindPomodoroPhase = useAppStore(state => state.rewindPomodoroPhase);
 
     // Estados Locais
     const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
@@ -412,21 +413,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         return () => cancelAnimationFrame(rafId);
     }, [isRunning, mode, sessions, safeSettings, transitionSession]);
 
-    // 🎯 UTILITÁRIOS
+    // 🎯 UTILITÁRIOS (Retrocesso Blindado)
     const reset = () => {
         if (isTransitioningRef.current) return;
-        const resetTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         
-        setIsRunning(false);
-        setTimeLeft(resetTime);
-        stateRefs.current.isRunning = false;
-        stateRefs.current.timeLeft = resetTime;
+        // 1. Parar alarmes imediatamente
+        if (alarmAudioRef.current) {
+            try {
+                alarmAudioRef.current.pause();
+                alarmAudioRef.current.currentTime = 0;
+            } catch(_) {}
+        }
 
-        // Sync DOM imediato
-        if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
-        if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
-        
-        // Reset visual das barras de progresso do ciclo atual
+        // 2. Feedback Visual
+        showToast('Retrocedendo fase...', 'info');
+
+        // 3. Reset Visual Imediato do Ciclo Atual
         if (mode === 'work') {
             const el = document.getElementById(`work-fill-${sessions}`);
             if (el) el.style.width = '0%';
@@ -435,10 +437,33 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (ball) ball.style.height = '0%';
         }
 
-        // Persistência imediata
-        savePomodoroState({ isRunning: false, timeLeft: resetTime });
-        
-        showToast('Fase reiniciada', 'info');
+        // 4. Executar Retrocesso no Store
+        rewindPomodoroPhase();
+
+        // 5. Sincronização de Estado Local para a nova fase (a fase anterior)
+        // Precisamos ler o modo que o store definiu agora
+        setTimeout(() => {
+            const newMode = useAppStore.getState().appState.pomodoro.mode;
+            const resetTime = newMode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+            
+            setIsRunning(false);
+            setTimeLeft(resetTime);
+            stateRefs.current.isRunning = false;
+            stateRefs.current.timeLeft = resetTime;
+            stateRefs.current.mode = newMode;
+
+            // Sync DOM imediato
+            if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
+            if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
+
+            // Persistência e Sync Multi-Aba
+            savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newMode });
+            try {
+                const channel = new BroadcastChannel('pomodoro_sync');
+                channel.postMessage({ type: 'PHASE_REWIND', toMode: newMode, tabId: window.name });
+                channel.close();
+            } catch(_) {}
+        }, 0);
     };
 
     const skip = () => {

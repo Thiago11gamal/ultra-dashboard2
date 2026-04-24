@@ -88,27 +88,47 @@ export const createPomodoroSlice = (set, get) => ({
             const settings = state.appState.contests[state.appState.activeId]?.settings || { pomodoroWork: 25, pomodoroBreak: 5 };
             
             if (p.mode === 'work') {
-                // Acumula minutos de trabalho (não acumula se foi skip manual)
                 if (!isManual) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + (settings.pomodoroWork || 25);
                 }
 
-                // Verifica se encerrou o último ciclo
                 if (p.sessions >= (p.targetCycles || 1)) {
-                    // Ciclo completo — reseta tudo para o próximo uso
                     p.sessions = 1;
                     p.completedCycles = 0;
                     p.accumulatedMinutes = 0;
                     p.mode = 'work';
                 } else {
-                    // Vai para pausa
                     p.mode = 'break';
                 }
             } else {
-                // Saindo da pausa — incrementa ciclos e sessão
                 p.completedCycles = (p.completedCycles || 0) + 1;
                 p.sessions = (p.sessions || 1) + 1;
                 p.mode = 'work';
+            }
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+        });
+    },
+
+    // RETROCESSO ATÓMICO - Volta para a fase anterior
+    rewindPomodoroPhase: () => {
+        set((state) => {
+            const p = state.appState.pomodoro;
+            
+            if (p.mode === 'break') {
+                // Se está em pausa, volta para o trabalho da mesma sessão
+                p.mode = 'work';
+            } else if (p.sessions > 1) {
+                // Se está em trabalho (não na primeira), volta para a pausa da sessão anterior
+                p.sessions = p.sessions - 1;
+                p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
+                p.mode = 'break';
+            } else {
+                // Se está na primeira sessão, apenas reinicia o estado
+                p.mode = 'work';
+                p.sessions = 1;
+                p.completedCycles = 0;
             }
 
             state.appState.version = (state.appState.version || 0) + 1;
