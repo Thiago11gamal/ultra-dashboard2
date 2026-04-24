@@ -1076,10 +1076,3 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         </div>
     );
 }
-                        </div >
-                    </div >
-                </div >
-            </motion.div >
-        </div >
-    );
-}
