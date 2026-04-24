@@ -372,8 +372,22 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         stateRefs.current.isRunning = false;
         stateRefs.current.timeLeft = resetTime;
 
+        // Sync DOM imediato
         if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
         if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
+        
+        // Reset visual das barras de progresso do ciclo atual
+        if (mode === 'work') {
+            const el = document.getElementById(`work-fill-${sessions}`);
+            if (el) el.style.width = '0%';
+        } else {
+            const ball = document.getElementById(`break-ball-${sessions}`);
+            if (ball) ball.style.height = '0%';
+        }
+
+        // Persistência imediata
+        savePomodoroState({ isRunning: false, timeLeft: resetTime });
+        
         showToast('Fase reiniciada', 'info');
     };
 
