@@ -418,7 +418,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}
-                    className="w-full border-[6px] border-[#3f2e26] pt-12 pb-10 px-10 rounded-xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a]"
+                    className="w-full border-[6px] border-[#3f2e26] pt-12 pb-20 px-10 rounded-xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a]"
                 >
                     <div className="flex items-center gap-6 mb-12 z-30">
                         <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
@@ -460,7 +460,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">REINICIAR</span>
                         </div>
 
-                        <div className="flex flex-col items-center gap-4 scale-110">
+                        <div className="flex flex-col items-center justify-center">
                             <button
                                 onClick={() => {
                                     if (mode === 'work' && !activeSubject) return;
@@ -475,11 +475,10 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         } catch(_) {}
                                     }
                                 }}
-                                className={`w-32 h-32 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
+                                className={`w-36 h-36 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                             >
-                                {isRunning ? <Pause size={56} /> : <Play size={56} className="ml-2" />}
+                                {isRunning ? <Pause size={64} /> : <Play size={64} className="ml-2" />}
                             </button>
-                            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em]">{isRunning ? 'PAUSAR' : 'INICIAR'}</span>
                         </div>
 
                         <div className="flex flex-col items-center gap-3">
