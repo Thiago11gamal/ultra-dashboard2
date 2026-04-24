@@ -170,7 +170,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
 
     // 🎯 RESUME LOGIC (Catch-up temporal ao voltar para a aba)
     const transitionSessionRef = useRef(null);
-    useEffect(() => { transitionSessionRef.current = transitionSession; }, [transitionSession]);
+    useEffect(() => { transitionSessionRef.current = transitionSession; });
 
     useEffect(() => {
         const initFromStorage = () => {
