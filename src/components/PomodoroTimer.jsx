@@ -176,6 +176,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 sessionHistory,
                 sessions: sessionsRef.current,
                 completedCycles: completedCyclesRef.current,
+                accumulatedMinutes: accumulatedMinutesRef.current,
                 ...overrides
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
@@ -282,8 +283,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             completedCyclesRef.current = newCompletedCycles; // Síncrono
             setCompletedCycles(newCompletedCycles);
 
+            const isTerminalBreak = currentSessions >= currentTargetCycles && currentTargetCycles > 0;
             if (isNatural) {
-                if (safeSettings.soundEnabled && alarmAudioRef.current) {
+                if (!isTerminalBreak && safeSettings.soundEnabled && alarmAudioRef.current) {
                     try {
                         alarmAudioRef.current.currentTime = 0;
                         alarmAudioRef.current.play().catch(() => { });
@@ -673,6 +675,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const skip = () => {
+        if (isTransitioningRef.current) return;
         const currentMode = modeRef.current;
         const nextModeLabel = currentMode === 'work' ? 'Pausa' : 'Próximo Foco';
         showToast(`Avançando para ${nextModeLabel}`, 'info');
@@ -697,10 +700,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     };
 
     const handleManualExit = () => {
-        if (accumulatedMinutes > 0 && activeSubject && onUpdateStudyTime) {
-            onUpdateStudyTime(activeSubject.categoryId, accumulatedMinutes, activeSubject.taskId);
+        const finalMinutes = accumulatedMinutesRef.current;
+        if (finalMinutes > 0 && activeSubject && onUpdateStudyTime) {
+            onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
+            accumulatedMinutesRef.current = 0;
             setAccumulatedMinutes(0);
-            showToast(`Salvamento parcial: ${accumulatedMinutes} minutos registados.`, 'success');
+            showToast(`Salvamento parcial: ${finalMinutes} minutos registados.`, 'success');
         }
 
         localStorage.removeItem('pomodoroState');
