@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Pause, RotateCcw, Lock, Unlock, Activity, AlertCircle, Brain, Zap, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
@@ -36,13 +36,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const setMode = useAppStore(state => state.setPomodoroMode);
 
     const sessions = useAppStore(state => state.appState?.pomodoro?.sessions || 1);
-    const setSessions = useAppStore(state => state.setPomodoroSessions);
 
     const targetCycles = useAppStore(state => state.appState?.pomodoro?.targetCycles || 1);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
 
     const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles || 0);
-    const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
 
     const accumulatedMinutes = useAppStore(state => state.appState?.pomodoro?.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
@@ -50,11 +48,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
 
     // Estados Locais
-    const defaultTime = useMemo(() =>
-        mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60,
-        [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+    const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
 
-    const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
+    const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', initialTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [speed, setSpeed] = useState(1);
 
@@ -76,10 +72,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const speedRef = useRef(1);
     useEffect(() => { speedRef.current = speed; }, [speed]);
 
-    const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
     const resumeTransitionTimeoutRef = useRef(null);
-    const transitionUnlockTimeoutRef = useRef(null);
     const isTransitioningRef = useRef(false);
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
@@ -147,10 +141,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 } catch { }
                 alarmAudioRef.current = null;
             }
-            if (timerRef.current) clearTimeout(timerRef.current);
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
-            if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
     }, []);
 
