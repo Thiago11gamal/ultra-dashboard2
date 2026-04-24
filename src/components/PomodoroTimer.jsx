@@ -469,11 +469,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
 
         // Lidar com visibilidade da página (Wake lock cai se a aba ficar oculta)
-        const handleVisibilityChange = async () => {
+        const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && isRunning) {
-                // CORREÇÃO: Limpar o lock antigo antes de pedir um novo
-                await releaseWakeLock();
-                await requestWakeLock();
+                requestWakeLock();
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
