@@ -42,17 +42,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         [mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', defaultTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    
+
     // ZUSTAND STATES
     const sessions = useAppStore(state => state.appState.pomodoro.sessions || 1);
     const setSessions = useAppStore(state => state.setPomodoroSessions);
-    
+
     const targetCycles = useAppStore(state => state.appState.pomodoro.targetCycles);
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
-    
+
     const completedCycles = useAppStore(state => state.appState.pomodoro.completedCycles || 0);
     const setCompletedCycles = useAppStore(state => state.setPomodoroCompletedCycles);
-    
+
     const accumulatedMinutes = useAppStore(state => state.appState.pomodoro.accumulatedMinutes || 0);
     const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
 
@@ -85,7 +85,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
         } catch (_) { }
     };
-    
+
     const [speed, setSpeed] = useState(1);
     const [showWarning, setShowWarning] = useState(false);
     const showToast = useToast();
@@ -101,7 +101,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const saveTimeoutRef = useRef(null);
     const resumeTransitionTimeoutRef = useRef(null);
     const transitionUnlockTimeoutRef = useRef(null);
-    const isTransitioningRef = useRef(false); 
+    const isTransitioningRef = useRef(false);
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
@@ -256,8 +256,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             setMode('break');
             const breakTime = (safeSettings.pomodoroBreak || 5) * 60;
             setTimeLeft(breakTime);
-            timeLeftRef.current = breakTime; 
-            setIsRunning(false); 
+            timeLeftRef.current = breakTime;
+            setIsRunning(false);
 
             savePomodoroState({
                 mode: 'break',
@@ -335,8 +335,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             const workTime = (safeSettings.pomodoroWork || 25) * 60;
             setTimeLeft(workTime);
             timeLeftRef.current = workTime;
-            setIsRunning(false); 
-            
+            setIsRunning(false);
+
             savePomodoroState({
                 mode: 'work',
                 timeLeft: workTime,
@@ -621,7 +621,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         const resetTime = newMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
 
         setIsRunning(false);
-        
+
         modeRef.current = newMode;
         sessionsRef.current = newSessions;
         completedCyclesRef.current = newCompletedCycles;
@@ -1074,5 +1074,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 </div>
             </motion.div>
         </div>
+    );
+}
+                        </div >
+                    </div >
+                </div >
+            </motion.div >
+        </div >
     );
 }
