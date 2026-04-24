@@ -95,14 +95,12 @@ export function useMonteCarloWorker() {
             const timeoutId = setTimeout(() => {
                 if (pendingRequestsRef.current.has(id)) {
                     pendingRequestsRef.current.delete(id);
-                    console.warn(`[MC Worker] Request ${id} timed out, falling back to main thread`);
-                    try {
-                        resolve(runMonteCarloAnalysis(...args));
-                    } catch (e) {
-                        reject(e);
-                    }
+                    console.warn(`[MC Worker] Request ${id} timed out.`);
+                    // FIX 2: Não fazer fallback para a main thread se o worker deu timeout.
+                    // Se o worker não conseguiu em 10s, a thread principal vai travar a UI se tentar.
+                    reject(new Error("A análise demorou muito tempo e foi interrompida para proteger a performance do sistema."));
                 }
-            }, 5000);
+            }, 10000);
 
             pendingRequestsRef.current.set(id, { 
                 workerRef, // Track which worker owner this request

@@ -6,16 +6,28 @@ import { logger } from '../utils/logger';
 
 import { useAppStore } from '../store/useAppStore';
 
-// Remove propriedades nulas/indefinidas de forma segura sem travar a main thread
-const cleanUndefined = (obj) => {
+// Remove propriedades nulas/indefinidas de forma segura com proteção contra loops recursivos
+const cleanUndefined = (obj, seen = new WeakSet()) => {
     if (obj === null || typeof obj !== 'object') return obj;
-    // Evita destruir Objetos de Data
-    if (obj instanceof Date) return obj; 
-    if (Array.isArray(obj)) return obj.map(cleanUndefined).filter(i => i !== undefined);
+    if (obj instanceof Date) return obj;
+    
+    // Proteção contra referências circulares (Cycle Detection)
+    if (seen.has(obj)) {
+        console.warn("[Sync] Referência circular detectada e removida para evitar Stack Overflow.");
+        return null;
+    }
+    seen.add(obj);
+
+    if (Array.isArray(obj)) {
+        return obj
+            .map(v => cleanUndefined(v, seen))
+            .filter(v => v !== undefined);
+    }
+
     return Object.fromEntries(
         Object.entries(obj)
             .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => [k, cleanUndefined(v)])
+            .map(([k, v]) => [k, cleanUndefined(v, seen)])
     );
 };
 
@@ -42,6 +54,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         isInternalSyncingRef.current = val;
     }, []);
     const [hasConflict, setHasConflict] = useState(false);
+    const needsSyncRef = useRef(false);
 
     const appStateRef = useRef(useAppStore.getState().appState);
     useEffect(() => {
@@ -534,8 +547,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         setHasConflict(false);
 
         const syncToCloud = async () => {
-            if (!db || isInternalSyncingRef.current) return; // FIX: Lock de sincronização para evitar overlaps
+            if (!db) return;
             
+            // FIX 1: Se já estiver sincronizando, marca que "precisamos sincronizar de novo" 
+            // logo que este acabar, em vez de ignorar o update silenciosamente.
+            if (isInternalSyncingRef.current) {
+                needsSyncRef.current = true;
+                return;
+            }
+            
+            needsSyncRef.current = false;
             const freshState = useAppStore.getState().appState; // FIX: Captura o estado real atual do store
             const currentStateString = stateStringForSync(freshState);
             const lastMutationAtInvoke = lastLocalMutationRef.current;
@@ -603,7 +624,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 }
             }
 
-            if (isMountedRef.current) setInternalSyncing(false);
+            if (isMountedRef.current) {
+                setInternalSyncing(false);
+                // Se um novo update chegou enquanto estávamos ocupados, rodamos de novo.
+                if (needsSyncRef.current) {
+                    syncToCloud();
+                }
+            }
         };
 
         if (debounceRef.current) clearTimeout(debounceRef.current);

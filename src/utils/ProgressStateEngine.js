@@ -25,10 +25,14 @@ export function analyzeProgressState(scores, config = {}) {
         maxScore = 100
     } = { ...DEFAULT_CONFIG, ...config };
 
-    // SCALE FIX: Escalonar thresholds pela amplitude da escala (maxScore)
-    const scaleFactor = maxScore / 100;
+    // SCALE FIX: Escalonar thresholds pela amplitude da escala (maxScore)    const scaleFactor = maxScore / 100;
     const stagnation_threshold = raw_stagnation * scaleFactor;
     const trend_tolerance = raw_trend * scaleFactor;
+
+    // FIX 3: Escalonar limites de nível (Mastery/Low) para suportar escalas diferentes de 100
+    const scaled_low = low_level_limit * scaleFactor;
+    const scaled_high = high_level_limit * scaleFactor;
+    const scaled_mastery = mastery_limit * scaleFactor;
 
     // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
     // (With only 2 points, variance = one single squared difference — not representative)
@@ -110,15 +114,15 @@ export function analyzeProgressState(scores, config = {}) {
 
     if (stagnated) {
         // 7.1 Qualified Stagnation or Mastery
-        if (mean >= mastery_limit) {
+        if (mean >= scaled_mastery) {
             state = 'mastery';
             label = 'Domínio (Consistente no Topo)';
             severity = 'none';
-        } else if (mean < low_level_limit) {
+        } else if (mean < scaled_low) {
             state = 'stagnation_negative';
             label = 'Estagnação em nível baixo';
             severity = 'high';
-        } else if (mean < high_level_limit) {
+        } else if (mean < scaled_high) {
             state = 'stagnation_neutral';
             label = 'Estagnação em nível médio';
             severity = 'medium';
