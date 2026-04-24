@@ -83,6 +83,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const timerRef = useRef(null);
     const saveTimeoutRef = useRef(null);
     const skipTimeoutRef = useRef(null);
+    const resumeTransitionTimeoutRef = useRef(null);
+    const transitionUnlockTimeoutRef = useRef(null);
     const isSkippingRef = useRef(false);
     const isTransitioningRef = useRef(false); // NEW: State machine lock
 
@@ -118,6 +120,19 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         try {
             alarmAudioRef.current = new Audio('/sounds/alarm.wav');
         } catch { }
+
+        return () => {
+            if (alarmAudioRef.current) {
+                try {
+                    alarmAudioRef.current.pause();
+                    alarmAudioRef.current.src = '';
+                    alarmAudioRef.current.load();
+                } catch {
+                    // no-op
+                }
+                alarmAudioRef.current = null;
+            }
+        };
     }, []);
 
     const sendNotification = useCallback((title, body) => {
@@ -313,7 +328,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         }
 
         // Finalize transition
-        setTimeout(() => {
+        if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
+        transitionUnlockTimeoutRef.current = setTimeout(() => {
             isTransitioningRef.current = false;
         }, 100);
     }, [safeSettings, sessions, setSessions, onSessionComplete, activeSubject, onUpdateStudyTime, completedCycles, setCompletedCycles, targetCycles, onFullCycleComplete, savePomodoroState, sendNotification, accumulatedMinutes, setAccumulatedMinutes, onExit]);
@@ -345,7 +361,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                 setIsRunning(false);
                                 setMode(parsed.mode);
                                 if (msSinceSave < 30 * 60 * 1000) {
-                                    setTimeout(() => {
+                                    if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
+                                    resumeTransitionTimeoutRef.current = setTimeout(() => {
                                         transitionSession(parsed.mode, 'natural', 0);
                                     }, 100);
                                 }
@@ -367,6 +384,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (timerRef.current) clearTimeout(timerRef.current);
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+            if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
+            if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
         };
     }, [activeSubject, savedState, transitionSession]);
 
@@ -443,6 +462,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     useEffect(() => {
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator && isRunning) {
+                if (wakeLockRef.current) return;
                 try {
                     wakeLockRef.current = await navigator.wakeLock.request('screen');
                 } catch (err) {
@@ -552,10 +572,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         return () => cancelAnimationFrame(rafId);
     }, [isRunning, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, sessions, handleTimerComplete]);
 
-    const isHandlingCompleteRef = React.useRef(false);
-    const completeTimeoutRef = React.useRef(null);
-    // NEW: Removed old useEffect for timeLeft <= 0 to prevent render-phase race conditions
-    // Completion logic is now handled directly inside the tick function above.
+    // Completion logic is handled directly inside the RAF tick callback.
 
     const reset = () => {
         if (isTransitioningRef.current) return;
@@ -640,7 +657,8 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             if (ball) ball.style.height = i < newSessions ? '100%' : '0%';
         }
 
-        setTimeout(() => {
+        if (transitionUnlockTimeoutRef.current) clearTimeout(transitionUnlockTimeoutRef.current);
+        transitionUnlockTimeoutRef.current = setTimeout(() => {
             isTransitioningRef.current = false;
         }, 150);
     };
