@@ -23,7 +23,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 saved.sessionInstanceId === activeSubject.sessionInstanceId) {
                 return saved;
             }
-        } catch {
+        } catch (_) {
             // Storage read ignored
         }
         return null;
@@ -74,7 +74,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         try {
             const saved = localStorage.getItem('pomodoroLayoutLocked');
             return saved ? JSON.parse(saved) : true;
-        } catch { return true; }
+        } catch (_) { return true; }
     });
 
     const toggleLayoutLock = (e) => {
@@ -83,7 +83,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setIsLayoutLocked(newState);
         try {
             localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
-        } catch { }
+        } catch (_) { }
     };
     
     const [speed, setSpeed] = useState(1);
@@ -129,14 +129,14 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         try {
             const saved = localStorage.getItem('pomodoroPosition');
             return saved ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch { return { x: 0, y: 0 }; }
+        } catch (_) { return { x: 0, y: 0 }; }
     });
 
     const alarmAudioRef = useRef(null);
     useEffect(() => {
         try {
             alarmAudioRef.current = new Audio('/sounds/alarm.wav');
-        } catch { }
+        } catch (_) { }
 
         return () => {
             if (alarmAudioRef.current) {
@@ -144,7 +144,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     alarmAudioRef.current.pause();
                     alarmAudioRef.current.src = '';
                     alarmAudioRef.current.load();
-                } catch { }
+                } catch (_) { }
                 alarmAudioRef.current = null;
             }
         };
@@ -274,7 +274,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     try {
                         alarmAudioRef.current.currentTime = 0;
                         alarmAudioRef.current.play().catch(() => { });
-                    } catch { }
+                    } catch (_) { }
                 }
                 sendNotification('⏰ Pomodoro Finalizado!', 'Hora de fazer uma pausa! Você merece descansar.');
             }
@@ -289,7 +289,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                     try {
                         alarmAudioRef.current.currentTime = 0;
                         alarmAudioRef.current.play().catch(() => { });
-                    } catch { }
+                    } catch (_) { }
                 }
                 sendNotification('☕ Pausa Finalizada!', 'Pronto para voltar a estudar? Vamos lá!');
             }
@@ -450,7 +450,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         setUiPosition(newPos);
         try {
             localStorage.setItem('pomodoroPosition', JSON.stringify(newPos));
-        } catch { }
+        } catch (_) { }
     };
 
     useEffect(() => {
