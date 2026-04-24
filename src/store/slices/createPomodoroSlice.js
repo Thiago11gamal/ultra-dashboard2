@@ -82,7 +82,7 @@ export const createPomodoroSlice = (set, get) => ({
     }),
 
     // TRANSIÇÃO ATÓMICA - Muda fase, acumula minutos, e avança ciclos numa única operação
-    completePomodoroPhase: (isManual = false) => {
+    completePomodoroPhase: (isManual = false, manualMinutes = 0) => {
         set((state) => {
             const p = state.appState.pomodoro;
             if (!p) return; // Shield: prevent crash if pomodoro state is missing
@@ -97,6 +97,8 @@ export const createPomodoroSlice = (set, get) => ({
             if (p.mode === 'work') {
                 if (!isManual) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + workDuration;
+                } else if (manualMinutes > 0) {
+                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
                 }
 
                 if (p.sessions >= targetCycles) {
@@ -127,19 +129,17 @@ export const createPomodoroSlice = (set, get) => ({
             if (!p) return;
             
             if (p.mode === 'break') {
-                // Se está em pausa, volta para o trabalho da mesma sessão
+                // Se está em pausa, volta para o trabalho da mesma sessão (Simétrico ao Pular)
                 p.mode = 'work';
             } else if (p.sessions > 1) {
-                // Se está em trabalho (não na primeira), volta para a pausa da sessão anterior
+                // Se está em trabalho, volta para a pausa da sessão anterior
                 p.sessions = Math.max(1, p.sessions - 1);
                 p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
                 p.mode = 'break';
             } else {
-                // Se está na primeira sessão, apenas reinicia o estado
+                // APENAS reseta o modo para work se já estiver na sessao 1
+                // Removido o reset de accumulatedMinutes para manter consistência
                 p.mode = 'work';
-                p.sessions = 1;
-                p.completedCycles = 0;
-                p.accumulatedMinutes = 0;
             }
 
             state.appState.version = (state.appState.version || 0) + 1;

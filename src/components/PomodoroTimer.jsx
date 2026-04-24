@@ -312,14 +312,22 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         const currentTarget = stateRefs.current.targetCycles;
         const isEndingCycle = currentSessions >= currentTarget && stateRefs.current.mode === 'work';
 
-        const sessionMinutes = (completedMode === 'work' && !isManual) ? (safeSettings.pomodoroWork || 25) : 0;
+        let sessionMinutes = 0;
+        if (completedMode === 'work') {
+            if (!isManual) {
+                sessionMinutes = (safeSettings.pomodoroWork || 25);
+            } else if (source === 'skip') {
+                // Contabiliza os minutos trabalhados até o momento do "Pular"
+                const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+                sessionMinutes = Math.floor(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
+            }
+        }
+        
         const finalMinutes = stateRefs.current.accumulatedMinutes + sessionMinutes;
 
         if (isEndingCycle && activeSubject) {
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
-
-        // completePomodoroPhase(isManual); // Mover para dentro do setTimeout
 
         setTimeout(() => {
             // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
@@ -328,8 +336,8 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 return; // Aborta a atualização visual se o componente já não existe
             }
 
-            // ✅ Sincroniza a mudança de fase com o reset do relógio
-            completePomodoroPhase(isManual);
+            // Passamos os minutos trabalhados para o Store persistir
+            completePomodoroPhase(isManual, sessionMinutes);
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
@@ -417,7 +425,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
         showToast('Voltando fase...', 'info');
 
-        // 1. Limpamos o visual da fase atual antes de voltar
+        // 1. Limpeza visual imediata da fase atual
         const s = sessions;
         if (mode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '0%';
@@ -425,25 +433,26 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (breakBallsRef.current[s - 1]) breakBallsRef.current[s - 1].style.height = '0%';
         }
 
-        // 2. Executamos o retrocesso no estado global (Zustand)
+        // 2. Executamos o retrocesso no estado global
         rewindPomodoroPhase();
 
-        // 3. Descobrimos o novo estado após o retrocesso
+        // 3. Sincronização Crítica: Atualiza o motor antes do próximo frame
         const newState = useAppStore.getState().appState.pomodoro;
         const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
 
-        // 4. Pausamos e reiniciamos o relógio com os dados da nova fase
+        stateRefs.current.timeLeft = resetTime;
+        stateRefs.current.mode = newState.mode;
+        stateRefs.current.isRunning = false;
+
+        // 4. Atualizamos o estado do React
         setIsRunning(false);
         setTimeLeft(resetTime);
-        stateRefs.current.isRunning = false;
-        stateRefs.current.timeLeft = resetTime;
-        stateRefs.current.mode = newState.mode; // Sincroniza o modo no motor de animação
 
-        // 5. Atualizamos os números e o círculo grande
+        // 5. Atualizamos a UI diretamente para resposta instantânea
         if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
         if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
-        // 6. Persistimos o novo estado
+        // 6. Persistimos e Sincronizamos
         savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
         try {
             syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name });
