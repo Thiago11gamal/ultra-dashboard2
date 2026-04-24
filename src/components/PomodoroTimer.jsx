@@ -296,7 +296,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 completedCycles: newCompletedCycles
             });
         }
-        
+
         // Finalize transition
         setTimeout(() => {
             isTransitioningRef.current = false;
@@ -521,7 +521,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 if (displaySecond !== lastDisplayedSecond || current <= 0) {
                     lastDisplayedSecond = displaySecond;
                     setTimeLeft(current);
-                    
+
                     if (current <= 0) {
                         cancelAnimationFrame(rafId);
                         handleTimerComplete();
@@ -546,59 +546,65 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         if (isTransitioningRef.current) return;
         isTransitioningRef.current = true;
 
+        const currentTotalTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+        const elapsed = currentTotalTime - timeLeftRef.current;
+
+        // Intelligent "Previous" logic: If already started (> 5s), just restart current phase.
+        // If at the beginning (<= 5s), go back to previous phase in sequence.
+        const shouldRewindSequentially = elapsed <= 5;
+
         let newMode = mode;
         let newSessions = sessions;
         let newCompletedCycles = completedCycles;
         let newAccumulatedMinutes = accumulatedMinutes;
 
-        if (mode === 'break') {
-            // Se estou na pausa, volto para o início do FOCO deste mesmo ciclo
-            newMode = 'work';
-            // Ao voltar para o foco do mesmo ciclo, precisamos subtrair o tempo que foi acumulado na transição para a pausa
-            newAccumulatedMinutes = Math.max(0, accumulatedMinutes - (safeSettings.pomodoroWork || 25));
-            showToast('Retornando ao início do Foco', 'info');
-        } else {
-            // Se estou no foco
-            if (sessions > 1) {
-                // Se não é o primeiro ciclo, volto para a PAUSA do ciclo anterior
-                newMode = 'break';
-                newSessions = sessions - 1;
-                newCompletedCycles = Math.max(0, completedCycles - 1);
-                // accumulatedMinutes permanece o mesmo, pois o foco do ciclo anterior já está lá e voltamos para a pausa subsequente
-                showToast(`Retornando à Pausa do Ciclo ${newSessions}`, 'info');
-            } else {
-                // Se é o primeiro ciclo, apenas reinicio o tempo do Foco 1
+        if (shouldRewindSequentially) {
+            // SEQUENTIAL REWIND (Back to previous phase)
+            if (mode === 'break') {
                 newMode = 'work';
-                newSessions = 1;
-                newCompletedCycles = 0;
-                newAccumulatedMinutes = 0;
-                showToast('Reiniciando Ciclo 1', 'info');
+                newAccumulatedMinutes = Math.max(0, accumulatedMinutes - (safeSettings.pomodoroWork || 25));
+                showToast('Retornando ao início do Foco', 'info');
+            } else {
+                if (sessions > 1) {
+                    newMode = 'break';
+                    newSessions = sessions - 1;
+                    newCompletedCycles = Math.max(0, completedCycles - 1);
+                    showToast(`Retornando à Pausa do Ciclo ${newSessions}`, 'info');
+                } else {
+                    newMode = 'work';
+                    newSessions = 1;
+                    newCompletedCycles = 0;
+                    newAccumulatedMinutes = 0;
+                    showToast('Reiniciando Ciclo 1', 'info');
+                }
             }
+        } else {
+            // SIMPLE RESET (Restart current phase)
+            showToast('Reiniciando fase atual', 'info');
+            // Mode and Sessions remain the same
         }
 
         const resetTime = newMode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
-        
-        // Atualizar Estados Locais
-        setIsRunning(false); // FIX: Always pause after rewind as requested
+
+        // Update states and refs
+        setIsRunning(false);
         setMode(newMode);
         setTimeLeft(resetTime);
         timeLeftRef.current = resetTime;
-        
-        // Atualizar Store Global
+
         setSessions(newSessions);
         setCompletedCycles(newCompletedCycles);
         setAccumulatedMinutes(newAccumulatedMinutes);
 
-        // Feedback visual imediato
+        // Immediate DOM synchronization
         if (clockRef.current) {
             const mins = Math.floor(resetTime / 60);
             const secs = resetTime % 60;
             clockRef.current.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         }
-        
+
         if (svgCircleRef.current) {
-            const circumference = 2 * Math.PI * 110;
-            svgCircleRef.current.style.strokeDashoffset = circumference;
+            svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
         }
 
         savePomodoroState({
@@ -610,12 +616,11 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             accumulatedMinutes: newAccumulatedMinutes
         });
 
-        // OPTIMIZATION: Manually clear ALL progress segments in the DOM to prevent "ghost" bars
-        // This ensures the visual state is reset before the next frame even starts
+        // Manual DOM cleanup for progress segments
         for (let i = 1; i <= (targetCycles || 4); i++) {
             const fill = document.getElementById(`work-fill-${i}`);
             if (fill) fill.style.width = i < newSessions ? '100%' : '0%';
-            
+
             const ball = document.getElementById(`break-ball-${i}`);
             if (ball) ball.style.height = i < newSessions ? '100%' : '0%';
         }
@@ -628,7 +633,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     const skip = () => {
         if (isTransitioningRef.current) return;
         // The isTransitioningRef will be set to true inside transitionSession
-        
+
         const nextModeLabel = mode === 'work' ? 'Pausa' : 'Próximo Foco';
         showToast(`Avançando para ${nextModeLabel}`, 'info');
 
@@ -1033,7 +1038,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                         </div>
 
                         {/* Barra Segmentada de Progresso */}
-                        <div 
+                        <div
                             key={`segments-${sessions}-${mode}`}
                             className="flex flex-1 items-center gap-1.5 h-16 px-4"
                         >
