@@ -82,7 +82,8 @@ export const createPomodoroSlice = (set, get) => ({
             category: (task.text || task.title).split(':')[0] || 'Geral',
             categoryId: task.categoryId || 'default',
             priority: 'high',
-            sessionInstanceId: Date.now().toString()
+            sessionInstanceId: Date.now().toString(),
+            source: 'neural_core'
         };
 
         set((state) => {
@@ -117,7 +118,8 @@ export const createPomodoroSlice = (set, get) => ({
             category: (nextTask.text || nextTask.title).split(':')[0] || 'Geral',
             categoryId: nextTask.categoryId || 'default',
             priority: 'high',
-            sessionInstanceId: Date.now().toString()
+            sessionInstanceId: Date.now().toString(),
+            source: 'neural_core'
         };
 
         set((state) => {

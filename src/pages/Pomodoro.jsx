@@ -383,7 +383,8 @@ export default function Pomodoro() {
                     taskId: tsk.id,
                     category: cat.name,
                     task: tsk.title || tsk.text || 'Estudo',
-                    priority: tsk.priority
+                    priority: tsk.priority,
+                    source: 'dashboard'
                 });
             }
         }
@@ -448,49 +449,37 @@ export default function Pomodoro() {
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
 
-            // 🎯 PRIORIDADE: Neural Core Queue Flow
-            if (neuralMode) {
+            // Fluxo 1: Iniciado pelo painel lateral (Próximas Ações / Neural Core)
+            if (neuralMode || currentSubject.source === 'neural_core') {
                 const hasNext = advanceNeuralQueue();
                 if (hasNext) {
-                    const nextSubject = useAppStore.getState().appState.pomodoro.activeSubject;
-                    showToast(`Neural Core: Sequenciando próxima meta... ⚡`, 'info');
-                    // O PomodoroTimer vai reiniciar via prop 'key' no render
-                    return;
+                    showToast(`Sequenciando próxima meta do painel... ⚡`, 'info');
+                    return; // O Pomodoro reinicia automaticamente na próxima tarefa
                 } else {
-                    showToast('Neural Core: Plano de execução concluído! 🏆', 'success');
+                    showToast('Todas as ações concluídas! 🏆', 'success');
+                    // Finaliza os estudos, zera o relógio e PERMANECE na tela
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                    completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 3000);
+                    completionTimeoutRef.current = setTimeout(() => { 
+                        useAppStore.getState().setPomodoroActiveSubject(null); 
+                    }, 3000);
                     return;
                 }
             }
 
+            // Fluxo 2: Iniciado pelo Dashboard
             const isFromDashboard = currentSubject.source === 'dashboard';
             if (isFromDashboard) {
                 if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                 completionTimeoutRef.current = setTimeout(() => { 
                     showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
-                    handleExit(); 
+                    handleExit(); // handleExit usa o navigate para voltar ao Dashboard
                 }, 3000);
                 return;
             }
 
-            // Fallback: Tenta pular para o próximo baseado em heurística (se não for neural)
-            const state = useAppStore.getState();
-            const activeId = state.appState.activeId;
-            const currentCategories = state.appState.contests[activeId]?.categories || [];
-            const nextTask = getBestTask(currentCategories, currentSubject.taskId);
-            
-            if (nextTask) {
-                const nextSessionId = Date.now().toString();
-                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                completionTimeoutRef.current = setTimeout(() => {
-                    showToast(`Próximo vetor detectado: ${nextTask.text || nextTask.title}... ⚡`, 'info');
-                    handleStartTask(nextTask, nextSessionId, 'auto_jump');
-                }, 3500); 
-            } else {
-                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 4500);
-            }
+            // Fallback default de segurança
+            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+            completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 3000);
         } else {
             handleExit();
         }

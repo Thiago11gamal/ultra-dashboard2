@@ -53,31 +53,29 @@ function MainLayout() {
   const activeContestId = useAppStore(state => state.appState.activeId);
 
   // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
-  // Retorna apenas IDs e nomes (strings), assim o App.jsx não re-renderiza infinitamente
-  const contestsMetaList = useAppStore(useShallow(state => {
+  const contestsMetaSelector = useShallow(state => {
     return Object.keys(state.appState.contests).reduce((acc, key) => {
       acc[key] = state.appState.contests[key]?.contestName || 'Sem nome';
       return acc;
     }, {});
-  }));
+  });
+  const contestsMetaList = useAppStore(contestsMetaSelector);
 
-  // PERF FIX: Selecionar estritamente o necessário para a UI de topo,
-  // evitando re-renders globais quando timers (Pomodoro) ou tarefas mudam.
-  const headerData = useAppStore(useShallow(state => {
+  const headerDataSelector = useShallow(state => {
     const contest = state.appState.contests[activeContestId];
     return {
       exists: !!contest,
       user: contest?.user,
       settings: contest?.settings
     };
-  }));
+  });
+  const headerData = useAppStore(headerDataSelector);
 
-  // Use a stable reference for cloud sync without forcing re-renders on every state tick
-  // by only selecting the properties that actually need to trigger a sync cycle.
-  const syncTrigger = useAppStore(useShallow(state => ({
+  const syncTriggerSelector = useShallow(state => ({
     version: state.appState.version,
     lastUpdated: state.appState.lastUpdated
-  })));
+  }));
+  const syncTrigger = useAppStore(syncTriggerSelector);
 
 
   const setAppState = useAppStore(state => state.setAppState);
@@ -175,128 +173,128 @@ function MainLayout() {
 
 
 
-  if (loading || subLoading) return (
-    <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-    </div>
-  );
-  if (!currentUser) return <Login />;
-
-  // ── Stripe Paywall Guard ──
-  // A verificação de assinatura agora atua como um Overlay impenetrável
-  // para não quebrar a árvore de hidratação do React Router.
-
-  if (!headerData.exists) return <div className="loading-screen">Carregando Store...</div>;
-
+  // ── Render Logic ──
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
-      {!isPremium ? (
-        <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
-          <Suspense fallback={null}>
-            <Paywall user={currentUser} onLogout={logout} />
-          </Suspense>
+      {(loading || subLoading) ? (
+        <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
         </div>
+      ) : !currentUser ? (
+        <Login />
+      ) : !headerData.exists ? (
+        <div className="loading-screen">Carregando Store...</div>
       ) : (
-        <div className="grid grid-cols-[auto_1fr] w-full h-screen overflow-hidden">
-          <Sidebar
-            onOpenHelp={() => setShowHelpGuide(true)}
-            isOpen={isSidebarOpen}
-            onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-            contests={contestsMetaList}
-            activeContestId={activeContestId}
-            onSwitchContest={switchContest}
-            onCreateContest={createNewContest}
-            onDeleteContest={deleteContest}
-            onOpenTrash={() => setTrashOpen(true)}
-          />
+        <>
+          {!isPremium ? (
+            <div className="fixed inset-0 z-[99999] bg-[#0a0f1e]">
+              <Suspense fallback={null}>
+                <Paywall user={currentUser} onLogout={logout} />
+              </Suspense>
+            </div>
+          ) : (
+            <div className="grid grid-cols-[auto_1fr] w-full h-screen overflow-hidden">
+              <Sidebar
+                onOpenHelp={() => setShowHelpGuide(true)}
+                isOpen={isSidebarOpen}
+                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                collapsed={sidebarCollapsed}
+                setCollapsed={setSidebarCollapsed}
+                contests={contestsMetaList}
+                activeContestId={activeContestId}
+                onSwitchContest={switchContest}
+                onCreateContest={createNewContest}
+                onDeleteContest={deleteContest}
+                onOpenTrash={() => setTrashOpen(true)}
+              />
 
-          <div className="flex flex-col h-screen w-full min-w-0 relative">
-            <Header
-              user={headerData.user}
-              settings={headerData.settings}
-              contests={contestsMetaList}
-              activeContestId={activeContestId}
-              onSwitchContest={switchContest}
-              onCreateContest={createNewContest}
-              onDeleteContest={deleteContest}
-              onUndo={handleUndo}
-              onCloudRestore={handleCloudRestore}
-              onUpdateName={updateUserName}
-              currentData={{}}
-              cloudStatus={{
-                status: cloudStatus,
-                error: cloudError,
-                syncing: isCloudSyncing,
-                hasConflict,
-                forcePull: forcePullCloud
-              }}
-              onExport={handleExport}
-              onImport={handleImport}
-              onThemeChange={setThemeMode}
-              onToggleSidebar={() => setIsSidebarOpen(true)}
-              sidebarCollapsed={sidebarCollapsed}
-              setSidebarCollapsed={setSidebarCollapsed}
-              onOpenTrash={() => setTrashOpen(true)}
-            />
+              <div className="flex flex-col h-screen w-full min-w-0 relative">
+                <Header
+                  user={headerData.user}
+                  settings={headerData.settings}
+                  contests={contestsMetaList}
+                  activeContestId={activeContestId}
+                  onSwitchContest={switchContest}
+                  onCreateContest={createNewContest}
+                  onDeleteContest={deleteContest}
+                  onUndo={handleUndo}
+                  onCloudRestore={handleCloudRestore}
+                  onUpdateName={updateUserName}
+                  currentData={{}}
+                  cloudStatus={{
+                    status: cloudStatus,
+                    error: cloudError,
+                    syncing: isCloudSyncing,
+                    hasConflict,
+                    forcePull: forcePullCloud
+                  }}
+                  onExport={handleExport}
+                  onImport={handleImport}
+                  onThemeChange={setThemeMode}
+                  onToggleSidebar={() => setIsSidebarOpen(true)}
+                  sidebarCollapsed={sidebarCollapsed}
+                  setSidebarCollapsed={setSidebarCollapsed}
+                  onOpenTrash={() => setTrashOpen(true)}
+                />
 
-            <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
+                <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
 
-            <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-6 lg:mt-8 overflow-y-auto custom-scrollbar">
-              {/* Router Outlet com carregamento otimizado */}
-              <div className="animate-page-entrance">
-                <ErrorBoundary>
-                  <Suspense fallback={
-                    <div className="flex items-center justify-center p-20 text-purple-400">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-                    </div>
-                  }>
-                    <Routes location={location}>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/pomodoro" element={<Pomodoro />} />
-                      <Route path="/tasks" element={<Tasks />} />
-                      <Route path="/simulados" element={<Simulados />} />
-                      <Route path="/stats" element={<Stats />} />
-                      <Route path="/evolution" element={<Evolution />} />
-                      <Route path="/coach" element={<Coach />} />
-                      <Route path="/history" element={<History />} />
-                      <Route path="/sessions" element={<Sessions />} />
-                      <Route path="/heatmap" element={<Activity />} />
-                      <Route path="/retention" element={<Retention />} />
-                      <Route path="/notes" element={<Notes />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
+                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-6 lg:mt-8 overflow-y-auto custom-scrollbar">
+                  {/* Router Outlet com carregamento otimizado */}
+                  <div className="animate-page-entrance">
+                    <ErrorBoundary>
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center p-20 text-purple-400">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                        </div>
+                      }>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/pomodoro" element={<Pomodoro />} />
+                          <Route path="/tasks" element={<Tasks />} />
+                          <Route path="/simulados" element={<Simulados />} />
+                          <Route path="/stats" element={<Stats />} />
+                          <Route path="/evolution" element={<Evolution />} />
+                          <Route path="/coach" element={<Coach />} />
+                          <Route path="/history" element={<History />} />
+                          <Route path="/sessions" element={<Sessions />} />
+                          <Route path="/heatmap" element={<Activity />} />
+                          <Route path="/retention" element={<Retention />} />
+                          <Route path="/notes" element={<Notes />} />
+                          <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                      </Suspense>
+                    </ErrorBoundary>
+                  </div>
+                </main>
+                <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+                <OnboardingTour />
               </div>
-            </main>
-            <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
-            <OnboardingTour />
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {levelUpData && (
-        <LevelUpToast
-          key={levelUpData.level}
-          level={levelUpData.level}
-          title={levelUpData.title}
-          onClose={clearLevelUp}
-        />
-      )}
-
-      {/* Global Event Driven Toast Container */}
-      <div className="fixed bottom-4 right-4 z-[100000] flex flex-col gap-2 pointer-events-none">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="pointer-events-auto">
-            <Toast
-              toast={toast}
-              onClose={() => removeToast(toast.id)}
+          {levelUpData && (
+            <LevelUpToast
+              key={levelUpData.level}
+              level={levelUpData.level}
+              title={levelUpData.title}
+              onClose={clearLevelUp}
             />
+          )}
+
+          {/* Global Event Driven Toast Container */}
+          <div className="fixed bottom-4 right-4 z-[100000] flex flex-col gap-2 pointer-events-none">
+            {toasts.map((toast) => (
+              <div key={toast.id} className="pointer-events-auto">
+                <Toast
+                  toast={toast}
+                  onClose={() => removeToast(toast.id)}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }
