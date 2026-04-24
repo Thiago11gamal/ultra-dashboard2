@@ -201,7 +201,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
 
-        completePomodoroPhase(isManual);
+        // completePomodoroPhase(isManual); // Mover para dentro do setTimeout
 
         setTimeout(() => {
             // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
@@ -209,6 +209,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                 isTransitioningRef.current = false;
                 return; // Aborta a atualização visual se o componente já não existe
             }
+
+            // ✅ Sincroniza a mudança de fase com o reset do relógio
+            completePomodoroPhase(isManual);
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
@@ -521,7 +524,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                 className="h-full bg-blue-500 will-change-[width]"
                                                 style={{ 
                                                     width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' : 
-                                                           (i === sessions - 1 && mode === 'work') ? `${(1 - timeLeft / totalTime) * 100}%` : '0%',
+                                                           (i === sessions - 1 && mode === 'work') ? 
+                                                                (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
+                                                           : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
                                             />
@@ -534,7 +539,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                                 className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
                                                 style={{ 
                                                     height: (i < sessions - 1) ? '100%' : 
-                                                            (sessions === i + 1 && mode === 'break') ? `${(1 - timeLeft / totalTime) * 100}%` : '0%',
+                                                            (sessions === i + 1 && mode === 'break') ? 
+                                                                (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / totalTime) * 100}%`)
+                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}
                                             />
