@@ -28,6 +28,8 @@ const getEfficiencyTheme = (score) => {
 };
 
 const StatsCards = ({ data, onUpdateGoalDate }) => {
+    const dateInputRef = useRef(null);
+
     const streak = useMemo(() => calculateStudyStreak(data.studyLogs || []), [data.studyLogs]);
     const balance = useMemo(() => analyzeSubjectBalance(data.categories || []), [data.categories]);
     const efficiency = useMemo(() => analyzeEfficiency(data.categories || [], data.studyLogs || []), [data.categories, data.studyLogs]);
@@ -239,9 +241,29 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                 <div className="w-full h-[1px] sm:w-[1px] sm:h-16 bg-white/10 z-10 my-3 sm:mx-3" />
 
-                {/* Right: date picker (Refatorado para Label) */}
-                <label className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2 group/rightside cursor-pointer py-2">
+                {/* Right: date picker (Re-implementado para Robustez) */}
+                <div
+                    className="relative z-10 flex-1 flex flex-col items-center justify-center w-full sm:w-1/2 group/rightside cursor-pointer py-2"
+                    onClick={(e) => {
+                        // Se o clique já veio do input nativo, não fazemos nada para evitar loops.
+                        if (e.target === dateInputRef.current) return;
+                        
+                        try {
+                            if (dateInputRef.current) {
+                                if (typeof dateInputRef.current.showPicker === 'function') {
+                                    dateInputRef.current.showPicker();
+                                } else {
+                                    dateInputRef.current.focus();
+                                    dateInputRef.current.click();
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Picker falhou", err);
+                        }
+                    }}
+                >
                     <input
+                        ref={dateInputRef}
                         type="date"
                         value={(() => {
                             try {
@@ -254,7 +276,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             } catch (e) { return ''; }
                         })()}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                         title="Escolher data da prova"
                     />
                     
@@ -287,7 +309,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             })() : 'ESCOLHER'}
                         </div>
                     </div>
-                </label>
+                </div>
             </div>
         </div>
     );
