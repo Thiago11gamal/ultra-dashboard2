@@ -147,6 +147,15 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         }
     });
 
+    // 🛡️ [SHIELD-04] Persistência de UI
+    useEffect(() => {
+        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch(_) {}
+    }, [isLayoutLocked]);
+
+    useEffect(() => {
+        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch(_) {}
+    }, [uiPosition]);
+
     // 🛡️ [SHIELD-02] Prop Safety Wrappers
     const safeOnUpdateStudyTime = useCallback((...args) => {
         if (typeof onUpdateStudyTime === 'function' && isMountedRef.current) {
@@ -166,14 +175,45 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         }
     }, [onExit]);
 
-    // Sincronização Multi-Aba
+    // Sincronização Multi-Aba Robusta
     useEffect(() => {
         try {
             syncChannelRef.current = new BroadcastChannel('pomodoro_sync');
             syncChannelRef.current.onmessage = (event) => {
-                if (event.data?.type === 'START_SESSION' && event.data?.tabId !== window.name) {
-                    setIsRunning(false);
-                    stateRefs.current.isRunning = false;
+                const { type, tabId, toMode, timeLeft: incomingTime } = event.data || {};
+                if (tabId === window.name) return; // Ignorar mensagens da própria aba
+
+                switch (type) {
+                    case 'START_SESSION':
+                        setIsRunning(true);
+                        stateRefs.current.isRunning = true;
+                        showToast('Protocolo ativo em outra aba 🖥️', 'info');
+                        break;
+                    
+                    case 'PAUSE_SESSION':
+                        setIsRunning(false);
+                        stateRefs.current.isRunning = false;
+                        break;
+
+                    case 'TIMER_RESET':
+                    case 'PHASE_SKIP':
+                    case 'PHASE_COMPLETE':
+                    case 'PHASE_REWIND':
+                        // Reset/Troca de fase forçada por outra aba
+                        setIsRunning(false);
+                        stateRefs.current.isRunning = false;
+                        
+                        // Recarrega o estado do localStorage após um curto delay para garantir consistência
+                        setTimeout(() => {
+                            try {
+                                const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+                                if (saved && saved.activeTaskId === activeSubject?.taskId) {
+                                    if (saved.timeLeft !== undefined) setTimeLeft(saved.timeLeft);
+                                    if (saved.mode !== undefined) stateRefs.current.mode = saved.mode;
+                                }
+                            } catch(_) {}
+                        }, 100);
+                        break;
                 }
             };
         } catch (e) {
@@ -182,7 +222,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         return () => {
             try { syncChannelRef.current?.close(); } catch (_) { }
         };
-    }, []);
+    }, [activeSubject?.taskId, showToast]);
 
     useEffect(() => {
         const handleStorageChange = (e) => {
@@ -352,6 +392,9 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch(_) {} }
         
+        showToast('Voltando fase...', 'info');
+
+        // 1. Limpamos o visual da fase atual antes de voltar
         const s = sessions;
         if (mode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '0%';
@@ -359,20 +402,25 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (breakBallsRef.current[s - 1]) breakBallsRef.current[s - 1].style.height = '0%';
         }
 
+        // 2. Executamos o retrocesso no estado global (Zustand)
         rewindPomodoroPhase();
 
+        // 3. Descobrimos o novo estado após o retrocesso
         const newState = useAppStore.getState().appState.pomodoro;
         const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         
+        // 4. Pausamos e reiniciamos o relógio com os dados da nova fase
         setIsRunning(false);
         setTimeLeft(resetTime);
         stateRefs.current.isRunning = false;
         stateRefs.current.timeLeft = resetTime;
-        stateRefs.current.mode = newState.mode;
+        stateRefs.current.mode = newState.mode; // Sincroniza o modo no motor de animação
 
+        // 5. Atualizamos os números e o círculo grande
         if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
         if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
+        // 6. Persistimos o novo estado
         savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
         try {
             syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name });
@@ -502,7 +550,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     <div className="grid grid-cols-3 items-center justify-center gap-4 z-10 mt-10 w-full max-w-2xl px-6">
                         <div className="flex flex-col items-center gap-3">
                             <button onClick={reset} className="w-16 h-16 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/5 text-white flex items-center justify-center shadow-lg"><RotateCcw size={24} /></button>
-                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">REINICIAR</span>
+                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">VOLTAR</span>
                         </div>
 
                         <div className="flex flex-col items-center justify-center">
@@ -522,11 +570,12 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                     const next = !isRunning;
                                     stateRefs.current.isRunning = next;
                                     setIsRunning(next);
-                                    if (next) {
-                                        try {
-                                            syncChannelRef.current?.postMessage({ type: 'START_SESSION', tabId: window.name });
-                                        } catch(_) {}
-                                    }
+                                    try {
+                                        syncChannelRef.current?.postMessage({ 
+                                            type: next ? 'START_SESSION' : 'PAUSE_SESSION', 
+                                            tabId: window.name 
+                                        });
+                                    } catch(_) {}
                                 }}
                                 className={`w-36 h-36 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                             >
