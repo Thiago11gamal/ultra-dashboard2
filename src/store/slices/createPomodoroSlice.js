@@ -4,6 +4,8 @@ export const createPomodoroSlice = (set, get) => ({
             if (!subject) {
                 state.appState.pomodoro.sessions = 1;
                 state.appState.pomodoro.completedCycles = 0;
+                state.appState.pomodoro.mode = 'work';
+                state.appState.pomodoro.accumulatedMinutes = 0;
                 state.appState.pomodoro.activeSubject = null;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -16,6 +18,8 @@ export const createPomodoroSlice = (set, get) => ({
             if (isNewSession) {
                 state.appState.pomodoro.sessions = 1;
                 state.appState.pomodoro.completedCycles = 0;
+                state.appState.pomodoro.mode = 'work';
+                state.appState.pomodoro.accumulatedMinutes = 0;
             }
 
             state.appState.pomodoro.activeSubject = subject;
@@ -49,6 +53,12 @@ export const createPomodoroSlice = (set, get) => ({
         state.appState.lastUpdated = new Date().toISOString();
     }),
 
+    setPomodoroMode: (mode) => set((state) => {
+        state.appState.pomodoro.mode = mode;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+    }),
+
     updatePomodoroSettings: (settings) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
@@ -70,6 +80,41 @@ export const createPomodoroSlice = (set, get) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
+
+    // TRANSIÇÃO ATÓMICA - Muda fase, acumula minutos, e avança ciclos numa única operação
+    completePomodoroPhase: (isManual = false) => {
+        set((state) => {
+            const p = state.appState.pomodoro;
+            const settings = state.appState.contests[state.appState.activeId]?.settings || { pomodoroWork: 25, pomodoroBreak: 5 };
+            
+            if (p.mode === 'work') {
+                // Acumula minutos de trabalho (não acumula se foi skip manual)
+                if (!isManual) {
+                    p.accumulatedMinutes = (p.accumulatedMinutes || 0) + (settings.pomodoroWork || 25);
+                }
+
+                // Verifica se encerrou o último ciclo
+                if (p.sessions >= (p.targetCycles || 1)) {
+                    // Ciclo completo — reseta tudo para o próximo uso
+                    p.sessions = 1;
+                    p.completedCycles = 0;
+                    p.accumulatedMinutes = 0;
+                    p.mode = 'work';
+                } else {
+                    // Vai para pausa
+                    p.mode = 'break';
+                }
+            } else {
+                // Saindo da pausa — incrementa ciclos e sessão
+                p.completedCycles = (p.completedCycles || 0) + 1;
+                p.sessions = (p.sessions || 1) + 1;
+                p.mode = 'work';
+            }
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+        });
+    },
 
     // --- NEURAL CORE SEQUENCING ---
     startNeuralSession: (tasks, startIndex = 0) => {

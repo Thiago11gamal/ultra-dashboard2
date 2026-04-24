@@ -161,7 +161,17 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
         } catch (_) { }
     }, [isLayoutLocked, uiPosition]);
 
+    useEffect(() => {
+        const safeTarget = Number(targetCycles);
+        if (!Number.isFinite(safeTarget) || safeTarget < 1) {
+            setTargetCycles(Math.max(1, Number(defaultTargetCycles) || 1));
+        }
+    }, [targetCycles, defaultTargetCycles, setTargetCycles]);
+
     // 🎯 RESUME LOGIC (Catch-up temporal ao voltar para a aba)
+    const transitionSessionRef = useRef(null);
+    useEffect(() => { transitionSessionRef.current = transitionSession; }, [transitionSession]);
+
     useEffect(() => {
         const initFromStorage = () => {
             if (!savedState) return;
@@ -183,7 +193,7 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             if (msSinceSave < 30 * 60 * 1000) { // Só transiciona se for recente
                                 if (resumeTransitionTimeoutRef.current) clearTimeout(resumeTransitionTimeoutRef.current);
                                 resumeTransitionTimeoutRef.current = setTimeout(() => {
-                                    transitionSession(savedState.mode, 'natural');
+                                    transitionSessionRef.current?.(savedState.mode, 'natural');
                                 }, 100);
                             }
                         } else {
@@ -240,29 +250,41 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
     }, []);
 
     // 🎯 TRANSIÇÃO BLINDADA (Atomic Action)
+    // Lê tudo de stateRefs para evitar stale closures — os valores do Zustand podem
+    // já ter mudado quando esta callback é chamada.
     const transitionSession = useCallback((completedMode, source = 'natural') => {
         if (isTransitioningRef.current) return;
         isTransitioningRef.current = true;
 
         const isNatural = source === 'natural';
+        const current = stateRefs.current;
+
         setIsRunning(false);
+        stateRefs.current.isRunning = false;
+
+        // Captura valores PRÉ-transição para os callbacks
+        const preSessionCount = current.sessions;
+        const preTargetCycles = current.targetCycles;
+        const preAccumulated = current.accumulatedMinutes;
+        const isLastCycle = preSessionCount >= preTargetCycles && preTargetCycles > 0;
 
         // Dispara a transição atómica no Store
         completePomodoroPhase(source === 'forced' || source === 'skip');
 
         // Reset do tempo local para a nova fase
-        const nextMode = completedMode === 'work' ? (sessions >= targetCycles ? 'work' : 'break') : 'work';
+        const nextMode = completedMode === 'work' ? (isLastCycle ? 'work' : 'break') : 'work';
         const nextTime = nextMode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
         setTimeLeft(nextTime);
+        stateRefs.current.timeLeft = nextTime;
 
-        // Efeitos Colaterais
+        // Efeitos Colaterais (som, notificações, callbacks)
         if (isNatural) {
             try { alarmAudioRef.current?.play().catch(() => {}); } catch (_) {}
             
             if (completedMode === 'work') {
                 onSessionComplete?.();
-                if (sessions >= targetCycles) {
-                    const finalMinutes = accumulatedMinutes + safeSettings.pomodoroWork;
+                if (isLastCycle) {
+                    const finalMinutes = preAccumulated + safeSettings.pomodoroWork;
                     if (activeSubject && onUpdateStudyTime) {
                         onUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
                     }
@@ -276,12 +298,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
             }
         }
 
-        if (completedMode === 'work' && sessions >= targetCycles) {
+        if (completedMode === 'work' && isLastCycle) {
              localStorage.removeItem('pomodoroState');
         }
 
         setTimeout(() => { isTransitioningRef.current = false; }, 500);
-    }, [completePomodoroPhase, sessions, targetCycles, accumulatedMinutes, onSessionComplete, onFullCycleComplete, sendNotification, safeSettings]);
+    }, [completePomodoroPhase, onSessionComplete, onFullCycleComplete, onUpdateStudyTime, activeSubject, sendNotification, safeSettings]);
 
     // 🎯 CONTROLO DE CICLOS
     const handleDecreaseCycles = () => {
@@ -488,7 +510,9 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                             <button
                                 onClick={() => {
                                     if (mode === 'work' && !activeSubject) return;
-                                    setIsRunning(!isRunning);
+                                    const next = !isRunning;
+                                    stateRefs.current.isRunning = next;
+                                    setIsRunning(next);
                                 }}
                                 className={`w-32 h-32 rounded-full flex items-center justify-center border-4 transition-colors ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
                             >

@@ -67,6 +67,7 @@ export const useAppStore = create(
                         targetCycles: 1, 
                         completedCycles: 0, 
                         accumulatedMinutes: 0,
+                        mode: 'work',
                         neuralQueue: [],
                         neuralMode: false
                     },
@@ -92,6 +93,7 @@ export const useAppStore = create(
                                 targetCycles: 1, 
                                 completedCycles: 0, 
                                 accumulatedMinutes: 0,
+                                mode: 'work',
                                 neuralQueue: [],
                                 neuralMode: false
                             },
