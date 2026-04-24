@@ -9,8 +9,6 @@ import { runMonteCarloAnalysis } from '../engine';
 
 export function useMonteCarloWorker() {
     const workerRef = useRef(null);
-    const abortRef = useRef(null);
-    const timeoutRef = useRef(null);
     const requestIdRef = useRef(0);
     const pendingRequestsRef = useRef(new Map());
 
@@ -37,7 +35,7 @@ export function useMonteCarloWorker() {
             worker.onerror = (err) => {
                 console.warn('[MC Worker] Error, falling back to main thread:', err.message);
                 for (const [id, pending] of pendingRequestsRef.current) {
-                    if (pending.workerRef === workerRef) {
+                    if (pending.worker === worker) {
                         pending.reject(new Error('Worker error'));
                         pendingRequestsRef.current.delete(id);
                     }
@@ -56,9 +54,6 @@ export function useMonteCarloWorker() {
             if (workerRef.current) {
                 workerRef.current.terminate();
                 workerRef.current = null;
-            }
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
             }
             // Limpa pendentes e timeouts deste worker específico
             for (const [id, pending] of pendingRequestsRef.current) {
@@ -122,7 +117,7 @@ export function useMonteCarloWorker() {
             }, 10000);
 
             pendingRequestsRef.current.set(id, { 
-                workerRef, // Track which worker owner this request
+                worker, // Track request owner worker instance
                 timeoutId, // BUG 3 FIX: Guardar referência para limpeza
                 resolve: (data) => {
                     clearTimeout(timeoutId);
@@ -136,7 +131,6 @@ export function useMonteCarloWorker() {
                 }
             });
             
-            abortRef.current = id;
             worker.postMessage({ type: 'runMonteCarloAnalysis', payload, id });
         });
     }, []);

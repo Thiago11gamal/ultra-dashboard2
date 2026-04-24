@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 export function useSubscription(user) {
     const [isPremium, setIsPremium] = useState(false);
@@ -27,11 +27,19 @@ export function useSubscription(user) {
             return;
         }
 
+        if (!db) {
+            console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
+            setIsPremium(false);
+            setLoading(false);
+            return;
+        }
+
         // Alterado para 'payments' para buscar compras únicas (One-Time / PIX)
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         // Buscamos apenas os pagamentos confirmados
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
+        let unsubscribeFallback = null;
         const unsubscribe = onSnapshot(q, (snapshot) => {
             if (snapshot.empty) {
                 setIsPremium(false);
@@ -54,11 +62,36 @@ export function useSubscription(user) {
             setLoading(false);
         }, (error) => {
             console.error("[Stripe] Erro ao buscar pagamentos:", error);
+
+            // Fallback defensivo: se a coleção de pagamentos estiver bloqueada por regras,
+            // tenta ler o perfil do usuário com uma flag de premium no próprio documento.
+            if (error?.code === 'permission-denied') {
+                const userRef = doc(db, 'users', user.uid);
+                unsubscribeFallback = onSnapshot(userRef, (userDoc) => {
+                    const profile = userDoc.exists() ? userDoc.data() : {};
+                    const premiumFromProfile = Boolean(
+                        profile?.isPremium ||
+                        profile?.premium ||
+                        profile?.subscription?.active
+                    );
+                    setIsPremium(premiumFromProfile);
+                    setLoading(false);
+                }, (profileErr) => {
+                    console.error('[Stripe] Falha no fallback de perfil:', profileErr);
+                    setIsPremium(false);
+                    setLoading(false);
+                });
+                return;
+            }
+
             setIsPremium(false);
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            if (unsubscribeFallback) unsubscribeFallback();
+        };
     }, [user]);
 
     return { isPremium, loading };
