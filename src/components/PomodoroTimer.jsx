@@ -655,8 +655,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         <div className="bg-[#2d1a12]/10 h-3 rounded-full overflow-hidden">
                                             <div
                                                 id={`work-fill-${i + 1}`}
-                                                className="h-full bg-blue-500 transition-all duration-300"
-                                                style={{ width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' : '0%' }}
+                                                className="h-full bg-blue-500 will-change-[width]"
+                                                style={{ 
+                                                    width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' : 
+                                                           (i === sessions - 1 && mode === 'work') ? `${(1 - timeLeft / totalTime) * 100}%` : '0%',
+                                                    transition: isRunning ? 'none' : 'width 0.3s ease'
+                                                }}
                                             />
                                         </div>
                                     </div>
@@ -664,8 +668,12 @@ export default function PomodoroTimer({ settings = {}, onSessionComplete, active
                                         <div className="relative w-6 h-6 rounded-full bg-[#2d1a12]/10 border-2 border-[#2d1a12]/20 overflow-hidden shrink-0">
                                             <div
                                                 id={`break-ball-${i + 1}`}
-                                                className="absolute bottom-0 w-full bg-emerald-500 transition-all duration-300"
-                                                style={{ height: (i < sessions - 1) ? '100%' : (sessions === i + 1 && mode === 'break' ? `${(1 - timeLeft / totalTime) * 100}%` : '0%') }}
+                                                className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
+                                                style={{ 
+                                                    height: (i < sessions - 1) ? '100%' : 
+                                                            (sessions === i + 1 && mode === 'break') ? `${(1 - timeLeft / totalTime) * 100}%` : '0%',
+                                                    transition: isRunning ? 'none' : 'height 0.3s ease'
+                                                }}
                                             />
                                         </div>
                                     )}
