@@ -147,6 +147,24 @@ export const createPomodoroSlice = (set, get) => ({
         });
     },
 
+    // SINCRONIZAÇÃO GLOBAL - Atualiza múltiplos campos vindos de outra aba
+    syncPomodoroState: (payload) => {
+        set((state) => {
+            const p = state.appState.pomodoro;
+            if (!p) return;
+
+            if (payload.mode !== undefined) p.mode = payload.mode;
+            if (payload.sessions !== undefined) p.sessions = payload.sessions;
+            if (payload.completedCycles !== undefined) p.completedCycles = payload.completedCycles;
+            if (payload.accumulatedMinutes !== undefined) p.accumulatedMinutes = payload.accumulatedMinutes;
+            if (payload.targetCycles !== undefined) p.targetCycles = payload.targetCycles;
+            if (payload.neuralMode !== undefined) p.neuralMode = payload.neuralMode;
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+        });
+    },
+
     // --- NEURAL CORE SEQUENCING ---
     startNeuralSession: (tasks, startIndex = 0) => {
         if (!tasks || tasks.length === 0) return;
