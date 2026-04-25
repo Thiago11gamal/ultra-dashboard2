@@ -470,13 +470,23 @@ export default function Pomodoro() {
     const handleFullCycleComplete = (totalMinutes = 0) => {
         const currentSubject = activeSubject || useAppStore.getState().appState?.pomodoro?.activeSubject;
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
-        const advanceNeuralQueue = useAppStore.getState().advanceNeuralQueue;
+        const store = useAppStore.getState();
 
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
 
+            // Completa a tarefa automaticamente no banco de dados
+            const activeData = store.appState.contests[store.appState.activeId];
+            const cat = activeData?.categories?.find(c => c.id === currentSubject.categoryId);
+            const task = cat?.tasks?.find(t => t.id === currentSubject.taskId);
+            
+            if (task && !task.completed) {
+                store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
+                showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
+            }
+
             if (neuralMode || currentSubject.source === 'neural_core') {
-                const hasNext = advanceNeuralQueue();
+                const hasNext = store.advanceNeuralQueue();
                 if (hasNext) {
                     showToast(`Sequenciando próxima meta do painel... ⚡`, 'info');
                     return; 

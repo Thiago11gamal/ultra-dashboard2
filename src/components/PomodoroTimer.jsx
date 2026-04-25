@@ -142,6 +142,32 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const breakBallsRef = useRef([]);
     const showToast = useToast();
 
+    // 🟢 CÓDIGO NOVO 1: Controlo de Montagem para evitar Race Conditions
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
+    // 🛡️ [SHIELD-02] Prop Safety Wrappers
+    const safeOnUpdateStudyTime = useCallback((...args) => {
+        if (typeof onUpdateStudyTime === 'function' && isMountedRef.current) {
+            try { onUpdateStudyTime(...args); } catch (e) { console.error('[Shield] Callback Error (onUpdateStudyTime):', e); }
+        }
+    }, [onUpdateStudyTime]);
+
+    const safeOnFullCycleComplete = useCallback((...args) => {
+        if (typeof onFullCycleComplete === 'function' && isMountedRef.current) {
+            try { onFullCycleComplete(...args); } catch (e) { console.error('[Shield] Callback Error (onFullCycleComplete):', e); }
+        }
+    }, [onFullCycleComplete]);
+
+    const safeOnExit = useCallback((...args) => {
+        if (typeof onExit === 'function' && isMountedRef.current) {
+            try { onExit(...args); } catch (e) { console.error('[Shield] Callback Error (onExit):', e); }
+        }
+    }, [onExit]);
+
     // 🛡️ [SHIELD-07] Prevenção de Fuga de Tempo (Time Leak) ao trocar de Tarefa
     const prevTaskStateRef = useRef({ subject: activeSubject, accum: 0, time: initialTime, mode: mode });
     
@@ -184,12 +210,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         }
     }, [activeSubject?.taskId, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
 
-    // 🟢 CÓDIGO NOVO 1: Controlo de Montagem para evitar Race Conditions
-    const isMountedRef = useRef(true);
-    useEffect(() => {
-        isMountedRef.current = true;
-        return () => { isMountedRef.current = false; };
-    }, []);
 
     // 🟢 CÓDIGO NOVO 2: Garbage Collector Manual para as Refs dos Ciclos
     useEffect(() => {
@@ -228,24 +248,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch (_) { }
     }, [uiPosition]);
 
-    // 🛡️ [SHIELD-02] Prop Safety Wrappers
-    const safeOnUpdateStudyTime = useCallback((...args) => {
-        if (typeof onUpdateStudyTime === 'function' && isMountedRef.current) {
-            try { onUpdateStudyTime(...args); } catch (e) { console.error('[Shield] Callback Error (onUpdateStudyTime):', e); }
-        }
-    }, [onUpdateStudyTime]);
-
-    const safeOnFullCycleComplete = useCallback((...args) => {
-        if (typeof onFullCycleComplete === 'function' && isMountedRef.current) {
-            try { onFullCycleComplete(...args); } catch (e) { console.error('[Shield] Callback Error (onFullCycleComplete):', e); }
-        }
-    }, [onFullCycleComplete]);
-
-    const safeOnExit = useCallback((...args) => {
-        if (typeof onExit === 'function' && isMountedRef.current) {
-            try { onExit(...args); } catch (e) { console.error('[Shield] Callback Error (onExit):', e); }
-        }
-    }, [onExit]);
 
     // Sincronização Multi-Aba Robusta (Protocolo V2)
     useEffect(() => {
