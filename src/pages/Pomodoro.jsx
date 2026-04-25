@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
+import { getManausMidnight } from '../utils/dateHelper';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -359,7 +360,7 @@ export default function Pomodoro() {
         if (!contest) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
 
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startOfToday = getManausMidnight().getTime();
 
         let consecutiveStudyMinutes = 0;
         const recentLogs = [...(studyLogs || [])]

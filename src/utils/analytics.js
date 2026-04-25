@@ -1,5 +1,5 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate } from './dateHelper.js';
+import { normalizeDate, getManausMidnight } from './dateHelper.js';
 // Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
 const toISODay = (date) => {
     const d = typeof date === 'string' && date.length === 10 ? new Date(`${date}T12:00:00`) : new Date(date);
@@ -325,7 +325,7 @@ const generateEfficiencyRecommendations = ({ minutesPerTask, completionRate, hig
 
 export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
-    const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const normalizedNow = getManausMidnight().getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
@@ -454,8 +454,8 @@ export const calculatePomodoroStats = (stats) => {
     const now = new Date();
 
     // B-02 FIX: Usar objeto Date local, não toISOString() que sempre retorna UTC.
-    // Em UTC-4, toISOString() adiantaria o início do dia em 4h, incluindo sessões de ontem.
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // 🕒 PADRONIZAÇÃO MANAUS: Garante que "hoje" começa à meia-noite exata de Manaus (UTC-4)
+    const startOfDay = getManausMidnight();
 
     // Fix: Filter sessions where the end time crosses into today or later
     const todaySessions = studySessions.filter(s => {
@@ -479,8 +479,7 @@ export const calculatePomodoroStats = (stats) => {
         }
 
         const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + sessionDuration * 60000);
-        
-        const startOfNextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
         // BUGFIX M1: Clamp session duration to the boundaries of "today"
         const effectiveStart = Math.max(start.getTime(), startOfDay.getTime());

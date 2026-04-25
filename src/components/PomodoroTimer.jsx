@@ -142,6 +142,25 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const breakBallsRef = useRef([]);
     const showToast = useToast();
 
+    // 🛡️ [SHIELD-07] Prevenção de Fuga de Tempo (Time Leak) ao trocar de Tarefa
+    const prevTaskStateRef = useRef({ subject: activeSubject, accum: 0, time: initialTime, mode: mode });
+    
+    useEffect(() => {
+        const prev = prevTaskStateRef.current;
+        // Se a tarefa mudou, injetamos imediatamente os minutos pendentes da tarefa antiga no banco de dados
+        if (prev.subject && activeSubject?.taskId !== prev.subject.taskId) {
+            let lostMinutes = prev.accum;
+            if (prev.mode === 'work') {
+                const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+                lostMinutes += Math.round(Math.max(0, totalWorkSeconds - prev.time) / 60);
+            }
+            if (lostMinutes > 0) {
+                safeOnUpdateStudyTime(prev.subject.categoryId, lostMinutes, prev.subject.taskId);
+            }
+        }
+        prevTaskStateRef.current = { subject: activeSubject, accum: accumulatedMinutes, time: timeLeft, mode };
+    }, [activeSubject, accumulatedMinutes, timeLeft, mode, safeSettings.pomodoroWork, safeOnUpdateStudyTime]);
+
     // 🛡️ [SHIELD-04] Sincronização de Estado Local com o Store
     // Garante que o cronómetro reseta quando mudamos de tarefa ou modo via Sidebar/Store
     useEffect(() => {
@@ -379,7 +398,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             } else if (source === 'skip') {
                 // Contabiliza os minutos trabalhados até o momento do "Pular"
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                sessionMinutes = Math.floor(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
+                sessionMinutes = Math.round(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
             }
         }
         
@@ -563,7 +582,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         let finalMinutes = current.accumulatedMinutes;
         if (current.mode === 'work') {
             const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-            finalMinutes += Math.floor(Math.max(0, totalWorkSeconds - current.timeLeft) / 60);
+            finalMinutes += Math.round(Math.max(0, totalWorkSeconds - current.timeLeft) / 60);
         }
         if (finalMinutes > 0 && activeSubject) {
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);

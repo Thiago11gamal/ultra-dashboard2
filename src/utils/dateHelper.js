@@ -29,11 +29,52 @@ export const getDateKey = (rawDate) => {
 
     if (Number.isNaN(date.getTime())) return null;
 
-    // Use local date to avoid timezone off-by-one errors (late night simulados)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // 🕒 PADRONIZAÇÃO LOCAL: MANAUS (America/Manaus | UTC-4)
+    // Garante que o agrupamento de dias no Heatmap e Streaks ocorre sempre no mesmo fuso,
+    // independentemente de onde o utilizador esteja geograficamente.
+    try {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Manaus',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const parts = formatter.formatToParts(date);
+        const p = {};
+        parts.forEach(({type, value}) => p[type] = value);
+        return `${p.year}-${p.month}-${p.day}`;
+    } catch (e) {
+        // Fallback seguro caso o navegador não suporte fusos horários
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+};
+
+/**
+ * 🕒 PADRONIZAÇÃO LOCAL: MANAUS
+ * Calcula a meia-noite (início do dia) exata no fuso horário de Manaus (UTC-4).
+ * Utilizado para filtrar sessões "de hoje" nas estatísticas diárias.
+ */
+export const getManausMidnight = (date = new Date()) => {
+    try {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Manaus',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const parts = formatter.formatToParts(date);
+        const p = {};
+        parts.forEach(({type, value}) => p[type] = value);
+        
+        // Manaus não tem horário de verão, fuso é fixo UTC-04:00
+        return new Date(`${p.year}-${p.month}-${p.day}T00:00:00-04:00`);
+    } catch (e) {
+        // Fallback para meia-noite local do sistema
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
 };
 
 export const formatDisplayDate = (dateStr) => {
