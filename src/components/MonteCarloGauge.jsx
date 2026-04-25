@@ -468,7 +468,7 @@ export default function MonteCarloGauge({
 
                 const result = simulateNormalDistribution({
                     mean: baseline,
-                    sd: cat.bayesianSd ?? cat.volatility ?? cat.sd,
+                    sd: cat.volatility ?? cat.sd ?? cat.bayesianSd,
                     targetScore: debouncedTarget,
                     simulations: 500,
                     categoryName: cat.name,

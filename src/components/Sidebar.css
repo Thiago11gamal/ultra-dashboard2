@@ -165,7 +165,7 @@
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   position: relative;
   overflow: hidden;
 }
@@ -205,7 +205,7 @@
   border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.2));
   color: #ffffff;
   font-weight: 800;
-  box-shadow: inset 4px 0 0 0 var(--item-color, #818cf8);
+  box-shadow: inset 4px 0 0 0 var(--item-color, #818cf8), 0 0 20px var(--item-color-alpha, rgba(129, 140, 248, 0.2));
 }
 
 .sidebar-item.active svg {

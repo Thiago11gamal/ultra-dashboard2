@@ -195,15 +195,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const projected =
         currentScore + slope * effectiveDays;
 
-    // BUGFIX M4: Proteção IEEE 754 contra resíduos microscópicos negativos (NaN).
-    const p_tilde = currentScore / maxScore;
+    // MATH BUG FIX: Using empirical volatility to calculate the Standard Error of the Mean.
+    // The previous formula used `sortedHistory.length` as the denominator for a binomial proportion,
+    // which dimensionally confused "Number of Tests" with "Number of Questions".
+    const empiricalSD = calculateVolatility(sortedHistory, maxScore, minScore);
     const n_tilde = sortedHistory.length;
-    const varianceArg = (p_tilde * (1 - p_tilde)) / n_tilde;
-    const effectiveSd = Math.sqrt(Math.max(0, varianceArg));
+    // Standard error of the mean = SD / sqrt(N)
+    const effectiveSd = empiricalSD / Math.sqrt(Math.max(1, n_tilde));
 
-    // Margem ancorada na proporção ajustada
     // Margem ancorada na projeção (IC 95%)
-    const marginOfError = Z_95 * effectiveSd * maxScore;
+    const marginOfError = Z_95 * effectiveSd;
 
     // BUG-E FIX: projectScore must respect dynamic scoring bounds.
     // Previously hardcoded [0, 100] which truncated projections for exams

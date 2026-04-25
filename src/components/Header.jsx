@@ -194,7 +194,10 @@ export default function Header({
 
                     {/* ─── CENTRAL USER NAME (ABSOLUTE) ─── */}
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group pointer-events-auto z-20">
-                        <span className="text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2">
+                        {/* Premium Glow Effect */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[150%] bg-indigo-500/10 blur-[40px] rounded-[100%] pointer-events-none transition-opacity duration-500 opacity-50 group-hover:opacity-100" />
+                        
+                        <span className="relative z-10 text-[7px] text-slate-500 uppercase tracking-[0.4em] font-black opacity-40 group-hover:opacity-100 transition-all duration-300 mb-0.5 h-2">
                             Foco Principal ✏️
                         </span>
                         <div className="relative">

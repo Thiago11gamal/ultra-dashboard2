@@ -187,15 +187,18 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     let variance = 0;
     if (historyToUse.length > 1 && totalQ > 1) {
         let wVarSum = 0;
+        let sumW2 = 0;
         historyToUse.forEach(h => {
             const w = (Number(h.total) || 1); // Nunca permitir peso 0 na soma matemática
             wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
+            sumW2 += w * w;
         });
 
-        // 🎯 MATH BUG FIX 3: Bloqueio estrito de Divisão por Zero.
-        // O correto (estimador de confiabilidade, formulação de Kish simplificada):
-        const numSessions = historyToUse.length;
-        variance = wVarSum / Math.max(1, ((numSessions - 1) / numSessions) * totalQ);
+        // 🎯 MATH BUG FIX 3: Bloqueio estrito de Divisão por Zero e Variância Ponderada Imparcial.
+        // A formulação de Kish anterior falhava matematicamente para pesos altamente assimétricos (ex: w1=10, w2=90),
+        // subestimando a variância real em mais de 60%. Usamos o denominador (SumW - SumW2/SumW).
+        const effectiveDOF = Math.max(0.001, totalQ - (sumW2 / totalQ));
+        variance = wVarSum / effectiveDOF;
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore), 2);
     }
