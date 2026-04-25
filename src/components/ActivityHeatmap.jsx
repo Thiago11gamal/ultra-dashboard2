@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { normalizeDate } from '../utils/dateHelper';
 
-export default function ActivityHeatmap({ studyLogs = [] }) {
+function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = React.useState(0);
 
     const currentMonth = useMemo(() => {
@@ -184,3 +184,5 @@ export default function ActivityHeatmap({ studyLogs = [] }) {
         </div>
     );
 }
+
+export default React.memo(ActivityHeatmap);

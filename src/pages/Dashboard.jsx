@@ -51,11 +51,11 @@ export default function Dashboard() {
         );
     }
 
-    const setGoalDate = (d) => setData(draft => {
+    const setGoalDate = React.useCallback((d) => setData(draft => {
         draft.user.goalDate = d;
-    });
+    }), [setData]);
 
-    const handleStartStudying = (categoryId, taskId) => {
+    const handleStartStudying = React.useCallback((categoryId, taskId) => {
         const cat = data.categories?.find(c => c.id === categoryId);
         const tsk = cat?.tasks?.find(t => t.id === taskId);
 
@@ -86,7 +86,7 @@ export default function Dashboard() {
             showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
             navigate('/pomodoro');
         }
-    };
+    }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
 
     return (
         <div className="space-y-6 animate-fade-in">

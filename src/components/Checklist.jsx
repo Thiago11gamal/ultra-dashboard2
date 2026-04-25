@@ -353,7 +353,7 @@ const CategoryAccordion = ({ category, onToggleTask, onDeleteTask, onAddTask, on
     );
 };
 
-export default function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
+function Checklist({ categories = [], onToggleTask, onDeleteTask, onAddTask, onTogglePriority, onAddCategory, onDeleteCategory, onPlayContext, filter = 'all', setFilter, showSimuladoStats = false }) {
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
 
     if (typeof onPlayContext !== 'function') {
@@ -474,3 +474,5 @@ export default function Checklist({ categories = [], onToggleTask, onDeleteTask,
         </div>
     );
 }
+
+export default React.memo(Checklist);

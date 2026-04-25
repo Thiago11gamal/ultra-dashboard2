@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Target, Play, Clock } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 
-export default function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStartStudying }) {
+function NextGoalCard({ categories = [], simulados = [], studyLogs = [], onStartStudying }) {
     // Get the most urgent category using AI Coach logic
     const suggestion = useMemo(() => {
         const suggestedCategory = getSuggestedFocus(categories, simulados, studyLogs);
@@ -181,3 +181,5 @@ export default function NextGoalCard({ categories = [], simulados = [], studyLog
         </div>
     );
 }
+
+export default React.memo(NextGoalCard);
