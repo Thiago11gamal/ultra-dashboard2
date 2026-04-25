@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * 🛡️ ULTRA-DASHBOARD: CORE POMODORO ENGINE - DO NOT MODIFY 🛡️
+ * ============================================================================
+ * @ai-warning 
+ * THIS FILE CONTAINS A HIGHLY OPTIMIZED, HYBRID STATE MACHINE. 
+ * IT MIXES REACT STATE WITH DIRECT DOM MANIPULATION (via Refs) FOR MAXIMUM 
+ * PERFORMANCE IN THE requestAnimationFrame LOOP.
+ * 
+ * CRITICAL RULES FOR FUTURE MODIFICATIONS:
+ * 1. NEVER remove or alter `stateRefs.current`. It is required to prevent stale 
+ *    closures during rapid UI interactions (Skip/Reset).
+ * 2. NEVER change the direct DOM mutations (el.style.width / el.style.height) 
+ *    in the animation loop or the `reset` function. React virtual DOM is 
+ *    intentionally bypassed for performance.
+ * 3. The `reset` function forces a complete DOM sweep (width=0%/100%) to 
+ *    prevent the React Virtual DOM from desyncing with the real DOM.
+ * ============================================================================
+ */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Play, Pause, RotateCcw, Lock, Unlock, AlertCircle, Zap, SkipForward } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -39,7 +58,7 @@ class PomodoroErrorBoundary extends React.Component {
 
 function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
 
-    const safeSettings = useMemo(() => ({
+    const safeSettings = useMemo(() => Object.freeze({
         pomodoroWork: settings?.pomodoroWork || 25,
         pomodoroBreak: settings?.pomodoroBreak || 5,
         soundEnabled: settings?.soundEnabled ?? true,
@@ -464,40 +483,65 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
 
-        showToast('Voltando fase...', 'info');
+        const currentMode = stateRefs.current.mode;
+        const currentSessions = stateRefs.current.sessions;
+        const currentTimeLeft = stateRefs.current.timeLeft;
+        const currentTotalTime = currentMode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
 
-        // 1. Limpeza visual imediata da fase atual
-        const s = sessions;
-        if (mode === 'work') {
-            if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '0%';
+        // SE O TEMPO JÁ ESTIVER CHEIO: Volta de fase
+        if (currentTimeLeft >= currentTotalTime - 0.5) {
+            showToast('Voltando fase...', 'info');
+            
+            // Retrocesso no estado global
+            rewindPomodoroPhase();
+
+            const newState = useAppStore.getState().appState.pomodoro;
+            const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+
+            stateRefs.current.timeLeft = resetTime;
+            stateRefs.current.mode = newState.mode;
+            stateRefs.current.isRunning = false;
+
+            setIsRunning(false);
+            setTimeLeft(resetTime);
+
+            // Limpeza visual de todas as fases futuras para garantir sincronia
+            workFillsRef.current.forEach((el, i) => {
+                if (el) el.style.width = (i < newState.sessions - 1 || (i === newState.sessions - 1 && newState.mode === 'break')) ? '100%' : '0%';
+            });
+            breakBallsRef.current.forEach((el, i) => {
+                if (el) el.style.height = (i < newState.sessions - 1) ? '100%' : '0%';
+            });
+
+            if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
+            if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
+
+            savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
+            try { syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name }); } catch (_) { }
+        
         } else {
-            if (breakBallsRef.current[s - 1]) breakBallsRef.current[s - 1].style.height = '0%';
+            // SE O TEMPO ESTAVA CORRENDO: Apenas reinicia o tempo da sessão atual!
+            showToast('Cronômetro reiniciado', 'info');
+
+            // Limpeza visual imediata apenas da fase atual
+            if (currentMode === 'work') {
+                if (workFillsRef.current[currentSessions - 1]) workFillsRef.current[currentSessions - 1].style.width = '0%';
+            } else {
+                if (breakBallsRef.current[currentSessions - 1]) breakBallsRef.current[currentSessions - 1].style.height = '0%';
+            }
+
+            stateRefs.current.timeLeft = currentTotalTime;
+            stateRefs.current.isRunning = false;
+
+            setIsRunning(false);
+            setTimeLeft(currentTotalTime);
+
+            if (clockRef.current) clockRef.current.textContent = formatTime(currentTotalTime);
+            if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
+
+            savePomodoroState({ isRunning: false, timeLeft: currentTotalTime });
+            try { syncChannelRef.current?.postMessage({ type: 'TIMER_RESET', tabId: window.name }); } catch (_) { }
         }
-
-        // 2. Executamos o retrocesso no estado global
-        rewindPomodoroPhase();
-
-        // 3. Sincronização Crítica: Atualiza o motor antes do próximo frame
-        const newState = useAppStore.getState().appState.pomodoro;
-        const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
-
-        stateRefs.current.timeLeft = resetTime;
-        stateRefs.current.mode = newState.mode;
-        stateRefs.current.isRunning = false;
-
-        // 4. Atualizamos o estado do React
-        setIsRunning(false);
-        setTimeLeft(resetTime);
-
-        // 5. Atualizamos a UI diretamente para resposta instantânea
-        if (clockRef.current) clockRef.current.textContent = formatTime(resetTime);
-        if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
-
-        // 6. Persistimos e Sincronizamos
-        savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
-        try {
-            syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name });
-        } catch (_) { }
     };
 
     const skip = () => {
