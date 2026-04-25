@@ -84,8 +84,8 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
-    // FIX: Injectar categoryId e maxScore na hash para prevenir colisões entre matérias ou escalas de prova diferentes
-    const hash = `${categoryId}-${maxScore}-${history.length}-${sumCorrect}-${relevantSimulados[0]?.date || ''}`;
+    // FIX: Injectar categoryId, maxScore e targetScore na hash para prevenir colisões entre matérias ou escalas de prova diferentes, e evitar cache poisoning
+    const hash = `${categoryId}-${maxScore}-${history.length}-${sumCorrect}-${targetScore}-${relevantSimulados[0]?.date || ''}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -265,9 +265,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // stdDev típica era: 8–15 → output 16–30. Escala equivalente.
         // ─────────────────────────────────────────────────────────
         let instabilityComponent = mssdVolatility * (cfg.INSTABILITY_MAX / cfg.INSTABILITY_MSSD_DIVISOR) * (100 / maxScore);
-        if (trend > 0.5) {
+        const trendThreshold = 0.005 * maxScore;
+        if (trend > trendThreshold) {
             instabilityComponent *= 0.5;
-        } else if (trend < -0.5) {
+        } else if (trend < -trendThreshold) {
             instabilityComponent *= 1.3;
         }
         instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent);
@@ -372,7 +373,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             recommendation = `Evolução Frágil (Volatilidade MSSD: ±${mssdVolatility.toFixed(1)}). Consolide a base.`;
         } else if (daysSinceLastStudy > 14) {
             recommendation = `${daysSinceLastStudy} dias sem estudo - Risco de esquecer!`;
-        } else if (trend < -0.5) {
+        } else if (trend < -trendThreshold) {
             recommendation = `Nota caindo (${trend.toFixed(1)} pts) - Atenção urgente`;
         } else if (averageScore < targetScore - (0.2 * maxScore)) {
             recommendation = `Nota Crítica: ${Math.round(averageScore)}% (Meta ${targetScore}%)`;
@@ -547,7 +548,7 @@ const _buildSortedTopics = (category, simulados = [], maxScore = 100) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, maxScore) * 30 : 0;
+        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
@@ -616,9 +617,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const totalQuestions = recentSims.reduce((acc, s) => {
             const sTotal = Number(s.total) || 0;
             // FIX: Se o simulado tem nota mas não registrou o total de questões (cadastro só em %), 
-            // assumimos um peso sintético de 100 questões para evitar divisão por zero no questionsPerHour.
+            // assumimos um peso sintético para evitar divisão por zero no questionsPerHour.
             if (sTotal === 0 && s.score != null) {
-                return acc + 100;
+                return acc + (maxScore > 0 ? Math.min(maxScore, 80) : 80);
             }
             return acc + sTotal;
         }, 0);
