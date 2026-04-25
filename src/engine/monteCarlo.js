@@ -24,7 +24,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     }
 
     const safeMean = Number.isFinite(mean) ? mean : 0;
-    const safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0; 
+    let safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0; 
+
+    // FIX: Unificar a inferência do SD nos dois caminhos (days=0 no projection.js usa bayesianCI)
+    if (bayesianCI && bayesianCI.ciHigh !== undefined && bayesianCI.ciLow !== undefined) {
+        const inferredSD = (bayesianCI.ciHigh - bayesianCI.ciLow) / 3.92;
+        if (Number.isFinite(inferredSD) && inferredSD > 0) {
+            safeSD = inferredSD;
+        }
+    }
     const rawTarget = Number.isFinite(targetScore) ? targetScore : 0;
     const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
 

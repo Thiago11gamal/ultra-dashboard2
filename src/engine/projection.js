@@ -548,7 +548,7 @@ export function monteCarloSimulation(
             let shock;
 
             // Extração do Ruído (Empírico ou Teórico)
-            if (useBootstrap && residuals.length >= 6) {
+            if (useBootstrap) {
                 // MELHORIA 3: Injeção de "Black Swan". 
                 // Mistura 90% Empírico (Bootstrap) com 10% Gaussiano (Teórico).
                 // 🎯 ALERTA 3.1 FIX: Usar pathRng para não desalinhar o cache do Box-Muller (rng).
@@ -582,7 +582,10 @@ export function monteCarloSimulation(
 
             // ⚙️ 3. O Passo Estocástico (Euler-Maruyama)
             const gaussianNoise = normalRng();
-            let newScore = score + deterministicPull + (gaussianNoise * dynamicSigma);
+            const stochasticTerm = useBootstrap 
+                ? (shock * Math.sqrt(Math.max(0.05, boundaryCompression)) * Math.sqrt(dt)) 
+                : (gaussianNoise * dynamicSigma);
+            let newScore = score + deterministicPull + stochasticTerm;
 
             // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)
             // 🎯 BUGFIX M3: Resolving multiple bounces for high-energy shocks.

@@ -104,6 +104,19 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     const invBandwidth = 1 / bandwidth;
 
+    // PRE-CALCULATE BOUNDARY CORRECTION AREAS
+    const kernelAreas = new Float32Array(BIN_COUNT);
+    for (let j = 0; j < BIN_COUNT; j++) {
+        if (bins[j] === 0) {
+            kernelAreas[j] = 1.0;
+            continue;
+        }
+        const binX = plotMin + (j + 0.5) * binWidth;
+        const phiMax = 1 - normalCDF_complement((maxScore - binX) * invBandwidth);
+        const phiMin = 1 - normalCDF_complement((minScore - binX) * invBandwidth);
+        kernelAreas[j] = Math.max(0.01, phiMax - phiMin);
+    }
+
     // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
     // evitar inflar o pico visual quando há muitos outliers fora da tela.
     const normFactor = 1 / (safeSimulations * bandwidth * Math.sqrt(2 * Math.PI));
@@ -131,14 +144,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
             const dist = (x - binX) * invBandwidth;
             const kernelVal = Math.exp(-0.5 * dist * dist);
             
-            // Calculate how much of this kernel's mass is within [minScore, maxScore]
-            // P(minScore <= X <= maxScore) = Φ((max-binX)/h) - Φ((min-binX)/h)
-            // We use the 1 - complement logic from normalCDF_complement
-            const phiMax = 1 - normalCDF_complement((maxScore - binX) * invBandwidth);
-            const phiMin = 1 - normalCDF_complement((minScore - binX) * invBandwidth);
-            const kernelArea = Math.max(0.01, phiMax - phiMin);
-            
-            const localDensity = kernelVal / kernelArea;
+            const localDensity = kernelVal / kernelAreas[j];
 
             // Z-cutoff to avoid tail steps in high volatility
             if (Math.abs(dist) < 4.0) {

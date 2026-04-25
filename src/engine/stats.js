@@ -63,7 +63,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const pct = Math.min(1, Math.max(0, Number(h.score) / maxScore));
                 // CORREÇÃO A: O N sintético agora escala com a realidade da prova (maxScore)
                 // e não assume rigidamente "100", nivelando a prioridade estatística.
-                total = maxScore > 0 ? maxScore : 100;
+                total = maxScore > 0 ? Math.min(maxScore, 80) : 80;
                 correct = Math.round(pct * total);
             }
 

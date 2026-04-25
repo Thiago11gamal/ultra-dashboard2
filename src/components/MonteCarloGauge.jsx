@@ -296,8 +296,8 @@ export default function MonteCarloGauge({
                     // Bayesian Pooling for Daily Global Score
                     // We treat a 10/10 in subject A and 40/100 in subject B 
                     // as (10*w + 40*w) / (10*w + 100*w) to handle volume correctly.
-                    const correct = metrics.correct || (metrics.score / maxScore) * 100;
                     const total = metrics.total || 100;
+                    const correct = (metrics.correct !== undefined && metrics.total > 0) ? metrics.correct : (metrics.score / maxScore) * total;
 
                     pooledCorrect += correct * w;
                     pooledTotal += total * w;
@@ -468,7 +468,7 @@ export default function MonteCarloGauge({
 
                 const result = simulateNormalDistribution({
                     mean: baseline,
-                    sd: cat.volatility ?? cat.sd ?? cat.bayesianSd,
+                    sd: cat.bayesianSd ?? cat.sd,
                     targetScore: debouncedTarget,
                     simulations: 500,
                     categoryName: cat.name,
