@@ -71,9 +71,8 @@ export default function Dashboard() {
 
             // Set studying status garantindo que opera apenas no concurso ativo
             setData(draft => {
-                const activeContest = draft.appState?.contests?.[activeId];
-                if (activeContest && activeContest.categories) {
-                    activeContest.categories.forEach(c => {
+                if (draft.categories) {
+                    draft.categories.forEach(c => {
                         (c.tasks || []).forEach(t => {
                             if (t.id === tsk.id && c.id === cat.id) {
                                 t.status = 'studying';
