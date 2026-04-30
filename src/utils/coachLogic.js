@@ -364,13 +364,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const totalMinutes = categoryStudyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
         const totalHours = totalMinutes / 60;
 
-        const todayForBurnout = normalizeDate(new Date());
-        const oneWeekAgo = todayForBurnout.getTime() - (7 * 24 * 60 * 60 * 1000);
-        const recentStudyDays = new Set(
-            categoryStudyLogs
-                .filter(log => normalizeDate(log.date).getTime() >= oneWeekAgo)
-                .map(log => normalizeDate(log.date).getTime())
-        ).size;
+        const oneWeekAgo = normalizeDate(new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
+        const recentLogs = categoryStudyLogs.filter(log => normalizeDate(log.date).getTime() >= oneWeekAgo);
+        const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
+        const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
         // F. SRS Boost
         const hasData = relevantSimulados.length > 0 || categoryStudyLogs.length > 0;
@@ -415,11 +412,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         // --- RECOMMENDATION ---
         let recommendation = "";
-        let isBurnoutRisk = false;
-
-        if (recentStudyDays >= 5 && trend <= 0) {
-            isBurnoutRisk = true;
-        }
+        
+        // Calibragem Burnout: Volume alto (>8h/semana na matéria) OU Frequência alta (5+ dias)
+        // AND nota estagnada ou caindo.
+        const isHighVolume = recentHours > 8;
+        const isHighFrequency = recentStudyDays >= 5;
+        const isStagnant = trend <= 0.1 * maxScore; // Menos de 10% de evolução no mês
+        const isBurnoutRisk = (isHighVolume || isHighFrequency) && isStagnant && recentStudyDays >= 3;
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
