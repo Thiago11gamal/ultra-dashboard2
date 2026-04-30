@@ -1,8 +1,8 @@
 // ==================== CONSTANTES ====================
-import { standardDeviation } from '../engine/stats';
-import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
+import { standardDeviation } from '../engine/stats.js';
+import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
-import { normalize } from './normalization';
+import { normalize } from './normalization.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral } from './calibration.js';
 
 export const DEFAULT_CONFIG = {
