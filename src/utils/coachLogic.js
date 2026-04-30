@@ -134,12 +134,45 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
             adaptive?.mcSimulations || cfg.MC_SIMULATIONS,
             { maxScore }
         );
+
+        // Backtest leve de calibração (walk-forward curto) para reduzir overconfidence.
+        let calibrationPenalty = 0;
+        if (history.length >= 8) {
+            const horizon = Math.min(3, history.length - cfg.MC_MIN_DATA_POINTS);
+            const brierScores = [];
+            for (let i = 1; i <= horizon; i++) {
+                const train = history.slice(0, history.length - i);
+                const observed = history[history.length - i].score >= targetScore ? 1 : 0;
+                try {
+                    const bt = monteCarloSimulation(
+                        train,
+                        targetScore,
+                        30,
+                        Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS) * 0.35))),
+                        { maxScore }
+                    );
+                    const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
+                    brierScores.push((p - observed) ** 2);
+                } catch {
+                    // ignora ponto de backtest inválido
+                }
+            }
+            if (brierScores.length > 0) {
+                const avgBrier = brierScores.reduce((a, b) => a + b, 0) / brierScores.length;
+                calibrationPenalty = Math.min(0.25, Math.max(0, avgBrier - 0.18));
+            }
+        }
+
+        const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
+        const probability = rawProb * (1 - calibrationPenalty) + 50 * calibrationPenalty;
+
         const finalResult = {
-            probability: result.probability,
-            volatility: result.volatility,
+            probability,
+            volatility: (Number(result.volatility) || 0) * (1 + calibrationPenalty * 0.8),
             mean: result.mean,
             ci95Low: result.ci95Low,
             ci95High: result.ci95High,
+            calibrationPenalty
         };
         // BUG-21 FIX: Evict oldest entries when cache exceeds limit
         if (mcCache.size >= MC_CACHE_MAX) {
