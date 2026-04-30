@@ -49,6 +49,14 @@ const normalizeDate = (dateInput) => {
     }
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getDaysDiff = (newer, older) => {
+    const newerDate = normalizeDate(newer);
+    const olderDate = normalizeDate(older);
+    return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
+};
+
 function getSRSBoost(daysSince, cfg) {
     if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
     if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: "Revisão de 7 dias" };
@@ -174,7 +182,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 dataset.forEach(s => {
                     const sScore = getSafeScore(s, maxScore);
                     const simDate = normalizeDate(s.date);
-                    const days = Math.max(0, Math.floor((today - simDate) / (1000 * 60 * 60 * 24)));
+                    const days = getDaysDiff(today, simDate);
                     let peso = Math.exp(-K * days);
                     if (peso < PESO_MIN) peso = PESO_MIN;
                     weightedSum += sScore * peso;
@@ -212,7 +220,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             if (simDate > lastDate) lastDate = simDate;
         }
 
-        const categoryStudyLogs = studyLogs.filter(log => log.categoryId === category.id);
+        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === category.id);
         if (categoryStudyLogs.length > 0) {
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
@@ -221,7 +229,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (lastDate.getTime() > 0) {
             const today = normalizeDate(new Date());
-            daysSinceLastStudy = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
+            daysSinceLastStudy = getDaysDiff(today, lastDate);
         }
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
@@ -623,7 +631,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
         } else {
-            daysSince = Math.max(0, Math.floor((today - data.lastSeen) / (1000 * 60 * 60 * 24)));
+            daysSince = getDaysDiff(today, data.lastSeen);
         }
         const priorityBoost = data.manualPriority || 0;
         let urgencyScore = ((100 - percentage) * 2) + daysSince + priorityBoost;

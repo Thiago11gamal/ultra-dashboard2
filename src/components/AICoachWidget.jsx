@@ -24,7 +24,7 @@ function getUrgencyConfig(score, status = '') {
         bar: 'from-orange-600 to-amber-500', accent: 'text-orange-400',
         stripe: 'from-orange-600/12', pulse: 'bg-orange-500', line: 'via-orange-500'
     };
-    if (s.includes('estável') || score > 25) return {
+    if (score > 25) return {
         tier: 'MÉDIO', Icon: Clock,
         border: 'border-amber-500/40', glow: 'shadow-amber-900/20',
         badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
