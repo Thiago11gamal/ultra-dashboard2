@@ -51,19 +51,11 @@ const MobileClockDisplay = () => {
 export default function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
     onUpdateName,
-    contests = {},
-    activeContestId,
-    onSwitchContest,
-    onCreateContest,
-    onDeleteContest,
     onUndo,
     cloudStatus = { connected: false, syncing: false },
-    onExport,
-    onImport,
     onToggleSidebar,
     sidebarCollapsed,
-    setSidebarCollapsed,
-    onOpenTrash
+    setSidebarCollapsed
 }) {
     const { logout } = useAuth();
 

@@ -74,10 +74,6 @@ function ActivityHeatmap({ studyLogs = [] }) {
             .filter(([key]) => monthKeys.has(key))
             .reduce((acc, [, mins]) => acc + mins, 0);
 
-        // Otimização: Arredondamento antes da divisão previne bugs como "1h 60m"
-        const roundedTotalMins = Math.round(totalMinutes);
-        const h = Math.floor(roundedTotalMins / 60);
-        const m = roundedTotalMins % 60;
         const totalTimeStr = formatDuration(totalMinutes / 60);
 
         return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };

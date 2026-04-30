@@ -155,7 +155,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         return () => window.removeEventListener('resize', checkPos);
     }, [uiPosition]);
 
-    const handleDragEnd = (event, info) => {
+    const handleDragEnd = (_, info) => {
         const newPos = {
             x: uiPosition.x + info.offset.x,
             y: uiPosition.y + info.offset.y
@@ -163,7 +163,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         setUiPosition(newPos);
         try {
             localStorage.setItem('focusPanelPosition', JSON.stringify(newPos));
-        } catch (err) {}
+        } catch (err) {
+            console.warn("[FocusPanel] Failed to save position:", err);
+        }
     };
 
     const toggleLock = () => {

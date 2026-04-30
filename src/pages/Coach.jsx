@@ -12,20 +12,20 @@ export default function Coach() {
     const [coachLoading, setCoachLoading] = useState(false);
     const timeoutRef = useRef(null);
 
+    // Helper to get targetScore from store or localStorage
+    const getTargetScore = () => {
+        const uid = data?.user?.uid;
+        const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
+        const storeTargetValue = data?.user?.targetProbability;
+        return (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
+            ? Number(storeTargetValue)
+            : storedTarget ? parseInt(storedTarget, 10) : 80;
+    };
+
     const suggestedFocus = useMemo(() => {
         if (!data?.categories) return null;
 
-        // CACHE BUG FIX: localStorage.getItem is NOT reactive — React cannot track it as
-        // a dependency. Using it here caused a stale targetScore because VerifiedStats only
-        // writes to localStorage when the config modal closes (not during slider interaction).
-        // Fix: prefer data.user.targetProbability which IS in the reactive store and IS a
-        // dep via data.user. localStorage serves only as bootstrap fallback on cold mount.
-        const uid = data.user?.uid;
-        const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
-        const storeTargetValue = data.user?.targetProbability;
-        const targetScore = (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
-            ? Number(storeTargetValue)
-            : storedTarget ? parseInt(storedTarget, 10) : 80;
+        const targetScore = getTargetScore();
 
         return getSuggestedFocus(
             data.categories,
@@ -33,7 +33,7 @@ export default function Coach() {
             data.studyLogs || [],
             { user: data.user, targetScore, maxScore: data.maxScore ?? 100 }
         );
-    }, [data?.categories, data?.simuladoRows, data?.studyLogs, data?.user]); // CORREÇÃO: Optional chaining adicionado aqui
+    }, [data]); 
 
     useEffect(() => {
         return () => {
@@ -52,17 +52,12 @@ export default function Coach() {
         );
     }
 
-    const handleGenerateGoals = () => {
+    const handleGenerateGoals = React.useCallback(() => {
+        if (!data?.categories) return;
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
-            // CACHE BUG FIX: same fix as suggestedFocus — prefer reactive store value.
-            const uid = data.user?.uid;
-            const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
-            const storeTargetValue = data.user?.targetProbability;
-            const targetScore = (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
-                ? Number(storeTargetValue)
-                : storedTarget ? parseInt(storedTarget, 10) : 80;
+            const targetScore = getTargetScore();
 
             const newTasks = generateDailyGoals(
                 data.categories,
@@ -78,7 +73,7 @@ export default function Coach() {
             }
             setCoachLoading(false);
         }, 1500);
-    };
+    }, [data, setData, showToast]);
 
     return (<PageErrorBoundary pageName="Coach">
         <AICoachView
