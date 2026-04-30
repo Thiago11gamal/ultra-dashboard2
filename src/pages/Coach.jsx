@@ -25,12 +25,26 @@ export default function Coach() {
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
             
             const nextHistory = [...cleaned, metric].slice(-CALIBRATION_HISTORY_LIMIT);
+
+            // Calcular Calibration Ops (Métricas operacionais de curto prazo)
+            const sevenDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 7);
+            const recent = nextHistory.filter(h => Number(h.timestamp) >= sevenDaysAgo);
+            const avgBrier7d = recent.length > 0 
+                ? recent.reduce((acc, h) => acc + (Number(h.avgBrier) || 0), 0) / recent.length 
+                : (Number(metric.avgBrier) || 0);
+
+            const nextOps = {
+                ...(prev.calibrationOps || {}),
+                [metric.categoryId]: { avgBrier7d }
+            };
+
             return {
                 ...prev,
                 calibrationHistoryByCategory: {
                     ...current,
                     [metric.categoryId]: nextHistory
-                }
+                },
+                calibrationOps: nextOps
             };
         });
 

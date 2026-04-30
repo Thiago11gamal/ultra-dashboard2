@@ -102,6 +102,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
+    const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || {};
+    const calibrationOps = activeContest?.calibrationOps || {};
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
 
@@ -147,6 +149,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <p className="text-xs text-white font-bold">{row.label}</p>
                                 <p className="text-[11px] text-slate-300">Brier médio: {row.avgBrier.toFixed(3)}</p>
                                 <p className="text-[11px] text-slate-300">Penalidade média: {(row.avgPenalty * 100).toFixed(2)}%</p>
+                                {calibrationOps[row.categoryId] && (
+                                    <p className="text-[10px] text-slate-400">
+                                        Brier 7d: {Number(calibrationOps[row.categoryId].avgBrier7d || 0).toFixed(3)}
+                                        {Number(calibrationOps[row.categoryId].avgBrier7d || 0) >= 0.28 ? ' ⚠️' : ''}
+                                    </p>
+                                )}
                                 <p className="text-[10px] text-slate-500">{row.count} eventos</p>
                             </div>
                         ))}
