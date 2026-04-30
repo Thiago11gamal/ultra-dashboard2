@@ -31,12 +31,18 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
 }
 
 function getConfidenceMultiplier(sampleSize) {
-    if (sampleSize <= 1) return 2.58;
-    if (sampleSize <= 3) return 2.35;
-    if (sampleSize <= 5) return 2.13;
-    if (sampleSize <= 10) return 2.04;
-    if (sampleSize <= 30) return 2.0;
-    return 1.96;
+    const n = Math.max(1, Number(sampleSize) || 1);
+    if (n <= 2) return 2.8;
+
+    // Aproximação contínua do t crítico bicaudal 95% (mais estável que degraus fixos).
+    // t ~= z + (z^3 + z)/(4*df) + (5z^5 + 16z^3 + 3z)/(96*df^2)
+    const z = 1.959963984540054;
+    const df = Math.max(1, n - 1);
+    const c1 = (Math.pow(z, 3) + z) / (4 * df);
+    const c2 = (5 * Math.pow(z, 5) + 16 * Math.pow(z, 3) + 3 * z) / (96 * df * df);
+    const tApprox = z + c1 + c2;
+
+    return Math.max(1.96, Math.min(3.2, tApprox));
 }
 
 function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
@@ -80,7 +86,7 @@ function computeAdaptiveSignal(scores) {
 
     const cfg = deriveAdaptiveConfig(scores);
 
-    // Pesos exponenciais com meia-vida dinâmica para priorizar o comportamento recente conforme volatilidade.
+    // Pesos exponenciais com meia-vida curta para priorizar o comportamento recente.
     const weighted = [];
     for (let i = 0; i < scores.length; i++) {
         const age = scores.length - 1 - i;
@@ -284,7 +290,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }).filter(item => item.score >= 0 && !isNaN(item.score));
 
         const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
-        const confidenceMultiplier = getConfidenceMultiplier(Math.round(adaptiveSignal.effectiveN)) * adaptiveSignal.ciInflation;
+        const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
         const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
         const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
 
