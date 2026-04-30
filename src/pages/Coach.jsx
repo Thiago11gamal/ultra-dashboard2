@@ -16,7 +16,8 @@ export default function Coach() {
     const showToast = useToast();
     const [coachLoading, setCoachLoading] = useState(false);
     const timeoutRef = useRef(null);
-
+    const persistCalibrationMetric = React.useCallback((metric) => {
+        if (!metric?.categoryId) return;
         const avgBrier = Number(metric.avgBrier) || 0;
         const isDegraded = avgBrier >= CRITICAL_BRIER_THRESHOLD;
 
@@ -77,7 +78,7 @@ export default function Coach() {
                 calibrationAlertCache.set(metric.categoryId, now);
             }
         }
-    }, [setData, showToast, CALIBRATION_HISTORY_LIMIT, CALIBRATION_HISTORY_RETENTION_MS, CALIBRATION_ALERT_BRIER_THRESHOLD]);
+    }, [setData, showToast, CALIBRATION_HISTORY_RETENTION_MS]);
 
     // Helper to get targetScore from store or localStorage
     const getTargetScore = React.useCallback(() => {
