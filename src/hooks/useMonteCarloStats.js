@@ -51,6 +51,29 @@ function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     return values.map(v => Math.max(low, Math.min(high, v)));
 }
 
+function computeAdaptiveSignal(scores) {
+    if (!Array.isArray(scores) || scores.length === 0) {
+        return { effectiveN: 1, recencyTrend: 0, adaptiveWinsor: { low: 0.05, high: 0.95 } };
+    }
+
+    const alpha = 0.25;
+    let ema = scores[0];
+    let prevEma = scores[0];
+    for (let i = 1; i < scores.length; i++) {
+        prevEma = ema;
+        ema = alpha * scores[i] + (1 - alpha) * ema;
+    }
+
+    const recencyTrend = ema - prevEma;
+    const effectiveN = Math.max(1, Math.sqrt(scores.length) * (Math.abs(recencyTrend) > 2 ? 0.85 : 1));
+
+    // Menos amostra ou tendência muito agressiva => clipping mais conservador.
+    const low = effectiveN < 4 ? 0.1 : 0.05;
+    const high = effectiveN < 4 ? 0.9 : 0.95;
+
+    return { effectiveN, recencyTrend, adaptiveWinsor: { low, high } };
+}
+
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
@@ -211,11 +234,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
-        const confidenceMultiplier = getConfidenceMultiplier(sortedDates.length);
-        const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
-        const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
-
-        const globalHistory = sortedDates.map(date => {
+        const rawGlobalHistory = sortedDates.map(date => {
             let pooledCorrect = 0;
             let pooledTotal = 0;
             Object.keys(scoresByDate[date]).forEach(name => {
@@ -229,9 +248,20 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 }
             });
             return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
-        }).filter(h => h.score >= 0 && !isNaN(h.score));
+        }).filter(item => item.score >= 0 && !isNaN(item.score));
 
-        const winsorizedScores = winsorizeSeries(globalHistory.map(h => h.score));
+        const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
+        const confidenceMultiplier = getConfidenceMultiplier(Math.round(adaptiveSignal.effectiveN));
+        const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
+        const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
+
+        const globalHistory = rawGlobalHistory;
+
+        const winsorizedScores = winsorizeSeries(
+            globalHistory.map(h => h.score),
+            adaptiveSignal.adaptiveWinsor.low,
+            adaptiveSignal.adaptiveWinsor.high
+        );
         const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
         const temporalVolatility = calculateVolatility(robustGlobalHistory, maxScore);
         const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
