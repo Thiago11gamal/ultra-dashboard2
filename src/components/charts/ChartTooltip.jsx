@@ -5,7 +5,7 @@ import { formatValue } from '../../utils/scoreHelper';
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
     if (!active || !payload?.length) return null;
 
-    const currentData = chartData.find(d => d.displayDate === label);
+    const currentData = chartData.find(d => d.displayDate === label || d.date === label);
 
     return (
         <div className="bg-slate-900/95 border border-slate-700 p-4 rounded-xl shadow-2xl text-sm min-w-[280px] z-50 backdrop-blur-md">
@@ -83,7 +83,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <div className="text-[9px] text-slate-400 text-right mt-2 flex justify-between items-center px-1">
                                         <span>Último Simulado:</span>
                                         <span>
-                                            <strong className="text-red-400">{errs} erros</strong> ({errPct}{unit})
+                                            <strong className="text-red-400">{errs} erros</strong> ({errPct}%)
                                         </span>
                                     </div>
                                 );
