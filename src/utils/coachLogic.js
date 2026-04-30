@@ -14,8 +14,8 @@ export const DEFAULT_CONFIG = {
     BASE_HOURS_THRESHOLD: 5,
 
     // Monte Carlo
-    MC_SIMULATIONS: 800,          // ← BUG-C2 FIX: era 5000 (conflitava com o comentário "MC leve")
-    MC_MIN_DATA_POINTS: 5,
+    MC_SIMULATIONS: 800,
+    MC_MIN_DATA_POINTS: 3, // Reduzido de 5 para 3 para evitar "Dados insuf." com médias visíveis
     MC_PROB_DANGER: 30,
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
@@ -59,9 +59,9 @@ const getDaysDiff = (newer, older) => {
 
 function getSRSBoost(daysSince, cfg) {
     if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
-    if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: "Revisão de 7 dias" };
-    if (daysSince >= 3) return { boost: cfg.SRS_BOOST * 1.0, label: "Revisão de 3 dias" };
-    if (daysSince >= 1) return { boost: cfg.SRS_BOOST * 0.7, label: "Revisão de 24h" };
+    if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: `Revisão de 7 dias${daysSince > 10 ? ' [ATRASADA]' : ''}` };
+    if (daysSince >= 3) return { boost: cfg.SRS_BOOST * 1.0, label: `Revisão de 3 dias${daysSince > 4 ? ' [ATRASADA]' : ''}` };
+    if (daysSince >= 1) return { boost: cfg.SRS_BOOST * 0.7, label: `Revisão de 24h${daysSince > 1 ? ' [ATRASADA]' : ''}` };
     return { boost: 0, label: null };
 }
 

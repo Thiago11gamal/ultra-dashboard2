@@ -21,7 +21,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
     if (topicMatch) { topicPart = topicMatch[1]; actionPart = topicMatch[2].trim(); }
 
-    const displayAssunto = topicPart || (actionPart.length > 50 ? actionPart.substring(0, 47) + '…' : actionPart);
+    const displayAssunto = topicPart && topicPart.length > 3 ? topicPart : (actionPart.length > 50 ? actionPart.substring(0, 47) + '…' : actionPart);
     const displayMeta = topicPart ? actionPart : (actionPart !== 'Revisão Geral' ? actionPart : 'Foco em exercícios e revisão');
 
     const CARD_COLORS = [
