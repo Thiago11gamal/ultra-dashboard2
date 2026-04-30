@@ -123,9 +123,36 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     };
 
     const hasPlan = coachPlan && coachPlan.length > 0;
+    const calibrationSummary = Object.entries(calibrationHistoryByCategory)
+        .map(([categoryId, history]) => {
+            const rows = Array.isArray(history) ? history : [];
+            if (rows.length === 0) return null;
+            const avgBrier = rows.reduce((acc, h) => acc + (Number(h.avgBrier) || 0), 0) / rows.length;
+            const avgPenalty = rows.reduce((acc, h) => acc + (Number(h.calibrationPenalty) || 0), 0) / rows.length;
+            const label = rows[rows.length - 1]?.categoryName || categoryId;
+            return { categoryId, label, count: rows.length, avgBrier, avgPenalty };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.avgPenalty - a.avgPenalty)
+        .slice(0, 6);
 
     return (
         <div id="ai-coach-container" className="space-y-0 pb-12 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            {calibrationSummary.length > 0 && (
+                <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4">
+                    <h3 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-300 mb-3">Saúde da Calibração (último histórico)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                        {calibrationSummary.map(row => (
+                            <div key={row.categoryId} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-xs text-white font-bold">{row.label}</p>
+                                <p className="text-[11px] text-slate-300">Brier médio: {row.avgBrier.toFixed(3)}</p>
+                                <p className="text-[11px] text-slate-300">Penalidade média: {(row.avgPenalty * 100).toFixed(2)}%</p>
+                                <p className="text-[10px] text-slate-500">{row.count} eventos</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
             <div className="relative pt-8 pb-10 mb-4">
                 {/* Background Neural Atmosphere */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '32px 32px' }} />

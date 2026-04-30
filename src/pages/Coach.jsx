@@ -6,6 +6,8 @@ import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 
 export default function Coach() {
+    const CALIBRATION_HISTORY_LIMIT = 60;
+    const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
@@ -17,7 +19,12 @@ export default function Coach() {
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[metric.categoryId] || [];
-            const nextHistory = [...categoryHistory, metric].slice(-60);
+            
+            // Limpeza por tempo (45 dias)
+            const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
+            const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
+            
+            const nextHistory = [...cleaned, metric].slice(-CALIBRATION_HISTORY_LIMIT);
             return {
                 ...prev,
                 calibrationHistoryByCategory: {
@@ -30,7 +37,7 @@ export default function Coach() {
         if (metric.calibrationPenalty >= 0.2) {
             console.warn('[CoachCalibration] High calibration penalty detected', metric);
         }
-    }, [setData]);
+    }, [setData, CALIBRATION_HISTORY_LIMIT, CALIBRATION_HISTORY_RETENTION_MS]);
 
     // Helper to get targetScore from store or localStorage
     const getTargetScore = React.useCallback(() => {
