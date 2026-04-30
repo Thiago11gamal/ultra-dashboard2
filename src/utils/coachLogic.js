@@ -164,9 +164,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     const maxScore = options.maxScore ?? 100;
     const targetScore = options.targetScore ?? (maxScore * 0.8);
-    const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
+    const rawWeight = (category.weight !== undefined) ? category.weight : 1;
     const weight = rawWeight * 10;
-    const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
+    // FIX: Escala Monte Carlo é 0-3. Mapear para Baixa(1), Média(2), Alta(3)
+    const weightLabel = rawWeight <= 1 ? '1 — Baixa' : rawWeight === 2 ? '2 — Média' : '3 — Alta';
 
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
