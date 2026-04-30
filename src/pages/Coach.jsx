@@ -5,9 +5,12 @@ import { useAppStore } from '../store/useAppStore';
 import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 
+const calibrationAlertCache = new Map();
+
 export default function Coach() {
     const CALIBRATION_HISTORY_LIMIT = 60;
     const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
+    const CALIBRATION_ALERT_BRIER_THRESHOLD = 0.28;
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
@@ -19,39 +22,52 @@ export default function Coach() {
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[metric.categoryId] || [];
-            
-            // Limpeza por tempo (45 dias)
             const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
-            
             const nextHistory = [...cleaned, metric].slice(-CALIBRATION_HISTORY_LIMIT);
-
-            // Calcular Calibration Ops (Métricas operacionais de curto prazo)
-            const sevenDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 7);
-            const recent = nextHistory.filter(h => Number(h.timestamp) >= sevenDaysAgo);
-            const avgBrier7d = recent.length > 0 
-                ? recent.reduce((acc, h) => acc + (Number(h.avgBrier) || 0), 0) / recent.length 
-                : (Number(metric.avgBrier) || 0);
-
-            const nextOps = {
+            const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (Date.now() - 1000 * 60 * 60 * 24 * 7));
+            const avgBrier7d = recent7.length > 0
+                ? recent7.reduce((acc, item) => acc + (Number(item?.avgBrier) || 0), 0) / recent7.length
+                : 0;
+            const calibrationOps = {
                 ...(prev.calibrationOps || {}),
-                [metric.categoryId]: { avgBrier7d }
+                [metric.categoryId]: {
+                    categoryName: metric.categoryName,
+                    avgBrier7d: Number(avgBrier7d.toFixed(4)),
+                    sample7d: recent7.length,
+                    updatedAt: Date.now()
+                }
             };
-
+            const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
+                ...metric,
+                avgBrier7d: Number(avgBrier7d.toFixed(4)),
+                source: 'coach'
+            }].slice(-500);
             return {
                 ...prev,
                 calibrationHistoryByCategory: {
                     ...current,
                     [metric.categoryId]: nextHistory
                 },
-                calibrationOps: nextOps
+                calibrationOps,
+                calibrationAuditLog
             };
         });
 
         if (metric.calibrationPenalty >= 0.2) {
             console.warn('[CoachCalibration] High calibration penalty detected', metric);
         }
-    }, [setData, CALIBRATION_HISTORY_LIMIT, CALIBRATION_HISTORY_RETENTION_MS]);
+        const avgBrier = Number(metric.avgBrier) || 0;
+        if (avgBrier >= CALIBRATION_ALERT_BRIER_THRESHOLD) {
+            console.warn('[CoachCalibration] Brier above governance threshold (0.28)', metric);
+            const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
+            const now = Date.now();
+            if (now - lastAlertAt > 1000 * 60 * 60 * 12) {
+                showToast(`⚠️ Calibração crítica em ${metric.categoryName || 'categoria'} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
+                calibrationAlertCache.set(metric.categoryId, now);
+            }
+        }
+    }, [setData, showToast, CALIBRATION_HISTORY_LIMIT, CALIBRATION_HISTORY_RETENTION_MS, CALIBRATION_ALERT_BRIER_THRESHOLD]);
 
     // Helper to get targetScore from store or localStorage
     const getTargetScore = React.useCallback(() => {
@@ -118,6 +134,7 @@ export default function Coach() {
     }, [data, setData, showToast, persistCalibrationMetric, getTargetScore]);
 
     // BUG-17 FIX: Guarda de segurança contra estado vazio
+    // Refactored: Moved after hooks to respect React lifecycle rules
     if (!data || !data.categories) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">

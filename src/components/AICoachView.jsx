@@ -104,6 +104,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const coachPlan = activeContest?.coachPlan || [];
     const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || {};
     const calibrationOps = activeContest?.calibrationOps || {};
+    const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
 
@@ -143,6 +144,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             {calibrationSummary.length > 0 && (
                 <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4">
                     <h3 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-300 mb-3">Saúde da Calibração (último histórico)</h3>
+                    <p className="text-[10px] text-slate-400 mb-3">Eventos auditados: {calibrationAuditLog.length}</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                         {calibrationSummary.map(row => (
                             <div key={row.categoryId} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
