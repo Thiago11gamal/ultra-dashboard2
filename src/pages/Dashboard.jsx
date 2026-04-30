@@ -44,14 +44,6 @@ export default function Dashboard() {
         categories, simuladoRows, studyLogs, user, pomodorosCompleted
     }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
-    if (!data || !data.categories) {
-        return (
-            <div className="flex items-center justify-center p-12">
-                <p className="text-slate-400">Carregando dados...</p>
-            </div>
-        );
-    }
-
     const setGoalDate = React.useCallback((d) => setData(draft => {
         draft.user.goalDate = d;
     }), [setData]);
@@ -88,6 +80,14 @@ export default function Dashboard() {
             navigate('/pomodoro');
         }
     }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
+
+    if (!data || !data.categories) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <p className="text-slate-400">Carregando dados...</p>
+            </div>
+        );
+    }
 
     return (<PageErrorBoundary pageName="Dashboard">
         <div className="space-y-6 animate-fade-in">
