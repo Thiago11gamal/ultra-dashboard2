@@ -30,4 +30,23 @@ export const createMonteCarloSlice = (set) => ({
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
+
+    recordCalibrationMetric: (categoryId, metric) => set((state) => {
+        const activeId = state.appState.activeId;
+        const activeData = state.appState.contests[activeId];
+        if (!activeData) return;
+        
+        if (!activeData.calibrationMetrics) activeData.calibrationMetrics = {};
+        if (!activeData.calibrationMetrics[categoryId]) activeData.calibrationMetrics[categoryId] = [];
+        
+        const history = activeData.calibrationMetrics[categoryId];
+        activeData.calibrationMetrics[categoryId] = [...history, { 
+            ...metric, 
+            timestamp: new Date().toISOString() 
+        }].slice(-50);
+        
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
 });

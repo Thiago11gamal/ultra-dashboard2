@@ -79,6 +79,14 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                         ))}
                                     </div>
                                 )}
+                                {task.analysis.monteCarlo?.calibrationPenalty > 0 && (
+                                    <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
+                                        <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
+                                        <p className="text-[10px] text-amber-300/90 leading-relaxed">
+                                            <span className="font-black text-amber-400 uppercase tracking-tighter">Ajuste de Calibração:</span> Probabilidade reduzida em <span className="font-bold">-{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span> por instabilidade recente no histórico.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

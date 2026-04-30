@@ -52,6 +52,8 @@ export default function Coach() {
         );
     }
 
+    const recordCalibrationMetric = useAppStore(state => state.recordCalibrationMetric);
+
     const handleGenerateGoals = React.useCallback(() => {
         if (!data?.categories) return;
         setCoachLoading(true);
@@ -67,6 +69,22 @@ export default function Coach() {
             );
             if (newTasks.length) {
                 setData(prev => ({ ...prev, coachPlan: newTasks }));
+                
+                // Gravar calibração
+                newTasks.forEach(task => {
+                    const mc = task.analysis?.monteCarlo;
+                    if (mc && mc.avgBrier != null) {
+                        const category = data.categories.find(c => c.name === task.subject);
+                        if (category) {
+                            recordCalibrationMetric(category.id, {
+                                avgBrier: mc.avgBrier,
+                                calibrationPenalty: mc.calibrationPenalty,
+                                probability: mc.probabilityRaw
+                            });
+                        }
+                    }
+                });
+
                 showToast('Sugestões geradas!', 'success');
             } else {
                 showToast('Nenhuma sugestão necessária.', 'info');
