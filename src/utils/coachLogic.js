@@ -3,6 +3,7 @@ import { standardDeviation } from '../engine/stats';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization';
+import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral } from './calibration.js';
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -20,6 +21,7 @@ export const DEFAULT_CONFIG = {
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,
     INSTABILITY_MSSD_DIVISOR: 10,
+    MC_BACKTEST_HORIZON: 3,
 
     // ── A) Constantes do urgency boost nomeadas ──────────────────────────────
     // Antes: mcUrgencyBoost = 12 + 13 * (1 - p/MC_PROB_DANGER)
@@ -91,11 +93,32 @@ function simuladosToHistory(simulados, maxScore = 100) {
 const mcCache = new Map();
 const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
 
+export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DEFAULT_CONFIG) {
+    const n = history.length;
+    if (n === 0) {
+        return { decayK: 0.07, minWeight: 0.03, scoreClampDelta: maxScore * 0.3, mcSimulations: cfg.MC_SIMULATIONS };
+    }
+
+    const scores = history.map(h => Number(h.score) || 0);
+    const mean = scores.reduce((a, b) => a + b, 0) / n;
+    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
+    const sd = Math.sqrt(Math.max(0, variance));
+    const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
+
+    const coverageFactor = Math.max(0.8, Math.min(1.3, Math.sqrt(10 / Math.max(2, n))));
+    const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor));
+    const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
+    const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));
+    const mcSimulations = Math.round(Math.max(400, Math.min(2500, cfg.MC_SIMULATIONS * (0.8 + cv * 0.7) * coverageFactor)));
+
+    return { decayK, minWeight, scoreClampDelta, mcSimulations };
+}
+
 /**
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100) {
+export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null) {
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
@@ -110,15 +133,51 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
             history,
             targetScore,
             90,
-            cfg.MC_SIMULATIONS,
+            adaptive?.mcSimulations || cfg.MC_SIMULATIONS,
             { maxScore }
         );
+
+        // Backtest leve de calibração (walk-forward curto) para reduzir overconfidence.
+        let calibrationPenalty = 0;
+        let avgBrier = 0;
+        if (history.length >= 8) {
+            const horizon = Math.min(cfg.MC_BACKTEST_HORIZON || 3, history.length - cfg.MC_MIN_DATA_POINTS);
+            const brierScores = [];
+            for (let i = 1; i <= horizon; i++) {
+                const train = history.slice(0, history.length - i);
+                const observed = history[history.length - i].score >= targetScore ? 1 : 0;
+                try {
+                    const bt = monteCarloSimulation(
+                        train,
+                        targetScore,
+                        30,
+                        Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS) * 0.35))),
+                        { maxScore }
+                    );
+                    const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
+                    brierScores.push(computeBrierScore(p, observed));
+                } catch {
+                    // ignora ponto de backtest inválido
+                }
+            }
+            if (brierScores.length > 0) {
+                const summary = summarizeCalibration(brierScores);
+                calibrationPenalty = summary.calibrationPenalty;
+                avgBrier = summary.avgBrier;
+            }
+        }
+
+        const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
+        const probability = shrinkProbabilityToNeutral(rawProb, calibrationPenalty, 50);
+
         const finalResult = {
-            probability: result.probability,
-            volatility: result.volatility,
+            probability,
+            volatility: (Number(result.volatility) || 0) * (1 + calibrationPenalty * 0.8),
             mean: result.mean,
             ci95Low: result.ci95Low,
             ci95High: result.ci95High,
+            calibrationPenalty,
+            avgBrier
         };
         // BUG-21 FIX: Evict oldest entries when cache exceeds limit
         if (mcCache.size >= MC_CACHE_MAX) {
@@ -171,10 +230,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         let averageScore = 0;
         if (relevantSimulados.length > 0) {
+            const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
             const today = normalizeDate(new Date());
-            const K = 0.07;
-            const PESO_MIN = 0.03;
-            const DELTA = 30.0; // Loosened clamp to allow bigger score recoveries
+            const K = coachAdaptive.decayK;
+            const PESO_MIN = coachAdaptive.minWeight;
+            const DELTA = coachAdaptive.scoreClampDelta;
 
             const calculateExponentialScore = (dataset) => {
                 let weightedSum = 0;
@@ -261,7 +321,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore);
+        const mcAdaptive = deriveCoachAdaptiveParams(mcHistory, maxScore, cfg);
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
@@ -451,6 +512,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     ci95Low: Number(mcResult.ci95Low.toFixed(2)),
                     ci95High: Number(mcResult.ci95High.toFixed(2)),
                     urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
+                    calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
+                    avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
+                    explainability: {
+                        confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
+                        note: (mcResult.calibrationPenalty || 0) > 0
+                            ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
+                            : 'Sem ajuste de calibração significativo.'
+                    }
                 } : null,
                 humanReadable: {
                     // FIX-PCT5: normalizar averageScore para [0,100] antes do formatPercent

@@ -12,6 +12,7 @@ import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/mon
 import { getSafeScore, getSyntheticTotal, formatValue } from '../utils/scoreHelper';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { normalCDF_complement } from '../engine/math/gaussian';
+import { getConfidenceMultiplier, winsorizeSeries, deriveAdaptiveConfig, computeAdaptiveSignal } from '../utils/adaptiveMath';
 
 const sanitizeWeightUnit = (value) => {
     const numeric = parseInt(value, 10);
@@ -29,6 +30,7 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     const regularizedVariance = (dailySD * dailySD * n + informativeSD * informativeSD * priorStrength) / (n + priorStrength);
     return Math.sqrt(regularizedVariance);
 }
+
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState.activeId);
@@ -190,10 +192,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
-        const weightedLow = Math.max(minScore, bayesianMean - 1.96 * pooledBayesianSD);
-        const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
-
-        const globalHistory = sortedDates.map(date => {
+        const rawGlobalHistory = sortedDates.map(date => {
             let pooledCorrect = 0;
             let pooledTotal = 0;
             Object.keys(scoresByDate[date]).forEach(name => {
@@ -207,9 +206,22 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 }
             });
             return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
-        }).filter(h => h.score >= 0 && !isNaN(h.score));
+        }).filter(item => item.score >= 0 && !isNaN(item.score));
 
-        const temporalVolatility = calculateVolatility(globalHistory, maxScore);
+        const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
+        const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
+        const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
+        const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
+
+        const globalHistory = rawGlobalHistory;
+
+        const winsorizedScores = winsorizeSeries(
+            globalHistory.map(h => h.score),
+            adaptiveSignal.adaptiveWinsor.low,
+            adaptiveSignal.adaptiveWinsor.high
+        );
+        const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
+        const temporalVolatility = calculateVolatility(robustGlobalHistory, maxScore);
         const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
 
         const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
