@@ -240,6 +240,12 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                                 <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-black mb-1">
                                                     Explicabilidade Monte Carlo
                                                 </p>
+                                                <p className="text-[10px] text-cyan-100/70 mb-2">
+                                                    Qualidade da calibração: <span className="font-black uppercase">{urgency.monteCarlo.explainability.calibrationQuality || 'n/a'}</span>
+                                                    {urgency.monteCarlo.explainability.confidenceAdjusted
+                                                        ? ` • ajuste ${urgency.monteCarlo.explainability.confidenceAdjustmentPct}%`
+                                                        : ''}
+                                                </p>
                                                 <p className="text-xs text-slate-300 leading-relaxed">
                                                     {urgency.monteCarlo.explainability.note}
                                                 </p>

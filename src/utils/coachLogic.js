@@ -338,6 +338,17 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
+        if (mcHasData && typeof options.onCalibrationMetric === 'function') {
+            options.onCalibrationMetric({
+                categoryId: category.id,
+                categoryName: category.name,
+                avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
+                calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
+                probability: Number((mcResult.probability || 0).toFixed(2)),
+                timestamp: Date.now()
+            });
+        }
+
         // --- COMPONENTS ---
 
         // A. Performance Score
@@ -527,6 +538,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
                     explainability: {
                         confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
+                        confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
+                        calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
+                            ? 'good'
+                            : (mcResult.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
                         note: (mcResult.calibrationPenalty || 0) > 0
                             ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
                             : 'Sem ajuste de calibração significativo.'
