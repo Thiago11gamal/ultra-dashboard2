@@ -53,25 +53,35 @@ function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
 
 function computeAdaptiveSignal(scores) {
     if (!Array.isArray(scores) || scores.length === 0) {
-        return { effectiveN: 1, recencyTrend: 0, adaptiveWinsor: { low: 0.05, high: 0.95 } };
+        return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };
     }
 
-    const alpha = 0.25;
-    let ema = scores[0];
-    let prevEma = scores[0];
-    for (let i = 1; i < scores.length; i++) {
-        prevEma = ema;
-        ema = alpha * scores[i] + (1 - alpha) * ema;
+    // Pesos exponenciais com meia-vida curta para priorizar o comportamento recente.
+    const lambda = 0.88;
+    const weighted = [];
+    for (let i = 0; i < scores.length; i++) {
+        const age = scores.length - 1 - i;
+        weighted.push(Math.pow(lambda, age));
     }
 
-    const recencyTrend = ema - prevEma;
-    const effectiveN = Math.max(1, Math.sqrt(scores.length) * (Math.abs(recencyTrend) > 2 ? 0.85 : 1));
+    const sumW = weighted.reduce((a, b) => a + b, 0);
+    const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
+    const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
 
-    // Menos amostra ou tendência muito agressiva => clipping mais conservador.
-    const low = effectiveN < 4 ? 0.1 : 0.05;
-    const high = effectiveN < 4 ? 0.9 : 0.95;
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / Math.max(1, scores.length - 1);
+    const sd = Math.sqrt(Math.max(0, variance));
+    const lastDelta = scores.length >= 2 ? scores[scores.length - 1] - scores[scores.length - 2] : 0;
+    const trendStrength = sd > 0 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
 
-    return { effectiveN, recencyTrend, adaptiveWinsor: { low, high } };
+    // Tendência forte => intervalo mais conservador para evitar overconfidence.
+    const ciInflation = 1 + Math.min(0.2, trendStrength * 0.08);
+
+    // Menos amostra efetiva => clipping um pouco mais forte.
+    const low = effectiveN < 5 ? 0.1 : 0.05;
+    const high = effectiveN < 5 ? 0.9 : 0.95;
+
+    return { effectiveN, trendStrength, adaptiveWinsor: { low, high }, ciInflation };
 }
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
@@ -251,7 +261,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         }).filter(item => item.score >= 0 && !isNaN(item.score));
 
         const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory.map(item => item.score));
-        const confidenceMultiplier = getConfidenceMultiplier(Math.round(adaptiveSignal.effectiveN));
+        const confidenceMultiplier = getConfidenceMultiplier(Math.round(adaptiveSignal.effectiveN)) * adaptiveSignal.ciInflation;
         const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
         const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
 
