@@ -12,15 +12,35 @@ export default function Coach() {
     const [coachLoading, setCoachLoading] = useState(false);
     const timeoutRef = useRef(null);
 
+    const persistCalibrationMetric = React.useCallback((metric) => {
+        if (!metric?.categoryId) return;
+        setData(prev => {
+            const current = prev.calibrationHistoryByCategory || {};
+            const categoryHistory = current[metric.categoryId] || [];
+            const nextHistory = [...categoryHistory, metric].slice(-60);
+            return {
+                ...prev,
+                calibrationHistoryByCategory: {
+                    ...current,
+                    [metric.categoryId]: nextHistory
+                }
+            };
+        });
+
+        if (metric.calibrationPenalty >= 0.2) {
+            console.warn('[CoachCalibration] High calibration penalty detected', metric);
+        }
+    }, [setData]);
+
     // Helper to get targetScore from store or localStorage
-    const getTargetScore = () => {
+    const getTargetScore = React.useCallback(() => {
         const uid = data?.user?.uid;
         const storedTarget = localStorage.getItem(`monte_carlo_target_${uid || 'default'}`);
         const storeTargetValue = data?.user?.targetProbability;
         return (storeTargetValue != null && !isNaN(Number(storeTargetValue)))
             ? Number(storeTargetValue)
             : storedTarget ? parseInt(storedTarget, 10) : 80;
-    };
+    }, [data?.user?.uid, data?.user?.targetProbability]);
 
     const suggestedFocus = useMemo(() => {
         if (!data?.categories) return null;
@@ -31,28 +51,21 @@ export default function Coach() {
             data.categories,
             data.simuladoRows || [],
             data.studyLogs || [],
-            { user: data.user, targetScore, maxScore: data.maxScore ?? 100 }
+            {
+                user: data.user,
+                targetScore,
+                maxScore: data.maxScore ?? 100,
+                calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
+                onCalibrationMetric: persistCalibrationMetric
+            }
         );
-    }, [data]); 
+    }, [data, getTargetScore, persistCalibrationMetric]); 
 
     useEffect(() => {
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
     }, []);
-
-    // BUG-17 FIX: Guarda de segurança contra estado vazio
-    // Refactored: Moved after hooks to respect React lifecycle rules
-    if (!data || !data.categories) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
-            </div>
-        );
-    }
-
-    const recordCalibrationMetric = useAppStore(state => state.recordCalibrationMetric);
 
     const handleGenerateGoals = React.useCallback(() => {
         if (!data?.categories) return;
@@ -65,33 +78,33 @@ export default function Coach() {
                 data.categories,
                 data.simuladoRows || [],
                 data.studyLogs || [],
-                { user: data.user, targetScore, maxScore: data.maxScore ?? 100 }
+                {
+                    user: data.user,
+                    targetScore,
+                    maxScore: data.maxScore ?? 100,
+                    calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
+                    onCalibrationMetric: persistCalibrationMetric
+                }
             );
             if (newTasks.length) {
                 setData(prev => ({ ...prev, coachPlan: newTasks }));
-                
-                // Gravar calibração
-                newTasks.forEach(task => {
-                    const mc = task.analysis?.monteCarlo;
-                    if (mc && mc.avgBrier != null) {
-                        const category = data.categories.find(c => c.name === task.subject);
-                        if (category) {
-                            recordCalibrationMetric(category.id, {
-                                avgBrier: mc.avgBrier,
-                                calibrationPenalty: mc.calibrationPenalty,
-                                probability: mc.probabilityRaw
-                            });
-                        }
-                    }
-                });
-
                 showToast('Sugestões geradas!', 'success');
             } else {
                 showToast('Nenhuma sugestão necessária.', 'info');
             }
             setCoachLoading(false);
         }, 1500);
-    }, [data, setData, showToast]);
+    }, [data, setData, showToast, persistCalibrationMetric, getTargetScore]);
+
+    // BUG-17 FIX: Guarda de segurança contra estado vazio
+    if (!data || !data.categories) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-purple-300 font-mono animate-pulse">Sincronizando dados...</p>
+            </div>
+        );
+    }
 
     return (<PageErrorBoundary pageName="Coach">
         <AICoachView
