@@ -51,17 +51,40 @@ function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     return values.map(v => Math.max(low, Math.min(high, v)));
 }
 
+function deriveAdaptiveConfig(scores) {
+    const n = scores.length;
+    const mean = n > 0 ? scores.reduce((a, b) => a + b, 0) / n : 0;
+    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
+    const sd = Math.sqrt(Math.max(0, variance));
+    const cv = mean !== 0 ? Math.min(2, Math.abs(sd / mean)) : 1;
+
+    const halfLife = Math.max(2, Math.round(Math.min(14, Math.sqrt(Math.max(1, n)) * (1 + cv))));
+    const lambda = Math.pow(0.5, 1 / halfLife);
+    const dynamicTail = Math.min(0.12, Math.max(0.03, 0.08 * (1 / Math.sqrt(Math.max(1, n))) + (cv * 0.02)));
+    const trendSensitivity = 0.05 + Math.min(0.07, cv * 0.04);
+    const maxCIInflation = 1.1 + Math.min(0.25, cv * 0.12);
+
+    return {
+        lambda,
+        lowWinsor: dynamicTail,
+        highWinsor: 1 - dynamicTail,
+        trendSensitivity,
+        maxCIInflation
+    };
+}
+
 function computeAdaptiveSignal(scores) {
     if (!Array.isArray(scores) || scores.length === 0) {
         return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };
     }
 
-    // Pesos exponenciais com meia-vida curta para priorizar o comportamento recente.
-    const lambda = 0.88;
+    const cfg = deriveAdaptiveConfig(scores);
+
+    // Pesos exponenciais com meia-vida dinâmica para priorizar o comportamento recente conforme volatilidade.
     const weighted = [];
     for (let i = 0; i < scores.length; i++) {
         const age = scores.length - 1 - i;
-        weighted.push(Math.pow(lambda, age));
+        weighted.push(Math.pow(cfg.lambda, age));
     }
 
     const sumW = weighted.reduce((a, b) => a + b, 0);
@@ -75,11 +98,11 @@ function computeAdaptiveSignal(scores) {
     const trendStrength = sd > 0 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
 
     // Tendência forte => intervalo mais conservador para evitar overconfidence.
-    const ciInflation = 1 + Math.min(0.2, trendStrength * 0.08);
+    const ciInflation = Math.min(cfg.maxCIInflation, 1 + (trendStrength * cfg.trendSensitivity));
 
-    // Menos amostra efetiva => clipping um pouco mais forte.
-    const low = effectiveN < 5 ? 0.1 : 0.05;
-    const high = effectiveN < 5 ? 0.9 : 0.95;
+    // Clipping guiado por n e volatilidade da própria série.
+    const low = cfg.lowWinsor;
+    const high = cfg.highWinsor;
 
     return { effectiveN, trendStrength, adaptiveWinsor: { low, high }, ciInflation };
 }
