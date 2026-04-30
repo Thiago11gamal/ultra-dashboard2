@@ -2,7 +2,7 @@ import React from 'react';
 import { CHART_COLORS } from '../../utils/chartConfig';
 import { formatValue } from '../../utils/scoreHelper';
 
-export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [] }) => {
+export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
     if (!active || !payload?.length) return null;
 
     const currentData = chartData.find(d => d.displayDate === label);
@@ -22,7 +22,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {p.name}
                                 </span>
                                 <span style={{ color: p.color }} className="font-bold">
-                                    {Number.isFinite(val) ? `${formatValue(val)}%` : '—'}
+                                    {Number.isFinite(val) ? `${formatValue(val)}${unit}` : '—'}
                                 </span>
                             </div>
                         );
@@ -54,19 +54,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Bruta</span>
                                     <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}%
+                                        {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Histórica</span>
                                     <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}%
+                                        {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
                                     <span className="text-[9px] text-slate-500 font-bold uppercase">Nível Real</span>
                                     <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}%
+                                        {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
                                     </span>
                                 </div>
                                 <div className="flex flex-col bg-slate-900/50 p-1.5 rounded-lg border border-slate-700/30">
@@ -83,7 +83,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <div className="text-[9px] text-slate-400 text-right mt-2 flex justify-between items-center px-1">
                                         <span>Último Simulado:</span>
                                         <span>
-                                            <strong className="text-red-400">{errs} erros</strong> ({errPct}%)
+                                            <strong className="text-red-400">{errs} erros</strong> ({errPct}{unit})
                                         </span>
                                     </div>
                                 );

@@ -4,7 +4,7 @@ import {
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
-import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
+import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 
 // FIX CRÍTICO: Forçar T12:00:00 para evitar que new Date("YYYY-MM-DD") recue 1 dia em UTC-4.
@@ -89,7 +89,7 @@ export const WeeklyEvolutionView = ({
 
                 // MATH FIX: Impedir que testes baseados puramente em porcentagem sem métrica de questões gerem 'missing data' (zeros cegos)
                 if (totalQ === 0 && h.score != null) {
-                    totalQ = Math.max(1, Math.round(maxScore || 100)); // Carga sintética alinhada à escala da prova
+                    totalQ = getSyntheticTotal(maxScore);
                 }
 
                 weeksTemp[weekStr][itemId].total += totalQ;

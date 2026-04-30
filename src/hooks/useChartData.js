@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
-import { computeCategoryStats, computeBayesianLevel, SYNTHETIC_TOTAL_QUESTIONS, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
+import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = {};
@@ -43,6 +43,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
     // Bayesian accumulators — Prior Beta(1,1) Neutral Laplace
     let bayAlpha = 1;
     let bayBeta  = 1;
+    let maxAlphaEver = 1;
     const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR || 0.985; // 🎯 MATH SYNC: Fator central do engine (stats.js)
 
     for (let i = 0; i < sortedDates.length; i++) {
@@ -59,8 +60,24 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 
                 if (histIdx > 0) {
                     const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
-                    bayAlpha = Math.max(1, bayAlpha * entryDecay);
-                    bayBeta = Math.max(1, bayBeta * entryDecay);
+                    
+                    // 🎯 DRIFT BAYESIANO: Preservar o ratio atual durante o decaimento.
+                    if (entryDecay < 1.0) {
+                        const currentN = bayAlpha + bayBeta;
+                        const currentP = bayAlpha / currentN;
+                        const newN = Math.max(2, currentN * entryDecay);
+                        bayAlpha = newN * currentP;
+                        bayBeta = newN * (1 - currentP);
+                    }
+
+                    // AMNÉSIA BAYESIANA: Piso de retenção permanente (30% do maior alpha já alcançado)
+                    const retentionFloor = maxAlphaEver * 0.3;
+                    if (bayAlpha < retentionFloor) {
+                        const currentN = bayAlpha + bayBeta;
+                        const currentP = (currentN > 0 && bayAlpha > 0) ? bayAlpha / currentN : 0.01;
+                        bayAlpha = retentionFloor;
+                        bayBeta = bayAlpha * ((1 - currentP) / currentP);
+                    }
                 }
 
                 // entry já foi declarado acima na linha 55
@@ -79,6 +96,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                 if (total >= 1) {
                     bayAlpha += Number(correct);
                     bayBeta  += (Number(total) - Number(correct));
+                    if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
                 }
                 accumulated.push(entry);
                 histIdx++;

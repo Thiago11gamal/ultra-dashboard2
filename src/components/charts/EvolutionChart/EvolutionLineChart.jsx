@@ -183,7 +183,7 @@ export function EvolutionLineChart({
                         label={{ value: `Meta ${targetScore}${unit}`, fill: '#22c55e', fontSize: 10, position: 'insideBottomLeft', dy: -4, dx: 5 }} />
 
                     <Tooltip cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '0' }}
-                        content={<ChartTooltip chartData={enhancedChartData} isCompare={false} />} />
+                        content={<ChartTooltip chartData={enhancedChartData} isCompare={false} unit={unit} />} />
 
                     {/* Legenda empurrada sutilmente para baixo */}
                     <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', paddingBottom: '0' }} />

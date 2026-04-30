@@ -96,7 +96,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                             <div className="flex justify-between items-center mb-1">
                                 <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
                                 <span className="text-[10px] font-mono text-white">
-                                    {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : unit === '%' ? `${formatValue(pointLow)} ~ ${formatValue(pointHigh)}` : `${Math.round(pointLow)} ~ ${Math.round(pointHigh)}`}
+                                    {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
@@ -179,7 +179,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                     dataMin => Math.max(0, dataMin - 5),
                                     dataMax => (unit === 'horas' ? 'auto' : Math.min(maxScore || 100, dataMax + 5))
                                 ]}
-                                tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : unit === '%' ? `${formatValue(v)}%` : `${v}`}
+                                tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
                             <Tooltip
                                 content={<CustomTooltip />}

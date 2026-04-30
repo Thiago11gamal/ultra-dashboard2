@@ -156,7 +156,7 @@ export function CompareChart({
                         label={{ value: `META ${targetScore}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideBottomLeft', dy: -6, dx: 5 }} />
                     
                     <Tooltip cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
-                        content={<ChartTooltip isCompare={true} chartData={filteredChartData} />} />
+                        content={<ChartTooltip isCompare={true} chartData={filteredChartData} unit={unit} />} />
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     

@@ -12,7 +12,7 @@ import {
     Area
 } from 'recharts';
 import { getDateKey, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
-import { getSafeScore } from '../../../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
 
 const WeeklyPerformanceChart = ({
     categories = [],
@@ -63,7 +63,12 @@ const WeeklyPerformanceChart = ({
                 history.forEach(h => {
                     const hDate = getDateKey(h.date);
                     if (hDate === dateKey) {
-                        const q = Number(h.total) || 1; // Nunca assuma que testes vazios tinham tamanho máximo
+                        let q = Number(h.total) || 0;
+                        if (q === 0 && h.score != null) {
+                            q = getSyntheticTotal(maxScore);
+                        }
+                        if (q < 1) return; // Skip invalid entries
+
                         const score = getSafeScore(h, maxScore);
                         correctTotal += (score / maxScore) * q;
                         questionsTotal += q;
