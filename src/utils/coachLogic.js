@@ -3,6 +3,11 @@ import { standardDeviation } from '../engine/stats';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization';
+import { 
+    computeBrierScore, 
+    summarizeCalibration, 
+    shrinkProbabilityToNeutral 
+} from './calibration';
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -142,7 +147,7 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
-                const observed = history[history.length - i].score >= targetScore ? 1 : 0;
+                const observedBinary = history[history.length - i].score >= targetScore;
                 try {
                     const bt = monteCarloSimulation(
                         train,
@@ -151,20 +156,20 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
                         Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS) * 0.35))),
                         { maxScore }
                     );
-                    const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
-                    brierScores.push((p - observed) ** 2);
+                    const p01 = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
+                    brierScores.push(computeBrierScore(p01, observedBinary));
                 } catch {
                     // ignora ponto de backtest inválido
                 }
             }
             if (brierScores.length > 0) {
-                const avgBrier = brierScores.reduce((a, b) => a + b, 0) / brierScores.length;
-                calibrationPenalty = Math.min(0.25, Math.max(0, avgBrier - 0.18));
+                const summary = summarizeCalibration(brierScores);
+                calibrationPenalty = summary.calibrationPenalty;
             }
         }
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
-        const probability = rawProb * (1 - calibrationPenalty) + 50 * calibrationPenalty;
+        const probability = shrinkProbabilityToNeutral(rawProb, calibrationPenalty);
 
         const finalResult = {
             probability,
