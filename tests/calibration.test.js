@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral } from '../src/utils/calibration.js';
+import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeRollingCalibrationParams } from '../src/utils/calibration.js';
 
 test('computeBrierScore clamps probability and computes squared error', () => {
     assert.ok(Math.abs(computeBrierScore(0.8, 1) - 0.04) < 1e-9);
@@ -35,4 +35,11 @@ test('shrinkProbabilityToNeutral applies bounded penalty', () => {
 
     const customBound = shrinkProbabilityToNeutral(90, 0.9, 40, 0.2);
     assert.equal(customBound, 80);
+});
+
+test('computeRollingCalibrationParams adapts baseline and cap from history', () => {
+    const hist = [{ avgBrier: 0.22 }, { avgBrier: 0.3 }, { avgBrier: 0.24 }, { avgBrier: 0.18 }];
+    const params = computeRollingCalibrationParams(hist, { baseline: 0.18, maxPenalty: 0.25 });
+    assert.ok(params.baseline >= 0.12 && params.baseline <= 0.3);
+    assert.ok(params.maxPenalty >= 0.12 && params.maxPenalty <= 0.4);
 });

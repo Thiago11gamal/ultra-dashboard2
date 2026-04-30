@@ -3,7 +3,7 @@ import { standardDeviation } from '../engine/stats.js';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
-import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral } from './calibration.js';
+import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeRollingCalibrationParams } from './calibration.js';
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -122,7 +122,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DE
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null) {
+export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, rollingCalibration = null) {
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
@@ -166,8 +166,8 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
             }
             if (brierScores.length > 0) {
                 const summary = summarizeCalibration(brierScores, {
-                    baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
-                    maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY
+                    baseline: rollingCalibration?.baseline || cfg.MC_CALIBRATION_BRIER_BASELINE,
+                    maxPenalty: rollingCalibration?.maxPenalty || cfg.MC_CALIBRATION_MAX_PENALTY
                 });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
@@ -211,6 +211,11 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const logger = options.logger;
+    const calibrationHistory = options.calibrationHistoryByCategory?.[category.id] || [];
+    const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
+        baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
+        maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY
+    });
 
     const maxScore = options.maxScore ?? 100;
     const targetScore = options.targetScore ?? (maxScore * 0.8);
@@ -334,7 +339,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
         const mcAdaptive = deriveCoachAdaptiveParams(mcHistory, maxScore, cfg);
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive);
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive, rollingCalibration);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
