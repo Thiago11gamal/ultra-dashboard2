@@ -5,45 +5,51 @@ import { useAppStore } from '../store/useAppStore';
 import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
+import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 
 const calibrationAlertCache = new Map();
 
 export default function Coach() {
-    const CALIBRATION_HISTORY_LIMIT = 60;
     const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
-    const CALIBRATION_ALERT_BRIER_THRESHOLD = 0.28;
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const [coachLoading, setCoachLoading] = useState(false);
     const timeoutRef = useRef(null);
 
-    const persistCalibrationMetric = React.useCallback((metric) => {
-        if (!metric?.categoryId) return;
+        const avgBrier = Number(metric.avgBrier) || 0;
+        const isDegraded = avgBrier >= CRITICAL_BRIER_THRESHOLD;
+
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[metric.categoryId] || [];
             const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
-            const nextHistory = [...cleaned, metric].slice(-CALIBRATION_HISTORY_LIMIT);
+            const nextHistory = [...cleaned, metric].slice(-60);
+            
             const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (Date.now() - 1000 * 60 * 60 * 24 * 7));
             const avgBrier7d = recent7.length > 0
                 ? recent7.reduce((acc, item) => acc + (Number(item?.avgBrier) || 0), 0) / recent7.length
                 : 0;
+
             const calibrationOps = {
                 ...(prev.calibrationOps || {}),
                 [metric.categoryId]: {
                     categoryName: metric.categoryName,
                     avgBrier7d: Number(avgBrier7d.toFixed(4)),
                     sample7d: recent7.length,
+                    degraded: isDegraded,
                     updatedAt: Date.now()
                 }
             };
+
             const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
                 ...metric,
                 avgBrier7d: Number(avgBrier7d.toFixed(4)),
+                degraded: isDegraded,
                 source: 'coach'
             }].slice(-500);
+
             return {
                 ...prev,
                 calibrationHistoryByCategory: {
@@ -55,16 +61,18 @@ export default function Coach() {
             };
         });
 
-        if (metric.calibrationPenalty >= 0.2) {
+        if (metric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
             console.warn('[CoachCalibration] High calibration penalty detected', metric);
+            logCalibrationTelemetryEvent({ ...metric, eventType: 'high_penalty_alert' });
+        } else {
+            logCalibrationTelemetryEvent(metric);
         }
-        logCalibrationTelemetryEvent(metric);
-        const avgBrier = Number(metric.avgBrier) || 0;
-        if (avgBrier >= CALIBRATION_ALERT_BRIER_THRESHOLD) {
-            console.warn('[CoachCalibration] Brier above governance threshold (0.28)', metric);
+
+        if (isDegraded) {
+            console.warn(`[CoachCalibration] Brier above governance threshold (${CRITICAL_BRIER_THRESHOLD})`, metric);
             const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             const now = Date.now();
-            if (now - lastAlertAt > 1000 * 60 * 60 * 12) {
+            if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToast(`⚠️ Calibração crítica em ${metric.categoryName || 'categoria'} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
             }

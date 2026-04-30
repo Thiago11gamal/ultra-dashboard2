@@ -7,6 +7,7 @@ import {
     ChevronDown, AlertTriangle, TrendingDown,
     Clock, CheckCircle2, Database, Flame, Loader2
 } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
 
 function getUrgencyConfig(score, status = '') {
     const s = status.toLowerCase();
@@ -85,6 +86,12 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
     const urgencyScore = suggestion?.urgency?.score ?? 0;
     const statusLabel = urgency.humanReadable?.Status ?? '';
+    
+    // Check if category is degraded from calibrationOps
+    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const calibrationOps = activeContest?.calibrationOps || {};
+    const isDegraded = calibrationOps[suggestion.id]?.degraded;
+
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
 
@@ -143,6 +150,16 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 <AlertTriangle size={12} />
                                 CRITICAL ×{urgency.crunchMultiplier}
                             </motion.div>
+                        )}
+                        {isDegraded && (
+                             <motion.div
+                                animate={{ opacity: [1, 0.7, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                             >
+                                <Database size={12} className="text-rose-400" />
+                                CALIBRAÇÃO DEGRADADA
+                             </motion.div>
                         )}
                         <div className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20`}>
                             <TierIcon size={12} />

@@ -46,3 +46,8 @@ export function computeRollingCalibrationParams(history = [], defaults = {}) {
     const maxPenalty = Math.max(0.12, Math.min(0.4, fallbackCap + sd * 0.5));
     return { baseline, maxPenalty };
 }
+
+// Governance Playbook Constants
+export const CRITICAL_BRIER_THRESHOLD = 0.28;
+export const HIGH_PENALTY_THRESHOLD = 0.20;
+export const ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 12; // 12h

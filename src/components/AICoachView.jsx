@@ -152,10 +152,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <p className="text-[11px] text-slate-300">Brier médio: {row.avgBrier.toFixed(3)}</p>
                                 <p className="text-[11px] text-slate-300">Penalidade média: {(row.avgPenalty * 100).toFixed(2)}%</p>
                                 {calibrationOps[row.categoryId] && (
-                                    <p className="text-[10px] text-slate-400">
-                                        Brier 7d: {Number(calibrationOps[row.categoryId].avgBrier7d || 0).toFixed(3)}
-                                        {Number(calibrationOps[row.categoryId].avgBrier7d || 0) >= 0.28 ? ' ⚠️' : ''}
-                                    </p>
+                                    <div className="mt-1 space-y-0.5">
+                                        <p className="text-[10px] text-slate-400">
+                                            Brier 7d: {Number(calibrationOps[row.categoryId].avgBrier7d || 0).toFixed(3)}
+                                            {calibrationOps[row.categoryId].degraded ? ' ⚠️' : ''}
+                                        </p>
+                                        {calibrationOps[row.categoryId].degraded && (
+                                            <p className="text-[9px] font-black text-rose-400 uppercase tracking-tighter animate-pulse">
+                                                Status: Calibração Degradada
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
                                 <p className="text-[10px] text-slate-500">{row.count} eventos</p>
                             </div>
