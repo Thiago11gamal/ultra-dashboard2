@@ -52,8 +52,14 @@ export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_
     // Garantia absoluta de tipo e limite para correlação
     const validRho = Number.isFinite(rho) && rho !== null ? Math.max(0, Math.min(1, rho)) : INTER_SUBJECT_CORRELATION;
 
-    const weights = stats.map(cat => toFiniteNonNegative(cat?.weight) / effectiveTotalWeight);
+    const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight) / effectiveTotalWeight);
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
+
+    // SAFETY: If caller passes inconsistent totalWeight, force normalized simplex weights (Σwi=1).
+    // This preserves scale invariance of linear-combination variance instead of silently shrinking/blowing up SD.
+    const sumRawWeights = rawWeights.reduce((acc, w) => acc + w, 0);
+    if (!Number.isFinite(sumRawWeights) || sumRawWeights <= 0) return 0;
+    const weights = rawWeights.map(w => w / sumRawWeights);
 
     // 1. Independent Variance Component (Weighted Sum of Variances): Σ (wi² * σi²)
     // BUGFIX: Respeito estrito à variância de uma combinação linear para editais.
