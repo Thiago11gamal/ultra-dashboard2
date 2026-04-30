@@ -235,6 +235,16 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                                 <MetricChip key={k} label={k} value={v} index={i} />
                                             ))}
                                         </div>
+                                        {urgency?.monteCarlo?.explainability?.note && (
+                                            <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/5 p-3">
+                                                <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-black mb-1">
+                                                    Explicabilidade Monte Carlo
+                                                </p>
+                                                <p className="text-xs text-slate-300 leading-relaxed">
+                                                    {urgency.monteCarlo.explainability.note}
+                                                </p>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
