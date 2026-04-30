@@ -1,0 +1,571 @@
+@import "tailwindcss";
+
+/* Custom CSS Variables */
+:root {
+  --gradient-1: #0f172a;
+  --gradient-2: #1e1b4b;
+  --gradient-3: #0f172a;
+  --neon-blue: #38bdf8;
+  --neon-purple: #818cf8;
+  --neon-pink: #f472b6;
+  --neon-green: #34d399;
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-glow: rgba(139, 92, 246, 0.15);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --bg-main: radial-gradient(circle at top center, #1e1b4b 0%, #0f172a 100%);
+  --scrollbar-thumb: rgba(129, 140, 248, 0.3);
+}
+
+/* Light mode variables removed to lock app in dark mode */
+/* .light-mode { ... } */
+
+
+
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0f172a;
+  /* Fallback crucial para evitar tela branca */
+  background-image: var(--bg-main);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--text-primary);
+  overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Animated background mesh */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(129, 140, 248, 0.1) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(244, 114, 182, 0.05) 0px, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+  animation: meshMove 30s ease-in-out infinite alternate;
+  opacity: var(--mesh-opacity, 1);
+  /* PERFORM-01: GPU acceleration for fixed mesh */
+  will-change: transform;
+}
+
+
+
+@keyframes meshMove {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate3d(-20px, -20px, 0) scale(1.05);
+  }
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 0;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
+}
+
+.glass-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-hover:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  background: rgba(30, 41, 59, 0.8);
+  box-shadow: 0 0 30px var(--glass-glow);
+  transform: translateY(-2px);
+}
+
+.glass-panel {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 27, 75, 0.8) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  /* PERFORM-02: GPU pre-warm */
+  will-change: transform, opacity;
+}
+
+/* Elastic Hover Effect - PREMIUM */
+.elastic-hover {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.elastic-hover:hover {
+  transform: scale(1.05) translateY(-2px);
+}
+
+.elastic-hover:active {
+  transform: scale(0.95);
+}
+
+/* Page transitions */
+@keyframes pageEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+    filter: blur(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-page-entrance {
+  animation: pageEntrance 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Neon text effect */
+.neon-text {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #8b5cf6 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 0px; /* Hide horizontal scrollbar */
+  display: block;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #8b5cf6;
+  border-radius: 0;
+  transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a855f7;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Premium Select / Dropdown Styling - CORRIGIDO PARA LIGHT/DARK MODE */
+select {
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
+  font-weight: 500;
+  border: 1px solid var(--glass-border);
+}
+
+select option {
+  background-color: var(--gradient-1);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  color: #fff;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Dropdown menu arrow */
+select::-ms-expand {
+  display: none;
+}
+
+@keyframes pulse-subtle {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.01);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes glow-red {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 0.8);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+    border-color: rgba(239, 68, 68, 1);
+  }
+}
+
+.animate-glow-red {
+  animation: glow-red 1.5s ease-in-out infinite;
+}
+
+
+
+/* Remove default focus outline from Recharts globally */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface *,
+.recharts-responsive-container,
+svg,
+svg *,
+[tabindex] {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Sparkline sweep animation (used in VerifiedStats prediction card) */
+@keyframes moveRight {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.move-right-anim {
+  animation: moveRight 3s linear infinite;
+}
+
+@keyframes scanFast {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(200%);
+  }
+}
+
+.animate-scan-fast {
+  animation: scanFast 1s linear infinite;
+}
+
+/* 
+  Otimização extrema para html2canvas: 
+  Desliga filtros pesados e bordas transparentes apenas durante o instante da captura do PDF 
+*/
+/* Apenas Otimizações Estruturais para a nova engine html-to-image */
+.pdf-render-mode .overflow-x-auto,
+.pdf-render-mode .overflow-y-auto,
+.pdf-render-mode .overflow-hidden {
+  overflow: visible !important;
+}
+
+/* Forçamos os painéis com blur pesado a ter um fundo opaco suave para garantir consistência no PDF exportado */
+.pdf-render-mode .glass,
+.pdf-render-mode .glass-panel {
+  background: var(--gradient-1) !important;
+  /* Dinâmico para respeitar Light/Dark mode no PDF */
+}
+
+@media print {
+  body {
+    background: #0f172a !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* UI-POLISH: Header protection for narrow mobile */
+@media (max-width: 480px) {
+  .md\:hidden.mb-3 {
+    padding-top: 0.5rem;
+  }
+}
+
+/* Fade Edges - CORRIGIDO PARA NÃO FICAR PRETO NO LIGHT MODE */
+.fade-edge {
+  position: absolute;
+  width: 40px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.fade-left {
+  left: 0;
+  background: linear-gradient(to right, var(--gradient-1), transparent);
+}
+
+.fade-right {
+  right: 0;
+  background: linear-gradient(to left, var(--gradient-1), transparent);
+}
+
+/* Proteção para o MobilePocketMode no iOS (Home Indicator) */
+.safe-area-pb {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* Prevenção Global de Corte de Fonte (Anti-Clipping) */
+input,
+textarea,
+select,
+button,
+span,
+h1, h2, h3, h4, h5, h6,
+.neon-text {
+  /* O padding inferior mínimo garante que descenções (como y, g, p) não fiquem para fora da caixa de renderização */
+  padding-bottom: max(0.1em, 1px);
+  /* Evita que navegadores tentem espremer a fonte ignorando a caixa limite */
+  line-height: 1.35;
+}
+
+/* Custom scrollbar definition moved to line 152 for consolidation */
+
+/* CSS View Transitions - Global Defaults */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Liquid Fill Animation for Pomodoro Break Balls */
+@keyframes wave {
+  0% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  100% {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+
+.liquid-container {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.work-segment-bar {
+  position: relative;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.work-segment-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+  transition: width 0.3s ease-out;
+}
+
+.liquid-wave {
+  position: absolute;
+  top: -150%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 40%;
+  animation: wave 5s infinite linear;
+  pointer-events: none;
+}
+
+.liquid-wave:nth-child(2) {
+  border-radius: 35%;
+  background: rgba(16, 185, 129, 0.2);
+  animation: wave 7s infinite linear;
+  top: -155%;
+}
+
+/* Premium Custom Range Slider */
+input[type=range].custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Remove default focus */
+input[type=range].custom-slider:focus {
+  outline: none;
+}
+
+/* WebKit (Chrome, Safari, Edge) Thumb */
+input[type=range].custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6; /* Tailwind blue-500 */
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #60a5fa; /* Tailwind blue-400 */
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+/* Firefox Thumb */
+input[type=range].custom-slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+input[type=range].custom-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #60a5fa;
+}
+
+input[type=range].custom-slider::-moz-range-thumb:active {
+  transform: scale(0.95);
+}

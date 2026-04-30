@@ -1,0 +1,205 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+import { temporal } from 'zundo';
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
+import { INITIAL_DATA } from '../data/initialData';
+import { createPomodoroSlice } from './slices/createPomodoroSlice';
+import { createTaskSlice } from './slices/createTaskSlice';
+import { createCategorySlice } from './slices/createCategorySlice';
+import { createStudySlice } from './slices/createStudySlice';
+import { createContestSlice } from './slices/createContestSlice';
+import { createGamificationSlice } from './slices/createGamificationSlice';
+import { createSimuladoSlice } from './slices/createSimuladoSlice';
+import { createTrashSlice } from './slices/createTrashSlice';
+import { createSettingsSlice } from './slices/createSettingsSlice';
+import { createMonteCarloSlice } from './slices/createMonteCarloSlice';
+
+// --- IndexedDB Adapter with localStorage Migration ---
+// --- Otimização de Persistência: Debounced IndexedDB Adapter ---
+let saveTimeout = null;
+const DEBOUNCE_TIME = 500; // ms
+
+const idbStorage = {
+    getItem: async (name) => {
+        const value = await idbGet(name);
+        if (value !== undefined) return value;
+
+        const localValue = localStorage.getItem(name);
+        if (localValue) {
+            try {
+                await idbSet(name, localValue);
+                const confirmSave = await idbGet(name);
+                if (confirmSave !== undefined && confirmSave !== null && String(confirmSave).length > 5) {
+                    localStorage.removeItem(name); 
+                }
+                return localValue;
+            } catch (e) {
+                return localValue;
+            }
+        }
+        return null;
+    },
+    setItem: (name, value) => {
+        // --- PATCH: Backup síncrono imediato para não perder dados se o browser fechar ---
+        try {
+            localStorage.setItem(name, value);
+        } catch (e) {
+            // QuotaExceededError: localStorage full. IndexedDB is the primary store so this
+            // is non-fatal, but worth logging so the user can export data.
+            console.warn("[Storage] Fallback síncrono cheio/falhou.", e?.name);
+            if (e?.name === 'QuotaExceededError') {
+                window.dispatchEvent(new CustomEvent('ultra:storageQuotaExceeded'));
+            }
+        }
+
+        // 🚀 OTIMIZAÇÃO: Debounce para evitar I/O excessivo no IndexedDB
+        if (saveTimeout) clearTimeout(saveTimeout);
+        
+        saveTimeout = setTimeout(async () => {
+            try {
+                await idbSet(name, value);
+                saveTimeout = null;
+            } catch (e) {
+                console.error("[Storage] Critical save failure:", e);
+            }
+        }, DEBOUNCE_TIME);
+    },
+    removeItem: async (name) => {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        try {
+            await idbDel(name);
+        } catch (e) {
+            console.error("[Storage] Failed to remove from IndexedDB:", e);
+        }
+    },
+};
+
+export const useAppStore = create(
+    persist(
+        temporal(
+            immer((set, get) => ({
+                appState: {
+                    contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
+                    activeId: 'default',
+                    trash: [],
+                    version: 0,
+                    dashboardFilter: 'all',
+                    hasSeenTour: false,
+                    pomodoro: { 
+                        activeSubject: null, 
+                        sessions: 1, 
+                        targetCycles: 1, 
+                        completedCycles: 0, 
+                        accumulatedMinutes: 0,
+                        mode: 'work',
+                        neuralQueue: [],
+                        neuralMode: false
+                    },
+                    lastUpdated: "1970-01-01T00:00:00.000Z"
+                },
+
+                // FIX: Actions globais que faltavam e causavam Crash no Dashboard
+                setDashboardFilter: (filter) => set((state) => {
+                    state.appState.dashboardFilter = filter;
+                }),
+
+                setData: (updater) => set((state) => {
+                    const activeData = state.appState.contests[state.appState.activeId];
+                    if (activeData) {
+                        updater(activeData);
+                        state.appState.version = (state.appState.version || 0) + 1;
+                        state.appState.lastUpdated = new Date().toISOString();
+                        localStorage.setItem('ultra-sync-dirty', 'true');
+                    }
+                }),
+
+                // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
+                resetStore: () => {
+                    localStorage.removeItem('pomodoroState');
+                    set((state) => {
+                        // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
+                        const settings = state.appState.settings;
+                        state.appState = {
+                            contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
+                            activeId: 'default',
+                            trash: [],
+                            version: 0,
+                            dashboardFilter: 'all',
+                            hasSeenTour: false,
+                            pomodoro: { 
+                                activeSubject: null, 
+                                sessions: 1, 
+                                targetCycles: 1, 
+                                completedCycles: 0, 
+                                accumulatedMinutes: 0,
+                                mode: 'work',
+                                neuralQueue: [],
+                                neuralMode: false
+                            },
+                            lastUpdated: "1970-01-01T00:00:00.000Z",
+                            settings: settings // Preserva o tema escolhido
+                        };
+                    });
+                    
+                    // FIX: Purgar o histórico de Undo/Redo para impedir vazamento de dados
+                    useAppStore.temporal.getState().clear();
+                },
+
+                // Injetar os Slices
+                ...createPomodoroSlice(set, get),
+                ...createTaskSlice(set, get),
+                ...createCategorySlice(set, get),
+                ...createStudySlice(set, get),
+                ...createContestSlice(set, get),
+                ...createGamificationSlice(set, get),
+                ...createSimuladoSlice(set, get),
+                ...createTrashSlice(set, get),
+                ...createSettingsSlice(set, get),
+                ...createMonteCarloSlice(set, get),
+            })),
+            {
+                // Zundo Options: Limit history to 20 states
+                limit: 20,
+                // BUG 1 FIX: Partialize must include the entire appState tree.
+                partialize: (state) => ({
+                    appState: state.appState
+                }),
+            }
+        ),
+        {
+            name: 'ultra-dashboard-storage',
+            version: 1,
+            storage: createJSONStorage(() => idbStorage),
+            // Don't persist the history/temporal state itself, just the app state
+            partialize: (state) => ({ appState: state.appState }),
+
+            // NOVO: Roda nos bastidores antes do App.jsx montar
+            onRehydrateStorage: () => {
+                return (state, error) => {
+                    if (error || !state) return;
+
+                    // Agenda a atualização reativa para o próximo tick para evitar Flash of Unstyled Content (FOUC) ou crash
+                    setTimeout(() => {
+                        const currentStore = useAppStore.getState();
+                        const appState = currentStore.appState;
+                        const contestsList = Object.keys(appState.contests || {});
+                        
+                        if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
+                            // Atualização reativa correta
+                            useAppStore.setState((s) => {
+                                s.appState.activeId = contestsList[0];
+                            });
+                        }
+                    }, 0);
+                };
+            },
+        }
+    )
+);
+
+// Helper to access temporal store easily
+export const useTemporalStore = (selector) => {
+    const useStore = useAppStore.temporal;
+    return useStore(selector);
+};

@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // O utilizador só pode ler e escrever no SEU PRÓPRIO documento
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Backup de sincronização em nuvem (cliente escreve em /backups/{uid})
+    match /backups/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Leitura do histórico de pagamentos do próprio usuário (controle de paywall no cliente)
+    match /customers/{userId}/payments/{paymentId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Permite que o sistema de sincronização salve os dados na nuvem
+    
+    // Regra global: Proíbe acesso a qualquer outra coleção acidental
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR" translate="no">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MÉTODO ARRAIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Loading Screen Styles - Shown while React loads */
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .initial-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .loader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(139, 92, 246, 0.3);
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loader-text {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #94a3b8;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+  <script>
+    // Global error handler to catch crashes before React mounts
+    window.onerror = function (msg, url, line, col, error) {
+      const loaderText = document.querySelector('.loader-text');
+      if (loaderText) {
+        loaderText.innerHTML = '<span style="color: #f87171">Erro de Carregamento:<br>' + msg + '</span>';
+        loaderText.style.animation = 'none';
+      }
+      return false;
+    };
+
+    // Auto-reveal hidden content if loading takes too long
+    const BUILD_VERSION = "2026-03-26-HOTFIX";
+    console.log("[Build] Versão:", BUILD_VERSION);
+
+    setTimeout(() => {
+      const loaderText = document.querySelector('.loader-text');
+      if (loaderText && (loaderText.innerText === "Carregando..." || loaderText.innerHTML.includes("Carregando..."))) {
+        loaderText.innerHTML = "Carregamento lento detectado...<br>" +
+          "<small style='opacity: 0.5'>Versão: " + BUILD_VERSION + " | Verifique o painel VITE_.</small><br>" +
+          "<button onclick='localStorage.clear(); location.reload();' style='margin-top: 20px; background: rgba(248, 113, 113, 0.2); border: 1px solid #f87171; color: #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 12px;'>Limpar Dados e Reiniciar</button>";
+      }
+    }, 8000);
+  </script>
+</head>
+
+<body>
+  <div id="root">
+    <!-- Initial loader - replaced by React when app loads -->
+    <div class="initial-loader">
+      <div class="loader-spinner"></div>
+      <p class="loader-text">Carregando...</p>
+    </div>
+  </div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

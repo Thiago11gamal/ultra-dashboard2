@@ -1,0 +1,186 @@
+import React, { useState, useMemo } from 'react';
+import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
+import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
+
+export default function TopicPerformance({ categories = [] }) {
+    const [selectedCategoryId, setSelectedCategoryId] = useState(() => categories[0]?.id || '');
+
+    // Aggregate Data Logic
+    const aggregatedData = useMemo(() => {
+        if (!selectedCategoryId) return [];
+
+        const category = categories.find(c => c.id === selectedCategoryId);
+        if (!category) return [];
+        const maxScore = category.maxScore ?? 100;
+        const scoreUnit = maxScore === 100 ? '%' : 'pts';
+
+        const stats = category.simuladoStats || { history: [] };
+        const history = stats.history || [];
+        const topicMap = {};
+
+        // Loop through all history entries
+        history.forEach(entry => {
+            const topics = entry.topics || [];
+            topics.forEach(t => {
+                const rawName = t.name;
+                const name = (typeof rawName === 'string' ? rawName : "Sem Nome").trim();
+                if (!topicMap[name]) {
+                    topicMap[name] = { total: 0, correct: 0 };
+                }
+                topicMap[name].total += (parseInt(t.total, 10) || 0);
+                const correctCount = (t.isPercentage && t.score != null && (parseInt(t.total, 10) || 0) > 0)
+                    ? Math.round((getSafeScore(t, maxScore) / maxScore) * (parseInt(t.total, 10) || 0))
+                    : (parseInt(t.correct, 10) || 0);
+                topicMap[name].correct += correctCount;
+            });
+        });
+
+        // Convert to array and calculate stats
+        const topicList = Object.entries(topicMap).map(([name, data]) => {
+            const normalizedPct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+            const scoreValue = data.total > 0 ? (data.correct / data.total) * maxScore : 0;
+            const missed = data.total - data.correct;
+            const balance = data.correct - missed;
+            return {
+                name,
+                total: data.total,
+                correct: data.correct,
+                percentage: normalizedPct,
+                scoreValue: Number(scoreValue.toFixed(2)),
+                scoreUnit,
+                balance
+            };
+        });
+
+        // Sort: Highest Percentage Top (Descending)
+        return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+
+    }, [categories, selectedCategoryId]);
+
+    // Update selected if categories change and current selection is invalid
+    React.useEffect(() => {
+        if (categories.length > 0 && !categories.find(c => c.id === selectedCategoryId)) {
+            setSelectedCategoryId(categories[0].id);
+        }
+    }, [categories, selectedCategoryId]);
+
+    return (
+        <div className="glass p-6 h-full flex flex-col">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-none shrink-0">
+                        <BarChart2 size={18} className="text-blue-400" />
+                    </div>
+                    <h3 className="text-lg font-bold leading-relaxed pt-1">Rendimento por Assunto</h3>
+                </div>
+
+                {/* Filter / Selector - Premium Style */}
+                <div className="relative group w-full sm:w-auto p-1">
+                    <div className="absolute inset-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-none" />
+                    <select
+                        value={selectedCategoryId}
+                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        className="relative w-full appearance-none bg-slate-900/90 border-2 border-slate-700/50 rounded-none px-5 py-2.5 pr-12 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all cursor-pointer min-w-[220px] shadow-lg shadow-black/20 hover:border-slate-500/50 hover:bg-slate-800/90 leading-relaxed"
+                        style={{
+                            backgroundImage: 'linear-gradient(135deg, rgba(30,30,50,0.95) 0%, rgba(20,20,40,0.95) 100%)'
+                        }}
+                    >
+                        {categories.map(cat => (
+                            <option
+                                key={cat.id}
+                                value={cat.id}
+                                className="bg-slate-900 text-white"
+                            >
+                                {cat.name}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-2">
+                        <div className="w-px h-5 bg-white/20" />
+                        <ChevronDown size={16} className="text-blue-400" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Content List */}
+            <div
+                key={selectedCategoryId}
+                className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pr-2 space-y-2"
+            >
+                {aggregatedData.length > 0 ? (
+                    aggregatedData.map((topic) => {
+                        // Badge Logic
+                        let badgeColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+                        let icon = <AlertCircle size={12} />;
+                        let label = 'Atenção';
+
+                        if (topic.percentage >= 80) {
+                            badgeColor = 'text-green-400 bg-green-500/10 border-green-500/20';
+                            icon = <Trophy size={12} />;
+                            label = 'Dominado';
+                        } else if (topic.percentage <= 40) {
+                            badgeColor = 'text-red-400 bg-red-500/10 border-red-500/20';
+                            icon = <AlertCircle size={12} />;
+                            label = 'Crítico';
+                        }
+
+                        return (
+                            <div
+                                key={topic.name}
+                                className="bg-white/5 border border-white/5 rounded-none p-2 hover:bg-white/10 transition-all duration-300 group animate-in fade-in slide-in-from-bottom-2"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="font-bold text-slate-200 truncate sm:max-w-xs" title={topic.name}>{topic.name}</span>
+                                        {/* Balance Badge */}
+                                        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-none border leading-none shrink-0 ${topic.balance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                            topic.balance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                'bg-slate-500/10 border-slate-500/20 text-slate-400'
+                                            }`}>
+                                            Saldo: {topic.balance > 0 ? '+' : ''}{topic.balance}
+                                        </span>
+                                    </div>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-none border flex items-center gap-1 leading-snug shrink-0 whitespace-nowrap ${badgeColor}`}>
+                                        {icon} {label}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    {/* Progress Bar Container */}
+                                    <div className="flex-1 h-2 bg-black/40 rounded-none overflow-hidden relative shadow-inner">
+                                        <div
+                                            className={`h-full rounded-none transition-all duration-700 shadow-[0_0_12px_rgba(255,255,255,0.15)] ${topic.percentage >= 80 ? 'bg-green-500 shadow-green-500/30' :
+                                                topic.percentage <= 40 ? 'bg-red-500 shadow-red-500/30' : 'bg-yellow-500 shadow-yellow-500/30'
+                                                }`}
+                                            style={{ width: `${topic.percentage}%` }}
+                                        />
+                                    </div>
+
+                                    {/* Stats Text */}
+                                    <div className="text-right min-w-[80px]">
+                                        <div className="text-lg font-bold font-mono leading-tight pb-0.5">
+                                            {formatValue(topic.percentage)}%
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 mt-1 font-semibold">
+                                            {topic.scoreUnit === '%' ? formatPercent(topic.scoreValue) : `${formatValue(topic.scoreValue)}${topic.scoreUnit}`}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 mt-0.5">
+                                            {topic.correct}/{topic.total} Acertos
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50">
+                        <Filter size={48} className="mb-4" />
+                        <p>Nenhum dado encontrado para esta disciplina.</p>
+                        <p className="text-xs mt-2">Importe um simulado para ver a análise.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

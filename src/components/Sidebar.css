@@ -1,0 +1,310 @@
+/* Layout Base do Menu */
+.sidebar {
+  width: 280px;
+  background-color: #08090f;
+  border-right: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  
+  /* GPU OPTIMIZATION */
+  will-change: width, padding;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+  
+  padding: 24px 0px 24px 12px;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
+  overflow-x: hidden !important;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+  padding: 24px 0px 24px 10px;
+}
+
+/* Logo */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.sidebar-logo img {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.3));
+  mix-blend-mode: screen;
+}
+
+.sidebar-logo span {
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform-origin: left;
+}
+
+.sidebar.collapsed .sidebar-logo span {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-10px);
+}
+
+/* Divisor */
+.sidebar-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
+  margin: 8px 0;
+  width: 100%;
+  transition: opacity 0.3s;
+}
+
+.sidebar.collapsed .sidebar-divider {
+  display: none;
+}
+
+/* Hierarquia de Itens (Concursos) */
+.nested-container {
+  margin-left: 20px;
+  padding-left: 12px;
+  border-left: 1.5px solid rgba(16, 185, 129, 0.15);
+  /* Emerald 500 */
+  position: relative;
+  transition: border-color 0.3s ease;
+}
+
+.nested-container:hover {
+  border-left-color: rgba(16, 185, 129, 0.4);
+}
+
+.nested-item-marker {
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 8px;
+  height: 1.5px;
+  background: rgba(16, 185, 129, 0.15);
+  transition: all 0.3s ease;
+}
+
+.sidebar-item:hover .nested-item-marker {
+  width: 12px;
+  background: rgba(16, 185, 129, 0.6);
+}
+
+.sidebar.collapsed .nested-container {
+  border-left: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.nested-container .sidebar-item {
+  color: #8b5cf6;
+}
+
+.nested-container .sidebar-item svg {
+  color: #ffffff;
+  opacity: 0.8;
+}
+
+.nested-container .sidebar-item.active {
+  color: #a855f7;
+}
+
+.text-emerald-400 {
+  color: #34d399 !important;
+}
+
+.nested-container .sidebar-item.active svg {
+  color: #ffffff;
+  opacity: 1;
+}
+
+.sidebar.collapsed .nested-item-marker {
+  display: none;
+}
+
+/* Labels de Seção */
+.sidebar-nav-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #8b5cf6;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 12px 8px 8px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .sidebar-nav-label {
+  display: none;
+}
+
+/* Itens do Menu */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 0;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  margin-bottom: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-item svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.6;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-item span {
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
+}
+
+/* Hover State */
+.sidebar-item:hover {
+  background: var(--item-color-alpha, rgba(255, 255, 255, 0.05));
+  color: #f1f5f9;
+  transform: translateX(4px);
+  border-color: var(--item-color-alpha, transparent);
+}
+
+.sidebar-item:hover svg {
+  opacity: 1;
+  color: var(--item-color, #818cf8);
+  filter: drop-shadow(0 0 8px var(--item-color, #818cf8));
+}
+
+/* Active State */
+.sidebar-item.active {
+  background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.15)) 0%, transparent 100%);
+  border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: inset 4px 0 0 0 var(--item-color, #818cf8), 0 0 20px var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+}
+
+.sidebar-item.active svg {
+  color: var(--item-color, #818cf8);
+  opacity: 1;
+  filter: drop-shadow(0 0 8px var(--item-color, #818cf8));
+  transform: scale(1.15);
+}
+
+.sidebar-item.active span {
+  color: var(--item-color, #ffffff);
+  text-shadow: 0 0 10px var(--item-color-alpha, transparent);
+}
+
+/* Collapsed Adjustments */
+.sidebar.collapsed .sidebar-item {
+  justify-content: center;
+  padding: 12px 0;
+  width: 46px;
+  margin: 2px auto;
+}
+
+.sidebar.collapsed .mb-4,
+.sidebar.collapsed .mb-2 {
+  margin-bottom: 0 !important;
+}
+
+/* Hide scrollbar when collapsed */
+.sidebar .custom-scrollbar {
+  overflow-x: hidden !important;
+}
+
+.sidebar.collapsed .custom-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.sidebar.collapsed .custom-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Force icons to white when collapsed */
+.sidebar.collapsed .sidebar-item svg {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+.sidebar.collapsed .sidebar-item.active svg {
+  opacity: 1 !important;
+}
+
+.sidebar.collapsed .sidebar-item span {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-15px);
+  position: absolute;
+}
+
+.sidebar.collapsed .sidebar-item:hover {
+  transform: scale(1.1);
+  background: rgba(129, 140, 248, 0.1);
+}
+
+.sidebar.collapsed .sidebar-item.active::before {
+  left: auto;
+  right: -10px;
+  /* Hide indicator or adjust for collapsed */
+  display: none;
+}
+
+/* Logout Button Special Styling */
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.logout-btn:hover svg {
+  color: #f87171;
+}
+
+/* Mobile responsive sidebar */
+@media (max-width: 1024px) {
+  .sidebar {
+    position: fixed;
+    height: 100vh;
+    left: 0;
+    transform: translateX(-100%);
+    width: 260px;
+    z-index: 50;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar-open {
+    transform: translateX(0);
+  }
+}
+
+/* Scrollbar style removed to allow global pink theme */
