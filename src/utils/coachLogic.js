@@ -22,6 +22,10 @@ export const DEFAULT_CONFIG = {
     MC_VOLATILITY_HIGH: 8,
     INSTABILITY_MSSD_DIVISOR: 10,
     MC_BACKTEST_HORIZON: 3,
+    MC_CALIBRATION_BRIER_BASELINE: 0.18,
+    MC_CALIBRATION_MAX_PENALTY: 0.25,
+    MC_CALIBRATION_NEUTRAL_PCT: 50,
+    MC_CALIBRATION_MAX_APPLIED_PENALTY: 0.5,
 
     // ── A) Constantes do urgency boost nomeadas ──────────────────────────────
     // Antes: mcUrgencyBoost = 12 + 13 * (1 - p/MC_PROB_DANGER)
@@ -161,14 +165,22 @@ function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, max
                 }
             }
             if (brierScores.length > 0) {
-                const summary = summarizeCalibration(brierScores);
+                const summary = summarizeCalibration(brierScores, {
+                    baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
+                    maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY
+                });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
             }
         }
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
-        const probability = shrinkProbabilityToNeutral(rawProb, calibrationPenalty, 50);
+        const probability = shrinkProbabilityToNeutral(
+            rawProb,
+            calibrationPenalty,
+            cfg.MC_CALIBRATION_NEUTRAL_PCT,
+            cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY
+        );
 
         const finalResult = {
             probability,
