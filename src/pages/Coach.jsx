@@ -4,6 +4,7 @@ import AICoachView from '../components/AICoachView';
 import { useAppStore } from '../store/useAppStore';
 import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
+import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 
 const calibrationAlertCache = new Map();
 
@@ -57,6 +58,7 @@ export default function Coach() {
         if (metric.calibrationPenalty >= 0.2) {
             console.warn('[CoachCalibration] High calibration penalty detected', metric);
         }
+        logCalibrationTelemetryEvent(metric);
         const avgBrier = Number(metric.avgBrier) || 0;
         if (avgBrier >= CALIBRATION_ALERT_BRIER_THRESHOLD) {
             console.warn('[CoachCalibration] Brier above governance threshold (0.28)', metric);
@@ -93,7 +95,10 @@ export default function Coach() {
                 targetScore,
                 maxScore: data.maxScore ?? 100,
                 calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
-                onCalibrationMetric: persistCalibrationMetric
+                onCalibrationMetric: persistCalibrationMetric,
+                config: {
+                    MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                }
             }
         );
     }, [data, getTargetScore, persistCalibrationMetric]); 
@@ -120,7 +125,10 @@ export default function Coach() {
                     targetScore,
                     maxScore: data.maxScore ?? 100,
                     calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
-                    onCalibrationMetric: persistCalibrationMetric
+                    onCalibrationMetric: persistCalibrationMetric,
+                    config: {
+                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                    }
                 }
             );
             if (newTasks.length) {

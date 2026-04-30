@@ -26,6 +26,7 @@ export const DEFAULT_CONFIG = {
     MC_CALIBRATION_MAX_PENALTY: 0.25,
     MC_CALIBRATION_NEUTRAL_PCT: 50,
     MC_CALIBRATION_MAX_APPLIED_PENALTY: 0.5,
+    MC_ENABLE_ADAPTIVE_CALIBRATION: true,
 
     // ── A) Constantes do urgency boost nomeadas ──────────────────────────────
     // Antes: mcUrgencyBoost = 12 + 13 * (1 - p/MC_PROB_DANGER)
@@ -122,7 +123,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DE
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, rollingCalibration = null) {
+export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null) {
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
@@ -141,10 +142,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             { maxScore }
         );
 
+        const enableAdaptiveCalibration = cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
+
         // Backtest leve de calibração (walk-forward curto) para reduzir overconfidence.
         let calibrationPenalty = 0;
         let avgBrier = 0;
-        if (history.length >= 8) {
+        if (enableAdaptiveCalibration && history.length >= 8) {
             const horizon = Math.min(cfg.MC_BACKTEST_HORIZON || 3, history.length - cfg.MC_MIN_DATA_POINTS);
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
@@ -166,8 +169,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             }
             if (brierScores.length > 0) {
                 const summary = summarizeCalibration(brierScores, {
-                    baseline: rollingCalibration?.baseline || cfg.MC_CALIBRATION_BRIER_BASELINE,
-                    maxPenalty: rollingCalibration?.maxPenalty || cfg.MC_CALIBRATION_MAX_PENALTY
+                    baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
+                    maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
                 });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
@@ -175,16 +178,18 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         }
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
-        const probability = shrinkProbabilityToNeutral(
-            rawProb,
-            calibrationPenalty,
-            cfg.MC_CALIBRATION_NEUTRAL_PCT,
-            cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY
-        );
+        const probability = enableAdaptiveCalibration
+            ? shrinkProbabilityToNeutral(
+                rawProb,
+                calibrationPenalty,
+                cfg.MC_CALIBRATION_NEUTRAL_PCT,
+                cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY
+            )
+            : rawProb;
 
         const finalResult = {
             probability,
-            volatility: (Number(result.volatility) || 0) * (1 + calibrationPenalty * 0.8),
+            volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
             mean: result.mean,
             ci95Low: result.ci95Low,
             ci95High: result.ci95High,
@@ -220,8 +225,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const maxScore = options.maxScore ?? 100;
     const targetScore = options.targetScore ?? (maxScore * 0.8);
     const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
-    const weight = rawWeight;
-    const weightLabel = weight <= 15 ? 'Baixa' : weight <= 40 ? 'Média' : 'Alta';
+    const weight = rawWeight * 10;
+    const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
 
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
@@ -338,8 +343,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta
         // ─────────────────────────────────────────────────────────
-        const mcAdaptive = deriveCoachAdaptiveParams(mcHistory, maxScore, cfg);
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive, rollingCalibration);
+        const mcAdaptive = {
+            ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
+            calibrationBaseline: rollingCalibration.baseline,
+            calibrationMaxPenalty: rollingCalibration.maxPenalty
+        };
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
