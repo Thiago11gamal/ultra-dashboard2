@@ -30,6 +30,27 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     return Math.sqrt(regularizedVariance);
 }
 
+function getConfidenceMultiplier(sampleSize) {
+    if (sampleSize <= 1) return 2.58;
+    if (sampleSize <= 3) return 2.35;
+    if (sampleSize <= 5) return 2.13;
+    if (sampleSize <= 10) return 2.04;
+    if (sampleSize <= 30) return 2.0;
+    return 1.96;
+}
+
+function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
+    if (!Array.isArray(values) || values.length < 5) return values || [];
+
+    const sorted = [...values].sort((a, b) => a - b);
+    const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
+    const highIndex = Math.ceil((sorted.length - 1) * upperPct);
+    const low = sorted[Math.max(0, lowIndex)];
+    const high = sorted[Math.min(sorted.length - 1, highIndex)];
+
+    return values.map(v => Math.max(low, Math.min(high, v)));
+}
+
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
@@ -190,8 +211,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
         const pooledBayesianSD = Math.sqrt(pooledBayesianVar);
 
-        const weightedLow = Math.max(minScore, bayesianMean - 1.96 * pooledBayesianSD);
-        const weightedHigh = Math.min(maxScore, bayesianMean + 1.96 * pooledBayesianSD);
+        const confidenceMultiplier = getConfidenceMultiplier(sortedDates.length);
+        const weightedLow = Math.max(minScore, bayesianMean - confidenceMultiplier * pooledBayesianSD);
+        const weightedHigh = Math.min(maxScore, bayesianMean + confidenceMultiplier * pooledBayesianSD);
 
         const globalHistory = sortedDates.map(date => {
             let pooledCorrect = 0;
@@ -209,7 +231,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             return { date, score: pooledTotal > 0 ? (pooledCorrect / pooledTotal) * maxScore : -1 };
         }).filter(h => h.score >= 0 && !isNaN(h.score));
 
-        const temporalVolatility = calculateVolatility(globalHistory, maxScore);
+        const winsorizedScores = winsorizeSeries(globalHistory.map(h => h.score));
+        const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
+        const temporalVolatility = calculateVolatility(robustGlobalHistory, maxScore);
         const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
 
         const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
