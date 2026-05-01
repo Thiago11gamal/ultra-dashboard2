@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -70,15 +69,14 @@ export default function AICoachPlanner() {
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());
-    const prevStoreHashRef = React.useRef(JSON.stringify({ coachPlan, coachPlanner }));
+    const [prevStoreHash, setPrevStoreHash] = useState(() => JSON.stringify({ coachPlan, coachPlanner }));
 
-    // BUG-H1 + BUG-M2 FIX: Sync columns via useEffect (not during render) with hash guard
-    useEffect(() => {
-        const hash = JSON.stringify({ coachPlan, coachPlanner });
-        if (hash === prevStoreHashRef.current || isDragging) return;
-        prevStoreHashRef.current = hash;
+    // Sync columns during render (React optimization for state-from-props sync)
+    const currentHash = JSON.stringify({ coachPlan, coachPlanner });
+    if (currentHash !== prevStoreHash && !isDragging) {
+        setPrevStoreHash(currentHash);
         setColumns(getInitialColumns());
-    }, [coachPlan, coachPlanner, isDragging, getInitialColumns]);
+    }
 
     const onDragEnd = (result) => {
         if (!result.destination) { setIsDragging(false); return; }

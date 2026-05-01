@@ -11,7 +11,7 @@ import {
     List,
     ChevronDown
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection';
@@ -52,7 +52,7 @@ export default function Coach() {
     const rawContests = useAppStore(state => state.appState.contests || {});
 
     // Hook de assinatura
-    const { isPremium } = useSubscription(userProfile);
+    useSubscription(userProfile);
 
     const [activeTab, setActiveTab] = useState('insights');
     const [isAnalyzing, setIsAnalyzing] = useState(true);
@@ -362,7 +362,7 @@ export default function Coach() {
                                         onClearHistory={handleClearHistory}
                                     />
                                 ) : (
-                                    <RaioXDashboard data={data} isPremium={isPremium} />
+                                    <RaioXDashboard data={data} />
                                 )}
                             </motion.div>
                         </AnimatePresence>
@@ -447,7 +447,7 @@ function GovernanceBanner({ data }) {
     );
 }
 
-function RaioXDashboard({ data, isPremium }) {
+function RaioXDashboard({ data }) {
     const auditLog = data?.calibrationAuditLog || [];
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
