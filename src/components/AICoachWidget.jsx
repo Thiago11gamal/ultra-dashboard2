@@ -79,6 +79,7 @@ function UrgencyBar({ score, cfg }) {
 
 export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
     const [showMatrix, setShowMatrix] = useState(false);
+    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
 
     if (!suggestion) return null;
 
@@ -86,9 +87,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
     const urgencyScore = suggestion?.urgency?.score ?? 0;
     const statusLabel = urgency.humanReadable?.Status ?? '';
-    
+
     // Check if category is degraded from calibrationOps
-    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const calibrationOps = activeContest?.calibrationOps || {};
     const isDegraded = calibrationOps[suggestion.id]?.degraded;
 
