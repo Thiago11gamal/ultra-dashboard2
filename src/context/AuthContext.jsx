@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -17,7 +17,8 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [showDebug, setShowDebug] = useState(false);
 
-    function signup(email, password, name) {
+    // BUG-04 FIX: Wrap auth functions in useCallback to stabilize context value
+    const signup = useCallback((email, password, name) => {
         if (!auth || isLocalMode) return Promise.reject(new Error("Auth service is not available. Please check environment variables."));
         return createUserWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
@@ -32,9 +33,9 @@ export function AuthProvider({ children }) {
                 setCurrentUser({ ...auth.currentUser });
                 return auth.currentUser;
             });
-    }
+    }, []);
 
-    function login(email, password) {
+    const login = useCallback((email, password) => {
         if (isLocalMode) {
             const fakeUser = {
                 uid: 'local-user',
@@ -47,9 +48,9 @@ export function AuthProvider({ children }) {
         }
         if (!auth) return Promise.reject(new Error("Auth service is not available."));
         return signInWithEmailAndPassword(auth, email, password);
-    }
+    }, []);
 
-    async function logout() {
+    const logout = useCallback(async () => {
         if (!auth || isLocalMode) return Promise.resolve();
         await signOut(auth);
         
@@ -58,7 +59,7 @@ export function AuthProvider({ children }) {
         if (useAppStore.temporal) {
             useAppStore.temporal.getState().clear();
         }
-    }
+    }, []);
 
     useEffect(() => {
         let hasResolvedAuth = false;
@@ -105,14 +106,16 @@ export function AuthProvider({ children }) {
         };
     }, []);
 
-    const value = {
+    // BUG-04 FIX: Memoize context value to prevent re-rendering all consumers
+    // when AuthProvider re-renders for unrelated reasons.
+    const value = useMemo(() => ({
         currentUser,
         loading,
         signup,
         login,
         logout,
         showDebug
-    };
+    }), [currentUser, loading, signup, login, logout, showDebug]);
 
     return (
         <AuthContext.Provider value={value}>

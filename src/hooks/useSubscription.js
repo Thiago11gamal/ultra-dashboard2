@@ -56,8 +56,9 @@ export function useSubscription(user) {
             // Qualquer pagamento confirmado concede acesso vitalício.
             let hasValidPayment = false;
 
-            snapshot.forEach((doc) => {
-                const data = doc.data();
+            // BUG-08 FIX: Renamed from `doc` to `paymentDoc` to avoid shadowing the Firestore `doc` import
+            snapshot.forEach((paymentDoc) => {
+                const data = paymentDoc.data();
                 if (data.status === 'succeeded') {
                     hasValidPayment = true;
                 }

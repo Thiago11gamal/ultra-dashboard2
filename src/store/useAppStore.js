@@ -64,6 +64,11 @@ const idbStorage = {
                 console.error("[Storage] Critical save failure:", e);
             }
         }, DEBOUNCE_TIME);
+
+        // BUG-12 FIX: Return a resolved Promise after the synchronous localStorage write.
+        // Zustand persist expects setItem to return a Promise. The debounced IDB write
+        // will complete asynchronously, but the sync backup guarantees data is recoverable.
+        return Promise.resolve();
     },
     removeItem: async (name) => {
         if (saveTimeout) clearTimeout(saveTimeout);
@@ -104,15 +109,9 @@ export const useAppStore = create(
                     state.appState.dashboardFilter = filter;
                 }),
 
-                setData: (updater) => set((state) => {
-                    const activeData = state.appState.contests[state.appState.activeId];
-                    if (activeData) {
-                        updater(activeData);
-                        state.appState.version = (state.appState.version || 0) + 1;
-                        state.appState.lastUpdated = new Date().toISOString();
-                        localStorage.setItem('ultra-sync-dirty', 'true');
-                    }
-                }),
+                // BUG-01 FIX: setData is defined exclusively in createSettingsSlice.js
+                // (spread below). Removed the duplicate definition that was silently
+                // overridden and used a different contract (mutation-only vs return-object).
 
                 // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
                 resetStore: () => {

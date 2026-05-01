@@ -118,7 +118,9 @@ export default function Coach() {
         // Store collected metrics in ref for the useEffect to consume
         calibrationMetricsRef.current = collectedMetrics;
         return result;
-    }, [data.categories, data.simuladoRows, data.studyLogs, data.user, data.maxScore, data.calibrationHistoryByCategory, data?.settings?.adaptiveCalibrationEnabled]);
+    // BUG-11 FIX: Use optional chaining on all deps to prevent TypeError
+    // when data is undefined (before early return guard executes)
+    }, [data?.categories, data?.simuladoRows, data?.studyLogs, data?.user, data?.maxScore, data?.calibrationHistoryByCategory, data?.settings?.adaptiveCalibrationEnabled]);
 
     // BUG-C1 FIX: Persist calibration metrics in a separate effect, outside the render cycle
     useEffect(() => {
@@ -141,6 +143,12 @@ export default function Coach() {
         timeoutRef.current = setTimeout(() => {
             const targetScore = getTargetScore();
 
+            // BUG-13 FIX: Collect calibration metrics into a local array and
+            // persist them in a single batch after generation, instead of calling
+            // persistCalibrationMetric N times synchronously (N = category count),
+            // which caused N separate setData calls and N re-renders.
+            const collectedMetrics = [];
+
             const newTasks = generateDailyGoals(
                 data.categories,
                 data.simuladoRows || [],
@@ -150,7 +158,7 @@ export default function Coach() {
                     targetScore,
                     maxScore: data.maxScore ?? 100,
                     calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
-                    onCalibrationMetric: persistCalibrationMetric,
+                    onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                     }
@@ -162,6 +170,10 @@ export default function Coach() {
             } else {
                 showToast('Nenhuma sugestão necessária.', 'info');
             }
+
+            // Persist all collected metrics after generation is complete
+            collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+
             setCoachLoading(false);
         }, 1500);
     }, [data, setData, showToast, persistCalibrationMetric, getTargetScore]);

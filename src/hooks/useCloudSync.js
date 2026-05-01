@@ -264,14 +264,24 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         };
     };
 
+    // BUG-14 FIX: Include a fast content fingerprint (category count + total tasks)
+    // so that mutations that don't increment version (e.g. cloud-originated) are still detected.
     const stateStringForSync = (state) => {
         if (!state) return '';
-        
-        // Confiamos no timestamp de última atualização e na versão para detetar mudanças
         const lastUpdated = state.lastUpdated || "0";
         const version = state.version || 0;
-
-        return `${lastUpdated}|v${version}|active:${state.activeId}`;
+        let contentFingerprint = 0;
+        if (state.contests) {
+            Object.values(state.contests).forEach(c => {
+                const cats = c?.categories;
+                if (Array.isArray(cats)) {
+                    contentFingerprint += cats.length;
+                    cats.forEach(cat => { contentFingerprint += (cat.tasks?.length || 0); });
+                }
+                contentFingerprint += (c?.simuladoRows?.length || 0);
+            });
+        }
+        return `${lastUpdated}|v${version}|active:${state.activeId}|fp:${contentFingerprint}`;
     };
 
     useEffect(() => {
@@ -455,7 +465,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         if (lastSyncedRef.current === currentStateString) return;
 
         try {
-            const syncState = appStateRef.current;
+            // BUG-03 FIX: Use a single consistent snapshot instead of mixing
+            // appStateRef.current (stale) with useAppStore.getState() (fresh).
+            const syncState = useAppStore.getState().appState;
             const safeguardContest = (contest) => {
                 if (!contest) return contest;
                 return {
@@ -470,11 +482,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
                 : syncState.contests;
 
-            const safeTrash = (syncState.trash || []).slice(-20); // Deixe a estrutura intacta para permitir restauração
+            const safeTrash = (syncState.trash || []).slice(-20);
 
-            const currentData = useAppStore.getState().appState;
             const stateToSave = cleanUndefined({
-                ...currentData,
+                ...syncState,
                 contests: safeContests,
                 trash: safeTrash,
                 history: [],
@@ -562,6 +573,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         lastLocalMutationRef.current = lastMutation;
         setHasConflict(false);
 
+        // BUG-07 FIX: Track re-entry depth to prevent infinite recursion
+        let syncReentryCount = 0;
+        const MAX_SYNC_REENTRY = 3;
+
         const syncToCloud = async () => {
             if (!db) return;
             
@@ -573,9 +588,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             }
             
             needsSyncRef.current = false;
-            const freshState = useAppStore.getState().appState; // FIX: Captura o estado real atual do store
-            const currentStateString = stateStringForSync(freshState);
-            const lastMutationAtInvoke = lastLocalMutationRef.current;
 
             const MAX_RETRIES = 3;
             let attempt = 0;
@@ -584,10 +596,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             setInternalSyncing(true);
             while (attempt < MAX_RETRIES) {
                 try {
-                    if (lastSyncedRef.current === currentStateString) break;
-                    if (lastLocalMutationRef.current !== lastMutationAtInvoke) break;
+                    // BUG-02 FIX: Re-capture a fresh, consistent snapshot inside each retry
+                    // iteration instead of mixing stale contests with fresh top-level fields.
+                    const freshState = useAppStore.getState().appState;
+                    const currentStateString = stateStringForSync(freshState);
 
-                    const syncState = freshState;
+                    if (lastSyncedRef.current === currentStateString) break;
+
                     const safeguardContest = (contest) => {
                         if (!contest) return contest;
                         return {
@@ -598,15 +613,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                         };
                     };
 
-                    const safeContests = syncState.contests
-                        ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
-                        : syncState.contests;
+                    const safeContests = freshState.contests
+                        ? Object.fromEntries(Object.entries(freshState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+                        : freshState.contests;
 
-                    const safeTrash = (syncState.trash || []).slice(-20); // Manter arquitetura restaurável
+                    const safeTrash = (freshState.trash || []).slice(-20);
 
-                    const currentData = useAppStore.getState().appState;
                     const stateToSave = cleanUndefined({
-                        ...currentData,
+                        ...freshState,
                         contests: safeContests,
                         trash: safeTrash,
                         history: [],
@@ -642,9 +656,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             if (isMountedRef.current) {
                 setInternalSyncing(false);
-                // Se um novo update chegou enquanto estávamos ocupados, rodamos de novo.
-                if (needsSyncRef.current) {
+                // BUG-07 FIX: Guard recursive re-entry with a counter to prevent infinite loops
+                if (needsSyncRef.current && syncReentryCount < MAX_SYNC_REENTRY) {
+                    syncReentryCount++;
                     syncToCloud();
+                } else {
+                    syncReentryCount = 0; // Reset for next trigger cycle
                 }
             }
         };

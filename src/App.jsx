@@ -172,10 +172,9 @@ function MainLayout() {
     }
   }, [setAppState, showToast]);
 
-  // --- MEMOIZED CONTENT ---
-  // We memoize the routes to prevent re-renders when sidebarCollapsed changes.
-  // This hook MUST be at the top level, not inside the JSX conditional branches.
-  const memoizedRoutes = React.useMemo(() => (
+  // BUG-06 FIX: Removed useless useMemo. It used location.pathname as dep,
+  // so it re-created on every navigation — exactly when Routes re-renders anyway.
+  const routesContent = (
     <div className="animate-page-entrance">
       <ErrorBoundary>
         <Suspense fallback={
@@ -201,7 +200,7 @@ function MainLayout() {
         </Suspense>
       </ErrorBoundary>
     </div>
-  ), [location.pathname]);
+  );
 
 
   // ── Render Logic ──
@@ -274,7 +273,7 @@ function MainLayout() {
                 <div className="lg:hidden h-[65px] flex-shrink-0" />
 
                 <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-0 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
-                  {memoizedRoutes}
+                  {routesContent}
                 </main>
                 <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
                 <OnboardingTour />

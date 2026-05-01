@@ -250,6 +250,10 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
 
+    // BUG-05 FIX: Moved declaration before the useEffect that references setIsFlashing.
+    // Previously at line 365 — worked by hoisting but was a maintenance hazard.
+    const [isFlashing, setIsFlashing] = useState(false);
+
     useEffect(() => {
         if (!statsData) {
             setSimulationData({ status: 'waiting', missing: 'data' });
@@ -362,7 +366,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             .sort((a, b) => a.prob - b.prob);
     }, [statsData?.categoryStats, debouncedTarget, simulationData, minScore, maxScore, effectiveSimulateToday, projectDays]);
 
-    const [isFlashing, setIsFlashing] = useState(false);
+    // BUG-05 FIX: isFlashing declaration moved above (before first useEffect that uses it)
     useEffect(() => {
         if (isFlashing) {
             const timer = setTimeout(() => setIsFlashing(false), 800);
