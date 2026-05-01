@@ -314,27 +314,36 @@ export default function Coach() {
                             </div>
                         </div>
                         
-                        <AICoachWidget 
-                            suggestedFocus={suggestedFocus?.name || categories?.[0]?.name || "Geral"}
-                            urgency={probability < 50 ? 'high' : 'medium'}
+                        <AICoachWidget
+                            suggestion={suggestedFocus}
+                            onGenerateGoals={handleGenerateGoals}
+                            loading={coachLoading}
                         />
                     </div>
 
                     {/* Dashboard de Detalhes */}
                     <div className="w-full">
-                        <div className="flex items-center gap-4 mb-6 p-1 bg-black/20 rounded-2xl w-fit border border-white/5">
-                            <TabButton 
-                                active={activeTab === 'insights'} 
-                                onClick={() => setActiveTab('insights')} 
-                                icon={<Sparkles size={14} />}
-                                label="Plano de Estudos"
-                            />
-                            <TabButton 
-                                active={activeTab === 'analytics'} 
-                                onClick={() => setActiveTab('analytics')} 
-                                icon={<BarChart3 size={14} />}
-                                label="Raio-X Técnico"
-                            />
+                        <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/50 to-slate-950/80 p-4 sm:p-5 shadow-2xl">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.25em]">Menu Coach AI</p>
+                                    <h3 className="text-sm sm:text-base font-black text-white tracking-tight">Navegação de Estratégia e Diagnóstico</h3>
+                                </div>
+                                <div className="flex items-center gap-2 p-1 bg-black/30 rounded-2xl border border-white/10 w-full lg:w-auto">
+                                    <TabButton 
+                                        active={activeTab === 'insights'} 
+                                        onClick={() => setActiveTab('insights')} 
+                                        icon={<Sparkles size={14} />}
+                                        label="Plano de Estudos"
+                                    />
+                                    <TabButton 
+                                        active={activeTab === 'analytics'} 
+                                        onClick={() => setActiveTab('analytics')} 
+                                        icon={<BarChart3 size={14} />}
+                                        label="Raio-X Técnico"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <AnimatePresence mode="wait">
@@ -394,7 +403,7 @@ function TabButton({ active, onClick, icon, label }) {
     return (
         <button
             onClick={onClick}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+            className={`flex-1 lg:flex-none justify-center flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                 active 
                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' 
                 : 'text-slate-500 hover:text-white hover:bg-white/5'
