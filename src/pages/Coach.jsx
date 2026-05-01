@@ -273,50 +273,63 @@ export default function Coach() {
     return (
         <PageErrorBoundary pageName="Coach">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-                <PageHeader 
-                    title="AI Coach Analytics" 
-                    description="Seu mentor estatístico processando cada detalhe do seu desempenho para traçar a rota mais curta até a aprovação."
-                />
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+                    <div className="relative">
+                        <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-transparent rounded-full opacity-50" />
+                        <PageHeader 
+                            title="Neural Intelligence Hub" 
+                            description="Seu mentor estatístico processando cada detalhe do seu desempenho em tempo real."
+                        />
+                    </div>
+                    
+                    <div className="flex items-center gap-8 bg-white/[0.02] border border-white/[0.05] p-4 rounded-2xl backdrop-blur-md">
+                        <QuickStat label="Volatilidade" value={`${volatility.toFixed(1)}%`} color="text-rose-400" icon={<Zap size={10} />} />
+                        <div className="w-px h-8 bg-white/5" />
+                        <QuickStat label="Tendência" value={`${(drift * 30).toFixed(1)}pp`} color="text-emerald-400" icon={<ArrowUpRight size={10} />} />
+                        <div className="w-px h-8 bg-white/5" />
+                        <QuickStat label="Database" value={Object.keys(rawContests).length} color="text-indigo-400" icon={<Dna size={10} />} />
+                    </div>
+                </div>
 
                 <GovernanceBanner data={data} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Lado Esquerdo: Widget e Sugestões */}
-                    <div className="lg:col-span-4 space-y-6">
-                        <AICoachWidget 
-                            suggestedFocus={suggestedFocus?.name || categories?.[0]?.name || "Geral"}
-                            urgency={probability < 50 ? 'high' : 'medium'}
-                        />
-
-                        <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/50">
-                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <Zap size={14} className="text-amber-500" />
-                                Sinais Vitais
-                            </h3>
-                            <div className="space-y-4">
-                                <StatRow 
-                                    label="Volatilidade" 
-                                    value={`${volatility.toFixed(1)}%`} 
-                                    trend={volatility > 15 ? 'high' : 'low'}
-                                    color={volatility > 15 ? 'text-rose-400' : 'text-emerald-400'}
-                                />
-                                <StatRow 
-                                    label="Taxa de Drift" 
-                                    value={`${(drift * 30).toFixed(1)}pp/mês`} 
-                                    trend={drift > 0 ? 'up' : 'down'}
-                                    color={drift > 0 ? 'text-emerald-400' : 'text-rose-400'}
-                                />
-                                <StatRow 
-                                    label="Concursos" 
-                                    value={Object.keys(rawContests).length} 
-                                    color="text-indigo-400"
-                                />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    {/* Lado Esquerdo: Intelligence Sidebar */}
+                    <div className="lg:col-span-3">
+                        <div className="sticky top-8 space-y-8">
+                            <AICoachWidget 
+                                suggestedFocus={suggestedFocus?.name || categories?.[0]?.name || "Geral"}
+                                urgency={probability < 50 ? 'high' : 'medium'}
+                            />
+                            
+                            <div className="relative p-6 rounded-[2.5rem] border border-white/5 bg-[#0a0c14] overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full pointer-events-none" />
+                                <div className="relative z-10 flex items-center gap-5">
+                                    <div className="relative w-14 h-14 flex items-center justify-center">
+                                        <svg className="w-full h-full -rotate-90">
+                                            <circle cx="28" cy="28" r="24" className="stroke-white/5 fill-none" strokeWidth="4" />
+                                            <circle 
+                                                cx="28" cy="28" r="24" 
+                                                className="stroke-indigo-500 fill-none transition-all duration-1000" 
+                                                strokeWidth="4" 
+                                                strokeDasharray="150" 
+                                                strokeDashoffset={150 - (150 * probability) / 100}
+                                                strokeLinecap="round"
+                                            />
+                                        </svg>
+                                        <span className="absolute text-[10px] font-black text-white">{Math.round(probability)}%</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Health Index</p>
+                                        <p className="text-xs font-bold text-slate-300">Sincronia estável</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Lado Direito: Dashboard Principal */}
-                    <div className="lg:col-span-8">
+                    <div className="lg:col-span-9">
                         <div className="flex items-center gap-4 mb-6 p-1 bg-black/20 rounded-2xl w-fit border border-white/5">
                             <TabButton 
                                 active={activeTab === 'insights'} 
@@ -360,6 +373,18 @@ export default function Coach() {
 }
 
 // Sub-componentes Auxiliares
+function QuickStat({ label, value, color, icon }) {
+    return (
+        <div className="flex flex-col min-w-[80px]">
+            <div className="flex items-center gap-1.5 mb-1.5">
+                <span className={`${color} opacity-60`}>{icon}</span>
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">{label}</span>
+            </div>
+            <span className={`text-sm font-black ${color} tracking-tighter`}>{value}</span>
+        </div>
+    );
+}
+
 function StatRow({ label, value, trend, color }) {
     return (
         <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
