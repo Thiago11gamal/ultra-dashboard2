@@ -52,7 +52,7 @@ export default function Coach() {
     const rawContests = useAppStore(state => state.appState.contests || {});
 
     // Hook de assinatura
-    useSubscription(userProfile);
+    const { isPremium } = useSubscription(userProfile);
 
     const [activeTab, setActiveTab] = useState('insights');
     const [isAnalyzing, setIsAnalyzing] = useState(true);
@@ -362,7 +362,7 @@ export default function Coach() {
                                         onClearHistory={handleClearHistory}
                                     />
                                 ) : (
-                                    <RaioXDashboard data={data} />
+                                    <RaioXDashboard data={data} isPremium={isPremium} />
                                 )}
                             </motion.div>
                         </AnimatePresence>
@@ -447,7 +447,7 @@ function GovernanceBanner({ data }) {
     );
 }
 
-function RaioXDashboard({ data }) {
+function RaioXDashboard({ data, isPremium }) {
     const auditLog = data?.calibrationAuditLog || [];
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
