@@ -49,7 +49,6 @@ export default function Coach() {
     const userProfile = data?.user;
     
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
-    const rawContests = useAppStore(state => state.appState.contests || {});
 
     // Hook de assinatura
     const { isPremium } = useSubscription(userProfile);
@@ -137,7 +136,8 @@ export default function Coach() {
     const combinedHistory = useMemo(() => {
         const all = [...history];
         simulados.forEach(s => {
-            if(s.date && s.score) all.push({ ...s, type: 'simulado' });
+            const hasScore = s?.score !== null && s?.score !== undefined && !Number.isNaN(Number(s.score));
+            if (s?.date && hasScore) all.push({ ...s, type: 'simulado' });
         });
         return getSortedHistory(all);
     }, [history, simulados]);
@@ -153,6 +153,7 @@ export default function Coach() {
     const projectedScore = mcStats?.projectedMean || 0;
     const volatility = mcStats?.sd || 0;
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory), [combinedHistory]);
+    const totalSimulados = useMemo(() => (Array.isArray(simulados) ? simulados.length : 0), [simulados]);
 
     // 3. Atualização de Foco e Métricas (useEffect para quebrar loop 185)
     useEffect(() => {
@@ -283,7 +284,7 @@ export default function Coach() {
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat label="Tendência" value={`${(drift * 30).toFixed(1)}pp`} color="text-emerald-400" icon={<ArrowUpRight size={14} />} />
                         <div className="w-px h-10 bg-white/5" />
-                        <QuickStat label="Simulados" value={Object.keys(rawContests).length} color="text-indigo-400" icon={<Dna size={14} />} />
+                        <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                     </div>
                 </div>
 
