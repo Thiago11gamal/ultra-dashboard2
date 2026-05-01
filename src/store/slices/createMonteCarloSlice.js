@@ -49,4 +49,17 @@ export const createMonteCarloSlice = (set) => ({
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
+
+    updateCoachScore: (score) => set((state) => {
+        const activeId = state.appState.activeId;
+        const activeData = state.appState.contests[activeId];
+        if (!activeData) return;
+        
+        if (activeData.coachScore === score) return;
+        activeData.coachScore = score;
+        
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
 });
