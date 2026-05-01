@@ -18,16 +18,16 @@
    - Arquivo: `src/components/AICoachPlanner.jsx`
    - Sintoma: efeito executa `setPrevStoreHash` e `setColumns` de forma síncrona.
    - Impacto: cascata de renderizações e perda de performance (lint `react-hooks/set-state-in-effect`).
-   - Status: **corrigido** (usando `useRef` para controle de hash).
+   - Status: pendente.
 
 3. **Import não utilizado**
    - Arquivo: `src/components/AICoachView.jsx`
    - Sintoma: `motion` importado sem uso.
    - Impacto: erro de lint e ruído de manutenção.
-   - Status: **corrigido** (ajustado/suprimido via lint rules).
+   - Status: pendente.
 
 4. **Dependências instáveis em memoização na página do Coach**
    - Arquivo: `src/pages/Coach.jsx`
    - Sintoma: expressões lógicas para `history` e `simulados` podem alterar deps do `useMemo` a cada render.
    - Impacto: recomputações desnecessárias e possíveis inconsistências de cache.
-   - Status: **corrigido** (referências estabilizadas via `useMemo`).
+   - Status: pendente (warning).
