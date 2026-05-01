@@ -8,6 +8,33 @@ import {
     Clock, CheckCircle2, Database, Flame, Loader2
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { normalize } from '../utils/normalization';
+
+const displaySubject = (name) => {
+    if (!name) return '';
+    const map = {
+        'matematica': 'Matemática',
+        'portugues': 'Português',
+        'lingua portuguesa': 'Português',
+        'ingles': 'Inglês',
+        'ciencias': 'Ciências',
+        'historia': 'História',
+        'geografia': 'Geografia',
+        'biologia': 'Biologia',
+        'fisica': 'Física',
+        'quimica': 'Química',
+        'filosofia': 'Filosofia',
+        'sociologia': 'Sociologia',
+        'literatura': 'Literatura',
+        'redacao': 'Redação',
+        'informatica': 'Informática',
+        'raciocinio logico': 'Raciocínio Lógico',
+        'direito constitucional': 'Dir. Constitucional',
+        'direito administrativo': 'Dir. Administrativo'
+    };
+    const norm = normalize(name);
+    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
+};
 
 function getUrgencyConfig(score, status = '') {
     const s = status.toLowerCase();
@@ -194,8 +221,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     )}
                                 </div>
 
-                                <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tighter leading-tight sm:leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
-                                    {suggestion.name}
+                                <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tighter leading-tight sm:leading-none mb-6 group-hover/widget:translate-x-1 transition-transform duration-500">
+                                    {displaySubject(suggestion.name)}
                                 </h2>
 
                                 {topic && (
@@ -212,7 +239,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="relative rounded-2xl overflow-hidden border border-white/5 bg-black/20 group/quote"
+                                        className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 group/quote"
                                     >
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${cfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
                                         <div className="p-5">
@@ -280,7 +307,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className={`group relative w-full py-6 rounded-3xl font-black text-sm tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden
+                        className={`group relative w-full lg:max-w-2xl mx-auto py-6 rounded-3xl font-black text-sm tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden
                             bg-gradient-to-r ${cfg.bar} text-white shadow-2xl shadow-black/40
                             hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]
                             disabled:opacity-40 disabled:cursor-not-allowed

@@ -7,6 +7,33 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
+import { normalize } from '../utils/normalization';
+
+const displaySubject = (name) => {
+    if (!name) return '';
+    const map = {
+        'matematica': 'Matemática',
+        'portugues': 'Português',
+        'lingua portuguesa': 'Português',
+        'ingles': 'Inglês',
+        'ciencias': 'Ciências',
+        'historia': 'História',
+        'geografia': 'Geografia',
+        'biologia': 'Biologia',
+        'fisica': 'Física',
+        'quimica': 'Química',
+        'filosofia': 'Filosofia',
+        'sociologia': 'Sociologia',
+        'literatura': 'Literatura',
+        'redacao': 'Redação',
+        'informatica': 'Informática',
+        'raciocinio logico': 'Raciocínio Lógico',
+        'direito constitucional': 'Dir. Constitucional',
+        'direito administrativo': 'Dir. Administrativo'
+    };
+    const norm = normalize(name);
+    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
+};
 
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -43,7 +70,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
         >
             <div className="relative z-10 flex justify-between items-start mb-4">
                 <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge}`}>
-                    {subjectPart}
+                    {displaySubject(subjectPart)}
                 </span>
                 <button 
                     onClick={(e) => {
@@ -153,8 +180,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-hidden group">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
                         <div>
-                            <h3 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            <h3 className="text-[11px] uppercase tracking-[0.25em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                                 Telemetria ativa em {calibrationSummary.length} categorias • {calibrationAuditLog.length} eventos registrados
                             </p>
                         </div>
@@ -166,17 +193,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-5 hover:bg-white/[0.03] transition-all duration-300">
                                     <div className="flex justify-between items-start mb-4">
-                                        <p className="text-[13px] text-white font-black tracking-tight truncate pr-6">{row.label}</p>
+                                        <p className="text-[13px] text-white font-black tracking-tight truncate pr-6">{displaySubject(row.label)}</p>
                                         <div className={`w-2.5 h-2.5 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
                                     </div>
                                     
                                     <div className="grid grid-cols-2 gap-4 mb-4">
                                         <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Brier Score</p>
+                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Brier Score</p>
                                             <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'}`}>{row.avgBrier.toFixed(3)}</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Ajuste Médio</p>
+                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Ajuste Médio</p>
                                             <p className="text-sm font-mono font-bold text-amber-400">-{Math.round(row.avgPenalty * 100)}%</p>
                                         </div>
                                     </div>

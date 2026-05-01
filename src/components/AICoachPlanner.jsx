@@ -4,6 +4,33 @@ import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
+import { normalize } from '../utils/normalization';
+
+const displaySubject = (name) => {
+    if (!name) return '';
+    const map = {
+        'matematica': 'Matemática',
+        'portugues': 'Português',
+        'lingua portuguesa': 'Português',
+        'ingles': 'Inglês',
+        'ciencias': 'Ciências',
+        'historia': 'História',
+        'geografia': 'Geografia',
+        'biologia': 'Biologia',
+        'fisica': 'Física',
+        'quimica': 'Química',
+        'filosofia': 'Filosofia',
+        'sociologia': 'Sociologia',
+        'literatura': 'Literatura',
+        'redacao': 'Redação',
+        'informatica': 'Informática',
+        'raciocinio logico': 'Raciocínio Lógico',
+        'direito constitucional': 'Dir. Constitucional',
+        'direito administrativo': 'Dir. Administrativo'
+    };
+    const norm = normalize(name);
+    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
+};
 
 const DAYS = [
     { id: 'mon', label: 'SEG', full: 'Segunda',  gradient: 'from-violet-600 to-indigo-600',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25', text: 'text-violet-300',  dot: 'bg-violet-500',  over: 'bg-violet-500/8 border-violet-500/40'  },
@@ -30,8 +57,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     <div className="flex items-start gap-1.5 pl-1">
                         <GripVertical size={12} className="text-slate-700 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
                         <div className="flex-1 min-w-0 pr-1">
-                            <h4 className="text-[10px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-0.5 whitespace-normal break-words">{subject}</h4>
-                            {desc && <p className="text-[9px] text-slate-500 font-medium leading-tight whitespace-normal break-words line-clamp-2">{desc}</p>}
+                            <h4 className="text-[10px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-1 whitespace-normal break-words">
+                                {displaySubject(subject)}
+                            </h4>
+                            {desc && <p className="text-[9px] text-slate-500 font-medium leading-tight whitespace-normal break-words line-clamp-3">{desc}</p>}
                         </div>
                         <button 
                             onClick={(e) => {

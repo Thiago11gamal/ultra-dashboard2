@@ -7,15 +7,15 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle }) {
             onClick={onClick}
             className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
                 ${active
-                    ? 'bg-gradient-to-br from-indigo-500/90 to-violet-500/90 border-indigo-300/40 text-white shadow-lg shadow-indigo-900/30 ring-1 ring-white/20'
-                    : 'bg-slate-900/50 border-white/10 text-slate-300 hover:bg-slate-800/70 hover:border-white/20'}`}
+                    ? 'bg-gradient-to-br from-indigo-500 to-violet-600 border-white/20 text-white shadow-xl shadow-indigo-900/40 ring-1 ring-white/20'
+                    : 'bg-slate-900/80 border-white/[0.08] text-slate-400 hover:bg-slate-800 hover:border-white/20'}`}
         >
             <div className="flex items-center gap-3 min-w-0">
                 <div className={`shrink-0 w-12 h-8 rounded-md flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
                     <Icon size={14} strokeWidth={2.2} className="shrink-0" />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.06em] leading-snug whitespace-nowrap">{label}</p>
+                    <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.06em] leading-snug whitespace-nowrap">{label}</p>
                     <p className={`text-[10px] leading-tight mt-0.5 whitespace-nowrap ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         {subtitle}
                     </p>
@@ -27,11 +27,11 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle }) {
 
 export default function CoachMenuNav({ activeTab, onChangeTab }) {
     return (
-        <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a0f1f] via-[#0b1222] to-[#090d19] p-4 sm:p-5 md:p-6 shadow-2xl">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="min-w-0">
-                    <p className="text-[10px] text-cyan-300/70 font-black uppercase tracking-[0.22em]">Menu Coach AI</p>
-                    <h3 className="text-sm sm:text-base font-black text-white tracking-tight">Central de Estratégia e Diagnóstico</h3>
+        <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a0f1f] via-[#0b1222] to-[#090d19] p-5 sm:p-6 md:p-8 shadow-2xl">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+                <div className="min-w-0 pb-2 lg:pb-0">
+                    <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.22em] mb-1">Menu Coach AI</p>
+                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Central de Estratégia e Diagnóstico</h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full lg:w-auto">
