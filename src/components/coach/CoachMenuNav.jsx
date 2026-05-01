@@ -11,8 +11,8 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle }) {
                     : 'bg-slate-900/50 border-white/10 text-slate-300 hover:bg-slate-800/70 hover:border-white/20'}`}
         >
             <div className="flex items-center gap-3 min-w-0">
-                <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
-                    <Icon size={16} className="shrink-0" />
+                <div className={`shrink-0 w-11 h-8 rounded-lg flex items-center justify-center border ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
+                    <Icon size={15} className="shrink-0" />
                 </div>
                 <div className="min-w-0">
                     <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.08em] leading-tight whitespace-nowrap">{label}</p>
