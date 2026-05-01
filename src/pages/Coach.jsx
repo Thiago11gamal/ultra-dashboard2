@@ -16,7 +16,6 @@ import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection';
 import PageHeader from '../components/header/PageHeader';
-import AICoachWidget from '../components/AICoachWidget';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
 import { useSubscription } from '../hooks/useSubscription';
@@ -154,7 +153,6 @@ export default function Coach() {
     const projectedScore = mcStats?.projectedMean || 0;
     const volatility = mcStats?.sd || 0;
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory), [combinedHistory]);
-    const probability = mcStats?.probability || 0;
 
     // 3. Atualização de Foco e Métricas (useEffect para quebrar loop 185)
     useEffect(() => {
@@ -292,36 +290,6 @@ export default function Coach() {
                 <GovernanceBanner data={data} />
 
                 <div className="space-y-10">
-                    {/* Painel de Foco Sugerido */}
-                    <div className="w-full">
-                        <div className="flex items-center gap-4 mb-4">
-                             <div className="relative w-12 h-12 flex items-center justify-center">
-                                <svg className="w-full h-full -rotate-90">
-                                    <circle cx="24" cy="24" r="20" className="stroke-white/5 fill-none" strokeWidth="3" />
-                                    <circle 
-                                        cx="24" cy="24" r="20" 
-                                        className="stroke-indigo-500 fill-none transition-all duration-1000" 
-                                        strokeWidth="3" 
-                                        strokeDasharray="125" 
-                                        strokeDashoffset={125 - (125 * probability) / 100}
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                                <span className="absolute text-[10px] font-black text-white">{Math.round(probability)}%</span>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Sincronia Estável</p>
-                                <p className="text-xs font-bold text-white">Status da Calibração</p>
-                            </div>
-                        </div>
-                        
-                        <AICoachWidget
-                            suggestion={suggestedFocus}
-                            onGenerateGoals={handleGenerateGoals}
-                            loading={coachLoading}
-                        />
-                    </div>
-
                     {/* Dashboard de Detalhes */}
                     <div className="w-full">
                         <CoachMenuNav activeTab={activeTab} onChangeTab={setActiveTab} />
