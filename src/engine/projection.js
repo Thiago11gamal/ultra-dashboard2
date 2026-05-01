@@ -207,14 +207,16 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // Standard error of the mean = SD / sqrt(N)
     const effectiveSd = empiricalSD / Math.sqrt(Math.max(1, n_tilde));
 
-    // A incerteza do dia da prova = Incerteza angular da reta + Volatilidade da Média (SE) + Volatilidade natural (SD)
+    // A incerteza do dia da prova = Incerteza angular da reta + Volatilidade natural (SD)
     // BUGFIX GEMINI: O rigor matemático provém do slopeStdError * effectiveDays (amortecido), 
     // impedindo que o "funil" de incerteza angular abra ao infinito em projeções muito longas.
     const angularUncertainty = slopeStdError * effectiveDays;
-    // BUGFIX: Incorporar o effectiveSd (incerteza da média atual) e manter empiricalSD (volatilidade do dia)
+    // MATH-04 FIX: Removed effectiveSd (SE of mean = empiricalSD / √N) from quadrature.
+    // For a *single future observation*, the correct prediction variance is:
+    //   σ²_pred = σ²_angular + σ²_daily
+    // Adding effectiveSd double-counts the daily volatility (it's just SD/√N).
     const predictionSD = Math.sqrt(
         Math.pow(angularUncertainty, 2) + 
-        Math.pow(effectiveSd, 2) + 
         Math.pow(empiricalSD, 2)
     );
     const marginOfError = Z_95 * predictionSD;

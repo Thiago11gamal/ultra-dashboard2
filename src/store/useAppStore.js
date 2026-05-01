@@ -14,6 +14,7 @@ import { createSimuladoSlice } from './slices/createSimuladoSlice';
 import { createTrashSlice } from './slices/createTrashSlice';
 import { createSettingsSlice } from './slices/createSettingsSlice';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice';
+import { clearMcCache } from '../utils/coachLogic';
 
 // --- IndexedDB Adapter with localStorage Migration ---
 // --- Otimização de Persistência: Debounced IndexedDB Adapter ---
@@ -116,6 +117,8 @@ export const useAppStore = create(
                 // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
                 resetStore: () => {
                     localStorage.removeItem('pomodoroState');
+                    // MATH-03 / LEAK-01 FIX: Clear module-level MC cache on logout
+                    clearMcCache();
                     set((state) => {
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;
@@ -202,3 +205,13 @@ export const useTemporalStore = (selector) => {
     const useStore = useAppStore.temporal;
     return useStore(selector);
 };
+
+// MATH-03 / LEAK-01 FIX: Invalidate cache when activeId changes
+let previousActiveId = useAppStore.getState().appState.activeId;
+useAppStore.subscribe((state) => {
+    const currentActiveId = state.appState.activeId;
+    if (currentActiveId !== previousActiveId) {
+        previousActiveId = currentActiveId;
+        clearMcCache();
+    }
+});

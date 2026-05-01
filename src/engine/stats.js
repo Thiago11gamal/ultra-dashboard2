@@ -97,7 +97,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const currentN = alpha + beta;
                 const currentP = (currentN > 0 && alpha > 0) ? alpha / currentN : 0.01; // prior mínimo
                 alpha = retentionFloor;
-                beta = alpha * ((1 - currentP) / currentP); // sempre recalcula para garantir α+β = n
+                // MATH-01 FIX: Guard against division by zero when currentP → 0
+                beta = currentP > 1e-6 ? alpha * ((1 - currentP) / currentP) : alpha;
             }
 
             alpha += acertosHoje;
@@ -121,7 +122,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
                 const currentN = alpha + beta;
                 const currentP = (currentN > 0 && alpha > 0) ? alpha / currentN : 0.01; // prior mínimo
                 alpha = retentionFloor;
-                beta = alpha * ((1 - currentP) / currentP); // sempre recalcula
+                // MATH-01 FIX: Guard against division by zero when currentP → 0
+                beta = currentP > 1e-6 ? alpha * ((1 - currentP) / currentP) : alpha;
             }
         }
     }

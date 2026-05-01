@@ -43,6 +43,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const recordMonteCarloSnapshot = useAppStore(state => state.recordMonteCarloSnapshot);
+    const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
 
     const activeCategories = useMemo(() =>
         categories.filter(c => {
@@ -230,6 +231,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
 
+        // LEAK-03 FIX: Move hash calculation inside useMemo to avoid re-joining strings on every render
+        const statsHash = `${bayesianMean}-${pooledSD}-${globalHistory.length}-${minScore}-${maxScore}-${globalHistory.map(h => h.date).join('')}`;
+
         return {
             categoryStats,
             bayesianMean,
@@ -239,13 +243,12 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             globalHistory,
             dailySD,
             estimatedRho,
-            consistencyScore: Math.max(0, 100 - avgCV)
+            consistencyScore: Math.max(0, 100 - avgCV),
+            statsHash
         };
     }, [categories, debouncedWeights, effectiveWeights, timeIndex, timelineDates, minScore, maxScore]);
 
-    const statsHash = statsData
-        ? `${statsData.bayesianMean}-${statsData.pooledSD}-${statsData.globalHistory.length}-${minScore}-${maxScore}-${statsData.globalHistory.map(h => h.date).join('')}`
-        : 'null';
+    const statsHash = statsData?.statsHash || 'null';
 
     const { runAnalysis } = useMonteCarloWorker();
     const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
@@ -346,9 +349,17 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             .filter(cat => cat.weight > 0)
             .map(cat => {
                 const currentBaseline = cat.bayesianMean ?? cat.mean;
-                const slopePerDay = (cat.trendValue || 0) / 30;
+                const rawTrend = cat.trendValue || 0;
+                
+                // MATH-05 FIX: Apply log-damping to match global MC projection logic (amortized trend)
+                // This prevents subjects from projecting 100% too aggressively in long horizons.
+                const logDampingFactor = 45; 
+                const projectedDaysAmortized = logDampingFactor * Math.log(1 + projectDays / logDampingFactor);
+                const dailyTrend = rawTrend / 30;
+                const totalTrendProjection = dailyTrend * projectedDaysAmortized;
+
                 const baseline = (!effectiveSimulateToday && projectDays > 0)
-                    ? Math.max(minScore, Math.min(maxScore, currentBaseline + (slopePerDay * projectDays)))
+                    ? Math.max(minScore, Math.min(maxScore, currentBaseline + totalTrendProjection))
                     : currentBaseline;
 
                 const result = simulateNormalDistribution({
@@ -432,6 +443,6 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         currentMean,
         ...derivedMetrics,
         equalWeightsMode,
-        setEqualWeightsMode: useAppStore(state => state.setMcEqualWeights)
+        setEqualWeightsMode
     };
 }

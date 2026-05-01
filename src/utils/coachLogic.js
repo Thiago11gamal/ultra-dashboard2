@@ -98,6 +98,11 @@ function simuladosToHistory(simulados, maxScore = 100) {
 const mcCache = new Map();
 const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
 
+// MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
+// Must be called on resetStore() and when activeId changes to prevent stale
+// MC results from a previous contest being served to a different one.
+export function clearMcCache() { mcCache.clear(); }
+
 export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DEFAULT_CONFIG) {
     const n = history.length;
     if (n === 0) {

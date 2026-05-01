@@ -10,6 +10,12 @@ import { logger } from '../utils/logger';
  */
 export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     const timerRef = useRef(null);
+    const logoutRef = useRef(logout);
+
+    // LEAK-06 FIX: Keep logout function updated in a ref to avoid resetTimer dependency
+    useEffect(() => {
+        logoutRef.current = logout;
+    }, [logout]);
 
     const resetTimer = useCallback(() => {
         if (timerRef.current) {
@@ -17,9 +23,9 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         }
         timerRef.current = setTimeout(() => {
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
-            logout();
+            if (logoutRef.current) logoutRef.current();
         }, timeoutMs);
-    }, [logout, timeoutMs]);
+    }, [timeoutMs]);
 
     useEffect(() => {
         // BUG-25 FIX: Removed unused effectiveTimeout variable

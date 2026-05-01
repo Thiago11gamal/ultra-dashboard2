@@ -96,10 +96,22 @@ export function useMonteCarloWorker() {
                     pendingRequestsRef.current.delete(id);
                     console.warn(`[MC Worker] Request ${id} timed out. Recycling worker thread.`);
                     
-                    // BUG 2 FIX: Kill the zombie worker that is still looping in background.
-                    // If we just reject, the worker continues to burn CPU.
+                    // LEAK-02 FIX: Kill the zombie worker AND clean up ALL its pending requests.
+                    // Previously only the timed-out request was cleaned; other requests from
+                    // the same worker stayed in the Map with live timeouts, creating orphaned closures.
                     if (workerRef.current) {
-                        workerRef.current.terminate();
+                        const dyingWorker = workerRef.current;
+                        
+                        // Clean ALL pending requests from the dying worker
+                        for (const [pendingId, pending] of pendingRequestsRef.current) {
+                            if (pending.worker === dyingWorker) {
+                                clearTimeout(pending.timeoutId);
+                                pending.reject(new Error('Worker recycled due to timeout'));
+                                pendingRequestsRef.current.delete(pendingId);
+                            }
+                        }
+                        
+                        dyingWorker.terminate();
                         workerRef.current = null;
                         
                         // Instantiate a fresh worker for subsequent requests.

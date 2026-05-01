@@ -6,6 +6,10 @@ import { getPercentile } from './percentile.js';
  * Returns 1 - P(X <= z)
  */
 export function normalCDF_complement(z) {
+    // MATH-02 FIX: Clamp extreme z-scores. The Abramowitz & Stegun polynomial
+    // loses precision for |z| > 6 and can return slightly negative values for |z| > 8.
+    if (z > 8) return 0;
+    if (z < -8) return 1;
     const t = 1 / (1 + 0.2316419 * Math.abs(z));
     const d = 0.3989423 * Math.exp(-z * z / 2);
     let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));

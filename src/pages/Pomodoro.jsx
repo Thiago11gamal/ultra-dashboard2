@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { getLocalMidnight } from '../utils/dateHelper';
 import { motion } from 'framer-motion';
@@ -140,12 +140,20 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         } catch { return { x: 0, y: 0 }; }
     });
 
+    // LEAK-05 FIX: Use a ref to capture uiPosition for the resize listener
+    // This prevents re-adding/removing the event listener on every drag pixel.
+    const uiPosRef = useRef(uiPosition);
+    useEffect(() => {
+        uiPosRef.current = uiPosition;
+    }, [uiPosition]);
+
     useEffect(() => {
         const checkPos = () => {
-            if (uiPosition.x !== 0 || uiPosition.y !== 0) {
+            const currentPos = uiPosRef.current;
+            if (currentPos.x !== 0 || currentPos.y !== 0) {
                 const threshold = 100;
-                if (Math.abs(uiPosition.x) > window.innerWidth / 2 + threshold ||
-                    Math.abs(uiPosition.y) > window.innerHeight / 2 + threshold) {
+                if (Math.abs(currentPos.x) > window.innerWidth / 2 + threshold ||
+                    Math.abs(currentPos.y) > window.innerHeight / 2 + threshold) {
                     setUiPosition({ x: 0, y: 0 });
                     localStorage.removeItem('focusPanelPosition');
                 }
@@ -153,7 +161,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         };
         window.addEventListener('resize', checkPos);
         return () => window.removeEventListener('resize', checkPos);
-    }, [uiPosition]);
+    }, []); // Estável!
 
     const handleDragEnd = (_, info) => {
         const newPos = {
