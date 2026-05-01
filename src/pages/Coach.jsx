@@ -27,6 +27,7 @@ import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } f
 
 const calibrationAlertCache = new Map();
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
+const CALIBRATION_ALERT_CACHE_MAX = 200;
 
 /**
  * Coach — Central de Inteligência Adaptativa
@@ -128,6 +129,10 @@ export default function Coach() {
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToast(`⚠️ Calibração crítica em ${metric.categoryName || 'categoria'} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
+                if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
+                    const oldestKey = calibrationAlertCache.keys().next().value;
+                    calibrationAlertCache.delete(oldestKey);
+                }
             }
         }
     }, [setData, showToast]);
@@ -249,6 +254,15 @@ export default function Coach() {
         setData(prev => ({ ...prev, coachPlan: [] }));
         useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
     }, [setData]);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsAnalyzing(false), 800);
