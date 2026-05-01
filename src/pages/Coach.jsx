@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import AICoachView from '../components/AICoachView';
 import { useAppStore } from '../store/useAppStore';
 import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
@@ -8,9 +8,9 @@ import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 
 const calibrationAlertCache = new Map();
+const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
 
 export default function Coach() {
-    const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
@@ -78,7 +78,7 @@ export default function Coach() {
                 calibrationAlertCache.set(metric.categoryId, now);
             }
         }
-    }, [setData, showToast, CALIBRATION_HISTORY_RETENTION_MS]);
+    }, [setData, showToast]);
 
     // Helper to get targetScore from store or localStorage
     const getTargetScore = React.useCallback(() => {
@@ -90,12 +90,16 @@ export default function Coach() {
             : storedTarget ? parseInt(storedTarget, 10) : 80;
     }, [data?.user?.uid, data?.user?.targetProbability]);
 
+    // BUG-C1 FIX: Collect calibration metrics without triggering store updates inside useMemo
+    const calibrationMetricsRef = useRef([]);
+
     const suggestedFocus = useMemo(() => {
         if (!data?.categories) return null;
 
         const targetScore = getTargetScore();
+        const collectedMetrics = [];
 
-        return getSuggestedFocus(
+        const result = getSuggestedFocus(
             data.categories,
             data.simuladoRows || [],
             data.studyLogs || [],
@@ -104,13 +108,25 @@ export default function Coach() {
                 targetScore,
                 maxScore: data.maxScore ?? 100,
                 calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
-                onCalibrationMetric: persistCalibrationMetric,
+                onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                 config: {
                     MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                 }
             }
         );
-    }, [data, getTargetScore, persistCalibrationMetric]); 
+
+        // Store collected metrics in ref for the useEffect to consume
+        calibrationMetricsRef.current = collectedMetrics;
+        return result;
+    }, [data.categories, data.simuladoRows, data.studyLogs, data.user, data.maxScore, data.calibrationHistoryByCategory, data?.settings?.adaptiveCalibrationEnabled]);
+
+    // BUG-C1 FIX: Persist calibration metrics in a separate effect, outside the render cycle
+    useEffect(() => {
+        if (!calibrationMetricsRef.current.length) return;
+        const metrics = calibrationMetricsRef.current;
+        calibrationMetricsRef.current = [];
+        metrics.forEach(metric => persistCalibrationMetric(metric));
+    }, [suggestedFocus, persistCalibrationMetric]);
 
     useEffect(() => {
         return () => {
@@ -150,6 +166,12 @@ export default function Coach() {
         }, 1500);
     }, [data, setData, showToast, persistCalibrationMetric, getTargetScore]);
 
+    // BUG-H2 FIX: stable callback reference via useCallback
+    const handleClearHistory = useCallback(() => {
+        setData(prev => ({ ...prev, coachPlan: [] }));
+        useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
+    }, [setData]);
+
     // BUG-17 FIX: Guarda de segurança contra estado vazio
     // Refactored: Moved after hooks to respect React lifecycle rules
     if (!data || !data.categories) {
@@ -161,15 +183,13 @@ export default function Coach() {
         );
     }
 
+
     return (<PageErrorBoundary pageName="Coach">
         <AICoachView
             suggestedFocus={suggestedFocus}
             onGenerateGoals={handleGenerateGoals}
             loading={coachLoading}
-            onClearHistory={() => {
-                setData(prev => ({ ...prev, coachPlan: [] }));
-                useAppStore.getState().updateCoachPlanner({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
-            }}
+            onClearHistory={handleClearHistory}
         />
     </PageErrorBoundary>);
 }
