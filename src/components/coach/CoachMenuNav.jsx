@@ -5,17 +5,17 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle }) {
     return (
         <button
             onClick={onClick}
-            className={`group relative flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left
+            className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500/90 to-violet-500/90 border-indigo-300/40 text-white shadow-lg shadow-indigo-900/30 ring-1 ring-white/20'
                     : 'bg-slate-900/50 border-white/10 text-slate-300 hover:bg-slate-800/70 hover:border-white/20'}`}
         >
             <div className="flex items-center gap-3 min-w-0">
-                <div className={`shrink-0 w-11 h-8 rounded-lg flex items-center justify-center border ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
-                    <Icon size={15} className="shrink-0" />
+                <div className={`shrink-0 w-12 h-8 rounded-md flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
+                    <Icon size={14} strokeWidth={2.2} className="shrink-0" />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.08em] leading-tight whitespace-nowrap">{label}</p>
+                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.06em] leading-snug whitespace-nowrap">{label}</p>
                     <p className={`text-[10px] leading-tight mt-0.5 whitespace-nowrap ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         {subtitle}
                     </p>
