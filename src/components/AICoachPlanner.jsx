@@ -70,15 +70,15 @@ export default function AICoachPlanner() {
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());
-    const [prevStoreHash, setPrevStoreHash] = useState(() => JSON.stringify({ coachPlan, coachPlanner }));
+    const prevStoreHashRef = React.useRef(JSON.stringify({ coachPlan, coachPlanner }));
 
     // BUG-H1 + BUG-M2 FIX: Sync columns via useEffect (not during render) with hash guard
     useEffect(() => {
         const hash = JSON.stringify({ coachPlan, coachPlanner });
-        if (hash === prevStoreHash || isDragging) return;
-        setPrevStoreHash(hash);
+        if (hash === prevStoreHashRef.current || isDragging) return;
+        prevStoreHashRef.current = hash;
         setColumns(getInitialColumns());
-    }, [coachPlan, coachPlanner, isDragging, prevStoreHash, getInitialColumns]);
+    }, [coachPlan, coachPlanner, isDragging, getInitialColumns]);
 
     const onDragEnd = (result) => {
         if (!result.destination) { setIsDragging(false); return; }

@@ -43,8 +43,8 @@ export default function Coach() {
     const showToast = useToast();
     
     // Mapeamento para a estrutura de dados atual
-    const history = data?.simuladoRows || [];
-    const simulados = data?.simulados || [];
+    const history = useMemo(() => data?.simuladoRows || [], [data?.simuladoRows]);
+    const simulados = useMemo(() => data?.simulados || [], [data?.simulados]);
     const categories = data?.categories || [];
     const userProfile = data?.user;
     
