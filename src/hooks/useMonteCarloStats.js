@@ -399,10 +399,12 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             const currentProb = Number(prob.toFixed(2));
-            const history = useAppStore.getState().appState.contests[activeId]?.monteCarloHistory || {};
-            const existing = history[today];
+            const history = useAppStore.getState().appState.contests[activeId]?.monteCarloHistory || [];
+            const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
             const currentTarget = Number(debouncedTarget.toFixed(2));
-            const probChanged = !existing || Math.abs(existing.prob - currentProb) > 0.05;
+            // Support both .probability (schema) and .prob (legacy/local)
+            const existingProb = existing?.probability ?? existing?.prob ?? 0;
+            const probChanged = !existing || Math.abs(existingProb - currentProb) > 0.05;
             const targetChanged = !existing || existing.target !== currentTarget;
 
             if (probChanged || targetChanged) {

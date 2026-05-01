@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target } from 'lucide-react';
+import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle } from 'lucide-react';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
@@ -142,31 +142,53 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         <div id="ai-coach-container" className="space-y-0 pb-12 max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             {calibrationSummary.length > 0 && (
-                <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4">
-                    <h3 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-300 mb-3">Saúde da Calibração (último histórico)</h3>
-                    <p className="text-[10px] text-slate-400 mb-3">Eventos auditados: {calibrationAuditLog.length}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                        {calibrationSummary.map(row => (
-                            <div key={row.categoryId} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                                <p className="text-xs text-white font-bold">{row.label}</p>
-                                <p className="text-[11px] text-slate-300">Brier médio: {row.avgBrier.toFixed(3)}</p>
-                                <p className="text-[11px] text-slate-300">Penalidade média: {(row.avgPenalty * 100).toFixed(2)}%</p>
-                                {calibrationOps[row.categoryId] && (
-                                    <div className="mt-1 space-y-0.5">
-                                        <p className="text-[10px] text-slate-400">
-                                            Brier 7d: {Number(calibrationOps[row.categoryId].avgBrier7d || 0).toFixed(3)}
-                                            {calibrationOps[row.categoryId].degraded ? ' ⚠️' : ''}
-                                        </p>
-                                        {calibrationOps[row.categoryId].degraded && (
-                                            <p className="text-[9px] font-black text-rose-400 uppercase tracking-tighter animate-pulse">
-                                                Status: Calibração Degradada
-                                            </p>
-                                        )}
+                <div className="mb-6 rounded-[2rem] border border-white/5 bg-[#0a0c14] p-6 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[80px] rounded-full pointer-events-none -mr-32 -mt-32 transition-opacity duration-500 group-hover:opacity-100 opacity-50" />
+                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-cyan-400 mb-1">Calibration Health Monitor</h3>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
+                                Telemetria ativa em {calibrationSummary.length} categorias • Audit Log: {calibrationAuditLog.length} eventos
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20">
+                            <Compass size={12} className="text-cyan-400" />
+                            <span className="text-[9px] font-black text-cyan-300 uppercase tracking-tighter">Motor de Governança V1.2</span>
+                        </div>
+                    </div>
+                    
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {calibrationSummary.map(row => {
+                            const op = calibrationOps[row.categoryId] || {};
+                            return (
+                                <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-all duration-300">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <p className="text-xs text-white font-black tracking-tight truncate pr-4">{row.label}</p>
+                                        <div className={`w-2 h-2 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]'}`} />
                                     </div>
-                                )}
-                                <p className="text-[10px] text-slate-500">{row.count} eventos</p>
-                            </div>
-                        ))}
+                                    
+                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Brier Score</p>
+                                            <p className={`text-xs font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-300'}`}>{row.avgBrier.toFixed(3)}</p>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Ajuste Médio</p>
+                                            <p className="text-xs font-mono font-bold text-amber-400">-{Math.round(row.avgPenalty * 100)}%</p>
+                                        </div>
+                                    </div>
+
+                                    {op.degraded && (
+                                        <div className="pt-2 border-t border-rose-500/10">
+                                            <div className="flex items-center gap-1.5 text-rose-400">
+                                                <AlertCircle size={10} />
+                                                <span className="text-[8px] font-black uppercase tracking-widest">Calibração Degradada</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

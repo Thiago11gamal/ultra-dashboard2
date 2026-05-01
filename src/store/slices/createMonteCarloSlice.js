@@ -4,7 +4,7 @@ export const createMonteCarloSlice = (set) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeData) return;
 
-        const history = activeData.monteCarloHistory || [];
+        const history = Array.isArray(activeData.monteCarloHistory) ? activeData.monteCarloHistory : [];
         const snapshot = { date, probability: prob, mean: metadata.mean, target: metadata.target };
         const idx = history.findIndex(h => h.date === date);
 

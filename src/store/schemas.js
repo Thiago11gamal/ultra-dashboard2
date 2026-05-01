@@ -200,11 +200,20 @@ const sanitizeContest = (data) => {
       completedCycles: Number(source.settings?.completedCycles) || 0,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
-    // BUG-10 FIX: monteCarloHistory is keyed by date (Object), not an Array.
-    // useMonteCarloStats.js accesses it as `history[today]` — an Object lookup.
-    monteCarloHistory: (source.monteCarloHistory && typeof source.monteCarloHistory === 'object' && !Array.isArray(source.monteCarloHistory))
-      ? source.monteCarloHistory
-      : {},
+    // BUG-10 REVERSION: monteCarloHistory MUST be an Array for charts and slices to work.
+    // Migration: If it's an object (legacy), convert it to an array of {date, probability}.
+    monteCarloHistory: (() => {
+      const raw = source.monteCarloHistory;
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') {
+        return Object.entries(raw).map(([date, data]) => ({
+          date,
+          probability: typeof data === 'object' ? data.probability : data,
+          ...(typeof data === 'object' ? data : {})
+        })).sort((a, b) => a.date.localeCompare(b.date));
+      }
+      return [];
+    })(),
     contestName: source.contestName || source.user?.name || "Novo Concurso",
     lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };

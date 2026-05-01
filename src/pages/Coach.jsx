@@ -7,7 +7,9 @@ import {
     ArrowUpRight,
     Sparkles,
     ShieldCheck,
-    Dna
+    Dna,
+    List,
+    ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
@@ -276,6 +278,8 @@ export default function Coach() {
                     description="Seu mentor estatístico processando cada detalhe do seu desempenho para traçar a rota mais curta até a aprovação."
                 />
 
+                <GovernanceBanner data={data} />
+
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Lado Esquerdo: Widget e Sugestões */}
                     <div className="lg:col-span-4 space-y-6">
@@ -344,21 +348,7 @@ export default function Coach() {
                                         onClearHistory={handleClearHistory}
                                     />
                                 ) : (
-                                    <div className="glass p-8 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center min-h-[400px] text-center">
-                                        <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center mb-6">
-                                            <Dna className="text-indigo-400 animate-pulse" size={40} />
-                                        </div>
-                                        <h2 className="text-2xl font-black text-white mb-2">Análise de DNA Competitivo</h2>
-                                        <p className="text-slate-400 max-w-md text-sm">
-                                            Estamos processando as correlações entre suas matérias para identificar padrões invisíveis de erro.
-                                        </p>
-                                        {!isPremium && (
-                                            <div className="mt-8 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-orange-900/20">
-                                                <ShieldCheck size={16} />
-                                                Upgrade para Pro
-                                            </div>
-                                        )}
-                                    </div>
+                                    <RaioXDashboard data={data} isPremium={isPremium} />
                                 )}
                             </motion.div>
                         </AnimatePresence>
@@ -396,5 +386,142 @@ function TabButton({ active, onClick, icon, label }) {
             {icon}
             {label}
         </button>
+    );
+}
+
+function GovernanceBanner({ data }) {
+    const ops = data?.calibrationOps || {};
+    const degradedCount = Object.values(ops).filter(o => o.degraded).length;
+
+    if (degradedCount === 0) return null;
+
+    return (
+        <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4"
+        >
+            <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400">
+                    <AlertCircle size={20} />
+                </div>
+                <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-tight">Alerta de Governança</h4>
+                    <p className="text-[10px] text-rose-300/80 font-medium uppercase tracking-widest">
+                        Detectamos <span className="text-rose-400 font-black">{degradedCount}</span> categorias com calibração degradada.
+                    </p>
+                </div>
+            </div>
+            <div className="hidden sm:block text-right">
+                <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-tight">
+                    O Coach está aplicando<br/>ajustes conservadores.
+                </p>
+            </div>
+        </motion.div>
+    );
+}
+
+function RaioXDashboard({ data, isPremium }) {
+    const auditLog = data?.calibrationAuditLog || [];
+    const ops = data?.calibrationOps || {};
+    const [filter, setFilter] = useState('all');
+
+    const filteredLogs = auditLog
+        .filter(log => filter === 'all' || (filter === 'degraded' && log.degraded))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 50);
+
+    return (
+        <div className="space-y-8 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-emerald-500" />
+                        Status de Calibração
+                    </h3>
+                    <div className="space-y-3">
+                        {Object.entries(ops).map(([id, op]) => (
+                            <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-white truncate">{op.categoryName || id}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Brier 7d: {op.avgBrier7d.toFixed(3)}</p>
+                                </div>
+                                <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                    {op.degraded ? 'Degradado' : 'Estável'}
+                                </div>
+                            </div>
+                        ))}
+                        {Object.keys(ops).length === 0 && (
+                            <p className="text-[10px] text-slate-600 text-center py-8 font-black uppercase tracking-widest">Sem dados de telemetria</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Dna size={14} className="text-indigo-500" />
+                        DNA do Histórico
+                    </h3>
+                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-center">
+                        <p className="text-[10px] text-indigo-300/80 leading-relaxed font-medium">
+                            A calibração do modelo é baseada no Brier Score. Valores abaixo de 0.20 indicam alta precisão preditiva. Acima de 0.28, o Coach aplica redução de confiança (shrinkage) para proteger sua estratégia.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <List size={14} className="text-indigo-400" />
+                        Log de Auditoria
+                    </h3>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setFilter('all')}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Tudo
+                        </button>
+                        <button 
+                            onClick={() => setFilter('degraded')}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'degraded' ? 'bg-rose-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Falhas
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-white/5">
+                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Data</th>
+                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Categoria</th>
+                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Brier</th>
+                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Ajuste</th>
+                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Prob Final</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {filteredLogs.map((log, idx) => (
+                                <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
+                                    <td className="py-3 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                    <td className="py-3 text-[10px] text-white font-bold">{log.categoryName}</td>
+                                    <td className={`py-3 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
+                                    <td className="py-3 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
+                                    <td className="py-3 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {filteredLogs.length === 0 && (
+                        <div className="py-12 text-center">
+                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
