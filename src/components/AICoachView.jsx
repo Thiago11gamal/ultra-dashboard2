@@ -26,24 +26,23 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const displayMeta = topicPart ? actionPart : (actionPart !== 'Revisão Geral' ? actionPart : 'Foco em exercícios e revisão');
 
     const CARD_COLORS = [
-        { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300', glow: 'group-hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]' },
-        { accent: 'border-l-cyan-500', dot: 'bg-cyan-500', badge: 'bg-cyan-500/10 text-cyan-300', glow: 'group-hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]' },
-        { accent: 'border-l-emerald-500', dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-300', glow: 'group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]' },
-        { accent: 'border-l-rose-500', dot: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-300', glow: 'group-hover:shadow-[0_0_20px_rgba(244,63,94,0.15)]' },
-        { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300', glow: 'group-hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]' },
+        { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300' },
+        { accent: 'border-l-cyan-500', dot: 'bg-cyan-500', badge: 'bg-cyan-500/10 text-cyan-300' },
+        { accent: 'border-l-emerald-500', dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-300' },
+        { accent: 'border-l-rose-500', dot: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-300' },
+        { accent: 'border-l-amber-500', dot: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-300' },
     ];
     const col = CARD_COLORS[idx % CARD_COLORS.length];
 
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`group relative flex flex-col p-6 rounded-[2rem] bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-500 overflow-hidden ${col.glow}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`group relative flex flex-col p-6 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden`}
         >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.015] blur-2xl rounded-full pointer-events-none group-hover:bg-white/[0.03] transition-colors" />
             <div className="relative z-10 flex justify-between items-start mb-4">
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${col.badge}`}>
+                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge}`}>
                     {subjectPart}
                 </span>
                 <button 
@@ -51,21 +50,21 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         e.stopPropagation();
                         onStartPomodoro?.(task);
                     }}
-                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white hover:border-violet-400 transition-all shadow-xl group-hover:scale-110"
+                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
                 >
                     <Play size={14} fill="currentColor" />
                 </button>
             </div>
             <div className="relative z-10 flex-1 mb-6">
-                <h3 className="text-lg font-black text-white leading-tight mb-2 group-hover:text-white transition-colors tracking-tighter">
+                <h3 className="text-lg font-black text-white leading-tight mb-2 tracking-tighter">
                     {displayAssunto}
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 font-medium">{displayMeta}</p>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
             </div>
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.06]">
                     <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1">
-                        <BrainCircuit size={13} className="text-violet-500" /> Insight do Coach
+                        <BrainCircuit size={13} className="text-violet-500" /> Detalhes do Coach
                         <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></div>
                     </button>
                     <AnimatePresence>
@@ -92,7 +91,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                         <div className="mt-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
                                             <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
                                             <p className="text-[10px] text-amber-300/90 leading-relaxed">
-                                                <span className="font-black text-amber-400 uppercase tracking-tighter">Ajuste Neural:</span> Probabilidade recalibrada em <span className="font-black">-{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span> para mitigar variância histórica.
+                                                <span className="font-black text-amber-400 uppercase tracking-tighter">Ajuste de Calibração:</span> Probabilidade ajustada em <span className="font-black">-{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span> devido à instabilidade nos simulados.
                                             </p>
                                         </div>
                                     )}
@@ -130,7 +129,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     const handleExport = async () => {
         setIsExporting(true);
-        await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_AICoach.pdf', 'portrait');
+        await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
         setIsExporting(false);
     };
 
@@ -149,20 +148,15 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         .slice(0, 6);
 
     return (
-        <div id="ai-coach-container" className="space-y-0 pb-12 max-w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             {calibrationSummary.length > 0 && (
-                <div className="mb-8 rounded-[2.5rem] border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none -mr-40 -mt-40 transition-opacity duration-700 group-hover:opacity-100 opacity-40" />
+                <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-hidden group">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
                         <div>
-                            <h3 className="text-[11px] uppercase tracking-[0.4em] font-black text-cyan-400 mb-2">Neural Calibration Monitor</h3>
+                            <h3 className="text-xs uppercase tracking-[0.2em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                Telemetria ativa em {calibrationSummary.length} categorias • <span className="text-cyan-500/60">{calibrationAuditLog.length} eventos auditados</span>
+                                Telemetria ativa em {calibrationSummary.length} categorias • {calibrationAuditLog.length} eventos registrados
                             </p>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 backdrop-blur-sm">
-                            <Compass size={14} className="text-cyan-400 animate-spin-slow" />
-                            <span className="text-[10px] font-black text-cyan-300 uppercase tracking-tighter">Governance Engine V1.2</span>
                         </div>
                     </div>
                     
@@ -170,7 +164,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-5 hover:bg-white/[0.03] hover:border-white/10 transition-all duration-500">
+                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-5 hover:bg-white/[0.03] transition-all duration-300">
                                     <div className="flex justify-between items-start mb-4">
                                         <p className="text-[13px] text-white font-black tracking-tight truncate pr-6">{row.label}</p>
                                         <div className={`w-2.5 h-2.5 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
@@ -191,7 +185,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         <div className="pt-3 border-t border-rose-500/10 mt-1">
                                             <div className="flex items-center gap-2 text-rose-400">
                                                 <AlertCircle size={12} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest">Atenção Necessária</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest">Estabilidade Baixa</span>
                                             </div>
                                         </div>
                                     )}
@@ -201,42 +195,22 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </div>
                 </div>
             )}
-            <div className="relative pt-6 pb-10 mb-6">
-                <div className="absolute inset-0 opacity-[0.04] pointer-events-none overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '40px 40px' }} />
-                
+
+            <div className="relative pt-6 pb-10">
                 <div className="relative z-10 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-8">
                     <div className="flex items-center gap-6">
-                        <div className="relative group">
-                            <div className="w-16 h-16 rounded-[1.5rem] bg-[#0d0e1a] border border-violet-500/30 flex items-center justify-center shadow-2xl shadow-violet-900/30 relative overflow-hidden group-hover:border-violet-500/60 transition-colors duration-500">
-                                <div className="absolute inset-0 border-[2px] border-dashed border-violet-500/20 rounded-[1.5rem] scale-75 animate-[spin_10s_linear_infinite]" />
-                                <Sparkles size={28} className="text-violet-300 relative z-10 drop-shadow-[0_0_10px_rgba(167,139,250,0.6)]" />
-                                <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                            
-                            <div className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-lg bg-[#07080f] border border-violet-500/40 shadow-xl">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-[7px] font-black text-emerald-400 uppercase tracking-tighter">Live Session</span>
-                                </div>
-                            </div>
+                        <div className="w-16 h-16 rounded-3xl bg-[#0d0e1a] border border-violet-500/30 flex items-center justify-center shadow-2xl relative overflow-hidden">
+                            <Sparkles size={28} className="text-violet-300" />
                         </div>
 
                         <div>
                             <div className="flex items-center gap-4 mb-2">
                                 <h1 className="text-2xl sm:text-3xl font-black tracking-tighter text-white leading-none">
-                                    Executive <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-300">Coach</span>
+                                    Painel de Execução
                                 </h1>
-                                <span className="text-[9px] text-violet-300 uppercase tracking-[0.3em] font-black px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">V4.2 PRO</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1 h-1 rounded-full bg-slate-700" />
-                                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Neural Strategy Hub</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse" />
-                                    <p className="text-[9px] text-indigo-400 font-black uppercase tracking-[0.1em]">Synapse Latency: 12ms</p>
-                                </div>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Monitoramento Ativo de Performance</p>
                             </div>
                         </div>
                     </div>
@@ -247,7 +221,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <span className="text-3xl font-black text-white leading-none tracking-tighter">{coachPlan.length}</span>
                                 <span className="text-violet-400 font-black text-xs opacity-60">/ 12</span>
                             </div>
-                            <span className="text-[8px] text-slate-600 uppercase tracking-[0.2em] font-black mt-1">Capacidade</span>
+                            <span className="text-[8px] text-slate-600 uppercase tracking-widest font-black mt-1">Metas</span>
                         </div>
 
                         <div className="w-px h-10 bg-white/5" />
@@ -255,51 +229,46 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             onClick={handleExport}
                             disabled={isExporting}
-                            className="group relative flex items-center gap-3 px-6 py-3 rounded-2xl bg-violet-600/10 border border-violet-500/20 text-violet-100 hover:bg-violet-600/20 hover:border-violet-500/40 transition-all duration-300 disabled:opacity-50"
+                            className="group relative flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
                         >
-                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} className="group-hover:-translate-y-0.5 transition-transform" />}
-                            <span className="text-[10px] font-black uppercase tracking-[0.15em] relative z-10">{isExporting ? '...' : 'Exportar Plano'}</span>
+                            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            <span className="text-[10px] font-black uppercase tracking-widest relative z-10">{isExporting ? 'Processando...' : 'Exportar Plano'}</span>
                         </button>
                     </div>
                 </div>
-                <div className="mt-8 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
             </div>
 
             <div className="py-6">
                 {suggestedFocus ? (
                     <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
                 ) : (
-                    <div className="mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center group hover:border-violet-500/20 transition-colors duration-500">
-                        <Target size={32} className="text-slate-600 mx-auto mb-4 group-hover:text-violet-400 transition-colors" />
-                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Clique em "Recalcular" para iniciar análise neural</p>
+                    <div className="mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                        <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
                     </div>
                 )}
             </div>
 
             <div className="space-y-8">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-[#0a0c14] border border-white/[0.05] p-4 rounded-[2rem] shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-[#0a0c14] border border-white/[0.05] p-4 rounded-3xl">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                         <div className="flex items-center gap-4 pl-3">
-                            <div className="w-1.5 h-8 rounded-full bg-gradient-to-b from-violet-500 to-indigo-600 shadow-[0_0_15px_rgba(139,92,246,0.4)]" />
-                            <div>
-                                <h2 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Engine Monitor</h2>
-                                <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest mt-0.5">Fluxo de Dados Ativo</p>
-                            </div>
+                            <div className="w-1.5 h-8 rounded-full bg-indigo-500" />
+                            <h2 className="text-xs font-black text-slate-300 uppercase tracking-widest">Monitor de Metas</h2>
                         </div>
 
                         {hasPlan && (
-                            <div className="flex items-center p-1.5 rounded-2xl bg-black/40 border border-white/[0.06] shadow-inner">
-                                {[{ id: 'planner', label: 'Neural Planner', Icon: LayoutGrid }, { id: 'list', label: 'Meta Stream', Icon: List }].map(({ id, label, Icon }) => (
+                            <div className="flex items-center p-1.5 rounded-2xl bg-black/40 border border-white/[0.06]">
+                                {[{ id: 'planner', label: 'Planejador', Icon: LayoutGrid }, { id: 'list', label: 'Lista de Metas', Icon: List }].map(({ id, label, Icon }) => (
                                     <button
                                         key={id}
                                         onClick={() => setViewMode(id)}
-                                        className={`relative flex items-center justify-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-500 ${viewMode === id ? 'text-white' : 'text-slate-500 hover:text-slate-400'}`}
+                                        className={`relative flex items-center justify-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === id ? 'text-white' : 'text-slate-500 hover:text-slate-400'}`}
                                     >
                                         {viewMode === id && (
                                             <motion.div
                                                 layoutId="view-tab"
-                                                className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 shadow-[0_0_25px_rgba(139,92,246,0.3)]"
+                                                className="absolute inset-0 rounded-xl bg-indigo-600 border border-indigo-400/30"
                                                 transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                                             />
                                         )}
@@ -316,22 +285,19 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     {hasPlan && (
                         <button
                             onClick={onClearHistory}
-                            className="group flex items-center gap-3 px-5 py-2.5 rounded-2xl text-[10px] font-black text-slate-600 hover:text-rose-400 uppercase tracking-widest transition-all duration-500 hover:bg-rose-500/5 hover:border-rose-500/20 border border-transparent mr-2"
+                            className="group flex items-center gap-3 px-5 py-2.5 rounded-2xl text-[10px] font-black text-slate-600 hover:text-rose-400 uppercase tracking-widest transition-all duration-300 mr-2"
                         >
-                            <Trash2 size={15} className="group-hover:rotate-12 transition-transform" />
-                            <span>Purge Memory</span>
+                            <Trash2 size={15} />
+                            <span>Limpar Tudo</span>
                         </button>
                     )}
                 </div>
 
-                <div className="transition-all duration-500">
+                <div className="transition-all duration-300">
                     {!hasPlan ? (
                         <div className="flex flex-col items-center justify-center py-32 text-center space-y-6 rounded-[3rem] border border-white/[0.04] bg-white/[0.01]">
-                            <div className="w-20 h-20 rounded-[2rem] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center shadow-2xl"><Compass size={28} className="text-slate-600 animate-pulse" /></div>
-                            <div>
-                                <p className="text-base font-black text-slate-300 tracking-tight">Arquitetura Vazia</p>
-                                <p className="text-xs text-slate-600 mt-2 max-w-[300px] mx-auto leading-relaxed font-medium">O núcleo de IA aguarda novas entradas de simulados para gerar um plano de execução.</p>
-                            </div>
+                            <Compass size={28} className="text-slate-600" />
+                            <p className="text-xs text-slate-600 mt-2 max-w-[300px] mx-auto leading-relaxed font-medium">Nenhum plano ativo no momento.</p>
                         </div>
                     ) : viewMode === 'planner' ? (
                         <div key="planner"><AICoachPlanner /></div>

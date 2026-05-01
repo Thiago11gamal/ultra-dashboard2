@@ -272,76 +272,68 @@ export default function Coach() {
 
     return (
         <PageErrorBoundary pageName="Coach">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
-                    <div className="relative">
-                        <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-transparent rounded-full opacity-50" />
-                        <PageHeader 
-                            title="Neural Intelligence Hub" 
-                            description="Seu mentor estatístico processando cada detalhe do seu desempenho em tempo real."
-                        />
-                    </div>
+            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <PageHeader 
+                        title="Análise do Coach" 
+                        description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
+                    />
                     
-                    <div className="flex items-center gap-8 bg-white/[0.02] border border-white/[0.05] p-4 rounded-2xl backdrop-blur-md">
-                        <QuickStat label="Volatilidade" value={`${volatility.toFixed(1)}%`} color="text-rose-400" icon={<Zap size={10} />} />
-                        <div className="w-px h-8 bg-white/5" />
-                        <QuickStat label="Tendência" value={`${(drift * 30).toFixed(1)}pp`} color="text-emerald-400" icon={<ArrowUpRight size={10} />} />
-                        <div className="w-px h-8 bg-white/5" />
-                        <QuickStat label="Database" value={Object.keys(rawContests).length} color="text-indigo-400" icon={<Dna size={10} />} />
+                    <div className="flex items-center gap-6 bg-slate-900/40 border border-white/5 p-4 rounded-3xl backdrop-blur-md">
+                        <QuickStat label="Volatilidade" value={`${volatility.toFixed(1)}%`} color="text-rose-400" icon={<Zap size={14} />} />
+                        <div className="w-px h-10 bg-white/5" />
+                        <QuickStat label="Tendência" value={`${(drift * 30).toFixed(1)}pp`} color="text-emerald-400" icon={<ArrowUpRight size={14} />} />
+                        <div className="w-px h-10 bg-white/5" />
+                        <QuickStat label="Simulados" value={Object.keys(rawContests).length} color="text-indigo-400" icon={<Dna size={14} />} />
                     </div>
                 </div>
 
                 <GovernanceBanner data={data} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    {/* Lado Esquerdo: Intelligence Sidebar */}
-                    <div className="lg:col-span-3">
-                        <div className="sticky top-8 space-y-8">
-                            <AICoachWidget 
-                                suggestedFocus={suggestedFocus?.name || categories?.[0]?.name || "Geral"}
-                                urgency={probability < 50 ? 'high' : 'medium'}
-                            />
-                            
-                            <div className="relative p-6 rounded-[2.5rem] border border-white/5 bg-[#0a0c14] overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full pointer-events-none" />
-                                <div className="relative z-10 flex items-center gap-5">
-                                    <div className="relative w-14 h-14 flex items-center justify-center">
-                                        <svg className="w-full h-full -rotate-90">
-                                            <circle cx="28" cy="28" r="24" className="stroke-white/5 fill-none" strokeWidth="4" />
-                                            <circle 
-                                                cx="28" cy="28" r="24" 
-                                                className="stroke-indigo-500 fill-none transition-all duration-1000" 
-                                                strokeWidth="4" 
-                                                strokeDasharray="150" 
-                                                strokeDashoffset={150 - (150 * probability) / 100}
-                                                strokeLinecap="round"
-                                            />
-                                        </svg>
-                                        <span className="absolute text-[10px] font-black text-white">{Math.round(probability)}%</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1">Health Index</p>
-                                        <p className="text-xs font-bold text-slate-300">Sincronia estável</p>
-                                    </div>
-                                </div>
+                <div className="space-y-10">
+                    {/* Painel de Foco Sugerido */}
+                    <div className="w-full">
+                        <div className="flex items-center gap-4 mb-4">
+                             <div className="relative w-12 h-12 flex items-center justify-center">
+                                <svg className="w-full h-full -rotate-90">
+                                    <circle cx="24" cy="24" r="20" className="stroke-white/5 fill-none" strokeWidth="3" />
+                                    <circle 
+                                        cx="24" cy="24" r="20" 
+                                        className="stroke-indigo-500 fill-none transition-all duration-1000" 
+                                        strokeWidth="3" 
+                                        strokeDasharray="125" 
+                                        strokeDashoffset={125 - (125 * probability) / 100}
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <span className="absolute text-[10px] font-black text-white">{Math.round(probability)}%</span>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Sincronia Estável</p>
+                                <p className="text-xs font-bold text-white">Status da Calibração</p>
                             </div>
                         </div>
+                        
+                        <AICoachWidget 
+                            suggestedFocus={suggestedFocus?.name || categories?.[0]?.name || "Geral"}
+                            urgency={probability < 50 ? 'high' : 'medium'}
+                        />
                     </div>
 
-                    {/* Lado Direito: Dashboard Principal */}
-                    <div className="lg:col-span-9">
+                    {/* Dashboard de Detalhes */}
+                    <div className="w-full">
                         <div className="flex items-center gap-4 mb-6 p-1 bg-black/20 rounded-2xl w-fit border border-white/5">
                             <TabButton 
                                 active={activeTab === 'insights'} 
                                 onClick={() => setActiveTab('insights')} 
                                 icon={<Sparkles size={14} />}
-                                label="Insights"
+                                label="Plano de Estudos"
                             />
                             <TabButton 
                                 active={activeTab === 'analytics'} 
                                 onClick={() => setActiveTab('analytics')} 
                                 icon={<BarChart3 size={14} />}
-                                label="Raio-X"
+                                label="Raio-X Técnico"
                             />
                         </div>
 
@@ -351,7 +343,7 @@ export default function Coach() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.3 }}
+                                transition={{ duration: 0.2 }}
                             >
                                 {activeTab === 'insights' ? (
                                     <AICoachView 
@@ -367,6 +359,7 @@ export default function Coach() {
                         </AnimatePresence>
                     </div>
                 </div>
+            </div>
             </div>
         </PageErrorBoundary>
     );
