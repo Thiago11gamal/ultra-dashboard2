@@ -133,9 +133,19 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
-    // FIX-HASH: adicionar lastScore evita colisão quando soma é igual mas distribuição difere
-    const lastScore = history.length > 0 ? Number(history[history.length - 1].score).toFixed(2) : '0';
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${lastScore}-${relevantSimulados[0]?.date || ''}`;
+    // HASH-DATA FIX: inclui checksum sequencial para evitar colisões quando soma/length são iguais.
+    const sequenceChecksum = relevantSimulados.reduce((acc, sim, idx) => {
+        const score = getSafeScore(sim, maxScore);
+        const date = String(sim?.date || '');
+        const subject = String(sim?.subject || '');
+        let charSum = 0;
+        const token = `${date}|${subject}`;
+        for (let i = 0; i < token.length; i++) charSum += token.charCodeAt(i);
+        return acc + ((idx + 1) * Math.round(score * 100)) + charSum;
+    }, 0);
+    const firstDate = relevantSimulados[0]?.date || '';
+    const lastDate = relevantSimulados[relevantSimulados.length - 1]?.date || '';
+    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -227,8 +237,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY
     });
 
-    const maxScore = options.maxScore ?? 100;
-    const targetScore = options.targetScore ?? (maxScore * 0.8);
+    const rawMaxScore = Number(options.maxScore ?? 100);
+    const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
+    const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
+    const targetScore = Number.isFinite(rawTargetScore) ? rawTargetScore : (maxScore * 0.8);
     const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
     const weight = rawWeight * 10;
     const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
@@ -630,14 +642,18 @@ const _topicsCache = new WeakMap();
 
 function _getTopicsHash(simulados, maxScore) {
     if (!simulados?.length) return `empty-${maxScore}`;
-    // BUG FIX: hash sum of all characters in the date to prevent collisions
-    const dateSum = simulados.reduce((acc, s) => {
-        const dStr = s.date || '';
-        let sum = 0;
-        for (let i = 0; i < dStr.length; i++) sum += dStr.charCodeAt(i);
-        return acc + sum;
-    }, 0);
-    return `hash-${dateSum}-${simulados.length}-${maxScore}`;
+    // HASH-DATA FIX: incorpora score+subject+ordem para evitar cache stale com datas iguais.
+    let checksum = 0;
+    simulados.forEach((s, idx) => {
+        const date = String(s?.date || '');
+        const subject = String(s?.subject || '');
+        const score = Number.isFinite(Number(s?.score)) ? Number(s.score) : Number(getSafeScore(s, maxScore));
+        const token = `${date}|${subject}|${score.toFixed(3)}`;
+        let tokenSum = 0;
+        for (let i = 0; i < token.length; i++) tokenSum += token.charCodeAt(i);
+        checksum += tokenSum * (idx + 1);
+    });
+    return `hash-${checksum}-${simulados.length}-${maxScore}`;
 }
 
 // Wrapper público — mantém a assinatura original
