@@ -360,7 +360,6 @@ export default function Coach() {
                     </div>
                 </div>
             </div>
-            </div>
         </PageErrorBoundary>
     );
 }
