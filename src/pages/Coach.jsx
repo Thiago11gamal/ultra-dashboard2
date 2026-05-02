@@ -451,6 +451,21 @@ function RaioXDashboard({ data }) {
     const eceValues = filteredLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
 
+    const categorySeriesMap = filteredLogs.reduce((acc, log) => {
+        const cat = log?.categoryName || 'Categoria';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push({
+            ts: Number(log?.timestamp) || 0,
+            brier: Number(log?.avgBrier) || 0,
+            ece: Number(log?.ece) || 0
+        });
+        return acc;
+    }, {});
+    const [seriesCategory] = Object.keys(categorySeriesMap);
+    const temporalSeries = seriesCategory
+        ? [...categorySeriesMap[seriesCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
+        : [];
+
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -573,6 +588,38 @@ function RaioXDashboard({ data }) {
                     </div>
                 ) : (
                     <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
+                )}
+            </div>
+
+            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Drift Temporal (Brier/ECE)</h3>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                        {seriesCategory ? displaySubject(seriesCategory) : 'Sem categoria'}
+                    </span>
+                </div>
+
+                {temporalSeries.length > 1 ? (
+                    <div className="space-y-2">
+                        {temporalSeries.map((point, idx) => (
+                            <div key={idx} className="space-y-1">
+                                <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                                    <span>{new Date(point.ts).toLocaleDateString('pt-BR')}</span>
+                                    <span>Brier {point.brier.toFixed(3)} · ECE {point.ece.toFixed(3)}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                        <div className="h-full bg-rose-400/80" style={{ width: `${Math.min(100, point.brier * 100)}%` }} />
+                                    </div>
+                                    <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                        <div className="h-full bg-cyan-400/80" style={{ width: `${Math.min(100, point.ece * 100)}%` }} />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Dados temporais insuficientes</p>
                 )}
             </div>
         </div>
