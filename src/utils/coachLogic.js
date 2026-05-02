@@ -508,11 +508,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 categoryName: category.name,
                 avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
                 ece: Number((mcResult.ece || 0).toFixed(4)),
+                reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
                 calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
                 probability: Number((mcResult.probability || 0).toFixed(2)),
                 timestamp: Date.now()
             });
-
         }
 
         // --- COMPONENTS ---

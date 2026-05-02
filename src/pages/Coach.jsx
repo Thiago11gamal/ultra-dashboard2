@@ -447,6 +447,10 @@ function RaioXDashboard({ data }) {
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, 50);
 
+    const latestWithReliability = filteredLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
+    const eceValues = filteredLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
+    const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
+
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -474,69 +478,82 @@ function RaioXDashboard({ data }) {
                 </div>
 
                 <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <Dna size={14} className="text-indigo-500" />
-                        DNA do Histórico
-                    </h3>
-                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-center">
-                        <p className="text-[10px] text-indigo-300/80 leading-relaxed font-medium">
-                            A calibração do modelo é baseada no Brier Score. Valores abaixo de 0.20 indicam alta precisão preditiva. Acima de 0.28, o Coach aplica redução de confiança (shrinkage) para proteger sua estratégia.
-                        </p>
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <List size={14} className="text-indigo-400" />
+                            Log de Auditoria
+                        </h3>
+                        <select 
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest px-2 py-1 text-slate-400 outline-none focus:border-indigo-500/50"
+                        >
+                            <option value="all">Todos</option>
+                            <option value="degraded">Degradados</option>
+                        </select>
+                    </div>
+                    
+                    <div className="overflow-x-auto max-h-[300px] custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr>
+                                    <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
+                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
+                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
+                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
+                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {filteredLogs.map((log, idx) => (
+                                    <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
+                                        <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
+                                        <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
+                                        <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
+                                        <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
+                                        <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {filteredLogs.length === 0 && (
+                            <div className="py-12 text-center">
+                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
             <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <List size={14} className="text-indigo-400" />
-                        Log de Auditoria
-                    </h3>
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => setFilter('all')}
-                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                        >
-                            Tudo
-                        </button>
-                        <button 
-                            onClick={() => setFilter('degraded')}
-                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'degraded' ? 'bg-rose-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                        >
-                            Falhas
-                        </button>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Confiabilidade (ECE)</h3>
+                    <span className="text-[10px] font-black text-cyan-300">
+                        {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
+                    </span>
+                </div>
+                {latestWithReliability ? (
+                    <div className="space-y-2">
+                        {latestWithReliability.reliability.map((bin, idx) => {
+                            const predPct = Math.round((Number(bin?.meanPred) || 0) * 100);
+                            const obsPct = Math.round((Number(bin?.observedRate) || 0) * 100);
+                            const gapPct = Math.round((Number(bin?.gap) || 0) * 100);
+                            return (
+                                <div key={idx} className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                                    <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-400 font-bold">Bin {bin.bin}</span>
+                                        <span className="text-slate-500">n={bin.count}</span>
+                                    </div>
+                                    <div className="mt-1 text-[10px] text-slate-300">
+                                        Pred {predPct}% · Real {obsPct}% · Gap {gapPct}%
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-white/5">
-                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {filteredLogs.map((log, idx) => (
-                                <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
-                                    <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
-                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
-                                    <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {filteredLogs.length === 0 && (
-                        <div className="py-12 text-center">
-                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
-                        </div>
-                    )}
-                </div>
+                ) : (
+                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
+                )}
             </div>
         </div>
     );
