@@ -585,8 +585,8 @@ export function monteCarloSimulation(
         // 🎯 FIX MATEMÁTICO: O atrator O-U deve respeitar a gravidade do platô (effective days)
         // Caso contrário, a nuvem do Monte Carlo descola da linha principal de projeção.
         const targetChange = drift * effectiveAttractorDays;
-        const convergenceFactor = 1 - Math.exp(-theta * simulationDays);
-        const unboundedMu = baselineScore + (targetChange / Math.max(0.01, convergenceFactor));
+        const convergenceFactor = Math.max(0.05, 1 - Math.exp(-theta * simulationDays));
+        const unboundedMu = baselineScore + (targetChange / convergenceFactor);
         
         // BUGFIX B2: Clampar o atrator ANTES do ruído epistêmico
         const adjustedTargetMu = Math.max(minScore, Math.min(safeMaxScore, unboundedMu));

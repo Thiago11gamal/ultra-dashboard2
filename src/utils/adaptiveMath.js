@@ -79,23 +79,6 @@ export function computeAdaptiveSignal(scores = []) {
     return { effectiveN, trendStrength, adaptiveWinsor: { low: cfg.lowWinsor, high: cfg.highWinsor }, ciInflation };
 }
 
-export function deriveCoachAdaptiveParams(history = [], maxScore = 100, baseSimulations = 800) {
-    const n = history.length;
-    if (n === 0) {
-        return { decayK: 0.07, minWeight: 0.03, scoreClampDelta: maxScore * 0.3, mcSimulations: baseSimulations };
-    }
-
-    const scores = history.map(h => Number(h.score) || 0);
-    const mean = scores.reduce((a, b) => a + b, 0) / n;
-    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
-    const sd = Math.sqrt(Math.max(0, variance));
-    const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
-
-    const coverageFactor = Math.max(0.8, Math.min(1.3, Math.sqrt(10 / Math.max(2, n))));
-    const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor));
-    const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
-    const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));
-    const mcSimulations = Math.round(Math.max(400, Math.min(2500, baseSimulations * (0.8 + cv * 0.7) * coverageFactor)));
-
-    return { decayK, minWeight, scoreClampDelta, mcSimulations };
-}
+// NOTE: deriveCoachAdaptiveParams lives in coachAdaptive.js (canonical version).
+// This file previously had a duplicate with a slightly different signature.
+// Removed to avoid confusion and dead code.

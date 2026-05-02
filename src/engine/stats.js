@@ -96,7 +96,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             if (alpha < retentionFloor) {
                 const currentN = alpha + beta;
                 alpha = retentionFloor;
-                beta = Math.max(0, currentN - retentionFloor); // N constante
+                beta = Math.max(0.5, currentN - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
 
             }
 
@@ -120,7 +120,7 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             if (alpha < retentionFloor) {
                 const currentN = alpha + beta;
                 alpha = retentionFloor;
-                beta = Math.max(0, currentN - retentionFloor); // N constante
+                beta = Math.max(0.5, currentN - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
 
             }
         }
