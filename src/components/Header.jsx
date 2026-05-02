@@ -54,15 +54,10 @@ export default function Header({
     setSidebarCollapsed
 }) {
 
-    const [localName, setLocalName] = useState(user.name || 'Estudante');
-    const [isFocused, setIsFocused] = useState(false);
-    const displayName = isFocused ? localName : (user?.name || 'Estudante');
+    const displayName = user?.name || 'Estudante';
 
-    const handleNameBlur = () => {
-        setIsFocused(false);
-        if (localName !== user.name && onUpdateName) {
-            onUpdateName(localName);
-        }
+    const handleNameChange = (e) => {
+        if (onUpdateName) onUpdateName(e.target.value);
     };
 
 
@@ -96,10 +91,7 @@ export default function Header({
                     <input
                         type="text"
                         value={displayName}
-                        onChange={(e) => setLocalName(e.target.value)}
-                        onFocus={() => { setLocalName(displayName); setIsFocused(true); }}
-                        onBlur={handleNameBlur}
-                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                        onChange={handleNameChange}
                         placeholder="Seu nome..."
                         className="w-full bg-transparent text-lg font-black neon-text placeholder:text-slate-700 focus:outline-none leading-tight"
                     />
@@ -172,10 +164,7 @@ export default function Header({
                             <input
                                 type="text"
                                 value={displayName}
-                                onChange={(e) => setLocalName(e.target.value)}
-                                onFocus={() => { setLocalName(displayName); setIsFocused(true); }}
-                                onBlur={handleNameBlur}
-                                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
                                 className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0 leading-tight min-w-[200px] lg:min-w-[350px]"
                             />
