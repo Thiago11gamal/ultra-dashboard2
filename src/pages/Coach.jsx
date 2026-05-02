@@ -447,7 +447,7 @@ function RaioXDashboard({ data }) {
                             <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between px-4">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-xs font-bold text-white truncate">{displaySubject(op.categoryName || id)}</p>
-                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Brier 7d: {op.avgBrier7d.toFixed(3)}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Calibração 7d (Brier): {op.avgBrier7d.toFixed(3)}</p>
                                 </div>
                                 <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                     {op.degraded ? 'Degradado' : 'Estável'}
@@ -501,8 +501,8 @@ function RaioXDashboard({ data }) {
                             <tr className="border-b border-white/5">
                                 <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
-                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier (erro)</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE (calib.)</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
                             </tr>
@@ -514,7 +514,7 @@ function RaioXDashboard({ data }) {
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
-                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
+                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}% (shrink)</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
                                 </tr>
                             ))}
