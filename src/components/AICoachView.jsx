@@ -68,10 +68,10 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             animate={{ opacity: 1, y: 0 }}
             className={`group relative flex flex-col p-12 rounded-[2.5rem] bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible shadow-2xl`}
         >
-            <div className="relative z-10 flex justify-between items-start mb-8 px-8 pt-7">
-                <div className={`inline-flex items-center gap-2.5 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-xl border border-white/10`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${col.dot} shadow-[0_0_8px_rgba(255,255,255,0.3)]`} />
-                    {displaySubject(subjectPart)}
+            <div className="relative z-10 flex justify-between items-start mb-8 px-10 pt-10">
+                <div className={`inline-flex items-center gap-3 px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge.replace('/10', '/25')} shadow-2xl backdrop-blur-md border border-white/20 ml-2`}>
+                    <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)]`} />
+                    <span className="leading-none">{displaySubject(subjectPart)}</span>
                 </div>
                 <button 
                     onClick={(e) => {

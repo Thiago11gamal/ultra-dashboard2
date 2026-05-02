@@ -53,29 +53,31 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-8 mb-4 rounded-[2rem] transition-all select-none overflow-visible ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/15'}`}>
-                    {!isBacklog && dayColor && <div className={`absolute left-0 top-4 bottom-4 w-[4px] rounded-full bg-gradient-to-b ${dayColor}`} />}
+                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-8 mb-5 rounded-[2.5rem] transition-all select-none overflow-visible ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/15 shadow-lg'}`}>
+                    {!isBacklog && dayColor && <div className={`absolute left-0 top-5 bottom-5 w-[5px] rounded-full bg-gradient-to-b ${dayColor}`} />}
                     
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isBacklog ? 'bg-violet-500/10 text-violet-300' : 'bg-white/5 text-slate-300'} border border-white/5`}>
-                            <div className={`w-1 h-1 rounded-full ${isBacklog ? 'bg-violet-400' : 'bg-slate-500'}`} />
-                            {displaySubject(subject)}
+                    <div className="flex flex-col gap-5">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] ${isBacklog ? 'bg-violet-500/25 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'} border backdrop-blur-sm ml-2`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? 'bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.4)]' : 'bg-slate-400'}`} />
+                                <span className="leading-none">{displaySubject(subject)}</span>
+                            </div>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onStartPomodoro?.(task);
+                                }}
+                                className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg"
+                            >
+                                <Play size={12} fill="currentColor" />
+                            </button>
                         </div>
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onStartPomodoro?.(task);
-                            }}
-                            className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0"
-                        >
-                            <Play size={11} fill="currentColor" />
-                        </button>
-                    </div>
 
-                    <div className="flex items-start gap-2">
-                        <GripVertical size={12} className="text-slate-700 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
-                        <div className="flex-1 min-w-0">
-                            {desc && <p className="text-[10px] text-slate-400 font-medium leading-relaxed whitespace-normal break-words line-clamp-3">{desc}</p>}
+                        <div className="flex items-start gap-3 px-2">
+                            <GripVertical size={14} className="text-slate-700 mt-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
+                            <div className="flex-1 min-w-0">
+                                {desc && <p className="text-[11px] text-slate-400 font-medium leading-relaxed whitespace-normal break-words line-clamp-3">{desc}</p>}
+                            </div>
                         </div>
                     </div>
                 </div>
