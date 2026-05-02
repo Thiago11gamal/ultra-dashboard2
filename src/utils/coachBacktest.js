@@ -29,11 +29,15 @@ export function computeCalibratedError(probability, actual) {
   return Math.abs(p - y);
 }
 
-export function compareStrategyRuns(runA = [], runB = [], metrics = ['ndcg']) {
+export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
   const results = { delta: {}, winner: null };
   if (metrics.includes('ndcg')) {
-    const ndcgA = computeNDCGAtK(runA.predicted, runA.actual, 5);
-    const ndcgB = computeNDCGAtK(runB.predicted, runB.actual, 5);
+    const predictedA = Array.isArray(runA.predicted) ? runA.predicted : [];
+    const actualA = Array.isArray(runA.actual) ? runA.actual : [];
+    const predictedB = Array.isArray(runB.predicted) ? runB.predicted : [];
+    const actualB = Array.isArray(runB.actual) ? runB.actual : [];
+    const ndcgA = computeNDCGAtK(predictedA, actualA, 5);
+    const ndcgB = computeNDCGAtK(predictedB, actualB, 5);
     results.delta.ndcg = ndcgB - ndcgA;
     results.winner = ndcgB > ndcgA ? 'B' : 'A';
   }
