@@ -154,7 +154,7 @@ export default function Coach() {
             const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             const now = Date.now();
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                showToast(`⚠️ Calibração crítica em ${metric.categoryName || 'categoria'} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
+                showToast(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
                 if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
                     const oldestKey = calibrationAlertCache.keys().next().value;
