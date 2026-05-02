@@ -66,7 +66,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
         );
     }
 
-    const CustomTooltip = ({ active, payload }) => {
+    const renderCustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
             const dataPoint = payload[0].payload;
             const fullDate = dataPoint.fullDate;
@@ -182,7 +182,7 @@ export const MonteCarloEvolutionChart = ({ data = [], targetScore = 75, unit = '
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}
                             />
                             <Tooltip
-                                content={<CustomTooltip />}
+                                content={renderCustomTooltip}
                                 cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
                             />
 
