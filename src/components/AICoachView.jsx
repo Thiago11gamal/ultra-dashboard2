@@ -68,9 +68,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             animate={{ opacity: 1, y: 0 }}
             className={`group relative flex flex-col p-12 rounded-[2.5rem] bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible shadow-2xl`}
         >
-            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-8 px-10 pt-10">
+            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-8 px-10 pt-12">
                 <div className="flex flex-col items-start gap-2 min-w-0">
-                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge.replace('/25', '/30')} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
+                    <div className={`inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge.replace('/25', '/35')} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
                         <div className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                         <span className="leading-tight whitespace-normal break-words">{displaySubject(subjectPart)}</span>
                     </div>
@@ -80,23 +80,23 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         e.stopPropagation();
                         onStartPomodoro?.(task);
                     }}
-                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
+                    className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
                 >
-                    <Play size={14} fill="currentColor" />
+                    <Play size={16} fill="currentColor" />
                 </button>
             </div>
-            <div className="relative z-10 flex-1 mb-8 px-6">
-                <h3 className="text-xl font-black text-white leading-tight mb-3 tracking-tighter">
+            <div className="relative z-10 flex-1 mb-10 px-8">
+                <h3 className="text-2xl font-black text-white leading-tight mb-4 tracking-tighter">
                     {displayAssunto}
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
+                <p className="text-[13px] text-slate-400 leading-relaxed font-medium">{displayMeta}</p>
             </div>
             {task.analysis && (
-                <div className="relative z-10 mt-auto pt-4 px-6 border-t border-white/[0.06]">
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none">
-                        <span className="inline-flex h-4 w-4 items-center justify-center shrink-0"><BrainCircuit size={13} className="text-violet-500" /></span>
+                <div className="relative z-10 mt-auto pt-6 px-8 border-t border-white/[0.06]">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-3 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors py-2 leading-none">
+                        <span className="inline-flex h-5 w-5 items-center justify-center shrink-0 bg-violet-500/10 rounded-lg border border-violet-500/20"><BrainCircuit size={14} className="text-violet-400" /></span>
                         <span>Detalhes do Coach</span>
-                        <span className={`inline-flex h-4 w-4 items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></span>
+                        <span className={`inline-flex h-5 w-5 items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={14} /></span>
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
@@ -106,23 +106,26 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                 exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                             >
-                                <div className="pt-4 space-y-3">
-                                    <p className="text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/5 font-medium">{task.analysis.reason}</p>
-                                    {task.analysis.metrics && (
-                                        <div className="flex flex-wrap gap-2 pt-1">
-                                            {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                                <div key={key} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-xl flex items-center gap-2">
-                                                    <span className="text-[9px] text-slate-600 uppercase tracking-widest font-black">{key}</span>
-                                                    <span className="text-[11px] font-mono text-slate-300 font-bold">{value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="pt-6 space-y-5 pb-4">
+                                    <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 shadow-inner">
+                                        <p className="text-[12px] text-slate-300 leading-relaxed font-medium italic opacity-90 mb-4">"{task.analysis.reason}"</p>
+                                        {task.analysis.metrics && (
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                {Object.entries(task.analysis.metrics).map(([key, value]) => (
+                                                    <div key={key} className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex flex-col gap-1 hover:bg-white/[0.04] transition-colors">
+                                                        <span className="text-[9px] text-slate-500 uppercase tracking-[0.1em] font-black">{key}</span>
+                                                        <span className="text-[12px] font-mono text-slate-200 font-bold">{value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                     {task.analysis.monteCarlo?.calibrationPenalty > 0 && (
-                                        <div className="mt-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
-                                            <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
-                                            <p className="text-[10px] text-amber-300/90 leading-relaxed">
-                                                <span className="font-black text-amber-400 uppercase tracking-tighter">Ajuste de Calibração:</span> Probabilidade ajustada em <span className="font-black">-{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span> devido à instabilidade nos simulados.
+                                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-4 shadow-lg shadow-amber-900/5">
+                                            <Zap size={16} className="text-amber-400 mt-0.5 shrink-0" />
+                                            <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                                                <span className="font-black text-amber-400 uppercase tracking-tighter mr-2">Ajuste de Calibração:</span> 
+                                                Probabilidade ajustada em <span className="font-black">-{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span> devido à instabilidade nos simulados.
                                             </p>
                                         </div>
                                     )}
