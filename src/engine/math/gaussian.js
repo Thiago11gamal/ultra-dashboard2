@@ -98,7 +98,9 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // CORREÇÃO: Cálculo dinâmico do bandwidth sem o limite rígido de 1.0.
     // Isso evita que escalas maiores (ex: 0-1000) colapsem a resolução do KDE.
-    const bandwidth = Math.max(0.001, h, binWidth, projectedSD * 0.15);
+    const finiteH = Number.isFinite(h) && h > 0 ? h : 0;
+    const finiteProjectedSD = Number.isFinite(projectedSD) && projectedSD > 0 ? projectedSD : 0;
+    const bandwidth = Math.max(0.001, finiteH, binWidth, finiteProjectedSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);
 
     for (let i = 0; i < safeSimulations; i++) {
@@ -196,7 +198,9 @@ export function inverseNormalCDF(p) {
 export function sampleTruncatedNormal(mean, sd, min, max, rng) {
     // 1. NOVA PROTEÇÃO: Rejeitar dados não finitos para evitar corrupção do Monte Carlo
     if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
-        return 0;
+        const lo = Number.isFinite(min) ? min : 0;
+        const hi = Number.isFinite(max) ? max : lo;
+        return Math.max(lo, Math.min(hi, (lo + hi) / 2));
     }
 
     // 2. NOVA PROTEÇÃO: Swap se min for maior que max
