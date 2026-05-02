@@ -11,7 +11,7 @@ import {
     List,
     ChevronDown
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection';

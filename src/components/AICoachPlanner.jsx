@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
