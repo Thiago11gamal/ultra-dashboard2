@@ -375,36 +375,54 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
 function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked, onToggleLock }) {
     const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
+    
+    // 🛠️ Utilitário para limpar o texto da tarefa (remove colchetes e emojis)
+    const cleanText = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\[.*?\]/g, '') // Remove [qualquer coisa]
+            .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '') // Remove emojis
+            .replace(/\s{2,}/g, ' ') // Remove espaços duplicados
+            .trim();
+    };
+
     return (
-        <div className="w-full mb-4 rounded-2xl border border-white/10 bg-[#0b1020]/85 backdrop-blur-xl p-4 sm:p-5 shadow-2xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div className="w-full mb-6 rounded-3xl border border-white/10 bg-[#0a0f1d]/40 backdrop-blur-3xl p-4 sm:p-6 shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-transparent opacity-50 pointer-events-none" />
             
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 relative z-10">
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-300/80">Pomodoro Neural</p>
-                    <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Foco profundo em execução</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                        <div className="text-xl font-black text-indigo-400">{activeSubject ? 'F' : '⚡'}</div>
+                    </div>
+                    
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400">{activeSubject?.category || 'SISTEMA'}</span>
+                            <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                        </div>
+                        <h1 className="text-lg sm:text-xl font-black text-white tracking-tight truncate leading-tight">
+                            {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
+                        </h1>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
+                
+                <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex flex-col items-end gap-1">
+                        <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+                            {neuralMode ? 'Neural' : 'Manual'}
+                        </span>
+                        {neuralMode && queueRemaining > 0 && (
+                            <span className="text-[8px] font-bold text-amber-400/60 uppercase tracking-widest">Fila: +{queueRemaining}</span>
+                        )}
+                    </div>
+                    
                     <button 
                         onClick={onToggleLock}
-                        className={`p-2 rounded-xl border transition-all ${isLayoutLocked ? 'bg-white/5 border-white/10 text-slate-500 hover:text-white' : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_15px_rgba(129,140,248,0.2)]'}`}
-                        title={isLayoutLocked ? "Desbloquear Layout" : "Bloquear Layout"}
+                        className={`p-2.5 rounded-xl border transition-all ${isLayoutLocked ? 'bg-white/5 border-white/10 text-slate-500 hover:text-white' : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_15px_rgba(129,140,248,0.2)]'}`}
                     >
                         {isLayoutLocked ? <Lock size={16} /> : <Unlock size={16} />}
                     </button>
-                    <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">{neuralMode ? 'Modo Neural' : 'Modo Manual'}</span>
-                    {neuralMode && queueRemaining > 0 && (
-                        <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-400/30 bg-amber-500/10 text-amber-300">Fila: {queueRemaining}</span>
-                    )}
-                </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-3 min-w-0 relative z-10">
-                <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                    <div className="text-sm font-black text-indigo-400">{activeSubject ? 'F' : '⚡'}</div>
-                </div>
-                <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tarefa ativa</p>
-                    <p className="text-sm font-black text-slate-200 truncate">{activeSubject?.task || 'Selecione uma tarefa para iniciar foco.'}</p>
                 </div>
             </div>
         </div>
