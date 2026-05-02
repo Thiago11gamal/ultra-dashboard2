@@ -24,6 +24,33 @@ import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
+import { normalize } from '../utils/normalization';
+
+const displaySubject = (name) => {
+    if (!name) return '';
+    const map = {
+        'matematica': 'Matemática',
+        'portugues': 'Português',
+        'lingua portuguesa': 'Português',
+        'ingles': 'Inglês',
+        'ciencias': 'Ciências',
+        'historia': 'História',
+        'geografia': 'Geografia',
+        'biologia': 'Biologia',
+        'fisica': 'Física',
+        'quimica': 'Química',
+        'filosofia': 'Filosofia',
+        'sociologia': 'Sociologia',
+        'literatura': 'Literatura',
+        'redacao': 'Redação',
+        'informatica': 'Informática',
+        'raciocinio logico': 'Raciocínio Lógico',
+        'direito constitucional': 'Dir. Constitucional',
+        'direito administrativo': 'Dir. Administrativo'
+    };
+    const norm = normalize(name);
+    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
+};
 
 const calibrationAlertCache = new Map();
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
@@ -416,10 +443,10 @@ function RaioXDashboard({ data, _isPremium }) {
                     </h3>
                     <div className="space-y-3">
                         {Object.entries(ops).map(([id, op]) => (
-                            <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
+                            <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between px-4">
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-bold text-white truncate">{op.categoryName || id}</p>
-                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Brier 7d: {op.avgBrier7d.toFixed(3)}</p>
+                                    <p className="text-xs font-bold text-white truncate">{displaySubject(op.categoryName || id)}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Brier 7d: {op.avgBrier7d.toFixed(3)}</p>
                                 </div>
                                 <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                     {op.degraded ? 'Degradado' : 'Estável'}
@@ -471,21 +498,21 @@ function RaioXDashboard({ data, _isPremium }) {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-white/5">
-                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Data</th>
-                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Categoria</th>
-                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Brier</th>
-                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Ajuste</th>
-                                <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Prob Final</th>
+                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
                                 <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleTimeString()}</td>
-                                    <td className="py-3 text-[10px] text-white font-bold">{log.categoryName}</td>
-                                    <td className={`py-3 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
-                                    <td className="py-3 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
-                                    <td className="py-3 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                    <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
+                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
+                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
+                                    <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
                                 </tr>
                             ))}
                         </tbody>

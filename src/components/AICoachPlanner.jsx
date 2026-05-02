@@ -52,9 +52,9 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-2.5 mb-2 rounded-xl transition-all select-none ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/10'}`}>
+                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-3 mb-2 rounded-xl transition-all select-none ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/10'}`}>
                     {!isBacklog && dayColor && <div className={`absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b ${dayColor}`} />}
-                    <div className="flex items-start gap-1.5 pl-1">
+                    <div className="flex items-start gap-2 pl-3">
                         <GripVertical size={12} className="text-slate-700 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
                         <div className="flex-1 min-w-0 pr-1">
                             <h4 className="text-[10px] font-black tracking-tight text-slate-200 uppercase leading-tight mb-1 whitespace-normal break-words">

@@ -75,11 +75,11 @@ function MetricChip({ label, value, index }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05, duration: 0.4 }}
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 transition-all cursor-default relative overflow-hidden group/chip"
+            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-5 transition-all cursor-default relative overflow-hidden group/chip"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate pl-1">{value}</span>
         </motion.div>
     );
 }
@@ -172,25 +172,25 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <motion.div
                                 animate={{ opacity: [1, 0.6, 1] }}
                                 transition={{ duration: 1.5, repeat: Infinity }}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest"
+                                className="flex items-center gap-2 px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest"
                             >
                                 <AlertTriangle size={12} />
-                                CRITICAL ×{urgency.crunchMultiplier}
+                                <span className="pl-1.5">CRITICAL ×{urgency.crunchMultiplier}</span>
                             </motion.div>
                         )}
                         {isDegraded && (
                              <motion.div
                                 animate={{ opacity: [1, 0.7, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                                className="flex items-center gap-2 px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)]"
                              >
                                 <Database size={12} className="text-rose-400" />
-                                CALIBRAÇÃO DEGRADADA
+                                <span className="pl-1.5">CALIBRAÇÃO DEGRADADA</span>
                              </motion.div>
                         )}
-                        <div className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20`}>
+                        <div className={`flex items-center gap-2 px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20`}>
                             <TierIcon size={12} />
-                            {tier}
+                            <span className="pl-1.5">{tier}</span>
                         </div>
                     </div>
                 </div>
@@ -311,7 +311,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             bg-gradient-to-r ${cfg.bar} text-white shadow-2xl shadow-black/40
                             hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]
                             disabled:opacity-40 disabled:cursor-not-allowed
-                            flex items-center justify-center gap-4`}
+                            flex items-center justify-center gap-6`}
                     >
                         {/* Shimmer Effect */}
                         <motion.div
