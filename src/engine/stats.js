@@ -1,4 +1,4 @@
-export const SYNTHETIC_TOTAL_QUESTIONS = 100;
+
 export const BAYESIAN_DECAY_FACTOR = 0.985;
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 // BUG-08 FIX: Importar calculateSlope para consistência com Monte Carlo
@@ -84,20 +84,19 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // Em vez de decair alpha e beta independentemente para alpha0/beta0,
             // reduzimos o "peso" (n) da evidência mantendo a proporção de acertos.
             if (entryDecay < 1.0) {
-                const currentN = alpha + beta;
-                const currentP = alpha / currentN;
-                const newN = Math.max(2, currentN * entryDecay); // Mínimo de n=2 (Laplace)
-                alpha = newN * currentP;
-                beta = newN * (1 - currentP);
+                const nBeforeDecay = alpha + beta;
+                const currentP = alpha / nBeforeDecay;
+                const nAfterDecay = Math.max(2, nBeforeDecay * entryDecay); // Mínimo de n=2 (Laplace)
+                alpha = nAfterDecay * currentP;
+                beta = nAfterDecay * (1 - currentP);
             }
 
             // AMNÉSIA BAYESIANA: Piso de retenção permanente (30% do maior alpha alcançado)
             const retentionFloor = maxAlphaEver * 0.3;
             if (alpha < retentionFloor) {
-                const currentN = alpha + beta;
+                const nBeforeRetention = alpha + beta;
                 alpha = retentionFloor;
-                beta = Math.max(0.5, currentN - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
-
+                beta = Math.max(0.5, nBeforeRetention - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
             }
 
             alpha += acertosHoje;
@@ -110,18 +109,17 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
             const finalDecay = Math.pow(BAYESIAN_DECAY_FACTOR, gapToToday);
-            const currentN = alpha + beta;
-            const currentP = alpha / currentN;
-            const newN = Math.max(2, currentN * finalDecay);
-            alpha = newN * currentP;
-            beta = newN * (1 - currentP);
+            const nBeforeDecay = alpha + beta;
+            const currentP = alpha / nBeforeDecay;
+            const nAfterDecay = Math.max(2, nBeforeDecay * finalDecay);
+            alpha = nAfterDecay * currentP;
+            beta = nAfterDecay * (1 - currentP);
 
             const retentionFloor = maxAlphaEver * 0.3;
             if (alpha < retentionFloor) {
-                const currentN = alpha + beta;
+                // nAfterDecay já contém alpha + beta atualizado
                 alpha = retentionFloor;
-                beta = Math.max(0.5, currentN - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
-
+                beta = Math.max(0.5, nAfterDecay - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
             }
         }
     }

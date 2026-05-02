@@ -190,6 +190,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const subjectNames = categoryStats.map(cat => cat.name);
         const estimatedRho = estimateInterSubjectCorrelation(scoreRows, subjectNames);
 
+        // 🎯 INTENTIONAL: pooledSD (for global MC projection) uses MSSD volatility,
+        // while pooledBayesianVar (for Bayesian CI) uses the posterior SD.
         const pooledVariance = computeWeightedVariance(categoryStats.map(cat => ({ sd: cat.volatility, weight: cat.weight })), totalWeight, estimatedRho);
         const pooledSD = totalWeight > 0 ? Math.sqrt(pooledVariance) : 0;
 
@@ -363,6 +365,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     ? Math.max(minScore, Math.min(maxScore, currentBaseline + totalTrendProjection))
                     : currentBaseline;
 
+                // 🎯 predictive variance: bayesianSd includes both epistemic and aleatoric variance.
                 const result = simulateNormalDistribution({
                     mean: baseline,
                     sd: cat.bayesianSd ?? cat.sd,
