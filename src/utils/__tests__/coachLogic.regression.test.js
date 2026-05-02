@@ -4,19 +4,13 @@ import {
   deriveAdaptiveRiskThresholds,
   computeContinuousMcBoost,
   deriveBacktestWeights,
-} from '../coachAdaptive.js';
-import { DEFAULT_CONFIG } from '../coachLogic.js';
+  DEFAULT_CONFIG,
+} from '../coachLogic.js';
 import { computeCalibrationDiagnostics } from '../calibration.js';
 
 function makeSimulados(scores) {
   const now = Date.now();
-  return scores.map((score, idx) => ({ 
-    score, 
-    subject: 'Matemática', 
-    date: new Date(now - (scores.length - idx) * 86400000).toISOString().slice(0, 10), 
-    total: 10, 
-    correct: Math.round((score / 100) * 10) 
-  }));
+  return scores.map((score, idx) => ({ score, subject: 'Matemática', date: new Date(now - (scores.length - idx) * 86400000).toISOString().slice(0, 10), total: 10, correct: Math.round((score / 100) * 10) }));
 }
 
 describe('Coach math regressions — low sample MC safeguards', () => {

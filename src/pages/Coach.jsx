@@ -64,8 +64,8 @@ export default function Coach() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     
-    const history = useMemo(() => data?.simuladoRows || [], [data?.simuladoRows]);
-    const simulados = useMemo(() => data?.simulados || [], [data?.simulados]);
+    const history = useMemo(() => data?.simuladoRows ?? [], [data]);
+    const simulados = useMemo(() => data?.simulados ?? [], [data]);
     const categories = data?.categories || [];
     const userProfile = data?.user;
     

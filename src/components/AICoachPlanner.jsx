@@ -68,18 +68,12 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                                     onStartPomodoro?.(task);
                                 }}
                                 className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg"
-                            >
-                                <Play size={14} fill="currentColor" />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-[20px_1fr] gap-4 px-4">
-                            <GripVertical size={16} className="text-slate-700 mt-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" />
-                            <div className="min-w-0">
-                                {desc && <p className="text-[11px] text-slate-400 font-medium leading-relaxed whitespace-normal break-words line-clamp-3">{desc}</p>}
-                            </div>
-                        </div>
-                    </div>
+                    <button 
+                        onClick={() => onStartPomodoro(task)}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-emerald-500/20 border border-white/5 hover:border-emerald-500/30 flex items-center justify-center transition-all group/btn"
+                    >
+                        <Play size={10} className="text-slate-400 group-hover/btn:text-emerald-400 fill-current" />
+                    </button>
                 </div>
             )}
         </Draggable>
@@ -106,14 +100,13 @@ export default function AICoachPlanner() {
     }, [coachPlan, coachPlanner]);
 
     const [columns, setColumns] = useState(() => getInitialColumns());
-    const [prevStoreHash, setPrevStoreHash] = useState(() => JSON.stringify({ coachPlan, coachPlanner }));
+    const currentHash = useMemo(() => JSON.stringify({ coachPlan, coachPlanner }), [coachPlan, coachPlanner]);
 
-    // Sync columns during render (React optimization for state-from-props sync)
-    const currentHash = JSON.stringify({ coachPlan, coachPlanner });
-    if (currentHash !== prevStoreHash && !isDragging) {
-        setPrevStoreHash(currentHash);
-        setColumns(getInitialColumns());
-    }
+    useEffect(() => {
+        if (!isDragging) {
+            queueMicrotask(() => setColumns(getInitialColumns()));
+        }
+    }, [currentHash, isDragging, getInitialColumns]);
 
     const onDragEnd = (result) => {
         if (!result.destination) { setIsDragging(false); return; }
@@ -139,17 +132,16 @@ export default function AICoachPlanner() {
             const assignedIds = new Set();
             Object.entries(updatedPlanner).forEach(([key, dayTasks]) => { if (key !== 'backlog') dayTasks.forEach(t => { const sid = getSafeId(t); if (sid) assignedIds.add(sid); }); });
             const backlogIds = new Set(finishList.map(f => getSafeId(f)));
-            const otherTasks = (coachPlan || []).filter(t => { const sid = getSafeId(t); return !assignedIds.has(sid) && !backlogIds.has(sid); });
-            setData(prev => ({ ...prev, coachPlan: [...finishList, ...otherTasks] }));
+            const newCoachPlan = (coachPlan || []).filter(t => { const sid = getSafeId(t); return !assignedIds.has(sid) || backlogIds.has(sid); });
+            setData(prev => ({ ...prev, coachPlan: newCoachPlan }));
         }
-        setTimeout(() => setIsDragging(false), 50);
+        setIsDragging(false);
     };
 
-    const handleStartTask = (task, columnId) => {
-        const tasksInColumn = columns[columnId] || [];
-        const taskIndex = tasksInColumn.findIndex(t => getSafeId(t) === getSafeId(task));
-        if (taskIndex !== -1) {
-            startNeuralSession(tasksInColumn, taskIndex);
+    const handleStartTask = (task, fromId) => {
+        if (!task) return;
+        if (fromId !== 'backlog') {
+            startNeuralSession([task], 0);
             navigate('/pomodoro');
         } else {
             startNeuralSession([task], 0);
@@ -176,9 +168,7 @@ export default function AICoachPlanner() {
                                     className={`flex-1 flex flex-col gap-3 rounded-xl p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}
                                 >
                                     {snapshot.isDraggingOver && (
-                                        <motion.div 
-                                            initial={{ opacity: 0 }} 
-                                            animate={{ opacity: 1 }} 
+                                        <div 
                                             className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
                                         />
                                     )}
@@ -220,9 +210,7 @@ export default function AICoachPlanner() {
                                                     className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
                                                 >
                                                     {snapshot.isDraggingOver && (
-                                                        <motion.div 
-                                                            initial={{ opacity: 0, scale: 0.95 }} 
-                                                            animate={{ opacity: 1, scale: 1 }} 
+                                                        <div 
                                                             className={`absolute inset-0 bg-gradient-to-br ${day.gradient} opacity-[0.07] pointer-events-none`} 
                                                         />
                                                     )}
