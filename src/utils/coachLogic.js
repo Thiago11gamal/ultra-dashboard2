@@ -234,8 +234,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const calibrationHistory = options.calibrationHistoryByCategory?.[category.id] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
-        maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY
+        maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
+        windowDays: 60,
+        minSamples: 4,
+        maxSamples: 20
     });
+
 
     const rawMaxScore = Number(options.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;

@@ -6,12 +6,14 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
         <button
             type="button"
             onClick={onClick}
+            disabled={disabled}
             role="tab"
             aria-selected={active}
             aria-controls={panelId}
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
+
             className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 to-violet-600 border-white/20 text-white shadow-xl shadow-indigo-900/40 ring-1 ring-white/20'

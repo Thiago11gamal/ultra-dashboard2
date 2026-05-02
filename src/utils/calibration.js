@@ -27,14 +27,24 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
 export function computeRollingCalibrationParams(history = [], defaults = {}) {
     const fallbackBaseline = Number.isFinite(defaults.baseline) ? defaults.baseline : 0.18;
     const fallbackCap = Number.isFinite(defaults.maxPenalty) ? defaults.maxPenalty : 0.25;
+    const nowTs = Number.isFinite(defaults.nowTs) ? defaults.nowTs : Date.now();
+    const windowDays = Number.isFinite(defaults.windowDays) ? defaults.windowDays : 60;
+    const minSamples = Number.isFinite(defaults.minSamples) ? defaults.minSamples : 4;
+    const maxSamples = Number.isFinite(defaults.maxSamples) ? defaults.maxSamples : 20;
+
     if (!Array.isArray(history) || history.length === 0) {
         return { baseline: fallbackBaseline, maxPenalty: fallbackCap };
     }
 
-    const trimmed = history
+    const windowStart = nowTs - windowDays * 24 * 60 * 60 * 1000;
+    const withinWindow = history.filter(h => Number(h?.timestamp || 0) >= windowStart);
+    const source = withinWindow.length >= minSamples ? withinWindow : history;
+
+    const trimmed = source
+        .slice(-maxSamples)
         .map(h => Number(h?.avgBrier))
         .filter(v => Number.isFinite(v))
-        .slice(-20);
+        .slice(-maxSamples);
 
     if (trimmed.length === 0) return { baseline: fallbackBaseline, maxPenalty: fallbackCap };
 
@@ -46,6 +56,7 @@ export function computeRollingCalibrationParams(history = [], defaults = {}) {
     const maxPenalty = Math.max(0.12, Math.min(0.4, fallbackCap + sd * 0.5));
     return { baseline, maxPenalty };
 }
+
 
 // Governance Playbook Constants
 export const CRITICAL_BRIER_THRESHOLD = 0.28;
