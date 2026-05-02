@@ -308,7 +308,7 @@ export default function Coach() {
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
                             >
-                                {activeTab === 'insights' || !isPremium ? (
+                                {activeTab === 'insights' ? (
                                     <AICoachView 
                                         suggestedFocus={suggestedFocus}
                                         onGenerateGoals={handleGenerateGoals}

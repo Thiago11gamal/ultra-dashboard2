@@ -35,7 +35,7 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
 }
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
-    const availableTabs = ['insights', ...(isPremium ? ['analytics'] : [])];
+    const availableTabs = ['insights', 'analytics']; // Analytics is now always available as a sample
 
     const focusTab = (tabKey) => {
         if (typeof document === 'undefined') return;
@@ -84,7 +84,6 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
     const handleActivateInsights = () => activateTab('insights');
     const handleActivateAnalytics = () => {
-        if (!isPremium) return;
         activateTab('analytics');
     };
 
@@ -113,14 +112,13 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                         panelId="coach-panel-insights"
                     />
                     <MenuTab
-                        active={activeTab === 'analytics' && isPremium}
+                        active={activeTab === 'analytics'}
                         onClick={handleActivateAnalytics}
                         icon={BarChart3}
                         label="Raio-X Técnico"
-                        subtitle={isPremium ? "Telemetria e auditoria" : "Disponível no Premium"}
+                        subtitle={isPremium ? "Telemetria e auditoria" : "Amostra Técnica"}
                         tabId="coach-tab-analytics"
                         panelId="coach-panel-analytics"
-                        disabled={!isPremium}
                     />
                 </div>
             </div>
