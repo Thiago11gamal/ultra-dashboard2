@@ -23,11 +23,19 @@ export const DEFAULT_CONFIG = {
     MC_VOLATILITY_HIGH: 8,
     INSTABILITY_MSSD_DIVISOR: 10,
     MC_BACKTEST_HORIZON: 3,
+    MC_BACKTEST_HORIZON_MAX: 6,
     MC_CALIBRATION_BRIER_BASELINE: 0.18,
     MC_CALIBRATION_MAX_PENALTY: 0.25,
     MC_CALIBRATION_NEUTRAL_PCT: 50,
     MC_CALIBRATION_MAX_APPLIED_PENALTY: 0.5,
     MC_ENABLE_ADAPTIVE_CALIBRATION: true,
+    MC_CALIB_WINDOW_DAYS: 60,
+    MC_CALIB_MIN_SAMPLES: 4,
+    MC_CALIB_MAX_SAMPLES: 20,
+    MC_ECE_BINS_MIN: 4,
+    MC_ECE_BINS_MID: 6,
+    MC_ECE_BINS_MAX: 8,
+    MC_LOW_SAMPLE_THRESHOLD: 10,
 
     // ── A) Constantes do urgency boost nomeadas ──────────────────────────────
     // Antes: mcUrgencyBoost = 12 + 13 * (1 - p/MC_PROB_DANGER)
@@ -227,8 +235,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DE
 export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90) {
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
-
-    const lowSampleThreshold = Math.max(10, cfg.MC_MIN_DATA_POINTS + 2);
+    const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, cfg.MC_MIN_DATA_POINTS + 2);
     const isLowSample = history.length < lowSampleThreshold;
 
     const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
@@ -266,7 +273,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         if (enableAdaptiveCalibration && history.length >= 8) {
             const dynamicHorizon = Math.max(
                 cfg.MC_BACKTEST_HORIZON || 3,
-                Math.min(6, Math.floor(history.length / 3))
+                Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 6, Math.floor(history.length / 3))
             );
             const horizon = Math.min(dynamicHorizon, history.length - cfg.MC_MIN_DATA_POINTS);
             const brierScores = [];
@@ -296,7 +303,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
-                const adaptiveBins = predObsPairs.length >= 18 ? 8 : predObsPairs.length >= 10 ? 6 : 4;
+                const adaptiveBins = predObsPairs.length >= 18
+                    ? (Number(cfg.MC_ECE_BINS_MAX) || 8)
+                    : predObsPairs.length >= 10
+                        ? (Number(cfg.MC_ECE_BINS_MID) || 6)
+                        : (Number(cfg.MC_ECE_BINS_MIN) || 4);
                 const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: adaptiveBins });
                 ece = diagnostics.ece;
                 reliability = diagnostics.reliability;
@@ -367,9 +378,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
-        windowDays: 60,
-        minSamples: 4,
-        maxSamples: 20
+        windowDays: cfg.MC_CALIB_WINDOW_DAYS,
+        minSamples: cfg.MC_CALIB_MIN_SAMPLES,
+        maxSamples: cfg.MC_CALIB_MAX_SAMPLES
     });
 
 
