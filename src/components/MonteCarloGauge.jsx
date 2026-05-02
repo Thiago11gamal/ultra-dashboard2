@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Gauge, TrendingUp, TrendingDown, Minus, Settings2, ChevronDown, History, FileText, Loader2, Zap } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
@@ -25,8 +25,8 @@ export default function MonteCarloGauge({
     maxScore = 100,
     syncShowSubjects,
     onSyncShowSubjects,
+    simulateToday = false,
 }) {
-    const [simulateToday, setSimulateToday] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
     const [timeIndex, setTimeIndex] = useState(-1);
@@ -52,12 +52,7 @@ export default function MonteCarloGauge({
         return Array.from(dates).sort((a, b) => new Date(a) - new Date(b));
     }, [categories]);
 
-    useEffect(() => {
-        if (timeIndex >= timelineDates.length) {
-            setTimeIndex(-1);
-        }
-    }, [timelineDates.length, timeIndex]);
-
+    const clampedTimeIndex = timeIndex >= timelineDates.length ? -1 : timeIndex;
     const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
 
     // --- HOOK DE LÓGICA ESTATÍSTICA ---
@@ -65,7 +60,7 @@ export default function MonteCarloGauge({
         categories,
         goalDate,
         targetScore,
-        timeIndex,
+        timeIndex: clampedTimeIndex,
         timelineDates,
         minScore,
         maxScore,
@@ -84,12 +79,8 @@ export default function MonteCarloGauge({
         sdRight,
         ci95Low,
         ci95High,
-        saturation,
-        projectionConfidence,
         pAdjusted,
-        pTrend,
         probability,
-        debouncedTarget,
         equalWeightsMode,
         setEqualWeightsMode,
         setWeights
@@ -145,7 +136,7 @@ export default function MonteCarloGauge({
     };
 
     const gradientColor = getGradientColor(prob);
-    const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+    const isTimeTraveling = clampedTimeIndex >= 0 && clampedTimeIndex < timelineDates.length - 1;
 
     let baseMessage = "RISCO DE QUEDA";
     if (prob > 95) baseMessage = "DOMÍNIO ESTRATÉGICO";
@@ -286,14 +277,14 @@ export default function MonteCarloGauge({
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
                         <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                            {timeIndex === -1 ? 'Hoje' : new Date(timelineDates[timeIndex] + 'T12:00:00').toLocaleDateString()}
+                            {clampedTimeIndex === -1 ? 'Hoje' : new Date(timelineDates[clampedTimeIndex] + 'T12:00:00').toLocaleDateString()}
                         </span>
                     </div>
                     <input
                         type="range"
                         min="0"
                         max={timelineDates.length - 1}
-                        value={timeIndex === -1 ? timelineDates.length - 1 : timeIndex}
+                        value={clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex}
                         onChange={(e) => {
                             const val = Number(e.target.value);
                             setTimeIndex(val === timelineDates.length - 1 ? -1 : val);
@@ -301,7 +292,7 @@ export default function MonteCarloGauge({
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
                             // BUG-06 FIX: Guard division by zero (defensive, outer guard already prevents length <= 1)
-                            background: `linear-gradient(to right, #6366f1 ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
+                            background: `linear-gradient(to right, #6366f1 ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((clampedTimeIndex === -1 ? timelineDates.length - 1 : clampedTimeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
                             touchAction: 'none'
                         }}
                     />
