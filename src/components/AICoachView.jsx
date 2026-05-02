@@ -9,8 +9,6 @@ import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
 import { normalize } from '../utils/normalization';
 
-const NOW_FOR_CALIBRATION = Date.now();
-
 const displaySubject = (name) => {
     if (!name) return '';
     const map = {
@@ -355,7 +353,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     {hasPlan ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {coachPlan.map((task, idx) => (
-                                <AICoachCard key={getSafeId(task)} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
                             ))}
                         </div>
                     ) : (
