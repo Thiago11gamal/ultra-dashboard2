@@ -3,7 +3,7 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
-import { mulberry32, randomNormal, makeNormalRng } from './random.js';
+import { mulberry32, makeNormalRng } from './random.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { logger } from '../utils/logger.js';
@@ -106,7 +106,6 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     const rawN = data.length;
     const safeDOF = Math.max(0.5, Math.min(effectiveN, rawN) - 2);
     const variance = Math.max(0, (wrss / sumW) * (effectiveN / Math.max(0.01, safeDOF)));
-    const stdError = Math.sqrt(variance);
 
     const Sxx_centered = Sxx - (Sx * Sx) / Sw;
 
@@ -180,7 +179,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return 0;
 
-    const { slope: rawSlope, slopeStdError } = sortedHistory.length >= 2
+    const { slopeStdError } = sortedHistory.length >= 2
         ? weightedRegression(sortedHistory, 0.08, maxScore)
         : { slope: 0, slopeStdError: 0 };
 
@@ -207,9 +206,6 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // The previous formula used `sortedHistory.length` as the denominator for a binomial proportion,
     // which dimensionally confused "Number of Tests" with "Number of Questions".
     const empiricalSD = calculateVolatility(sortedHistory, maxScore, minScore);
-    const n_tilde = sortedHistory.length;
-    // Standard error of the mean = SD / sqrt(N)
-    const effectiveSd = empiricalSD / Math.sqrt(Math.max(1, n_tilde));
 
     // A incerteza do dia da prova = Incerteza angular da reta + Volatilidade natural (SD)
     // BUGFIX GEMINI: O rigor matemático provém do slopeStdError * effectiveDays (amortecido), 

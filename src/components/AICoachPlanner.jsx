@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
     let subject = parts.length > 1 ? parts[0] : fullText;
-    let desc    = parts.length > 1 ? parts.slice(1).join(':').trim() : (isBacklog ? 'Revisão Geral' : '');
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
 
     return (

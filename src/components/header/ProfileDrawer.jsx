@@ -5,7 +5,7 @@ import ConfirmModal from '../ConfirmModal';
 /**
  * ProfileDrawer component for mobile navigation and settings.
  */
-function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash, settings, onThemeChange, forcePullCloud }) {
+function ProfileDrawer({ open, onClose, user, contests, activeContestId, onSwitchContest, onCreateContest, onDeleteContest, onLogout, onExport, onImport, onOpenTrash, forcePullCloud }) {
     const [contestToDelete, setContestToDelete] = React.useState(null);
 
     return (

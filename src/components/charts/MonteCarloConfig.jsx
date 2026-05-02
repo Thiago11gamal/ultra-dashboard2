@@ -40,7 +40,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
-    setWeights, weights, updateWeight, categories, user,
+    setWeights, weights, updateWeight, categories,
     minScore = 0, maxScore = 100
 }) => {
     const savedCustomWeights = useRef(null);

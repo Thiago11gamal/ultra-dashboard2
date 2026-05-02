@@ -1,11 +1,11 @@
 import React, { useId } from 'react';
-import { formatValue, formatPercent } from '../../../utils/scoreHelper';
+import { formatValue } from '../../../utils/scoreHelper';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList
 } from "recharts";
 
-export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory, unit = '%', maxScore = 100 }) {
+export function PerformanceBarChart({ subjectAggData, showOnlyFocus, focusCategory }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
