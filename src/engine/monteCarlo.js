@@ -53,6 +53,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             probabilityPolicy: 'deterministic',
             mean: Number(safeMean.toFixed(2)),
             sd: 0,
+            sdVisual: 0,
             sdLeft: 0, 
             sdRight: 0, 
             ci95StatLow: Number(safeMean.toFixed(2)),
@@ -136,7 +137,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     // BUGFIX M3: Sync the exported 'sd' with the visual clamp to avoid mathematical inconsistency
     // for external consumers of the statistical JSON.
-    const finalSD = wasVisualCIClamped
+    const visualSD = wasVisualCIClamped
         ? (rawHigh - rawLow) / 3.92 
         : projectedSD;
 
@@ -175,8 +176,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         recommendedProbability,
         probabilityPolicy: safeSimulations < 1200 ? 'empirical_low_sample' : 'analytical_high_sample',
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
-        // BUGFIX M3: Use the finalSD (synced with visual clamp if necessary)
-        sd: Number(finalSD.toFixed(2)),
+        // sd = estatístico (não visual), para evitar viés de interpretação
+        sd: Number(projectedSD.toFixed(2)),
+        // sdVisual reflete o cone após clamp mínimo de UX
+        sdVisual: Number(visualSD.toFixed(2)),
         // 📊 ESTATÍSTICA: Nomes alterados para empSigma (Empirical Sigma)
         // Indica a distância real dos quartis P16/P84, respeitando a assimetria da Normal Truncada.
         sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),

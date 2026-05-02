@@ -25,11 +25,13 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const sorted = [...finiteValues].sort((a, b) => a - b);
     const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
     const highIndex = Math.ceil((sorted.length - 1) * upperPct);
+    const medianIndex = Math.floor((sorted.length - 1) * 0.5);
     const low = sorted[Math.max(0, lowIndex)];
     const high = sorted[Math.min(sorted.length - 1, highIndex)];
+    const median = sorted[Math.max(0, Math.min(sorted.length - 1, medianIndex))];
 
     return values.map((v) => {
-        if (!Number.isFinite(v)) return low;
+        if (!Number.isFinite(v)) return median;
         return Math.max(low, Math.min(high, v));
     });
 }
