@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useAuth } from '../context/useAuth';
-import { del } from 'idb-keyval';
-import { useAppStore } from '../store/useAppStore';
-import TrashModal from './TrashModal';
 import useClock from '../hooks/useClock';
 
 
 
 /* ─────────────────────────────────────────────────────────
    Helper Components
-───────────────────────────────────────────────────────── */
+ ───────────────────────────────────────────────────────── */
 const DateDisplay = () => {
     const clockTime = useClock();
     return (
@@ -47,7 +43,7 @@ const MobileClockDisplay = () => {
 
 /* ─────────────────────────────────────────────────────────
    Main Header component
-───────────────────────────────────────────────────────── */
+ ───────────────────────────────────────────────────────── */
 export default function Header({
     user = { name: 'Visitante', avatar: '👤', xp: 0, level: 1 },
     onUpdateName,
@@ -57,30 +53,10 @@ export default function Header({
     sidebarCollapsed,
     setSidebarCollapsed
 }) {
-    const { logout } = useAuth();
 
     const [localName, setLocalName] = useState(user.name || 'Estudante');
     const [isFocused, setIsFocused] = useState(false);
-
-    // Sincroniza o nome local com as mudanças do props do usuário (apenas se o input não estiver focado)
-    useEffect(() => {
-        if (!isFocused && user?.name) {
-            setLocalName(user.name);
-        }
-    }, [user?.name, isFocused]);
-
-    const handleLogout = async () => {
-        if (window.confirm("Deseja realmente sair?")) {
-            try {
-                useAppStore.getState().resetStore();
-                await del('ultra-dashboard-storage');
-                localStorage.removeItem('ultra-dashboard-storage');
-                await logout();
-            } catch (err) {
-                console.error("Erro ao sair", err);
-            }
-        }
-    };
+    const displayName = isFocused ? localName : (user?.name || 'Estudante');
 
     const handleNameBlur = () => {
         setIsFocused(false);
@@ -119,9 +95,9 @@ export default function Header({
                 <div className="border-l-[2px] border-purple-500 pl-3 bg-white/[0.02] rounded-r-lg py-1">
                     <input
                         type="text"
-                        value={localName}
+                        value={displayName}
                         onChange={(e) => setLocalName(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
+                        onFocus={() => { setLocalName(displayName); setIsFocused(true); }}
                         onBlur={handleNameBlur}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                         placeholder="Seu nome..."
@@ -195,9 +171,9 @@ export default function Header({
                         <div className="relative">
                             <input
                                 type="text"
-                                value={localName}
+                                value={displayName}
                                 onChange={(e) => setLocalName(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
+                                onFocus={() => { setLocalName(displayName); setIsFocused(true); }}
                                 onBlur={handleNameBlur}
                                 onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                                 placeholder="Nome do utilizador..."
