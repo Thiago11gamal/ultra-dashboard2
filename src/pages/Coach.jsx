@@ -524,6 +524,16 @@ function RaioXDashboard({ data }) {
                             </div>
                         )}
                     </div>
+                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Dna size={14} className="text-indigo-500" />
+                        DNA do Histórico
+                    </h3>
+                    <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-center">
+                        <p className="text-[10px] text-indigo-300/80 leading-relaxed font-medium">
+                            A calibração do modelo combina Brier Score e ECE (Expected Calibration Error). Brier baixo e ECE baixo indicam boa confiabilidade; quando degradam, o Coach aplica redução de confiança (shrinkage) para proteger sua estratégia.
+                        </p>
+                    </div>
                 </div>
             </div>
 
