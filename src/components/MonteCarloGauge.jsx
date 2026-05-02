@@ -300,7 +300,8 @@ export default function MonteCarloGauge({
                         }}
                         className="custom-slider w-full h-1.5 rounded-full outline-none"
                         style={{
-                            background: `linear-gradient(to right, #6366f1 ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / (timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / (timelineDates.length - 1)) * 100}%)`,
+                            // BUG-06 FIX: Guard division by zero (defensive, outer guard already prevents length <= 1)
+                            background: `linear-gradient(to right, #6366f1 ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%, rgba(255,255,255,0.1) ${((timeIndex === -1 ? timelineDates.length - 1 : timeIndex) / Math.max(1, timelineDates.length - 1)) * 100}%)`,
                             touchAction: 'none'
                         }}
                     />
@@ -349,6 +350,8 @@ export default function MonteCarloGauge({
                     updateWeight={stableUpdateWeight}
                     categories={categories}
                     user={activeUser}
+                    minScore={minScore}
+                    maxScore={maxScore}
                 />
             )}
         </div>

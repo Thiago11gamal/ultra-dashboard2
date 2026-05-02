@@ -7,33 +7,9 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
-import { normalize } from '../utils/normalization';
+import { displaySubject } from '../utils/displaySubject';
 
-const displaySubject = (name) => {
-    if (!name) return '';
-    const map = {
-        'matematica': 'Matemática',
-        'portugues': 'Português',
-        'lingua portuguesa': 'Português',
-        'ingles': 'Inglês',
-        'ciencias': 'Ciências',
-        'historia': 'História',
-        'geografia': 'Geografia',
-        'biologia': 'Biologia',
-        'fisica': 'Física',
-        'quimica': 'Química',
-        'filosofia': 'Filosofia',
-        'sociologia': 'Sociologia',
-        'literatura': 'Literatura',
-        'redacao': 'Redação',
-        'informatica': 'Informática',
-        'raciocinio logico': 'Raciocínio Lógico',
-        'direito constitucional': 'Dir. Constitucional',
-        'direito administrativo': 'Dir. Administrativo'
-    };
-    const norm = normalize(name);
-    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
-};
+// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -247,7 +223,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
                 {suggestedFocus && (
                     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-3">
-                        <AICoachWidget suggestion={suggestedFocus} />
+                        <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
                     </div>
                 )}
                 {!suggestedFocus && (

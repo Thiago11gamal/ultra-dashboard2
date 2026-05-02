@@ -40,7 +40,8 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
 export const MonteCarloConfig = ({
     show, onClose, targetScore, setTargetScore,
     equalWeightsMode, setEqualWeightsMode, getEqualWeights,
-    setWeights, weights, updateWeight, categories, onWeightsChange, user
+    setWeights, weights, updateWeight, categories, user,
+    minScore = 0, maxScore = 100
 }) => {
     const savedCustomWeights = useRef(null);
     
@@ -106,8 +107,8 @@ export const MonteCarloConfig = ({
                         <div className="relative h-6 flex items-center mb-4">
                             <input
                                 type="range"
-                                min="10"
-                                max="100"
+                                min={Math.max(1, Math.round(maxScore * 0.1))}
+                                max={maxScore}
                                 step="1"
                                 value={targetScore}
                                 onChange={(e) => {
@@ -119,15 +120,15 @@ export const MonteCarloConfig = ({
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
-                                    background: `linear-gradient(to right, #3b82f6 ${((targetScore - 10) / (100 - 10)) * 100}%, rgba(255,255,255,0.1) ${((targetScore - 10) / (100 - 10)) * 100}%)`,
+                                    background: `linear-gradient(to right, #3b82f6 ${((targetScore - minScore) / (maxScore - minScore)) * 100}%, rgba(255,255,255,0.1) ${((targetScore - minScore) / (maxScore - minScore)) * 100}%)`,
                                     touchAction: 'none'
                                 }}
                             />
                         </div>
                         <div className="flex justify-between px-1">
-                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Baseline (60%)</span>
-                            <span className="text-[8px] font-black text-blue-500/40 uppercase tracking-widest">Optimized (75%)</span>
-                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Elite (90%)</span>
+                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Baseline ({Math.round(maxScore * 0.6)})</span>
+                            <span className="text-[8px] font-black text-blue-500/40 uppercase tracking-widest">Optimized ({Math.round(maxScore * 0.75)})</span>
+                            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Elite ({Math.round(maxScore * 0.9)})</span>
                         </div>
                     </div>
 
@@ -138,7 +139,6 @@ export const MonteCarloConfig = ({
                                     savedCustomWeights.current = weights;
                                     const ew = getEqualWeights();
                                     setWeights(ew);
-                                    if (onWeightsChange) onWeightsChange(ew);
                                 }
                                 setEqualWeightsMode(true);
                             }}
@@ -151,7 +151,6 @@ export const MonteCarloConfig = ({
                             onClick={() => {
                                 if (equalWeightsMode && savedCustomWeights.current) {
                                     setWeights(savedCustomWeights.current);
-                                    if (onWeightsChange) onWeightsChange(savedCustomWeights.current);
                                 }
                                 setEqualWeightsMode(false);
                             }}

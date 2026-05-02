@@ -231,8 +231,9 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         const avgCV = totalWeight > 0 ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0) : 0;
 
-        // LEAK-03 FIX: Move hash calculation inside useMemo to avoid re-joining strings on every render
-        const statsHash = `${bayesianMean}-${pooledSD}-${globalHistory.length}-${minScore}-${maxScore}-${globalHistory.map(h => h.date).join('')}`;
+        // BUG-05 FIX: Include score values in hash to prevent collisions when mean/SD coincide
+        const scoreFingerprint = globalHistory.map(h => h.score.toFixed(4)).join(',');
+        const statsHash = `${bayesianMean}-${pooledSD}-${globalHistory.length}-${minScore}-${maxScore}-${scoreFingerprint}`;
 
         return {
             categoryStats,

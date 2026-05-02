@@ -24,33 +24,9 @@ import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
-import { normalize } from '../utils/normalization';
+import { displaySubject } from '../utils/displaySubject';
 
-const displaySubject = (name) => {
-    if (!name) return '';
-    const map = {
-        'matematica': 'Matemática',
-        'portugues': 'Português',
-        'lingua portuguesa': 'Português',
-        'ingles': 'Inglês',
-        'ciencias': 'Ciências',
-        'historia': 'História',
-        'geografia': 'Geografia',
-        'biologia': 'Biologia',
-        'fisica': 'Física',
-        'quimica': 'Química',
-        'filosofia': 'Filosofia',
-        'sociologia': 'Sociologia',
-        'literatura': 'Literatura',
-        'redacao': 'Redação',
-        'informatica': 'Informática',
-        'raciocinio logico': 'Raciocínio Lógico',
-        'direito constitucional': 'Dir. Constitucional',
-        'direito administrativo': 'Dir. Administrativo'
-    };
-    const norm = normalize(name);
-    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
-};
+// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
 const calibrationAlertCache = new Map();
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
@@ -159,10 +135,13 @@ export default function Coach() {
         return getSortedHistory(all);
     }, [history, simulados]);
 
+    // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
         targetScore: userProfile?.targetProbability || 85,
+        timeIndex: -1,
+        timelineDates: [],
         minScore: 0,
         maxScore: 100
     });
@@ -429,9 +408,12 @@ function RaioXDashboard({ data }) {
         });
         return acc;
     }, {});
-    const [seriesCategory] = Object.keys(categorySeriesMap);
-    const temporalSeries = seriesCategory
-        ? [...categorySeriesMap[seriesCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
+    const categoryNames = Object.keys(categorySeriesMap);
+    const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
+    // BUG-07 FIX: Keep selected category valid when data changes
+    const effectiveCategory = categoryNames.includes(seriesCategory) ? seriesCategory : (categoryNames[0] || '');
+    const temporalSeries = effectiveCategory
+        ? [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
         : [];
 
     return (
@@ -562,9 +544,21 @@ function RaioXDashboard({ data }) {
             <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Drift Temporal (Brier/ECE)</h3>
-                    <span className="text-[10px] text-slate-400 font-bold">
-                        {seriesCategory ? displaySubject(seriesCategory) : 'Sem categoria'}
-                    </span>
+                    {categoryNames.length > 1 ? (
+                        <select
+                            value={effectiveCategory}
+                            onChange={(e) => setSeriesCategory(e.target.value)}
+                            className="text-[10px] font-bold text-cyan-300 bg-slate-800 border border-white/10 rounded-lg px-2 py-1 outline-none cursor-pointer"
+                        >
+                            {categoryNames.map(cat => (
+                                <option key={cat} value={cat}>{displaySubject(cat)}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">
+                            {effectiveCategory ? displaySubject(effectiveCategory) : 'Sem categoria'}
+                        </span>
+                    )}
                 </div>
 
                 {temporalSeries.length > 1 ? (

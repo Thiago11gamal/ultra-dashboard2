@@ -124,9 +124,10 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
     // 🛡️ [SHIELD-REF] Sincronização Imediata: Atualizamos as refs no corpo da renderização
     // Isso garante que skips/pauses disparados logo após um render usem valores 100% atuais.
+    // BUG-04 FIX: Include timeLeft in body-sync to prevent stale refs during pauses
     stateRefs.current = {
         ...stateRefs.current,
-        mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
+        mode, timeLeft, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
     };
 
     const speedRef = useRef(1);
@@ -425,9 +426,9 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (!isManual) {
                 sessionMinutes = (safeSettings.pomodoroWork || 25);
             } else if (source === 'skip') {
-                // Contabiliza os minutos trabalhados até o momento do "Pular"
+                // BUG-08 FIX: Use Math.round directly instead of confusing +0.5 bias with floor
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                sessionMinutes = Math.floor(Math.max(0, (totalWorkSeconds - stateRefs.current.timeLeft) + 0.5) / 60);
+                sessionMinutes = Math.round(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
             }
         }
 
@@ -510,10 +511,13 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
 
                 const s = stateRefs.current.sessions;
+                // BUG-13 FIX: Guard both refs — breakBallsRef[last] doesn't exist for the final cycle
                 if (stateRefs.current.mode === 'work') {
-                    if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
+                    const workEl = workFillsRef.current[s - 1];
+                    if (workEl) workEl.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
                 } else {
-                    if (breakBallsRef.current[s - 1]) breakBallsRef.current[s - 1].style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
+                    const breakEl = breakBallsRef.current[s - 1];
+                    if (breakEl) breakEl.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
                 }
 
                 if (newTime <= 0) {

@@ -5,33 +5,9 @@ import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
-import { normalize } from '../utils/normalization';
+import { displaySubject } from '../utils/displaySubject';
 
-const displaySubject = (name) => {
-    if (!name) return '';
-    const map = {
-        'matematica': 'Matemática',
-        'portugues': 'Português',
-        'lingua portuguesa': 'Português',
-        'ingles': 'Inglês',
-        'ciencias': 'Ciências',
-        'historia': 'História',
-        'geografia': 'Geografia',
-        'biologia': 'Biologia',
-        'fisica': 'Física',
-        'quimica': 'Química',
-        'filosofia': 'Filosofia',
-        'sociologia': 'Sociologia',
-        'literatura': 'Literatura',
-        'redacao': 'Redação',
-        'informatica': 'Informática',
-        'raciocinio logico': 'Raciocínio Lógico',
-        'direito constitucional': 'Dir. Constitucional',
-        'direito administrativo': 'Dir. Administrativo'
-    };
-    const norm = normalize(name);
-    return map[norm] || (name.charAt(0).toUpperCase() + name.slice(1).toLowerCase());
-};
+// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
 const DAYS = [
     { id: 'mon', label: 'SEG', full: 'Segunda',  gradient: 'from-violet-600 to-indigo-600',  bg: 'bg-violet-500/10',  border: 'border-violet-500/25', text: 'text-violet-300',  dot: 'bg-violet-500',  over: 'bg-violet-500/8 border-violet-500/40'  },
@@ -137,15 +113,11 @@ export default function AICoachPlanner() {
         setIsDragging(false);
     };
 
-    const handleStartTask = (task, fromId) => {
+    // BUG-02 FIX: Removed duplicate branches — both paths were identical
+    const handleStartTask = (task) => {
         if (!task) return;
-        if (fromId !== 'backlog') {
-            startNeuralSession([task], 0);
-            navigate('/pomodoro');
-        } else {
-            startNeuralSession([task], 0);
-            navigate('/pomodoro');
-        }
+        startNeuralSession([task], 0);
+        navigate('/pomodoro');
     };
 
     return (
