@@ -13,7 +13,7 @@ import {
     clearMcCache,
     simuladosToHistory
 } from './coachAdaptive.js';
-export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache };
+export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache, runCoachMonteCarlo };
 
 
 export const DEFAULT_CONFIG = {
