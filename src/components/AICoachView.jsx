@@ -163,7 +163,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
 
-            const sevenDaysAgo = NOW_FOR_CALIBRATION - 7 * 24 * 60 * 60 * 1000;
+            const latestTimestamp = Number(rows[rows.length - 1]?.timestamp || 0);
+            const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => (h.timestamp || 0) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
 
