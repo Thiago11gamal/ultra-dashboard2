@@ -376,14 +376,16 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked, onToggleLock }) {
     const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
     
-    // 🛠️ Utilitário para limpar o texto da tarefa (remove colchetes e emojis)
+    // 🛠️ Utilitário para limpar o texto da tarefa (remove colchetes, emojis e corta após os dois pontos)
     const cleanText = (text) => {
         if (!text) return '';
-        return text
+        let cleaned = text
+            .split(':')[0] // Corta tudo após os dois pontos ":"
             .replace(/\[.*?\]/g, '') // Remove [qualquer coisa]
             .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '') // Remove emojis
             .replace(/\s{2,}/g, ' ') // Remove espaços duplicados
             .trim();
+        return cleaned;
     };
 
     return (
