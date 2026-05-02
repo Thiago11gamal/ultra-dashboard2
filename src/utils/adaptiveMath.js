@@ -20,7 +20,12 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     if (!Array.isArray(values) || values.length < 5) return values || [];
 
     const finiteValues = values.filter(v => Number.isFinite(v));
-    if (finiteValues.length < 5) return values.map(v => Number.isFinite(v) ? v : 0);
+    if (finiteValues.length < 5) {
+        const fallback = finiteValues.length > 0
+            ? finiteValues.reduce((a, b) => a + b, 0) / finiteValues.length
+            : 0;
+        return values.map(v => Number.isFinite(v) ? v : fallback);
+    }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
     const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
