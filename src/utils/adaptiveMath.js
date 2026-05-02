@@ -20,7 +20,7 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     if (!Array.isArray(values) || values.length < 5) return values || [];
 
     const finiteValues = values.filter(v => Number.isFinite(v));
-    if (finiteValues.length < 5) return finiteValues;
+    if (finiteValues.length < 5) return values.map(v => Number.isFinite(v) ? v : 0);
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
     const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
@@ -28,7 +28,10 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const low = sorted[Math.max(0, lowIndex)];
     const high = sorted[Math.min(sorted.length - 1, highIndex)];
 
-    return finiteValues.map(v => Math.max(low, Math.min(high, v)));
+    return values.map((v) => {
+        if (!Number.isFinite(v)) return low;
+        return Math.max(low, Math.min(high, v));
+    });
 }
 
 export function deriveAdaptiveConfig(scores = []) {
