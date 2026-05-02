@@ -343,29 +343,29 @@ export default function Coach() {
 
                         <AnimatePresence mode="wait">
                             <Motion.div
+                                role="tabpanel"
+                                id={activeTab === 'insights' ? 'coach-panel-insights' : 'coach-panel-analytics'}
+                                aria-labelledby={activeTab === 'insights' ? 'coach-tab-insights' : 'coach-tab-analytics'}
+                                tabIndex={0}
                                 key={activeTab}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
                             >
-                                {activeTab === 'insights' ? (
-                                    <div role="tabpanel" id="coach-panel-insights" aria-labelledby="coach-tab-insights">
-                                        <AICoachView 
-                                            suggestedFocus={suggestedFocus}
-                                            onGenerateGoals={handleGenerateGoals}
-                                            loading={coachLoading}
-                                            onClearHistory={handleClearHistory}
-                                        />
-                                    </div>
+                                {activeTab === 'insights' || !isPremium ? (
+                                    <AICoachView 
+                                        suggestedFocus={suggestedFocus}
+                                        onGenerateGoals={handleGenerateGoals}
+                                        loading={coachLoading}
+                                        onClearHistory={handleClearHistory}
+                                    />
                                 ) : (
-                                    <div role="tabpanel" id="coach-panel-analytics" aria-labelledby="coach-tab-analytics">
-                                        <RaioXDashboard data={data} />
-                                    </div>
+                                    <RaioXDashboard data={data} />
                                 )}
-
                             </Motion.div>
                         </AnimatePresence>
+
 
                     </div>
                 </div>

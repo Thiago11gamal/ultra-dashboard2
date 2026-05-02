@@ -34,23 +34,56 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
 }
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
+    const availableTabs = ['insights', ...(isPremium ? ['analytics'] : [])];
+
+    const focusTab = (tabKey) => {
+        const tabId = `coach-tab-${tabKey}`;
+        const tabEl = document.getElementById(tabId);
+        if (tabEl) tabEl.focus();
+    };
+
+    const activateTab = (tabKey) => {
+        onChangeTab(tabKey);
+        focusTab(tabKey);
+    };
+
     const handleTabKeyDown = (event) => {
         const isLeft = event.key === 'ArrowLeft';
         const isRight = event.key === 'ArrowRight';
         const isHome = event.key === 'Home';
         const isEnd = event.key === 'End';
-        if (!isLeft && !isRight && !isHome && !isEnd) return;
+        const isEnter = event.key === 'Enter';
+        const isSpace = event.key === ' ';
+        if (!isLeft && !isRight && !isHome && !isEnd && !isEnter && !isSpace) return;
 
         event.preventDefault();
-        const tabs = ['insights', ...(isPremium ? ['analytics'] : [])];
-        const currentIndex = tabs.indexOf(activeTab);
+        const currentIndex = availableTabs.indexOf(activeTab);
 
-        if (isHome) return onChangeTab(tabs[0]);
-        if (isEnd) return onChangeTab(tabs[tabs.length - 1]);
+        if (isEnter || isSpace) {
+            activateTab(activeTab);
+            return;
+        }
 
+        if (isHome) {
+            activateTab(availableTabs[0]);
+            return;
+        }
+
+        if (isEnd) {
+            activateTab(availableTabs[availableTabs.length - 1]);
+            return;
+        }
+
+        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const dir = isRight ? 1 : -1;
-        const nextIndex = (currentIndex + dir + tabs.length) % tabs.length;
-        onChangeTab(tabs[nextIndex]);
+        const nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
+        activateTab(availableTabs[nextIndex]);
+    };
+
+    const handleActivateInsights = () => activateTab('insights');
+    const handleActivateAnalytics = () => {
+        if (!isPremium) return;
+        activateTab('analytics');
     };
 
     return (
@@ -64,12 +97,13 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                 <div
                     role="tablist"
                     aria-label="Coach AI sections"
+                    aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full lg:w-auto"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}
-                        onClick={() => onChangeTab('insights')}
+                        onClick={handleActivateInsights}
                         icon={Sparkles}
                         label="Plano de Estudos"
                         subtitle="Execução semanal"
@@ -78,7 +112,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     />
                     <MenuTab
                         active={activeTab === 'analytics' && isPremium}
-                        onClick={() => isPremium && onChangeTab('analytics')}
+                        onClick={handleActivateAnalytics}
                         icon={BarChart3}
                         label="Raio-X Técnico"
                         subtitle={isPremium ? "Telemetria e auditoria" : "Disponível no Premium"}
@@ -91,5 +125,6 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         </div>
     );
 }
+
 
 
