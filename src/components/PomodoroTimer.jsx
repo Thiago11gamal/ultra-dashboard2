@@ -635,32 +635,32 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
     return (
         <div className="w-full relative min-h-[80vh] flex flex-col items-center">
-            <motion.div
-                drag={!isLayoutLocked}
-                dragMomentum={true}
-                dragConstraints={{ left: -800, right: 800, top: -500, bottom: 500 }}
-                animate={uiPosition}
-                onDragEnd={(_, info) => setUiPosition({ x: uiPosition.x + info.offset.x, y: uiPosition.y + info.offset.y })}
-                className={`w-full max-w-3xl space-y-6 relative flex flex-col items-center ${!isLayoutLocked ? 'cursor-grab z-[90]' : 'z-50'}`}
+            <div
+                className={`w-full max-w-[min(95vw,600px)] space-y-12 relative flex flex-col items-center mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
                     <div className="flex-1 flex justify-center bg-transparent">
                         {activeSubject ? (
                             <motion.div
-                                initial={{ y: -5, opacity: 0 }}
+                                initial={{ y: -20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="relative flex items-center gap-4 sm:gap-6 w-full bg-[#b08e6b] border-2 border-[#94785a] rounded-xl p-4 sm:p-8 shadow-xl overflow-hidden group"
+                                className="relative flex items-center gap-4 sm:gap-6 w-full bg-[#0a0f1e] border-2 border-indigo-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden group z-40"
                             >
-                                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white border-2 border-[#d9c5b2] flex items-center justify-center text-[#2d1a12] shadow-sm shrink-0">
-                                    <div className="text-base sm:text-xl font-black">b</div>
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 relative z-10">
+                                    <div className="text-base font-black">F</div>
                                 </div>
-                                <div className="flex flex-col text-left flex-1 min-w-0">
-                                    <h2 className="text-lg sm:text-3xl font-black text-[#2d1a12] tracking-tight truncate">{activeSubject.task}</h2>
-                                    <span className="text-[8px] sm:text-[10px] font-black text-[#8b5e3c] uppercase tracking-[0.2em] truncate">MATÉRIA: {activeSubject.category}</span>
+                                <div className="flex flex-col text-left flex-1 min-w-0 relative z-10">
+                                    <span className="text-[7px] font-black text-indigo-400/60 uppercase tracking-[0.2em] mb-0.5">Protocolo Ativo</span>
+                                    <h2 className="text-sm sm:text-lg font-black text-white tracking-tight truncate leading-tight">{activeSubject.task}</h2>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                        <span className="text-[7px] font-bold text-slate-500 uppercase tracking-[0.1em] truncate">{activeSubject.category}</span>
+                                    </div>
                                 </div>
-                                <div className="absolute right-8 flex items-center gap-4">
-                                    <button onClick={(e) => { e.stopPropagation(); setIsLayoutLocked(!isLayoutLocked); }} className="text-[#2d1a12]/40 hover:text-[#2d1a12] cursor-pointer transition-colors">
-                                        {isLayoutLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                                <div className="flex items-center gap-2 relative z-10 ml-2">
+                                    <button onClick={(e) => { e.stopPropagation(); setIsLayoutLocked(!isLayoutLocked); }} className="text-white/20 hover:text-white cursor-pointer transition-colors p-1.5 rounded-lg hover:bg-white/5">
+                                        {isLayoutLocked ? <Lock size={16} /> : <Unlock size={18} className="text-indigo-400" />}
                                     </button>
                                 </div>
                             </motion.div>
@@ -682,8 +682,12 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 </div>
 
                 <div
-                    style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.5)' }}
-                    className="w-full border-[6px] border-[#3f2e26] pt-12 pb-20 px-10 rounded-xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a]"
+                    style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
+                    className="w-full border-[6px] border-[#3f2e26] pt-24 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
+                >
+                >
+                >
+                >
                 >
                     <div className="absolute top-4 right-6 z-[60]">
                         <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
@@ -841,7 +845,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         </div>
                     </div>
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
 }

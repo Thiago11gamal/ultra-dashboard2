@@ -588,9 +588,9 @@ export default function Pomodoro() {
     }
 
     return (<PageErrorBoundary pageName="Pomodoro">
-        <div className="min-h-0 flex items-start justify-center pt-2 pb-6 px-0">
-            <div className="flex flex-col xl:flex-row gap-5 items-start justify-center w-full">
-                <div className="w-full xl:max-w-[750px] min-w-0">
+        <div className="min-h-0 flex items-start justify-center pt-14 pb-6 px-0">
+            <div className="flex flex-col xl:flex-row gap-10 items-start justify-center w-full max-w-[1440px] mx-auto px-4">
+                <div className="flex-1 flex flex-col items-center min-w-0">
                     <PomodoroTimer
                         settings={settings}
                         activeSubject={activeSubject}
