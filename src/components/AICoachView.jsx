@@ -66,11 +66,11 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`group relative flex flex-col p-6 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden`}
+            className={`group relative flex flex-col p-6 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible`}
         >
-            <div className="relative z-10 flex justify-between items-start mb-6 px-5 pt-4">
+            <div className="relative z-10 flex justify-between items-start mb-8 px-8 pt-6">
                 <span className={`inline-flex items-center px-6 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge} shadow-sm shadow-black/20`}>
-                    <span className="pl-2">{displaySubject(subjectPart)}</span>
+                    <span className="pl-4">{displaySubject(subjectPart)}</span>
                 </span>
                 <button 
                     onClick={(e) => {
@@ -82,8 +82,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     <Play size={14} fill="currentColor" />
                 </button>
             </div>
-            <div className="relative z-10 flex-1 mb-6">
-                <h3 className="text-lg font-black text-white leading-tight mb-2 tracking-tighter">
+            <div className="relative z-10 flex-1 mb-8 px-6">
+                <h3 className="text-xl font-black text-white leading-tight mb-3 tracking-tighter">
                     {displayAssunto}
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
@@ -177,7 +177,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             {calibrationSummary.length > 0 && (
-                <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-hidden group">
+                <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-visible group">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
                         <div>
                             <h3 className="text-[11px] uppercase tracking-[0.25em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
@@ -191,20 +191,20 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-9 hover:bg-white/[0.03] transition-all duration-300">
-                                    <div className="flex justify-between items-start mb-5 px-5 pt-1">
-                                        <p className="text-[13px] text-white font-black tracking-tight truncate pr-6 pl-1">{displaySubject(row.label)}</p>
-                                        <div className={`w-2.5 h-2.5 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
+                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-10 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
+                                    <div className="flex justify-between items-start mb-6 px-8 pt-4">
+                                        <p className="text-[14px] text-white font-black tracking-tight truncate pr-6 pl-4">{displaySubject(row.label)}</p>
+                                        <div className={`w-3 h-3 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-4 mb-4 px-5">
+                                    <div className="grid grid-cols-2 gap-6 mb-4 px-8">
                                         <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-2">Brier Score</p>
-                                            <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'} pl-4`}>{row.avgBrier.toFixed(3)}</p>
+                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-4">Brier Score</p>
+                                            <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'} pl-8`}>{row.avgBrier.toFixed(3)}</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-2">Ajuste Médio</p>
-                                            <p className="text-sm font-mono font-bold text-amber-400 pl-4">-{Math.round(row.avgPenalty * 100)}%</p>
+                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-4">Ajuste Médio</p>
+                                            <p className="text-sm font-mono font-bold text-amber-400 pl-8">-{Math.round(row.avgPenalty * 100)}%</p>
                                         </div>
                                     </div>
 
