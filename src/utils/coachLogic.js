@@ -99,7 +99,7 @@ function simuladosToHistory(simulados, maxScore = 100) {
 const mcCache = new Map();
 const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
 
-function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFAULT_CONFIG) {
+export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFAULT_CONFIG) {
     const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
     const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
     const cleanScores = (scores || []).map(Number).filter(Number.isFinite);
@@ -126,7 +126,7 @@ function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFA
     return { danger, safe };
 }
 
-function deriveBacktestWeights(scores = [], maxScore = 100) {
+export function deriveBacktestWeights(scores = [], maxScore = 100) {
     const clean = (scores || []).map(Number).filter(Number.isFinite);
     if (clean.length < 6) {
         return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 0, uplift: 0 };
@@ -165,7 +165,7 @@ function deriveBacktestWeights(scores = [], maxScore = 100) {
 }
 
 
-function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = DEFAULT_CONFIG) {
+export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = DEFAULT_CONFIG) {
     const p = Math.max(0, Math.min(100, Number(probability) || 0));
     const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER));
     const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE));
