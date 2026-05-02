@@ -227,6 +227,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
+    const lowSampleThreshold = Math.max(10, cfg.MC_MIN_DATA_POINTS + 2);
+    const isLowSample = history.length < lowSampleThreshold;
+
     const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
     // HASH-DATA FIX: inclui checksum sequencial para evitar colisões quando soma/length são iguais.
     const sequenceChecksum = relevantSimulados.reduce((acc, sim, idx) => {
@@ -277,20 +280,14 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     // ignora ponto de backtest inválido
                 }
             }
-        if (enableAdaptiveCalibration && brierScores.length > 0) {
-            const summary = summarizeCalibration(brierScores, {
-                baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
-                maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
-            });
-            calibrationPenalty = summary.calibrationPenalty;
-            avgBrier = summary.avgBrier;
-        }
-
-        // LOW-N ROBUSTNESS: Apply automatic uncertainty penalty for N < 10
-        if (enableAdaptiveCalibration && history.length < 10) {
-            const samplePenalty = (10 - history.length) * 0.025; // 0.125 at n=5, 0 at n=10
-            calibrationPenalty = Math.max(calibrationPenalty, samplePenalty);
-        }
+            if (brierScores.length > 0) {
+                const summary = summarizeCalibration(brierScores, {
+                    baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
+                    maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
+                });
+                calibrationPenalty = summary.calibrationPenalty;
+                avgBrier = summary.avgBrier;
+            }
         }
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
@@ -303,15 +300,32 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             )
             : rawProb;
 
+        const extraLowSampleShrink = isLowSample
+            ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold)
+            : 0;
+        const adjustedProbability = isLowSample
+            ? shrinkProbabilityToNeutral(probability, extraLowSampleShrink, cfg.MC_CALIBRATION_NEUTRAL_PCT, 0.5)
+            : probability;
+
+        const ciLow = Number(result.ci95Low) || 0;
+        const ciHigh = Number(result.ci95High) || 0;
+        const ciMid = (ciLow + ciHigh) / 2;
+        const ciExpand = isLowSample ? (1 + extraLowSampleShrink * 1.8) : 1;
+        const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
+        const widenedCiHigh = Math.min(maxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
+
         const finalResult = {
-            probability,
+            probability: adjustedProbability,
             volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
             mean: result.mean,
-            ci95Low: result.ci95Low,
-            ci95High: result.ci95High,
+            ci95Low: widenedCiLow,
+            ci95High: widenedCiHigh,
             calibrationPenalty,
-            avgBrier
+            avgBrier,
+            sampleSize: history.length,
+            lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4))
         };
+
         // BUG-21 FIX: Evict oldest entries when cache exceeds limit
         if (mcCache.size >= MC_CACHE_MAX) {
             const firstKey = mcCache.keys().next().value;
