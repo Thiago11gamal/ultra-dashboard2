@@ -54,7 +54,7 @@ describe('BUG-FIXED: isPercentage — getSafeScore', () => {
         expect(result).toBeLessThanOrEqual(120);
         expect(result).toBeGreaterThanOrEqual(0);
         // 75% de 120 = 90
-        expect(result).toBe(75); // score já vem como ponto absoluto na escala 0-120
+        expect(result).toBe(90); 
     });
 
     it('score numérico sem isPercentage permanece clampado em [0, maxScore]', () => {
