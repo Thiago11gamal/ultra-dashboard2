@@ -264,7 +264,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         let ece = 0;
         let reliability = [];
         if (enableAdaptiveCalibration && history.length >= 8) {
-            const horizon = Math.min(cfg.MC_BACKTEST_HORIZON || 3, history.length - cfg.MC_MIN_DATA_POINTS);
+            const dynamicHorizon = Math.max(
+                cfg.MC_BACKTEST_HORIZON || 3,
+                Math.min(6, Math.floor(history.length / 3))
+            );
+            const horizon = Math.min(dynamicHorizon, history.length - cfg.MC_MIN_DATA_POINTS);
             const brierScores = [];
             const predObsPairs = [];
             for (let i = 1; i <= horizon; i++) {
@@ -292,7 +296,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
-                const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: 5 });
+                const adaptiveBins = predObsPairs.length >= 18 ? 8 : predObsPairs.length >= 10 ? 6 : 4;
+                const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: adaptiveBins });
                 ece = diagnostics.ece;
                 reliability = diagnostics.reliability;
             }
