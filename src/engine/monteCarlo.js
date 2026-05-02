@@ -182,8 +182,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         sdVisual: Number(visualSD.toFixed(2)),
         // 📊 ESTATÍSTICA: Nomes alterados para empSigma (Empirical Sigma)
         // Indica a distância real dos quartis P16/P84, respeitando a assimetria da Normal Truncada.
-        sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
-        sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
+        sdLeft: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), empMedian - rawLeft).toFixed(4)),
+        sdRight: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), rawRight - empMedian).toFixed(4)),
         ci95StatLow: Number(statisticalCi95Low.toFixed(2)),
         ci95StatHigh: Number(statisticalCi95High.toFixed(2)),
         ci95Low: Number(displayLow.toFixed(2)),
