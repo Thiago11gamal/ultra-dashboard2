@@ -2,46 +2,21 @@ import { useState, useEffect } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
+const ADMIN_UIDS = [
+    'F4Py5tJoRjQmXTSPE6vQUX3th662',
+];
+
 export function useSubscription(user) {
-    const [isPremium, setIsPremium] = useState(isLocalMode);
-    const [loading, setLoading] = useState(!isLocalMode);
+    const isAdmin = Boolean(user?.uid && ADMIN_UIDS.includes(user.uid));
+    const shouldBypassBilling = isLocalMode || isAdmin;
+
+    const [isPremium, setIsPremium] = useState(shouldBypassBilling);
+    const [loading, setLoading] = useState(!shouldBypassBilling);
 
     useEffect(() => {
-        if (isLocalMode) {
-            setIsPremium(true);
-            setLoading(false);
-            return;
-        }
-        // Opção 2: Lista de Administradores com acesso vitalício garantido
-        const ADMIN_UIDS = [
-            'F4Py5tJoRjQmXTSPE6vQUX3th662',
-        ];
+        if (shouldBypassBilling || !user?.uid || !db) return;
 
-        const isAdmin = user && ADMIN_UIDS.includes(user.uid);
-
-        if (isAdmin) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setIsPremium(true);
-            setLoading(false);
-            return;
-        }
-
-        if (!user || !user.uid) {
-            setIsPremium(false);
-            setLoading(false);
-            return;
-        }
-
-        if (!db) {
-            console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
-            setIsPremium(false);
-            setLoading(false);
-            return;
-        }
-
-        // Alterado para 'payments' para buscar compras únicas (One-Time / PIX)
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
-        // Buscamos apenas os pagamentos confirmados
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
         let unsubscribeFallback = null;
@@ -52,11 +27,7 @@ export function useSubscription(user) {
                 return;
             }
 
-            // BIZ-01 fix: produto é compra única (PIX/one-time), não assinatura recorrente.
-            // Qualquer pagamento confirmado concede acesso vitalício.
             let hasValidPayment = false;
-
-            // BUG-08 FIX: Renamed from `doc` to `paymentDoc` to avoid shadowing the Firestore `doc` import
             snapshot.forEach((paymentDoc) => {
                 const data = paymentDoc.data();
                 if (data.status === 'succeeded') {
@@ -67,18 +38,16 @@ export function useSubscription(user) {
             setIsPremium(hasValidPayment);
             setLoading(false);
         }, (error) => {
-            console.error("[Stripe] Erro ao buscar pagamentos:", error);
+            console.error('[Stripe] Erro ao buscar pagamentos:', error);
 
-            // Fallback defensivo: se a coleção de pagamentos estiver bloqueada por regras,
-            // tenta ler o perfil do usuário com uma flag de premium no próprio documento.
             if (error?.code === 'permission-denied') {
                 const userRef = doc(db, 'users', user.uid);
                 unsubscribeFallback = onSnapshot(userRef, (userDoc) => {
                     const profile = userDoc.exists() ? userDoc.data() : {};
                     const premiumFromProfile = Boolean(
-                        profile?.isPremium ||
-                        profile?.premium ||
-                        profile?.subscription?.active
+                        profile?.isPremium
+                        || profile?.premium
+                        || profile?.subscription?.active,
                     );
                     setIsPremium(premiumFromProfile);
                     setLoading(false);
@@ -98,7 +67,14 @@ export function useSubscription(user) {
             unsubscribe();
             if (unsubscribeFallback) unsubscribeFallback();
         };
-    }, [user]);
+    }, [shouldBypassBilling, user?.uid]);
+
+    if (shouldBypassBilling) return { isPremium: true, loading: false };
+    if (!user?.uid) return { isPremium: false, loading: false };
+    if (!db) {
+        console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
+        return { isPremium: false, loading: false };
+    }
 
     return { isPremium, loading };
 }
