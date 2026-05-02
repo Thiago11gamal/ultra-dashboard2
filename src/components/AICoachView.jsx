@@ -68,9 +68,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             animate={{ opacity: 1, y: 0 }}
             className={`group relative flex flex-col p-6 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden`}
         >
-            <div className="relative z-10 flex justify-between items-start mb-4 px-3">
-                <span className={`inline-flex items-center px-6 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge}`}>
-                    {displaySubject(subjectPart)}
+            <div className="relative z-10 flex justify-between items-start mb-6 px-5 pt-4">
+                <span className={`inline-flex items-center px-6 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge} shadow-sm shadow-black/20`}>
+                    <span className="pl-2">{displaySubject(subjectPart)}</span>
                 </span>
                 <button 
                     onClick={(e) => {
@@ -191,13 +191,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-8 hover:bg-white/[0.03] transition-all duration-300">
-                                    <div className="flex justify-between items-start mb-4 px-4">
-                                        <p className="text-[13px] text-white font-black tracking-tight truncate pr-6">{displaySubject(row.label)}</p>
+                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-9 hover:bg-white/[0.03] transition-all duration-300">
+                                    <div className="flex justify-between items-start mb-5 px-5 pt-1">
+                                        <p className="text-[13px] text-white font-black tracking-tight truncate pr-6 pl-1">{displaySubject(row.label)}</p>
                                         <div className={`w-2.5 h-2.5 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-4 mb-4 px-4">
+                                    <div className="grid grid-cols-2 gap-4 mb-4 px-5">
                                         <div className="space-y-1">
                                             <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-2">Brier Score</p>
                                             <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'} pl-4`}>{row.avgBrier.toFixed(3)}</p>
