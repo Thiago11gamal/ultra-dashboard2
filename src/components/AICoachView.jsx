@@ -66,12 +66,13 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`group relative flex flex-col p-6 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-4 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible`}
+            className={`group relative flex flex-col p-12 rounded-[2.5rem] bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible shadow-2xl`}
         >
-            <div className="relative z-10 flex justify-between items-start mb-8 px-8 pt-6">
-                <span className={`inline-flex items-center px-6 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${col.badge} shadow-sm shadow-black/20`}>
-                    <span className="pl-4">{displaySubject(subjectPart)}</span>
-                </span>
+            <div className="relative z-10 flex justify-between items-start mb-8 px-8 pt-7">
+                <div className={`inline-flex items-center gap-2.5 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-xl border border-white/10`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${col.dot} shadow-[0_0_8px_rgba(255,255,255,0.3)]`} />
+                    {displaySubject(subjectPart)}
+                </div>
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -191,20 +192,25 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-10 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
-                                    <div className="flex justify-between items-start mb-6 px-8 pt-4">
-                                        <p className="text-[14px] text-white font-black tracking-tight truncate pr-6 pl-4">{displaySubject(row.label)}</p>
-                                        <div className={`w-3 h-3 rounded-full ${op.degraded ? 'bg-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
+                                <div key={row.categoryId} className="group/card relative rounded-[2rem] border border-white/[0.04] bg-white/[0.01] p-10 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
+                                    <div className="flex justify-between items-start mb-8 px-8 pt-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-2 h-2 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
+                                            <p className="text-[14px] text-white font-black tracking-tight truncate pr-4">{displaySubject(row.label)}</p>
+                                        </div>
+                                        <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                            {op.degraded ? 'Degradado' : 'Estável'}
+                                        </div>
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-6 mb-4 px-8">
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-4">Brier Score</p>
-                                            <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'} pl-8`}>{row.avgBrier.toFixed(3)}</p>
+                                    <div className="grid grid-cols-2 gap-8 mb-4 px-8">
+                                        <div className="space-y-1.5">
+                                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest pl-5">Brier Score</p>
+                                            <p className={`text-sm font-mono font-bold ${op.degraded ? 'text-rose-400' : 'text-slate-200'} pl-10`}>{row.avgBrier.toFixed(3)}</p>
                                         </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest pl-4">Ajuste Médio</p>
-                                            <p className="text-sm font-mono font-bold text-amber-400 pl-8">-{Math.round(row.avgPenalty * 100)}%</p>
+                                        <div className="space-y-1.5">
+                                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest pl-5">Ajuste Médio</p>
+                                            <p className="text-sm font-mono font-bold text-amber-400 pl-10">-{Math.round(row.avgPenalty * 100)}%</p>
                                         </div>
                                     </div>
 

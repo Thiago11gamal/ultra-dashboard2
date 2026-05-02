@@ -175,7 +175,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 className="flex items-center gap-2 px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest"
                             >
                                 <AlertTriangle size={12} />
-                                <span className="pl-1.5">CRITICAL ×{urgency.crunchMultiplier}</span>
+                                <span>CRITICAL ×{urgency.crunchMultiplier}</span>
                             </motion.div>
                         )}
                         {isDegraded && (
@@ -185,12 +185,12 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 className="flex items-center gap-2 px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)]"
                              >
                                 <Database size={12} className="text-rose-400" />
-                                <span className="pl-1.5">CALIBRAÇÃO DEGRADADA</span>
+                                <span>CALIBRAÇÃO DEGRADADA</span>
                              </motion.div>
                         )}
                         <div className={`flex items-center gap-2 px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20`}>
                             <TierIcon size={12} />
-                            <span className="pl-1.5">{tier}</span>
+                            <span>{tier}</span>
                         </div>
                     </div>
                 </div>
