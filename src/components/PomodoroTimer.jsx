@@ -656,7 +656,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
-                    className="w-full border-[6px] border-[#3f2e26] pt-24 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
+                    className="w-full border-[6px] border-[#3f2e26] pt-32 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
                 >
                     <div className="absolute top-4 right-6 z-[60]">
                         <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">

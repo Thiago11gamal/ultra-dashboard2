@@ -389,39 +389,39 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
     };
 
     return (
-        <div className="w-full max-w-[min(95vw,600px)] mb-6 rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-6 py-8 shadow-2xl relative overflow-hidden group mx-auto">
+        <div className="w-full max-w-[min(95vw,600px)] mb-6 rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-8 py-10 shadow-2xl relative overflow-hidden group mx-auto">
             {/* Efeito de brilho sutil no topo da madeira */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
             
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
-                <div className="flex items-center gap-5 min-w-0 flex-1">
-                    <div className="w-12 h-12 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        <div className="text-xl font-black text-[#2d1a12]/80">{activeSubject ? 'F' : '⚡'}</div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-6 min-w-0 flex-1">
+                    <div className="w-16 h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
+                        <div className="text-2xl font-black text-[#2d1a12]/80">{activeSubject ? 'F' : '⚡'}</div>
                     </div>
                     
                     <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#2d1a12]/60">{activeSubject?.category || 'SISTEMA'}</span>
-                            <div className="w-1 h-1 rounded-full bg-emerald-700/60 animate-pulse" />
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60">{activeSubject?.category || 'SISTEMA'}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 animate-pulse" />
                         </div>
-                        <h1 className="text-lg sm:text-xl font-black text-[#2d1a12] tracking-tight truncate leading-tight">
+                        <h1 className="text-xl sm:text-2xl font-black text-[#2d1a12] tracking-tight truncate leading-tight">
                             {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
                         </h1>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-4 shrink-0">
-                    <div className="flex flex-col items-end gap-1">
-                        <span className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-[#2d1a12]/20 bg-[#2d1a12]/10 text-[#2d1a12]">
+                <div className="flex items-center gap-5 shrink-0">
+                    <div className="flex flex-col items-end gap-1.5">
+                        <span className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-[#2d1a12]/20 bg-[#2d1a12]/10 text-[#2d1a12]">
                             {neuralMode ? 'Neural' : 'Manual'}
                         </span>
                     </div>
                     
                     <button 
                         onClick={onToggleLock}
-                        className={`p-3 rounded-xl border transition-all ${isLayoutLocked ? 'bg-white/10 border-black/5 text-[#2d1a12]/40 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12] shadow-[0_0_15px_rgba(45,26,18,0.1)]'}`}
+                        className={`p-4 rounded-2xl border transition-all ${isLayoutLocked ? 'bg-white/10 border-black/5 text-[#2d1a12]/40 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12] shadow-[0_0_20px_rgba(45,26,18,0.2)]'}`}
                     >
-                        {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                        {isLayoutLocked ? <Lock size={20} /> : <Unlock size={20} />}
                     </button>
                 </div>
             </div>
