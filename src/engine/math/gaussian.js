@@ -103,7 +103,8 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const bandwidth = Math.max(0.001, finiteH, binWidth, finiteProjectedSD * 0.15);
     const bins = new Float32Array(BIN_COUNT);
 
-    for (let i = 0; i < safeSimulations; i++) {
+    // BUG-KDE-01 FIX: usar allScores.length para evitar acesso OOB se safeSimulations != allScores.length
+    for (let i = 0; i < allScores.length; i++) {
         let s = Math.max(minScore, Math.min(maxScore, allScores[i]));
         if (s > plotMax || s < plotMin) continue;
         const idx = Math.min(BIN_COUNT - 1, Math.floor((s - plotMin) / binWidth));

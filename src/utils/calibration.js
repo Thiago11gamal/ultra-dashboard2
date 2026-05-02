@@ -59,7 +59,19 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
       return { baseline: cfg.baseline || 0.2, maxPenalty: cfg.maxPenalty || 0.3 };
   }
   
-  const avgBrier = recent.reduce((a, b) => a + (Number(b.avgBrier) || 0), 0) / recent.length;
+  // BUG-CALIB-01 FIX: Ponderação exponencial recente (λ = 0.05/dia ≈ meia-vida 14 dias)
+  // Antes: média simples igualava pesos de eventos de 60 dias atrás com eventos de hoje
+  const now = Date.now();
+  const LAMBDA_CALIB = 0.05 / (24 * 60 * 60 * 1000); // decaimento por ms
+  let sumWeightedBrier = 0;
+  let sumWeights = 0;
+  recent.forEach(h => {
+    const age = Math.max(0, now - (h.timestamp || now));
+    const w = Math.exp(-LAMBDA_CALIB * age);
+    sumWeightedBrier += (Number(h.avgBrier) || 0) * w;
+    sumWeights += w;
+  });
+  const avgBrier = sumWeights > 0 ? sumWeightedBrier / sumWeights : 0;
   // Dynamic baseline based on recent performance
   const baseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
   // Conservative max penalty if performance is poor

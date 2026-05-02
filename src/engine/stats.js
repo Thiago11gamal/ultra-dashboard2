@@ -153,8 +153,9 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
     // BUGFIX: Predictive Variance (Epistemic + Aleatoric)
-    // Prevents Monte Carlo collapse for large N by assuming a standard exam uncertainty.
-    const TAMANHO_PROVA_ESTIMADO = 100;
+    // Prevents Monte Carlo collapse for large N by assumin    // BUG-BAYES-01 FIX: escalar pelo maxScore real da prova
+    // Antes: hardcoded 100, subestimava variance para provas > 100 pts e superestimava para < 100 pts
+    const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(maxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;
     const aleatoricVar = (p_tilde * (1 - p_tilde)) / TAMANHO_PROVA_ESTIMADO;
 
@@ -227,7 +228,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     let variance = 0;
     if (historyToUse.length > 1) {
         // 🎯 FALÁCIA ECOLÓGICA (Fix): Variância entre simulados (tests), não entre questões.
-        // O peso do simulado deve ser levado em conta, mas o DOF é baseado no N de simulados (histórico).
+        // O peso do simulado deve levado em conta, mas o DOF é baseado no N de simulados (histórico).
         let wVarSum = 0;
         let sumW = 0;
         let sumW2 = 0; // Somatório dos pesos ao quadrado
@@ -265,8 +266,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     const slopePerDay = calculateSlope(historyToUse, maxScore);
     // Converter para pp/30-dias para comparação com threshold
-    // Threshold de 0.5% (base 100) -> proportional limit
-    const trendThreshold = 0.005 * maxScore;
+    // BUG-TREND-01 FIX: unificar com coachLogic.js (0.02 * maxScore = 2 pts/mês para maxScore=100)
+    // Antes: 0.005 * maxScore era 4x menos sensível, causando inconsistência nos rótulos
+    const trendThreshold = 0.02 * maxScore;
     
     // FIX-SORT3: historyToUse pode não estar ordenado por data (é um filter() do map() original).
     // calculateSlope() ordena internamente, mas o cap de tendência precisa do score mais recente.

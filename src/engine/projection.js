@@ -285,7 +285,9 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         const rawDaysBetween = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         const daysBetween = Math.min(90, rawDaysBetween);
 
-        const detrendedDiff = actualChange - (rawDriftVol * daysBetween);
+        // BUG-VOLT-01 FIX: usar rawDaysBetween para detrending (remoção correta do drift real)
+        // O cap de 90 dias aplica-se APENAS ao timeScaleVol (estabilidade numérica)
+        const detrendedDiff = actualChange - (rawDriftVol * rawDaysBetween);
         const timeScaleVol = Math.max(0.1, Math.sqrt(daysBetween));
 
         // BUG 1 FIX: Standardize by binomial volatility to remove boundary effect
@@ -428,11 +430,13 @@ export function monteCarloSimulation(
 
         const rawDays = Math.max(0.1, (time1 - time0) / 86400000);
         const daysBetween = Math.min(90, rawDays);
-
-        const detrendedChange = actualChange - (rawDrift * daysBetween);
+        // BUG-RESID-01 FIX: usar rawDays para remoção de drift (drift cobre todo o intervalo real)
+        // O cap de 90 dias permanece apenas na variância O-U para estabilidade numérica
+        const detrendedChange = actualChange - (rawDrift * rawDays);
 
         // M-02 FIX: Resíduo bruto normalizado pela Variância Assintótica O-U
-        const varOU = (1 - Math.exp(-2 * thetaOU * daysBetween)) / (2 * thetaOU);
+        // BUG-RESID-01 FIX: usar rawDays para varOU (satura assintoticamente, cap não é necessário)
+        const varOU = (1 - Math.exp(-2 * thetaOU * rawDays)) / (2 * thetaOU);
         const timeScale = Math.max(0.1, Math.sqrt(varOU));
 
         const currentScoreRange = (maxScore - minScore) || maxScore || 1;
@@ -724,18 +728,20 @@ export function monteCarloSimulation(
     // BUG 5 FIX: Compute median for asymmetric sdLeft/sdRight anchoring
     const empMedian = getPercentile(allFinalScores, 0.5);
 
-    return {
-        // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9).
-        probability: Number.isFinite(empiricalProbability) ? empiricalProbability : (Number.isFinite(analyticalProbability) ? analyticalProbability : 0),
-        analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
-        mean: Number(displayMean.toFixed(2)),
-        sd: Number(projectedSD.toFixed(2)),
         // BUG-D + BUG 5 FIX: sdLeft/sdRight from empirical p16/p84 percentiles
         // anchored on MEDIAN (not mean). With skewed OU distributions, mean can
         // fall outside [p16, p84], producing misleading or clamped-to-floor values.
-        // Median is always between p16 and p84 by definition.
-        sdLeft: Number(Math.max(0.1, empMedian - getPercentile(allFinalScores, 0.16)).toFixed(2)),
-        sdRight: Number(Math.max(0.1, getPercentile(allFinalScores, 0.84) - empMedian).toFixed(2)),
+        const rawLeft = getPercentile(allFinalScores, 0.16);
+        const rawRight = getPercentile(allFinalScores, 0.84);
+
+        return {
+            // 🎯 BUG-C6 FIX: Remoção dos clamps (0.1/99.9).
+            probability: Number.isFinite(empiricalProbability) ? empiricalProbability : (Number.isFinite(analyticalProbability) ? analyticalProbability : 0),
+            analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
+            mean: Number(displayMean.toFixed(2)),
+            sd: Number(projectedSD.toFixed(2)),
+            sdLeft: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), empMedian - rawLeft).toFixed(4)),
+            sdRight: Number(Math.max(Math.max((maxScore - minScore) * 0.001, 1e-6), rawRight - empMedian).toFixed(4)),
         ci95Low,
         ci95High,
         currentMean: Number((optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore).toFixed(2)),
