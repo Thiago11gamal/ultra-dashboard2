@@ -67,7 +67,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
         >
             <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-8 px-10 pt-10">
                 <div className="flex flex-col items-start gap-2 min-w-0">
-                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge.replace('/25', '/30')} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
+                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
                         <div className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                         <span className="leading-tight whitespace-normal break-words">{displaySubject(subjectPart)}</span>
                     </div>
@@ -97,9 +97,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <div 
-                                className="overflow-hidden"
-                            >
+                            <div className="overflow-hidden">
                                 <div className="pt-4 space-y-3">
                                     <p className="text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/5 font-medium">{task.analysis.reason}</p>
                                     {task.analysis.metrics && (
@@ -127,7 +125,11 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </AnimatePresence>
                 </div>
             )}
-    export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
+        </div>
+    );
+}
+
+export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
@@ -170,12 +172,10 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             const avgPenalty = base.reduce((acc, h) => acc + (Number(h.calibrationPenalty) || 0), 0) / base.length;
             const label = rows[rows.length - 1]?.categoryName || categoryId;
             return { categoryId, label, count: base.length, avgBrier, avgPenalty };
-
         })
         .filter(Boolean)
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
         .slice(0, 6);
-
 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -256,7 +256,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         Coach sem alerta no momento.
                     </div>
                 )}
-            </div>m-ui, sans-serif" }}>
+            </div>
+
             {calibrationSummary.length > 0 && (
                 <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-visible group">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
@@ -357,29 +358,41 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                             ))}
                         </div>
                     ) : (
-                                const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
-                                const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
-
-                                return [leftColumn, rightColumn].map((columnTasks, columnIdx) => (
-                                    <div key={`column-${columnIdx}`} className="flex flex-col gap-6">
-                                        {columnTasks.map((task, idx) => {
-                                            const visualIdx = (idx * 2) + columnIdx;
-                                            return (
-                                                <AICoachCard
-                                                    key={getSafeId(task) || `${columnIdx}-${idx}`}
-                                                    task={task}
-                                                    idx={visualIdx}
-                                                    onStartPomodoro={handleStartNeural}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                ));
-                            })()}
+                        <div className="mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                            <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
                         </div>
                     )}
                 </div>
-            </div>
+            ) : viewMode === 'planner' ? (
+                <div key="planner"><AICoachPlanner /></div>
+            ) : (
+                <div key="list" className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    {(() => {
+                        const allAssignedIds = new Set();
+                        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
+                        const listTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+                        const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
+                        const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
+
+                        return [leftColumn, rightColumn].map((columnTasks, columnIdx) => (
+                            <div key={`column-${columnIdx}`} className="flex flex-col gap-6">
+                                {columnTasks.map((task, idx) => {
+                                    const visualIdx = (idx * 2) + columnIdx;
+                                    return (
+                                        <AICoachCard
+                                            key={getSafeId(task) || `${columnIdx}-${idx}`}
+                                            task={task}
+                                            idx={visualIdx}
+                                            onStartPomodoro={handleStartNeural}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ));
+                    })()}
+                </div>
+            )}
         </div>
     );
 }
