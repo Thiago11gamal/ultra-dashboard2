@@ -37,10 +37,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const availableTabs = ['insights', ...(isPremium ? ['analytics'] : [])];
 
     const focusTab = (tabKey) => {
+        if (typeof document === 'undefined') return;
         const tabId = `coach-tab-${tabKey}`;
         const tabEl = document.getElementById(tabId);
         if (tabEl) tabEl.focus();
     };
+
 
     const activateTab = (tabKey) => {
         onChangeTab(tabKey);
@@ -53,7 +55,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const isHome = event.key === 'Home';
         const isEnd = event.key === 'End';
         const isEnter = event.key === 'Enter';
-        const isSpace = event.key === ' ';
+        const isSpace = event.key === ' ' || event.key === 'Spacebar';
         if (!isLeft && !isRight && !isHome && !isEnd && !isEnter && !isSpace) return;
 
         event.preventDefault();
