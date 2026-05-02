@@ -1,6 +1,6 @@
 import { mulberry32 } from './random.js';
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
-import { monteCarloSimulation } from './projection.js';
+export { monteCarloSimulation } from './projection.js';
 import { getPercentile } from './math/percentile.js';
 
 export { getPercentile };

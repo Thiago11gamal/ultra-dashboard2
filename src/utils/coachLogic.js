@@ -1,11 +1,19 @@
 // ==================== CONSTANTES ====================
 import { standardDeviation } from '../engine/stats.js';
-import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection.js';
+import { calculateVolatility, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
-import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeRollingCalibrationParams, computeCalibrationDiagnostics } from './calibration.js';
-import { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights } from './coachAdaptive.js';
-export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights };
+import { computeRollingCalibrationParams } from './calibration.js';
+import { 
+    deriveAdaptiveRiskThresholds, 
+    computeContinuousMcBoost, 
+    deriveBacktestWeights,
+    deriveCoachAdaptiveParams,
+    runCoachMonteCarlo,
+    clearMcCache,
+    simuladosToHistory
+} from './coachAdaptive.js';
+export { deriveAdaptiveRiskThresholds, computeContinuousMcBoost, deriveBacktestWeights, clearMcCache };
 
 
 export const DEFAULT_CONFIG = {
@@ -93,190 +101,8 @@ function getCrunchMultiplier(daysToExam) {
     return 1.0;
 }
 
-/**
- * MC-01: Mapper simulados → history para monteCarloSimulation
- */
-function simuladosToHistory(simulados, maxScore = 100) {
-    return simulados
-        .filter(s => s.total > 0 || s.score != null)
-        .map(s => ({
-            // FIX: Utilizar o helper seguro para prevenir que notas como 85% virem 170%
-            score: getSafeScore(s, maxScore),
-            date: s.date
-        }));
-}
-
-
-const mcCache = new Map();
-const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
-
 // MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
 
-// Must be called on resetStore() and when activeId changes to prevent stale
-// MC results from a previous contest being served to a different one.
-export function clearMcCache() { mcCache.clear(); }
-
-export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DEFAULT_CONFIG) {
-    const n = history.length;
-    if (n === 0) {
-        return { decayK: 0.07, minWeight: 0.03, scoreClampDelta: maxScore * 0.3, mcSimulations: cfg.MC_SIMULATIONS };
-    }
-
-    const scores = history.map(h => Number(h.score) || 0);
-    const mean = scores.reduce((a, b) => a + b, 0) / n;
-    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
-    const sd = Math.sqrt(Math.max(0, variance));
-    const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
-
-    const coverageFactor = Math.max(0.8, Math.min(1.3, Math.sqrt(10 / Math.max(2, n))));
-    const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor));
-    const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
-    const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));
-    const mcSimulations = Math.round(Math.max(400, Math.min(2500, cfg.MC_SIMULATIONS * (0.8 + cv * 0.7) * coverageFactor)));
-
-    return { decayK, minWeight, scoreClampDelta, mcSimulations };
-}
-
-/**
- * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
- * Retorna null se dados insuficientes para evitar falsos positivos.
- */
-export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90) {
-    const history = simuladosToHistory(relevantSimulados, maxScore);
-    if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
-    const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, cfg.MC_MIN_DATA_POINTS + 2);
-    const isLowSample = history.length < lowSampleThreshold;
-
-    const sumCorrect = relevantSimulados.reduce((a, s) => a + getSafeScore(s, maxScore), 0);
-    // HASH-DATA FIX: inclui checksum sequencial para evitar colisões quando soma/length são iguais.
-    const sequenceChecksum = relevantSimulados.reduce((acc, sim, idx) => {
-        const score = getSafeScore(sim, maxScore);
-        const date = String(sim?.date || '');
-        const subject = String(sim?.subject || '');
-        let charSum = 0;
-        const token = `${date}|${subject}`;
-        for (let i = 0; i < token.length; i++) charSum += token.charCodeAt(i);
-        return acc + ((idx + 1) * Math.round(score * 100)) + charSum;
-    }, 0);
-    const firstDate = relevantSimulados[0]?.date || '';
-    const lastDate = relevantSimulados[relevantSimulados.length - 1]?.date || '';
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}`;
-    if (mcCache.has(hash)) return mcCache.get(hash);
-
-    try {
-        const result = monteCarloSimulation(
-            history,
-            targetScore,
-            days,
-            adaptive?.mcSimulations || cfg.MC_SIMULATIONS,
-            { maxScore }
-        );
-
-        const enableAdaptiveCalibration = cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
-
-        // Backtest leve de calibração (walk-forward curto) para reduzir overconfidence.
-        let calibrationPenalty = 0;
-        let avgBrier = 0;
-        let ece = 0;
-        let reliability = [];
-        if (enableAdaptiveCalibration && history.length >= 8) {
-            const dynamicHorizon = Math.max(
-                cfg.MC_BACKTEST_HORIZON || 3,
-                Math.min(Number(cfg.MC_BACKTEST_HORIZON_MAX) || 6, Math.floor(history.length / 3))
-            );
-            const horizon = Math.min(dynamicHorizon, history.length - cfg.MC_MIN_DATA_POINTS);
-            const brierScores = [];
-            const predObsPairs = [];
-            for (let i = 1; i <= horizon; i++) {
-                const train = history.slice(0, history.length - i);
-                const observed = history[history.length - i].score >= targetScore ? 1 : 0;
-                try {
-                    const bt = monteCarloSimulation(
-                        train,
-                        targetScore,
-                        days,
-                        Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS) * 0.35))),
-                        { maxScore }
-                    );
-                    const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
-                    brierScores.push(computeBrierScore(p, observed));
-                    predObsPairs.push({ probability: p, observed });
-                } catch {
-                    // ignora ponto de backtest inválido
-                }
-            }
-            if (brierScores.length > 0) {
-                const summary = summarizeCalibration(brierScores, {
-                    baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
-                    maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
-                });
-                calibrationPenalty = summary.calibrationPenalty;
-                avgBrier = summary.avgBrier;
-                const adaptiveBins = predObsPairs.length >= 18
-                    ? (Number(cfg.MC_ECE_BINS_MAX) || 8)
-                    : predObsPairs.length >= 10
-                        ? (Number(cfg.MC_ECE_BINS_MID) || 6)
-                        : (Number(cfg.MC_ECE_BINS_MIN) || 4);
-                const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: adaptiveBins });
-                ece = diagnostics.ece;
-                reliability = diagnostics.reliability;
-            }
-        }
-
-
-        const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
-        const probability = enableAdaptiveCalibration
-            ? shrinkProbabilityToNeutral(
-                rawProb,
-                calibrationPenalty,
-                cfg.MC_CALIBRATION_NEUTRAL_PCT,
-                cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY
-            )
-            : rawProb;
-
-        const extraLowSampleShrink = isLowSample
-            ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold)
-            : 0;
-        const adjustedProbability = isLowSample
-            ? shrinkProbabilityToNeutral(probability, extraLowSampleShrink, cfg.MC_CALIBRATION_NEUTRAL_PCT, 0.5)
-            : probability;
-
-        const ciLow = Number(result.ci95Low) || 0;
-        const ciHigh = Number(result.ci95High) || 0;
-        const ciMid = (ciLow + ciHigh) / 2;
-        const ciExpand = isLowSample ? (1 + extraLowSampleShrink * 1.8) : 1;
-        const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
-        const widenedCiHigh = Math.min(maxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
-
-        const finalResult = {
-            probability: adjustedProbability,
-            volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
-            mean: result.mean,
-            ci95Low: widenedCiLow,
-            ci95High: widenedCiHigh,
-            calibrationPenalty,
-            avgBrier,
-            ece,
-            reliability,
-            sampleSize: history.length,
-            lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4))
-        };
-
-
-        // BUG-21 FIX: Evict oldest entries when cache exceeds limit
-        if (mcCache.size >= MC_CACHE_MAX) {
-            const firstKey = mcCache.keys().next().value;
-            mcCache.delete(firstKey);
-        }
-        mcCache.set(hash, finalResult);
-        return finalResult;
-    } catch (e) {
-        if (import.meta.env?.DEV) {
-            console.warn('[CoachMC] Simulação falhou:', e.message, { n: history.length });
-        }
-        return null;
-    }
-}
 
 // ==================== FUNÇÃO PRINCIPAL ====================
 

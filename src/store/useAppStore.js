@@ -14,7 +14,7 @@ import { createSimuladoSlice } from './slices/createSimuladoSlice';
 import { createTrashSlice } from './slices/createTrashSlice';
 import { createSettingsSlice } from './slices/createSettingsSlice';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice';
-import { clearMcCache } from '../utils/coachLogic';
+import { clearMcCache } from '../utils/coachAdaptive';
 
 // --- IndexedDB Adapter with localStorage Migration ---
 // --- Otimização de Persistência: Debounced IndexedDB Adapter ---

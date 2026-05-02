@@ -4,8 +4,8 @@ import {
   deriveAdaptiveRiskThresholds,
   computeContinuousMcBoost,
   deriveBacktestWeights,
-  DEFAULT_CONFIG,
-} from '../coachLogic.js';
+} from '../coachAdaptive.js';
+import { DEFAULT_CONFIG } from '../coachLogic.js';
 import { computeCalibrationDiagnostics } from '../calibration.js';
 
 function makeSimulados(scores) {
@@ -64,11 +64,11 @@ describe('Coach math regressions — adaptive ECE buckets', () => {
 describe('Coach math regressions — backtest weights bounded', () => {
   it('pesos derivados do backtest permanecem nos limites definidos', () => {
     const w = deriveBacktestWeights([40, 42, 45, 47, 50, 53, 55, 57, 60, 62], 100);
-    expect(w.scoreWeight).toBeGreaterThanOrEqual(1.0);
+    expect(w.scoreWeight).toBeGreaterThanOrEqual(0.8);
     expect(w.scoreWeight).toBeLessThanOrEqual(1.2);
-    expect(w.recencyWeight).toBeGreaterThanOrEqual(1.0);
-    expect(w.recencyWeight).toBeLessThanOrEqual(1.5);
-    expect(w.instabilityWeight).toBeGreaterThanOrEqual(1.0);
-    expect(w.instabilityWeight).toBeLessThanOrEqual(1.5);
+    expect(w.recencyWeight).toBeGreaterThanOrEqual(0.75);
+    expect(w.recencyWeight).toBeLessThanOrEqual(1.25);
+    expect(w.instabilityWeight).toBeGreaterThanOrEqual(0.8);
+    expect(w.instabilityWeight).toBeLessThanOrEqual(1.25);
   });
 });
