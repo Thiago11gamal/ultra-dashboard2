@@ -500,6 +500,7 @@ function RaioXDashboard({ data }) {
                                     <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
                                     <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
                                     <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
+                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE</th>
                                     <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
                                     <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
                                 </tr>
@@ -510,6 +511,7 @@ function RaioXDashboard({ data }) {
                                         <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
                                         <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                         <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
+                                        <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
                                         <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
                                         <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
                                     </tr>
