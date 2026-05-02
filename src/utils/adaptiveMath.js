@@ -19,19 +19,23 @@ export function getConfidenceMultiplier(sampleSize) {
 export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     if (!Array.isArray(values) || values.length < 5) return values || [];
 
-    const sorted = [...values].sort((a, b) => a - b);
+    const finiteValues = values.filter(v => Number.isFinite(v));
+    if (finiteValues.length < 5) return finiteValues;
+
+    const sorted = [...finiteValues].sort((a, b) => a - b);
     const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
     const highIndex = Math.ceil((sorted.length - 1) * upperPct);
     const low = sorted[Math.max(0, lowIndex)];
     const high = sorted[Math.min(sorted.length - 1, highIndex)];
 
-    return values.map(v => Math.max(low, Math.min(high, v)));
+    return finiteValues.map(v => Math.max(low, Math.min(high, v)));
 }
 
 export function deriveAdaptiveConfig(scores = []) {
-    const n = scores.length;
-    const mean = n > 0 ? scores.reduce((a, b) => a + b, 0) / n : 0;
-    const variance = n > 1 ? scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
+    const finiteScores = Array.isArray(scores) ? scores.filter(v => Number.isFinite(v)) : [];
+    const n = finiteScores.length;
+    const mean = n > 0 ? finiteScores.reduce((a, b) => a + b, 0) / n : 0;
+    const variance = n > 1 ? finiteScores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / (n - 1) : 0;
     const sd = Math.sqrt(Math.max(0, variance));
     const cv = mean !== 0 ? Math.min(2, Math.abs(sd / mean)) : 1;
 
@@ -52,15 +56,16 @@ export function deriveAdaptiveConfig(scores = []) {
 }
 
 export function computeAdaptiveSignal(scores = []) {
-    if (!Array.isArray(scores) || scores.length === 0) {
+    const finiteScores = Array.isArray(scores) ? scores.filter(v => Number.isFinite(v)) : [];
+    if (finiteScores.length === 0) {
         return { effectiveN: 1, trendStrength: 0, adaptiveWinsor: { low: 0.05, high: 0.95 }, ciInflation: 1 };
     }
 
-    const cfg = deriveAdaptiveConfig(scores);
+    const cfg = deriveAdaptiveConfig(finiteScores);
 
     const weighted = [];
-    for (let i = 0; i < scores.length; i++) {
-        const age = scores.length - 1 - i;
+    for (let i = 0; i < finiteScores.length; i++) {
+        const age = finiteScores.length - 1 - i;
         weighted.push(Math.pow(cfg.lambda, age));
     }
 
@@ -68,10 +73,12 @@ export function computeAdaptiveSignal(scores = []) {
     const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
 
-    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const variance = scores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / Math.max(1, scores.length - 1);
+    const mean = finiteScores.reduce((a, b) => a + b, 0) / finiteScores.length;
+    const variance = finiteScores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / Math.max(1, finiteScores.length - 1);
     const sd = Math.sqrt(Math.max(0, variance));
-    const lastDelta = scores.length >= 2 ? scores[scores.length - 1] - scores[scores.length - 2] : 0;
+    const lastDelta = finiteScores.length >= 2
+        ? finiteScores[finiteScores.length - 1] - finiteScores[finiteScores.length - 2]
+        : 0;
     const trendStrength = sd > 0 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
 
     const ciInflation = Math.min(cfg.maxCIInflation, 1 + (trendStrength * cfg.trendSensitivity));

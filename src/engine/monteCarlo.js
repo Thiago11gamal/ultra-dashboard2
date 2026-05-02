@@ -1,6 +1,7 @@
 import { mulberry32 } from './random.js';
 import { normalCDF_complement, generateKDE, sampleTruncatedNormal } from './math/gaussian.js';
-export { monteCarloSimulation } from './projection.js';
+import { monteCarloSimulation } from './projection.js';
+export { monteCarloSimulation };
 import { getPercentile } from './math/percentile.js';
 
 export { getPercentile };
@@ -104,8 +105,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     allScores.sort((a, b) => a - b);
 
-    let rawLow = getPercentile(allScores, 0.025);
-    let rawHigh = getPercentile(allScores, 0.975);
+    const statisticalCi95Low = getPercentile(allScores, 0.025);
+    const statisticalCi95High = getPercentile(allScores, 0.975);
+    let rawLow = statisticalCi95Low;
+    let rawHigh = statisticalCi95High;
 
     const empiricalProbability = (success / safeSimulations) * 100;
     const displayMean = bayesianCI ? safeMean : projectedMean;
@@ -115,7 +118,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Garante que o cone não fique gigante num teste de 10 pontos ou invisível num de 1000.
     const MIN_SPREAD = Math.max(0.5, maxScore * 0.005);
     
-    if (rawHigh - rawLow < MIN_SPREAD) {
+    const wasVisualCIClamped = (rawHigh - rawLow < MIN_SPREAD);
+    if (wasVisualCIClamped) {
         rawLow = Math.max(minScore, displayMean - MIN_SPREAD / 2);
         rawHigh = Math.min(maxScore, displayMean + MIN_SPREAD / 2);
     }
@@ -125,7 +129,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     // BUGFIX M3: Sync the exported 'sd' with the visual clamp to avoid mathematical inconsistency
     // for external consumers of the statistical JSON.
-    const finalSD = (rawHigh - rawLow < MIN_SPREAD) 
+    const finalSD = wasVisualCIClamped
         ? (rawHigh - rawLow) / 3.92 
         : projectedSD;
 
@@ -152,9 +156,17 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const rawLeft = getPercentile(allScores, 0.16);
     const rawRight = getPercentile(allScores, 0.84);
 
+    const finiteEmpiricalProbability = Number.isFinite(empiricalProbability) ? empiricalProbability : 0;
+    const finiteAnalyticalProbability = Number.isFinite(analyticalProbability) ? analyticalProbability : 0;
+    const recommendedProbability = safeSimulations < 1200
+        ? finiteEmpiricalProbability
+        : finiteAnalyticalProbability;
+
     return {
-        probability: Number.isFinite(empiricalProbability) ? empiricalProbability : 0,
-        analyticalProbability: Number.isFinite(analyticalProbability) ? analyticalProbability : 0,
+        probability: finiteEmpiricalProbability,
+        analyticalProbability: finiteAnalyticalProbability,
+        recommendedProbability,
+        probabilityPolicy: safeSimulations < 1200 ? 'empirical_low_sample' : 'analytical_high_sample',
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
         // BUGFIX M3: Use the finalSD (synced with visual clamp if necessary)
         sd: Number(finalSD.toFixed(2)),
@@ -162,8 +174,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         // Indica a distância real dos quartis P16/P84, respeitando a assimetria da Normal Truncada.
         sdLeft: Number(Math.max(0.1, empMedian - rawLeft).toFixed(2)),
         sdRight: Number(Math.max(0.1, rawRight - empMedian).toFixed(2)),
+        ci95StatLow: Number(statisticalCi95Low.toFixed(2)),
+        ci95StatHigh: Number(statisticalCi95High.toFixed(2)),
         ci95Low: Number(displayLow.toFixed(2)),
         ci95High: Number(displayHigh.toFixed(2)),
+        ci95VisualLow: Number(displayLow.toFixed(2)),
+        ci95VisualHigh: Number(displayHigh.toFixed(2)),
+        ci95VisualClamped: wasVisualCIClamped,
         currentMean: Number((currentMean || safeMean).toFixed(2)),
         projectedMean,
         projectedSD,
