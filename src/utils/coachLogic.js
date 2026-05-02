@@ -557,7 +557,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
-            // BUG-19 FIX: mcProbability já está em escala 0-100, não multiplicar por 100
+            // BUG-19 FIX: mcProbability já está em 0-100, não multiplicar por 100
             recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${burnoutNote}`;
         } else if (isBurnoutRisk) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;

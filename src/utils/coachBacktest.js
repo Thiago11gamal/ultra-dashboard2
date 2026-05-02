@@ -17,28 +17,25 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
 }
 
 export function computeUplift(control = [], treatment = []) {
-  const mean = (arr) => (arr.length ? arr.reduce((a, b) => a + (Number(b) || 0), 0) / arr.length : 0);
-  return mean(treatment) - mean(control);
+  if (control.length === 0 || treatment.length === 0) return 0;
+  const meanControl = control.reduce((a, b) => a + b, 0) / control.length;
+  const meanTreatment = treatment.reduce((a, b) => a + b, 0) / treatment.length;
+  return meanTreatment - meanControl;
 }
 
-export function computeCalibratedError(points = []) {
-  if (!Array.isArray(points) || points.length === 0) return 0;
-  return points.reduce((acc, p) => {
-    const pred = Math.max(0, Math.min(1, Number(p?.pred) || 0));
-    const obs = p?.obs ? 1 : 0;
-    return acc + Math.abs(pred - obs);
-  }, 0) / points.length;
+export function computeCalibratedError(probability, actual) {
+  const p = Math.max(0, Math.min(1, Number(probability) || 0));
+  const y = actual ? 1 : 0;
+  return Math.abs(p - y);
 }
 
-export function compareStrategyRuns({ baseline, candidate }) {
-  return {
-    ndcgAt5Delta: (candidate?.ndcgAt5 || 0) - (baseline?.ndcgAt5 || 0),
-    upliftDelta: (candidate?.uplift || 0) - (baseline?.uplift || 0),
-    calibratedErrorDelta: (candidate?.calibratedError || 0) - (baseline?.calibratedError || 0),
-    winner: (candidate?.ndcgAt5 || 0) >= (baseline?.ndcgAt5 || 0) &&
-      (candidate?.uplift || 0) >= (baseline?.uplift || 0) &&
-      (candidate?.calibratedError || 1) <= (baseline?.calibratedError || 1)
-      ? 'candidate'
-      : 'baseline'
-  };
+export function compareStrategyRuns(runA = [], runB = [], metrics = ['ndcg']) {
+  const results = { delta: {}, winner: null };
+  if (metrics.includes('ndcg')) {
+    const ndcgA = computeNDCGAtK(runA.predicted, runA.actual, 5);
+    const ndcgB = computeNDCGAtK(runB.predicted, runB.actual, 5);
+    results.delta.ndcg = ndcgB - ndcgA;
+    results.winner = ndcgB > ndcgA ? 'B' : 'A';
+  }
+  return results;
 }

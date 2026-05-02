@@ -10,6 +10,7 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
             role="tab"
             aria-selected={active}
             aria-controls={panelId}
+            aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
             className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
@@ -38,14 +39,9 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
     const focusTab = (tabKey) => {
         if (typeof document === 'undefined') return;
-        
-        // O setTimeout permite que o React execute a renderização pendente e atualize
-        // atributos visuais e tabIndex antes da injeção direta de foco no DOM.
-        setTimeout(() => {
-            const tabId = `coach-tab-${tabKey}`;
-            const tabEl = document.getElementById(tabId);
-            if (tabEl) tabEl.focus();
-        }, 0);
+        const tabId = `coach-tab-${tabKey}`;
+        const tabEl = document.getElementById(tabId);
+        if (tabEl) tabEl.focus();
     };
 
     const activateTab = (tabKey) => {
@@ -58,12 +54,17 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const isRight = event.key === 'ArrowRight';
         const isHome = event.key === 'Home';
         const isEnd = event.key === 'End';
-        
-        // As teclas de ativação (Enter e Espaço) não são mais interceptadas aqui.
-        // O <button> no MenuTab agora captura essas interações nativamente via onClick.
-        if (!isLeft && !isRight && !isHome && !isEnd) return;
+        const isEnter = event.key === 'Enter';
+        const isSpace = event.key === ' ' || event.key === 'Spacebar';
+        if (!isLeft && !isRight && !isHome && !isEnd && !isEnter && !isSpace) return;
 
         event.preventDefault();
+        const currentIndex = availableTabs.indexOf(activeTab);
+
+        if (isEnter || isSpace) {
+            activateTab(activeTab);
+            return;
+        }
 
         if (isHome) {
             activateTab(availableTabs[0]);
@@ -75,16 +76,13 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
             return;
         }
 
-        const currentIndex = availableTabs.indexOf(activeTab);
         const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const dir = isRight ? 1 : -1;
-        
         const nextIndex = (safeIndex + dir + availableTabs.length) % availableTabs.length;
         activateTab(availableTabs[nextIndex]);
     };
 
     const handleActivateInsights = () => activateTab('insights');
-    
     const handleActivateAnalytics = () => {
         if (!isPremium) return;
         activateTab('analytics');
@@ -129,6 +127,3 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         </div>
     );
 }
-
-
-

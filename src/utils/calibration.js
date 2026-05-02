@@ -17,48 +17,27 @@ export function summarizeCalibration(scores = [], options = {}) {
     return { avgBrier, calibrationPenalty };
 }
 
-export function computeCalibrationDiagnostics(predictions = [], options = {}) {
-    const bins = Math.max(3, Math.min(20, Number(options.bins) || 10));
-    if (!Array.isArray(predictions) || predictions.length === 0) {
-        return { ece: 0, reliability: [] };
-    }
-
-    const bucketed = Array.from({ length: bins }, (_, i) => ({
-        bin: i,
-        count: 0,
-        sumPred: 0,
-        sumObs: 0
-    }));
-
-    predictions.forEach((p) => {
-        const prob = Math.max(0, Math.min(1, Number(p?.probability) || 0));
-        const obs = p?.observed ? 1 : 0;
-        const idx = Math.min(bins - 1, Math.floor(prob * bins));
-        const b = bucketed[idx];
-        b.count += 1;
-        b.sumPred += prob;
-        b.sumObs += obs;
-    });
-
-    const total = bucketed.reduce((acc, b) => acc + b.count, 0) || 1;
-    let ece = 0;
-    const reliability = bucketed
-        .filter(b => b.count > 0)
-        .map((b) => {
-            const meanPred = b.sumPred / b.count;
-            const observedRate = b.sumObs / b.count;
-            const gap = Math.abs(meanPred - observedRate);
-            ece += (b.count / total) * gap;
-            return {
-                bin: b.bin,
-                count: b.count,
-                meanPred,
-                observedRate,
-                gap
-            };
-        });
-
-    return { ece, reliability };
+export function computeCalibrationDiagnostics(pairs = [], options = {}) {
+  const bins = Math.max(2, options.bins || 5);
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, reliability: [] };
+  
+  const sorted = [...pairs].sort((a, b) => a.probability - b.probability);
+  let ece = 0;
+  const reliability = [];
+  
+  for (let i = 0; i < bins; i++) {
+    const start = Math.floor(i * sorted.length / bins);
+    const end = Math.floor((i + 1) * sorted.length / bins);
+    const slice = sorted.slice(start, end);
+    if (slice.length === 0) continue;
+    
+    const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
+    const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
+    const gap = Math.abs(meanPred - observedRate);
+    ece += (slice.length / pairs.length) * gap;
+    reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
+  }
+  return { ece, reliability };
 }
 
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
@@ -68,37 +47,25 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
     return p * (1 - k) + neutralPct * k;
 }
 
-export function computeRollingCalibrationParams(history = [], defaults = {}) {
-    const fallbackBaseline = Number.isFinite(defaults.baseline) ? defaults.baseline : 0.18;
-    const fallbackCap = Number.isFinite(defaults.maxPenalty) ? defaults.maxPenalty : 0.25;
-    const nowTs = Number.isFinite(defaults.nowTs) ? defaults.nowTs : Date.now();
-    const windowDays = Number.isFinite(defaults.windowDays) ? defaults.windowDays : 60;
-    const minSamples = Number.isFinite(defaults.minSamples) ? defaults.minSamples : 4;
-    const maxSamples = Number.isFinite(defaults.maxSamples) ? defaults.maxSamples : 20;
-
-    if (!Array.isArray(history) || history.length === 0) {
-        return { baseline: fallbackBaseline, maxPenalty: fallbackCap };
-    }
-
-    const windowStart = nowTs - windowDays * 24 * 60 * 60 * 1000;
-    const withinWindow = history.filter(h => Number(h?.timestamp || 0) >= windowStart);
-    const source = withinWindow.length >= minSamples ? withinWindow : history;
-
-    const trimmed = source
-        .slice(-maxSamples)
-        .map(h => Number(h?.avgBrier))
-        .filter(v => Number.isFinite(v))
-        .slice(-maxSamples);
-
-    if (trimmed.length === 0) return { baseline: fallbackBaseline, maxPenalty: fallbackCap };
-
-    const mean = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
-    const variance = trimmed.reduce((acc, v) => acc + ((v - mean) ** 2), 0) / Math.max(1, trimmed.length - 1);
-    const sd = Math.sqrt(Math.max(0, variance));
-
-    const baseline = Math.max(0.12, Math.min(0.3, mean * 0.7 + fallbackBaseline * 0.3));
-    const maxPenalty = Math.max(0.12, Math.min(0.4, fallbackCap + sd * 0.5));
-    return { baseline, maxPenalty };
+export function computeRollingCalibrationParams(history = [], cfg = {}) {
+  if (history.length === 0) {
+    return { baseline: cfg.baseline || 0.2, maxPenalty: cfg.maxPenalty || 0.3 };
+  }
+  const windowDays = cfg.windowDays || 60;
+  const cutoff = Date.now() - (windowDays * 24 * 60 * 60 * 1000);
+  const recent = history.filter(h => (h.timestamp || 0) >= cutoff).slice(-(cfg.maxSamples || 20));
+  
+  if (recent.length < (cfg.minSamples || 4)) {
+      return { baseline: cfg.baseline || 0.2, maxPenalty: cfg.maxPenalty || 0.3 };
+  }
+  
+  const avgBrier = recent.reduce((a, b) => a + (Number(b.avgBrier) || 0), 0) / recent.length;
+  // Dynamic baseline based on recent performance
+  const baseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
+  // Conservative max penalty if performance is poor
+  const maxPenalty = avgBrier > 0.25 ? 0.35 : 0.25;
+  
+  return { baseline, maxPenalty };
 }
 
 

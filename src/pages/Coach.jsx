@@ -56,14 +56,6 @@ const calibrationAlertCache = new Map();
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
 const CALIBRATION_ALERT_CACHE_MAX = 200;
 
-/**
- * Coach — Central de Inteligência Adaptativa
- * 
- * Versão Final Consolidada:
- * 1. Resolve o erro "Maximum update depth exceeded" (Error 185) via Ref-based decoupling.
- * 2. Mantém a UI Premium com abas (Insights vs Raio-X).
- * 3. Integra Governança de Calibração (Brier Scores e alertas).
- */
 export default function Coach() {
     const activeId = useAppStore(state => state.appState.activeId);
     useEffect(() => { calibrationAlertCache.clear(); }, [activeId]);
@@ -72,34 +64,26 @@ export default function Coach() {
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     
-    // Mapeamento para a estrutura de dados atual
     const history = useMemo(() => data?.simuladoRows || [], [data?.simuladoRows]);
     const simulados = useMemo(() => data?.simulados || [], [data?.simulados]);
     const categories = data?.categories || [];
     const userProfile = data?.user;
     
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
-
-    // Hook de assinatura
     const { isPremium } = useSubscription(userProfile);
 
     const [activeTab, setActiveTab] = useState('insights');
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const [coachLoading, setCoachLoading] = useState(false);
-    
-    // Novo estado local para guardar o foco sugerido (FIX BUG 185)
     const [suggestedFocus, setSuggestedFocus] = useState(null);
     const timeoutRef = useRef(null);
     const lastPushedScoreRef = useRef(null);
-
-    // Ref para ler o histórico sem engatilhar re-renderizações (FIX BUG 185)
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
 
     useEffect(() => {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
     }, [data?.calibrationHistoryByCategory]);
 
-    // 1. Persistência de Métricas de Calibração
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId) return;
         const avgBrier = Number(metric.avgBrier) || 0;
@@ -166,7 +150,6 @@ export default function Coach() {
         }
     }, [setData, showToast]);
 
-    // 2. Processamento Estatístico Principal (Monte Carlo)
     const combinedHistory = useMemo(() => {
         const all = [...history];
         simulados.forEach(s => {
@@ -189,7 +172,6 @@ export default function Coach() {
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory), [combinedHistory]);
     const totalSimulados = useMemo(() => (Array.isArray(simulados) ? simulados.length : 0), [simulados]);
 
-    // 3. Atualização de Foco e Métricas (useEffect para quebrar loop 185)
     useEffect(() => {
         if (!data?.categories) return;
 
@@ -213,8 +195,6 @@ export default function Coach() {
         );
 
         setSuggestedFocus(result);
-
-        // Persistência assíncrona das métricas
         if (collectedMetrics.length > 0) {
             collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
         }
@@ -229,7 +209,6 @@ export default function Coach() {
         persistCalibrationMetric
     ]);
 
-    // 4. Estabilização do Score Global
     useEffect(() => {
         if (!isNaN(projectedScore) && projectedScore !== lastPushedScoreRef.current) {
             if (lastPushedScoreRef.current === null || Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01) {
@@ -242,7 +221,6 @@ export default function Coach() {
         }
     }, [projectedScore, updateCoachScore]);
 
-    // 5. Handlers de Ação
     const handleGenerateGoals = useCallback(() => {
         if (!data?.categories) return;
         setCoachLoading(true);
@@ -335,9 +313,7 @@ export default function Coach() {
                     <GovernanceBanner data={data} />
                 </AnimatePresence>
 
-
                 <div className="space-y-10">
-                    {/* Dashboard de Detalhes */}
                     <div className="w-full">
                         <CoachMenuNav activeTab={activeTab} onChangeTab={setActiveTab} isPremium={isPremium} />
 
@@ -365,8 +341,6 @@ export default function Coach() {
                                 )}
                             </Motion.div>
                         </AnimatePresence>
-
-
                     </div>
                 </div>
             </div>
@@ -374,7 +348,6 @@ export default function Coach() {
     );
 }
 
-// Sub-componentes Auxiliares
 function QuickStat({ label, value, color, icon }) {
     return (
         <div className="flex flex-col min-w-[80px]">
@@ -400,8 +373,6 @@ function StatRow({ label, value, trend, color }) {
     );
 }
 
-
-
 function GovernanceBanner({ data }) {
     const ops = data?.calibrationOps || {};
     const degradedCount = Object.values(ops).filter(o => o.degraded).length;
@@ -413,8 +384,6 @@ function GovernanceBanner({ data }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-
-
             className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4"
         >
             <div className="flex items-center gap-4">
@@ -450,7 +419,6 @@ function RaioXDashboard({ data }) {
     const latestWithReliability = filteredLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
     const eceValues = filteredLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
-
     const categorySeriesMap = filteredLogs.reduce((acc, log) => {
         const cat = log?.categoryName || 'Categoria';
         if (!acc[cat]) acc[cat] = [];
@@ -527,11 +495,11 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
                 
-                <div className="overflow-x-auto max-h-[300px] custom-scrollbar">
-                    <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
                         <thead>
-                            <tr>
-                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
+                            <tr className="border-b border-white/5">
+                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
                                 <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE</th>
