@@ -68,12 +68,11 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                                     onStartPomodoro?.(task);
                                 }}
                                 className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg"
-                    <button 
-                        onClick={() => onStartPomodoro(task)}
-                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-emerald-500/20 border border-white/5 hover:border-emerald-500/30 flex items-center justify-center transition-all group/btn"
-                    >
-                        <Play size={10} className="text-slate-400 group-hover/btn:text-emerald-400 fill-current" />
-                    </button>
+                            >
+                                <Play size={14} className="fill-current" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </Draggable>

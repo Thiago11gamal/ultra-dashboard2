@@ -329,26 +329,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Sugestões de estudo baseadas em telemetria</p>
                             </div>
                         </div>
-
-                        <div className="flex gap-4">
-                            <button
-                                onClick={handleExport}
-                                disabled={isExporting}
-                                className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
-                            >
-                                {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                                <span>Exportar</span>
-                            </button>
-
-                            <button
-                                onClick={onGenerateGoals}
-                                disabled={loading}
-                                className="flex items-center gap-3 px-8 py-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
-                            >
-                                {loading ? <Loader2 size={14} className="animate-spin" /> : <BrainCircuit size={14} />}
-                                <span>Recalcular</span>
-                            </button>
-                        </div>
                     </div>
 
                     {hasPlan ? (
@@ -372,6 +352,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         const allAssignedIds = new Set();
                         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
                         const listTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+                        
+                        if (listTasks.length === 0) {
+                            return (
+                                <div className="md:col-span-2 mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                    <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+                                </div>
+                            );
+                        }
+
                         const leftColumn = listTasks.filter((_, idx) => idx % 2 === 0);
                         const rightColumn = listTasks.filter((_, idx) => idx % 2 !== 0);
 
