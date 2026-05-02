@@ -132,7 +132,7 @@ export function calculateSlope(history, maxScore = 100) {
         1 / (1 + normalizedStdError / 0.5);
 
     const historyBoost =
-        Math.min(1.5, 0.9 + n / 15); // Baseline increased from 0.7 to 0.9
+        Math.min(1.5, 0.7 + n / 10); // BUG-CALIB-REFINE: Lower base for low-N (starts at 0.8 instead of 0.96)
 
     const baseLimit = 0.4 * scaleFactor; // Escalonado
 
@@ -769,9 +769,9 @@ export function calculateDynamicEMA(currentScore, previousEMA, dataCount, daysSi
     // D-06 FIX: K's reduzidos para preservação histórica.
     let baseK = 0.15; // Veterano (15+ dados)
     if (dataCount < 5) {
-        baseK = 0.40; // Start frio
+        baseK = 0.30; // BUG-CALIB-REFINE: Reduced from 0.40 to prevent extreme volatility on single flukes
     } else if (dataCount < 15) {
-        baseK = 0.25; // Intermediário
+        baseK = 0.20; // BUG-CALIB-REFINE: Reduced from 0.25 for better stability
     }
 
     // ALERTA 1 FIX: Decaimento temporal injetado na EMA.
