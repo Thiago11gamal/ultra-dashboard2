@@ -376,16 +376,26 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked, onToggleLock }) {
     const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
     
-    // 🛠️ Utilitário para limpar o texto da tarefa (remove colchetes, emojis e corta após os dois pontos)
+    // 🛠️ Utilitário Radical: Extrai APENAS o identificador curto (ex: a1) como o assunto principal
     const cleanText = (text) => {
         if (!text) return '';
-        let cleaned = text
-            .split(':')[0] // Corta tudo após os dois pontos ":"
-            .replace(/\[.*?\]/g, '') // Remove [qualquer coisa]
-            .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '') // Remove emojis
-            .replace(/\s{2,}/g, ' ') // Remove espaços duplicados
+        
+        // Tenta encontrar o primeiro código curto entre colchetes (ex: [a1], [v12])
+        const codeMatch = text.match(/\[([a-zA-Z0-9]{1,5})\]/);
+        if (codeMatch && codeMatch[1]) {
+            return codeMatch[1]; // Retorna apenas o "a1"
+        }
+
+        // Caso não ache um código curto, volta para a limpeza padrão pós-dois pontos
+        const parts = text.split(':');
+        const targetText = parts.length > 1 ? parts[1] : parts[0];
+        let cleaned = targetText
+            .replace(/\[[^\]]{10,}\]/g, '') 
+            .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '')
+            .replace(/\s{2,}/g, ' ')
             .trim();
-        return cleaned;
+            
+        return cleaned || parts[0].replace(/\[.*?\]/g, '').trim();
     };
 
     return (
