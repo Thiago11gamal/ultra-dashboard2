@@ -11,7 +11,7 @@ import {
     List,
     ChevronDown
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 import { calculateAdaptiveSlope, getSortedHistory } from '../engine/projection';
@@ -81,7 +81,7 @@ export default function Coach() {
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
 
     // Hook de assinatura
-    const { isPremium } = useSubscription(userProfile);
+    useSubscription(userProfile);
 
     const [activeTab, setActiveTab] = useState('insights');
     const [isAnalyzing, setIsAnalyzing] = useState(true);
@@ -342,7 +342,7 @@ export default function Coach() {
                         <CoachMenuNav activeTab={activeTab} onChangeTab={setActiveTab} />
 
                         <AnimatePresence mode="wait">
-                            <motion.div
+                            <Motion.div
                                 key={activeTab}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -357,10 +357,11 @@ export default function Coach() {
                                         onClearHistory={handleClearHistory}
                                     />
                                 ) : (
-                                    <RaioXDashboard data={data} isPremium={isPremium} />
+                                    <RaioXDashboard data={data} />
                                 )}
-                            </motion.div>
+                            </Motion.div>
                         </AnimatePresence>
+
                     </div>
                 </div>
             </div>
@@ -403,10 +404,11 @@ function GovernanceBanner({ data }) {
     if (degradedCount === 0) return null;
 
     return (
-        <motion.div 
+        <Motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+
 
             className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4"
         >
@@ -426,11 +428,11 @@ function GovernanceBanner({ data }) {
                     O Coach está aplicando<br/>ajustes conservadores.
                 </p>
             </div>
-        </motion.div>
+        </Motion.div>
     );
 }
 
-function RaioXDashboard({ data, isPremium }) {
+function RaioXDashboard({ data }) {
     const auditLog = data?.calibrationAuditLog || [];
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
