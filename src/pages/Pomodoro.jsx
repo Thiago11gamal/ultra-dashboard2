@@ -2,7 +2,7 @@ import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import { getLocalMidnight } from '../utils/dateHelper';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
@@ -68,7 +68,7 @@ function AICoachPanel({ activeSubject, stats }) {
     };
 
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className={`relative rounded-xl border ${theme.border} ${theme.bg} ${theme.glow} backdrop-blur-xl p-4 mb-3 overflow-hidden group shadow-2xl`}
@@ -78,7 +78,7 @@ function AICoachPanel({ activeSubject, stats }) {
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-            <motion.div
+            <Motion.div
                 animate={{ top: ['-100%', '200%'] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 className={`absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-20 pointer-events-none z-20`}
@@ -86,7 +86,7 @@ function AICoachPanel({ activeSubject, stats }) {
 
             <div className="flex items-center gap-8 relative z-10">
                 <div className="relative shrink-0">
-                    <motion.div
+                    <Motion.div
                         animate={{ scale: [1, 1.1, 1], opacity: [0.2, 0.4, 0.2] }}
                         transition={{ duration: 3, repeat: Infinity }}
                         className={`absolute inset-0 rounded-full blur-2xl ${theme.accent}`}
@@ -115,7 +115,7 @@ function AICoachPanel({ activeSubject, stats }) {
                     </div>
                 </div>
             </div>
-        </motion.div>
+        </Motion.div>
     );
 }
 
@@ -224,7 +224,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
     return (
-        <motion.div
+        <Motion.div
             drag={!isPanelLocked}
             dragMomentum={true}
             dragElastic={0.1}
@@ -259,7 +259,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
             {recommendedTask && !activeSubject && (
-                <motion.div
+                <Motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="mb-6 group/rec relative bg-[#0d0e1a] border border-indigo-500/20 rounded-xl p-7 backdrop-blur-2xl overflow-hidden shadow-2xl"
@@ -295,7 +295,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         </div>
                         <span className="text-[9px] font-black text-indigo-400/70 tracking-widest uppercase">Eficácia Máxima</span>
                     </div>
-                </motion.div>
+                </Motion.div>
             )}
 
             <div className="bg-[#08090f]/80 border border-white/[0.06] rounded-xl p-4 backdrop-blur-md flex-1 shadow-2xl relative overflow-hidden">
@@ -327,7 +327,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                             const taskId = task.id || task.text;
                             const isActive = activeSubject?.taskId === taskId;
                             return (
-                                <motion.button
+                                <Motion.button
                                     key={taskId || idx}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -362,13 +362,41 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                             <ChevronRight size={14} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                                         </div>
                                     )}
-                                </motion.button>
+                                </Motion.button>
                             );
                         })}
                     </div>
                 )}
             </div>
-        </motion.div>
+        </Motion.div>
+    );
+}
+
+
+function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue }) {
+    const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
+    return (
+        <div className="w-full mb-4 rounded-2xl border border-white/10 bg-[#0b1020]/85 backdrop-blur-xl p-4 sm:p-5 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-300/80">Pomodoro Neural</p>
+                    <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Foco profundo em execução</h1>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-400/30 bg-indigo-500/10 text-indigo-300">{neuralMode ? 'Modo Neural' : 'Modo Manual'}</span>
+                    {neuralMode && queueRemaining > 0 && (
+                        <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-400/30 bg-amber-500/10 text-amber-300">Fila: {queueRemaining}</span>
+                    )}
+                </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">{activeSubject?.catIcon || '📚'}</div>
+                <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tarefa ativa</p>
+                    <p className="text-sm font-black text-slate-200 truncate">{activeSubject?.task || 'Selecione uma tarefa para iniciar foco.'}</p>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -591,6 +619,11 @@ export default function Pomodoro() {
         <div className="min-h-0 flex items-start justify-center pt-14 pb-6 px-0">
             <div className="flex flex-col xl:flex-row gap-10 items-start justify-center w-full max-w-[1440px] mx-auto px-4">
                 <div className="flex-1 flex flex-col items-center min-w-0">
+                    <PomodoroTopBar
+                        activeSubject={activeSubject}
+                        neuralMode={neuralMode}
+                        neuralQueue={neuralQueue}
+                    />
                     <PomodoroTimer
                         settings={settings}
                         activeSubject={activeSubject}
