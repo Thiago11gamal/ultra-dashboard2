@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
-function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId }) {
+function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId, disabled = false }) {
     return (
         <button
             type="button"
@@ -9,11 +9,14 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId 
             role="tab"
             aria-selected={active}
             aria-controls={panelId}
+            aria-disabled={disabled}
             id={tabId}
+            tabIndex={active ? 0 : -1}
             className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 to-violet-600 border-white/20 text-white shadow-xl shadow-indigo-900/40 ring-1 ring-white/20'
-                    : 'bg-slate-900/80 border-white/[0.08] text-slate-400 hover:bg-slate-800 hover:border-white/20'}`}
+                    : 'bg-slate-900/80 border-white/[0.08] text-slate-400 hover:bg-slate-800 hover:border-white/20'}
+                ${disabled ? 'opacity-60 cursor-not-allowed hover:bg-slate-900/80 hover:border-white/[0.08]' : ''}`}
         >
             <div className="flex items-center gap-3 min-w-0 pl-1">
                 <div className={`shrink-0 w-12 h-8 rounded-md flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
@@ -31,6 +34,25 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId 
 }
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
+    const handleTabKeyDown = (event) => {
+        const isLeft = event.key === 'ArrowLeft';
+        const isRight = event.key === 'ArrowRight';
+        const isHome = event.key === 'Home';
+        const isEnd = event.key === 'End';
+        if (!isLeft && !isRight && !isHome && !isEnd) return;
+
+        event.preventDefault();
+        const tabs = ['insights', ...(isPremium ? ['analytics'] : [])];
+        const currentIndex = tabs.indexOf(activeTab);
+
+        if (isHome) return onChangeTab(tabs[0]);
+        if (isEnd) return onChangeTab(tabs[tabs.length - 1]);
+
+        const dir = isRight ? 1 : -1;
+        const nextIndex = (currentIndex + dir + tabs.length) % tabs.length;
+        onChangeTab(tabs[nextIndex]);
+    };
+
     return (
         <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a0f1f] via-[#0b1222] to-[#090d19] p-5 sm:p-6 md:p-8 shadow-2xl">
             <div className="flex flex-col lg:flex-row lg:items-center gap-8">
@@ -39,7 +61,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Central de Estratégia e Diagnóstico</h3>
                 </div>
 
-                <div role="tablist" aria-label="Coach AI sections" className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full lg:w-auto">
+                <div
+                    role="tablist"
+                    aria-label="Coach AI sections"
+                    onKeyDown={handleTabKeyDown}
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full lg:w-auto"
+                >
                     <MenuTab
                         active={activeTab === 'insights'}
                         onClick={() => onChangeTab('insights')}
@@ -57,10 +84,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                         subtitle={isPremium ? "Telemetria e auditoria" : "Disponível no Premium"}
                         tabId="coach-tab-analytics"
                         panelId="coach-panel-analytics"
+                        disabled={!isPremium}
                     />
                 </div>
             </div>
         </div>
     );
 }
+
 
