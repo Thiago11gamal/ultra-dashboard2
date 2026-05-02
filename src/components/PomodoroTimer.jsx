@@ -66,7 +66,7 @@ class PomodoroErrorBoundary extends React.Component {
     }
 }
 
-function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, defaultTargetCycles = 1 }) {
+function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, isLayoutLocked, onToggleLock, defaultTargetCycles = 1 }) {
 
     const safeSettings = useMemo(() => Object.freeze({
         pomodoroWork: settings?.pomodoroWork || 25,
@@ -237,13 +237,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             breakBallsRef.current = breakBallsRef.current.slice(0, targetCycles);
         }
     }, [targetCycles]);
-
-    const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
-        try {
-            const saved = localStorage.getItem('pomodoroLayoutLocked');
-            return saved !== null ? JSON.parse(saved) : true;
-        } catch (_) { return true; }
-    });
 
     const [uiPosition, setUiPosition] = useState(() => {
         try {
@@ -640,36 +633,16 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
                     <div className="flex-1 flex justify-center bg-transparent">
-                        {activeSubject ? (
+                        {mode === 'break' ? (
                             <motion.div
-                                initial={{ y: -20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                className="relative flex items-center gap-4 sm:gap-6 w-full bg-[#0a0f1e] border-2 border-indigo-500/30 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden group z-40"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 border border-emerald-500/30 rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)]"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 relative z-10">
-                                    <div className="text-base font-black">F</div>
-                                </div>
-                                <div className="flex flex-col text-left flex-1 min-w-0 relative z-10">
-                                    <span className="text-[7px] font-black text-indigo-400/60 uppercase tracking-[0.2em] mb-0.5">Protocolo Ativo</span>
-                                    <h2 className="text-sm sm:text-lg font-black text-white tracking-tight truncate leading-tight">{activeSubject.task}</h2>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                        <span className="text-[7px] font-bold text-slate-500 uppercase tracking-[0.1em] truncate">{activeSubject.category}</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 relative z-10 ml-2">
-                                    <button onClick={(e) => { e.stopPropagation(); setIsLayoutLocked(!isLayoutLocked); }} className="text-white/20 hover:text-white cursor-pointer transition-colors p-1.5 rounded-lg hover:bg-white/5">
-                                        {isLayoutLocked ? <Lock size={16} /> : <Unlock size={18} className="text-indigo-400" />}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ) : mode === 'break' ? (
-                            <div className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 border border-emerald-500/30 rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)]">
                                 <Zap size={24} className="text-emerald-400 animate-pulse" />
                                 <span className="text-xl font-black text-emerald-400 tracking-widest uppercase">Recuperação Neural ☕</span>
-                            </div>
-                        ) : (
+                            </motion.div>
+                        ) : !activeSubject ? (
                             <div onClick={handleManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40">
                                 <AlertCircle size={20} className="text-red-500" />
                                 <div className="flex flex-col">
@@ -677,17 +650,13 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                     <h2 className="text-sm font-black text-red-500 uppercase tracking-widest">Selecione uma missão neural</h2>
                                 </div>
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 </div>
 
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
                     className="w-full border-[6px] border-[#3f2e26] pt-24 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
-                >
-                >
-                >
-                >
                 >
                     <div className="absolute top-4 right-6 z-[60]">
                         <div className="flex bg-[#1a1411] p-1.5 rounded-xl border border-[#3f2e26] shadow-2xl backdrop-blur-md">
