@@ -110,9 +110,9 @@ function AICoachPanel({ activeSubject, stats }) {
                         <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse`} />
                     </h3>
 
-                    <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                    <div className="text-xs text-slate-300 leading-relaxed font-medium">
                         {formatText(insight?.text)}
-                    </p>
+                    </div>
                 </div>
             </div>
         </motion.div>
@@ -192,10 +192,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const recommendedId = recommendedTask?.id;
         const currentTaskId = activeSubject?.taskId;
 
-        // Se estiver em modo neural, priorizamos mostrar o resto da fila neural (sem limite fixo de 5)
+        // Se estiver em modo neural, priorizamos mostrar o resto da fila neural
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
-            const currentIndex = neuralQueue.findIndex(t => (t.id || t.text) === currentTaskId);
-            return neuralQueue.slice(currentIndex + 1).map(t => ({
+            const currentIndex = (neuralQueue || []).findIndex(t => t && (t.id || t.text) === currentTaskId);
+            return (neuralQueue || []).slice(currentIndex + 1).filter(Boolean).map(t => ({
                 ...t,
                 id: t.id || t.text,
                 catName: t.catName || t.category || 'Neural',
@@ -205,17 +205,17 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         }
 
         // Caso contrário, buscamos tarefas de alta prioridade nas categorias
-        (categories || []).forEach(cat => {
-            (cat.tasks || []).filter(t => !t.completed && t.priority === 'high' && t.id !== recommendedId && t.id !== currentTaskId).forEach(t => {
-                tasks.push({ ...t, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
+        (categories || []).filter(Boolean).forEach(cat => {
+            (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+                tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
 
-        // Se ainda estiver vazio, mostramos tarefas de prioridade média como fallback
+        // Fallback para prioridade média
         if (tasks.length === 0) {
-            (categories || []).forEach(cat => {
-                (cat.tasks || []).filter(t => !t.completed && t.priority === 'medium' && t.id !== recommendedId && t.id !== currentTaskId).forEach(t => {
-                    tasks.push({ ...t, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
+            (categories || []).filter(Boolean).forEach(cat => {
+                (cat.tasks || []).filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
+                    tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                 });
             });
         }
@@ -277,7 +277,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
                     <button
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
-                        className="w-full relative group/btn bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 overflow-hidden"
+                        className={`w-full relative group/btn bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 overflow-hidden ${(recommendedTask?.id || recommendedTask?.text) === activeSubject?.taskId ? 'ring-2 ring-amber-400/50' : ''}`}
                     >
                         <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
                         <span className="truncate relative z-10">
@@ -323,11 +323,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-3 custom-scrollbar">
-                        {highPriorityTasks.map((task, idx) => {
-                            const isActive = activeSubject?.taskId === task.id;
+                        {highPriorityTasks.filter(Boolean).map((task, idx) => {
+                            const taskId = task.id || task.text;
+                            const isActive = activeSubject?.taskId === taskId;
                             return (
                                 <motion.button
-                                    key={task.id}
+                                    key={taskId || idx}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
@@ -432,8 +433,8 @@ export default function Pomodoro() {
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
-            const cat = categories?.find(c => c.id === location.state.categoryId);
-            const tsk = cat?.tasks?.find(t => t.id === location.state.taskId);
+            const cat = (categories || []).find(c => c && c.id === location.state.categoryId);
+            const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
             if (cat && tsk) {
                 useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
@@ -525,8 +526,8 @@ export default function Pomodoro() {
 
             // B-08 FIX: Só auto-completa a tarefa se a conclusão foi natural (não pulada)
             const activeData = store.appState.contests[store.appState.activeId];
-            const cat = activeData?.categories?.find(c => c.id === currentSubject.categoryId);
-            const task = cat?.tasks?.find(t => t.id === currentSubject.taskId);
+            const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
+            const task = (cat?.tasks || []).find(t => t && (t.id || t.text) === currentSubject.taskId);
             
             if (task && !task.completed && wasNatural) {
                 store.toggleTask(currentSubject.categoryId, currentSubject.taskId);

@@ -921,25 +921,22 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
  */
 export function getCognitiveState(stats) {
     // FIX: Prevenção contra undefined na fase de hidratação do Zustand
-    if (!stats) return 100;
+    if (!stats || typeof stats !== 'object') return 100;
 
     let focusMinutes = stats.consecutiveMinutes || 0;
 
     // Fallback ou acréscimo se a pessoa acabou de fechar pomodoros na sessão ativa
-    // Mas note que a conta no Pomodoro.jsx já soma todos os studyLogs.
     if (focusMinutes === 0) {
         focusMinutes = (stats.pomodorosCompleted || 0) * (stats.settings?.pomodoroWork || 25);
     }
 
     // 🎯 MATH BUG FIX: Curva de Fadiga Elástica.
-    // Alunos Nível 1 cansam em ~2h. Alunos Nível 10 aguentam ~3h.
-    // O coeficiente de decaimento torna-se elástico em relação à maturidade do aluno.
     const userLevel = stats.user?.level || 1;
     const levelMultiplier = 1 + (userLevel * 0.05);
     const dynamicDecay = 0.003 / levelMultiplier;
 
     const fatigueScore = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-dynamicDecay * focusMinutes))));
-    return fatigueScore; // 100 = descansado, <70 = fadigado
+    return fatigueScore;
 }
 
 /**
@@ -950,9 +947,9 @@ export function getBestTask(categories, excludeTaskId = null) {
     let bestTask = null;
     let highestScore = -Infinity;
 
-    (categories || []).forEach(cat => {
-        (cat.tasks || []).forEach(task => {
-            if (task.completed || (excludeTaskId && task.id === excludeTaskId)) return;
+    (categories || []).filter(Boolean).forEach(cat => {
+        (cat.tasks || []).filter(Boolean).forEach(task => {
+            if (task.completed || (excludeTaskId && (task.id || task.text) === excludeTaskId)) return;
 
             let score = 0;
 
@@ -963,19 +960,25 @@ export function getBestTask(categories, excludeTaskId = null) {
             // Fator 2: Curva de Esquecimento (Dias sem estudar)
             const studiedAt = task.lastStudiedAt || cat.lastStudiedAt;
             if (studiedAt) {
-                // BUG 4 FIX: Adicionar um piso de 0 para proteger contra "Viagem no Tempo" (desync de relógio)
                 const days = Math.max(0, (Date.now() - new Date(studiedAt).getTime()) / (1000 * 60 * 60 * 24));
-                score += Math.min(days * 5, 30); // Teto de 30 pontos
+                score += Math.min(days * 5, 30);
             } else {
-                score += 15; // Tarefas novas ganham bônus
+                score += 15;
             }
 
-            // Fator 3: Taxa de Erro (se o seu sistema gravar isso depois)
+            // Fator 3: Taxa de Erro
             if (task.errorRate) score += (task.errorRate * 100) * 0.4;
 
             if (score > highestScore) {
                 highestScore = score;
-                bestTask = { ...task, catName: cat.name, catColor: cat.color, catIcon: cat.icon, catId: cat.id };
+                bestTask = { 
+                    ...task, 
+                    id: task.id || task.text, // Normalização de ID
+                    catName: cat.name, 
+                    catColor: cat.color, 
+                    catIcon: cat.icon, 
+                    catId: cat.id 
+                };
             }
         });
     });
