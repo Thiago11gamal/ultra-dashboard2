@@ -140,7 +140,11 @@ export function calculateSlope(history, maxScore = 100) {
     // 🎯 REFINAMENTO PSICOMÉTRICO: Estrangulamento da Curva de Aprendizagem (Limites Dinâmicos)
     // Alunos com notas baixas podem ter picos de evolução maiores (catching up).
     // Alunos na faixa dos 85%+ ficam estrangulados em crescimentos mais lentos (plateau).
-    const currentLevel = getSafeScore(sorted[sorted.length - 1], maxScore) / maxScore; // 0-1
+    // Usar média dos últimos 5 scores para suavizar ruído
+    const recentScores = sorted.slice(-5).map(h => getSafeScore(h, maxScore));
+    const recentMean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+    const currentLevel = recentMean / maxScore;
+
     const proficiencyFriction = Math.max(0, Math.min(1, currentLevel));
 
     // Teto dinâmico: reduzido de 0.85 para 0.4 conforme plano de refinamento
@@ -313,7 +317,10 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     // 🎯 FIX MATEMÁTICO: Centralização da Variância Ponderada
     // Subtrai o (Expectation)^2 para garantir que estamos medindo Variância e não o Momento Bruto.
     const expectedResidual = sumResidualsWeighted / sumWeights;
-    const mssdVariance = (sumSw / sumWeights) - (expectedResidual * expectedResidual);
+    const n_res = sorted.length - 1; // número de resíduos
+    const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
+    const mssdVariance = ((sumSw / sumWeights) - (expectedResidual * expectedResidual)) * bessel;
+
 
     // REVISION: Standardized SD floor escalonado
     return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), mssdVariance));

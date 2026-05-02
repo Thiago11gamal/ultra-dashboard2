@@ -128,7 +128,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = DE
  * MC-02: Monte Carlo leve (800 sims) para uso no Coach.
  * Retorna null se dados insuficientes para evitar falsos positivos.
  */
-export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null) {
+export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90) {
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < cfg.MC_MIN_DATA_POINTS) return null;
 
@@ -152,7 +152,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const result = monteCarloSimulation(
             history,
             targetScore,
-            90,
+            days,
             adaptive?.mcSimulations || cfg.MC_SIMULATIONS,
             { maxScore }
         );
@@ -172,7 +172,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     const bt = monteCarloSimulation(
                         train,
                         targetScore,
-                        30,
+                        days,
                         Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS) * 0.35))),
                         { maxScore }
                     );
