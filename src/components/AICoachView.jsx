@@ -129,13 +129,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </AnimatePresence>
                 </div>
             )}
-        </div>
-    );
-}
-
-export default function AICoachView({ suggestedFocus: _suggestedFocus, onGenerateGoals, loading, onClearHistory: _onClearHistory }) {
+    export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
     const [isExporting, setIsExporting] = useState(false);
-    const [viewMode, _setViewMode] = useState('planner');
+    const [viewMode, setViewMode] = useState('planner');
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
@@ -181,8 +177,87 @@ export default function AICoachView({ suggestedFocus: _suggestedFocus, onGenerat
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
         .slice(0, 6);
 
+
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            <div className="rounded-3xl border border-white/10 bg-[#090d19] p-5 sm:p-6 flex flex-col gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center">
+                            <Compass size={16} className="text-indigo-300" />
+                        </div>
+                        <div>
+                            <h2 className="text-xs font-black tracking-[0.18em] uppercase text-white">Painel Coach AI</h2>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Navegação tática do plano</p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('planner')}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'planner' ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                        >
+                            <LayoutGrid size={12} className="inline mr-1.5" />
+                            Planner
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('cards')}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'cards' ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                        >
+                            <Sparkles size={12} className="inline mr-1.5" />
+                            Cards
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('list')}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'list' ? 'bg-violet-500/20 border-violet-400/40 text-violet-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                        >
+                            <List size={12} className="inline mr-1.5" />
+                            Lista
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <button
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
+                    >
+                        {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                        Exportar
+                    </button>
+                    <button
+                        onClick={onGenerateGoals}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
+                    >
+                        {loading ? <Loader2 size={13} className="animate-spin" /> : <BrainCircuit size={13} />}
+                        Recalcular
+                    </button>
+                    <button
+                        onClick={onClearHistory}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                    >
+                        <Trash2 size={13} />
+                        Limpar histórico
+                    </button>
+                </div>
+
+                {suggestedFocus && (
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-3">
+                        <AICoachWidget suggestion={suggestedFocus} />
+                    </div>
+                )}
+                {!suggestedFocus && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <AlertCircle size={12} />
+                        Coach sem alerta no momento.
+                    </div>
+                )}
+            </div>m-ui, sans-serif" }}>
             {calibrationSummary.length > 0 && (
                 <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-visible group">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
