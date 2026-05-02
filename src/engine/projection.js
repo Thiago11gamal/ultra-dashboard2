@@ -405,7 +405,14 @@ export function monteCarloSimulation(
     const rawDriftUncertainty = Math.max(0.05 * scaleFactor, slopeStdError);
     // ESCALA INVARIANTE: O teto 1.5 foi reduzido para 0.4 para evitar colapso bimodal
     // em projeções longas com baixa confiança.
-    const driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor);
+    let driftUncertainty = Math.min(rawDriftUncertainty, 0.4 * scaleFactor);
+
+    // LOW-N ROBUSTNESS: Inflate epistemic uncertainty for small samples
+    if (sortedHistory.length < 10) {
+        const nFactor = (10 - sortedHistory.length) / 5; // 1.0 at n=5, 0 at n=10
+        driftUncertainty *= (1 + 0.4 * nFactor); // Inflate up to 40% at n=5
+    }
+
 
     // Calcula volatilidade clássica para normalização O-U
     const volatility = forcedVolatility !== undefined ? forcedVolatility : calculateVolatility(sortedHistory, maxScore, minScore);
@@ -523,7 +530,14 @@ export function monteCarloSimulation(
 
     // BUG 4 FIX: Uncertaintiy follows Random Walk (sqrt of time)
     // We use volatility directly as the standard deviation of each daily step.
-    const sigma = volatility;
+    let sigma = volatility;
+
+    // LOW-N ROBUSTNESS: Inflate volatility for low samples (uncertainty in variance estimation)
+    if (sortedHistory.length < 10) {
+        const sampleInflation = 1 + (10 - sortedHistory.length) * 0.04; // 1.20 at n=5
+        sigma *= sampleInflation;
+    }
+
 
     // MATH-M3 FIX: Resíduos já foram centralizados (L291-293), consumindo 1 DoF.
     // O estimador imparcial para a variância residual exige n-1.
