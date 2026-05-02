@@ -478,53 +478,6 @@ function RaioXDashboard({ data }) {
                 </div>
 
                 <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            <List size={14} className="text-indigo-400" />
-                            Log de Auditoria
-                        </h3>
-                        <select 
-                            value={filter}
-                            onChange={(e) => setFilter(e.target.value)}
-                            className="bg-black/40 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest px-2 py-1 text-slate-400 outline-none focus:border-indigo-500/50"
-                        >
-                            <option value="all">Todos</option>
-                            <option value="degraded">Degradados</option>
-                        </select>
-                    </div>
-                    
-                    <div className="overflow-x-auto max-h-[300px] custom-scrollbar">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
-                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
-                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
-                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE</th>
-                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
-                                    <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {filteredLogs.map((log, idx) => (
-                                    <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                        <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
-                                        <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
-                                        <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
-                                        <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
-                                        <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
-                                        <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {filteredLogs.length === 0 && (
-                            <div className="py-12 text-center">
-                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
-                            </div>
-                        )}
-                    </div>
-                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
                     <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
                         <Dna size={14} className="text-indigo-500" />
                         DNA do Histórico
@@ -534,6 +487,61 @@ function RaioXDashboard({ data }) {
                             A calibração do modelo combina Brier Score e ECE (Expected Calibration Error). Brier baixo e ECE baixo indicam boa confiabilidade; quando degradam, o Coach aplica redução de confiança (shrinkage) para proteger sua estratégia.
                         </p>
                     </div>
+                </div>
+            </div>
+
+            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <List size={14} className="text-indigo-400" />
+                        Log de Auditoria
+                    </h3>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setFilter('all')}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Tudo
+                        </button>
+                        <button 
+                            onClick={() => setFilter('degraded')}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'degraded' ? 'bg-rose-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Falhas
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="overflow-x-auto max-h-[300px] custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Timestamp</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Categoria</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Brier</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">ECE</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ajuste</th>
+                                <th className="pb-3 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Prob Final</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {filteredLogs.map((log, idx) => (
+                                <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
+                                    <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
+                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
+                                    <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
+                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
+                                    <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {filteredLogs.length === 0 && (
+                        <div className="py-12 text-center">
+                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
