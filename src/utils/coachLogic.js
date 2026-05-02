@@ -125,6 +125,45 @@ function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFA
     return { danger, safe };
 }
 
+function deriveBacktestWeights(scores = [], maxScore = 100) {
+    const clean = (scores || []).map(Number).filter(Number.isFinite);
+    if (clean.length < 6) {
+        return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 0, uplift: 0 };
+    }
+
+    const split = Math.max(3, Math.floor(clean.length * 0.7));
+    const train = clean.slice(0, split);
+    const test = clean.slice(split);
+    if (test.length === 0) {
+        return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 0, uplift: 0 };
+    }
+
+    const trainMean = train.reduce((a, b) => a + b, 0) / train.length;
+    const trainDelta = train.length >= 2
+        ? (train[train.length - 1] - train[0]) / (train.length - 1)
+        : 0;
+
+    const baselineMae = test.reduce((acc, y) => acc + Math.abs(y - trainMean), 0) / test.length;
+    const trendMae = test.reduce((acc, y, i) => {
+        const pred = train[train.length - 1] + trainDelta * (i + 1);
+        return acc + Math.abs(y - pred);
+    }, 0) / test.length;
+
+    const rankQualityRaw = baselineMae > 0 ? (baselineMae - trendMae) / baselineMae : 0;
+    const rankQuality = Math.max(-0.5, Math.min(0.5, rankQualityRaw));
+
+    const testMean = test.reduce((a, b) => a + b, 0) / test.length;
+    const upliftRaw = (testMean - trainMean) / Math.max(1, maxScore);
+    const uplift = Math.max(-0.3, Math.min(0.3, upliftRaw));
+
+    const scoreWeight = Math.max(0.8, Math.min(1.2, 1 - rankQuality * 0.25));
+    const recencyWeight = Math.max(0.75, Math.min(1.25, 1 - rankQuality * 0.2 - uplift * 0.25));
+    const instabilityWeight = Math.max(0.8, Math.min(1.25, 1 - rankQuality * 0.15 + (uplift < 0 ? 0.15 : -0.05)));
+
+    return { scoreWeight, recencyWeight, instabilityWeight, rankQuality, uplift };
+}
+
+
 function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = DEFAULT_CONFIG) {
     const p = Math.max(0, Math.min(100, Number(probability) || 0));
     const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER));
@@ -400,7 +439,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 date: s.date
             })).reverse();
         const lastNScores = trendHistory.map(t => t.score);
+        const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
         // CORREÇÃO (Fix Matemático Final - Invariância de Escala):
+
         // Garantir que a derivada (slope) e a variância (MSSD) operam no mesmo espaço vetorial 
         // absoluto (maxScore) que a média e os percentis.
         const rawTrend = calculateSlope(trendHistory, maxScore) * 30;
@@ -445,14 +486,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // A. Performance Score
         // BUG-19 FIX: Garantir invariância de escala através da normalização para base 100
         const normalizedAvg = (averageScore / maxScore) * 100;
-        const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - normalizedAvg) * (cfg.SCORE_MAX / 100));
+        const scoreComponent = Math.min(cfg.SCORE_MAX, (100 - normalizedAvg) * (cfg.SCORE_MAX / 100)) * backtestWeights.scoreWeight;
 
         // B. Recency
         const weightDeviation = (weight / 100) - 1;
         const dampenedWeightMultiplier = 1 + (weightDeviation * 0.5);
         const effectiveRiskDays = daysSinceLastStudy * dampenedWeightMultiplier;
         const crunchMultiplier = getCrunchMultiplier(daysToExam);
-        const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier;
+        const recencyComponent = cfg.RECENCY_MAX * (1 - Math.exp(-effectiveRiskDays / 7)) * crunchMultiplier * backtestWeights.recencyWeight;
 
         // ─────────────────────────────────────────────────────────
         // C. Instability via MSSD (divisor recalibrado: 5 vs. 15 antes)
@@ -466,7 +507,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         } else if (trend < -trendThreshold) {
             instabilityComponent *= 1.3;
         }
-        instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent);
+        instabilityComponent = Math.min(cfg.INSTABILITY_MAX, instabilityComponent * backtestWeights.instabilityWeight);
+
 
         // ─────────────────────────────────────────────────────────
         // MC-05: Probability Urgency Boost
@@ -626,7 +668,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                             : 'Sem ajuste de calibração significativo.'
                     }
                 } : null,
+                backtest: {
+                    rankQuality: Number(backtestWeights.rankQuality.toFixed(4)),
+                    uplift: Number(backtestWeights.uplift.toFixed(4)),
+                    scoreWeight: Number(backtestWeights.scoreWeight.toFixed(3)),
+                    recencyWeight: Number(backtestWeights.recencyWeight.toFixed(3)),
+                    instabilityWeight: Number(backtestWeights.instabilityWeight.toFixed(3))
+                },
                 humanReadable: {
+
                     // FIX-PCT5: normalizar averageScore para [0,100] antes do formatPercent
                     "Média": formatPercent((averageScore / maxScore) * 100),
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
