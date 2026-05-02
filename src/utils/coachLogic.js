@@ -98,7 +98,35 @@ function simuladosToHistory(simulados, maxScore = 100) {
 const mcCache = new Map();
 const MC_CACHE_MAX = 50; // BUG-21 FIX: Limitar cache para evitar memory leak
 
+function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFAULT_CONFIG) {
+    const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
+    const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
+    const cleanScores = (scores || []).map(Number).filter(Number.isFinite);
+    if (cleanScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
+
+    const sorted = [...cleanScores].sort((a, b) => a - b);
+    const q = (p) => sorted[Math.max(0, Math.min(sorted.length - 1, Math.round((sorted.length - 1) * p)))];
+
+    let danger = Math.max(15, Math.min(45, q(0.25) * 0.55));
+    let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
+
+    if (Number.isFinite(volatility)) {
+        const highVol = Number(cfg.MC_VOLATILITY_HIGH) || 8;
+        if (volatility > highVol * 0.9) {
+            danger = Math.min(50, danger + 4);
+            safe = Math.min(97, safe + 2);
+        } else if (volatility < highVol * 0.45) {
+            danger = Math.max(12, danger - 3);
+            safe = Math.max(72, safe - 2);
+        }
+    }
+
+    if (safe - danger < 25) safe = Math.min(97, danger + 25);
+    return { danger, safe };
+}
+
 // MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
+
 // Must be called on resetStore() and when activeId changes to prevent stale
 // MC results from a previous contest being served to a different one.
 export function clearMcCache() { mcCache.clear(); }
@@ -417,19 +445,21 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         let mcUrgencyBoost = 0;
         let mcRiskLabel = null;
+        const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg);
 
         if (mcHasData && mcProbability !== null) {
-            if (mcProbability < cfg.MC_PROB_DANGER) {
+            if (mcProbability < adaptiveRisk.danger) {
                 // Risco crítico: boost cresce linearmente de MC_BOOST_DANGER_BASE (na fronteira)
                 // até MC_BOOST_DANGER_BASE + MC_BOOST_DANGER_RANGE (quando prob = 0%)
-                const t = 1 - mcProbability / cfg.MC_PROB_DANGER;
+                const t = 1 - mcProbability / adaptiveRisk.danger;
                 mcUrgencyBoost = cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE * t;
                 mcRiskLabel = 'critical';
 
-            } else if (mcProbability < cfg.MC_PROB_SAFE) {
+            } else if (mcProbability < adaptiveRisk.safe) {
                 if (mcProbability < cfg.MC_MODERATE_MIDPOINT) {
                     // Zona moderate: boost desce de MC_BOOST_MODERATE_BASE até 0
-                    const t = (mcProbability - cfg.MC_PROB_DANGER) / (cfg.MC_MODERATE_MIDPOINT - cfg.MC_PROB_DANGER);
+                    const denom = Math.max(1, cfg.MC_MODERATE_MIDPOINT - adaptiveRisk.danger);
+                    const t = (mcProbability - adaptiveRisk.danger) / denom;
                     mcUrgencyBoost = cfg.MC_BOOST_MODERATE_BASE * (1 - t);
                     mcRiskLabel = 'moderate';
                 } else {
@@ -439,6 +469,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 }
 
             } else { // Cruzeiro seguro (>= 90%)
+
                 // ALERTA 2 FIX: A penalidade de manutenção (-8) só deve ser ativada 
                 // se a volatilidade for baixa. Se ele é volátil, não está seguro.
                 if (mssdVolatility < (cfg.MC_VOLATILITY_HIGH * 0.7) * (maxScore / 100)) {
@@ -564,7 +595,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     // BUG-19 FIX: mcProbability já está em 0-100, não multiplicar
                     probability: Number(mcProbability.toFixed(2)),
                     probabilityRaw: mcProbability,
+                    thresholds: {
+                        danger: Number(adaptiveRisk.danger.toFixed(2)),
+                        safe: Number(adaptiveRisk.safe.toFixed(2))
+                    },
                     riskLabel: mcRiskLabel,
+
                     volatility: Number(mcResult.volatility.toFixed(2)),
                     meanProjected: Number(mcResult.mean.toFixed(2)),
                     ci95Low: Number(mcResult.ci95Low.toFixed(2)),
