@@ -17,6 +17,50 @@ export function summarizeCalibration(scores = [], options = {}) {
     return { avgBrier, calibrationPenalty };
 }
 
+export function computeCalibrationDiagnostics(predictions = [], options = {}) {
+    const bins = Math.max(3, Math.min(20, Number(options.bins) || 10));
+    if (!Array.isArray(predictions) || predictions.length === 0) {
+        return { ece: 0, reliability: [] };
+    }
+
+    const bucketed = Array.from({ length: bins }, (_, i) => ({
+        bin: i,
+        count: 0,
+        sumPred: 0,
+        sumObs: 0
+    }));
+
+    predictions.forEach((p) => {
+        const prob = Math.max(0, Math.min(1, Number(p?.probability) || 0));
+        const obs = p?.observed ? 1 : 0;
+        const idx = Math.min(bins - 1, Math.floor(prob * bins));
+        const b = bucketed[idx];
+        b.count += 1;
+        b.sumPred += prob;
+        b.sumObs += obs;
+    });
+
+    const total = bucketed.reduce((acc, b) => acc + b.count, 0) || 1;
+    let ece = 0;
+    const reliability = bucketed
+        .filter(b => b.count > 0)
+        .map((b) => {
+            const meanPred = b.sumPred / b.count;
+            const observedRate = b.sumObs / b.count;
+            const gap = Math.abs(meanPred - observedRate);
+            ece += (b.count / total) * gap;
+            return {
+                bin: b.bin,
+                count: b.count,
+                meanPred,
+                observedRate,
+                gap
+            };
+        });
+
+    return { ece, reliability };
+}
+
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
     const p = Math.max(0, Math.min(100, Number(probabilityPct) || 0));
     const limit = Math.max(0, Math.min(1, Number(maxAppliedPenalty) || 0.5));

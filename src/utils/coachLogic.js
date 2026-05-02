@@ -3,7 +3,8 @@ import { standardDeviation } from '../engine/stats.js';
 import { calculateVolatility, monteCarloSimulation, calculateSlope } from '../engine/projection.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { normalize } from './normalization.js';
-import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeRollingCalibrationParams } from './calibration.js';
+import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeRollingCalibrationParams, computeCalibrationDiagnostics } from './calibration.js';
+
 
 export const DEFAULT_CONFIG = {
     SCORE_MAX: 50,
@@ -260,9 +261,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         // Backtest leve de calibração (walk-forward curto) para reduzir overconfidence.
         let calibrationPenalty = 0;
         let avgBrier = 0;
+        let ece = 0;
+        let reliability = [];
         if (enableAdaptiveCalibration && history.length >= 8) {
             const horizon = Math.min(cfg.MC_BACKTEST_HORIZON || 3, history.length - cfg.MC_MIN_DATA_POINTS);
             const brierScores = [];
+            const predObsPairs = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
                 const observed = history[history.length - i].score >= targetScore ? 1 : 0;
@@ -276,6 +280,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     );
                     const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
                     brierScores.push(computeBrierScore(p, observed));
+                    predObsPairs.push({ probability: p, observed });
                 } catch {
                     // ignora ponto de backtest inválido
                 }
@@ -287,8 +292,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 });
                 calibrationPenalty = summary.calibrationPenalty;
                 avgBrier = summary.avgBrier;
+                const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: 5 });
+                ece = diagnostics.ece;
+                reliability = diagnostics.reliability;
             }
         }
+
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
         const probability = enableAdaptiveCalibration
@@ -322,9 +331,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             ci95High: widenedCiHigh,
             calibrationPenalty,
             avgBrier,
+            ece,
+            reliability,
             sampleSize: history.length,
             lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4))
         };
+
 
         // BUG-21 FIX: Evict oldest entries when cache exceeds limit
         if (mcCache.size >= MC_CACHE_MAX) {
@@ -495,10 +507,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 categoryId: category.id,
                 categoryName: category.name,
                 avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
+                ece: Number((mcResult.ece || 0).toFixed(4)),
                 calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
                 probability: Number((mcResult.probability || 0).toFixed(2)),
                 timestamp: Date.now()
             });
+
         }
 
         // --- COMPONENTS ---
@@ -677,7 +691,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     urgencyBoost: Number(mcUrgencyBoost.toFixed(2)),
                     calibrationPenalty: Number((mcResult.calibrationPenalty || 0).toFixed(4)),
                     avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
+                    ece: Number((mcResult.ece || 0).toFixed(4)),
+                    reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
                     explainability: {
+
                         confidenceAdjusted: (mcResult.calibrationPenalty || 0) > 0,
                         confidenceAdjustmentPct: Number(((mcResult.calibrationPenalty || 0) * 100).toFixed(2)),
                         calibrationQuality: (mcResult.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
