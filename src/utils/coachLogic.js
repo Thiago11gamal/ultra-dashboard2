@@ -125,6 +125,34 @@ function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = DEFA
     return { danger, safe };
 }
 
+function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = DEFAULT_CONFIG) {
+    const p = Math.max(0, Math.min(100, Number(probability) || 0));
+    const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER));
+    const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE));
+
+    const center = (d + s) / 2;
+    const width = Math.max(8, (s - d) / 2);
+    const k = 4 / width;
+    const z = (center - p) * k;
+    const sigmoid = 1 / (1 + Math.exp(-z));
+
+    const maxBoost = cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE;
+    let boost = cfg.MC_BOOST_SAFE_PENALTY + (maxBoost - cfg.MC_BOOST_SAFE_PENALTY) * sigmoid;
+
+    const lowVolLimit = (cfg.MC_VOLATILITY_HIGH * 0.7) * (maxScore / 100);
+    if (Number.isFinite(volatility) && volatility >= lowVolLimit && boost < 0) {
+        boost *= 0.25; // evita “falso cruzeiro seguro” quando há alta volatilidade
+    }
+
+    let riskLabel = 'ok';
+    if (p < d) riskLabel = 'critical';
+    else if (p < center) riskLabel = 'moderate';
+    else if (p >= s && boost < 0) riskLabel = 'safe';
+
+    return { boost, riskLabel };
+}
+
+
 // MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
 
 // Must be called on resetStore() and when activeId changes to prevent stale
@@ -448,39 +476,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg);
 
         if (mcHasData && mcProbability !== null) {
-            if (mcProbability < adaptiveRisk.danger) {
-                // Risco crítico: boost cresce linearmente de MC_BOOST_DANGER_BASE (na fronteira)
-                // até MC_BOOST_DANGER_BASE + MC_BOOST_DANGER_RANGE (quando prob = 0%)
-                const t = 1 - mcProbability / adaptiveRisk.danger;
-                mcUrgencyBoost = cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE * t;
-                mcRiskLabel = 'critical';
-
-            } else if (mcProbability < adaptiveRisk.safe) {
-                if (mcProbability < cfg.MC_MODERATE_MIDPOINT) {
-                    // Zona moderate: boost desce de MC_BOOST_MODERATE_BASE até 0
-                    const denom = Math.max(1, cfg.MC_MODERATE_MIDPOINT - adaptiveRisk.danger);
-                    const t = (mcProbability - adaptiveRisk.danger) / denom;
-                    mcUrgencyBoost = cfg.MC_BOOST_MODERATE_BASE * (1 - t);
-                    mcRiskLabel = 'moderate';
-                } else {
-                    // Zona ok (55–89.9%): sem boost, sem penalidade
-                    mcUrgencyBoost = 0;
-                    mcRiskLabel = 'ok';
-                }
-
-            } else { // Cruzeiro seguro (>= 90%)
-
-                // ALERTA 2 FIX: A penalidade de manutenção (-8) só deve ser ativada 
-                // se a volatilidade for baixa. Se ele é volátil, não está seguro.
-                if (mssdVolatility < (cfg.MC_VOLATILITY_HIGH * 0.7) * (maxScore / 100)) {
-                    mcUrgencyBoost = cfg.MC_BOOST_SAFE_PENALTY;
-                    mcRiskLabel = 'safe';
-                } else {
-                    mcUrgencyBoost = 0; // A volatilidade alta cancela a penalidade
-                    mcRiskLabel = 'moderate'; 
-                }
-            }
+            const continuous = computeContinuousMcBoost(
+                mcProbability,
+                adaptiveRisk.danger,
+                adaptiveRisk.safe,
+                mssdVolatility,
+                maxScore,
+                cfg
+            );
+            mcUrgencyBoost = continuous.boost;
+            mcRiskLabel = continuous.riskLabel;
         }
+
 
         // D. Priority Boost
         const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
