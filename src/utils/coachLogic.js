@@ -508,7 +508,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // AND nota estagnada ou caindo.
         const isHighVolume = recentHours > 8;
         const isHighFrequency = recentStudyDays >= 5;
-        const isStagnant = trend <= 0.1 * maxScore; // Menos de 10% de evolução no mês
+        const isStagnant = trend <= trendThreshold; // = 0.02 * maxScore
+
         const isBurnoutRisk = (isHighVolume || isHighFrequency) && isStagnant && recentStudyDays >= 3;
 
         if (mcHasData && mcRiskLabel === 'critical') {
@@ -749,7 +750,10 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
         if (task.priority === 'high') newTaskPriority = 40;
         else if (task.priority === 'medium') newTaskPriority = 20;
 
-        topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
+        if (!task.completed) {
+            topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
+        }
+
     });
 
     const today = new Date();

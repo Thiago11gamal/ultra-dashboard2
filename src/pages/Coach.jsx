@@ -66,6 +66,8 @@ const CALIBRATION_ALERT_CACHE_MAX = 200;
  */
 export default function Coach() {
     const activeId = useAppStore(state => state.appState.activeId);
+    useEffect(() => { calibrationAlertCache.clear(); }, [activeId]);
+
     const data = useAppStore(state => state.appState.contests[activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
@@ -329,7 +331,10 @@ export default function Coach() {
                     </div>
                 </div>
 
-                <GovernanceBanner data={data} />
+                <AnimatePresence>
+                    <GovernanceBanner data={data} />
+                </AnimatePresence>
+
 
                 <div className="space-y-10">
                     {/* Dashboard de Detalhes */}
@@ -401,6 +406,8 @@ function GovernanceBanner({ data }) {
         <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+
             className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4"
         >
             <div className="flex items-center gap-4">
@@ -423,7 +430,7 @@ function GovernanceBanner({ data }) {
     );
 }
 
-function RaioXDashboard({ data, _isPremium }) {
+function RaioXDashboard({ data, isPremium }) {
     const auditLog = data?.calibrationAuditLog || [];
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
@@ -508,7 +515,7 @@ function RaioXDashboard({ data, _isPremium }) {
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
                                 <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
                                     <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}%</td>
