@@ -92,10 +92,11 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
             </div>
             {task.analysis && (
-                <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.06]">
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1">
-                        <BrainCircuit size={13} className="text-violet-500" /> Detalhes do Coach
-                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></div>
+                <div className="relative z-10 mt-auto pt-4 px-6 border-t border-white/[0.06]">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none">
+                        <span className="inline-flex h-4 w-4 items-center justify-center shrink-0"><BrainCircuit size={13} className="text-violet-500" /></span>
+                        <span>Detalhes do Coach</span>
+                        <span className={`inline-flex h-4 w-4 items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></span>
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
