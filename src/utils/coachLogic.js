@@ -277,14 +277,20 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     // ignora ponto de backtest inválido
                 }
             }
-            if (brierScores.length > 0) {
-                const summary = summarizeCalibration(brierScores, {
-                    baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
-                    maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
-                });
-                calibrationPenalty = summary.calibrationPenalty;
-                avgBrier = summary.avgBrier;
-            }
+        if (enableAdaptiveCalibration && brierScores.length > 0) {
+            const summary = summarizeCalibration(brierScores, {
+                baseline: adaptive?.calibrationBaseline ?? cfg.MC_CALIBRATION_BRIER_BASELINE,
+                maxPenalty: adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY
+            });
+            calibrationPenalty = summary.calibrationPenalty;
+            avgBrier = summary.avgBrier;
+        }
+
+        // LOW-N ROBUSTNESS: Apply automatic uncertainty penalty for N < 10
+        if (enableAdaptiveCalibration && history.length < 10) {
+            const samplePenalty = (10 - history.length) * 0.025; // 0.125 at n=5, 0 at n=10
+            calibrationPenalty = Math.max(calibrationPenalty, samplePenalty);
+        }
         }
 
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
