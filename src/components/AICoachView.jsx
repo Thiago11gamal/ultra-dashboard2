@@ -170,29 +170,29 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <div className="flex items-center p-1 rounded-xl bg-white/[0.02] border border-white/5">
+                        <div className="flex items-center p-1.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md shadow-inner">
                             <button
                                 type="button"
                                 onClick={() => setViewMode('planner')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'planner' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <LayoutGrid size={12} className="mr-1.5 shrink-0" />
+                                <LayoutGrid size={12} className="shrink-0" />
                                 Planner
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('cards')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'cards' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <Sparkles size={12} className="mr-1.5 shrink-0" />
+                                <Sparkles size={12} className="shrink-0" />
                                 Cards
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('list')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${viewMode === 'list' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)] border border-white/20' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
                             >
-                                <List size={12} className="mr-1.5 shrink-0" />
+                                <List size={12} className="shrink-0" />
                                 Lista
                             </button>
                         </div>
@@ -271,7 +271,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-6 sm:p-8 hover:bg-white/[0.03] transition-all duration-300 overflow-hidden">
+                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-6 sm:p-8 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
                                     <div className="flex justify-between items-start mb-6 gap-4">
                                         <div className="flex items-center gap-3 min-w-0 flex-1">
                                             <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
@@ -298,8 +298,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
                                         <div className="flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/[0.03]">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-none bg-white/[0.03] flex items-center justify-center">
-                                                    <Zap size={14} className={row.avgPenalty > 0.1 ? 'text-amber-400' : 'text-slate-500'} />
+                                                <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shadow-inner">
+                                                    <Zap size={14} className={row.avgPenalty > 0.1 ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-slate-500'} />
                                                 </div>
                                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Penalidade</span>
                                             </div>
@@ -319,7 +319,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-none bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5">
                                 <Sparkles className="text-indigo-400" size={20} />
                             </div>
                             <div>

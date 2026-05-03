@@ -395,7 +395,7 @@ function GovernanceBanner({ data }) {
             className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4 overflow-hidden"
         >
             <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-none bg-rose-500/20 flex items-center justify-center text-rose-400">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 border border-rose-500/20 shadow-lg shadow-rose-900/20">
                     <AlertCircle size={20} />
                 </div>
                 <div>
@@ -460,7 +460,7 @@ function RaioXDashboard({ data }) {
                                     <p className="text-xs font-bold text-white truncate">{displaySubject(op.categoryName || id)}</p>
                                     <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Calibração 7d (Brier): {op.avgBrier7d.toFixed(3)}</p>
                                 </div>
-                                <div className={`px-2 py-1 rounded-none text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                <div className={`shrink-0 ml-4 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                     {op.degraded ? 'Degradado' : 'Estável'}
                                 </div>
                             </div>
@@ -497,13 +497,13 @@ function RaioXDashboard({ data }) {
                     <div className="flex gap-2">
                         <button 
                             onClick={() => setFilter('all')}
-                            className={`px-3 py-1 rounded-none text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${filter === 'all' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-900/40 border border-white/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                         >
                             Tudo
                         </button>
                         <button 
                             onClick={() => setFilter('degraded')}
-                            className={`px-3 py-1 rounded-none text-[9px] font-black uppercase tracking-widest transition-all ${filter === 'degraded' ? 'bg-rose-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${filter === 'degraded' ? 'bg-rose-500 text-white shadow-lg shadow-rose-900/40 border border-white/20' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                         >
                             Falhas
                         </button>
@@ -555,13 +555,13 @@ function RaioXDashboard({ data }) {
                     </span>
                 </div>
                 {latestWithReliability ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {latestWithReliability.reliability.map((bin, idx) => {
                             const predPct = Math.round((Number(bin?.meanPred) || 0) * 100);
                             const obsPct = Math.round((Number(bin?.observedRate) || 0) * 100);
                             const gapPct = Math.round((Number(bin?.gap) || 0) * 100);
                             return (
-                                <div key={idx} className="rounded-none border border-white/5 bg-black/20 px-3 py-2">
+                                <div key={idx} className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 transition-all hover:bg-white/[0.03]">
                                     <div className="flex items-center justify-between text-[10px]">
                                         <span className="text-slate-400 font-bold">Bin {bin.bin}</span>
                                         <span className="text-slate-500">n={bin.count}</span>
@@ -584,7 +584,7 @@ function RaioXDashboard({ data }) {
                         <select
                             value={effectiveCategory}
                             onChange={(e) => setSeriesCategory(e.target.value)}
-                            className="text-[10px] font-bold text-cyan-300 bg-slate-800 border border-white/10 rounded-none px-2 py-1 outline-none cursor-pointer"
+                            className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md"
                         >
                             {categoryNames.map(cat => (
                                 <option key={cat} value={cat}>{displaySubject(cat)}</option>

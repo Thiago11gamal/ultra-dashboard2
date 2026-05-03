@@ -20,12 +20,12 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
                 ${disabled ? 'opacity-60 cursor-not-allowed hover:bg-slate-900/80 hover:border-white/[0.08]' : ''}`}
         >
             <div className="flex items-center gap-3 min-w-0 pl-1">
-                <div className={`shrink-0 w-12 h-8 rounded-none flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
-                    <Icon size={14} strokeWidth={2.2} className="shrink-0" />
+                <div className={`shrink-0 w-12 h-8 rounded-xl flex items-center justify-center border shadow-inner transition-all duration-300 ${active ? 'bg-white/20 border-white/30 shadow-white/5' : 'bg-white/5 border-white/10'}`}>
+                    <Icon size={14} strokeWidth={2.5} className={`shrink-0 ${active ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-slate-400'}`} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.06em] leading-snug whitespace-nowrap">{label}</p>
-                    <p className={`text-[10px] leading-tight mt-0.5 whitespace-nowrap ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.1em] leading-snug whitespace-nowrap">{label}</p>
+                    <p className={`text-[10px] font-bold leading-tight mt-0.5 whitespace-nowrap uppercase tracking-widest ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         {subtitle}
                     </p>
                 </div>
