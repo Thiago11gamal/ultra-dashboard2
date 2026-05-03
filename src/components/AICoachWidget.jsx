@@ -278,33 +278,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     </div>
                 )}
 
-                {/* Footer Action */}
-                <div className="mt-10 pt-8 border-t border-white/[0.06]">
-                    <button
-                        onClick={onGenerateGoals}
-                        disabled={loading}
-                        className={`group relative w-full lg:max-w-2xl mx-auto py-6 rounded-3xl font-black text-sm tracking-[0.2em] uppercase transition-all duration-500 overflow-hidden
-                            bg-gradient-to-r ${cfg.bar} text-white shadow-2xl shadow-black/40
-                            hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]
-                            disabled:opacity-40 disabled:cursor-not-allowed
-                            flex items-center justify-center gap-6`}
-                    >
-                        {/* Shimmer Effect */}
-                        <motion.div
-                            animate={{ x: ['-100%', '200%'] }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[35deg] pointer-events-none"
-                        />
-
-                        {loading
-                            ? <><Loader2 size={20} className="animate-spin" /><span>Sincronizando Heurísticas…</span></>
-                            : <><Zap size={20} className="fill-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" /><span>Recalcular Estratégia de IA</span></>
-                        }
-                    </button>
-                    <div className="mt-4 flex justify-center">
-                        <p className="text-[8px] font-black text-slate-700 uppercase tracking-[0.4em]">Optimized for Cognitive Endurance</p>
-                    </div>
-                </div>
             </div>
         </motion.div>
     );

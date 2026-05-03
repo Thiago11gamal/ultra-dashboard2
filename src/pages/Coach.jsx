@@ -153,6 +153,8 @@ export default function Coach() {
     }, [history, simulados]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
+    // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
+    const currentMaxScore = data?.maxScore ?? 100;
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
@@ -160,12 +162,12 @@ export default function Coach() {
         timeIndex: -1,
         timelineDates: [],
         minScore: 0,
-        maxScore: 100
+        maxScore: currentMaxScore
     });
 
     const projectedScore = mcStats?.projectedMean || 0;
     const volatility = mcStats?.sd || 0;
-    const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory), [combinedHistory]);
+    const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => (Array.isArray(simulados) ? simulados.length : 0), [simulados]);
 
     useEffect(() => {
