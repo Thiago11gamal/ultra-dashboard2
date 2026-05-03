@@ -397,7 +397,7 @@ function GovernanceBanner({ data }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4"
+            className="mb-8 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-4 overflow-hidden"
         >
             <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-none bg-rose-500/20 flex items-center justify-center text-rose-400">
@@ -534,7 +534,9 @@ function RaioXDashboard({ data }) {
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
-                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">-{Math.round(log.calibrationPenalty * 100)}% (shrink)</td>
+                                    <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">
+                                        {log.calibrationPenalty > 0 ? `-${Math.round(log.calibrationPenalty * 100)}% (shrink)` : '-'}
+                                    </td>
                                     <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
                                 </tr>
                             ))}
