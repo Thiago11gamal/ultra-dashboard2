@@ -8,20 +8,42 @@ import { useEffect } from 'react';
  */
 export function useThemeSync(darkModeSetting) {
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+
     const root = document.documentElement;
+    const media = typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
 
-    if (darkModeSetting === true) {
-      root.classList.remove('light-mode');
-      return;
+    const applyTheme = () => {
+      if (darkModeSetting === true) {
+        root.classList.remove('light-mode');
+        return;
+      }
+
+      if (darkModeSetting === false) {
+        root.classList.add('light-mode');
+        return;
+      }
+
+      if (media?.matches) root.classList.remove('light-mode');
+      else root.classList.add('light-mode');
+    };
+
+    applyTheme();
+
+    if (darkModeSetting === undefined || darkModeSetting === 'auto') {
+      if (media?.addEventListener) {
+        media.addEventListener('change', applyTheme);
+        return () => media.removeEventListener('change', applyTheme);
+      }
+
+      if (media?.addListener) {
+        media.addListener(applyTheme);
+        return () => media.removeListener(applyTheme);
+      }
     }
 
-    if (darkModeSetting === false) {
-      root.classList.add('light-mode');
-      return;
-    }
-
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) root.classList.remove('light-mode');
-    else root.classList.add('light-mode');
+    return undefined;
   }, [darkModeSetting]);
 }

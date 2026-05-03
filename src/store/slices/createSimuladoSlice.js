@@ -20,8 +20,9 @@ export const createSimuladoSlice = (set) => ({
         
         const matchesDate = (raw) => {
             if (!raw) return false;
-            if (dateInput.includes('T')) return raw === dateInput;
-            return raw.startsWith(dateInput); 
+            const normalizedRaw = String(raw);
+            if (dateInput.includes('T')) return normalizedRaw === dateInput;
+            return normalizedRaw.startsWith(dateInput); 
         };
 
         if (activeData.simuladoRows) {
