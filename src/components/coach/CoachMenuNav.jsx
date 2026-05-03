@@ -20,7 +20,7 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
                 ${disabled ? 'opacity-60 cursor-not-allowed hover:bg-slate-900/80 hover:border-white/[0.08]' : ''}`}
         >
             <div className="flex items-center gap-3 min-w-0 pl-1">
-                <div className={`shrink-0 w-12 h-8 rounded-md flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
+                <div className={`shrink-0 w-12 h-8 rounded-none flex items-center justify-center border shadow-inner ${active ? 'bg-white/15 border-white/25' : 'bg-white/5 border-white/10'}`}>
                     <Icon size={14} strokeWidth={2.2} className="shrink-0" />
                 </div>
                 <div className="min-w-0">

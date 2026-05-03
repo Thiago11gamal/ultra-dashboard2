@@ -414,57 +414,6 @@ export const WeeklyEvolutionView = ({
                                 <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`} />
 
                                 <Tooltip content={renderCustomTooltip} cursor={{ fill: '#ffffff05' }} />
-
-                                <Legend
-                                    onClick={handleLegendClick}
-                                    wrapperStyle={{ fontSize: '10px', paddingTop: '5px', cursor: 'pointer' }}
-                                    iconType="circle"
-                                    formatter={(value, entry) => (
-                                        <span style={{
-                                            color: hiddenKeys[entry.dataKey] ? '#475569' : '#fff',
-                                            textDecoration: hiddenKeys[entry.dataKey] ? 'line-through' : 'none',
-                                            transition: 'all 0.3s'
-                                        }}>
-                                            {value}
-                                        </span>
-                                    )}
-                                />
-
-                                {chartData.length > 4 && (
-                                    <Brush
-                                        dataKey="displayDate"
-                                        height={20}
-                                        stroke="#4f46e5"
-                                        fill="#0f172a"
-                                        tickFormatter={() => ''}
-                                        className="opacity-80"
-                                        travellerWidth={8}
-                                    />
-                                )}
-
-                                {keys.map(key => (
-                                    <Line
-                                        key={key}
-                                        type="monotone"
-                                        dataKey={key}
-                                        name={activeKeys[key].name}
-                                        stroke={activeKeys[key].color}
-                                        strokeWidth={3}
-                                        hide={hiddenKeys[key]}
-                                        dot={{ r: 4, strokeWidth: 2, fill: '#0f172a' }}
-                                        activeDot={{ r: 6, strokeWidth: 0 }}
-                                        connectNulls={true}
-                                    />
-                                ))}
-                            </LineChart>
-                        ) : (
-                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-
-                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v > 0 ? '+' : ''}${formatValue(v)}${unit}`} />
-
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
                                 <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
 
                                 <Legend

@@ -749,7 +749,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     </div>
                 </div>
 
-                <div className="w-full px-10 py-8 rounded-xl bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">
+                <div className="w-full px-10 py-8 rounded-none bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-[9px] font-black text-[#2d1a12]/60 uppercase tracking-[0.3em]">PROGRESSO DOS CICLOS</h3>

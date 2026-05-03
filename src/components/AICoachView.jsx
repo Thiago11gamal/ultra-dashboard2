@@ -43,8 +43,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
         >
             <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-8 px-10 pt-10">
                 <div className="flex flex-col items-start gap-2 min-w-0">
-                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-none text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
-                        <div className={`w-2.5 h-2.5 rounded-none ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
+                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
+                        <div className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                         <span className="leading-tight whitespace-normal break-words">{displaySubject(subjectPart)}</span>
                     </div>
                 </div>
@@ -53,7 +53,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         e.stopPropagation();
                         onStartPomodoro?.(task);
                     }}
-                    className="w-10 h-10 rounded-none bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
+                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
                 >
                     <Play size={14} fill="currentColor" />
                 </button>
@@ -79,7 +79,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                     {task.analysis.metrics && (
                                         <div className="flex flex-wrap gap-2 pt-1">
                                             {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                                <div key={key} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-none flex items-center gap-2">
+                                                <div key={key} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-xl flex items-center gap-2">
                                                     <span className="text-[9px] text-slate-600 uppercase tracking-widest font-black">{key}</span>
                                                     <span className="text-[11px] font-mono text-slate-300 font-bold">{value}</span>
                                                 </div>
@@ -171,7 +171,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             type="button"
                             onClick={() => setViewMode('planner')}
-                            className={`px-3 py-2 rounded-none text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'planner' ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'planner' ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
                         >
                             <LayoutGrid size={12} className="inline mr-1.5" />
                             Planner
@@ -179,7 +179,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             type="button"
                             onClick={() => setViewMode('cards')}
-                            className={`px-3 py-2 rounded-none text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'cards' ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'cards' ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
                         >
                             <Sparkles size={12} className="inline mr-1.5" />
                             Cards
@@ -187,7 +187,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <button
                             type="button"
                             onClick={() => setViewMode('list')}
-                            className={`px-3 py-2 rounded-none text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'list' ? 'bg-violet-500/20 border-violet-400/40 text-violet-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
+                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${viewMode === 'list' ? 'bg-violet-500/20 border-violet-400/40 text-violet-200' : 'bg-white/[0.03] border-white/10 text-slate-300'}`}
                         >
                             <List size={12} className="inline mr-1.5" />
                             Lista
@@ -199,7 +199,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     <button
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-4 py-2 rounded-none bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
                     >
                         {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                         Exportar
@@ -207,14 +207,14 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     <button
                         onClick={onGenerateGoals}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 rounded-none bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
                     >
                         {loading ? <Loader2 size={13} className="animate-spin" /> : <BrainCircuit size={13} />}
                         Recalcular
                     </button>
                     <button
                         onClick={onClearHistory}
-                        className="flex items-center gap-2 px-4 py-2 rounded-none bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
                     >
                         <Trash2 size={13} />
                         Limpar histórico
@@ -252,10 +252,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <div key={row.categoryId} className="group/card relative rounded-[2rem] border border-white/[0.04] bg-white/[0.01] p-10 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
                                     <div className="flex justify-between items-start mb-8 px-8 pt-2">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-none ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
+                                            <div className={`w-2 h-2 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
                                             <p className="text-[14px] text-white font-black tracking-tight truncate pr-4">{displaySubject(row.label)}</p>
                                         </div>
-                                        <div className={`px-3 py-1 rounded-none text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                        <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                             {op.degraded ? 'Degradado' : 'Estável'}
                                         </div>
                                     </div>
@@ -274,7 +274,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between p-4 rounded-none bg-black/40 border border-white/[0.03]">
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/[0.03]">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-none bg-white/[0.03] flex items-center justify-center">
                                                     <Zap size={14} className={row.avgPenalty > 0.1 ? 'text-amber-400' : 'text-slate-500'} />
