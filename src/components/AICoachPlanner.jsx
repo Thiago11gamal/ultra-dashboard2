@@ -49,7 +49,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     ref={provided.innerRef} 
                     {...provided.draggableProps} 
                     {...provided.dragHandleProps} 
-                    className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 mb-4 rounded-xl transition-all duration-500 select-none overflow-hidden ${
+                    className={`group relative p-4 pl-5 sm:p-5 sm:pl-6 mb-4 rounded-xl transition-all duration-500 select-none overflow-hidden ${
                         snapshot.isDragging 
                             ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 z-50 backdrop-blur-xl' 
                             : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5'
@@ -63,10 +63,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
 
                     <div className="flex flex-col gap-5 relative z-10">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0 w-full">
                             <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
                                 isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
-                            } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
+                            } border backdrop-blur-md shadow-sm min-w-0 flex-1 group-hover:border-white/20 transition-colors`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
                                 <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
                             </div>
@@ -83,8 +83,8 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-2 pl-3">
-                            <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors">
+                        <div className="flex flex-col gap-1.5 pl-2">
+                            <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors break-words">
                                 {displayTopic}
                             </h4>
                             {secondaryText && (
