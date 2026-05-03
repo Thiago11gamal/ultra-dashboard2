@@ -20,7 +20,7 @@ import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
 import { useSubscription } from '../hooks/useSubscription';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import { getSuggestedFocus, generateDailyGoals } from '../utils/coachLogic';
+import { getSuggestedFocus, generateDailyGoals, clearMcCache } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
@@ -34,7 +34,13 @@ const CALIBRATION_ALERT_CACHE_MAX = 200;
 
 export default function Coach() {
     const activeId = useAppStore(state => state.appState.activeId);
-    useEffect(() => { calibrationAlertCache.clear(); }, [activeId]);
+    // LEAK-MCCACHE FIX: limpar o cache do Monte Carlo ao trocar de concurso.
+    // O hash já previne resultados errados, mas entradas do concurso anterior
+    // ocupam memória desnecessariamente até o cap de 50 ser atingido.
+    useEffect(() => {
+        clearMcCache();
+        calibrationAlertCache.clear();
+    }, [activeId]);
 
     const data = useAppStore(state => state.appState.contests[activeId]);
     const setData = useAppStore(state => state.setData);
@@ -130,8 +136,14 @@ export default function Coach() {
         }
 
         if (isDegraded) {
-            const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             const now = Date.now();
+            // LEAK-CALIBRATION-CACHE FIX: antes, entradas eram removidas apenas por tamanho.
+            // Entradas com >12h de idade deveriam ser prunadas para liberar memória e permitir
+            // re-disparo legítimo do alerta. Agora fazemos uma varredura de cleanup antes de inserir.
+            for (const [key, ts] of calibrationAlertCache.entries()) {
+                if (now - ts > ALERT_COOLDOWN_MS) calibrationAlertCache.delete(key);
+            }
+            const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToast(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
@@ -252,6 +264,9 @@ export default function Coach() {
 
             collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
             setCoachLoading(false);
+            // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
+            // um ID de timeout expirado que mascararia novos agendamentos.
+            timeoutRef.current = null;
         }, 1500);
     }, [data, setData, showToast, persistCalibrationMetric, userProfile?.targetProbability]);
 
