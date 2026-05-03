@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
@@ -212,15 +212,34 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <Trash2 size={13} className="shrink-0" />
                             Limpar
                         </button>
-                        <button
-                            onClick={onGenerateGoals}
-                            disabled={loading}
-                            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
-                        >
-                            {loading ? <Loader2 size={13} className="animate-spin shrink-0" /> : <BrainCircuit size={13} className="shrink-0" />}
-                            Recalcular
-                        </button>
                     </div>
+                </div>
+
+                <div className="flex justify-center w-full">
+                    <button
+                        onClick={onGenerateGoals}
+                        disabled={loading}
+                        className="group relative w-full md:w-auto px-12 py-5 rounded-[2rem] font-black text-xs sm:text-sm tracking-[0.25em] uppercase transition-all duration-500 overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_40px_rgba(99,102,241,0.3)] hover:shadow-[0_0_60px_rgba(99,102,241,0.5)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 border border-white/20"
+                        style={{ backgroundSize: '200% auto' }}
+                    >
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
+                        <motion.div
+                            animate={{ backgroundPosition: ['0% center', '200% center'] }}
+                            transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
+                        />
+                        {loading ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin shrink-0 drop-shadow-md" />
+                                <span>Sincronizando...</span>
+                            </>
+                        ) : (
+                            <>
+                                <BrainCircuit size={18} className="shrink-0 drop-shadow-md" />
+                                <span>Recalcular Estratégia</span>
+                            </>
+                        )}
+                    </button>
                 </div>
 
                 {suggestedFocus ? (
