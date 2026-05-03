@@ -6,14 +6,23 @@ import { EvolucaoFocoChart } from '../components/charts/Analytics/EvolucaoFocoCh
 import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDisciplinaChart';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function Stats() {
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    // FIX: Extração granular blindada contra renders desnecessários
+    const { categories, studyLogs, user } = useAppStore(useShallow(state => {
+        const contest = state.appState.contests[state.appState.activeId] || {};
+        return {
+            categories: contest.categories || [],
+            studyLogs: contest.studyLogs || [],
+            user: contest.user || null
+        };
+    }));
 
-    const focusData = useMemo(() => mapFocusEvolutionData(data?.studyLogs || []), [data?.studyLogs]);
-    const subjectData = useMemo(() => mapSubjectHoursData(data?.studyLogs || [], data?.categories || []), [data?.studyLogs, data?.categories]);
+    const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
+    const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
-    if (!data || !data.categories) {
+    if (categories.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-[80vh]">
                 <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
@@ -24,8 +33,8 @@ export default function Stats() {
     return (<PageErrorBoundary pageName="Estatísticas">
         <div className="space-y-8 animate-fade-in pb-12">
             <VerifiedStats
-                categories={data.categories || []}
-                user={data.user}
+                categories={categories}
+                user={user}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -57,8 +66,8 @@ export default function Stats() {
             </div>
 
             <WeeklyAnalysis
-                studyLogs={data.studyLogs || []}
-                categories={data.categories || []}
+                studyLogs={studyLogs}
+                categories={categories}
             />
         </div>
     </PageErrorBoundary>);

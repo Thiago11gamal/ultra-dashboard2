@@ -9,7 +9,8 @@ import { RotateCcw } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
 export default function Tasks() {
-    const categories = useAppStore(state => state.appState.contests[state.appState.activeId].categories || []);
+    // FIX: Adicionado '?.' antes de '.categories' para evitar crash de hidratação
+    const categories = useAppStore(state => state.appState.contests[state.appState.activeId]?.categories || []);
     const { resetSimuladoStats } = useAppStore();
     const showToast = useToast();
 
