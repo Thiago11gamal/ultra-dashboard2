@@ -13,25 +13,29 @@ const useClock = () => {
     const [time, setTime] = useState(() => new Date());
 
     useEffect(() => {
-        let intervalId;
         let timeoutId;
+        let cancelled = false;
 
         const tick = () => setTime(new Date());
-        const scheduleAlignedInterval = () => {
+
+        const scheduleNextTick = () => {
+            if (cancelled) return;
             const now = Date.now();
-            const msUntilNextSecond = 1000 - (now % 1000);
+            const msUntilNextSecond = (1000 - (now % 1000)) % 1000;
+            const delay = msUntilNextSecond === 0 ? 1 : msUntilNextSecond;
 
             timeoutId = setTimeout(() => {
                 tick();
-                intervalId = setInterval(tick, 1000);
-            }, msUntilNextSecond);
+                scheduleNextTick();
+            }, delay);
         };
 
-        scheduleAlignedInterval();
+        tick();
+        scheduleNextTick();
 
         return () => {
+            cancelled = true;
             if (timeoutId) clearTimeout(timeoutId);
-            if (intervalId) clearInterval(intervalId);
         };
     }, []);
 
@@ -39,4 +43,5 @@ const useClock = () => {
 };
 
 export default useClock;
+
 
