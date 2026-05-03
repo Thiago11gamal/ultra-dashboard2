@@ -164,8 +164,15 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     const sScore = getSafeScore(s, maxScore);
                     const simDate = normalizeDate(s.date);
                     const days = getDaysDiff(today, simDate);
-                    let peso = Math.exp(-K * days);
-                    if (peso < PESO_MIN) peso = PESO_MIN;
+                    let timeWeight = Math.exp(-K * days);
+                    if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
+                    
+                    // MATH FIX: Falácia Ecológica (Volume Weighting)
+                    // Ponderar logaritmicamente pelo volume previne que mini-testes
+                    // sobreponham exames massivos mais antigos.
+                    const volumeWeight = Math.sqrt(Math.max(1, Number(s.total) || getSyntheticTotal(maxScore)));
+                    const peso = timeWeight * volumeWeight;
+                    
                     weightedSum += sScore * peso;
                     totalWeight += peso;
                 });
@@ -606,6 +613,7 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
             if (topicTotal > 0) {
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,
+                    total: topicTotal,
                     date: entryDate.toISOString()
                 });
             }
