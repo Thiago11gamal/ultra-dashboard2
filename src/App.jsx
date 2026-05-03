@@ -226,7 +226,7 @@ function MainLayout() {
               <Sidebar
                 onOpenHelp={() => setShowHelpGuide(true)}
                 isOpen={isSidebarOpen}
-                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                onToggle={() => setIsSidebarOpen((prev) => !prev)}
                 collapsed={sidebarCollapsed}
                 setCollapsed={setSidebarCollapsed}
                 contests={contestsMetaList}
@@ -235,6 +235,7 @@ function MainLayout() {
                 onCreateContest={createNewContest}
                 onDeleteContest={deleteContest}
                 onOpenTrash={() => setTrashOpen(true)}
+                onCloseMobile={() => setIsSidebarOpen(false)}
               />
 
               <div className="flex flex-col h-screen w-full min-w-0 relative">
