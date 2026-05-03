@@ -47,6 +47,8 @@ export const createCategorySlice = (set, get) => ({
                     category: category,
                     studyLogs: activeData.studyLogs?.filter(l => l.categoryId === id) || [],
                     studySessions: activeData.studySessions?.filter(s => s.categoryId === id) || [],
+                    simuladoRows: activeData.simuladoRows?.filter(r => r.categoryId === id) || [],
+                    simulados: activeData.simulados?.filter(s => s.categoryId === id) || [],
                     mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name]
                 })),
                 deletedAt: new Date().toISOString()
@@ -68,6 +70,12 @@ export const createCategorySlice = (set, get) => ({
         }
         if (activeData.studySessions) {
             activeData.studySessions = activeData.studySessions.filter(s => s.categoryId !== id);
+        }
+        if (activeData.simuladoRows) {
+            activeData.simuladoRows = activeData.simuladoRows.filter(r => r.categoryId !== id);
+        }
+        if (activeData.simulados) {
+            activeData.simulados = activeData.simulados.filter(s => s.categoryId !== id);
         }
 
         if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
