@@ -236,8 +236,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             </div>
 
             {calibrationSummary.length > 0 && (
-                <div className="rounded-3xl border border-white/5 bg-[#0a0c14] p-8 shadow-2xl relative overflow-visible group">
-                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8">
+                <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-6 relative overflow-visible group">
+                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-6">
                         <div>
                             <h3 className="text-[11px] uppercase tracking-[0.25em] font-black text-cyan-400 mb-2">Monitor de Calibração</h3>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">

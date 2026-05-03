@@ -51,11 +51,11 @@ function MetricChip({ label, value, index }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05, duration: 0.4 }}
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-6 transition-all cursor-default relative overflow-visible group/chip"
+            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 transition-all cursor-default relative overflow-visible group/chip"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-2">{label}</span>
-            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate pl-2">{value}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
+            <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate pl-1">{value}</span>
         </motion.div>
     );
 }
