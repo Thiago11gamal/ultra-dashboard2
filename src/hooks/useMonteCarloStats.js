@@ -131,6 +131,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         const scoresByDate = {};
         const weightsByName = {};
+        const maxScoreByName = {};
         const bayesianStats = [];
 
         const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
@@ -139,37 +140,45 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
         categories.forEach(cat => {
             if (cat.simuladoStats?.history?.length > 0) {
+                const catMaxScore = Number(cat.maxScore) || maxScore;
+
                 const history = [...cat.simuladoStats.history]
-                    .filter(h => cutoffDate ? getDateKey(h.date) <= cutoffDate : true)
+                    .filter(h => {
+                        if (!cutoffDate) return true;
+                        // BUGFIX: Standardize date comparison using string split to avoid timezone shifts
+                        const dateString = h.date?.includes('T') ? h.date.split('T')[0] : h.date;
+                        return dateString <= cutoffDate;
+                    })
                     .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
                 if (history.length === 0) return;
 
                 const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
 
-                const baye = computeBayesianLevel(history, 1, 1, maxScore);
-                const stats = computeCategoryStats(history, weight, 60, maxScore);
-                const vol = calculateVolatility(history, maxScore);
+                const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
+                const stats = computeCategoryStats(history, weight, 60, catMaxScore);
+                const vol = calculateVolatility(history, catMaxScore);
 
                 if (stats && weight > 0) {
                     totalWeight += weight;
                     weightedBayesianAlpha += baye.alpha * weight;
                     weightedBayesianBeta += baye.beta * weight;
                     weightsByName[cat.name] = weight;
+                    maxScoreByName[cat.name] = catMaxScore;
 
                     history.forEach(h => {
                         const dk = getDateKey(h.date);
                         if (dk) {
                             if (!scoresByDate[dk]) scoresByDate[dk] = {};
                             const existing = scoresByDate[dk][cat.name];
-                            const currentScore = getSafeScore(h, maxScore);
+                            const currentScore = getSafeScore(h, catMaxScore);
                             const currentTotal = Number(h.total) || 0;
                             const currentCorrect = Number(h.correct) || 0;
 
                             if (existing) {
                                 const newTotal = existing.total + currentTotal;
                                 let newCorrect = existing.correct + currentCorrect;
-                                let newScore = newTotal > 0 ? (newCorrect / newTotal) * maxScore : (existing.score + currentScore) / 2;
+                                let newScore = newTotal > 0 ? (newCorrect / newTotal) * catMaxScore : (existing.score + currentScore) / 2;
                                 scoresByDate[dk][cat.name] = { score: newScore, correct: newCorrect, total: newTotal };
                             } else {
                                 scoresByDate[dk][cat.name] = { score: currentScore, correct: currentCorrect, total: currentTotal };
@@ -204,10 +213,11 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
             let pooledTotal = 0;
             Object.keys(scoresByDate[date]).forEach(name => {
                 const w = weightsByName[name];
+                const catMaxScore = maxScoreByName[name] || maxScore;
                 const metrics = scoresByDate[date][name];
                 if (w > 0 && metrics !== undefined) {
-                    const total = metrics.total || getSyntheticTotal(maxScore);
-                    const correct = (metrics.correct !== undefined && metrics.total > 0) ? metrics.correct : (metrics.score / maxScore) * total;
+                    const total = metrics.total || getSyntheticTotal(catMaxScore);
+                    const correct = (metrics.correct !== undefined && metrics.total > 0) ? metrics.correct : (metrics.score / catMaxScore) * total;
                     pooledCorrect += correct * w;
                     pooledTotal += total * w;
                 }
