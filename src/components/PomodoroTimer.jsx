@@ -676,7 +676,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     </div>
                     <div className="flex items-center gap-6 mb-12 z-30">
                         <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'work' ? 'text-white' : 'text-white/40'}`}>FOCO</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
                         <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${mode === 'break' ? 'text-white' : 'text-white/40'}`}>PAUSA</span>
                     </div>
 

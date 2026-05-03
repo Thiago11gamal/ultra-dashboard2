@@ -12,7 +12,7 @@ import useClock from '../hooks/useClock';
 const DateDisplay = () => {
     const clockTime = useClock();
     return (
-        <p className="text-slate-400 pl-2 text-[10px] font-bold uppercase tracking-wider opacity-80">
+        <p className="text-slate-400 pl-2 text-[10px] font-bold uppercase tracking-wider opacity-80 truncate">
             {format(clockTime, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
     );
@@ -118,7 +118,7 @@ export default function Header({
                         <div className="flex items-center gap-3 min-w-0">
                             <DateDisplay />
                             {cloudStatus.status !== 'idle' && (
-                                <div className={`flex items-center min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${cloudStatus.status === 'connected'
+                                <div className={`flex items-center shrink-0 min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${cloudStatus.status === 'connected'
                                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400/90 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
                                     : cloudStatus.status === 'connecting'
                                         ? 'bg-amber-500/10 border-amber-500/20 text-amber-400/90 shadow-[0_0_15px_rgba(245,158,11,0.05)]'

@@ -98,16 +98,16 @@ function AICoachPanel({ activeSubject, stats }) {
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-                            <Sparkles size={10} className={theme.text} />
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 shrink-0">
+                            <Sparkles size={10} className={`${theme.text} shrink-0`} />
                             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Neural Core Active</span>
                         </div>
                         <div className={`h-[1px] flex-1 bg-gradient-to-r from-white/10 to-transparent`} />
                     </div>
 
-                    <h3 className="text-lg font-black text-white mb-0.5 tracking-tight flex items-baseline gap-2">
-                        {insight?.title || 'Analisando'}
-                        <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse`} />
+                    <h3 className="text-lg font-black text-white mb-0.5 tracking-tight flex items-center gap-2">
+                        <span className="truncate">{insight?.title || 'Analisando'}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${theme.accent} animate-pulse shrink-0`} />
                     </h3>
 
                     <div className="text-xs text-slate-300 leading-relaxed font-medium">
@@ -266,11 +266,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 >
                     <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
 
-                    <div className="flex items-center justify-between mb-5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 flex items-center gap-2">
-                            <Zap size={12} className="fill-indigo-400" /> Prioridade de ROI
+                    <div className="flex items-center justify-between mb-5 gap-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 flex items-center gap-2 truncate">
+                            <Zap size={12} className="fill-indigo-400 shrink-0" /> <span className="truncate">Prioridade de ROI</span>
                         </p>
-                        <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black text-indigo-300 uppercase tracking-widest">
+                        <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black text-indigo-300 uppercase tracking-widest shrink-0">
                             Ideal para Fluxo
                         </div>
                     </div>
@@ -411,8 +411,8 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
                     
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60">{activeSubject?.category || 'SISTEMA'}</span>
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 animate-pulse" />
+                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60 truncate">{activeSubject?.category || 'SISTEMA'}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 animate-pulse shrink-0" />
                         </div>
                         <h1 className="text-xl sm:text-2xl font-black text-[#2d1a12] tracking-tight truncate leading-tight">
                             {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
