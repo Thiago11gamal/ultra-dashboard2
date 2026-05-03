@@ -35,22 +35,23 @@ export const createSimuladoSlice = (set) => ({
         }
 
         if (activeData.categories) {
-            // Assumimos maxScore padrão 100, mas adaptado caso tenha no activeData
-            const maxScore = activeData.maxScore || 100; 
-
             activeData.categories.forEach(c => {
+                // 🎯 BUGFIX: Usar a pontuação máxima específica da categoria (ou do concurso como fallback)
+                const catMaxScore = Number(c.maxScore) || Number(activeData.maxScore) || 100;
+
                 if (c.simuladoStats?.history) {
                     // Filtra o simulado excluído
                     c.simuladoStats.history = c.simuladoStats.history.filter(h => !matchesDate(h.date));
                     
                     // 🎯 RECOMPUTAÇÃO IMEDIATA PÓS-EXCLUSÃO
                     if (c.simuladoStats.history.length > 0) {
-                        const newStats = computeCategoryStats(c.simuladoStats.history, c.weight || 1, 60, maxScore);
+                        const newStats = computeCategoryStats(c.simuladoStats.history, c.weight || 1, 60, catMaxScore);
                         if (newStats) {
                             const last = c.simuladoStats.history[c.simuladoStats.history.length - 1];
                             c.simuladoStats.average = Number((newStats.mean || 0).toFixed(2));
                             c.simuladoStats.trend = newStats.trend || 'stable';
-                            c.simuladoStats.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * maxScore : 0));
+                            // Garante o cálculo do último score baseado na escala correta
+                            c.simuladoStats.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore : 0));
                             c.simuladoStats.level = newStats.level || 'BAIXO';
                         }
                     } else {
