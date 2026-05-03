@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
  * Custom hook that returns the current time, updating every second.
  *
  * Sync strategy:
- * - Waits until the next exact second boundary before starting interval updates.
+ * - Aligns each update to the next exact second boundary using recursive timeouts.
  * - Prevents visible drift/desync between different clock widgets over time.
+ * - Forces an immediate resync when tab/window becomes active again.
  *
  * @returns {Date} current time
  */
@@ -33,9 +34,21 @@ const useClock = () => {
         tick();
         scheduleNextTick();
 
+        const handleVisibilityOrFocus = () => {
+            if (cancelled) return;
+            if (timeoutId) clearTimeout(timeoutId);
+            tick();
+            scheduleNextTick();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+        window.addEventListener('focus', handleVisibilityOrFocus);
+
         return () => {
             cancelled = true;
             if (timeoutId) clearTimeout(timeoutId);
+            document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+            window.removeEventListener('focus', handleVisibilityOrFocus);
         };
     }, []);
 
@@ -43,5 +56,6 @@ const useClock = () => {
 };
 
 export default useClock;
+
 
 
