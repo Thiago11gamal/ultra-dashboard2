@@ -330,17 +330,12 @@ export default function Coach() {
                     <div className="w-full">
                         <CoachMenuNav activeTab={activeTab} onChangeTab={setActiveTab} isPremium={isPremium} />
 
-                        <AnimatePresence mode="wait">
-                            <Motion.div
+                        <div className="animate-fade-in">
+                            <div
                                 role="tabpanel"
                                 id={activeTab === 'insights' ? 'coach-panel-insights' : 'coach-panel-analytics'}
                                 aria-labelledby={activeTab === 'insights' ? 'coach-tab-insights' : 'coach-tab-analytics'}
                                 tabIndex={0}
-                                key={activeTab}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.2 }}
                             >
                                 {activeTab === 'insights' ? (
                                     <AICoachView 
@@ -352,8 +347,8 @@ export default function Coach() {
                                 ) : (
                                     <RaioXDashboard data={data} />
                                 )}
-                            </Motion.div>
-                        </AnimatePresence>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
