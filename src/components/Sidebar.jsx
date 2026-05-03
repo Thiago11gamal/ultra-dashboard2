@@ -58,9 +58,9 @@ export default function Sidebar({
     }, [collapsed]);
 
     const closeMobileSidebar = () => {
-        if (window.innerWidth < 1024) {
-            if (onCloseMobile) onCloseMobile();
-            else onToggle();
+        if (window.innerWidth >= 1024) return;
+        if (isOpen) {
+            onCloseMobile?.();
         }
     };
 
