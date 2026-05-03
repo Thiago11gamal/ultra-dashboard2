@@ -22,8 +22,20 @@ const DAYS = [
 const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro }) => {
     const fullText = task.text || task.title || '';
     const parts = fullText.split(':');
-    let subject = parts.length > 1 ? parts[0] : fullText;
+    const hasDetails = parts.length > 1;
+
+    let subject = hasDetails ? parts[0] : fullText;
+    let actionPart = hasDetails ? parts.slice(1).join(':').trim() : 'Revisão Geral';
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
+
+    let topicPart = '';
+    const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
+    if (topicMatch) {
+        topicPart = topicMatch[1];
+        actionPart = topicMatch[2].trim();
+    }
+
+    const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
 
     return (
         <Draggable draggableId={stableId} index={index}>
@@ -32,17 +44,31 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     {!isBacklog && dayColor && <div className={`absolute left-0 top-6 bottom-6 w-[6px] rounded-full bg-gradient-to-b ${dayColor}`} />}
                     
                     <div className="flex flex-col gap-6 relative z-10">
-                        <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-                            <div className={`inline-flex items-center gap-3 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] ${isBacklog ? 'bg-violet-500/30 text-violet-100 border-violet-500/40' : 'bg-white/15 text-slate-100 border-white/20'} border backdrop-blur-md ml-4 overflow-hidden shadow-lg`}>
-                                <div className={`w-2 h-2 rounded-full ${isBacklog ? 'bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]' : 'bg-slate-300'} shrink-0`} />
-                                <span className="leading-tight whitespace-normal break-words">{displaySubject(subject)}</span>
+                        <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                            <div className="flex flex-col gap-5 min-w-0">
+                                <div className={`inline-flex items-center gap-3 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] ${isBacklog ? 'bg-violet-500/30 text-violet-100 border-violet-500/40' : 'bg-white/15 text-slate-100 border-white/20'} border backdrop-blur-md ml-4 overflow-hidden shadow-lg w-fit`}>
+                                    <div className={`w-2 h-2 rounded-full ${isBacklog ? 'bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]' : 'bg-slate-300'} shrink-0`} />
+                                    <span className="leading-tight whitespace-normal break-words">{displaySubject(subject)}</span>
+                                </div>
+                                
+                                {displayTopic && (
+                                    <div className="ml-6 pr-2">
+                                        <h4 className="text-[15px] font-black text-white leading-tight mb-2 tracking-tight">
+                                            {displayTopic}
+                                        </h4>
+                                        {topicPart && actionPart && actionPart !== displayTopic && (
+                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest line-clamp-1">{actionPart}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
+
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onStartPomodoro?.(task);
                                 }}
-                                className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg"
+                                className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg mt-1"
                             >
                                 <Play size={14} className="fill-current" />
                             </button>
