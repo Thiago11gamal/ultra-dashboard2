@@ -18,15 +18,36 @@ const useClock = () => {
         let cancelled = false;
         let lastRescheduleAt = 0;
 
+        let baseWallMs = Date.now();
+        let basePerfMs = performance.now();
+
+        const nowFromStableClock = () => {
+            const elapsed = performance.now() - basePerfMs;
+            return baseWallMs + elapsed;
+        };
+
+        const recalibrate = () => {
+            baseWallMs = Date.now();
+            basePerfMs = performance.now();
+        };
+
         const scheduleNextTick = () => {
             if (cancelled) return;
-            const now = Date.now();
+            const now = nowFromStableClock();
             const msUntilNextSecond = (1000 - (now % 1000)) % 1000;
             const delay = msUntilNextSecond === 0 ? 1 : msUntilNextSecond;
 
             timeoutId = setTimeout(() => {
-                const nowSecond = Math.floor(Date.now() / 1000);
-                setEpochSecond((prev) => Math.max(prev, nowSecond));
+                const stableNow = nowFromStableClock();
+                const realNow = Date.now();
+
+                // Se houver salto grande do relógio do sistema (NTP/sleep), recalibra a base.
+                if (Math.abs(realNow - stableNow) > 1500) {
+                    recalibrate();
+                }
+
+                const nowSecond = Math.floor(nowFromStableClock() / 1000);
+                setEpochSecond(nowSecond);
                 scheduleNextTick();
             }, delay);
         };
@@ -40,7 +61,8 @@ const useClock = () => {
             if (nowMs - lastRescheduleAt < 250) return;
             lastRescheduleAt = nowMs;
             if (timeoutId) clearTimeout(timeoutId);
-            setEpochSecond(Math.floor(Date.now() / 1000));
+            recalibrate();
+            setEpochSecond(Math.floor(nowFromStableClock() / 1000));
             scheduleNextTick();
         };
 
@@ -59,6 +81,7 @@ const useClock = () => {
 };
 
 export default useClock;
+
 
 
 
