@@ -83,20 +83,18 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             // 🎯 DRIFT BAYESIANO (Fix): Preservar o ratio atual durante o decaimento.
             // Em vez de decair alpha e beta independentemente para alpha0/beta0,
             // reduzimos o "peso" (n) da evidência mantendo a proporção de acertos.
+            const retentionFloor = maxAlphaEver * 0.3;
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
                 const currentP = alpha / nBeforeDecay;
-                const nAfterDecay = Math.max(2, nBeforeDecay * entryDecay); // Mínimo de n=2 (Laplace)
+                
+                // AMNÉSIA BAYESIANA: Limita o decaimento assintótico de N 
+                // para que alpha (N * P) nunca caia abaixo do piso de retenção.
+                const minAllowedN = currentP > 0 ? retentionFloor / currentP : 2;
+                const nAfterDecay = Math.max(2, minAllowedN, nBeforeDecay * entryDecay); // Mínimo de n=2 (Laplace)
+                
                 alpha = nAfterDecay * currentP;
                 beta = nAfterDecay * (1 - currentP);
-            }
-
-            // AMNÉSIA BAYESIANA: Piso de retenção permanente (30% do maior alpha alcançado)
-            const retentionFloor = maxAlphaEver * 0.3;
-            if (alpha < retentionFloor) {
-                const nBeforeRetention = alpha + beta;
-                alpha = Math.min(nBeforeRetention - 0.5, retentionFloor);
-                beta = nBeforeRetention - alpha; // N estritamente constante
             }
 
             alpha += acertosHoje;
@@ -108,18 +106,16 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
         const lastDate = new Date(sortedHistory[sortedHistory.length - 1].date);
         const gapToToday = Math.max(0, Math.floor((now - lastDate.getTime()) / (1000 * 60 * 60 * 24)));
         if (gapToToday > 0) {
+            const retentionFloor = maxAlphaEver * 0.3;
             const finalDecay = Math.pow(BAYESIAN_DECAY_FACTOR, gapToToday);
             const nBeforeDecay = alpha + beta;
             const currentP = alpha / nBeforeDecay;
-            const nAfterDecay = Math.max(2, nBeforeDecay * finalDecay);
+            
+            const minAllowedN = currentP > 0 ? retentionFloor / currentP : 2;
+            const nAfterDecay = Math.max(2, minAllowedN, nBeforeDecay * finalDecay);
+            
             alpha = nAfterDecay * currentP;
             beta = nAfterDecay * (1 - currentP);
-
-            const retentionFloor = maxAlphaEver * 0.3;
-            if (alpha < retentionFloor) {
-                alpha = Math.min(nAfterDecay - 0.5, retentionFloor);
-                beta = nAfterDecay - alpha; // N estritamente constante
-            }
         }
     }
 
