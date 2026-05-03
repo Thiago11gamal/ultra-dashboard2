@@ -38,7 +38,8 @@ export default function Sidebar({
     onSwitchContest,
     onCreateContest,
     onDeleteContest,
-    onOpenTrash
+    onOpenTrash,
+    onCloseMobile
 }) {
     const location = useLocation();
     const { logout } = useAuth();
@@ -57,7 +58,10 @@ export default function Sidebar({
     }, [collapsed]);
 
     const closeMobileSidebar = () => {
-        if (window.innerWidth < 1024) onToggle();
+        if (window.innerWidth < 1024) {
+            if (onCloseMobile) onCloseMobile();
+            else onToggle();
+        }
     };
 
     const handleLogout = async () => {
