@@ -2,11 +2,20 @@ import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics } from './calibration.js';
 
-export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}) {
+// MATH-ADAPTIVE-SCALE FIX: adicionado parâmetro maxScore (default=100).
+// Antes, os scores em escala [0, maxScore] eram usados diretamente na fórmula q(0.25)*0.55,
+// que produzia limiares de probabilidade dependentes da escala da prova.
+// Ex: maxScore=50 → danger ≈ 16 (muito baixo); maxScore=100 → danger ≈ 30 (correto).
+// Agora os scores são normalizados para [0,100] antes de calcular os quantis.
+export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100) {
   const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
   const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
-  const cleanScores = (scores || []).map(Number).filter(Number.isFinite);
-  if (cleanScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
+  const rawScores = (scores || []).map(Number).filter(Number.isFinite);
+  if (rawScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
+
+  // Normalizar para [0,100] para garantir invariância de escala na comparação com mcProbability
+  const safeMax = maxScore > 0 ? maxScore : 100;
+  const cleanScores = rawScores.map(s => (s / safeMax) * 100);
 
   const sorted = [...cleanScores].sort((a, b) => a - b);
   const q = (p) => sorted[Math.max(0, Math.min(sorted.length - 1, Math.round((sorted.length - 1) * p)))];
@@ -262,4 +271,3 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         return null;
     }
 }
-
