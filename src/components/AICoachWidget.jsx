@@ -102,7 +102,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative mb-8 w-full rounded-3xl sm:rounded-[2.5rem] border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-visible group/widget`}
+            className={`relative mb-8 w-full rounded-3xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-visible group/widget`}
         >
             {/* Background Atmosphere */}
             <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
@@ -172,8 +172,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 </div>
 
                 {!urgency.hasData ? (
-                    <div className="flex flex-col md:flex-row items-center gap-8 py-12 px-8 rounded-[2rem] bg-white/[0.02] border border-white/5 shadow-inner">
-                        <div className="w-20 h-20 rounded-[2rem] bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-2xl">
+                    <div className="flex flex-col md:flex-row items-center gap-8 py-12 px-8 rounded-2xl bg-white/[0.02] border border-white/5 shadow-inner">
+                        <div className="w-20 h-20 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-2xl">
                             <Database size={32} className="text-slate-600" />
                         </div>
                         <div className="text-center md:text-left">

@@ -149,7 +149,7 @@ export default function AICoachPlanner() {
         <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-5">
                 <div className="w-full xl:w-64 shrink-0">
-                    <div className="bg-[#09090f] border border-white/[0.07] rounded-3xl p-4 flex flex-col h-full min-h-[400px] relative overflow-hidden">
+                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
                         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.06]">
                             <div className="w-7 h-7 rounded-none bg-violet-500/15 border border-violet-500/20 flex items-center justify-center"><BrainCircuit size={13} className="text-violet-400" /></div>
@@ -179,7 +179,7 @@ export default function AICoachPlanner() {
                 </div>
 
                 <div className="w-full flex-1 min-w-0">
-                    <div className="bg-[#09090f] border border-white/[0.07] rounded-3xl p-5 overflow-hidden flex flex-col h-full relative">
+                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 overflow-hidden flex flex-col h-full relative">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
                         <div className="flex items-center justify-between mb-5 shrink-0">
                             <div className="flex items-center gap-2.5">
