@@ -153,7 +153,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
     const p_tilde = (effectiveAlpha + z2 / 2) / n_tilde;
 
     // BUGFIX: Predictive Variance (Epistemic + Aleatoric)
-    // Prevents Monte Carlo collapse for large N by assumin    // BUG-BAYES-01 FIX: escalar pelo maxScore real da prova
+    // Prevents Monte Carlo collapse for large N by assuming a finite test size (TAMANHO_PROVA_ESTIMADO).
+    // BUG-BAYES-01 FIX: escalar pelo maxScore real da prova
     // Antes: hardcoded 100, subestimava variance para provas > 100 pts e superestimava para < 100 pts
     const TAMANHO_PROVA_ESTIMADO = Math.max(20, Math.round(maxScore));
     const epistemicVar = (p_tilde * (1 - p_tilde)) / n_tilde;

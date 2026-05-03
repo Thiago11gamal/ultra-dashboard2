@@ -149,7 +149,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     }, 0);
     const firstDate = relevantSimulados[0]?.date || '';
     const lastDate = relevantSimulados[relevantSimulados.length - 1]?.date || '';
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}`;
+    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {

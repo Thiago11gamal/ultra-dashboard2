@@ -262,9 +262,9 @@ export const validateAppState = (data) => {
       activeId: activeId,
       dashboardFilter: d.dashboardFilter || 'all',
       pomodoro: {
+        ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {}),
         activeSubject: d.pomodoro?.activeSubject || null,
-        targetCycles: Number(d.pomodoro?.targetCycles) || 1,
-        ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {})
+        targetCycles: Number(d.pomodoro?.targetCycles) || 1
       },
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {

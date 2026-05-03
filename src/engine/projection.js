@@ -645,16 +645,14 @@ export function monteCarloSimulation(
             let newScore = score + deterministicPull + stochasticTerm;
 
             // 🎯 REFLECTING BOUNDARY (Fronteira Refletora)
-            // 🎯 BUGFIX M3: Resolving multiple bounces for high-energy shocks.
-            // Uses a while loop to ensure the score stays within [minScore, maxScore]
-            // regardless of the shock magnitude, preventing "glued to floor/ceiling" artifacts.
-            while (newScore > safeMaxScore || newScore < minScore) {
-                if (newScore > safeMaxScore) {
-                    newScore = safeMaxScore - (newScore - safeMaxScore);
-                }
-                if (newScore < minScore) {
-                    newScore = minScore + (minScore - newScore);
-                }
+            // 🎯 BUGFIX M3: Algoritmo de reflexão modular O(1)
+            // Resolve qualquer amplitude de choque em tempo constante, sem risco de loop infinito.
+            const L = safeMaxScore - minScore;
+            if (L > 0) {
+                let offset = (newScore - minScore) % (2 * L);
+                if (offset < 0) offset += 2 * L;
+                if (offset > L) offset = 2 * L - offset;
+                newScore = minScore + offset;
             }
 
             // Final safety clamp just in case of multiple reflections or extreme shocks
