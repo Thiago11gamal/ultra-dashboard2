@@ -5,6 +5,7 @@ import { AnaliseRetencaoChart } from '../components/charts/Analytics/AnaliseRete
 import { mapRetentionData } from '../utils/chartDataMappers';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../hooks/useToast';
 
 export default function Retention() {
     const categories = useAppStore(state => {
@@ -12,13 +13,18 @@ export default function Retention() {
         return activeContest?.categories || [];
     });
     const navigate = useNavigate();
+    const showToast = useToast();
 
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
 
     const handleSelectCategory = (cat) => {
         const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
+        
+        // FIX: Tratamento correto caso não haja tasks
         if (targetTaskId) {
             navigate('/pomodoro', { state: { categoryId: cat.id, taskId: targetTaskId, from: 'retention' } });
+        } else {
+            showToast(`Crie pelo menos uma tarefa em "${cat.name}" para iniciar os estudos.`, 'warning');
         }
     };
 
