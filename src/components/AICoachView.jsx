@@ -271,13 +271,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {calibrationSummary.map(row => {
                             const op = calibrationOps[row.categoryId] || {};
                             return (
-                                <div key={row.categoryId} className="group/card relative rounded-[2rem] border border-white/[0.04] bg-white/[0.01] p-10 hover:bg-white/[0.03] transition-all duration-300 overflow-visible">
-                                    <div className="flex justify-between items-start mb-8 px-8 pt-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
-                                            <p className="text-[14px] text-white font-black tracking-tight truncate pr-4">{displaySubject(row.label)}</p>
+                                <div key={row.categoryId} className="group/card relative rounded-3xl border border-white/[0.04] bg-white/[0.01] p-6 sm:p-8 hover:bg-white/[0.03] transition-all duration-300 overflow-hidden">
+                                    <div className="flex justify-between items-start mb-6 gap-4">
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
+                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate">{displaySubject(row.label)}</p>
                                         </div>
-                                        <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                        <div className={`shrink-0 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                             {op.degraded ? 'Degradado' : 'Estável'}
                                         </div>
                                     </div>
@@ -336,7 +336,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             ))}
                         </div>
                     ) : (
-                        <div className="mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                        <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
                             <Target size={32} className="text-slate-600 mx-auto mb-4" />
                             <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
                         </div>
@@ -353,7 +353,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         
                         if (listTasks.length === 0) {
                             return (
-                                <div className="md:col-span-2 mb-12 p-16 rounded-[3rem] border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                <div className="md:col-span-2 mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
                                     <Target size={32} className="text-slate-600 mx-auto mb-4" />
                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
                                 </div>

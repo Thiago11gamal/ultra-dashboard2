@@ -51,7 +51,7 @@ function MetricChip({ label, value, index }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05, duration: 0.4 }}
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 transition-all cursor-default relative overflow-visible group/chip"
+            className="flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 transition-all cursor-default relative overflow-hidden group/chip"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
             <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
@@ -127,8 +127,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             <div className="relative z-10 p-5 sm:p-8">
                 {/* Header Section */}
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-4">
-                        <div className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-black/40 border border-white/10">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="relative flex items-center justify-center w-12 h-12 shrink-0 rounded-2xl bg-black/40 border border-white/10">
                             <div className={`w-2.5 h-2.5 rounded-full ${cfg.pulse} shadow-[0_0_12px_rgba(255,255,255,0.5)]`} />
                             <motion.div
                                 animate={{ scale: [1, 2, 1], opacity: [0.4, 0, 0.4] }}
@@ -136,13 +136,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 className={`absolute inset-0 rounded-2xl ${cfg.pulse}`}
                             />
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Motor de Produtividade</span>
-                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.accent}`}>V4.2 Online</span>
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 truncate">Motor de Produtividade</span>
+                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0 hidden sm:block" />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.accent} shrink-0`}>V4.2 Online</span>
                             </div>
-                            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Análise de Redes Neurais em Tempo Real</p>
+                            <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest truncate">Análise de Redes Neurais em Tempo Real</p>
                         </div>
                     </div>
 
