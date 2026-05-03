@@ -220,7 +220,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
             }
         }
-    }, [activeSubject?.taskId, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+    }, [activeSubject?.taskId, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
 
     // 🟢 CÓDIGO NOVO 2: Garbage Collector Manual para as Refs dos Ciclos (B-09 FIX)
@@ -432,10 +432,11 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
 
-        setTimeout(() => {
+        transitionTimeoutRef.current = setTimeout(() => {
             // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
             if (!isMountedRef.current || !clockRef.current) {
                 isTransitioningRef.current = false;
+                transitionTimeoutRef.current = null;
                 return; // Aborta a atualização visual se o componente já não existe
             }
 
