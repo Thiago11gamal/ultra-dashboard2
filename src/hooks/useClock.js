@@ -16,8 +16,17 @@ const useClock = () => {
     useEffect(() => {
         let timeoutId;
         let cancelled = false;
+        let lastForcedResyncAt = 0;
 
-        const tick = () => setTime(new Date());
+        const tick = () => {
+            const now = new Date();
+            setTime((prev) => {
+                if (!prev) return now;
+                const prevSecond = Math.floor(prev.getTime() / 1000);
+                const nowSecond = Math.floor(now.getTime() / 1000);
+                return prevSecond === nowSecond ? prev : now;
+            });
+        };
 
         const scheduleNextTick = () => {
             if (cancelled) return;
@@ -36,6 +45,10 @@ const useClock = () => {
 
         const handleVisibilityOrFocus = () => {
             if (cancelled) return;
+            if (document.visibilityState !== 'visible') return;
+            const nowMs = Date.now();
+            if (nowMs - lastForcedResyncAt < 250) return;
+            lastForcedResyncAt = nowMs;
             if (timeoutId) clearTimeout(timeoutId);
             tick();
             scheduleNextTick();
@@ -56,6 +69,7 @@ const useClock = () => {
 };
 
 export default useClock;
+
 
 
 
