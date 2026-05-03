@@ -1,7 +1,7 @@
 import { calculateLevel } from '../../utils/gamification';
 import { calculateStudyStreak } from '../../utils/analytics';
 import { ACHIEVEMENTS } from '../../config/gamification';
-import { getSafeScore } from '../../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal } from '../../utils/scoreHelper';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {
@@ -27,7 +27,12 @@ export const createGamificationSlice = (set, get) => ({
                 totalQuestions: activeData.categories?.reduce((sum, cat) => {
                     const hist = cat.simuladoStats?.history;
                     const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-                    return sum + (histArr?.reduce((h, e) => h + (Number(e.total) || 0), 0) || 0);
+                    const syntheticTotal = getSyntheticTotal(cat.maxScore ?? 100);
+                    return sum + (histArr?.reduce((h, e) => {
+                        const t = Number(e.total) || 0;
+                        if (t === 0 && e.score != null) return h + syntheticTotal;
+                        return h + t;
+                    }, 0) || 0);
                 }, 0) || 0,
                 hasPerfectScore: activeData.categories?.some(cat => {
                     const hist = cat.simuladoStats?.history;

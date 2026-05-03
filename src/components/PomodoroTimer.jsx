@@ -634,14 +634,16 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             >
                 <div className="relative flex items-center justify-center py-2 w-full px-4">
                     <div className="flex-1 flex justify-center bg-transparent">
-                        {mode === 'break' ? (
+                        {mode === 'break' || mode === 'long_break' ? (
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className="relative flex items-center justify-center gap-4 w-full bg-emerald-900/40 border border-emerald-500/30 rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)]"
+                                className={`relative flex items-center justify-center gap-4 w-full rounded-xl py-6 shadow-[0_20px_50px_rgba(16,185,129,0.1)] ${mode === 'long_break' ? 'bg-violet-900/40 border border-violet-500/30' : 'bg-emerald-900/40 border border-emerald-500/30'}`}
                             >
-                                <Zap size={24} className="text-emerald-400 animate-pulse" />
-                                <span className="text-xl font-black text-emerald-400 tracking-widest uppercase">Recuperação Neural ☕</span>
+                                <Zap size={24} className={`${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} animate-pulse`} />
+                                <span className={`text-xl font-black ${mode === 'long_break' ? 'text-violet-400' : 'text-emerald-400'} tracking-widest uppercase`}>
+                                    {mode === 'long_break' ? 'Pausa Longa 🛌' : 'Recuperação Neural ☕'}
+                                </span>
                             </motion.div>
                         ) : !activeSubject ? (
                             <div onClick={handleManualExit} className="w-full bg-red-950/20 border border-dashed border-red-500/30 rounded-xl py-4 flex items-center justify-center gap-4 cursor-pointer hover:bg-red-900/40">

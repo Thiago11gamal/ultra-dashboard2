@@ -95,8 +95,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             const retentionFloor = maxAlphaEver * 0.3;
             if (alpha < retentionFloor) {
                 const nBeforeRetention = alpha + beta;
-                alpha = retentionFloor;
-                beta = Math.max(0.5, nBeforeRetention - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
+                alpha = Math.min(nBeforeRetention - 0.5, retentionFloor);
+                beta = nBeforeRetention - alpha; // N estritamente constante
             }
 
             alpha += acertosHoje;
@@ -117,9 +117,8 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
 
             const retentionFloor = maxAlphaEver * 0.3;
             if (alpha < retentionFloor) {
-                // nAfterDecay já contém alpha + beta atualizado
-                alpha = retentionFloor;
-                beta = Math.max(0.5, nAfterDecay - retentionFloor); // N constante, beta >= 0.5 para evitar posterior degenerada
+                alpha = Math.min(nAfterDecay - 0.5, retentionFloor);
+                beta = nAfterDecay - alpha; // N estritamente constante
             }
         }
     }

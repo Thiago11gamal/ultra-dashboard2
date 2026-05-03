@@ -775,8 +775,9 @@ export function calculateDynamicEMA(currentScore, previousEMA, dataCount, daysSi
     // ALERTA 1 FIX: Decaimento temporal injetado na EMA.
     // Se passou muito tempo desde o último teste, o novo teste ganha mais peso
     // para reagir ao esquecimento ou evolução do período sabático.
-    // Half-life ~14 dias (lambda=0.05)
-    const timeK = 1 - Math.exp(-0.05 * Math.max(1, daysSinceLast));
+    // Half-life ~14 dias (lambda=0.05). Cap em 0.60 para evitar deleção completa da EMA após hiato longo.
+    const rawTimeK = 1 - Math.exp(-0.05 * Math.max(1, daysSinceLast));
+    const timeK = Math.min(0.60, rawTimeK);
 
     // Pega o maior peso entre a volumetria bruta e a degradação pelo tempo
     const K = Math.max(baseK, timeK);
