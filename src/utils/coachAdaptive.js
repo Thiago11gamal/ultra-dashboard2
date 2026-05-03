@@ -74,7 +74,7 @@ export function deriveBacktestWeights(scores = [], maxScore = 100) {
     return acc + Math.abs(y - pred);
   }, 0) / test.length;
 
-  const rankQualityRaw = baselineMae > 0 ? (baselineMae - trendMae) / baselineMae : 0;
+  const rankQualityRaw = baselineMae > 1e-4 ? (baselineMae - trendMae) / baselineMae : 0;
   const rankQuality = Math.max(-0.5, Math.min(0.5, rankQualityRaw));
 
   const testMean = test.reduce((a, b) => a + b, 0) / test.length;

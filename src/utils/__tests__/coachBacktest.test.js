@@ -15,12 +15,13 @@ describe('coach offline backtest metrics', () => {
   });
 
   it('computes calibrated error and compares candidate vs baseline', () => {
-    const ce = computeCalibratedError([{ pred: 0.8, obs: true }, { pred: 0.2, obs: false }]);
-    expect(ce).toBeGreaterThanOrEqual(0);
-    const cmp = compareStrategyRuns({
-      baseline: { ndcgAt5: 0.6, uplift: 0.1, calibratedError: 0.25 },
-      candidate: { ndcgAt5: 0.7, uplift: 0.2, calibratedError: 0.2 }
-    });
-    expect(cmp.winner).toBe('candidate');
+    const ce1 = computeCalibratedError(0.8, true);
+    expect(ce1).toBeCloseTo(0.2, 5);
+
+    const cmp = compareStrategyRuns(
+      { predicted: [{ id: 'b' }, { id: 'a' }], actual: [{ id: 'a', relevance: 2 }, { id: 'b', relevance: 0 }] }, // runA (mis-sorted)
+      { predicted: [{ id: 'a' }, { id: 'b' }], actual: [{ id: 'a', relevance: 2 }, { id: 'b', relevance: 0 }] }  // runB (correctly sorted)
+    );
+    expect(cmp.winner).toBe('B');
   });
 });
