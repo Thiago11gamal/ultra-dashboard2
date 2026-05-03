@@ -88,7 +88,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     const topic = suggestion.weakestTopic;
     const urgency = suggestion?.urgency?.details ?? { hasData: false };
-    const urgencyScore = suggestion?.urgency?.score ?? 0;
+    // VIS-06 FIX: urgency.score é o valor RAW (pode ser 0–200+), não 0–100.
+    // getUrgencyConfig e UrgencyBar esperam escala 0–100.
+    // Usar normalizedScore que já está normalizado pela função calculateUrgency.
+    const urgencyScore = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const statusLabel = urgency.humanReadable?.Status ?? '';
 
     // Check if category is degraded from calibrationOps
@@ -219,9 +222,13 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     >
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${cfg.bar} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
                                         <div className="p-5">
-                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors">
-                                                "{suggestion.urgency.recommendation}"
-                                            </p>
+                                            {/* VIS-10 FIX: substituir **texto** por <strong> antes de renderizar.
+                                                Antes, os asteriscos duplos apareciam literais no texto. */}
+                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors"
+                                               dangerouslySetInnerHTML={{
+                                                   __html: `"${(suggestion.urgency.recommendation || '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white not-italic">$1</strong>')}"`
+                                               }}
+                                            />
                                         </div>
                                     </motion.div>
                                 )}
