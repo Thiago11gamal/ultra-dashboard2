@@ -83,7 +83,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-2 px-1">
+                        <div className="flex flex-col gap-2 pl-3">
                             <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors">
                                 {displayTopic}
                             </h4>
