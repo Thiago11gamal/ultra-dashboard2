@@ -264,8 +264,15 @@ export const validateAppState = (data) => {
       pomodoro: {
         ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {}),
         activeSubject: d.pomodoro?.activeSubject || null,
-        targetCycles: Number(d.pomodoro?.targetCycles) || 1
+        targetCycles: Math.max(1, Number(d.pomodoro?.targetCycles) || 1),
+        // 🛡️ [FIX-SCHEMA] Valida campos críticos do pomodoro para blindar contra
+        // estado corrompido/legado que poderia crashar o timer silenciosamente.
+        mode: ['work', 'break', 'long_break'].includes(d.pomodoro?.mode) ? d.pomodoro.mode : 'work',
+        sessions: Math.max(1, Number(d.pomodoro?.sessions) || 1),
+        completedCycles: Math.max(0, Number(d.pomodoro?.completedCycles) || 0),
+        accumulatedMinutes: Math.max(0, Number(d.pomodoro?.accumulatedMinutes) || 0),
       },
+
       history: Array.isArray(d.history) ? d.history : [],
       trash: Array.isArray(d.trash) ? d.trash.filter(item => {
         if (!item) return false;

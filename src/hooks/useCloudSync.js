@@ -501,7 +501,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         } finally {
             if (isMountedRef.current) setInternalSyncing(false);
         }
-    }, [currentUser?.uid, setInternalSyncing, confirmParity]);
+    }, [currentUser?.uid, setInternalSyncing]);
 
     useEffect(() => {
         if (!currentUser?.uid || !db) return;

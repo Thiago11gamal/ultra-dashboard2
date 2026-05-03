@@ -24,6 +24,11 @@ import { motion } from 'framer-motion';
 import { useToast } from '../hooks/useToast';
 
 // 🛠️ [UTIL] Utilitários fora do componente para evitar recriação e melhorar performance
+// 🛡️ [FIX-TABID] window.name é "" por padrão em todas as abas, fazendo com que
+// "tabId === window.name" bloqueie TODAS as mensagens recebidas de outras abas.
+// Usamos um ID único por sessão de módulo para distinguir abas corretamente.
+const STABLE_TAB_ID = `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 const formatTime = (seconds) => {
     const secsInt = Math.ceil(Math.max(0, seconds));
     const mins = Math.floor(secsInt / 60);
@@ -146,7 +151,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             syncChannelRef.current?.postMessage({
                 type: 'SPEED_CHANGE',
                 speed,
-                tabId: window.name
+                tabId: STABLE_TAB_ID
             });
         } catch (_) { }
     }, [speed]);
@@ -167,6 +172,10 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         isMountedRef.current = true;
         return () => { isMountedRef.current = false; };
     }, []);
+
+    // 🛡️ [FIX-STALE-SUBJECT] Ref para evitar closure stale do activeSubject no handler do BroadcastChannel
+    const activeSubjectRef = useRef(activeSubject);
+    useEffect(() => { activeSubjectRef.current = activeSubject; }, [activeSubject]);
 
     // 🛡️ [SHIELD-02] Prop Safety Wrappers
     const safeOnUpdateStudyTime = useCallback((...args) => {
@@ -203,7 +212,10 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 safeOnUpdateStudyTime(prev.subject.categoryId, lostMinutes, prev.subject.taskId);
             }
         }
-        prevTaskStateRef.current = { subject: activeSubject, accum: accumulatedMinutes, time: timeLeft, mode };
+        // 🛡️ [FIX-SHIELD-07] Usa stateRefs.current.timeLeft (sempre atual no RAF loop)
+        // em vez de timeLeft (React state), que pode ficar centenas de segundos atrasado
+        // enquanto o timer está rodando, causando cálculo errado de minutos perdidos.
+        prevTaskStateRef.current = { subject: activeSubject, accum: accumulatedMinutes, time: stateRefs.current.timeLeft, mode };
     }, [activeSubject, accumulatedMinutes, timeLeft, mode, safeSettings.pomodoroWork, safeOnUpdateStudyTime]);
 
     // 🛡️ [SHIELD-04] Sincronização de Estado Local com o Store
@@ -274,7 +286,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                 const { type, tabId, toMode, timeLeft: incomingTime, speed: incomingSpeed, targetCycles: incomingTarget, sessions: incomingSessions } = event.data || {};
 
                 // Ignorar mensagens da própria aba ou se o tabId não coincidir (se estivéssemos a filtrar por isso)
-                if (tabId === window.name) return;
+                if (tabId === STABLE_TAB_ID) return;
 
                 switch (type) {
                     case 'START_SESSION':
@@ -322,7 +334,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         // mas forçamos a atualização local para garantir consistência visual.
                         try {
                             const saved = JSON.parse(localStorage.getItem('pomodoroState'));
-                            if (saved && saved.activeTaskId === activeSubject?.taskId) {
+                            if (saved && saved.activeTaskId === activeSubjectRef.current?.taskId) {
                                 // Atualizamos o Store local com os dados vindos da outra aba
                                 syncPomodoroState({
                                     mode: saved.mode,
@@ -420,7 +432,11 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
         const currentSessions = stateRefs.current.sessions;
         const currentTarget = stateRefs.current.targetCycles;
-        const isEndingCycle = source === 'natural' && currentSessions >= currentTarget && stateRefs.current.mode === 'work';
+        // 🛡️ [FIX-SKIP-TIME] Separamos "última sessão de trabalho" de "conclusão natural":
+        // o tempo deve ser salvo em ambos os casos (natural + skip), mas a callback de ciclo
+        // completo (que auto-completa tarefa e avança queue neural) só dispara no natural.
+        const isLastWorkSession = currentSessions >= currentTarget && stateRefs.current.mode === 'work';
+        const isEndingCycle = source === 'natural' && isLastWorkSession;
 
         let sessionMinutes = 0;
         if (completedMode === 'work') {
@@ -435,7 +451,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
         const finalMinutes = stateRefs.current.accumulatedMinutes + sessionMinutes;
 
-        if (isEndingCycle && activeSubject) {
+        if (isLastWorkSession && activeSubject) {
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
 
@@ -467,7 +483,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
 
             try {
-                syncChannelRef.current?.postMessage({ type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE', toMode: newState.mode, tabId: window.name });
+                syncChannelRef.current?.postMessage({ type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE', toMode: newState.mode, tabId: STABLE_TAB_ID });
             } catch (_) { }
 
             isTransitioningRef.current = false;
@@ -492,7 +508,13 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             lastTickTime = now;
 
             if (stateRefs.current.isRunning && stateRefs.current.timeLeft > 0) {
-                const currentTotalTime = stateRefs.current.mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+                const currentTotalTime = stateRefs.current.mode === 'work'
+                    ? (safeSettings.pomodoroWork || 25) * 60
+                    : stateRefs.current.mode === 'long_break'
+                        // 🛡️ [FIX-LONGBREAK] Era pomodoroBreak * 60, causando ring sem progresso
+                        // por 2/3 da pausa longa (fraction > 1 durante esse período).
+                        ? (safeSettings.pomodoroLongBreak || 15) * 60
+                        : (safeSettings.pomodoroBreak || 5) * 60;
 
                 const deltaSeconds = (deltaMs / 1000) * (speedRef.current || 1);
                 const newTime = Math.max(0, stateRefs.current.timeLeft - deltaSeconds);
@@ -571,7 +593,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
             savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
-            try { syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: window.name }); } catch (_) { }
+            try { syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: STABLE_TAB_ID }); } catch (_) { }
 
         } else {
             // SE O TEMPO ESTAVA CORRENDO: Apenas reinicia o tempo da sessão atual!
@@ -594,7 +616,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
             savePomodoroState({ isRunning: false, timeLeft: currentTotalTime });
-            try { syncChannelRef.current?.postMessage({ type: 'TIMER_RESET', tabId: window.name }); } catch (_) { }
+            try { syncChannelRef.current?.postMessage({ type: 'TIMER_RESET', tabId: STABLE_TAB_ID }); } catch (_) { }
         }
     };
 
@@ -743,7 +765,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                         syncChannelRef.current?.postMessage({
                                             type: next ? 'START_SESSION' : 'PAUSE_SESSION',
                                             timeLeft: stateRefs.current.timeLeft,
-                                            tabId: window.name
+                                            tabId: STABLE_TAB_ID
                                         });
                                     } catch (_) { }
                                 }}
@@ -771,12 +793,12 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                             const current = stateRefs.current;
                                             const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
                                             setTargetCycles(newTarget);
-                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: window.name }); } catch (_) { }
+                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (_) { }
                                         }} disabled={!activeSubject || targetCycles <= 1} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">-</button>
                                         <button onClick={() => {
                                             const newTarget = targetCycles + 1;
                                             setTargetCycles(newTarget);
-                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: window.name }); } catch (_) { }
+                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (_) { }
                                         }} disabled={!activeSubject} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">+</button>
                                     </div>
                                 </div>
