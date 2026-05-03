@@ -56,6 +56,10 @@ export default function Sidebar({
         }
     }, [collapsed]);
 
+    const closeMobileSidebar = () => {
+        if (window.innerWidth < 1024) onToggle();
+    };
+
     const handleLogout = async () => {
         if (window.confirm("Deseja realmente sair?")) {
             try {
@@ -121,6 +125,7 @@ export default function Sidebar({
 
                     {/* Mobile Close Button */}
                     <button
+                        type="button"
                         className="lg:hidden p-2 text-slate-500 hover:text-white"
                         onClick={onToggle}
                     >
@@ -136,6 +141,7 @@ export default function Sidebar({
                     {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
                     <div className="mb-2">
                         <button
+                            type="button"
                             onClick={() => {
                                 if (collapsed) {
                                     setCollapsed(false);
@@ -163,13 +169,17 @@ export default function Sidebar({
                                             key={id}
                                             className={`sidebar-item group !py-2 relative ${isActive ? 'active' : ''}`}
                                             title={name}
-                                            onClick={() => onSwitchContest(id)}
+                                            onClick={() => {
+                                                onSwitchContest(id);
+                                                closeMobileSidebar();
+                                            }}
                                         >
                                             <div className="nested-item-marker"></div>
                                             <LayoutDashboard size={14} />
                                             <span className="flex-1 truncate text-[0.8rem]">{name}</span>
                                             {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
                                             <button
+                                                type="button"
                                                 onClick={(e) => { 
                                                     e.stopPropagation(); 
                                                     setContestToDelete({ id, name });
@@ -183,8 +193,12 @@ export default function Sidebar({
                                 })}
 
                                 <button
+                                    type="button"
                                     className="sidebar-item !py-2 text-green-500/80 hover:text-green-400 relative"
-                                    onClick={onCreateContest}
+                                    onClick={() => {
+                                        onCreateContest();
+                                        closeMobileSidebar();
+                                    }}
                                     title="Criar Novo Painel"
                                 >
                                     <div className="nested-item-marker !bg-green-500/20"></div>
@@ -220,7 +234,7 @@ export default function Sidebar({
                                             }}
                                             title={item.label}
                                             onClick={() => {
-                                                if (window.innerWidth < 1024) onToggle();
+                                                closeMobileSidebar();
                                             }}
                                         >
                                             <Icon style={{ color: isActive ? item.color : 'inherit' }} />
@@ -239,6 +253,7 @@ export default function Sidebar({
                         {/* CONFIGURAÇÕES COLLAPSIBLE SECTION */}
                         <div className="mb-2">
                             <button
+                                type="button"
                                 onClick={() => {
                                     if (collapsed) {
                                         setCollapsed(false);
@@ -257,8 +272,12 @@ export default function Sidebar({
                             <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
+                                        type="button"
                                         className="sidebar-item !py-2 hover:!bg-red-500/10"
-                                        onClick={onOpenTrash}
+                                        onClick={() => {
+                                            onOpenTrash();
+                                            closeMobileSidebar();
+                                        }}
                                         style={{ '--item-color': '#ef4444' }}
                                         title="Lixeira"
                                     >
@@ -267,10 +286,11 @@ export default function Sidebar({
                                     </button>
 
                                     <button
+                                        type="button"
                                         className="sidebar-item !py-2 hover:!bg-sky-500/10"
                                         onClick={() => {
                                             onOpenHelp();
-                                            if (window.innerWidth < 1024) onToggle();
+                                            closeMobileSidebar();
                                         }}
                                         style={{ '--item-color': '#0ea5e9' }}
                                     >
@@ -279,6 +299,7 @@ export default function Sidebar({
                                     </button>
 
                                     <button
+                                        type="button"
                                         className="sidebar-item logout-btn !py-2 hover:!bg-rose-500/10"
                                         onClick={handleLogout}
                                         style={{ '--item-color': '#f43f5e' }}
