@@ -25,6 +25,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
             <div className="flex items-center gap-1 bg-slate-950/40 rounded-xl p-1 border border-white/5 w-full sm:w-auto justify-between sm:justify-start">
                 {[0, 1, 2, 3].map(p => (
                     <button
+                        type="button"
                         key={p}
                         onClick={() => updateWeight(cat.id || cat.name, p)}
                         className={`flex-1 sm:flex-none w-10 sm:w-8 h-10 sm:h-8 rounded-lg text-[10px] font-black transition-all ${weight === p ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
@@ -74,6 +75,7 @@ export const MonteCarloConfig = ({
                         </div>
                     </div>
                     <button
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             onClose(false);
@@ -134,6 +136,7 @@ export const MonteCarloConfig = ({
 
                     <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row mb-6 border border-white/5 gap-1 sm:gap-0">
                         <button
+                            type="button"
                             onClick={() => {
                                 if (!equalWeightsMode) {
                                     savedCustomWeights.current = weights;
@@ -148,6 +151,7 @@ export const MonteCarloConfig = ({
                             Pesos Iguais
                         </button>
                         <button
+                            type="button"
                             onClick={() => {
                                 if (equalWeightsMode && savedCustomWeights.current) {
                                     setWeights(savedCustomWeights.current);

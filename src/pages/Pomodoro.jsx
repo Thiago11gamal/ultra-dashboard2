@@ -236,6 +236,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-1">
                 {!isPanelLocked && (
                     <button
+                        type="button"
                         onClick={resetPosition}
                         className="px-4 py-2 rounded-2xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all shadow-2xl backdrop-blur-xl flex items-center gap-2"
                     >
@@ -244,6 +245,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </button>
                 )}
                 <button
+                    type="button"
                     onClick={toggleLock}
                     className={`p-3 rounded-2xl transition-all duration-300 shadow-2xl backdrop-blur-xl border ${isPanelLocked
                         ? 'bg-slate-900/60 text-slate-500 border-white/5 hover:border-white/20 hover:text-slate-300'
@@ -276,6 +278,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
 
                     <button
+                        type="button"
                         onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
                         className={`w-full relative group/btn bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 overflow-hidden ${(recommendedTask?.id || recommendedTask?.text) === activeSubject?.taskId ? 'ring-2 ring-amber-400/50' : ''}`}
                     >
@@ -429,6 +432,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
                     </div>
                     
                     <button 
+                        type="button"
                         onClick={onToggleLock}
                         className={`p-4 rounded-2xl border transition-all ${isLayoutLocked ? 'bg-white/10 border-black/5 text-[#2d1a12]/40 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12] shadow-[0_0_20px_rgba(45,26,18,0.2)]'}`}
                     >
