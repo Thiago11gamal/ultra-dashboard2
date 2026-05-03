@@ -106,18 +106,25 @@ export const createPomodoroSlice = (set, get) => ({
                 }
 
                 if (p.sessions >= targetCycles) {
-                    // B-01 FIX: Incrementar em vez de resetar para 0
-                    p.completedCycles = (p.completedCycles || 0) + 1;
-                    p.sessions = 1;
-                    p.accumulatedMinutes = 0;
-                    p.mode = 'work';
+                    // BUGFIX: Em vez de pular a pausa e voltar para work, transitar para pausa.
+                    // Verifica se o ciclo que vai fechar é múltiplo de longBreakAfter
+                    const currentCycles = (p.completedCycles || 0) + 1;
+                    const longBreakAfter = settings.longBreakAfter || 4;
+                    const isLongBreak = (currentCycles % longBreakAfter === 0);
+                    
+                    p.mode = isLongBreak ? 'long_break' : 'break';
                 } else {
                     p.mode = 'break';
                 }
             } else {
                 // Fim da Pausa -> Próxima Sessão de Trabalho
-                p.completedCycles = (p.completedCycles || 0) + 1;
-                p.sessions = Math.max(1, (p.sessions || 1) + 1);
+                if (p.sessions >= targetCycles) {
+                    p.completedCycles = (p.completedCycles || 0) + 1;
+                    p.sessions = 1;
+                    p.accumulatedMinutes = 0;
+                } else {
+                    p.sessions = Math.max(1, (p.sessions || 1) + 1);
+                }
                 p.mode = 'work';
             }
 
@@ -132,17 +139,25 @@ export const createPomodoroSlice = (set, get) => ({
             const p = state.appState.pomodoro;
             if (!p) return;
             
-            if (p.mode === 'break') {
-                // Se está em pausa, volta para o trabalho da mesma sessão (Simétrico ao Pular)
+            const activeId = state.appState.activeId;
+            const settings = state.appState.contests[activeId]?.settings || {};
+
+            if (p.mode === 'break' || p.mode === 'long_break') {
+                // Se está em pausa, volta para o trabalho da mesma sessão
                 p.mode = 'work';
             } else if (p.sessions > 1) {
                 // Se está em trabalho, volta para a pausa da sessão anterior
                 p.sessions = Math.max(1, p.sessions - 1);
-                p.completedCycles = Math.max(0, (p.completedCycles || 0) - 1);
                 p.mode = 'break';
+            } else if (p.completedCycles > 0) {
+                // Volta para a pausa do ciclo anterior
+                p.completedCycles = Math.max(0, p.completedCycles - 1);
+                p.sessions = p.targetCycles || 1;
+                const longBreakAfter = settings.longBreakAfter || 4;
+                const isLongBreak = ((p.completedCycles + 1) % longBreakAfter === 0);
+                p.mode = isLongBreak ? 'long_break' : 'break';
             } else {
                 // APENAS reseta o modo para work se já estiver na sessao 1
-                // Removido o reset de accumulatedMinutes para manter consistência
                 p.mode = 'work';
             }
 
