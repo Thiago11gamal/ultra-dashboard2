@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Play, BrainCircuit, Calendar, GripVertical, Layers } from 'lucide-react';
@@ -44,61 +45,69 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
 
     return (
         <Draggable draggableId={stableId} index={index}>
-            {(provided, snapshot) => (
-                <div 
-                    ref={provided.innerRef} 
-                    {...provided.draggableProps} 
-                    {...provided.dragHandleProps} 
-                    className={`pb-4 ${snapshot.isDragging ? 'z-50' : ''}`}
-                    style={provided.draggableProps.style}
-                >
-                    <div className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden h-full ${
-                        snapshot.isDragging 
-                            ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 backdrop-blur-xl' 
-                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
-                    }`}>
-                        {!isBacklog && dayColor && (
-                            <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
-                        )}
-                        
-                        {/* Glossy background detail */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
+            {(provided, snapshot) => {
+                const child = (
+                    <div 
+                        ref={provided.innerRef} 
+                        {...provided.draggableProps} 
+                        {...provided.dragHandleProps} 
+                        className={`pb-4 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
+                        style={provided.draggableProps.style}
+                    >
+                        <div className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden h-full ${
+                            snapshot.isDragging 
+                                ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 backdrop-blur-xl' 
+                                : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
+                        }`}>
+                            {!isBacklog && dayColor && (
+                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                            )}
+                            
+                            {/* Glossy background detail */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
 
-                        <div className="flex flex-col gap-5 relative z-10">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
-                                    isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
-                                } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
-                                    <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
-                                    <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
+                            <div className="flex flex-col gap-5 relative z-10">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
+                                        isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
+                                    } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
+                                        <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onStartPomodoro?.(task);
+                                        }}
+                                        className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
+                                    >
+                                        <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
+                                        <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
+                                    </button>
                                 </div>
-                                
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onStartPomodoro?.(task);
-                                    }}
-                                    className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
-                                >
-                                    <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
-                                    <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
-                                </button>
-                            </div>
 
-                            <div className="flex flex-col gap-2">
-                                <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors" style={{ paddingLeft: '18px' }}>
-                                    {displayTopic}
-                                </h4>
-                                {secondaryText && (
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                        {secondaryText}
-                                    </p>
-                                )}
+                                <div className="flex flex-col gap-2">
+                                    <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors" style={{ paddingLeft: '18px' }}>
+                                        {displayTopic}
+                                    </h4>
+                                    {secondaryText && (
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                            {secondaryText}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+
+                if (snapshot.isDragging && typeof document !== 'undefined') {
+                    return createPortal(child, document.body);
+                }
+                
+                return child;
+            }}
         </Draggable>
     );
 };
