@@ -49,10 +49,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     ref={provided.innerRef} 
                     {...provided.draggableProps} 
                     {...provided.dragHandleProps} 
-                    className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 mb-4 rounded-xl select-none overflow-hidden ${
+                    className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden ${
                         snapshot.isDragging 
                             ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 z-50 backdrop-blur-xl' 
-                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-all duration-500'
+                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
                     }`}
                 >
                     {!isBacklog && dayColor && (
@@ -195,7 +195,7 @@ export default function AICoachPlanner() {
                                             className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
                                         />
                                     )}
-                                    <div className="relative z-10 flex flex-col gap-3">
+                                    <div className="relative z-10 flex flex-col gap-4">
                                         {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={(t) => handleStartTask(t, 'backlog')} /> ; })}
                                     </div>
                                     {provided.placeholder}
@@ -249,7 +249,7 @@ export default function AICoachPlanner() {
                                                             className={`absolute inset-0 bg-gradient-to-br ${day.gradient} opacity-[0.07] pointer-events-none`} 
                                                         />
                                                     )}
-                                                    <div className="relative z-10 h-full">
+                                                    <div className="relative z-10 h-full flex flex-col gap-4">
                                                         {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
                                                         {provided.placeholder}
                                                     </div>
