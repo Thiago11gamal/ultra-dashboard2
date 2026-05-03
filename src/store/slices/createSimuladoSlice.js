@@ -16,6 +16,7 @@ export const createSimuladoSlice = (set) => ({
 
     deleteSimulado: (dateInput) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
+        if (!activeData) return;
         
         const matchesDate = (raw) => {
             if (!raw) return false;
@@ -26,6 +27,11 @@ export const createSimuladoSlice = (set) => ({
         if (activeData.simuladoRows) {
             activeData.simuladoRows = activeData.simuladoRows.filter(r => !matchesDate(r.date || r.createdAt));
         }
+
+        if (activeData.simulados) {
+            activeData.simulados = activeData.simulados.filter(s => !matchesDate(s.date || s.createdAt));
+        }
+
         if (activeData.categories) {
             // Assumimos maxScore padrão 100, mas adaptado caso tenha no activeData
             const maxScore = activeData.maxScore || 100; 

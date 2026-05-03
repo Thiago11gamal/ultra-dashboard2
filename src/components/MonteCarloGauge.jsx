@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
@@ -26,10 +26,17 @@ export default function MonteCarloGauge({
     syncShowSubjects,
     onSyncShowSubjects,
     simulateToday = false,
+    onSimulateTodayChange,
 }) {
     const [showConfig, setShowConfig] = useState(false);
     const [localShowPerSubject, setLocalShowPerSubject] = useState(false);
     const [timeIndex, setTimeIndex] = useState(-1);
+
+    const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
+
+    useEffect(() => {
+        setLocalSimulateToday(Boolean(simulateToday));
+    }, [simulateToday]);
 
     const activeId = useAppStore(state => state.appState.activeId);
     const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
@@ -53,7 +60,9 @@ export default function MonteCarloGauge({
     }, [categories]);
 
     const clampedTimeIndex = timeIndex >= timelineDates.length ? -1 : timeIndex;
-    const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : simulateToday;
+    const resolvedSimulateToday = typeof onSimulateTodayChange === 'function' ? Boolean(simulateToday) : localSimulateToday;
+    const setSimulateToday = typeof onSimulateTodayChange === 'function' ? onSimulateTodayChange : setLocalSimulateToday;
+    const effectiveSimulateToday = forcedMode ? (forcedMode === 'today') : resolvedSimulateToday;
 
     // --- HOOK DE LÓGICA ESTATÍSTICA ---
     const stats = useMonteCarloStats({
@@ -185,11 +194,11 @@ export default function MonteCarloGauge({
                             </button>
                             <div className="w-px h-4 bg-white/10" />
                             <button
-                                onClick={(e) => { e.stopPropagation(); setSimulateToday(!simulateToday); }}
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${simulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
+                                onClick={(e) => { e.stopPropagation(); setSimulateToday(!resolvedSimulateToday); }}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${resolvedSimulateToday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}
                             >
-                                {simulateToday ? 'Ver Projeção' : 'Ver Estatísticas'}
-                                <ChevronDown size={12} className={`transition-transform duration-300 ${simulateToday ? 'rotate-180' : ''}`} />
+                                {resolvedSimulateToday ? 'Ver Projeção' : 'Ver Estatísticas'}
+                                <ChevronDown size={12} className={`transition-transform duration-300 ${resolvedSimulateToday ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
                     )}
