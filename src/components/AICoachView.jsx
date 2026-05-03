@@ -122,8 +122,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
         const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(t)));
         
-        const taskIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
-        startNeuralSession(unallocatedTasks, taskIndex !== -1 ? taskIndex : 0);
+        // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
+        // usamos a lista unallocated como base, mas buscamos o índice correto.
+        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+        let sessionTasks = unallocatedTasks;
+
+        if (targetIndex === -1) {
+            // Fallback: se não estiver no unallocated, usa o coachPlan inteiro
+            sessionTasks = coachPlan;
+            targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
+        }
+
+        startNeuralSession(sessionTasks, targetIndex !== -1 ? targetIndex : 0);
         navigate('/pomodoro');
     };
 

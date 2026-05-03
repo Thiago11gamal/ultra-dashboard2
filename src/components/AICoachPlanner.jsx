@@ -170,10 +170,12 @@ export default function AICoachPlanner() {
         setIsDragging(false);
     };
 
-    // BUG-02 FIX: Removed duplicate branches — both paths were identical
-    const handleStartTask = (task) => {
+    // BUG-02 FIX: Integrando o dayId para permitir que o Pomodoro saiba de onde a tarefa veio
+    const handleStartTask = (task, dayId) => {
         if (!task) return;
-        startNeuralSession([task], 0);
+        // Se a tarefa está no backlog, usamos 0. Se está no planner, 
+        // o startNeuralSession pode opcionalmente receber o contexto do dia.
+        startNeuralSession([task], 0, dayId); 
         navigate('/pomodoro');
     };
 

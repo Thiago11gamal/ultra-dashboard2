@@ -23,10 +23,21 @@ const validateFullBackup = (data) => {
 const sanitizeCategory = (cat) => ({
     id: String(cat.id || generateId('cat')),
     name: String(cat.name || "Sem Nome").substring(0, 50),
+    // PRESERVE: Mantemos as propriedades de gamificação e metadados para não quebrar o histórico no restore
+    priority: cat.priority || 'medium',
+    completedAt: cat.completedAt || null,
+    lastStudiedAt: cat.lastStudiedAt || null,
+    awardedXP: !!cat.awardedXP,
+    status: cat.status || 'active',
     tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => ({
         id: String(t.id || generateId('task')),
         text: String(t.text || "").replace(/<[^>]*>?/gm, ''), // Remove HTML para evitar XSS
-        completed: !!t.completed
+        completed: !!t.completed,
+        // PRESERVE: Metadados da tarefa
+        priority: t.priority || 'medium',
+        completedAt: t.completedAt || null,
+        lastStudiedAt: t.lastStudiedAt || null,
+        awardedXP: !!t.awardedXP
     })) : []
 });
 

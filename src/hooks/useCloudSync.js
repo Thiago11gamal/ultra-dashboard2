@@ -19,17 +19,23 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
     }
     seen.add(obj);
 
+    let result;
     if (Array.isArray(obj)) {
-        return obj
+        result = obj
             .map(v => cleanUndefined(v, seen))
             .filter(v => v !== undefined);
+    } else {
+        result = Object.fromEntries(
+            Object.entries(obj)
+                .filter(([_, v]) => v !== undefined)
+                .map(([k, v]) => [k, cleanUndefined(v, seen)])
+        );
     }
 
-    return Object.fromEntries(
-        Object.entries(obj)
-            .filter(([_, v]) => v !== undefined)
-            .map(([k, v]) => [k, cleanUndefined(v, seen)])
-    );
+    // BUG-14 FIX: Limpa o WeakSet após a recursão para permitir que o mesmo objeto 
+    // seja processado em outros ramos da árvore (ex: referências cruzadas legítimas).
+    seen.delete(obj);
+    return result;
 };
 
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {

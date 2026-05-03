@@ -797,6 +797,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Zona de Perigo",
                         details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         verdict: `Probabilidade crítica detectada (${cfg.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
                 });
@@ -815,6 +816,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Caos Estatístico",
                         details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)} (limiar: ${(cfg.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(2)}). Probabilidade atual: ${probPct}%.`,
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
                 });
@@ -833,6 +835,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Cruzeiro Seguro",
                         details: `${probPct}% de probabilidade de atingir ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         verdict: "Mantenha o ritmo atual. Manutenção leve é suficiente para proteger essa posição."
                     }
                 });
@@ -848,6 +851,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Revisão Espaçada (SRS) Ativada",
                         label: cat.urgency.details.srsLabel,
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                     }
                 });
@@ -864,6 +868,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Detector de Pseudo-Estudo",
                         details: "Alta carga horária com baixíssimo volume de exercícios.",
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
                     }
                 });
@@ -891,6 +896,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: `Tópico Selecionado: ${weakTopic.name}`,
                         details: reasonStr,
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         categoryDetails: {
                             "Urgência Total": Math.round(cat.urgency.score),
                             ...cat.urgency.details.components
@@ -915,6 +921,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     analysis: {
                         reason: "Revisão Geral Complementar",
                         metrics: cat.urgency.details.humanReadable,
+                        monteCarlo: mc, // FIX: Injetando o dado de MC para a UI do Card
                         categoryDetails: {
                             "Total Urgency": Math.round(cat.urgency.score),
                             ...cat.urgency.details.components

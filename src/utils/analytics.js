@@ -330,7 +330,9 @@ const generateEfficiencyRecommendations = ({ minutesPerTask, completionRate, hig
 
 export const detectProcrastination = (categories, studyLogs) => {
     const now = new Date();
-    const normalizedNow = getLocalMidnight().getTime();
+    // BUG-02 FIX: Usar âncora de 12:00:00 para comparação de dias, 
+    // garantindo paridade com o resto do sistema de datas (dateHelper).
+    const normalizedNow = normalizeDate(now).getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop

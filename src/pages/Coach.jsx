@@ -45,6 +45,11 @@ export default function Coach() {
     const data = useAppStore(state => state.appState.contests[activeId]);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
+    const showToastRef = useRef(showToast); // FIX: Estabilização de referência para evitar loops
+
+    useEffect(() => {
+        showToastRef.current = showToast;
+    }, [showToast]);
     
     const history = useMemo(() => data?.simuladoRows ?? [], [data]);
     const simulados = useMemo(() => data?.simulados ?? [], [data]);
@@ -66,7 +71,8 @@ export default function Coach() {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
     }, [data?.calibrationHistoryByCategory]);
 
-    // BUG-15 BACKFILL: Sincroniza o contador global se houver dados históricos mas sem eventos de resumo
+    // BUG-15 BACKFILL: Sincronização de contador global desativada para evitar poluição de histórico.
+    /*
     useEffect(() => {
         if (simulados.length === 0 && history.length > 0 && setData) {
             const dates = [...new Set(history.map(h => h.date || h.createdAt?.split('T')[0]).filter(Boolean))];
@@ -82,6 +88,7 @@ export default function Coach() {
             }
         }
     }, [simulados.length, history.length, setData]);
+    */
 
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId) return;
@@ -145,7 +152,7 @@ export default function Coach() {
             }
             const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                showToast(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
                 if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
                     const oldestKey = calibrationAlertCache.keys().next().value;
@@ -153,7 +160,7 @@ export default function Coach() {
                 }
             }
         }
-    }, [setData, showToast]);
+    }, [setData]);
 
     const combinedHistory = useMemo(() => {
         const all = [...history];
@@ -247,7 +254,7 @@ export default function Coach() {
                     user: data.user,
                     targetScore,
                     maxScore: data.maxScore ?? 100,
-                    calibrationHistoryByCategory: data.calibrationHistoryByCategory || {},
+                    calibrationHistoryByCategory: calibrationHistoryRef.current, // FIX: Uso de Ref para evitar Stale Closure
                     onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                     config: {
                         MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
