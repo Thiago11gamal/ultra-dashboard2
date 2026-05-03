@@ -267,8 +267,9 @@ export default function Simulados() {
                         }))
                 ].slice(-300);
 
+                const totalQ = rawRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
+                const totalC = rawRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
-                
                 // BUG-15 FIX: Record a summary simulado event for the global counter and history
                 const newSimuladoEvent = {
                     id: generateId('sim'),
