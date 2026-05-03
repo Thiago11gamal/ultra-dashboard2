@@ -183,8 +183,8 @@ export default function AICoachPlanner() {
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
                         <div className="flex items-center justify-between mb-5 shrink-0">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-none bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400" /></div>
-                                <div><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Planeamento Semanal</h3></div>
+                                <div className="w-7 h-7 rounded-none bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400 shrink-0" /></div>
+                                <div><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Planejamento Semanal</h3></div>
                             </div>
                         </div>
                         <div className="overflow-x-auto pb-4">

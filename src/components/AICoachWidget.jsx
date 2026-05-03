@@ -135,38 +135,38 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">AI Productivity Engine</span>
-                                <span className="w-1 h-1 rounded-full bg-white/20" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">Motor de Produtividade</span>
+                                <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
                                 <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.accent}`}>V4.2 Online</span>
                             </div>
                             <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Análise de Redes Neurais em Tempo Real</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         {urgency.crunchMultiplier > 1 && (
                             <motion.div
                                 animate={{ opacity: [1, 0.6, 1] }}
                                 transition={{ duration: 1.5, repeat: Infinity }}
-                                className="flex items-center gap-2 px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest"
+                                className="flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shrink-0"
                             >
-                                <AlertTriangle size={12} />
-                                <span>CRITICAL ×{urgency.crunchMultiplier}</span>
+                                <AlertTriangle size={12} className="shrink-0" />
+                                <span className="whitespace-nowrap">CRÍTICO ×{urgency.crunchMultiplier}</span>
                             </motion.div>
                         )}
                         {isDegraded && (
                              <motion.div
                                 animate={{ opacity: [1, 0.7, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="flex items-center gap-2 px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                                className="flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)] shrink-0"
                              >
-                                <Database size={12} className="text-rose-400" />
-                                <span>CALIBRAÇÃO DEGRADADA</span>
+                                <Database size={12} className="text-rose-400 shrink-0" />
+                                <span className="whitespace-nowrap">CALIBRAÇÃO DEGRADADA</span>
                              </motion.div>
                         )}
-                        <div className={`flex items-center gap-2 px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20`}>
-                            <TierIcon size={12} />
-                            <span>{tier}</span>
+                        <div className={`flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20 shrink-0`}>
+                            <TierIcon size={12} className="shrink-0" />
+                            <span className="whitespace-nowrap">{tier === 'Standard' ? 'Padrão' : tier}</span>
                         </div>
                     </div>
                 </div>

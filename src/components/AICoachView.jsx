@@ -172,25 +172,25 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             <button
                                 type="button"
                                 onClick={() => setViewMode('planner')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${viewMode === 'planner' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'planner' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                             >
-                                <LayoutGrid size={12} className="inline mr-1.5" />
+                                <LayoutGrid size={12} className="mr-1.5 shrink-0" />
                                 Planner
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('cards')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${viewMode === 'cards' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'cards' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                             >
-                                <Sparkles size={12} className="inline mr-1.5" />
+                                <Sparkles size={12} className="mr-1.5 shrink-0" />
                                 Cards
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('list')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
                             >
-                                <List size={12} className="inline mr-1.5" />
+                                <List size={12} className="mr-1.5 shrink-0" />
                                 Lista
                             </button>
                         </div>
@@ -202,14 +202,14 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             disabled={isExporting}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/[0.08] transition-all disabled:opacity-50"
                         >
-                            {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                            {isExporting ? <Loader2 size={13} className="animate-spin shrink-0" /> : <Download size={13} className="shrink-0" />}
                             Exportar
                         </button>
                         <button
                             onClick={onClearHistory}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 transition-all"
                         >
-                            <Trash2 size={13} />
+                            <Trash2 size={13} className="shrink-0" />
                             Limpar
                         </button>
                         <button
@@ -217,7 +217,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             disabled={loading}
                             className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-black text-white uppercase tracking-widest hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50"
                         >
-                            {loading ? <Loader2 size={13} className="animate-spin" /> : <BrainCircuit size={13} />}
+                            {loading ? <Loader2 size={13} className="animate-spin shrink-0" /> : <BrainCircuit size={13} className="shrink-0" />}
                             Recalcular
                         </button>
                     </div>
