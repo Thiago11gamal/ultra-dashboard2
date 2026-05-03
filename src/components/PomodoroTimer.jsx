@@ -125,11 +125,18 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
 
     // 🛡️ [SHIELD-REF] Sincronização Imediata: Atualizamos as refs no corpo da renderização
     // Isso garante que skips/pauses disparados logo após um render usem valores 100% atuais.
-    // BUG-04 FIX: Include timeLeft in body-sync to prevent stale refs during pauses
     stateRefs.current = {
         ...stateRefs.current,
-        mode, timeLeft, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
+        mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
     };
+
+    // BUG-04 FIX (Corrigido): Só deixamos o estado do React atualizar a Ref
+    // se o cronómetro estiver PARADO (ex: trocou de tarefa, pausou ou resetou).
+    // Se estiver rodando, a Ref é soberana e não pode ser tocada pelo React!
+    if (!isRunning) {
+        stateRefs.current.timeLeft = timeLeft;
+    }
+
 
     const speedRef = useRef(1);
     useEffect(() => {
