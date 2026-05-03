@@ -45,32 +45,52 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-5 mb-3 rounded-2xl transition-all select-none overflow-hidden ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/15 shadow-lg'}`}>
-                    {!isBacklog && dayColor && <div className={`absolute left-0 top-3 bottom-3 w-[4px] rounded-full bg-gradient-to-b ${dayColor}`} />}
+                <div 
+                    ref={provided.innerRef} 
+                    {...provided.draggableProps} 
+                    {...provided.dragHandleProps} 
+                    className={`group relative p-5 mb-4 rounded-xl transition-all duration-500 select-none overflow-hidden ${
+                        snapshot.isDragging 
+                            ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 z-50 backdrop-blur-xl' 
+                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5'
+                    }`}
+                >
+                    {!isBacklog && dayColor && (
+                        <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                    )}
                     
-                    <div className="flex flex-col gap-4 relative z-10">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-none text-[9px] font-black uppercase tracking-[0.12em] ${isBacklog ? 'bg-violet-500/30 text-violet-100 border-violet-500/40' : 'bg-white/15 text-slate-100 border-white/20'} border backdrop-blur-md overflow-hidden shadow-lg w-fit max-w-[85%]`}>
-                                <div className={`w-1.5 h-1.5 rounded-none ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-300'} shrink-0`} />
-                                <span className="leading-tight truncate">{displaySubject(subject)}</span>
+                    {/* Glossy background detail */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
+
+                    <div className="flex flex-col gap-5 relative z-10">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
+                                isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
+                            } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
+                                <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
                             </div>
+                            
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onStartPomodoro?.(task);
                                 }}
-                                className="w-8 h-8 rounded-none bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all shrink-0 shadow-lg"
+                                className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
                             >
-                                <Play size={12} className="fill-current" />
+                                <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
+                                <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-1.5 px-1">
-                            <h4 className="text-[11px] font-black text-white leading-tight uppercase tracking-wider">
+                        <div className="flex flex-col gap-2 px-1">
+                            <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors">
                                 {displayTopic}
                             </h4>
                             {secondaryText && (
-                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest line-clamp-1">{secondaryText}</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                    {secondaryText}
+                                </p>
                             )}
                         </div>
                     </div>
@@ -151,10 +171,17 @@ export default function AICoachPlanner() {
                 <div className="w-full xl:w-64 shrink-0">
                     <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
-                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.06]">
-                            <div className="w-7 h-7 rounded-none bg-violet-500/15 border border-violet-500/20 flex items-center justify-center"><BrainCircuit size={13} className="text-violet-400" /></div>
-                            <div className="flex-1"><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Sugestões</h3></div>
-                            <span className="bg-violet-500/15 text-violet-300 border border-violet-500/20 text-[10px] font-black py-0.5 px-2 rounded-none">{columns.backlog.length}</span>
+                        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-white/[0.08]">
+                            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shadow-lg shadow-violet-500/5 group-hover:scale-110 transition-transform">
+                                <BrainCircuit size={16} className="text-violet-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">Sugestões</h3>
+                                <p className="text-[8px] font-bold text-slate-500 tracking-widest uppercase">IA Coach</p>
+                            </div>
+                            <span className="bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-black py-1 px-2.5 rounded-lg backdrop-blur-sm">
+                                {columns.backlog.length}
+                            </span>
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
@@ -181,21 +208,33 @@ export default function AICoachPlanner() {
                 <div className="w-full flex-1 min-w-0">
                     <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 overflow-hidden flex flex-col h-full relative">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-                        <div className="flex items-center justify-between mb-5 shrink-0">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-none bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400 shrink-0" /></div>
-                                <div><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Planejamento Semanal</h3></div>
+                        <div className="flex items-center justify-between mb-6 shrink-0 px-1">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5 group-hover:scale-110 transition-transform">
+                                    <Calendar size={16} className="text-indigo-400 shrink-0" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">Planejamento Semanal</h3>
+                                    <p className="text-[8px] font-bold text-slate-500 tracking-widest uppercase">Agenda do Aluno</p>
+                                </div>
                             </div>
                         </div>
                         <div className="overflow-x-auto pb-4">
                             <div className="flex gap-3 min-w-[1500px] min-h-[520px]">
                                 {DAYS.map((day) => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
-                                        <div className={`mb-3 rounded-xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
-                                            <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${day.gradient} opacity-60`} />
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-[11px] font-black tracking-[0.12em] ${day.text}`}>{day.label}</span>
-                                                <div className={`text-[10px] font-black px-1.5 py-0.5 rounded-none ${day.bg} ${day.text} border ${day.border}`}>{columns[day.id]?.length || 0}</div>
+                                        <div className={`mb-5 rounded-2xl border ${day.border} ${day.bg} p-4 relative overflow-visible backdrop-blur-md group/header transition-all duration-500 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.05)]`}>
+                                            <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${day.gradient} opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
+                                            <div className="flex items-center justify-between relative z-10">
+                                                <div className="flex flex-col">
+                                                    <span className={`text-[13px] font-black tracking-[0.2em] ${day.text} uppercase drop-shadow-md`}>
+                                                        {day.label}
+                                                    </span>
+                                                    <span className="text-[7px] font-bold text-slate-500 tracking-widest uppercase mt-0.5">Semana</span>
+                                                </div>
+                                                <div className={`text-[11px] font-black px-2.5 py-1 rounded-lg ${day.bg} ${day.text} border ${day.border} shadow-lg backdrop-blur-sm group-hover/header:scale-110 transition-transform`}>
+                                                    {columns[day.id]?.length || 0}
+                                                </div>
                                             </div>
                                         </div>
                                         <Droppable droppableId={day.id}>
@@ -203,7 +242,7 @@ export default function AICoachPlanner() {
                                                 <div 
                                                     ref={provided.innerRef} 
                                                     {...provided.droppableProps} 
-                                                    className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
+                                                    className={`flex-1 p-3 pt-4 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-visible ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
                                                 >
                                                     {snapshot.isDraggingOver && (
                                                         <div 
