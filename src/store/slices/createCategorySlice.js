@@ -43,14 +43,14 @@ export const createCategorySlice = (set, get) => ({
                 id: generateId('trash'),
                 type: 'category',
                 contestId: state.appState.activeId,
-                data: JSON.parse(JSON.stringify({
+                data: structuredClone({
                     category: category,
                     studyLogs: activeData.studyLogs?.filter(l => l.categoryId === id) || [],
                     studySessions: activeData.studySessions?.filter(s => s.categoryId === id) || [],
                     simuladoRows: activeData.simuladoRows?.filter(r => r.categoryId === id) || [],
                     simulados: activeData.simulados?.filter(s => s.categoryId === id) || [],
                     mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name]
-                })),
+                }),
                 deletedAt: new Date().toISOString()
             });
         }

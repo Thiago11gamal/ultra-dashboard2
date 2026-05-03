@@ -55,7 +55,7 @@ export default function Activity() {
             studiedWeekend,
             subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
         };
-    }, [data?.studyLogs, data?.simuladoRows, data?.categories, data?.user?.streak, data?.pomodorosCompleted]);
+    }, [data]); // Assina apenas a referência root do data
 
     if (!data) {
         return <div className="flex items-center justify-center p-12 text-slate-400">A carregar dados gamificados...</div>;

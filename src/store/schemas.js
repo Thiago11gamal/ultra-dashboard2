@@ -123,7 +123,7 @@ const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
   const source = (data.simuladoRows && data.simuladoRows.length > 0)
-    ? repairContestHistory(JSON.parse(JSON.stringify(data)))
+    ? repairContestHistory(structuredClone(data))
     : data;
 
   // FORTRESS-01: Defensive initialization for all top-level keys

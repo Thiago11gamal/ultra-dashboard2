@@ -14,7 +14,7 @@ export const createTrashSlice = (set) => ({
             if (contest) {
                 if (!contest.categories) contest.categories = [];
                 
-                const catData = JSON.parse(JSON.stringify(item.data.category || item.data));
+                const catData = structuredClone(item.data.category || item.data);
                 const oldId = catData.id;
                 
                 if (contest.categories.some(c => c.id === oldId)) {

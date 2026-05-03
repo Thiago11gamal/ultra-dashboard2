@@ -26,7 +26,7 @@ export const createContestSlice = (set) => ({
 
     createNewContest: () => set((state) => {
         const newId = generateId('contest');
-        const initialClone = JSON.parse(JSON.stringify(INITIAL_DATA));
+        const initialClone = structuredClone(INITIAL_DATA);
         const newContestData = {
             ...initialClone,
             contestName: "Novo Concurso",
@@ -50,7 +50,7 @@ export const createContestSlice = (set) => ({
                 id: generateId('trash'),
                 type: 'contest',
                 contestId: contestId,
-                data: JSON.parse(JSON.stringify(contestData)),
+                data: structuredClone(contestData),
                 deletedAt: new Date().toISOString()
             });
         }
@@ -58,7 +58,7 @@ export const createContestSlice = (set) => ({
         delete state.appState.contests[contestId];
         const remainingIds = Object.keys(state.appState.contests);
         if (remainingIds.length === 0) {
-            state.appState.contests['default'] = JSON.parse(JSON.stringify(INITIAL_DATA));
+            state.appState.contests['default'] = structuredClone(INITIAL_DATA);
             state.appState.activeId = 'default';
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];
