@@ -291,10 +291,12 @@ export default function Coach() {
         };
     }, []);
 
+    // FIX 2: Liberação baseada na prontidão dos dados em vez de timer cego
     useEffect(() => {
-        const timer = setTimeout(() => setIsAnalyzing(false), 800);
-        return () => clearTimeout(timer);
-    }, []);
+        if (suggestedFocus !== null && !coachLoading) {
+            setIsAnalyzing(false);
+        }
+    }, [suggestedFocus, coachLoading]);
 
     if (isAnalyzing || !data || !data.categories) {
         return (

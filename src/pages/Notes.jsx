@@ -21,8 +21,8 @@ export default function Notes() {
         
         if (!categories.length) return [];
 
-        // Clone to avoid mutating store references
-        const newCats = JSON.parse(JSON.stringify(categories));
+        // FIX 5: Clone estrutural nativo (API de C++ do navegador)
+        const newCats = structuredClone(categories);
 
         newCats.forEach(cat => {
             const catNorm = normalize(cat.name);

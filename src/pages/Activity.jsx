@@ -17,9 +17,12 @@ export default function Activity() {
     }
 
     const handleResetXP = () => {
-        setData(prev => ({ ...prev, user: { ...prev.user, xp: 0, level: 1 } }));
+        setData(prev => ({ 
+            ...prev, 
+            user: { ...prev.user, xp: 0, level: 1, achievements: [], streak: 0 } 
+        }));
         setShowResetModal(false);
-        showToast('Nível e XP Resetados!', 'success');
+        showToast('Nível, XP e Troféus Resetados!', 'success');
     };
 
     return (<PageErrorBoundary pageName="Heatmap">
@@ -150,9 +153,9 @@ export default function Activity() {
                     </div>
 
                     <div>
-                        <AchievementsGrid
-                            unlockedIds={data.user?.achievements || []}
-                            stats={(() => {
+                        {/* FIX 4: Memoização da Computação (Fora do return JSX) */}
+                        {(() => {
+                            const achievementStats = React.useMemo(() => {
                                 const studyLogs = data.studyLogs || [];
                                 const validSimulados = (data.simuladoRows || []).filter(r => r.validated && r.total > 0 && r.correct !== undefined);
                                 const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
@@ -192,8 +195,15 @@ export default function Activity() {
                                     studiedWeekend,
                                     subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size
                                 };
-                            })()}
-                        />
+                            }, [data.studyLogs, data.simuladoRows, data.categories, data.user?.streak, data.pomodorosCompleted]);
+
+                            return (
+                                <AchievementsGrid
+                                    unlockedIds={data.user?.achievements || []}
+                                    stats={achievementStats}
+                                />
+                            );
+                        })()}
                     </div>
                 </div>
             </div>

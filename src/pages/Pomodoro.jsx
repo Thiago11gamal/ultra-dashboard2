@@ -380,10 +380,11 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
     const cleanText = (text) => {
         if (!text) return '';
         
-        // Tenta encontrar o primeiro código curto entre colchetes (ex: [a1], [v12])
-        const codeMatch = text.match(/\[([a-zA-Z0-9]{1,5})\]/);
+        // FIX 6: Exige pelo menos uma letra, seguida de um número. 
+        // Assim captura [a1], [v12], mas ignora [Revisão].
+        const codeMatch = text.match(/\[([a-zA-Z]+[0-9]+[a-zA-Z0-9]*)\]/);
         if (codeMatch && codeMatch[1]) {
-            return codeMatch[1]; // Retorna apenas o "a1"
+            return codeMatch[1]; 
         }
 
         // Caso não ache um código curto, volta para a limpeza padrão pós-dois pontos
