@@ -50,7 +50,7 @@ export const createSimuladoSlice = (set) => ({
                             const last = c.simuladoStats.history[c.simuladoStats.history.length - 1];
                             c.simuladoStats.average = Number((newStats.mean || 0).toFixed(2));
                             c.simuladoStats.trend = newStats.trend || 'stable';
-                            c.simuladoStats.lastAttempt = Number(last?.score || 0);
+                            c.simuladoStats.lastAttempt = Number(last?.score ?? ((Number(last?.total) > 0) ? (Number(last?.correct || 0) / Number(last?.total)) * maxScore : 0));
                             c.simuladoStats.level = newStats.level || 'BAIXO';
                         }
                     } else {
