@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG = {
 
     // Monte Carlo
     MC_SIMULATIONS: 800,          // ← BUG-C2 FIX: era 5000 (conflitava com o comentário "MC leve")
-    MC_MIN_DATA_POINTS: 5,
+    MC_MIN_DATA_POINTS: 3,
     MC_PROB_DANGER: 30,
     MC_PROB_SAFE: 90,
     MC_VOLATILITY_HIGH: 8,

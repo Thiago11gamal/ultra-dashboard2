@@ -60,6 +60,23 @@ export default function Coach() {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
     }, [data?.calibrationHistoryByCategory]);
 
+    // BUG-15 BACKFILL: Sincroniza o contador global se houver dados históricos mas sem eventos de resumo
+    useEffect(() => {
+        if (simulados.length === 0 && history.length > 0 && setData) {
+            const dates = [...new Set(history.map(h => h.date || h.createdAt?.split('T')[0]).filter(Boolean))];
+            if (dates.length > 0) {
+                const backfillEvents = dates.map(d => ({
+                    id: `bf-${d}`,
+                    date: d,
+                    score: 0, // Placeholder
+                    type: 'backfill',
+                    subject: 'Simulado Restaurado'
+                }));
+                setData(prev => ({ ...prev, simulados: backfillEvents }));
+            }
+        }
+    }, [simulados.length, history.length, setData]);
+
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId) return;
         const avgBrier = Number(metric.avgBrier) || 0;
@@ -437,7 +454,12 @@ function RaioXDashboard({ data }) {
                             </div>
                         ))}
                         {Object.keys(ops).length === 0 && (
-                            <p className="text-[10px] text-slate-600 text-center py-8 font-black uppercase tracking-widest">Sem dados de telemetria</p>
+                            <div className="py-8 text-center space-y-2">
+                                <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
+                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
+                                    Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -503,8 +525,11 @@ function RaioXDashboard({ data }) {
                         </tbody>
                     </table>
                     {filteredLogs.length === 0 && (
-                        <div className="py-12 text-center">
+                        <div className="py-12 text-center space-y-2">
                             <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[250px] mx-auto leading-tight">
+                                Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
+                            </p>
                         </div>
                     )}
                 </div>

@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast';
 import { normalize, aliases } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
 import { getDateKey } from '../utils/dateHelper';
+import { generateId } from '../utils/idGenerator';
 
 export default function Simulados() {
     const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
@@ -266,10 +267,26 @@ export default function Simulados() {
                         }))
                 ].slice(-300);
 
+                const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+                
+                // BUG-15 FIX: Record a summary simulado event for the global counter and history
+                const newSimuladoEvent = {
+                    id: generateId('sim'),
+                    date: todayKey2,
+                    score: globalPct,
+                    total: totalQ,
+                    correct: totalC,
+                    type: 'auto-analyzer',
+                    subject: 'Simulado Geral'
+                };
+
+                const updatedSimulados = [...(prev.simulados || []), newSimuladoEvent].slice(-100);
+
                 return {
                     ...prev,
                     categories: newCategories,
                     simuladoRows: validatedRows,
+                    simulados: updatedSimulados,
                     lastUpdated: new Date().toISOString()
                 };
             }, true);
