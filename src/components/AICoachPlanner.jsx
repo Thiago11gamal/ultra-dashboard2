@@ -49,49 +49,52 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     ref={provided.innerRef} 
                     {...provided.draggableProps} 
                     {...provided.dragHandleProps} 
-                    className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden ${
-                        snapshot.isDragging 
-                            ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 z-50 backdrop-blur-xl' 
-                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
-                    }`}
+                    className={`pb-4 ${snapshot.isDragging ? 'z-50' : ''}`}
+                    style={provided.draggableProps.style}
                 >
-                    {!isBacklog && dayColor && (
-                        <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
-                    )}
-                    
-                    {/* Glossy background detail */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
+                    <div className={`group relative p-4 sm:pt-5 sm:pb-5 sm:pr-5 sm:pl-6 rounded-xl select-none overflow-hidden h-full ${
+                        snapshot.isDragging 
+                            ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 backdrop-blur-xl' 
+                            : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-colors duration-500'
+                    }`}>
+                        {!isBacklog && dayColor && (
+                            <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${dayColor} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                        )}
+                        
+                        {/* Glossy background detail */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.01] rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/[0.03] transition-all duration-700" />
 
-                    <div className="flex flex-col gap-5 relative z-10">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
-                                isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
-                            } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
-                                <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
+                        <div className="flex flex-col gap-5 relative z-10">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-[0.18em] ${
+                                    isBacklog ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-white/10 text-slate-200 border-white/10'
+                                } border backdrop-blur-md shadow-sm w-fit max-w-[90%] flex-shrink-0 group-hover:border-white/20 transition-colors`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-400'} shrink-0`} />
+                                    <span className="leading-none truncate block drop-shadow-sm">{displaySubject(subject)}</span>
+                                </div>
+                                
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onStartPomodoro?.(task);
+                                    }}
+                                    className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
+                                >
+                                    <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
+                                    <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
+                                </button>
                             </div>
-                            
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onStartPomodoro?.(task);
-                                }}
-                                className="relative w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all duration-300 shrink-0 shadow-lg group/play"
-                            >
-                                <div className="absolute inset-0 bg-violet-500 blur-md opacity-0 group-hover/play:opacity-20 transition-opacity" />
-                                <Play size={14} className="fill-current relative z-10 translate-x-0.5" />
-                            </button>
-                        </div>
 
-                        <div className="flex flex-col gap-2">
-                            <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors" style={{ paddingLeft: '18px' }}>
-                                {displayTopic}
-                            </h4>
-                            {secondaryText && (
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                    {secondaryText}
-                                </p>
-                            )}
+                            <div className="flex flex-col gap-2">
+                                <h4 className="text-[12px] font-black text-white leading-snug uppercase tracking-widest group-hover:text-violet-200 transition-colors" style={{ paddingLeft: '18px' }}>
+                                    {displayTopic}
+                                </h4>
+                                {secondaryText && (
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] line-clamp-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                        {secondaryText}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -185,20 +188,20 @@ export default function AICoachPlanner() {
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
-                                <div 
-                                    ref={provided.innerRef} 
-                                    {...provided.droppableProps} 
-                                    className={`flex-1 flex flex-col gap-3 rounded-2xl p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}
-                                >
+                                <div className={`flex-1 flex flex-col gap-3 rounded-2xl p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}>
                                     {snapshot.isDraggingOver && (
                                         <div 
                                             className="absolute inset-0 bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" 
                                         />
                                     )}
-                                    <div className="relative z-10 flex flex-col gap-4">
+                                    <div 
+                                        ref={provided.innerRef} 
+                                        {...provided.droppableProps} 
+                                        className="relative z-10 flex flex-col h-full"
+                                    >
                                         {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={(t) => handleStartTask(t, 'backlog')} /> ; })}
+                                        {provided.placeholder}
                                     </div>
-                                    {provided.placeholder}
                                 </div>
                             )}
                         </Droppable>
@@ -219,7 +222,7 @@ export default function AICoachPlanner() {
                                 </div>
                             </div>
                         </div>
-                        <div className="overflow-x-auto pb-4">
+                        <div className="pb-4">
                             <div className="flex gap-3 min-w-[1500px] min-h-[520px]">
                                 {DAYS.map((day) => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
@@ -239,17 +242,17 @@ export default function AICoachPlanner() {
                                         </div>
                                         <Droppable droppableId={day.id}>
                                             {(provided, snapshot) => (
-                                                <div 
-                                                    ref={provided.innerRef} 
-                                                    {...provided.droppableProps} 
-                                                    className={`flex-1 p-3 pt-4 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-visible ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
-                                                >
+                                                <div className={`flex-1 p-3 pt-4 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-visible ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}>
                                                     {snapshot.isDraggingOver && (
                                                         <div 
                                                             className={`absolute inset-0 bg-gradient-to-br ${day.gradient} opacity-[0.07] pointer-events-none`} 
                                                         />
                                                     )}
-                                                    <div className="relative z-10 h-full flex flex-col gap-4">
+                                                    <div 
+                                                        ref={provided.innerRef} 
+                                                        {...provided.droppableProps} 
+                                                        className="relative z-10 h-full flex flex-col min-h-[100px]"
+                                                    >
                                                         {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayColor={day.gradient} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
                                                         {provided.placeholder}
                                                     </div>

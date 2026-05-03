@@ -271,7 +271,7 @@ function MainLayout() {
                 {/* Spacer para o header fixo no mobile */}
                 <div className="lg:hidden h-[65px] flex-shrink-0" />
 
-                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-0 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
+                <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-10 mt-0 pt-0 overflow-y-auto overflow-x-auto custom-scrollbar relative z-0">
                   {routesContent}
                 </main>
                 <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
