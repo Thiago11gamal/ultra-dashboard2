@@ -49,7 +49,7 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
                     ref={provided.innerRef} 
                     {...provided.draggableProps} 
                     {...provided.dragHandleProps} 
-                    className={`group relative p-5 mb-4 rounded-xl transition-all duration-500 select-none overflow-hidden ${
+                    className={`group relative pt-5 pb-5 pr-5 pl-8 mb-4 rounded-xl transition-all duration-500 select-none overflow-hidden ${
                         snapshot.isDragging 
                             ? 'bg-slate-900/90 border-2 border-violet-500/50 shadow-[0_20px_50px_rgba(139,92,246,0.3)] scale-[1.05] rotate-1 z-50 backdrop-blur-xl' 
                             : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] hover:border-white/10 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] hover:-translate-y-0.5'
