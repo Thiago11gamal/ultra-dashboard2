@@ -71,6 +71,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const safeSettings = useMemo(() => Object.freeze({
         pomodoroWork: settings?.pomodoroWork || 25,
         pomodoroBreak: settings?.pomodoroBreak || 5,
+        pomodoroLongBreak: settings?.pomodoroLongBreak || 15,
         soundEnabled: settings?.soundEnabled ?? true,
         ...settings
     }), [settings]);
@@ -106,7 +107,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
     // Estados Locais
-    const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+    const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', initialTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [speed, setSpeed] = useState(1);
@@ -202,7 +203,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     // Garante que o cronómetro reseta quando mudamos de tarefa ou modo via Sidebar/Store
     useEffect(() => {
         if (!isTransitioningRef.current) {
-            const newTotalTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (safeSettings.pomodoroBreak || 5) * 60;
+            const newTotalTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
 
             // Só resetamos se não estiver a correr ou se a tarefa mudou completamente
             const taskChanged = activeSubject?.taskId !== stateRefs.current.lastTaskId;
@@ -442,7 +443,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             completePomodoroPhase(isManual, sessionMinutes);
 
             const newState = useAppStore.getState().appState.pomodoro;
-            const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+            const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : (newState.mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
 
             setTimeLeft(resetTime);
             stateRefs.current.timeLeft = resetTime;
@@ -531,7 +532,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         const currentMode = stateRefs.current.mode;
         const currentSessions = stateRefs.current.sessions;
         const currentTimeLeft = stateRefs.current.timeLeft;
-        const currentTotalTime = currentMode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+        const currentTotalTime = currentMode === 'work' ? safeSettings.pomodoroWork * 60 : (currentMode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
 
         // SE O TEMPO JÁ ESTIVER CHEIO: Volta de fase
         if (currentTimeLeft >= currentTotalTime - 0.5) {
@@ -541,7 +542,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             rewindPomodoroPhase();
 
             const newState = useAppStore.getState().appState.pomodoro;
-            const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+            const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : (newState.mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
 
             stateRefs.current.timeLeft = resetTime;
             stateRefs.current.mode = newState.mode;
@@ -624,7 +625,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         }, 100);
     };
 
-    const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : safeSettings.pomodoroBreak * 60;
+    const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : (mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
 
     return (
         <div className="w-full relative min-h-[80vh] flex flex-col items-center">
@@ -682,8 +683,8 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                             <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
                             <defs>
                                 <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : '#22c55e'} />
-                                    <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : '#10b981'} />
+                                    <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : (mode === 'long_break' ? '#a855f7' : '#22c55e')} />
+                                    <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : (mode === 'long_break' ? '#9333ea' : '#10b981')} />
                                 </linearGradient>
                             </defs>
                             <circle
@@ -700,7 +701,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                             <span ref={clockRef} className="text-7xl font-black tracking-tight text-white drop-shadow-2xl">{formatTime(timeLeft)}</span>
                             <span className="text-[11px] font-black uppercase tracking-[0.4em] text-white mt-2">
-                                {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : 'Recuperação') : 'SESSÃO PAUSADA'}
+                                {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
                             </span>
                         </div>
                     </div>
