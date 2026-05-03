@@ -94,10 +94,14 @@ function getSRSBoost(daysSince, cfg) {
 function getCrunchMultiplier(daysToExam) {
     if (daysToExam === undefined || daysToExam === null || daysToExam > 60) return 1.0;
     if (daysToExam < 0) return 1.0;
-    if (daysToExam <= 3) return 2.5;
-    if (daysToExam <= 7) return 2.0;
+    if (daysToExam <= 3)  return 2.5;
+    if (daysToExam <= 7)  return 2.0;
     if (daysToExam <= 14) return 1.5;
     if (daysToExam <= 30) return 1.2;
+    // MATH-CRUNCH-GAP FIX: faltava bracket para 31–60 dias.
+    // Antes: dia 30 → 1.2, dia 31 → 1.0 (queda brusca de 16.7%).
+    // Agora: transição suave 31–60 → 1.1 (degrau intermediário).
+    if (daysToExam <= 60) return 1.1;
     return 1.0;
 }
 
@@ -124,7 +128,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
     const targetScore = Number.isFinite(rawTargetScore) ? rawTargetScore : (maxScore * 0.8);
     const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
-    const weight = rawWeight * 10;
+    // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
+    // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
+    // Com * 20: rawWeight=5 (médio) = ponto neutro (mult=1.0), rawWeight=10 = mult=1.5, rawWeight=1 = mult=0.6.
+    const weight = rawWeight * 20;
     const weightLabel = rawWeight <= 3 ? '1 — Baixa' : rawWeight <= 7 ? '2 — Média' : '3 — Alta';
 
     let daysToExam = null;
@@ -307,7 +314,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // ─────────────────────────────────────────────────────────
         let mcUrgencyBoost = 0;
         let mcRiskLabel = null;
-        const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg);
+        const adaptiveRisk = deriveAdaptiveRiskThresholds(lastNScores, mssdVolatility, cfg, maxScore);
 
         if (mcHasData && mcProbability !== null) {
             const continuous = computeContinuousMcBoost(
@@ -697,6 +704,10 @@ const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
     const targetScore = options.targetScore ?? 80;
     const maxScore = options.maxScore ?? 100;
+    // LOGIC-DEFAULT-CONFIG FIX: antes, as comparações de MC threshold (MC_PROB_DANGER,
+    // MC_PROB_SAFE, MC_VOLATILITY_HIGH) usavam DEFAULT_CONFIG diretamente, ignorando
+    // qualquer override passado em options.config. Agora o cfg mesclado é a fonte única.
+    const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
 
     const ranked = categories.map(cat => ({
         ...cat,
@@ -774,7 +785,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             // ─────────────────────────────────────────────────────────
 
             // 🚨 Zona de Perigo: Prob < 30%
-            if (mc && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_DANGER && i === 0) {
+            if (mc && mc.probabilityRaw < cfg.MC_PROB_DANGER && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -786,13 +797,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         reason: "Monte Carlo — Zona de Perigo",
                         details: `Apenas ${probPct}% de chance de bater a meta de ${targetScore}% em 90 dias. Projeção: ${mc.meanProjected}% (IC95: ${mc.ci95Low}–${mc.ci95High}%).`,
                         metrics: cat.urgency.details.humanReadable,
-                        verdict: `Probabilidade crítica detectada (${DEFAULT_CONFIG.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
+                        verdict: `Probabilidade crítica detectada (${cfg.MC_SIMULATIONS} simulações). Abandone estudos passivos e mude de método imediatamente.`
                     }
                 });
             }
 
             // 🌪️ Caos Estatístico: Volatilidade MSSD Alta + prob não crítica
-            if (mc && mc.volatility > DEFAULT_CONFIG.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_DANGER && mc.probabilityRaw < DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
+            if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw >= cfg.MC_PROB_DANGER && mc.probabilityRaw < cfg.MC_PROB_SAFE && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -802,7 +813,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     categoryId: cat.id,
                     analysis: {
                         reason: "Monte Carlo — Caos Estatístico",
-                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)} (limiar: ${(DEFAULT_CONFIG.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(2)}). Probabilidade atual: ${probPct}%.`,
+                        details: `Volatilidade MSSD: ${mc.volatility.toFixed(2)} (limiar: ${(cfg.MC_VOLATILITY_HIGH * (maxScore / 100)).toFixed(2)}). Probabilidade atual: ${probPct}%.`,
                         metrics: cat.urgency.details.humanReadable,
                         verdict: "Seu nível base é promissor, mas a inconsistência torna a aprovação imprevisível. Reduza as oscilações."
                     }
@@ -810,7 +821,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             }
 
             // 🏆 Cruzeiro Seguro: Prob > 90%
-            if (mc && mc.probabilityRaw >= DEFAULT_CONFIG.MC_PROB_SAFE && i === 0) {
+            if (mc && mc.probabilityRaw >= cfg.MC_PROB_SAFE && i === 0) {
                 // BUG-19 FIX: probabilityRaw já está em 0-100
                 const probPct = Math.round(mc.probabilityRaw);
                 allGeneratedTasks.push({
@@ -975,7 +986,12 @@ export function getBestTask(categories, excludeTaskId = null) {
             }
 
             // Fator 3: Taxa de Erro
-            if (task.errorRate) score += (task.errorRate * 100) * 0.4;
+            // MATH-ERRORRATE-SCALE FIX: errorRate pode estar em 0-1 ou 0-100 dependendo da fonte.
+            // Normalizar para 0-1 antes de usar para evitar que um campo de 0-100 produza score+=3200.
+            if (task.errorRate) {
+                const normalizedErrorRate = task.errorRate > 1 ? task.errorRate / 100 : task.errorRate;
+                score += normalizedErrorRate * 40; // 0-40 pts (equivalente a: (rate*100)*0.4)
+            }
 
             if (score > highestScore) {
                 highestScore = score;
@@ -1021,14 +1037,27 @@ export function getCoachInsight(activeSubject, stats) {
         };
     }
 
-    // --- PATCH: Optional Chaining (stats?) para prevenir TypeError no arranque ---
-    if (stats?.pomodorosCompleted >= 3) {
+    // LOGIC-FATIGUE-THRESHOLD FIX: antes, pomodorosCompleted >= 3 disparava "SINCRONIA TOTAL"
+    // mesmo com fatigueScore=70 (logo acima do limiar de perigo), o que é contraditório.
+    // Agora exige fatigueScore >= 85 para indicar estado de alto desempenho.
+    if (fatigueScore >= 85 && stats?.pomodorosCompleted >= 3) {
         return {
             type: 'success',
             title: 'ESTADO: SINCRONIA TOTAL',
             text: `Sincronia neural otimizada! Estabilidade cognitiva blindada em **${fatigueScore}%**. Fluxo de dados em alta fidelidade detectado.`,
             color: 'emerald',
             iconType: 'Zap'
+        };
+    }
+
+    // --- PATCH: Optional Chaining (stats?) para prevenir TypeError no arranque ---
+    if (stats?.pomodorosCompleted >= 3) {
+        return {
+            type: 'info',
+            title: 'SESSÃO: PROGRESSO ACUMULADO',
+            text: `${stats.pomodorosCompleted} sessões concluídas. Disposição operacional em **${fatigueScore}%**. Considere uma pausa curta para consolidação.`,
+            color: 'indigo',
+            iconType: 'Brain'
         };
     }
 
