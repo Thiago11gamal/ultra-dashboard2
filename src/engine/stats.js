@@ -206,7 +206,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     // MATH FIX: O filtro destruía as amostras que os usuários cadastravam só como "%" (total=0),
     // arruinando regressões inteiras da estatística se não houvesse input manual de volume de questões.
-    const syntheticTotal = getSyntheticTotal(maxScore);
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const rawSynthetic = getSyntheticTotal(safeMaxScore);
+    const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
+    
     const historyWithSynthetics = history.map(h => {
         if ((Number(h.total) || 0) === 0 && h.score != null) {
             return { ...h, total: syntheticTotal };
@@ -254,9 +257,10 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
         // em vez da contagem bruta de simulados.
         const effectiveN = sumW2 > 0 ? (sumW * sumW) / sumW2 : historyToUse.length;
-        const n_eff = effectiveN;
+        const n_eff = Number.isFinite(effectiveN) ? Math.max(1, effectiveN) : 1;
 
-        variance = ((n_eff - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / ((n_eff - 1) + KAPPA);
+        const kishDenomTerm = Number.isFinite(n_eff) ? Math.max(0.001, (n_eff - 1)) : 0.001;
+        variance = (kishDenomTerm * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / (kishDenomTerm + KAPPA);
     } else {
         variance = Math.pow(standardDeviation(scores, maxScore, m), 2);
     }
