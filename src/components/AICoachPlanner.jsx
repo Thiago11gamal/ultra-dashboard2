@@ -28,6 +28,10 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     let actionPart = hasDetails ? parts.slice(1).join(':').trim() : 'Revisão Geral';
     subject = subject.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF()-]/g, '').trim();
 
+    // Clean up redundant priority labels for cleaner UI
+    const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
+    actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
+
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
     if (topicMatch) {
@@ -36,42 +40,38 @@ const TaskCard = ({ task, index, isBacklog, stableId, dayColor, onStartPomodoro 
     }
 
     const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
+    const secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
 
     return (
         <Draggable draggableId={stableId} index={index}>
             {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-8 mb-5 rounded-[2.5rem] transition-all select-none overflow-hidden ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/15 shadow-lg'}`}>
-                    {!isBacklog && dayColor && <div className={`absolute left-0 top-6 bottom-6 w-[6px] rounded-full bg-gradient-to-b ${dayColor}`} />}
+                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`group relative p-5 mb-3 rounded-none transition-all select-none overflow-hidden ${snapshot.isDragging ? 'bg-[#1a1c2e] border-2 border-violet-500/70 shadow-2xl shadow-violet-900/40 scale-[1.03] rotate-1 z-50' : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/15 shadow-lg'}`}>
+                    {!isBacklog && dayColor && <div className={`absolute left-0 top-3 bottom-3 w-[4px] rounded-none bg-gradient-to-b ${dayColor}`} />}
                     
-                    <div className="flex flex-col gap-6 relative z-10">
-                        <div className="grid grid-cols-[1fr_auto] items-start gap-4">
-                            <div className="flex flex-col gap-5 min-w-0">
-                                <div className={`inline-flex items-center gap-3 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] ${isBacklog ? 'bg-violet-500/30 text-violet-100 border-violet-500/40' : 'bg-white/15 text-slate-100 border-white/20'} border backdrop-blur-md ml-4 overflow-hidden shadow-lg w-fit`}>
-                                    <div className={`w-2 h-2 rounded-full ${isBacklog ? 'bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]' : 'bg-slate-300'} shrink-0`} />
-                                    <span className="leading-tight whitespace-normal break-words">{displaySubject(subject)}</span>
-                                </div>
-                                
-                                {displayTopic && (
-                                    <div className="ml-6 pr-2">
-                                        <h4 className="text-[15px] font-black text-white leading-tight mb-2 tracking-tight">
-                                            {displayTopic}
-                                        </h4>
-                                        {topicPart && actionPart && actionPart !== displayTopic && (
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest line-clamp-1">{actionPart}</p>
-                                        )}
-                                    </div>
-                                )}
+                    <div className="flex flex-col gap-4 relative z-10">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-none text-[9px] font-black uppercase tracking-[0.12em] ${isBacklog ? 'bg-violet-500/30 text-violet-100 border-violet-500/40' : 'bg-white/15 text-slate-100 border-white/20'} border backdrop-blur-md overflow-hidden shadow-lg w-fit max-w-[85%]`}>
+                                <div className={`w-1.5 h-1.5 rounded-none ${isBacklog ? (isPriority ? 'bg-amber-400 animate-pulse' : 'bg-violet-400') : 'bg-slate-300'} shrink-0`} />
+                                <span className="leading-tight truncate">{displaySubject(subject)}</span>
                             </div>
-
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onStartPomodoro?.(task);
                                 }}
-                                className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 shadow-lg mt-1"
+                                className="w-8 h-8 rounded-none bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 hover:bg-violet-500 hover:text-white transition-all shrink-0 shadow-lg"
                             >
-                                <Play size={14} className="fill-current" />
+                                <Play size={12} className="fill-current" />
                             </button>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 px-1">
+                            <h4 className="text-[11px] font-black text-white leading-tight uppercase tracking-wider">
+                                {displayTopic}
+                            </h4>
+                            {secondaryText && (
+                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest line-clamp-1">{secondaryText}</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -149,19 +149,19 @@ export default function AICoachPlanner() {
         <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
             <div className="flex flex-col xl:flex-row gap-5">
                 <div className="w-full xl:w-64 shrink-0">
-                    <div className="bg-[#09090f] border border-white/[0.07] rounded-2xl p-4 flex flex-col h-full min-h-[400px] relative overflow-hidden">
+                    <div className="bg-[#09090f] border border-white/[0.07] rounded-none p-4 flex flex-col h-full min-h-[400px] relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
                         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.06]">
-                            <div className="w-7 h-7 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center"><BrainCircuit size={13} className="text-violet-400" /></div>
+                            <div className="w-7 h-7 rounded-none bg-violet-500/15 border border-violet-500/20 flex items-center justify-center"><BrainCircuit size={13} className="text-violet-400" /></div>
                             <div className="flex-1"><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Sugestões</h3></div>
-                            <span className="bg-violet-500/15 text-violet-300 border border-violet-500/20 text-[10px] font-black py-0.5 px-2 rounded-md">{columns.backlog.length}</span>
+                            <span className="bg-violet-500/15 text-violet-300 border border-violet-500/20 text-[10px] font-black py-0.5 px-2 rounded-none">{columns.backlog.length}</span>
                         </div>
                         <Droppable droppableId="backlog">
                             {(provided, snapshot) => (
                                 <div 
                                     ref={provided.innerRef} 
                                     {...provided.droppableProps} 
-                                    className={`flex-1 flex flex-col gap-3 rounded-xl p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}
+                                    className={`flex-1 flex flex-col gap-3 rounded-none p-4 transition-all min-h-[200px] relative overflow-visible ${snapshot.isDraggingOver ? 'bg-violet-500/10' : ''}`}
                                 >
                                     {snapshot.isDraggingOver && (
                                         <div 
@@ -179,11 +179,11 @@ export default function AICoachPlanner() {
                 </div>
 
                 <div className="w-full flex-1 min-w-0">
-                    <div className="bg-[#09090f] border border-white/[0.07] rounded-2xl p-5 overflow-hidden flex flex-col h-full relative">
+                    <div className="bg-[#09090f] border border-white/[0.07] rounded-none p-5 overflow-hidden flex flex-col h-full relative">
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
                         <div className="flex items-center justify-between mb-5 shrink-0">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400" /></div>
+                                <div className="w-7 h-7 rounded-none bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center"><Calendar size={13} className="text-indigo-400" /></div>
                                 <div><h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-300">Planeamento Semanal</h3></div>
                             </div>
                         </div>
@@ -191,11 +191,11 @@ export default function AICoachPlanner() {
                             <div className="flex gap-3 min-w-[1500px] min-h-[520px]">
                                 {DAYS.map((day) => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
-                                        <div className={`mb-3 rounded-xl border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
+                                        <div className={`mb-3 rounded-none border ${day.border} ${day.bg} p-2.5 relative overflow-hidden`}>
                                             <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${day.gradient} opacity-60`} />
                                             <div className="flex items-center justify-between">
                                                 <span className={`text-[11px] font-black tracking-[0.12em] ${day.text}`}>{day.label}</span>
-                                                <div className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${day.bg} ${day.text} border ${day.border}`}>{columns[day.id]?.length || 0}</div>
+                                                <div className={`text-[10px] font-black px-1.5 py-0.5 rounded-none ${day.bg} ${day.text} border ${day.border}`}>{columns[day.id]?.length || 0}</div>
                                             </div>
                                         </div>
                                         <Droppable droppableId={day.id}>
@@ -203,7 +203,7 @@ export default function AICoachPlanner() {
                                                 <div 
                                                     ref={provided.innerRef} 
                                                     {...provided.droppableProps} 
-                                                    className={`flex-1 p-2 rounded-xl border-2 border-dashed transition-all duration-300 relative overflow-hidden ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
+                                                    className={`flex-1 p-2 rounded-none border-2 border-dashed transition-all duration-300 relative overflow-hidden ${snapshot.isDraggingOver ? `${day.over} border-solid shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]` : 'bg-black/20 border-white/[0.05] hover:border-white/[0.09]'}`}
                                                 >
                                                     {snapshot.isDraggingOver && (
                                                         <div 
