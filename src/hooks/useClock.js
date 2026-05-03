@@ -11,22 +11,12 @@ import { useEffect, useState } from 'react';
  * @returns {Date} current time
  */
 const useClock = () => {
-    const [time, setTime] = useState(() => new Date());
+    const [epochSecond, setEpochSecond] = useState(() => Math.floor(Date.now() / 1000));
 
     useEffect(() => {
         let timeoutId;
         let cancelled = false;
-        let lastForcedResyncAt = 0;
-
-        const tick = () => {
-            const now = new Date();
-            setTime((prev) => {
-                if (!prev) return now;
-                const prevSecond = Math.floor(prev.getTime() / 1000);
-                const nowSecond = Math.floor(now.getTime() / 1000);
-                return prevSecond === nowSecond ? prev : now;
-            });
-        };
+        let lastRescheduleAt = 0;
 
         const scheduleNextTick = () => {
             if (cancelled) return;
@@ -35,22 +25,22 @@ const useClock = () => {
             const delay = msUntilNextSecond === 0 ? 1 : msUntilNextSecond;
 
             timeoutId = setTimeout(() => {
-                tick();
+                const nowSecond = Math.floor(Date.now() / 1000);
+                setEpochSecond((prev) => Math.max(prev, nowSecond));
                 scheduleNextTick();
             }, delay);
         };
 
-        tick();
         scheduleNextTick();
 
         const handleVisibilityOrFocus = () => {
             if (cancelled) return;
             if (document.visibilityState !== 'visible') return;
             const nowMs = Date.now();
-            if (nowMs - lastForcedResyncAt < 250) return;
-            lastForcedResyncAt = nowMs;
+            if (nowMs - lastRescheduleAt < 250) return;
+            lastRescheduleAt = nowMs;
             if (timeoutId) clearTimeout(timeoutId);
-            tick();
+            setEpochSecond(Math.floor(Date.now() / 1000));
             scheduleNextTick();
         };
 
@@ -65,10 +55,11 @@ const useClock = () => {
         };
     }, []);
 
-    return time;
+    return new Date(epochSecond * 1000);
 };
 
 export default useClock;
+
 
 
 
