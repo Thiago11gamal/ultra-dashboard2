@@ -39,12 +39,12 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     return (
         <div
-            className={`group relative flex flex-col p-12 rounded-[2.5rem] bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-visible shadow-2xl`}
+            className={`group relative flex flex-col p-6 sm:p-8 rounded-3xl bg-[#0a0c14] border border-white/[0.06] border-l-8 ${col.accent} hover:bg-white/[0.03] transition-all duration-300 overflow-hidden shadow-xl`}
         >
-            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-8 px-10 pt-10">
+            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-6 gap-4">
                 <div className="flex flex-col items-start gap-2 min-w-0">
-                    <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-2xl backdrop-blur-md border border-white/20 ml-2 max-w-full overflow-hidden`}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
+                    <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border border-white/20 max-w-full overflow-hidden shrink-0`}>
+                        <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                         <span className="leading-tight whitespace-normal break-words">{displaySubject(subjectPart)}</span>
                     </div>
                 </div>
@@ -53,20 +53,20 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         e.stopPropagation();
                         onStartPomodoro?.(task);
                     }}
-                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
+                    className="w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
                 >
                     <Play size={14} fill="currentColor" />
                 </button>
             </div>
-            <div className="relative z-10 flex-1 mb-8 px-6">
-                <h3 className="text-xl font-black text-white leading-tight mb-3 tracking-tighter">
+            <div className="relative z-10 flex-1 mb-6">
+                <h3 className="text-lg sm:text-xl font-black text-white leading-tight mb-2 tracking-tighter">
                     {displayAssunto}
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
+                <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">{displayMeta}</p>
             </div>
             {task.analysis && (
-                <div className="relative z-10 mt-auto pt-4 px-6 border-t border-white/[0.06]">
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none">
+                <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.06]">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors py-1 leading-none w-full">
                         <span className="inline-flex h-4 w-4 items-center justify-center shrink-0"><span className="h-2.5 w-2.5 rounded-full bg-violet-500/80" /></span>
                         <span>Detalhes do Coach</span>
                         <span className={`inline-flex h-4 w-4 items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDown size={13} /></span>
