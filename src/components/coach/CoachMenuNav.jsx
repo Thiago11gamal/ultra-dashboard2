@@ -88,11 +88,11 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     };
 
     return (
-        <div className="mb-6 rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a0f1f] via-[#0b1222] to-[#090d19] p-5 sm:p-6 md:p-8 shadow-2xl">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-                <div className="min-w-0 pb-2 lg:pb-0">
-                    <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.22em] mb-1">Menu Coach AI</p>
-                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Central de Estratégia e Diagnóstico</h3>
+        <div className="mb-8 p-1">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="min-w-0 pb-2 lg:pb-0 px-2">
+                    <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5">Navegação</p>
+                    <h3 className="text-xl font-black text-white tracking-tight">Central de Estratégia</h3>
                 </div>
 
                 <div
@@ -100,7 +100,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full lg:w-auto"
+                    className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}

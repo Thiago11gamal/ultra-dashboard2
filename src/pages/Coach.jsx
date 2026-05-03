@@ -436,11 +436,11 @@ function RaioXDashboard({ data }) {
         : [];
 
     return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-emerald-500" />
+        <div className="space-y-12 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-2">
+                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-emerald-500/80" />
                         Status de Calibração
                     </h3>
                     <div className="space-y-3">
@@ -466,9 +466,9 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
 
-                <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <Dna size={14} className="text-indigo-500" />
+                <div className="p-2">
+                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
+                        <Dna size={14} className="text-indigo-500/80" />
                         DNA do Histórico
                     </h3>
                     <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 text-center">
@@ -478,11 +478,10 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
             </div>
-
-            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
+            <div className="p-2 border-t border-white/5 pt-8">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <List size={14} className="text-indigo-400" />
+                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <List size={14} className="text-indigo-400/80" />
                         Log de Auditoria
                     </h3>
                     <div className="flex gap-2">
@@ -536,10 +535,9 @@ function RaioXDashboard({ data }) {
                     )}
                 </div>
             </div>
-
-            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Confiabilidade (ECE)</h3>
+            <div className="p-2 border-t border-white/5 pt-8">
+                <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
                     <span className="text-[10px] font-black text-cyan-300">
                         {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
                     </span>
@@ -567,10 +565,9 @@ function RaioXDashboard({ data }) {
                     <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
                 )}
             </div>
-
-            <div className="glass p-6 rounded-3xl border border-white/5 bg-slate-900/40">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Drift Temporal (Brier/ECE)</h3>
+            <div className="p-2 border-t border-white/5 pt-8">
+                <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
                     {categoryNames.length > 1 ? (
                         <select
                             value={effectiveCategory}
