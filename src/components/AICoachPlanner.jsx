@@ -173,9 +173,11 @@ export default function AICoachPlanner() {
     // BUG-02 FIX: Integrando o dayId para permitir que o Pomodoro saiba de onde a tarefa veio
     const handleStartTask = (task, dayId) => {
         if (!task) return;
-        // Se a tarefa está no backlog, usamos 0. Se está no planner, 
-        // o startNeuralSession pode opcionalmente receber o contexto do dia.
-        startNeuralSession([task], 0, dayId); 
+        
+        // FIX: Clonar a task injetando o contexto do dia para a Store conseguir ler
+        const taskWithContext = { ...task, sourceContext: dayId };
+        
+        startNeuralSession([taskWithContext], 0); 
         navigate('/pomodoro');
     };
 

@@ -553,9 +553,10 @@ export default function Pomodoro() {
         if (activeSubject) {
             setData(prev => ({
                 ...prev,
-                categories: prev.categories.map(c => c.id === activeSubject.categoryId ? {
+                // FIX: Adicionar "?." antes dos maps para evitar crash se a árvore não existir
+                categories: prev.categories?.map(c => c.id === activeSubject.categoryId ? {
                     ...c,
-                    tasks: c.tasks.map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
+                    tasks: c.tasks?.map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
                 } : c)
             }));
         }

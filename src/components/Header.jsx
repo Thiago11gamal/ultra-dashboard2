@@ -52,7 +52,7 @@ export default function Header({
 }) {
     const clockTime = useClock();
 
-    const displayName = user?.name || 'Estudante';
+    const displayName = user?.name ?? 'Estudante';
 
     const handleNameChange = (e) => {
         if (onUpdateName) onUpdateName(e.target.value);
