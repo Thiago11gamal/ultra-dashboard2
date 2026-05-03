@@ -18,11 +18,12 @@ export const createSimuladoSlice = (set) => ({
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData || !dateInput) return;
         
+        const normalizedInput = String(dateInput);
         const matchesDate = (raw) => {
             if (!raw) return false;
             const normalizedRaw = String(raw);
-            if (dateInput.includes('T')) return normalizedRaw === dateInput;
-            return normalizedRaw.startsWith(dateInput); 
+            if (normalizedInput.includes('T')) return normalizedRaw === normalizedInput;
+            return normalizedRaw.startsWith(normalizedInput); 
         };
 
         if (activeData.simuladoRows) {
