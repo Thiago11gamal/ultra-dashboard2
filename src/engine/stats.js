@@ -64,11 +64,11 @@ export function computeBayesianLevel(history, alpha0 = 1, beta0 = 1, maxScore = 
             let total = Number(h.total) || 0;
             let correct = Number(h.correct) || 0;
 
-            const scoreRef = h.isPercentage ? 100 : maxScore;
-            if (total > 0 && correct === 0 && h.score != null && h.score > 0) {
-                correct = Math.round((Number(h.score) / scoreRef) * total);
-            } else if (total === 0 && h.score != null) {
-                const pct = Math.min(1, Math.max(0, Number(h.score) / scoreRef));
+            const normalizedScore = getSafeScore(h, maxScore);
+            const pct = Math.min(1, Math.max(0, normalizedScore / maxScore));
+            if (total > 0 && correct === 0 && Number.isFinite(normalizedScore) && normalizedScore > 0) {
+                correct = Math.round(pct * total);
+            } else if (total === 0 && Number.isFinite(normalizedScore)) {
                 total = getSyntheticTotal(maxScore);
                 correct = Math.round(pct * total);
             }
