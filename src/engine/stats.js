@@ -291,6 +291,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     if (rawTrend > trendThreshold) trendLabel = 'up';
     else if (rawTrend < -trendThreshold) trendLabel = 'down';
 
+    const level = m > 0.7 * safeMaxScore ? 'ALTO' : m > 0.4 * safeMaxScore ? 'MÉDIO' : 'BAIXO';
+
     return {
         mean: m,
         sd: safeSD,
@@ -298,6 +300,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         weight: weight,
         history: history,
         trend: trendLabel,
-        trendValue: rawTrend
+        trendValue: rawTrend,
+        level
     };
 }

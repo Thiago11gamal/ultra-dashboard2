@@ -149,6 +149,8 @@ const sanitizeContest = (data) => {
         : 70
     },
     coachPlan: Array.isArray(source.coachPlan) ? source.coachPlan : [],
+    calibrationMetrics: (source.calibrationMetrics && typeof source.calibrationMetrics === 'object') ? source.calibrationMetrics : {},
+    coachScore: (source.coachScore && typeof source.coachScore === 'object') ? source.coachScore : null,
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
       ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },

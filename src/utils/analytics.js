@@ -1,13 +1,6 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight } from './dateHelper.js';
-// Internal helper for locale-neutral date comparison (YYYY-MM-DD in local time)
-const toISODay = (date) => {
-    const d = typeof date === 'string' && date.length === 10 ? new Date(`${date}T12:00:00`) : new Date(date);
-    if (isNaN(d.getTime())) return null;
-    return d.getFullYear() + '-' +
-        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-        String(d.getDate()).padStart(2, '0');
-};
+import { normalizeDate, getLocalMidnight, getDateKey } from './dateHelper.js';
+
 
 
 
@@ -54,13 +47,13 @@ export const calculateStudyStreak = (studyLogs) => {
 
     // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
     const daySet = new Set(
-        studyLogs.map(log => toISODay(log.date)).filter(Boolean)
+        studyLogs.map(log => getDateKey(log.date)).filter(Boolean)
     );
     const sortedDays = Array.from(daySet).sort((a, b) =>
         new Date(b) - new Date(a)
     );
 
-    const todayStr = toISODay(new Date());
+    const todayStr = getDateKey(new Date());
     const lastDayStr = sortedDays[0];
 
     // 2. Cálculo do Gap (Perdão do Dia Atual)
@@ -83,7 +76,7 @@ export const calculateStudyStreak = (studyLogs) => {
     let dateCursor = new Date(lastDayStr + 'T12:00:00');
 
     for (let i = 0; i < sortedDays.length * 2; i++) {
-        const dString = toISODay(dateCursor);
+        const dString = getDateKey(dateCursor);
         if (daySet.has(dString)) {
             streak++;
             dateCursor.setDate(dateCursor.getDate() - 1);
@@ -425,7 +418,7 @@ export const detectProcrastination = (categories, studyLogs) => {
         });
 
         const uniqueDays = new Set(last7Days.map(log =>
-            toISODay(log.date)
+            getDateKey(log.date)
         )).size;
 
         if (uniqueDays < 3) {

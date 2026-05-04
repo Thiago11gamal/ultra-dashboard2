@@ -29,14 +29,14 @@ export const createSettingsSlice = (set) => ({
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
         if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = true;
+        activeData.settings.darkMode = !activeData.settings.darkMode;
     }),
 
     toggleDarkMode: () => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
         if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = true;
+        activeData.settings.darkMode = !activeData.settings.darkMode;
     }),
 
     setAppState: (newStateObj) => set((state) => {
@@ -59,7 +59,7 @@ export const createSettingsSlice = (set) => ({
             ? nextState.activeId
             : fallbackActiveId;
 
-        const { history, ...otherState } = nextState;
+        const { history: _history, ...otherState } = nextState;
         Object.assign(state.appState, {
             ...otherState,
             contests: nextContests,
@@ -69,7 +69,7 @@ export const createSettingsSlice = (set) => ({
         state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
     }),
 
-    setData: (newDataCallback, shouldRecordHistory = true) => set((state) => {
+    setData: (newDataCallback, _shouldRecordHistory = true) => set((state) => {
         const contestId = state.appState.activeId;
         const currentData = state.appState.contests[contestId];
         if (!currentData) return;
@@ -82,8 +82,12 @@ export const createSettingsSlice = (set) => ({
             state.appState.contests[contestId] = nextData;
         }
 
+        const nowIso = new Date().toISOString();
+        if (state.appState.contests[contestId]) {
+            state.appState.contests[contestId].lastUpdated = nowIso;
+        }
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
