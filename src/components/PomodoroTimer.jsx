@@ -71,7 +71,7 @@ class PomodoroErrorBoundary extends React.Component {
     }
 }
 
-function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUpdateStudyTime, onExit, isLayoutLocked }) {
+function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUpdateStudyTime, onExit, isLayoutLocked, onSessionComplete }) {
 
     const safeSettings = useMemo(() => Object.freeze({
         pomodoroWork: settings?.pomodoroWork || 25,
@@ -114,7 +114,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const initialTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', initialTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
-    const [speed, setSpeed] = useState(1);
+    const [speed, setSpeed] = useState(() => getSavedState('speed', 1));
 
     // Refs de Controle e Performance
     const stateRefs = useRef({
@@ -229,7 +229,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         // em vez de timeLeft (React state), que pode ficar centenas de segundos atrasado
         // enquanto o timer está rodando, causando cálculo errado de minutos perdidos.
         prevTaskStateRef.current = { subject: activeSubject, accum: accumulatedMinutes, time: stateRefs.current.timeLeft, mode };
-    }, [activeSubject, accumulatedMinutes, timeLeft, mode, safeSettings.pomodoroWork, safeOnUpdateStudyTime]);
+    }, [activeSubject, accumulatedMinutes, mode, safeSettings.pomodoroWork, safeOnUpdateStudyTime]);
 
     // 🛡️ [SHIELD-04] Sincronização de Estado Local com o Store
     // Garante que o cronómetro reseta quando mudamos de tarefa ou modo via Sidebar/Store
@@ -298,7 +298,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (!el) return;
             if (i < currentSessions - 1) {
                 el.style.height = '100%';
-            } else if (i === currentSessions - 1 && currentMode === 'break') {
+            } else if (i === currentSessions - 1 && (currentMode === 'break' || currentMode === 'long_break')) {
                 el.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
             } else {
                 el.style.height = '0%';
@@ -455,6 +455,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 targetCycles: current.targetCycles,
                 completedCycles: current.completedCycles,
                 accumulatedMinutes: current.accumulatedMinutes,
+                speed: speedRef.current,
                 savedAt: Date.now(),
                 ...overrides
             };
@@ -522,6 +523,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
             // Passamos os minutos trabalhados para o Store persistir
             completePomodoroPhase(isManual, sessionMinutes);
+
+            if (typeof onSessionComplete === 'function') onSessionComplete();
 
             const newState = useAppStore.getState().appState.pomodoro;
             const resetTime = newState.mode === 'work' ? safeSettings.pomodoroWork * 60 : (newState.mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
@@ -597,6 +600,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     const workEl = workFillsRef.current[s - 1];
                     if (workEl) workEl.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
                 } else {
+                    // BUG-13/15 FIX: breakBallsRef tem targetCycles-1 elementos.
+                    // Para s === targetCycles (última sessão), índice s-1 não existe — guarded abaixo.
+                    // Inclui long_break: a última pausa longa também não tem bola DOM.
                     const breakEl = breakBallsRef.current[s - 1];
                     if (breakEl) breakEl.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
                 }
@@ -688,7 +694,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         if (currentMode === 'work') {
             if (workFillsRef.current[s - 1]) workFillsRef.current[s - 1].style.width = '100%';
         } else {
-            if (breakBallsRef.current[s - 1]) breakBallsRef.current[s - 1].style.height = '100%';
+            const breakEl = breakBallsRef.current[s - 1];
+            if (breakEl) breakEl.style.height = '100%';
         }
 
         transitionSession(currentMode, 'skip');
@@ -798,9 +805,11 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                     if (alarmAudioRef.current && alarmAudioRef.current.paused && alarmAudioRef.current.currentTime === 0) {
                                         alarmAudioRef.current.volume = 0;
                                         alarmAudioRef.current.play().then(() => {
-                                            alarmAudioRef.current.pause();
-                                            alarmAudioRef.current.currentTime = 0;
-                                            alarmAudioRef.current.volume = 1;
+                                            alarmAudioRef.current?.pause();
+                                            if (alarmAudioRef.current) {
+                                                alarmAudioRef.current.currentTime = 0;
+                                                alarmAudioRef.current.volume = 1;
+                                            }
                                         }).catch(() => { });
                                     }
 

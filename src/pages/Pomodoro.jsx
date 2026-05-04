@@ -284,7 +284,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     return (
         <Motion.div
             drag={!isPanelLocked}
-            dragMomentum={true}
+            dragMomentum={false}
             dragElastic={0.1}
             animate={uiPosition}
             onDragEnd={handleDragEnd}

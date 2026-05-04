@@ -159,7 +159,10 @@ export const createPomodoroSlice = (set, get) => ({
             } else if (p.sessions > 1) {
                 // Se está em trabalho, volta para a pausa da sessão anterior
                 p.sessions = Math.max(1, p.sessions - 1);
-                p.mode = 'break';
+                const longBreakAfter = settings.longBreakAfter || 4;
+                const prevCycles = p.completedCycles || 0;
+                p.mode = (prevCycles > 0 && prevCycles % longBreakAfter === 0)
+                    ? 'long_break' : 'break';
             } else if (p.completedCycles > 0) {
                 // Volta para a pausa do ciclo anterior
                 p.completedCycles = Math.max(0, p.completedCycles - 1);
