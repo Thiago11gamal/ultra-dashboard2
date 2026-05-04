@@ -660,7 +660,9 @@ const _buildSortedTopicsImpl = (category, simulados = [], maxScore = 100) => {
     const topics = Object.entries(topicMap).map(([name, data]) => {
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
-        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, maxScore) * 30 : 0;
+        // topicHistory.score está em escala percentual [0,100], então a regressão
+        // deve usar maxScore=100 para manter a inclinação corretamente calibrada.
+        const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
         let daysSince = 0;
         if (data.lastSeen.getTime() === 0) {
             daysSince = 60;
