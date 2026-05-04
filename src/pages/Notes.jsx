@@ -1,4 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
+import { safeClone } from '../store/safeClone';
 import React, { useMemo } from 'react';
 import TopicPerformance from '../components/TopicPerformance';
 import ParetoAnalysis from '../components/ParetoAnalysis';
@@ -22,7 +23,7 @@ export default function Notes() {
         if (!categories.length) return [];
 
         // FIX 5: Clone estrutural nativo (API de C++ do navegador)
-        const newCats = structuredClone(categories);
+        const newCats = safeClone(categories);
 
         newCats.forEach(cat => {
             const catNorm = normalize(cat.name);

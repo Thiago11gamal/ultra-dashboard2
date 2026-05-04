@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 
 import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
+import { safeClone } from '../store/safeClone';
 
 // Remove propriedades nulas/indefinidas de forma segura com proteção contra loops recursivos
 const cleanUndefined = (obj, seen = new WeakSet()) => {
@@ -667,7 +668,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     const safeTrash = (freshState.trash || []).slice(-20);
 
                     // SAFE UPLOAD: Purge non-serializable objects (Window, Events) + Truncate arrays
-                    const stateToSave = safeStructuredClone({
+                    const stateToSave = safeClone({
                         ...freshState,
                         contests: safeContests,
                         trash: safeTrash,

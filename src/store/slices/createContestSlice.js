@@ -1,5 +1,5 @@
-import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
+import { safeClone } from '../safeClone';
 
 export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {
@@ -26,7 +26,7 @@ export const createContestSlice = (set) => ({
 
     createNewContest: () => set((state) => {
         const newId = generateId('contest');
-        const initialClone = structuredClone(INITIAL_DATA);
+        const initialClone = safeClone(INITIAL_DATA);
         const newContestData = {
             ...initialClone,
             contestName: "Novo Concurso",
@@ -50,7 +50,7 @@ export const createContestSlice = (set) => ({
                 id: generateId('trash'),
                 type: 'contest',
                 contestId: contestId,
-                data: structuredClone(contestData),
+                data: safeClone(contestData),
                 deletedAt: new Date().toISOString()
             });
         }
@@ -58,7 +58,7 @@ export const createContestSlice = (set) => ({
         delete state.appState.contests[contestId];
         const remainingIds = Object.keys(state.appState.contests);
         if (remainingIds.length === 0) {
-            state.appState.contests['default'] = structuredClone(INITIAL_DATA);
+            state.appState.contests['default'] = safeClone(INITIAL_DATA);
             state.appState.activeId = 'default';
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];

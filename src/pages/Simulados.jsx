@@ -1,4 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
+import { safeClone } from '../store/safeClone';
 import React from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import { useAppStore } from '../store/useAppStore';
@@ -127,7 +128,7 @@ export default function Simulados() {
             const rawRows = payload.rawRows || [];
             
             // FIX 5: Clone estrutural nativo
-            const newCategories = structuredClone(Array.isArray(prev.categories) ? prev.categories : []);
+            const newCategories = safeClone(Array.isArray(prev.categories) ? prev.categories : []);
             let totalProcessedDisciplines = 0;
 
             const dataToProcess = analysisResult.disciplines || analysisResult;
