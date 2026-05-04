@@ -494,19 +494,19 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         let sessionMinutes = 0;
         if (completedMode === 'work') {
             if (!isManual) {
-                sessionMinutes = (safeSettings.pomodoroWork || 25);
+                sessionMinutes = Number((safeSettings.pomodoroWork || 25).toFixed(2));
             } else if (source === 'skip') {
                 // Regra UX: ao pular o último bloco de foco, conta o ciclo completo para avançar a fila.
                 if (isLastWorkSession) {
-                    sessionMinutes = (safeSettings.pomodoroWork || 25);
+                    sessionMinutes = Number((safeSettings.pomodoroWork || 25).toFixed(2));
                 } else {
                     const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                    sessionMinutes = Math.round(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
+                    sessionMinutes = Number((Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60).toFixed(2));
                 }
             }
         }
 
-        const finalMinutes = stateRefs.current.accumulatedMinutes + sessionMinutes;
+        const finalMinutes = Number(((stateRefs.current.accumulatedMinutes || 0) + (sessionMinutes || 0)).toFixed(2));
 
         if (isLastWorkSession && activeSubject) {
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);

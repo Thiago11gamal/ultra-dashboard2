@@ -80,7 +80,7 @@ function UrgencyBar({ score, cfg }) {
     );
 }
 
-export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
+export default function AICoachWidget({ suggestion }) {
     const [showMatrix, setShowMatrix] = useState(false);
     const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
 
