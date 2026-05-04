@@ -473,12 +473,27 @@ export default function Pomodoro() {
     const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
 
-    const resolveReturnPath = (source, forceDashboard) => {
+    const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
-        const fromRoute = String(source || '').replace(/^\/+/, '');
-        if (fromRoute === 'dashboard' || fromRoute === 'home') return '/';
-        if (fromRoute && fromRoute !== 'pomodoro') return `/${fromRoute}`;
-        return '/pomodoro';
+
+        const normalized = String(source || '').replace(/^\/+/, '');
+        if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
+            return '/pomodoro';
+        }
+        if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
+            return '/';
+        }
+        return `/${normalized}`;
+    };
+
+    const resolveSessionSource = (subjectSource) => {
+        const entry = String(entrySourceRef.current || '').replace(/^\/+/, '');
+        const subject = String(subjectSource || '').replace(/^\/+/, '');
+
+        // Se o fluxo foi aberto a partir do dashboard (incluindo botão vermelho),
+        // dashboard prevalece como origem de retorno.
+        if (entry === 'dashboard') return 'dashboard';
+        return subject || entry || 'pomodoro';
     };
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
@@ -574,25 +589,20 @@ export default function Pomodoro() {
     }, []);
 
     const handleExit = (options = {}) => {
+        const currentSource = options.source || resolveSessionSource(activeSubject?.source);
+
         if (activeSubject) {
             setData(prev => ({
                 ...prev,
-                // FIX: Adicionar "?." antes dos maps para evitar crash se a árvore não existir
                 categories: prev.categories?.map(c => c.id === activeSubject.categoryId ? {
                     ...c,
                     tasks: c.tasks?.map(t => t.id === activeSubject.taskId ? { ...t, status: undefined } : t)
                 } : c)
             }));
         }
+
         setPomodoroActiveSubject(null);
-        const fromRoute = String(location.state?.from || '').replace(/^\/+/, '');
-        const returnPath = options.forceDashboard
-            ? '/'
-            : fromRoute === 'dashboard'
-                ? '/'
-                : fromRoute && fromRoute !== 'pomodoro'
-                    ? `/${fromRoute}`
-                    : '/pomodoro';
+        const returnPath = resolveReturnPath(currentSource, Boolean(options.forceDashboard));
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     };
 
@@ -675,7 +685,7 @@ export default function Pomodoro() {
                 }
             }
 
-            const sourceAfterFinish = currentSubject.source || entrySourceRef.current;
+            const sourceAfterFinish = resolveSessionSource(currentSubject?.source);
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => {
                 const returnPath = resolveReturnPath(sourceAfterFinish, false);
