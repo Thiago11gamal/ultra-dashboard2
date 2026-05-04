@@ -12,8 +12,15 @@ export function safeClone(value, fallback = null) {
   } catch (error) {
     try {
       const seen = new WeakSet();
-      const sanitized = JSON.parse(JSON.stringify(value, (_key, val) => {
+      const sanitized = JSON.parse(JSON.stringify(value, (key, val) => {
         if (typeof val === 'function' || typeof val === 'symbol') return undefined;
+        
+        // Diagnóstico: Se o valor for Window ou Event, logamos a chave antes de remover
+        if (val === window || (val && val instanceof Event)) {
+          console.error(`[SafeClone-Diag] Objeto proibido (Window/Event) detectado na chave: "${key}". Removendo.`);
+          return undefined;
+        }
+
         if (typeof val === 'object' && val !== null) {
           if (seen.has(val)) return undefined;
           seen.add(val);
