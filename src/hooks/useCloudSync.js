@@ -221,6 +221,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const localIds = Object.keys(localContests);
  
         if (!options.nonDestructive) localIds.forEach(id => {
+            // NEVER trash the 'default' contest during automatic sync
+            if (id === 'default') return;
+
             if (!cloudContests[id]) {
                 const localTime = new Date(localContests[id]?.lastUpdated || 0).getTime();
                 
@@ -646,6 +649,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
                     if (lastSyncedRef.current === currentStateString) break;
 
+                    const SYNC_LOG_CAP = 300;
                     const safeguardContest = (contest) => {
                         if (!contest) return contest;
                         return {
@@ -662,11 +666,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
                     const safeTrash = (freshState.trash || []).slice(-20);
 
-                    const stateToSave = cleanUndefined({
+                    // SAFE UPLOAD: Purge non-serializable objects (Window, Events) + Truncate arrays
+                    const stateToSave = safeStructuredClone({
                         ...freshState,
                         contests: safeContests,
                         trash: safeTrash,
-                        history: [],
+                        history: [], // History slice is not synced
                         _lastBackup: new Date().toISOString()
                     });
 

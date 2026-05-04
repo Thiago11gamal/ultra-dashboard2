@@ -11,17 +11,18 @@ export const safeStructuredClone = (obj) => {
     } catch (err) {
         console.warn("[SafeClone] Objeto não-serializável detectado. Aplicando limpeza JSON.", err);
         
-        try {
-            // Fallback: Use JSON serialization to strip out non-serializable properties (functions, symbols, etc.)
-            // We use a replacer function to explicitly detect and remove dangerous objects like Window or Events.
-            return JSON.parse(JSON.stringify(obj, (key, value) => {
+            // Fallback: Use JSON serialization to strip out non-serializable properties
+            return JSON.parse(JSON.stringify(obj, function(key, value) {
                 if (value && typeof value === 'object') {
                     // Check for Window, Events, or DOM Nodes
-                    if (value === window || value instanceof Event || (value.nodeType && value.nodeName)) {
+                    const isDangerous = value === window || value instanceof Event || (value.nodeType && value.nodeName);
+                    
+                    if (isDangerous) {
+                        console.error(`[SafeClone-Diag] Objeto proibido detectado na chave: "${key}". Removendo para proteger a persistência.`);
                         return undefined;
                     }
                     
-                    // Protection against React internals that might leak during state updates
+                    // Protection against React internals
                     if (key === '_reactInternalInstance' || key === '_reactFiber' || key === 'ref') {
                         return undefined;
                     }
