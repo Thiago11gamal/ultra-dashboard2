@@ -164,12 +164,17 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const syncChannelRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
+    const cleanupTimeoutRef = useRef(null);
 
     useEffect(() => {
         return () => {
             if (transitionTimeoutRef.current) {
                 clearTimeout(transitionTimeoutRef.current);
                 transitionTimeoutRef.current = null;
+            }
+            if (cleanupTimeoutRef.current) {
+                clearTimeout(cleanupTimeoutRef.current);
+                cleanupTimeoutRef.current = null;
             }
         };
     }, []);
@@ -301,7 +306,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     case 'START_SESSION':
                         setIsRunning(true);
                         stateRefs.current.isRunning = true;
-                        if (incomingTime !== undefined) {
+                        if (Number.isFinite(incomingTime) && incomingTime >= 0) {
                             setTimeLeft(incomingTime);
                             stateRefs.current.timeLeft = incomingTime;
                         }
@@ -311,22 +316,22 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                     case 'PAUSE_SESSION':
                         setIsRunning(false);
                         stateRefs.current.isRunning = false;
-                        if (incomingTime !== undefined) {
+                        if (Number.isFinite(incomingTime) && incomingTime >= 0) {
                             setTimeLeft(incomingTime);
                             stateRefs.current.timeLeft = incomingTime;
                         }
                         break;
 
                     case 'SPEED_CHANGE':
-                        if (incomingSpeed !== undefined) {
-                            setSpeed(incomingSpeed);
-                            speedRef.current = incomingSpeed;
+                        if ([1, 10, 100].includes(Number(incomingSpeed))) {
+                            setSpeed(Number(incomingSpeed));
+                            speedRef.current = Number(incomingSpeed);
                         }
                         break;
 
                     case 'TARGET_CYCLES_CHANGE':
-                        if (incomingTarget !== undefined) {
-                            syncPomodoroState({ targetCycles: incomingTarget });
+                        if (Number.isFinite(incomingTarget)) {
+                            syncPomodoroState({ targetCycles: Math.max(1, Math.round(incomingTarget)) });
                         }
                         break;
 
@@ -354,7 +359,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                 });
 
                                 // Atualizamos as Refs e o Estado Local do Timer
-                                if (saved.timeLeft !== undefined) {
+                                if (Number.isFinite(saved.timeLeft) && saved.timeLeft >= 0) {
                                     setTimeLeft(saved.timeLeft);
                                     stateRefs.current.timeLeft = saved.timeLeft;
                                 }
@@ -668,7 +673,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         setAccumulatedMinutes(0);
         safeOnExit({ forceDashboard: true });
         // B-11 FIX: Remover localStorage por último para evitar race condition na persistência
-        setTimeout(() => {
+        cleanupTimeoutRef.current = setTimeout(() => {
             try { localStorage.removeItem('pomodoroState'); } catch (_) { }
         }, 100);
     };
