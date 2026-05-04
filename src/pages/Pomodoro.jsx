@@ -652,18 +652,11 @@ export default function Pomodoro() {
                 }
             }
 
-            const isFromDashboard = currentSubject.source === 'dashboard';
-            if (isFromDashboard) {
-                if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                completionTimeoutRef.current = setTimeout(() => { 
-                    showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
-                    handleExit(); 
-                }, 1000);
-                return;
-            }
-
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 1000);
+            completionTimeoutRef.current = setTimeout(() => {
+                showToast('Sessão concluída. Retornando ao Dashboard...', 'info');
+                handleExit({ forceDashboard: true });
+            }, 1000);
         } else {
             handleExit();
         }
