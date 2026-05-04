@@ -270,13 +270,13 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             breakBallsRef.current = breakBallsRef.current.slice(0, targetCycles);
         }
     }, [targetCycles]);
- 
+
     // 🛡️ [SHIELD-SYNC-DOM] Sincronização Forçada do DOM (B-14 FIX)
     // Garante que as barras tenham o tamanho correto ao carregar ou trocar de fase, 
     // mesmo que o cronómetro esteja parado (loop RAF inativo).
     React.useLayoutEffect(() => {
         if (!isMountedRef.current) return;
-        
+
         const currentMode = stateRefs.current.mode;
         const currentSessions = stateRefs.current.sessions;
         const currentTime = stateRefs.current.timeLeft;
@@ -544,7 +544,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             } catch (_) { }
 
             isTransitioningRef.current = false;
-            
+
             if (isEndingCycle) {
                 // B-08 FIX: Passar flag de conclusão natural
                 safeOnFullCycleComplete(finalMinutes, source === 'natural');
@@ -680,7 +680,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const skip = () => {
         if (isTransitioningRef.current) return;
         if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
-        
+
         // B-10 FIX: Usar refs para evitar estado "stale" do React durante skip
         const s = stateRefs.current.sessions;
         const currentMode = stateRefs.current.mode;
