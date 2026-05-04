@@ -60,6 +60,12 @@ export default function Coach() {
     const { isPremium } = useSubscription(userProfile);
 
     const [activeTab, setActiveTab] = useState('insights');
+
+    useEffect(() => {
+        if (activeTab !== "insights" && activeTab !== "analytics") {
+            setActiveTab("insights");
+        }
+    }, [activeTab]);
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const [coachLoading, setCoachLoading] = useState(false);
     const [suggestedFocus, setSuggestedFocus] = useState(null);

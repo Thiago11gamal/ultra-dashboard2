@@ -568,7 +568,7 @@ export default function EvolutionChart({
         };
     };
 
-    const engine = ENGINES.find((e) => e.id === activeEngine);
+    const engine = ENGINES.find((e) => e.id === activeEngine) || ENGINES[0];
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -592,6 +592,7 @@ export default function EvolutionChart({
         <div id="evolution-chart-container" className="space-y-10 animate-fade-in relative">
             <div className="flex justify-end mb-6 relative z-20 no-print pr-1">
                 <button
+                    type="button"
                     onClick={handleExport}
                     disabled={isExporting}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50"
@@ -651,6 +652,7 @@ export default function EvolutionChart({
                             const active = activeEngine === eng.id;
                             return (
                                 <button
+                                    type="button"
                                     key={eng.id}
                                     onClick={() => setActiveEngine(eng.id)}
                                     className={`shrink-0 group flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] sm:text-[12px] font-black tracking-tight transition-all duration-300 border ${active
@@ -691,14 +693,14 @@ export default function EvolutionChart({
                     <div className="flex items-center justify-between gap-1 bg-slate-950/60 border border-slate-800/70 rounded-xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto">
                         <span className="text-[9px] sm:text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2 shrink-0">Período</span>
                         {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
-                            <button key={w.value} onClick={() => setTimeWindow(w.value)}
+                            <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
                                 className={`shrink-0 flex-1 sm:flex-none px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${timeWindow === w.value ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}>
                                 {w.label}
                             </button>
                         ))}
                     </div>
 
-                    <button onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                    <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
                         className={`shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold border transition-all w-full sm:w-auto min-w-0 ${showOnlyFocus ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-900/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
                         <span>{showOnlyFocus ? '🔍' : '👁'}</span>
                         <span className="truncate block max-w-[200px] sm:max-w-full">
