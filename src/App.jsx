@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
@@ -101,24 +101,9 @@ function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
-  const [isStoreHydrated, setIsStoreHydrated] = useState(() => useAppStore.persist.hasHydrated());
-
-  useEffect(() => {
-    const unsubHydrate = useAppStore.persist.onHydrate(() => {
-      setIsStoreHydrated(false);
-    });
-
-    const unsubFinishHydration = useAppStore.persist.onFinishHydration(() => {
-      setIsStoreHydrated(true);
-    });
-
-    setIsStoreHydrated(useAppStore.persist.hasHydrated());
-
-    return () => {
-      unsubHydrate();
-      unsubFinishHydration();
-    };
-  }, []);
+  
+  // Flag reativa da Store para garantir hidratação atômica
+  const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
 
   // Auto-save pipeline
   const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
