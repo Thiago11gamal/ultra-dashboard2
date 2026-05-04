@@ -86,7 +86,7 @@ export default function EvolutionChart({
     }, [categories, focusSubjectId]);
 
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
-    const mcWeights = useAppStore(state => state.appState.contests[state.appState.activeId]?.mcWeights || {});
+    const mcWeights = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || {});
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
     const { runAnalysis } = useMonteCarloWorker();
     const [mcLoading, setMcLoading] = useState(false);

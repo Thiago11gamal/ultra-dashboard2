@@ -108,7 +108,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
-    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
     const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || {};
