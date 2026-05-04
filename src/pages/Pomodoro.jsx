@@ -241,6 +241,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         const remaining = Math.max(total - completed, 0);
         const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
         const quality = completionPct >= 75 ? 'ótimo' : completionPct >= 45 ? 'mediano' : 'baixo';
+        const hitRate = completionPct;
+        const missRate = Math.max(0, 100 - completionPct);
+        const highPriorityCount = categoryTasks.filter(t => t.priority === 'high' && !t.completed).length;
 
         const whySelected = activeSubject.priority === 'high'
             ? 'prioridade alta com maior impacto no avanço da categoria'
@@ -250,7 +253,16 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             ? `Finalize mais ${Math.min(remaining, 2)} tarefa(s) para acelerar o ganho percentual.`
             : 'Categoria praticamente concluída, ótimo momento para revisar.';
 
-        return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText };
+        const statusVariants = [
+            `Curiosidade: você já converteu ${hitRate}% desta categoria em progresso real.`,
+            `Leitura rápida: hoje o equilíbrio está em ${hitRate}% de avanço e ${missRate}% para recuperar.`,
+            `Radar tático: existem ${highPriorityCount} ponto(s) de alta prioridade ainda em aberto.`,
+            `Se concluir este bloco, a curva tende a subir cerca de +${gainIfComplete}% no total da categoria.`
+        ];
+        const variantSeed = String(activeSubject.taskId || activeSubject.task || '').length + completed + total;
+        const statusLine = statusVariants[variantSeed % statusVariants.length];
+
+        return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText, hitRate, missRate, statusLine };
     }, [activeSubject, categories]);
 
     return (
@@ -298,6 +310,10 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </p>
                     <p className="text-[11px] text-slate-300 mt-2">
                         Nível atual: <strong className="text-white">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
+                        <br />
+                        <span className="text-cyan-200/90">{activeTaskStats.statusLine}</span>
+                        <br />
+                        Acerto estimado: <strong className="text-white">{activeTaskStats.hitRate}%</strong> • Faixa a melhorar: <strong className="text-white">{activeTaskStats.missRate}%</strong>
                     </p>
                 </div>
             )}
