@@ -99,14 +99,14 @@ const idbStorage = {
 export const useAppStore = create(
     persist(
         temporal(
-            immer((set, get) => ({
-                appState: {
+            immer((s                appState: {
                     contests: { 'default': structuredClone(INITIAL_DATA) },
                     activeId: 'default',
                     trash: [],
                     version: 0,
                     dashboardFilter: 'all',
                     hasSeenTour: false,
+                    isHydrated: false, // Flag reativa de hidratação
                     pomodoro: { 
                         activeSubject: null, 
                         sessions: 1, 
@@ -128,7 +128,7 @@ export const useAppStore = create(
                 // BUG-01 FIX: setData is defined exclusively in createSettingsSlice.js
                 // (spread below). Removed the duplicate definition that was silently
                 // overridden and used a different contract (mutation-only vs return-object).
-
+ 
                 // 🎯 DATA LEAK PROTECTION: Limpeza absoluta da RAM no Logout.
                 resetStore: () => {
                     localStorage.removeItem('pomodoroState');
@@ -155,12 +155,15 @@ export const useAppStore = create(
                                 neuralMode: false
                             },
                             lastUpdated: "1970-01-01T00:00:00.000Z",
+                            isHydrated: true,
                             settings: settings // Preserva o tema escolhido
                         };
                     });
                     
                     // FIX: Purgar o histórico de Undo/Redo para impedir vazamento de dados
                     useAppStore.temporal.getState().clear();
+                },
+;
                 },
 
                 // Injetar os Slices
