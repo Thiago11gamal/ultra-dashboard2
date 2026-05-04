@@ -118,7 +118,7 @@ export default function EvolutionChart({
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 0;
+        return diffDays > 0 ? diffDays : 1;
     }, [goalDate]);
 
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
@@ -175,7 +175,7 @@ export default function EvolutionChart({
     const historyArray = focusCategory?.simuladoStats?.history ?? EMPTY_ARRAY;
     const historyHash = useMemo(() =>
         historyArray.map(h => `${h?.date || 'nodate'}:${h?.score ?? h?.correct ?? 0}`).join('|'),
-        [focusCategory?.id, historyArray]
+        [historyArray]
     );
 
     useEffect(() => {
@@ -226,9 +226,10 @@ export default function EvolutionChart({
                 const nextDate = new Date(lastDate);
                 nextDate.setDate(nextDate.getDate() + projectDays);
 
-                const p50 = parseFloat(result.projectedMean || result.mean);
-                const lo = parseFloat(result.ci95Low);
-                const hi = parseFloat(result.ci95High);
+                const clampScore = (v) => Math.min(maxScore, Math.max(minScore, v));
+                const p50 = clampScore(parseFloat(result.projectedMean || result.mean));
+                const lo = clampScore(parseFloat(result.ci95Low));
+                const hi = clampScore(parseFloat(result.ci95High));
 
                 if (!Number.isFinite(p50) || !Number.isFinite(lo) || !Number.isFinite(hi)) return;
 
@@ -349,7 +350,6 @@ export default function EvolutionChart({
     }, [categories, showOnlyFocus, focusSubjectId, maxScore]);
 
     const getInsight = () => {
-        const defaultIcon = "🤖";
         const defaultTitle = "Análise do Sistema";
 
         if (!timeline.length || !focusCategory) {
