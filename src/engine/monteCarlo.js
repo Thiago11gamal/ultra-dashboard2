@@ -230,10 +230,12 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             ...options,
         };
 
-        const history = values.map((score, index) => ({
-            score: Number(score) || 0,
-            date: dates[index] || new Date().toISOString().slice(0, 10)
-        }));
+        const history = values
+            .map((score, index) => ({
+                score: Number(score),
+                date: dates[index] || new Date().toISOString().slice(0, 10)
+            }))
+            .filter((row) => Number.isFinite(row.score));
 
         return monteCarloSimulation(history, resolvedTarget, projectionDays, simulations, mergedOptions);
     }
