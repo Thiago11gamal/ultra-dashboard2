@@ -578,8 +578,10 @@ export default function Pomodoro() {
 
     const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
         const sessionId = forcedSessionId || Date.now().toString();
+        const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
+        const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
         
-        if (source === 'neural_core' && !useAppStore.getState().appState?.pomodoro?.neuralMode) {
+        if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
                 (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
@@ -603,7 +605,7 @@ export default function Pomodoro() {
                 category: task.catName || task.category,
                 task: task.text || task.title || 'Estudo',
                 priority: task.priority,
-                source: source,
+                source: effectiveSource,
                 sessionInstanceId: sessionId
             });
         }
@@ -614,7 +616,7 @@ export default function Pomodoro() {
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
 
-        if (!wasNatural) {
+        if (!wasNatural && !(neuralMode || currentSubject?.source === 'neural_core')) {
             showToast('Sessão pulada. Salvando progresso e retornando...', 'info');
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 400);
