@@ -125,6 +125,18 @@ export default function EvolutionChart({
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
 
+    useEffect(() => {
+        if (!ENGINES.some((engine) => engine.id === activeEngine)) {
+            setActiveEngine("bayesian");
+        }
+    }, [activeEngine]);
+
+    useEffect(() => {
+        if (!["30", "60", "90", "all"].includes(timeWindow)) {
+            setTimeWindow("all");
+        }
+    }, [timeWindow]);
+
     // B-13 & P0 FIX: Removido useEffect que causava re-render duplo.
     // A validação do foco agora é feita de forma reativa no useMemo abaixo.
 

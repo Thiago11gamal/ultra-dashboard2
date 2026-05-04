@@ -261,7 +261,7 @@ function MainLayout() {
                   onExport={handleExport}
                   onImport={handleImport}
 
-                  onToggleSidebar={() => setIsSidebarOpen(true)}
+                  onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
                   sidebarCollapsed={sidebarCollapsed}
                   setSidebarCollapsed={setSidebarCollapsed}
                   onOpenTrash={() => setTrashOpen(true)}
