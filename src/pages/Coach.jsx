@@ -107,8 +107,9 @@ export default function Coach() {
         if (now - lastPersistRef.current < 500) return;
         lastPersistRef.current = now;
 
-        const avgBrier = Number(metric.avgBrier) || 0;
-        const isDegraded = avgBrier >= CRITICAL_BRIER_THRESHOLD;
+        const hasBrier = Number.isFinite(Number(metric.avgBrier));
+        const avgBrier = hasBrier ? Number(metric.avgBrier) : null;
+        const isDegraded = hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD;
 
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
@@ -125,15 +126,16 @@ export default function Coach() {
             const nextHistory = [...cleaned, metric].slice(-60);
 
             const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (Date.now() - 1000 * 60 * 60 * 24 * 7));
-            const avgBrier7d = recent7.length > 0
-                ? recent7.reduce((acc, item) => acc + (Number(item?.avgBrier) || 0), 0) / recent7.length
-                : 0;
+            const recent7Brier = recent7.map(item => Number(item?.avgBrier)).filter(Number.isFinite);
+            const avgBrier7d = recent7Brier.length > 0
+                ? recent7Brier.reduce((acc, val) => acc + val, 0) / recent7Brier.length
+                : null;
 
             const calibrationOps = {
                 ...(prev.calibrationOps || {}),
                 [metric.categoryId]: {
                     categoryName: metric.categoryName,
-                    avgBrier7d: Number(avgBrier7d.toFixed(4)),
+                    avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                     sample7d: recent7.length,
                     degraded: isDegraded,
                     updatedAt: Date.now()
@@ -142,7 +144,7 @@ export default function Coach() {
 
             const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
                 ...metric,
-                avgBrier7d: Number(avgBrier7d.toFixed(4)),
+                avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                 degraded: isDegraded,
                 source: 'coach'
             }].slice(-500);
@@ -174,7 +176,7 @@ export default function Coach() {
             }
             const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${avgBrier.toFixed(2)}).`, 'warning');
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
                 calibrationAlertCache.set(metric.categoryId, now);
                 if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
                     const oldestKey = calibrationAlertCache.keys().next().value;
@@ -500,7 +502,7 @@ function RaioXDashboard({ data }) {
                             <div key={id} className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between px-4">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-xs font-bold text-white truncate">{displaySubject(op.categoryName || id)}</p>
-                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Calibração 7d (Brier): {op.avgBrier7d.toFixed(3)}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter pl-2.5">Calibração 7d (Brier): {Number.isFinite(Number(op.avgBrier7d)) ? Number(op.avgBrier7d).toFixed(3) : "N/A"}</p>
                                 </div>
                                 <div className={`shrink-0 ml-4 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                     {op.degraded ? 'Degradado' : 'Estável'}
@@ -569,8 +571,8 @@ function RaioXDashboard({ data }) {
                                 <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
                                     <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{formatDateTimePtBR(log.timestamp)}</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
-                                    <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
+                                    <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
                                     <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">
                                         {log.calibrationPenalty > 0 ? `-${Math.round(log.calibrationPenalty * 100)}% (shrink)` : '-'}
                                     </td>
