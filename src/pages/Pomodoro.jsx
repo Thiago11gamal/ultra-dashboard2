@@ -573,7 +573,7 @@ export default function Pomodoro() {
                 : fromRoute && fromRoute !== 'pomodoro'
                     ? `/${fromRoute}`
                     : '/pomodoro';
-        navigate(returnPath);
+        navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     };
 
     const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
