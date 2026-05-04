@@ -164,6 +164,15 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
     const syncChannelRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
+
+    useEffect(() => {
+        return () => {
+            if (transitionTimeoutRef.current) {
+                clearTimeout(transitionTimeoutRef.current);
+                transitionTimeoutRef.current = null;
+            }
+        };
+    }, []);
     const showToast = useToast();
 
     // 🟢 CÓDIGO NOVO 1: Controlo de Montagem para evitar Race Conditions
@@ -366,7 +375,12 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             console.warn('[Pomodoro] BroadcastChannel not supported:', e);
         }
         return () => {
-            try { syncChannelRef.current?.close(); } catch (_) { }
+            try {
+                if (syncChannelRef.current) {
+                    syncChannelRef.current.onmessage = null;
+                    syncChannelRef.current.close();
+                }
+            } catch (_) { }
         };
     }, [showToast, syncPomodoroState]);
 
