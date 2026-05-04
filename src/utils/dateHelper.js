@@ -1,6 +1,7 @@
 /**
  * Centralized date utilities for consistency across the application.
  */
+export const APP_TIMEZONE = 'America/Manaus';
 
 export const getDateKey = (rawDate) => {
     if (!rawDate) return null;
@@ -34,6 +35,7 @@ export const getDateKey = (rawDate) => {
     // independentemente de onde o utilizador esteja geograficamente.
     try {
         const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: APP_TIMEZONE,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'
@@ -127,4 +129,44 @@ export const formatDuration = (decimalHours) => {
     const hours = Math.floor(decimalHours || 0);
     const minutes = Math.round(((decimalHours || 0) - hours) * 60);
     return `${hours}h${String(minutes).padStart(2, '0')}`;
+};
+
+export const formatDatePtBR = (date) => {
+    try {
+        return new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        }).format(new Date(date));
+    } catch (_) {
+        return '--/--/----';
+    }
+};
+
+export const formatDateTimePtBR = (date) => {
+    try {
+        return new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(new Date(date));
+    } catch (_) {
+        return '--/--/---- --:--:--';
+    }
+};
+
+export const formatWeekdayShortPtBR = (date) => {
+    try {
+        return new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            weekday: 'short'
+        }).format(new Date(date)).replace('.', '').toUpperCase();
+    } catch (_) {
+        return '';
+    }
 };
