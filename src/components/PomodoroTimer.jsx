@@ -106,7 +106,6 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completedCycles = useAppStore(state => state.appState?.pomodoro?.completedCycles || 0);
     const accumulatedMinutes = useAppStore(state => state.appState?.pomodoro?.accumulatedMinutes || 0);
-    const setAccumulatedMinutes = useAppStore(state => state.setPomodoroAccumulatedMinutes);
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
     const rewindPomodoroPhase = useAppStore(state => state.rewindPomodoroPhase);
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
@@ -696,21 +695,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     };
 
     const handleManualExit = () => {
-        const current = stateRefs.current;
-        let finalMinutes = current.accumulatedMinutes;
-        if (current.mode === 'work') {
-            const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-            finalMinutes += Math.round(Math.max(0, totalWorkSeconds - current.timeLeft) / 60);
-        }
-        if (finalMinutes > 0 && activeSubject) {
-            safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
-        }
-        setAccumulatedMinutes(0);
-        safeOnExit({ forceDashboard: true });
-        // B-11 FIX: Remover localStorage por último para evitar race condition na persistência
-        cleanupTimeoutRef.current = setTimeout(() => {
-            try { localStorage.removeItem('pomodoroState'); } catch (_) { }
-        }, 100);
+        // Botão vermelho (estado inativo): apenas voltar ao Dashboard, sem processamento extra.
+        safeOnExit({ forceDashboard: true, source: 'dashboard_selector' });
     };
 
     const totalTime = mode === 'work' ? safeSettings.pomodoroWork * 60 : (mode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
