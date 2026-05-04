@@ -196,31 +196,31 @@ export const useAppStore = create(
             // NOVO: Roda nos bastidores antes do App.jsx montar
             onRehydrateStorage: () => {
                 return (state, error) => {
-                    // Em qualquer cenário, marca hidratação para evitar loader infinito.
+                    // Em caso de erro, libera a UI para mostrar estado vazio/erro em vez de travar
+                    if (error || !state) {
+                        useAppStore.setState((prev) => ({
+                            appState: { ...prev.appState, isHydrated: true }
+                        }));
+                        return;
+                    }
+ 
+                    // Resolução Síncrona do ActiveId para evitar Flash of Empty State (FOES)
+                    const appState = state.appState;
+                    const contestsList = Object.keys(appState.contests || {});
+                    let targetId = appState.activeId;
+                    
+                    if ((!targetId || !appState.contests[targetId]) && contestsList.length > 0) {
+                        targetId = contestsList[0];
+                    }
+
+                    // Atualização Atômica: ID e Hidratação juntos
                     useAppStore.setState((prev) => ({
                         appState: {
                             ...prev.appState,
+                            activeId: targetId,
                             isHydrated: true
                         }
                     }));
-
-                    if (error || !state) return;
- 
-                    // Agenda a atualização reativa para o próximo tick para evitar FOUC/crash
-                    setTimeout(() => {
-                        const currentStore = useAppStore.getState();
-                        const appState = currentStore.appState;
-                        const contestsList = Object.keys(appState.contests || {});
- 
-                        if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            useAppStore.setState((prev) => ({
-                                appState: {
-                                    ...prev.appState,
-                                    activeId: contestsList[0]
-                                }
-                            }));
-                        }
-                    }, 0);
                 };
             },
         }

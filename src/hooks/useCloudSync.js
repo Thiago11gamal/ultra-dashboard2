@@ -149,6 +149,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return { ...local, contests: cleanedContests };
         }
 
+        if (!cloud || typeof cloud !== 'object') {
+            return local;
+        }
+
         const localContests = local.contests || {};
         const cloudContests = cloud.contests || {};
         // --- Merge Contests ---

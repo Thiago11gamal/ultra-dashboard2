@@ -218,9 +218,26 @@ function MainLayout() {
 
 
   // ── Render Logic ──
+  if (!isStoreHydrated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617] gap-6">
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 bg-indigo-500/20 rounded-full animate-pulse" />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Ultra Dashboard</span>
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Iniciando Motor de Persistência...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
-      {(loading || subLoading || !isStoreHydrated) ? (
+      {(loading || subLoading) ? (
         <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
         </div>
