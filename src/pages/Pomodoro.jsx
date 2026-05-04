@@ -628,8 +628,9 @@ export default function Pomodoro() {
                 } else {
                     showToast('Todas as ações concluídas! 🏆', 'success');
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                    completionTimeoutRef.current = setTimeout(() => { 
-                        useAppStore.getState().setPomodoroActiveSubject(null); 
+                    completionTimeoutRef.current = setTimeout(() => {
+                        // Fluxo neural: apenas encerra a sessão, sem redirecionar para dashboard.
+                        useAppStore.getState().setPomodoroActiveSubject(null);
                     }, 1000);
                     return;
                 }
