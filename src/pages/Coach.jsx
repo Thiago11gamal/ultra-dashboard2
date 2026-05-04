@@ -44,6 +44,7 @@ export default function Coach() {
     }, [activeId]);
 
     const data = useAppStore(state => state.appState.contests[activeId]);
+    const isHydrated = useAppStore(state => state.appState.isHydrated);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const showToastRef = useRef(showToast); // FIX: Estabilização de referência para evitar loops
@@ -243,6 +244,7 @@ export default function Coach() {
         );
 
         setSuggestedFocus(result);
+        setIsAnalyzing(false);
 
         // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
         if (collectedMetrics.length > 0) {
@@ -328,13 +330,6 @@ export default function Coach() {
             }
         };
     }, []);
-
-    // FIX 2: Liberação baseada na prontidão dos dados em vez de timer cego
-    useEffect(() => {
-        if (suggestedFocus !== null && !coachLoading) {
-            setIsAnalyzing(false);
-        }
-    }, [suggestedFocus, coachLoading]);
 
     if (isAnalyzing || !data || !data.categories) {
         return (
