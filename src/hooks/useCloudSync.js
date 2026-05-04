@@ -137,7 +137,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // BUGFIX: Ignore malformed/legacy cloud payloads that don't contain the
         // canonical `contests` tree. Treating such payload as authoritative was
         // causing local panels to disappear on refresh (deletion sync branch).
-        const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object');
+        // Added check for Object.keys.length > 0 to prevent "phantom wipes" during Firebase init.
+        const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object' && Object.keys(cloud.contests).length > 0);
         if (!cloudHasContestsTree) {
             logger.warn('[Sync] Payload da nuvem sem `contests` válido. Mantendo estado local para evitar perda visual de dados.');
             if (!local?.contests) return local;
