@@ -253,10 +253,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             mergedContests[id] = deduplicateCategoryNames(mergedContests[id]);
         });
 
-        const isLocalIdValid = local.activeId && mergedContests[local.activeId];
+        const mergedContestIds = Object.keys(mergedContests);
+        const isLocalIdValid = !!(local.activeId && mergedContests[local.activeId]);
+        const isCloudIdValid = !!(cloud.activeId && mergedContests[cloud.activeId]);
+        const fallbackActiveId = mergedContestIds[0] || 'default';
         const activeId = isLocalIdValid
             ? local.activeId
-            : (cloud.activeId && mergedContests[cloud.activeId] ? cloud.activeId : local.activeId);
+            : (isCloudIdValid ? cloud.activeId : fallbackActiveId);
 
         // BUG FIX: Spread order must respect temporal superiority.
         // If cloud is newer, it should provide the base for top-level fields (filter, pomodoro, etc.)
@@ -705,8 +708,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     const forcePull = () => {
         if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
-            setAppState(prev => mergeAppState(prev, latestCloudDataRef.current));
-            lastSyncedRef.current = stateStringForSync(latestCloudDataRef.current);
+            const merged = mergeAppState(useAppStore.getState().appState, latestCloudDataRef.current);
+            setAppState(() => merged);
+            lastSyncedRef.current = stateStringForSync(merged);
             setHasConflict(false);
             if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
         }
