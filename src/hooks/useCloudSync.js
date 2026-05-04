@@ -682,13 +682,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     const safeTrash = (freshState.trash || []).slice(-20);
 
                     // SAFE UPLOAD: Purge non-serializable objects (Window, Events) + Truncate arrays
-                    const stateToSave = safeClone({
+                    const stateToSave = cleanUndefined(safeClone({
                         ...freshState,
                         contests: safeContests,
                         trash: safeTrash,
                         history: [], // History slice is not synced
                         _lastBackup: new Date().toISOString()
-                    });
+                    }));
 
                     logger.debug(`[Sync] Tentativa ${attempt + 1}/${MAX_RETRIES} para Master-Save...`);
                     await setDoc(doc(db, 'backups', currentUser.uid), stateToSave);
