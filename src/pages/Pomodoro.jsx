@@ -234,7 +234,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.02, zIndex: 100 }}
-            className={`hidden xl:flex flex-col w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full xl:w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-1">
                 {!isPanelLocked && (
@@ -471,6 +471,15 @@ export default function Pomodoro() {
     const currentSessions = useAppStore(state => state.appState?.pomodoro?.sessions ?? 0);
     const neuralMode = useAppStore(state => state.appState?.pomodoro?.neuralMode);
     const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
+    const entrySourceRef = useRef(location.state?.from || 'pomodoro');
+
+    const resolveReturnPath = (source, forceDashboard) => {
+        if (forceDashboard) return '/';
+        const fromRoute = String(source || '').replace(/^\/+/, '');
+        if (fromRoute === 'dashboard' || fromRoute === 'home') return '/';
+        if (fromRoute && fromRoute !== 'pomodoro') return `/${fromRoute}`;
+        return '/pomodoro';
+    };
 
     const [isLayoutLocked, setIsLayoutLocked] = useState(() => {
         try {
@@ -656,7 +665,7 @@ export default function Pomodoro() {
                     showToast(`Sequenciando próxima meta do painel... ⚡`, 'info');
                     return;
                 } else {
-                    showToast('Todas as ações concluídas! 🏆', 'success');
+                    showToast('Todas as ações concluídas! Progresso salvo. 🏆', 'success');
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
                     completionTimeoutRef.current = setTimeout(() => {
                         // Fluxo neural: apenas encerra a sessão, sem redirecionar para dashboard.
@@ -666,17 +675,18 @@ export default function Pomodoro() {
                 }
             }
 
-            const isFromDashboard = currentSubject.source === 'dashboard';
+            const sourceAfterFinish = currentSubject.source || entrySourceRef.current;
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => {
-                if (isFromDashboard) {
-                    showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
-                    handleExit({ forceDashboard: true }); 
-                } else {
-                    // Se iniciou no próprio painel Pomodoro, apenas encerra o sujeito ativo para permitir nova escolha sem sair da página
+                const returnPath = resolveReturnPath(sourceAfterFinish, false);
+                if (returnPath === '/pomodoro') {
                     showToast('Sessão finalizada! Selecione sua próxima meta.', 'info');
                     setPomodoroActiveSubject(null);
+                    return;
                 }
+
+                showToast('Sessão finalizada! Retornando ao menu de origem...', 'info');
+                handleExit({ source: sourceAfterFinish });
             }, 1000);
             return;
         } else {
