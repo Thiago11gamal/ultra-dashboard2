@@ -436,16 +436,20 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
         // o tempo deve ser salvo em ambos os casos (natural + skip), mas a callback de ciclo
         // completo (que auto-completa tarefa e avança queue neural) só dispara no natural.
         const isLastWorkSession = currentSessions >= currentTarget && stateRefs.current.mode === 'work';
-        const isEndingCycle = source === 'natural' && isLastWorkSession;
+        const isEndingCycle = isLastWorkSession && (source === 'natural' || source === 'skip');
 
         let sessionMinutes = 0;
         if (completedMode === 'work') {
             if (!isManual) {
                 sessionMinutes = (safeSettings.pomodoroWork || 25);
             } else if (source === 'skip') {
-                // BUG-08 FIX: Use Math.round directly instead of confusing +0.5 bias with floor
-                const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                sessionMinutes = Math.round(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
+                // Regra UX: ao pular o último bloco de foco, conta o ciclo completo para avançar a fila.
+                if (isLastWorkSession) {
+                    sessionMinutes = (safeSettings.pomodoroWork || 25);
+                } else {
+                    const totalWorkSeconds = safeSettings.pomodoroWork * 60;
+                    sessionMinutes = Math.round(Math.max(0, totalWorkSeconds - stateRefs.current.timeLeft) / 60);
+                }
             }
         }
 
