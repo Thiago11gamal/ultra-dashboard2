@@ -83,9 +83,12 @@ export function computeAdaptiveSignal(scores = []) {
     const sumW2 = weighted.reduce((a, b) => a + (b * b), 0);
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
 
-    const mean = finiteScores.reduce((a, b) => a + b, 0) / finiteScores.length;
-    const variance = finiteScores.reduce((acc, s) => acc + ((s - mean) ** 2), 0) / Math.max(1, finiteScores.length - 1);
-    const sd = Math.sqrt(Math.max(0, variance));
+    const weightedMean = finiteScores.reduce((acc, s, i) => acc + (s * weighted[i]), 0) / Math.max(1e-9, sumW);
+    const weightedVariance = finiteScores.reduce((acc, s, i) => {
+        const d = s - weightedMean;
+        return acc + (weighted[i] * d * d);
+    }, 0) / Math.max(1e-9, sumW);
+    const sd = Math.sqrt(Math.max(0, weightedVariance));
     const lastDelta = finiteScores.length >= 2
         ? finiteScores[finiteScores.length - 1] - finiteScores[finiteScores.length - 2]
         : 0;
