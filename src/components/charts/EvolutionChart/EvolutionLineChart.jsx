@@ -102,7 +102,7 @@ export function EvolutionLineChart({
             map[p.id] = p.yPos;
         });
         return map;
-    }, [finalPoints]);
+    }, [finalPoints, maxScore]);
 
     const renderCustomLabel = (props, catId, catColor) => {
         const { x, y, index, value, viewBox } = props;
