@@ -652,7 +652,7 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             safeOnUpdateStudyTime(activeSubject.categoryId, finalMinutes, activeSubject.taskId);
         }
         setAccumulatedMinutes(0);
-        safeOnExit();
+        safeOnExit({ forceDashboard: true });
         // B-11 FIX: Remover localStorage por último para evitar race condition na persistência
         setTimeout(() => {
             try { localStorage.removeItem('pomodoroState'); } catch (_) { }
