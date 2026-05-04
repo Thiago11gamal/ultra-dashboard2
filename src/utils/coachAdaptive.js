@@ -103,10 +103,21 @@ export function deriveBacktestWeights(scores = [], maxScore = 100) {
 export function simuladosToHistory(simulados, maxScore = 100) {
     return (simulados || [])
         .filter(s => s && (s.total > 0 || s.score != null))
-        .map(s => ({
-            score: getSafeScore(s, maxScore),
-            date: s.date
-        }));
+        .map((s, idx) => {
+            const parsed = Date.parse(s?.date || '');
+            return {
+                score: getSafeScore(s, maxScore),
+                date: Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null,
+                _idx: idx
+            };
+        })
+        .sort((a, b) => {
+            const ta = a.date ? Date.parse(a.date) : Number.POSITIVE_INFINITY;
+            const tb = b.date ? Date.parse(b.date) : Number.POSITIVE_INFINITY;
+            if (ta !== tb) return ta - tb;
+            return a._idx - b._idx;
+        })
+        .map(({ score, date }) => ({ score, date }));
 }
 
 const mcCache = new Map();
@@ -156,8 +167,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         for (let i = 0; i < token.length; i++) charSum += token.charCodeAt(i);
         return acc + ((idx + 1) * Math.round(score * 100)) + charSum;
     }, 0);
-    const firstDate = relevantSimulados[0]?.date || '';
-    const lastDate = relevantSimulados[relevantSimulados.length - 1]?.date || '';
+    const firstDate = history[0]?.date || '';
+    const lastDate = history[history.length - 1]?.date || '';
     const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
