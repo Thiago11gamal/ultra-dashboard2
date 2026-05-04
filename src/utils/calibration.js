@@ -24,7 +24,10 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, reliability: [] };
 
   const cleanPairs = pairs
-    .map((p) => ({ probability: Number(p?.probability), observed: Number(p?.observed) }))
+    .map((p) => ({
+      probability: Math.max(0, Math.min(1, Number(p?.probability))),
+      observed: Math.max(0, Math.min(1, Number(p?.observed)))
+    }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
   if (cleanPairs.length === 0) return { ece: 0, reliability: [] };
 
