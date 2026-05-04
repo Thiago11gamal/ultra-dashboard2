@@ -23,38 +23,55 @@ const DEBOUNCE_TIME = 500; // ms
 
 const idbStorage = {
     getItem: async (name) => {
-        const value = await idbGet(name);
-        if (value !== undefined) return value;
-
+        // --- SYNC ENGINE FIX: Comparação Atômica entre IDB e LocalStorage ---
+        // Se houver divergência (ex: refresh rápido antes do debounce do IDB), 
+        // escolhemos o storage que possuir a versão ou timestamp mais recente.
+        const idbValue = await idbGet(name);
         const localValue = localStorage.getItem(name);
-        if (localValue) {
-            try {
+
+        if (!idbValue && !localValue) return null;
+
+        // Se só existe em um deles, retorna o existente
+        if (!idbValue) return localValue;
+        if (!localValue) return idbValue;
+
+        // Se existem em ambos, precisamos decodificar e comparar versões
+        try {
+            const idbParsed = JSON.parse(idbValue);
+            const localParsed = JSON.parse(localValue);
+            
+            const idbVer = idbParsed?.state?.appState?.version || 0;
+            const localVer = localParsed?.state?.appState?.version || 0;
+            const idbTime = new Date(idbParsed?.state?.appState?.lastUpdated || 0).getTime();
+            const localTime = new Date(localParsed?.state?.appState?.lastUpdated || 0).getTime();
+
+            // Prioridade: Versão > Timestamp
+            if (localVer > idbVer || (localVer === idbVer && localTime > idbTime)) {
+                console.warn("[Storage] LocalStorage é mais recente que IDB. Recuperando backup.");
+                // Sincroniza IDB com o backup mais novo
                 await idbSet(name, localValue);
-                const confirmSave = await idbGet(name);
-                if (confirmSave !== undefined && confirmSave !== null && String(confirmSave).length > 5) {
-                    localStorage.removeItem(name); 
-                }
-                return localValue;
-            } catch (e) {
                 return localValue;
             }
+            
+            // Se o IDB for mais recente, remove o backup antigo do LocalStorage para limpar espaço
+            if (idbVer > localVer || idbTime > localTime + 10000) {
+                localStorage.removeItem(name);
+            }
+
+            return idbValue;
+        } catch (e) {
+            // Fallback para IDB em caso de erro de parsing
+            return idbValue;
         }
-        return null;
     },
     setItem: (name, value) => {
-        // --- PATCH: Backup síncrono imediato para não perder dados se o browser fechar ---
+        // --- PATCH: Backup síncrono imediato ---
         try {
             localStorage.setItem(name, value);
         } catch (e) {
-            // QuotaExceededError: localStorage full. IndexedDB is the primary store so this
-            // is non-fatal, but worth logging so the user can export data.
-            console.warn("[Storage] Fallback síncrono cheio/falhou.", e?.name);
-            if (e?.name === 'QuotaExceededError') {
-                window.dispatchEvent(new CustomEvent('ultra:storageQuotaExceeded'));
-            }
+            console.warn("[Storage] Backup síncrono falhou.", e?.name);
         }
 
-        // 🚀 OTIMIZAÇÃO: Debounce para evitar I/O excessivo no IndexedDB
         if (saveTimeout) clearTimeout(saveTimeout);
         
         saveTimeout = setTimeout(async () => {
@@ -62,17 +79,15 @@ const idbStorage = {
                 await idbSet(name, value);
                 saveTimeout = null;
             } catch (e) {
-                console.error("[Storage] Critical save failure:", e);
+                console.error("[Storage] Critical IDB save failure:", e);
             }
-        }, DEBOUNCE_TIME);
+        }, 100); // Reduzido para 100ms para maior agilidade em localhost
 
-        // BUG-12 FIX: Return a resolved Promise after the synchronous localStorage write.
-        // Zustand persist expects setItem to return a Promise. The debounced IDB write
-        // will complete asynchronously, but the sync backup guarantees data is recoverable.
         return Promise.resolve();
     },
     removeItem: async (name) => {
         if (saveTimeout) clearTimeout(saveTimeout);
+        localStorage.removeItem(name);
         try {
             await idbDel(name);
         } catch (e) {

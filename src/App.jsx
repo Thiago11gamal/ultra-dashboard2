@@ -130,19 +130,28 @@ function MainLayout() {
   // --- THEME SYNC ---
   useThemeSync(headerData.settings?.darkMode);
 
-  // --- RESCUE NOTIFICATION ---
+  // --- RESCUE NOTIFICATION & DASHBOARD RESCUE ---
   useEffect(() => {
     if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
       showToast('Dados de "Direito" recuperados do armazenamento profundo! 💎📚', 'success');
       delete window.__ULTRA_RESCUE_SUCCESS;
     }
-    // Clean-up para evitar vazamentos se o componente for desmontado rapidamente
+
+    // DASHBOARD RESCUE: If hydrated but activeId points to nowhere, pick the first available contest
+    if (isStoreHydrated && !headerData.exists) {
+      const keys = Object.keys(contestsMetaList || {});
+      if (keys.length > 0) {
+        console.warn("[Rescue] Concurso ativo inválido ou removido. Selecionando fallback:", keys[0]);
+        switchContest(keys[0]);
+      }
+    }
+
     return () => {
       if (typeof window !== 'undefined' && window.__ULTRA_RESCUE_SUCCESS) {
         delete window.__ULTRA_RESCUE_SUCCESS;
       }
     };
-  }, [showToast]);
+  }, [showToast, isStoreHydrated, headerData.exists, contestsMetaList, switchContest]);
 
   // Global Handlers
   const handleUndo = useCallback(() => {
