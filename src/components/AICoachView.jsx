@@ -152,18 +152,24 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         .map(([categoryId, history]) => {
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
-
+ 
             // Janela móvel baseada no último evento disponível da categoria para
             // manter o resumo consistente mesmo com histórico esparso.
-            const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, Number(h?.timestamp) || 0), 0);
+            const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, toFinite(h?.timestamp)), 0);
             const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
-            const recent = rows.filter(h => (h.timestamp || 0) >= sevenDaysAgo);
+            const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
-
-            const avgBrier = base.reduce((acc, h) => acc + (Number(h.avgBrier) || 0), 0) / base.length;
-            const avgPenalty = base.reduce((acc, h) => acc + (Number(h.calibrationPenalty) || 0), 0) / base.length;
+ 
+            const brierValues = base.map(h => Number(h?.avgBrier)).filter(Number.isFinite);
+            const penaltyValues = base.map(h => Number(h?.calibrationPenalty)).filter(Number.isFinite);
+            const avgBrier = brierValues.length > 0
+                ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length
+                : 0;
+            const avgPenalty = penaltyValues.length > 0
+                ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length
+                : 0;
             const label = rows[rows.length - 1]?.categoryName || categoryId;
-            return { categoryId, label, count: base.length, avgBrier, avgPenalty };
+            return { categoryId, label, count: Math.max(brierValues.length, penaltyValues.length), avgBrier, avgPenalty };
         })
         .filter(Boolean)
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
