@@ -114,16 +114,17 @@ export const createPomodoroSlice = (set, get) => ({
                 }
 
                 if (p.sessions >= targetCycles) {
-                    // Regra UX: se o plano tem apenas 1 ciclo, encerramos imediatamente
-                    // após o bloco de foco (sem abrir pausa de 5min).
+                    // O ciclo é contabilizado imediatamente ao concluir o último bloco de foco.
+                    const currentCycles = (p.completedCycles || 0) + 1;
+                    p.completedCycles = Math.min(targetCycles, currentCycles);
+
+                    // Regra UX: se o plano tem apenas 1 ciclo, encerramos imediatamente.
                     if (targetCycles === 1) {
-                        p.completedCycles = Math.min(targetCycles, (p.completedCycles || 0) + 1);
                         p.sessions = 1;
                         p.accumulatedMinutes = 0;
                         p.mode = 'work';
                     } else {
                         // Para planos multi-ciclo, mantém pausa normal/longa ao fechar o bloco final.
-                        const currentCycles = (p.completedCycles || 0) + 1;
                         const longBreakAfter = settings.longBreakAfter || 4;
                         const isLongBreak = (currentCycles % longBreakAfter === 0);
                         p.mode = isLongBreak ? 'long_break' : 'break';
@@ -134,7 +135,6 @@ export const createPomodoroSlice = (set, get) => ({
             } else {
                 // Fim da Pausa -> Próxima Sessão de Trabalho
                 if (p.sessions >= targetCycles) {
-                    p.completedCycles = Math.min(targetCycles, (p.completedCycles || 0) + 1);
                     p.sessions = 1;
                     p.accumulatedMinutes = 0;
                 } else {
