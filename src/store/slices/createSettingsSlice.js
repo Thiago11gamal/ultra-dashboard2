@@ -9,8 +9,13 @@ export const createSettingsSlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 
-    setDashboardFilter: (filter) => set((state) => {
-        state.appState.dashboardFilter = filter || 'all';
+    setDashboardFilter: (filterOrEvent) => set((state) => {
+        const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
+            ? filterOrEvent.target?.value
+            : filterOrEvent;
+        const nextFilter = typeof rawFilter === 'string' ? rawFilter : 'all';
+
+        state.appState.dashboardFilter = nextFilter || 'all';
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
