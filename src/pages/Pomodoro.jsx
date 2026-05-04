@@ -229,6 +229,30 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
     const topFiveTasks = highPriorityTasks.slice(0, 5);
 
+    const activeTaskStats = useMemo(() => {
+        if (!activeSubject) return null;
+
+        const currentCategory = (categories || []).find(c => c?.id === activeSubject.categoryId);
+        const categoryTasks = (currentCategory?.tasks || []).filter(Boolean);
+        const total = categoryTasks.length;
+        const completed = categoryTasks.filter(t => t.completed).length;
+        const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        const remaining = Math.max(total - completed, 0);
+        const gainIfComplete = total > 0 ? Number((100 / total).toFixed(1)) : 0;
+        const quality = completionPct >= 75 ? 'ótimo' : completionPct >= 45 ? 'mediano' : 'baixo';
+
+        const whySelected = activeSubject.priority === 'high'
+            ? 'prioridade alta com maior impacto no avanço da categoria'
+            : 'boa relação de progresso e esforço no plano atual';
+
+        const improveText = remaining > 0
+            ? `Finalize mais ${Math.min(remaining, 2)} tarefa(s) para acelerar o ganho percentual.`
+            : 'Categoria praticamente concluída, ótimo momento para revisar.';
+
+        return { total, completed, completionPct, gainIfComplete, quality, whySelected, improveText };
+    }, [activeSubject, categories]);
+
     return (
         <Motion.div
             drag={!isPanelLocked}
@@ -264,6 +288,19 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             <div className="h-[80px]" />
             <AICoachPanel activeSubject={activeSubject} stats={stats} />
+
+            {activeTaskStats && (
+                <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">Status do assunto atual</p>
+                    <p className="text-xs text-slate-200 leading-relaxed">
+                        Este assunto foi escolhido por {activeTaskStats.whySelected}. Progresso da categoria: <strong>{activeTaskStats.completionPct}%</strong> ({activeTaskStats.completed}/{activeTaskStats.total}).
+                        Ao finalizar este bloco, o ganho estimado é de <strong>+{activeTaskStats.gainIfComplete}%</strong> no avanço da categoria.
+                    </p>
+                    <p className="text-[11px] text-slate-300 mt-2">
+                        Nível atual: <strong className="text-white">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
+                    </p>
+                </div>
+            )}
 
             {recommendedTask && !activeSubject && (
                 <Motion.div
