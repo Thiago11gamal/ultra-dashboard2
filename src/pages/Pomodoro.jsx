@@ -288,7 +288,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </p>
 
                     <button
-                        onClick={() => onStartTask(recommendedTask, null, 'dashboard')}
+                        onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
                         className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden active:scale-95"
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
@@ -334,7 +334,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
-                                    onClick={() => onStartTask(task, null, 'pomodoro')}
+                                    onClick={() => onStartTask(task, null, 'neural_core')}
                                     className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 group text-left relative overflow-hidden ${isActive
                                         ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
                                         : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
