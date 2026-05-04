@@ -229,14 +229,14 @@ export default function Simulados() {
 
             const updatedSimulados = [...(prev.simulados || []), newSimuladoEvent].slice(-100);
 
-            // Commit atômico
-            setData({
-                ...prev,
+            // Commit atômico (functional updater para evitar sobrescrever mudanças concorrentes)
+            setData(current => ({
+                ...current,
                 categories: newCategories,
                 simuladoRows: validatedRows,
                 simulados: updatedSimulados,
                 lastUpdated: new Date().toISOString()
-            });
+            }));
 
             // Efeitos colaterais fora da mutação
             if (totalProcessedDisciplines > 0) {
