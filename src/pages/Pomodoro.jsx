@@ -227,6 +227,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
     const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
+    const topFiveTasks = highPriorityTasks.slice(0, 5);
 
     return (
         <Motion.div
@@ -261,10 +262,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 </button>
             </div>
 
-            <div className="h-[60px]" />
-
-            <AICoachPanel activeSubject={activeSubject} stats={stats} />
-
             {recommendedTask && !activeSubject && (
                 <Motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -297,6 +294,16 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         </span>
                         <ChevronRight size={18} className="relative z-10 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
+
+                    <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10">
+                                {recommendedTask.catIcon || '📚'}
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[150px]">{recommendedTask.catName}</span>
+                        </div>
+                        <span className="text-[9px] font-black text-indigo-400/70 tracking-widest uppercase">Eficácia Máxima</span>
+                    </div>
                 </Motion.div>
             )}
 
@@ -310,7 +317,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                     {pendingCount > 0 && (
                         <span className="text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg">
-                            {pendingCount} Pendentes
+                            Mostrando 5 próximas • {pendingCount} pendentes
                         </span>
                     )}
                 </div>
@@ -325,7 +332,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-3 custom-scrollbar">
-                        {highPriorityTasks.filter(Boolean).map((task, idx) => {
+                        {topFiveTasks.filter(Boolean).map((task, idx) => {
                             const taskId = task.id || task.text;
                             const isActive = activeSubject?.taskId === taskId;
                             return (
@@ -353,11 +360,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                             {task.text || task.title}
                                         </p>
                                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-60">{task.catName}</p>
+                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${isActive ? 'text-amber-400/90' : 'text-cyan-400/80'}`}>{isActive ? 'Rodando agora' : `Próxima ação #${idx + 1}`}</p>
                                     </div>
                                     {isActive ? (
                                         <div className="flex flex-col items-center gap-1">
                                             <Flame size={16} className="text-amber-400 animate-bounce" />
-                                            <span className="text-[7px] font-black text-amber-500 uppercase">Ativo</span>
+                                            <span className="text-[7px] font-black text-amber-500 uppercase">Em execução</span>
                                         </div>
                                     ) : (
                                         <div className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
