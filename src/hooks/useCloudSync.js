@@ -134,6 +134,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
         if (!local) return cloud;
 
+        // BUGFIX: Ignore malformed/legacy cloud payloads that don't contain the
+        // canonical `contests` tree. Treating such payload as authoritative was
+        // causing local panels to disappear on refresh (deletion sync branch).
+        const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object');
+        if (!cloudHasContestsTree) {
+            logger.warn('[Sync] Payload da nuvem sem `contests` válido. Mantendo estado local para evitar perda visual de dados.');
+            if (!local?.contests) return local;
+            const cleanedContests = { ...local.contests };
+            Object.keys(cleanedContests).forEach(id => {
+                cleanedContests[id] = deduplicateCategoryNames(cleanedContests[id]);
+            });
+            return { ...local, contests: cleanedContests };
+        }
+
         const localContests = local.contests || {};
         const cloudContests = cloud.contests || {};
         // --- Merge Contests ---
