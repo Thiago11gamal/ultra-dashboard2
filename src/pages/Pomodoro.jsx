@@ -196,7 +196,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
             const normalizedQueue = (neuralQueue || []).filter(Boolean);
             const currentIndex = normalizedQueue.findIndex(t => (t.id || t.text) === currentTaskId);
-            const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex + 1) : normalizedQueue;
+            const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex) : normalizedQueue;
 
             return pendingQueue.map(t => ({
                 ...t,
@@ -226,6 +226,8 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
         return tasks;
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
+    const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
+
     return (
         <Motion.div
             drag={!isPanelLocked}
@@ -251,11 +253,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     type="button"
                     onClick={toggleLock}
                     className={`p-3 rounded-2xl transition-all duration-300 shadow-2xl backdrop-blur-xl border ${isPanelLocked
-                        ? 'bg-slate-900/60 text-slate-500 border-white/5 hover:border-white/20 hover:text-slate-300'
-                        : 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/40'
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                         }`}
                 >
-                    {isPanelLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                    {isPanelLocked ? <Lock size={16} /> : <Unlock size={16} />}
                 </button>
             </div>
 
@@ -265,42 +267,36 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             {recommendedTask && !activeSubject && (
                 <Motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="mb-6 group/rec relative bg-[#0d0e1a] border border-indigo-500/20 rounded-xl p-7 backdrop-blur-2xl overflow-hidden shadow-2xl"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 via-slate-900/80 to-slate-900 border border-indigo-500/30 shadow-[0_20px_50px_rgba(79,70,229,0.15)] relative overflow-hidden group/card"
                 >
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
-
-                    <div className="flex items-center justify-between mb-5 gap-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 flex items-center gap-2 truncate">
-                            <Zap size={12} className="fill-indigo-400 shrink-0" /> <span className="truncate">Prioridade de ROI</span>
-                        </p>
-                        <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black text-indigo-300 uppercase tracking-widest shrink-0">
-                            Ideal para Fluxo
-                        </div>
+                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover/card:scale-110 transition-transform">
+                        <Zap size={48} className="text-indigo-400" />
                     </div>
 
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="px-3 py-1 rounded-lg bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30">Recomendado</span>
+                        <div className="flex-1 h-[1px] bg-gradient-to-r from-indigo-500/30 to-transparent" />
+                    </div>
+
+                    <h3 className="text-lg font-black text-white mb-2 leading-tight tracking-tight">
+                        {recommendedTask.text || recommendedTask.title}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mb-6 font-medium leading-relaxed max-w-[80%]">
+                        Baseado na sua última performance, esta meta oferece a melhor janela de retenção neural agora.
+                    </p>
+
                     <button
-                        type="button"
-                        onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
-                        className={`w-full relative group/btn bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 overflow-hidden ${(recommendedTask?.id || recommendedTask?.text) === activeSubject?.taskId ? 'ring-2 ring-amber-400/50' : ''}`}
+                        onClick={() => onStartTask(recommendedTask, null, 'dashboard')}
+                        className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden active:scale-95"
                     >
-                        <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                        <span className="truncate relative z-10">
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                        <span className="relative z-10">
                             INICIAR: {recommendedTask.text || recommendedTask.title || 'Mestra'}
                         </span>
                         <ChevronRight size={18} className="relative z-10 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
-
-                    <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] bg-white/5 border border-white/10">
-                                {recommendedTask.catIcon || '📚'}
-                            </div>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[150px]">{recommendedTask.catName}</span>
-                        </div>
-                        <span className="text-[9px] font-black text-indigo-400/70 tracking-widest uppercase">Eficácia Máxima</span>
-                    </div>
                 </Motion.div>
             )}
 
@@ -312,9 +308,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                         <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
                         <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Próximas Ações</p>
                     </div>
-                    {highPriorityTasks.length > 0 && (
+                    {pendingCount > 0 && (
                         <span className="text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg">
-                            {highPriorityTasks.length} Pendentes
+                            {pendingCount} Pendentes
                         </span>
                     )}
                 </div>
