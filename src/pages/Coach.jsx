@@ -109,21 +109,33 @@ export default function Coach() {
         };
         const metricTimestamp = toFinite(metric?.timestamp, now);
         const avgBrier = toFinite(metric?.avgBrier, null);
+        const ece = toFinite(metric?.ece, null);
+        const probability = toFinite(metric?.probability, null);
+        const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
         const isDegraded = avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD;
         const reliability = Array.isArray(metric?.reliability) ? metric.reliability.slice(0, 20) : [];
+        const normalizedCategoryId = String(metric.categoryId).trim();
+        if (!normalizedCategoryId) return;
+
+        // DATA-QUALITY GATE: evita persistir eventos vazios/ruins que poluem histórico e painéis.
+        const hasUsefulSignal = avgBrier !== null || ece !== null || probability !== null || calibrationPenalty > 0 || reliability.length > 0;
+        if (!hasUsefulSignal) return;
+
         const normalizedMetric = {
             ...metric,
+            categoryId: normalizedCategoryId,
+            categoryName: metric?.categoryName || normalizedCategoryId,
             timestamp: metricTimestamp,
             avgBrier,
-            ece: toFinite(metric?.ece, null),
-            probability: toFinite(metric?.probability, null),
-            calibrationPenalty: toFinite(metric?.calibrationPenalty, 0),
+            ece,
+            probability,
+            calibrationPenalty,
             reliability
         };
 
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
-            const categoryHistory = current[metric.categoryId] || [];
+            const categoryHistory = current[normalizedCategoryId] || [];
             
             // Verificação de Redundância: Só salva se o Brier mudou significativamente (>1%)
             const lastEntry = categoryHistory[categoryHistory.length - 1];
@@ -143,8 +155,8 @@ export default function Coach() {
 
             const calibrationOps = {
                 ...(prev.calibrationOps || {}),
-                [metric.categoryId]: {
-                    categoryName: metric.categoryName,
+                [normalizedCategoryId]: {
+                    categoryName: normalizedMetric.categoryName,
                     avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                     sample7d: recent7.length,
                     degraded: isDegraded,
@@ -163,7 +175,7 @@ export default function Coach() {
                 ...prev,
                 calibrationHistoryByCategory: {
                     ...current,
-                    [metric.categoryId]: nextHistory
+                    [normalizedCategoryId]: nextHistory
                 },
                 calibrationOps,
                 calibrationAuditLog
@@ -184,10 +196,10 @@ export default function Coach() {
             for (const [key, ts] of calibrationAlertCache.entries()) {
                 if (now - ts > ALERT_COOLDOWN_MS) calibrationAlertCache.delete(key);
             }
-            const lastAlertAt = Number(calibrationAlertCache.get(metric.categoryId) || 0);
+            const lastAlertAt = Number(calibrationAlertCache.get(normalizedCategoryId) || 0);
             if (now - lastAlertAt > ALERT_COOLDOWN_MS) {
-                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(metric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
-                calibrationAlertCache.set(metric.categoryId, now);
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
+                calibrationAlertCache.set(normalizedCategoryId, now);
                 if (calibrationAlertCache.size > CALIBRATION_ALERT_CACHE_MAX) {
                     const oldestKey = calibrationAlertCache.keys().next().value;
                     calibrationAlertCache.delete(oldestKey);
