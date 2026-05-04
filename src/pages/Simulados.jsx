@@ -150,17 +150,16 @@ export default function Simulados() {
                         cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
                     }
 
-                    const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : [];
-                    // FIX 7: Normalização de fuso horário
-                    const filteredHistory = history.filter(h => h && h.date && getDateKey(normalizeDate(h.date)) !== todayKey);
+                    const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history.filter(Boolean) : [];
+                    const historyWithCurrent = history.slice(-49);
                     
                     const finalC = Number(stats.totalCorrect || 0);
                     const finalQ = Number(stats.totalQuestions || 0);
 
                     if (finalQ > 0) {
                         const maxScore = Number(cat.maxScore) || 100;
-                        filteredHistory.push({
-                            date: todayKey,
+                        historyWithCurrent.push({
+                            date: new Date().toISOString(),
                             correct: finalC,
                             total: finalQ,
                             // BUG-FIX: isPercentage:true não deve ser setado aqui — esse flag
@@ -171,10 +170,10 @@ export default function Simulados() {
                             topics: stats.topics || []
                         });
 
-                        const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);
+                        const statsResult = computeCategoryStats(historyWithCurrent, 1, 60, maxScore);
                         cat.simuladoStats = {
                             ...cat.simuladoStats,
-                            history: filteredHistory.slice(-50),
+                            history: historyWithCurrent.slice(-50),
                             average: Number((statsResult?.mean || 0).toFixed(2)),
                             trend: statsResult?.trend || 'stable',
                             lastAttempt: (finalC / finalQ) * maxScore,
