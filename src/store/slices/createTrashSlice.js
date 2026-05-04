@@ -6,25 +6,25 @@ export const createTrashSlice = (set) => ({
         if (!state.appState.trash) return;
         const index = state.appState.trash.findIndex(t => t.id === trashId);
         if (index === -1) return;
-        
+
         const item = state.appState.trash[index];
-        
+
         if (item.type === 'category') {
             const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
             const contest = state.appState.contests[targetContestId];
             if (contest) {
                 if (!contest.categories) contest.categories = [];
-                
+
                 const catData = safeClone(item.data.category || item.data);
                 const oldId = catData.id;
-                
+
                 if (contest.categories.some(c => c.id === oldId)) {
                     catData.id = generateId('cat');
                 }
                 const newId = catData.id;
                 contest.categories.push(catData);
 
-                const fixRef = (arr) => (arr || []).map(entry => 
+                const fixRef = (arr) => (arr || []).map(entry =>
                     entry.categoryId === oldId ? { ...entry, categoryId: newId } : entry
                 );
 
@@ -33,6 +33,14 @@ export const createTrashSlice = (set) => ({
                 }
                 if (item.data.studySessions) {
                     contest.studySessions = [...(contest.studySessions || []), ...fixRef(item.data.studySessions)];
+                }
+                // BUG-FIX: simuladoRows e simulados não eram restaurados na categoria,
+                // causando perda permanente dos resultados de simulados da categoria deletada.
+                if (item.data.simuladoRows?.length) {
+                    contest.simuladoRows = [...(contest.simuladoRows || []), ...fixRef(item.data.simuladoRows)];
+                }
+                if (item.data.simulados?.length) {
+                    contest.simulados = [...(contest.simulados || []), ...fixRef(item.data.simulados)];
                 }
                 if (item.data.mcWeight !== undefined) {
                     if (!contest.mcWeights) contest.mcWeights = {};
@@ -47,7 +55,7 @@ export const createTrashSlice = (set) => ({
             state.appState.contests[newId] = item.data;
             state.appState.activeId = newId;
         }
-        
+
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

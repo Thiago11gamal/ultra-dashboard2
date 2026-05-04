@@ -10,19 +10,15 @@ export const safeStructuredClone = (obj) => {
         return structuredClone(obj);
     } catch (err) {
         console.warn("[SafeClone] Objeto não-serializável detectado. Aplicando limpeza JSON.", err);
-        
-            // Fallback: Use JSON serialization to strip out non-serializable properties
+        // BUG-FIX: inner try{} estava ausente — o catch (jsonErr) ficava solto causando SyntaxError
+        try {
             return JSON.parse(JSON.stringify(obj, function(key, value) {
                 if (value && typeof value === 'object') {
-                    // Check for Window, Events, or DOM Nodes
                     const isDangerous = value === window || value instanceof Event || (value.nodeType && value.nodeName);
-                    
                     if (isDangerous) {
                         console.error(`[SafeClone-Diag] Objeto proibido detectado na chave: "${key}". Removendo para proteger a persistência.`);
                         return undefined;
                     }
-                    
-                    // Protection against React internals
                     if (key === '_reactInternalInstance' || key === '_reactFiber' || key === 'ref') {
                         return undefined;
                     }
@@ -31,7 +27,6 @@ export const safeStructuredClone = (obj) => {
             }));
         } catch (jsonErr) {
             console.error("[SafeClone] Falha crítica na clonagem. Retornando objeto parcial para evitar crash.", jsonErr);
-            // Return a safe empty structure as last resort
             return Array.isArray(obj) ? [] : {};
         }
     }

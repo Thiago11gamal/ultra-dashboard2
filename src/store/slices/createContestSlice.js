@@ -2,18 +2,27 @@ import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
 import { safeClone } from '../safeClone.js';
 
+// BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
+// causando crash silencioso no timer quando o concurso era trocado/deletado.
+const RESET_POMODORO = {
+    activeSubject: null,
+    sessions: 1,
+    targetCycles: 1,
+    completedCycles: 0,
+    accumulatedMinutes: 0,
+    mode: 'work',
+    neuralQueue: [],
+    neuralMode: false,
+};
+
 export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
-        
+
         state.appState.activeId = targetId;
-        
-        // BUG 2 FIX: Limpar pomodoro ao trocar de concurso para evitar corrupção de dados
+
         if (state.appState.pomodoro.activeSubject) {
-            state.appState.pomodoro = { 
-                activeSubject: null, 
-                sessions: 1, targetCycles: 1, completedCycles: 0, accumulatedMinutes: 0 
-            };
+            state.appState.pomodoro = { ...RESET_POMODORO };
             localStorage.removeItem('pomodoroState');
         }
 
@@ -63,12 +72,8 @@ export const createContestSlice = (set) => ({
             state.appState.activeId = 'default';
         } else if (contestId === state.appState.activeId) {
             state.appState.activeId = remainingIds[0];
-            // Limpa o pomodoro se o concurso ativo foi deletado
             if (state.appState.pomodoro.activeSubject) {
-                state.appState.pomodoro = { 
-                    activeSubject: null, 
-                    sessions: 1, targetCycles: 1, completedCycles: 0, accumulatedMinutes: 0 
-                };
+                state.appState.pomodoro = { ...RESET_POMODORO };
                 localStorage.removeItem('pomodoroState');
             }
         }

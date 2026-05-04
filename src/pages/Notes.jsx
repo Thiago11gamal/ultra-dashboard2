@@ -29,8 +29,10 @@ export default function Notes() {
             const catNorm = normalize(cat.name);
             const catAliases = aliases[catNorm] || [];
             
-            // 1. Group ALL simuladoRows for this category by date
+            // BUG-FIX: Correspondência usava apenas normalização de nome (frágil).
+            // Adicionado categoryId como defesa primária, espelhando schemas.js repairContestHistory.
             const myRows = simuladoRows.filter(r => {
+                if (r.categoryId && r.categoryId === cat.id) return true;
                 const subNorm = normalize(r.subject);
                 return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
             });

@@ -163,9 +163,12 @@ export default function Simulados() {
                             date: todayKey,
                             correct: finalC,
                             total: finalQ,
+                            // BUG-FIX: isPercentage:true não deve ser setado aqui — esse flag
+                            // é reservado para rows legados onde 'correct' era o score percentual.
+                            // Setá-lo em entradas novas (onde score já está calculado corretamente)
+                            // fazia o repairContestHistory aplicar conversão dupla.
                             score: (finalC / finalQ) * maxScore,
-                            isPercentage: true,
-                            topics: stats.topics || [] 
+                            topics: stats.topics || []
                         });
 
                         const statsResult = computeCategoryStats(filteredHistory, 1, 60, maxScore);

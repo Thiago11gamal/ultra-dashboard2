@@ -210,7 +210,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                         categories: Object.values(mergedCatsMap),
                         studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
                         studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
-                        simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows)
+                        simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
+                        // BUG-FIX: monteCarloHistory não era mergeado — spread do cloudContest
+                        // sobrescrevia o histórico local, causando perda de pontos quando
+                        // a nuvem era mais recente mas tinha MC history desatualizado.
+                        monteCarloHistory: (() => {
+                            const localMC = localContest.monteCarloHistory || [];
+                            const cloudMC = cloudContest.monteCarloHistory || [];
+                            const mcMap = new Map();
+                            [...localMC, ...cloudMC].forEach(item => {
+                                if (item?.date) mcMap.set(item.date, item);
+                            });
+                            return Array.from(mcMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+                        })(),
                     };
                 }
             }
@@ -650,7 +662,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
                     if (lastSyncedRef.current === currentStateString) break;
 
-                    const SYNC_LOG_CAP = 300;
+                    // BUG-FIX: A declaração local `const SYNC_LOG_CAP = 300` foi removida —
+                    // ela sombreava o import de '../config', criando inconsistência silenciosa
+                    // entre performEmergencySync (usa config) e syncToCloud (usava 300 fixo).
                     const safeguardContest = (contest) => {
                         if (!contest) return contest;
                         return {

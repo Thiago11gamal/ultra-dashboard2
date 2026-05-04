@@ -6,10 +6,10 @@ export const createCategorySlice = (set, get) => ({
     addCategory: (name) => set((state) => {
         if (!name || typeof name !== 'string') return;
         const activeData = state.appState.contests[state.appState.activeId];
-        
+
         if (!activeData) return;
         if (!activeData.categories) activeData.categories = [];
-        
+
         // BUG FIX: Prevent duplicate categories by name
         const normName = normalize(name);
         if (activeData.categories.some(c => normalize(c.name) === normName)) {
@@ -24,6 +24,8 @@ export const createCategorySlice = (set, get) => ({
             icon: '📚',
             tasks: [],
             weight: 10,
+            // BUG-FIX: maxScore ausente causava fallback silencioso a 100 em toda a engine
+            maxScore: 100,
             simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
             totalMinutes: 0,
             lastStudiedAt: null
@@ -36,7 +38,7 @@ export const createCategorySlice = (set, get) => ({
     deleteCategory: (id) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData || !Array.isArray(activeData.categories)) return;
-        
+
         const category = activeData.categories.find(c => c.id === id);
         if (category) {
             if (!state.appState.trash) state.appState.trash = [];
@@ -58,7 +60,7 @@ export const createCategorySlice = (set, get) => ({
 
         const name = category?.name;
         activeData.categories = activeData.categories.filter(c => c.id !== id);
-        
+
         if (activeData.mcWeights && activeData.mcWeights[id]) {
             delete activeData.mcWeights[id];
         }
@@ -86,7 +88,7 @@ export const createCategorySlice = (set, get) => ({
         if (activeData.coachPlanner) {
             Object.keys(activeData.coachPlanner).forEach(day => {
                 if (Array.isArray(activeData.coachPlanner[day])) {
-                    activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item => 
+                    activeData.coachPlanner[day] = activeData.coachPlanner[day].filter(item =>
                         item.categoryId !== id
                     );
                 }
@@ -145,10 +147,18 @@ export const createCategorySlice = (set, get) => ({
         const activeData = state.appState.contests[activeId];
         if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
 
-        // BUG-GUARD: Evitar loops infinitos se chamado em cascata
-        const lastMergeVersion = state.appState.lastMergeVersion || 0;
-        const currentVersion = state.appState.version || 0;
-        if (lastMergeVersion >= currentVersion && lastMergeVersion > 0) return;
+        // BUG-FIX: O guard de versão bloqueava o merge após hidratação (IDB restore).
+        // Substituído por verificação real de duplicatas para só sair cedo se não há trabalho.
+        const hasDuplicates = (() => {
+            const seen = new Set();
+            return activeData.categories.some(cat => {
+                const key = normalize(cat.name);
+                if (seen.has(key)) return true;
+                seen.add(key);
+                return false;
+            });
+        })();
+        if (!hasDuplicates) return;
 
         const groups = {};
         activeData.categories.forEach(cat => {
@@ -166,10 +176,9 @@ export const createCategorySlice = (set, get) => ({
                 return;
             }
 
-            // MERGE LOGIC
             changed = true;
             console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
-            
+
             const primary = group.sort((a, b) => {
                 const getHistoryLen = (obj) => {
                     const h = obj.simuladoStats?.history;
@@ -192,10 +201,10 @@ export const createCategorySlice = (set, get) => ({
 
             group.forEach(cat => {
                 if (cat.id === primary.id) return;
-                
+
                 (cat.tasks || []).forEach(t => {
-                    const taskTitle = (t.title || t.text || "").trim();
-                    if (!mergedTasks.some(mt => (mt.title || mt.text || "").trim() === taskTitle)) {
+                    const taskTitle = (t.title || t.text || '').trim();
+                    if (!mergedTasks.some(mt => (mt.title || mt.text || '').trim() === taskTitle)) {
                         mergedTasks.push(t);
                     }
                 });
@@ -231,7 +240,7 @@ export const createCategorySlice = (set, get) => ({
 
         if (changed) {
             activeData.categories = newCategories;
-            
+
             // CLEANUP: Remover pesos órfãos
             if (activeData.mcWeights) {
                 const validKeys = new Set();
@@ -246,12 +255,9 @@ export const createCategorySlice = (set, get) => ({
                 });
             }
 
-            state.appState.lastMergeVersion = currentVersion + 1;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
-        } else {
-            state.appState.lastMergeVersion = currentVersion;
         }
     }),
 });
