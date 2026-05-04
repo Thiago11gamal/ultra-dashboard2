@@ -106,13 +106,20 @@ export const createPomodoroSlice = (set, get) => ({
                 }
 
                 if (p.sessions >= targetCycles) {
-                    // BUGFIX: Em vez de pular a pausa e voltar para work, transitar para pausa.
-                    // Verifica se o ciclo que vai fechar é múltiplo de longBreakAfter
-                    const currentCycles = (p.completedCycles || 0) + 1;
-                    const longBreakAfter = settings.longBreakAfter || 4;
-                    const isLongBreak = (currentCycles % longBreakAfter === 0);
-                    
-                    p.mode = isLongBreak ? 'long_break' : 'break';
+                    // Regra UX: se o plano tem apenas 1 ciclo, encerramos imediatamente
+                    // após o bloco de foco (sem abrir pausa de 5min).
+                    if (targetCycles === 1) {
+                        p.completedCycles = (p.completedCycles || 0) + 1;
+                        p.sessions = 1;
+                        p.accumulatedMinutes = 0;
+                        p.mode = 'work';
+                    } else {
+                        // Para planos multi-ciclo, mantém pausa normal/longa ao fechar o bloco final.
+                        const currentCycles = (p.completedCycles || 0) + 1;
+                        const longBreakAfter = settings.longBreakAfter || 4;
+                        const isLongBreak = (currentCycles % longBreakAfter === 0);
+                        p.mode = isLongBreak ? 'long_break' : 'break';
+                    }
                 } else {
                     p.mode = 'break';
                 }
