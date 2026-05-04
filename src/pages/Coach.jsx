@@ -63,11 +63,7 @@ export default function Coach() {
 
     const [activeTab, setActiveTab] = useState('insights');
 
-    useEffect(() => {
-        if (activeTab !== "insights" && activeTab !== "analytics") {
-            setActiveTab("insights");
-        }
-    }, [activeTab]);
+    const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const [coachLoading, setCoachLoading] = useState(false);
     const [suggestedFocus, setSuggestedFocus] = useState(null);
@@ -372,16 +368,16 @@ export default function Coach() {
 
                 <div className="space-y-10">
                     <div className="w-full">
-                        <CoachMenuNav activeTab={activeTab} onChangeTab={setActiveTab} isPremium={isPremium} />
+                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={(tab) => setActiveTab(tab === 'analytics' ? 'analytics' : 'insights')} isPremium={isPremium} />
 
                         <div className="animate-fade-in">
                             <div
                                 role="tabpanel"
-                                id={activeTab === 'insights' ? 'coach-panel-insights' : 'coach-panel-analytics'}
-                                aria-labelledby={activeTab === 'insights' ? 'coach-tab-insights' : 'coach-tab-analytics'}
+                                id={safeActiveTab === 'insights' ? 'coach-panel-insights' : 'coach-panel-analytics'}
+                                aria-labelledby={safeActiveTab === 'insights' ? 'coach-tab-insights' : 'coach-tab-analytics'}
                                 tabIndex={0}
                             >
-                                {activeTab === 'insights' ? (
+                                {safeActiveTab === 'insights' ? (
                                     <AICoachView 
                                         suggestedFocus={suggestedFocus}
                                         onGenerateGoals={handleGenerateGoals}

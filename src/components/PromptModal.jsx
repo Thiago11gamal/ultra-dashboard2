@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { Sparkles, X, Layout } from 'lucide-react';
 
 export default function PromptModal({ isOpen, onClose, onConfirm, title, placeholder, initialValue = "" }) {
@@ -35,7 +35,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
             {isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
                     {/* Backdrop with extreme blur */}
-                    <motion.div
+                    <Motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -45,7 +45,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
                     />
 
                     {/* Modal Container */}
-                    <motion.div
+                    <Motion.div
                         initial={{ scale: 0.9, opacity: 0, y: 30 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 30 }}

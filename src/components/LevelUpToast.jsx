@@ -17,7 +17,7 @@ export default function LevelUpToast({ level, title, onClose }) {
         addTimer(() => setVisible(true), 50);
 
         // Auto-close life cycle
-        const hideTimer = addTimer(() => {
+        addTimer(() => {
             setVisible(false);
             addTimer(onClose, 800); 
         }, 5000);

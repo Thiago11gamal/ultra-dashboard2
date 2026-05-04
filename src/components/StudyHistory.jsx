@@ -77,7 +77,6 @@ const StudyHistory = React.memo(function StudyHistory({
         startOfWeek.setHours(0, 0, 0, 0);
 
         // Reference week sessions
-        const refWeekStart = new Date(startOfWeek);
         const refWeekEnd = new Date(startOfWeek);
         refWeekEnd.setDate(startOfWeek.getDate() + 7);
 

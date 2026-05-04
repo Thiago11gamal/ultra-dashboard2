@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { AlertTriangle, X, Check } from 'lucide-react';
 
 export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", type = "danger" }) {
@@ -9,7 +9,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
             {isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
                     {/* Backdrop with extreme blur */}
-                    <motion.div
+                    <Motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -19,7 +19,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
                     />
 
                     {/* Modal Container */}
-                    <motion.div
+                    <Motion.div
                         initial={{ scale: 0.9, opacity: 0, y: 30 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 30 }}
