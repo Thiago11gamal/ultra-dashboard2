@@ -11,7 +11,7 @@ import {
     ResponsiveContainer,
     Area
 } from 'recharts';
-import { getDateKey, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
+import { getDateKey, formatDisplayDate, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
 
 const WeeklyPerformanceChart = ({
@@ -37,8 +37,7 @@ const WeeklyPerformanceChart = ({
             const dateKey = getDateKey(d);
 
             // Get day label (dow)
-            const dow = d.toLocaleDateString('pt-BR', { weekday: 'short' })
-                .replace('.', '').toUpperCase();
+            const dow = formatWeekdayShortPtBR(d);
 
             // Calculate Hours
             const dailyLogs = studyLogs.filter(log => {

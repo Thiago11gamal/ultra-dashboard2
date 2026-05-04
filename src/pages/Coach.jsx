@@ -25,6 +25,7 @@ import { useToast } from '../hooks/useToast';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
+import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
@@ -540,7 +541,7 @@ function RaioXDashboard({ data }) {
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
                                 <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{formatDateTimePtBR(log.timestamp)}</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{log.avgBrier.toFixed(3)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number(log?.ece || 0).toFixed(3)}</td>
@@ -617,7 +618,7 @@ function RaioXDashboard({ data }) {
                         {temporalSeries.map((point, idx) => (
                             <div key={idx} className="space-y-1">
                                 <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                                    <span>{new Date(point.ts).toLocaleDateString('pt-BR')}</span>
+                                    <span>{formatDatePtBR(point.ts)}</span>
                                     <span>Brier {point.brier.toFixed(3)} · ECE {point.ece.toFixed(3)}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
