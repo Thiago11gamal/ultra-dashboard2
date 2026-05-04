@@ -1,6 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
+import { getLocalMidnight } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,8 +14,7 @@ const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
 // CORREÇÃO CRÍTICA: Proteção contra undefined no Painel IA
-function AICoachPanel({ activeSubject }) {
-    const stats = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.studyLogs || EMPTY_ARRAY);
+function AICoachPanel({ activeSubject, stats }) {
     const defaultInsight = {
         title: 'Sistema Ativo',
         text: 'Pronto para iniciar os seus ciclos de foco.',
@@ -120,7 +120,7 @@ function AICoachPanel({ activeSubject }) {
 }
 
 // Focus Panel
-function FocusPanel({ categories, activeSubject, onStartTask, neuralMode, neuralQueue }) {
+function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue }) {
     const recommendedTask = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         return getBestTask(categories);
@@ -261,7 +261,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, neuralMode, neural
 
             <div className="h-[60px]" />
 
-            <AICoachPanel activeSubject={activeSubject} />
+            <AICoachPanel activeSubject={activeSubject} stats={stats} />
 
             {recommendedTask && !activeSubject && (
                 <Motion.div
@@ -380,7 +380,6 @@ function FocusPanel({ categories, activeSubject, onStartTask, neuralMode, neural
 
 
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
-    const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
 
     // 🛠️ Utilitário Radical: Extrai APENAS o identificador curto (ex: a1) como o assunto principal
     const cleanText = (text) => {
@@ -452,6 +451,8 @@ export default function Pomodoro() {
     const contest = useAppStore(state => state.appState?.contests?.[activeId] || EMPTY_OBJECT);
     const categories = useAppStore(state => state.appState?.contests?.[activeId]?.categories || EMPTY_ARRAY);
     const settings = useAppStore(state => state.appState?.contests?.[activeId]?.settings || EMPTY_OBJECT);
+    const studyLogs = useAppStore(state => state.appState?.contests?.[activeId]?.studyLogs || EMPTY_ARRAY);
+    const user = useAppStore(state => state.appState?.contests?.[activeId]?.user || null);
 
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
@@ -483,6 +484,47 @@ export default function Pomodoro() {
         setIsLayoutLocked(newState);
         localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
     };
+
+    const userStats = useMemo(() => {
+        if (!contest || contest === EMPTY_OBJECT) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
+
+        const now = new Date();
+        const startOfToday = getLocalMidnight().getTime();
+
+        let consecutiveStudyMinutes = 0;
+        // Melhoria: Filtramos logs inválidos e ordenamos de forma mais segura
+        const recentLogs = [...(studyLogs || [])]
+            .filter(log => log && log.date && new Date(log.date).getTime() >= startOfToday)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        let lastTimeBoundary = now.getTime();
+
+        for (const log of recentLogs) {
+            const logDate = new Date(log.date).getTime();
+            const minutes = Number(log.minutes) || 0;
+            
+            // Se o log for inválido ou futuro (erro de sistema), ignoramos
+            if (!logDate || minutes <= 0) continue;
+
+            const gapInMinutes = Math.max(0, (lastTimeBoundary - logDate) / (1000 * 60));
+
+            // Definição de Streak: pausa de no máximo 90 minutos entre sessões
+            if (gapInMinutes > 90) {
+                break;
+            }
+
+            consecutiveStudyMinutes += minutes;
+            // O início desta sessão vira o novo limite para o próximo gap
+            lastTimeBoundary = logDate - (minutes * 60 * 1000);
+        }
+
+        return {
+            pomodorosCompleted: currentSessions,
+            consecutiveMinutes: consecutiveStudyMinutes,
+            settings: settings,
+            user: user
+        };
+    }, [currentSessions, contest, studyLogs, settings, user]);
 
 
     useEffect(() => {
@@ -692,6 +734,7 @@ export default function Pomodoro() {
                     categories={categories || []}
                     activeSubject={activeSubject}
                     onStartTask={handleStartTask}
+                    stats={userStats}
                     neuralMode={neuralMode}
                     neuralQueue={neuralQueue}
                 />
