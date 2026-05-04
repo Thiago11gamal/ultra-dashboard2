@@ -48,13 +48,21 @@ export const createPomodoroSlice = (set, get) => ({
     }),
 
     setPomodoroTargetCycles: (target) => set((state) => {
-        state.appState.pomodoro.targetCycles = target;
+        const normalizedTarget = Math.max(1, Number(target) || 1);
+        const p = state.appState.pomodoro;
+
+        p.targetCycles = normalizedTarget;
+        p.completedCycles = Math.min(normalizedTarget, Math.max(0, p.completedCycles || 0));
+        p.sessions = Math.min(normalizedTarget, Math.max(1, p.sessions || 1));
+
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
 
     setPomodoroCompletedCycles: (completed) => set((state) => {
-        state.appState.pomodoro.completedCycles = completed;
+        const p = state.appState.pomodoro;
+        const targetCycles = Math.max(1, Number(p.targetCycles) || 1);
+        p.completedCycles = Math.min(targetCycles, Math.max(0, Number(completed) || 0));
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
@@ -109,7 +117,7 @@ export const createPomodoroSlice = (set, get) => ({
                     // Regra UX: se o plano tem apenas 1 ciclo, encerramos imediatamente
                     // após o bloco de foco (sem abrir pausa de 5min).
                     if (targetCycles === 1) {
-                        p.completedCycles = (p.completedCycles || 0) + 1;
+                        p.completedCycles = Math.min(targetCycles, (p.completedCycles || 0) + 1);
                         p.sessions = 1;
                         p.accumulatedMinutes = 0;
                         p.mode = 'work';
@@ -126,7 +134,7 @@ export const createPomodoroSlice = (set, get) => ({
             } else {
                 // Fim da Pausa -> Próxima Sessão de Trabalho
                 if (p.sessions >= targetCycles) {
-                    p.completedCycles = (p.completedCycles || 0) + 1;
+                    p.completedCycles = Math.min(targetCycles, (p.completedCycles || 0) + 1);
                     p.sessions = 1;
                     p.accumulatedMinutes = 0;
                 } else {
