@@ -460,7 +460,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     setAppState(prev => mergeAppState(prev, null));
                 }
                 lastSyncedRef.current = stateStringForSync(appStateRef.current);
-                setHasConflict(true);
+
+                // Só sinaliza conflito quando há divergência temporal real entre local e nuvem.
+                // No boot inicial é comum recusar pull para proteger dados locais substanciais,
+                // e isso não deve aparecer como conflito para o utilizador.
+                const hasRealDivergence = cloudUpdatedTime > 0 && localUpdatedTime > 0 && Math.abs(cloudUpdatedTime - localUpdatedTime) > 5000;
+                setHasConflict(!isBootSync && hasRealDivergence);
             }
         }, (err) => {
             logger.error("[Sync] Erro no listener:", err);
