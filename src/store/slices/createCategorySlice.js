@@ -1,3 +1,4 @@
+import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
 import { safeClone } from '../safeClone';
 
