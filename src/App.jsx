@@ -100,10 +100,28 @@ function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [isStoreHydrated, setIsStoreHydrated] = useState(() => useAppStore.persist.hasHydrated());
+
+  useEffect(() => {
+    const unsubHydrate = useAppStore.persist.onHydrate(() => {
+      setIsStoreHydrated(false);
+    });
+
+    const unsubFinishHydration = useAppStore.persist.onFinishHydration(() => {
+      setIsStoreHydrated(true);
+    });
+
+    setIsStoreHydrated(useAppStore.persist.hasHydrated());
+
+    return () => {
+      unsubHydrate();
+      unsubFinishHydration();
+    };
+  }, []);
 
   // Auto-save pipeline
   const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
-    currentUser,
+    isStoreHydrated ? currentUser : null,
     setAppState,
     showToast,
     syncTrigger // Pass trigger to notify hook of changes (version/lastUpdated)
@@ -205,7 +223,7 @@ function MainLayout() {
   // ── Render Logic ──
   return (
     <div suppressHydrationWarning className="min-h-screen text-slate-200 font-sans selection:bg-purple-500/30 relative overflow-x-hidden w-full max-w-[100vw]">
-      {(loading || subLoading) ? (
+      {(loading || subLoading || !isStoreHydrated) ? (
         <div className="flex items-center justify-center p-20 text-purple-400 min-h-screen bg-[#0f172a]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
         </div>
