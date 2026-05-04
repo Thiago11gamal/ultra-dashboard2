@@ -436,9 +436,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             const wasAlreadyValidated = isParityValidatedRef.current;
             confirmParity();
 
-            if (shouldPullCloud || isBootSync) {
-                const actionLabel = shouldPullCloud ? "Dado da nuvem" : "Health Pulse";
-                logger.debug(`[Sync] ${actionLabel} → processando merge e deduplicação`);
+            if (shouldPullCloud) {
+                logger.debug('[Sync] Dado da nuvem → processando merge e deduplicação');
                 isCloudPullRef.current = true;
                 // SAFETY: Never call setAppState after unmount (avoids React warning + memory leak)
                 if (isMountedRef.current) {
@@ -447,12 +446,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 lastSyncedRef.current = stateStringForSync(appStateRef.current);
                 setHasConflict(false);
 
-                if (shouldPullCloud && !wasAlreadyValidated && showToastRef.current) {
+                if (!wasAlreadyValidated && showToastRef.current) {
                     showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
                 }
             } else {
-                // Se não puxamos a nuvem mas o snapshot chegou, ainda assim rodamos um
-                // merge local silencioso só para garantir a deduplicação se for a primeira vez.
+                // Em boot/local-recent mode, NÃO aplicar merge com nuvem para evitar
+                // efeito "sumiu no 1º refresh e voltou no 2º".
+                // Ainda executamos deduplicação local não-destrutiva.
+                if (isMountedRef.current) {
+                    setAppState(prev => mergeAppState(prev, null));
+                }
+                lastSyncedRef.current = stateStringForSync(appStateRef.current);
                 setHasConflict(true);
             }
         }, (err) => {
