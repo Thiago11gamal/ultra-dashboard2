@@ -197,9 +197,12 @@ export const useAppStore = create(
             onRehydrateStorage: () => {
                 return (state, error) => {
                     // Em qualquer cenário, marca hidratação para evitar loader infinito.
-                    useAppStore.setState((s) => {
-                        s.appState.isHydrated = true;
-                    });
+                    useAppStore.setState((prev) => ({
+                        appState: {
+                            ...prev.appState,
+                            isHydrated: true
+                        }
+                    }));
 
                     if (error || !state) return;
  
@@ -210,9 +213,12 @@ export const useAppStore = create(
                         const contestsList = Object.keys(appState.contests || {});
  
                         if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            useAppStore.setState((s) => {
-                                s.appState.activeId = contestsList[0];
-                            });
+                            useAppStore.setState((prev) => ({
+                                appState: {
+                                    ...prev.appState,
+                                    activeId: contestsList[0]
+                                }
+                            }));
                         }
                     }, 0);
                 };
