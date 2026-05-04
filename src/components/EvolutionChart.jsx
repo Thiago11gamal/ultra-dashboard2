@@ -323,7 +323,7 @@ export default function EvolutionChart({
     const subjectAggData = useMemo(() => {
         if (!categories || !categories.length) return [];
         return categories
-            .filter(cat => !showOnlyFocus || cat.id === focusSubjectId)
+            .filter(cat => !showOnlyFocus || cat.id === focusCategory?.id)
             .map(cat => {
                 const history = cat.simuladoStats?.history || [];
 
@@ -347,7 +347,7 @@ export default function EvolutionChart({
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore]);
+    }, [categories, showOnlyFocus, focusCategory?.id, maxScore]);
 
     const getInsight = () => {
         const defaultTitle = "Análise do Sistema";
