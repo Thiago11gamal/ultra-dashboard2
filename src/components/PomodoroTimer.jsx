@@ -71,7 +71,7 @@ class PomodoroErrorBoundary extends React.Component {
     }
 }
 
-function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFullCycleComplete, categories = [], onUpdateStudyTime, onExit, isLayoutLocked, onToggleLock, defaultTargetCycles = 1 }) {
+function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUpdateStudyTime, onExit, isLayoutLocked }) {
 
     const safeSettings = useMemo(() => Object.freeze({
         pomodoroWork: settings?.pomodoroWork || 25,
@@ -271,6 +271,41 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
             breakBallsRef.current = breakBallsRef.current.slice(0, targetCycles);
         }
     }, [targetCycles]);
+ 
+    // 🛡️ [SHIELD-SYNC-DOM] Sincronização Forçada do DOM (B-14 FIX)
+    // Garante que as barras tenham o tamanho correto ao carregar ou trocar de fase, 
+    // mesmo que o cronómetro esteja parado (loop RAF inativo).
+    React.useLayoutEffect(() => {
+        if (!isMountedRef.current) return;
+        
+        const currentMode = stateRefs.current.mode;
+        const currentSessions = stateRefs.current.sessions;
+        const currentTime = stateRefs.current.timeLeft;
+        const currentTotal = currentMode === 'work' ? safeSettings.pomodoroWork * 60 : (currentMode === 'long_break' ? safeSettings.pomodoroLongBreak * 60 : safeSettings.pomodoroBreak * 60);
+        const fraction = currentTime / (currentTotal || 1);
+
+        workFillsRef.current.forEach((el, i) => {
+            if (!el) return;
+            if (i < currentSessions - 1 || (i === currentSessions - 1 && currentMode !== 'work')) {
+                el.style.width = '100%';
+            } else if (i === currentSessions - 1 && currentMode === 'work') {
+                el.style.width = `${Math.min(100, (1 - fraction) * 100)}%`;
+            } else {
+                el.style.width = '0%';
+            }
+        });
+
+        breakBallsRef.current.forEach((el, i) => {
+            if (!el) return;
+            if (i < currentSessions - 1) {
+                el.style.height = '100%';
+            } else if (i === currentSessions - 1 && currentMode === 'break') {
+                el.style.height = `${Math.min(100, (1 - fraction) * 100)}%`;
+            } else {
+                el.style.height = '0%';
+            }
+        });
+    }, [mode, sessions, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
     const [uiPosition, setUiPosition] = useState(() => {
         try {
@@ -784,6 +819,13 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                     const next = !isRunning;
                                     stateRefs.current.isRunning = next;
                                     setIsRunning(next);
+
+                                    // 🛡️ [FIX-PAUSE-SYNC] Sincroniza o estado do React com a Ref ao pausar
+                                    // Isso impede que o timer pule no próximo re-render
+                                    if (!next) {
+                                        setTimeLeft(stateRefs.current.timeLeft);
+                                    }
+
                                     try {
                                         syncChannelRef.current?.postMessage({
                                             type: next ? 'START_SESSION' : 'PAUSE_SESSION',
@@ -841,10 +883,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                                 ref={el => workFillsRef.current[i] = el}
                                                 className="h-full bg-blue-500 will-change-[width]"
                                                 style={{
-                                                    width: (i < sessions - 1 || (i === sessions - 1 && mode === 'break')) ? '100%' :
-                                                        (i === sessions - 1 && mode === 'work') ?
-                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
-                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
                                             />
@@ -856,10 +894,6 @@ function PomodoroTimer({ settings = {}, onSessionComplete, activeSubject, onFull
                                                 ref={el => breakBallsRef.current[i] = el}
                                                 className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
                                                 style={{
-                                                    height: (i < sessions - 1) ? '100%' :
-                                                        (sessions === i + 1 && mode === 'break') ?
-                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
-                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}
                                             />
