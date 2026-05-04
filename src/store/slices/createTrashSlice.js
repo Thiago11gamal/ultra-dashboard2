@@ -1,4 +1,5 @@
 import { generateId } from '../../utils/idGenerator';
+import { safeStructuredClone } from '../../utils/safeClone';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
@@ -14,7 +15,7 @@ export const createTrashSlice = (set) => ({
             if (contest) {
                 if (!contest.categories) contest.categories = [];
                 
-                const catData = structuredClone(item.data.category || item.data);
+                const catData = safeStructuredClone(item.data.category || item.data);
                 const oldId = catData.id;
                 
                 if (contest.categories.some(c => c.id === oldId)) {
