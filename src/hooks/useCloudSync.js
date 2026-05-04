@@ -421,8 +421,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                         logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
                         shouldPullCloud = true;
                     } else if (cloudHasMissingLocalContests) {
-                        logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge.");
-                        shouldPullCloud = true;
+                        // Estabilidade: só puxa automaticamente paineis da nuvem ausentes localmente
+                        // quando o estado local está realmente inicial/vazio. Se o local já é substancial,
+                        // evitamos pull destrutivo no boot (sumir dados no 1º refresh).
+                        if (localIsInitial) {
+                            logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge de resgate.");
+                            shouldPullCloud = true;
+                        } else {
+                            logger.warn("[Sync] Divergência detectada (nuvem/local). Preservando local no boot.");
+                            shouldPullCloud = false;
+                        }
                     } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
                         logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
                         shouldPullCloud = true;
