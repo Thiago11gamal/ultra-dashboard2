@@ -14,6 +14,13 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return 0;
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
 
+    const normalizePercentInput = (value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return 0;
+        // Suporte a fontes heterogêneas: 0-1 (fração) e 0-100 (percentual)
+        return n <= 1 ? n * 100 : n;
+    };
+
     if (historyRow.score != null) {
         let rawScore = historyRow.score;
         if (typeof rawScore === 'string') rawScore = rawScore.replace(',', '.');
@@ -21,7 +28,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
         
         // BUGFIX M3: se isPercentage for true, tratamos o score existente como %
         if (historyRow.isPercentage) {
-            s = (s / 100) * safeMaxScore;
+            s = (normalizePercentInput(s) / 100) * safeMaxScore;
         }
 
         return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : 0;
@@ -34,7 +41,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
     // Isso evita corrupção de dados em registros híbridos de bancos legados.
     if (historyRow.isPercentage) {
         // FIX: score já foi verificado como null na L16, então usamos `correct` como valor percentual direto.
-        const pValue = correct;
+        const pValue = normalizePercentInput(correct);
         const scoreFromPercentage = (pValue / 100) * safeMaxScore;
         return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
     }
