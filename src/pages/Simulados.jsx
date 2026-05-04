@@ -215,7 +215,7 @@ export default function Simulados() {
 
             const totalQ = rawRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
             const totalC = rawRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
-            const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+            const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
             
             const newSimuladoEvent = {
                 id: generateId('sim'),

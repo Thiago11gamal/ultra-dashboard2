@@ -131,6 +131,7 @@ export const createPomodoroSlice = (set, get) => ({
                 // Fim da Pausa -> Próxima Sessão de Trabalho
                 if (p.sessions >= targetCycles) {
                     p.sessions = 1;
+                    p.completedCycles = 0;
                     p.accumulatedMinutes = 0;
                 } else {
                     p.sessions = Math.max(1, (p.sessions || 1) + 1);
