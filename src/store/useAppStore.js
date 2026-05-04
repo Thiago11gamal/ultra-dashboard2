@@ -99,7 +99,8 @@ const idbStorage = {
 export const useAppStore = create(
     persist(
         temporal(
-            immer((s                appState: {
+            immer((set, get) => ({
+                appState: {
                     contests: { 'default': structuredClone(INITIAL_DATA) },
                     activeId: 'default',
                     trash: [],
@@ -162,8 +163,6 @@ export const useAppStore = create(
                     
                     // FIX: Purgar o histórico de Undo/Redo para impedir vazamento de dados
                     useAppStore.temporal.getState().clear();
-                },
-;
                 },
 
                 // Injetar os Slices
