@@ -10,8 +10,10 @@ export const createMonteCarloSlice = (set) => ({
 
         if (idx >= 0) {
             activeData.monteCarloHistory[idx] = { ...history[idx], ...snapshot };
-            // Garante a ordem cronológica mesmo após uma edição isolada
-            activeData.monteCarloHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+            // Garante ordem + retenção de janela após atualização de snapshot existente
+            activeData.monteCarloHistory = activeData.monteCarloHistory
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .slice(-30);
         } else {
             // Ordena estritamente por data antes de aplicar o limite de 30 dias
             activeData.monteCarloHistory = [...history, snapshot]
