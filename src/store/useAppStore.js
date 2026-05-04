@@ -194,16 +194,20 @@ export const useAppStore = create(
             // NOVO: Roda nos bastidores antes do App.jsx montar
             onRehydrateStorage: () => {
                 return (state, error) => {
-                    if (error || !state) return;
+                    // Em qualquer cenário, marca hidratação para evitar loader infinito.
+                    useAppStore.setState((s) => {
+                        s.appState.isHydrated = true;
+                    });
 
-                    // Agenda a atualização reativa para o próximo tick para evitar Flash of Unstyled Content (FOUC) ou crash
+                    if (error || !state) return;
+ 
+                    // Agenda a atualização reativa para o próximo tick para evitar FOUC/crash
                     setTimeout(() => {
                         const currentStore = useAppStore.getState();
                         const appState = currentStore.appState;
                         const contestsList = Object.keys(appState.contests || {});
-                        
+ 
                         if ((!appState.activeId || !appState.contests[appState.activeId]) && contestsList.length > 0) {
-                            // Atualização reativa correta
                             useAppStore.setState((s) => {
                                 s.appState.activeId = contestsList[0];
                             });
