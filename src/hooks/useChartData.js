@@ -224,7 +224,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const score = d[`bay_${cat.id}`] ?? d[`raw_${cat.id}`];
                 const w = weights[cat.id] ?? weights[cat.name] ?? 0;
                 
-                if (score != null) {
+                if (Number.isFinite(score)) {
                     if (w > 0) {
                         weightedSum += score * w;
                         totalW += w;
