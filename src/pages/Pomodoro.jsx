@@ -553,7 +553,7 @@ export default function Pomodoro() {
         };
     }, []);
 
-    const handleExit = () => {
+    const handleExit = (options = {}) => {
         if (activeSubject) {
             setData(prev => ({
                 ...prev,
@@ -566,11 +566,13 @@ export default function Pomodoro() {
         }
         setPomodoroActiveSubject(null);
         const fromRoute = String(location.state?.from || '').replace(/^\/+/, '');
-        const returnPath = fromRoute === 'dashboard'
+        const returnPath = options.forceDashboard
             ? '/'
-            : fromRoute && fromRoute !== 'pomodoro'
-                ? `/${fromRoute}`
-                : '/pomodoro';
+            : fromRoute === 'dashboard'
+                ? '/'
+                : fromRoute && fromRoute !== 'pomodoro'
+                    ? `/${fromRoute}`
+                    : '/pomodoro';
         navigate(returnPath);
     };
 
@@ -611,6 +613,13 @@ export default function Pomodoro() {
         const currentSubject = activeSubject || useAppStore.getState().appState?.pomodoro?.activeSubject;
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
+
+        if (!wasNatural) {
+            showToast('Sessão pulada. Salvando progresso e retornando...', 'info');
+            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+            completionTimeoutRef.current = setTimeout(() => { handleExit(); }, 400);
+            return;
+        }
 
         if (currentSubject) {
             showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
