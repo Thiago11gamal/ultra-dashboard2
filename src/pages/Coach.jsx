@@ -478,15 +478,17 @@ function RaioXDashboard({ data }) {
         return Number.isFinite(n) ? `${Math.round(n)}%` : '-';
     };
 
-    const filteredLogs = [...auditLog]
+    const sortedLogs = [...auditLog]
+        .sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
+
+    const filteredLogs = sortedLogs
         .filter(log => filter === 'all' || (filter === 'degraded' && Boolean(log?.degraded)))
-        .sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp))
         .slice(0, 50);
 
-    const latestWithReliability = filteredLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
-    const eceValues = filteredLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
+    const latestWithReliability = sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
+    const eceValues = sortedLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
-    const categorySeriesMap = filteredLogs.reduce((acc, log) => {
+    const categorySeriesMap = sortedLogs.reduce((acc, log) => {
         const cat = log?.categoryName || 'Categoria';
         if (!acc[cat]) acc[cat] = [];
         acc[cat].push({
