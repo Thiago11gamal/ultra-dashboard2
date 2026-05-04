@@ -1,6 +1,6 @@
 import { generateId } from '../../utils/idGenerator';
 import { INITIAL_DATA } from '../../data/initialData';
-import { safeClone } from '../safeClone';
+import { safeClone } from '../safeClone.js';
 
 export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {

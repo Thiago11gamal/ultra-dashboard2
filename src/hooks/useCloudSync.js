@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 
 import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
-import { safeClone } from '../store/safeClone';
+import { safeClone } from '../store/safeClone.js';
 
 // Remove propriedades nulas/indefinidas de forma segura com proteção contra loops recursivos
 const cleanUndefined = (obj, seen = new WeakSet()) => {

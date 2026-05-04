@@ -1,3 +1,4 @@
+import { safeClone } from './safeClone.js';
 import { INITIAL_DATA } from '../data/initialData';
 import { generateId } from '../utils/idGenerator';
 import { normalize, aliases } from '../utils/normalization';
@@ -119,7 +120,6 @@ const repairContestHistory = (data) => {
   return data;
 };
 
-import { safeClone } from './safeClone';
 
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };

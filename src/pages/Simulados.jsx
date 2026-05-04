@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import { safeClone } from '../store/safeClone';
+import { safeClone } from '../store/safeClone.js';
 import React from 'react';
 import SimuladoAnalysis from '../components/SimuladoAnalysis';
 import { useAppStore } from '../store/useAppStore';

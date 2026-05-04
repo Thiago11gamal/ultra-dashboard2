@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import { safeClone } from '../store/safeClone';
+import { safeClone } from '../store/safeClone.js';
 import React, { useMemo } from 'react';
 import TopicPerformance from '../components/TopicPerformance';
 import ParetoAnalysis from '../components/ParetoAnalysis';

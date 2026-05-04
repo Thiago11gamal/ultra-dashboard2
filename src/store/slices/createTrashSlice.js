@@ -1,5 +1,5 @@
 import { generateId } from '../../utils/idGenerator';
-import { safeClone } from '../safeClone';
+import { safeClone } from '../safeClone.js';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
