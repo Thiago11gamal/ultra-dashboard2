@@ -262,6 +262,9 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                 </button>
             </div>
 
+            <div className="h-[80px]" />
+            <AICoachPanel activeSubject={activeSubject} stats={stats} />
+
             {recommendedTask && !activeSubject && (
                 <Motion.div
                     initial={{ opacity: 0, y: 20 }}
