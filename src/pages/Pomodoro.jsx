@@ -21,7 +21,7 @@ function AICoachPanel({ activeSubject, stats }) {
         color: 'indigo',
         iconType: 'Brain'
     };
-    
+
     // Fallback absoluto caso a função de inteligência crashe
     const insight = getCoachInsight(activeSubject, stats) || defaultInsight;
 
@@ -378,27 +378,27 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
 function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked, onToggleLock }) {
     const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
-    
+
     // 🛠️ Utilitário Radical: Extrai APENAS o identificador curto (ex: a1) como o assunto principal
     const cleanText = (text) => {
         if (!text) return '';
-        
+
         // FIX 6: Exige pelo menos uma letra, seguida de um número. 
         // Assim captura [a1], [v12], mas ignora [Revisão].
         const codeMatch = text.match(/\[([a-zA-Z]+[0-9]+[a-zA-Z0-9]*)\]/);
         if (codeMatch && codeMatch[1]) {
-            return codeMatch[1]; 
+            return codeMatch[1];
         }
 
         // Caso não ache um código curto, volta para a limpeza padrão pós-dois pontos
         const parts = text.split(':');
         const targetText = parts.length > 1 ? parts[1] : parts[0];
         let cleaned = targetText
-            .replace(/\[[^\]]{10,}\]/g, '') 
+            .replace(/\[[^\]]{10,}\]/g, '')
             .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]/gu, '')
             .replace(/\s{2,}/g, ' ')
             .trim();
-            
+
         return cleaned || parts[0].replace(/\[.*?\]/g, '').trim();
     };
 
@@ -406,13 +406,13 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
         <div className="w-full max-w-[min(95vw,600px)] mb-6 rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-8 py-10 shadow-2xl relative overflow-hidden group mx-auto">
             {/* Efeito de brilho sutil no topo da madeira */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
-            
+
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative z-10">
                 <div className="flex items-center gap-6 min-w-0 flex-1">
                     <div className="w-16 h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
                         <div className="text-2xl font-black text-[#2d1a12]/80">{activeSubject ? 'F' : '⚡'}</div>
                     </div>
-                    
+
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60 truncate">{activeSubject?.category || 'SISTEMA'}</span>
@@ -423,15 +423,15 @@ function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked
                         </h1>
                     </div>
                 </div>
-                
+
                 <div className="flex items-center gap-5 shrink-0">
                     <div className="flex flex-col items-end gap-1.5">
                         <span className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-[#2d1a12]/20 bg-[#2d1a12]/10 text-[#2d1a12]">
                             {neuralMode ? 'Neural' : 'Manual'}
                         </span>
                     </div>
-                    
-                    <button 
+
+                    <button
                         type="button"
                         onClick={onToggleLock}
                         className={`p-4 rounded-2xl border transition-all ${isLayoutLocked ? 'bg-white/10 border-black/5 text-[#2d1a12]/40 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12] shadow-[0_0_20px_rgba(45,26,18,0.2)]'}`}
@@ -451,7 +451,7 @@ export default function Pomodoro() {
     const settings = useAppStore(state => state.appState?.contests?.[activeId]?.settings || EMPTY_OBJECT);
     const studyLogs = useAppStore(state => state.appState?.contests?.[activeId]?.studyLogs || EMPTY_ARRAY);
     const user = useAppStore(state => state.appState?.contests?.[activeId]?.user || null);
-    
+
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
 
@@ -540,7 +540,7 @@ export default function Pomodoro() {
             timeoutId = setTimeout(() => {
                 showToast('Contexto pendente. Retornando ao Dashboard...', 'warning');
                 navigate('/');
-            }, 6000); 
+            }, 6000);
         }
         return () => {
             if (timeoutId) clearTimeout(timeoutId);
@@ -580,7 +580,7 @@ export default function Pomodoro() {
         const sessionId = forcedSessionId || Date.now().toString();
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
-        
+
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
@@ -588,15 +588,15 @@ export default function Pomodoro() {
                     highPriority.push({ ...t, categoryId: cat.id, catName: cat.name });
                 });
             });
-            
+
             const queue = [...highPriority];
             let startIndex = queue.findIndex(t => t.id === task.id);
-            
+
             if (startIndex === -1) {
                 queue.unshift({ ...task, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
                 startIndex = 0;
             }
-            
+
             useAppStore.getState().startNeuralSession(queue, startIndex);
         } else {
             useAppStore.getState().setPomodoroActiveSubject({
@@ -630,7 +630,7 @@ export default function Pomodoro() {
             const activeData = store.appState.contests[store.appState.activeId];
             const cat = (activeData?.categories || []).find(c => c && c.id === currentSubject.categoryId);
             const task = (cat?.tasks || []).find(t => t && (t.id || t.text) === currentSubject.taskId);
-            
+
             if (task && !task.completed && wasNatural) {
                 store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
                 showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
@@ -640,7 +640,7 @@ export default function Pomodoro() {
                 const hasNext = store.advanceNeuralQueue();
                 if (hasNext) {
                     showToast(`Sequenciando próxima meta do painel... ⚡`, 'info');
-                    return; 
+                    return;
                 } else {
                     showToast('Todas as ações concluídas! 🏆', 'success');
                     if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
@@ -652,11 +652,19 @@ export default function Pomodoro() {
                 }
             }
 
+            const isFromDashboard = currentSubject.source === 'dashboard';
             if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
             completionTimeoutRef.current = setTimeout(() => {
-                showToast('Sessão concluída. Retornando ao Dashboard...', 'info');
-                handleExit({ forceDashboard: true });
+                if (isFromDashboard) {
+                    showToast('Missão Cumprida! Retornando ao centro de comando...', 'info');
+                    handleExit({ forceDashboard: true }); 
+                } else {
+                    // Se iniciou no próprio painel Pomodoro, apenas encerra o sujeito ativo para permitir nova escolha sem sair da página
+                    showToast('Sessão finalizada! Selecione sua próxima meta.', 'info');
+                    setPomodoroActiveSubject(null);
+                }
             }, 1000);
+            return;
         } else {
             handleExit();
         }
@@ -676,7 +684,7 @@ export default function Pomodoro() {
                     <Loader2 size={32} className="animate-spin text-indigo-400" />
                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Carregando Sistema Neural...</p>
                     <p className="text-slate-600 font-medium text-[9px] text-center mt-2 max-w-[250px]">
-                        Autenticando parâmetros de foco.<br/>Se não escolheu uma tarefa, voltaremos ao Dashboard em breve.
+                        Autenticando parâmetros de foco.<br />Se não escolheu uma tarefa, voltaremos ao Dashboard em breve.
                     </p>
                 </div>
             </div>
