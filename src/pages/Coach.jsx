@@ -373,20 +373,29 @@ export default function Coach() {
                         <div className="animate-fade-in">
                             <div
                                 role="tabpanel"
-                                id={safeActiveTab === 'insights' ? 'coach-panel-insights' : 'coach-panel-analytics'}
-                                aria-labelledby={safeActiveTab === 'insights' ? 'coach-tab-insights' : 'coach-tab-analytics'}
-                                tabIndex={0}
+                                id="coach-panel-insights"
+                                aria-labelledby="coach-tab-insights"
+                                tabIndex={safeActiveTab === 'insights' ? 0 : -1}
+                                hidden={safeActiveTab !== 'insights'}
                             >
-                                {safeActiveTab === 'insights' ? (
+                                {safeActiveTab === 'insights' && (
                                     <AICoachView 
                                         suggestedFocus={suggestedFocus}
                                         onGenerateGoals={handleGenerateGoals}
                                         loading={coachLoading}
                                         onClearHistory={handleClearHistory}
                                     />
-                                ) : (
-                                    <RaioXDashboard data={data} />
                                 )}
+                            </div>
+
+                            <div
+                                role="tabpanel"
+                                id="coach-panel-analytics"
+                                aria-labelledby="coach-tab-analytics"
+                                tabIndex={safeActiveTab === 'analytics' ? 0 : -1}
+                                hidden={safeActiveTab !== 'analytics'}
+                            >
+                                {safeActiveTab === 'analytics' && <RaioXDashboard data={data} />}
                             </div>
                         </div>
                     </div>
