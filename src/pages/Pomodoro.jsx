@@ -227,7 +227,23 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
     const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
-    const topFiveTasks = highPriorityTasks.slice(0, 5);
+    const visibleTasks = useMemo(() => {
+        const base = [...highPriorityTasks];
+        const seen = new Set(base.map(t => t?.id || t?.text).filter(Boolean));
+
+        if (base.length < 6) {
+            (categories || []).filter(Boolean).forEach(cat => {
+                (cat.tasks || []).filter(t => t && !t.completed).forEach(t => {
+                    const normalizedId = t.id || t.text;
+                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6) return;
+                    base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
+                    seen.add(normalizedId);
+                });
+            });
+        }
+
+        return base.slice(0, 6);
+    }, [highPriorityTasks, categories]);
 
     const activeTaskStats = useMemo(() => {
         if (!activeSubject) return null;
@@ -373,12 +389,12 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                     {pendingCount > 0 && (
                         <span className="text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg">
-                            Mostrando 5 próximas • {pendingCount} pendentes
+                            Mostrando até 6 próximas • {pendingCount} pendentes
                         </span>
                     )}
                 </div>
 
-                {highPriorityTasks.length === 0 ? (
+                {visibleTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
                         <div className="w-16 h-16 rounded-full bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center mb-4">
                             <CheckCircle2 size={32} className="text-emerald-500/40" />
@@ -388,7 +404,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                     </div>
                 ) : (
                     <div className="space-y-2 max-h-[360px] overflow-y-auto pr-3 custom-scrollbar">
-                        {topFiveTasks.filter(Boolean).map((task, idx) => {
+                        {visibleTasks.filter(Boolean).map((task, idx) => {
                             const taskId = task.id || task.text;
                             const isActive = activeSubject?.taskId === taskId;
                             return (
