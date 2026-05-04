@@ -55,7 +55,7 @@ export default function Coach() {
     
     const history = useMemo(() => data?.simuladoRows ?? [], [data]);
     const simulados = useMemo(() => data?.simulados ?? [], [data]);
-    const categories = data?.categories || [];
+    const categories = useMemo(() => data?.categories || [], [data?.categories]);
     const userProfile = data?.user;
     
     const updateCoachScore = useAppStore(state => state.updateCoachScore);

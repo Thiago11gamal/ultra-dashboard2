@@ -6,21 +6,14 @@ import { Sparkles, X, Layout } from 'lucide-react';
 export default function PromptModal({ isOpen, onClose, onConfirm, title, placeholder, initialValue = "" }) {
     const [inputValue, setInputValue] = useState(initialValue);
     const inputRef = useRef(null);
-    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-
-    if (isOpen && !prevIsOpen) {
-        setPrevIsOpen(isOpen);
-        setInputValue(initialValue);
-    } else if (!isOpen && prevIsOpen) {
-        setPrevIsOpen(isOpen);
-    }
 
     useEffect(() => {
         if (isOpen) {
             const timer = setTimeout(() => inputRef.current?.focus(), 200);
             return () => clearTimeout(timer);
         }
-    }, [isOpen]);
+        return undefined;
+    }, [isOpen, initialValue]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
