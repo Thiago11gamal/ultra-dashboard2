@@ -186,7 +186,7 @@ export default function Coach() {
         targetScore: userProfile?.targetProbability || 85,
         timeIndex: -1,
         timelineDates: [],
-        minScore: 0,
+        minScore: data?.minScore ?? 0,
         maxScore: currentMaxScore
     });
 

@@ -50,6 +50,10 @@ export const MonteCarloConfig = ({
     // A lógica de trava (lock) e debounce reside no pai (VerifiedStats).
 
     // FIX: Permitir que o peso manual possa ser 0 sem assumir Math.max(1)
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
+    const sliderRange = Math.max(1, safeMaxScore - safeMinScore);
+
     const manualTotal = categories.reduce((acc, cat) => {
         const val = weights?.[cat.id || cat.name];
         return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
@@ -109,8 +113,8 @@ export const MonteCarloConfig = ({
                         <div className="relative h-6 flex items-center mb-4">
                             <input
                                 type="range"
-                                min={Math.max(1, Math.round(maxScore * 0.1))}
-                                max={maxScore}
+                                min={Math.max(safeMinScore, Math.round(safeMaxScore * 0.1))}
+                                max={safeMaxScore}
                                 step="1"
                                 value={targetScore}
                                 onChange={(e) => {
@@ -122,7 +126,7 @@ export const MonteCarloConfig = ({
                                 }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
                                 style={{
-                                    background: `linear-gradient(to right, #3b82f6 ${((targetScore - minScore) / (maxScore - minScore)) * 100}%, rgba(255,255,255,0.1) ${((targetScore - minScore) / (maxScore - minScore)) * 100}%)`,
+                                    background: `linear-gradient(to right, #3b82f6 ${((targetScore - safeMinScore) / sliderRange) * 100}%, rgba(255,255,255,0.1) ${((targetScore - safeMinScore) / sliderRange) * 100}%)`,
                                     touchAction: 'none'
                                 }}
                             />

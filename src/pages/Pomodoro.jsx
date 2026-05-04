@@ -466,7 +466,7 @@ export default function Pomodoro() {
     const activeSubject = useAppStore(state => state.appState?.pomodoro?.activeSubject);
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
 
-    const currentSessions = useAppStore(state => state.appState?.pomodoro?.sessions) || 1;
+    const currentSessions = useAppStore(state => state.appState?.pomodoro?.sessions ?? 0);
     const neuralMode = useAppStore(state => state.appState?.pomodoro?.neuralMode);
     const neuralQueue = useAppStore(state => state.appState?.pomodoro?.neuralQueue || EMPTY_ARRAY);
 
