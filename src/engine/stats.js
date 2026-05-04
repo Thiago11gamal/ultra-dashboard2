@@ -8,29 +8,34 @@ export const POPULATION_SD_FACTOR = 0.15; // Unificado: 15% da escala do concurs
 
 export function mean(arr) {
     if (!arr || !arr.length) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
+    const clean = arr.map(Number).filter(Number.isFinite);
+    if (!clean.length) return 0;
+    return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
 
 export function standardDeviation(arr, maxScore = 100, customMean = null) {
     if (!arr || arr.length < 1) return 0;
+    const clean = arr.map(Number).filter(Number.isFinite);
+    if (clean.length < 1) return 0;
 
-    const n = arr.length;
-    const m = customMean !== null ? customMean : mean(arr);
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const n = clean.length;
+    const m = customMean !== null && Number.isFinite(Number(customMean)) ? Number(customMean) : mean(clean);
 
     // B-02 FIX: n=1 has no sample variance, use pure prior (shrinkage)
     const sampleVar = n > 1
-        ? arr.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
+        ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
     // MATH FIX: O prior de incerteza (POPULATION_SD) deve ser ancorado na escala do concurso (maxScore)
-    const POPULATION_SD = maxScore * POPULATION_SD_FACTOR;
+    const POPULATION_SD = safeMaxScore * POPULATION_SD_FACTOR;
     const KAPPA = 1;
 
     const adjustedVar =
         ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
         ((n - 1) + KAPPA);
 
-    const finalSdFloor = MIN_SD_FLOOR * maxScore;
+    const finalSdFloor = MIN_SD_FLOOR * safeMaxScore;
     return Math.max(finalSdFloor, Math.sqrt(adjustedVar));
 
 }
@@ -217,11 +222,11 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const historyToUse = validHistory.length > 0 ? validHistory : historyWithSynthetics;
 
     // BUG 4b FIX: Pass maxScore to getSafeScore
-    const scores = historyToUse.map(h => getSafeScore(h, maxScore));
+    const scores = historyToUse.map(h => getSafeScore(h, safeMaxScore));
 
     const totalQ = historyToUse.reduce((acc, h) => acc + (Number(h.total) || 0), 0);
     const m = totalQ > 0
-        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, maxScore) * (Number(h.total) || 0), 0) / totalQ
+        ? historyToUse.reduce((acc, h) => acc + getSafeScore(h, safeMaxScore) * (Number(h.total) || 0), 0) / totalQ
         : mean(scores);
 
     let variance = 0;
@@ -233,7 +238,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         let sumW2 = 0; // Somatório dos pesos ao quadrado
         historyToUse.forEach(h => {
             const w = Number(h.total) || 1;
-            wVarSum += w * Math.pow(getSafeScore(h, maxScore) - m, 2);
+            wVarSum += w * Math.pow(getSafeScore(h, safeMaxScore) - m, 2);
             sumW += w;
             sumW2 += w * w;
         });
@@ -247,7 +252,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             ? wVarSum / kishDenom
             : wVarSum / Math.max(1e-6, sumW * 0.01);
 
-        const POPULATION_SD = maxScore * POPULATION_SD_FACTOR;
+        const POPULATION_SD = safeMaxScore * POPULATION_SD_FACTOR;
         const KAPPA = 1.5;
 
         // 🎯 Kish Effective Sample Size (Fix): Usa o volume de questões real para o shrinkage bayesiano
@@ -264,11 +269,11 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const sd = Math.max(Math.sqrt(variance), 0.001 * maxScore);
     const safeSD = sd;
 
-    const slopePerDay = calculateSlope(historyToUse, maxScore);
+    const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
     // Converter para pp/30-dias para comparação com threshold
     // BUG-TREND-01 FIX: unificar com coachLogic.js (0.02 * maxScore = 2 pts/mês para maxScore=100)
     // Antes: 0.005 * maxScore era 4x menos sensível, causando inconsistência nos rótulos
-    const trendThreshold = 0.02 * maxScore;
+    const trendThreshold = 0.02 * safeMaxScore;
     
     // FIX-SORT3: historyToUse pode não estar ordenado por data (é um filter() do map() original).
     // calculateSlope() ordena internamente, mas o cap de tendência precisa do score mais recente.
@@ -276,9 +281,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
     const lastScore = sortedForTrendCap.length > 0
-        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], maxScore)
+        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore)
         : m;
-    const limiteSuperior = maxScore - lastScore; // O que falta pra gabaritar a partir de agora
+    const limiteSuperior = safeMaxScore - lastScore; // O que falta pra gabaritar a partir de agora
     const limiteInferior = -lastScore; // O que falta pra zerar a partir de agora
     const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, slopePerDay * 30));
 
