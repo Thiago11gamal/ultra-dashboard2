@@ -335,7 +335,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
-                                    onClick={() => onStartTask(task, null, 'manual')}
+                                    onClick={() => onStartTask(task, null, 'pomodoro')}
                                     className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 group text-left relative overflow-hidden ${isActive
                                         ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
                                         : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
@@ -574,7 +574,7 @@ export default function Pomodoro() {
         navigate(returnPath);
     };
 
-    const handleStartTask = (task, forcedSessionId = null, source = 'manual') => {
+    const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
         const sessionId = forcedSessionId || Date.now().toString();
         
         if (source === 'neural_core' && !useAppStore.getState().appState?.pomodoro?.neuralMode) {
