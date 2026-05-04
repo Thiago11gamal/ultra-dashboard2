@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { normalizeDate, formatDuration } from '../../../utils/dateHelper';
+import { formatDuration } from '../../../utils/dateHelper';
 
 export function EvolucaoFocoChart({ data }) {
     const instanceId = useId().replace(/:/g, "");
@@ -13,9 +13,6 @@ export function EvolucaoFocoChart({ data }) {
             </div>
         );
     }
-
-    // A ordenação manual de D/M gerava NaN e destruía a ordem cronológica que o mapper já trazia corretamente
-    const sortedData = data;
 
     return (
         <div className="h-[300px] w-full mt-4">

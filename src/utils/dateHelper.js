@@ -44,7 +44,7 @@ export const getDateKey = (rawDate) => {
         const p = {};
         parts.forEach(({ type, value }) => p[type] = value);
         return `${p.year}-${p.month}-${p.day}`;
-    } catch (e) {
+    } catch {
         // Fallback seguro caso o navegador não suporte fusos horários
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -62,7 +62,7 @@ export const getLocalMidnight = (date = new Date()) => {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
         return d;
-    } catch (e) {
+    } catch {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 };
@@ -139,7 +139,7 @@ export const formatDatePtBR = (date) => {
             month: '2-digit',
             year: 'numeric'
         }).format(new Date(date));
-    } catch (_) {
+    } catch {
         return '--/--/----';
     }
 };
@@ -155,7 +155,7 @@ export const formatDateTimePtBR = (date) => {
             minute: '2-digit',
             second: '2-digit'
         }).format(new Date(date));
-    } catch (_) {
+    } catch {
         return '--/--/---- --:--:--';
     }
 };
@@ -166,7 +166,7 @@ export const formatWeekdayShortPtBR = (date) => {
             timeZone: APP_TIMEZONE,
             weekday: 'short'
         }).format(new Date(date)).replace('.', '').toUpperCase();
-    } catch (_) {
+    } catch {
         return '';
     }
 };

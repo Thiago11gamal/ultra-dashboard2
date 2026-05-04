@@ -453,8 +453,6 @@ export const calculatePomodoroStats = (stats) => {
     const pomodoroDuration = settings?.pomodoroWork || 25;
     const dailyGoalMinutes = dailyGoalPomodoros * pomodoroDuration;
 
-    const now = new Date();
-
     // B-02 FIX: Usar objeto Date local, não toISOString() que sempre retorna UTC.
     // 🕒 PADRONIZAÇÃO MANAUS: Garante que "hoje" começa à meia-noite exata de Manaus (UTC-4)
     const startOfDay = getLocalMidnight();

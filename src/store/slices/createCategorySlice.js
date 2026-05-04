@@ -2,7 +2,7 @@ import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
 import { safeClone } from '../safeClone.js';
 
-export const createCategorySlice = (set, get) => ({
+export const createCategorySlice = (set) => ({
     addCategory: (name) => set((state) => {
         if (!name || typeof name !== 'string') return;
         const activeData = state.appState.contests[state.appState.activeId];

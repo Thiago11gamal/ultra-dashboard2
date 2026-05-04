@@ -43,7 +43,7 @@ export default function Coach() {
         calibrationAlertCache.clear();
     }, [activeId]);
 
-    const data = useAppStore(state => state.appState.contests[activeId]);
+    const data = useAppStore(state => state.appState?.contests?.[activeId] || null);
     const isHydrated = useAppStore(state => state.appState.isHydrated);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();

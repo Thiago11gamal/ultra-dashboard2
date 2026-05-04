@@ -4,7 +4,6 @@ import { calculateSlope, monteCarloSimulation } from './src/engine/projection.js
 console.log('--- Teste de Refinamento Estatístico ---');
 
 const maxScore = 100;
-const scaleFactor = maxScore / 100;
 
 // Cenário 1: Evolução Explosiva (Antigo absoluteMax=0.85, Novo=0.4)
 const historyExplosive = [

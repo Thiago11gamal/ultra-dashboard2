@@ -60,7 +60,7 @@ const idbStorage = {
             }
 
             return idbValue;
-        } catch (e) {
+        } catch {
             // Fallback para IDB em caso de erro de parsing
             return idbValue;
         }
@@ -69,8 +69,8 @@ const idbStorage = {
         // --- PATCH: Backup síncrono imediato ---
         try {
             localStorage.setItem(name, value);
-        } catch (e) {
-            console.warn("[Storage] Backup síncrono falhou.", e?.name);
+        } catch {
+            console.warn("[Storage] Backup síncrono falhou.");
         }
 
         if (saveTimeout) clearTimeout(saveTimeout);
@@ -79,8 +79,8 @@ const idbStorage = {
             try {
                 await idbSet(name, value);
                 saveTimeout = null;
-            } catch (e) {
-                console.error("[Storage] Critical IDB save failure:", e);
+            } catch {
+                console.error("[Storage] Critical IDB save failure.");
             }
         }, 100); // Reduzido para 100ms para maior agilidade em localhost
 
@@ -91,8 +91,8 @@ const idbStorage = {
         localStorage.removeItem(name);
         try {
             await idbDel(name);
-        } catch (e) {
-            console.error("[Storage] Failed to remove from IndexedDB:", e);
+        } catch {
+            console.error("[Storage] Failed to remove from IndexedDB.");
         }
     },
 };
