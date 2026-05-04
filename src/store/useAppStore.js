@@ -101,7 +101,7 @@ export const useAppStore = create(
         temporal(
             immer((set, get) => ({
                 appState: {
-                    contests: { 'default': structuredClone(INITIAL_DATA) },
+                    contests: { 'default': safeClone(INITIAL_DATA) },
                     activeId: 'default',
                     trash: [],
                     version: 0,
@@ -120,12 +120,12 @@ export const useAppStore = create(
                     },
                     lastUpdated: "1970-01-01T00:00:00.000Z"
                 },
-
+ 
                 // FIX: Actions globais que faltavam e causavam Crash no Dashboard
                 setDashboardFilter: (filter) => set((state) => {
                     state.appState.dashboardFilter = filter;
                 }),
-
+ 
                 // BUG-01 FIX: setData is defined exclusively in createSettingsSlice.js
                 // (spread below). Removed the duplicate definition that was silently
                 // overridden and used a different contract (mutation-only vs return-object).
@@ -139,7 +139,7 @@ export const useAppStore = create(
                         // Preservamos configurações de UI (tema, etc) mas limpamos dados sensíveis
                         const settings = state.appState.settings;
                         state.appState = {
-                            contests: { 'default': structuredClone(INITIAL_DATA) },
+                            contests: { 'default': safeClone(INITIAL_DATA) },
                             activeId: 'default',
                             trash: [],
                             version: 0,

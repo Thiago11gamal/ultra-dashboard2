@@ -119,13 +119,13 @@ const repairContestHistory = (data) => {
   return data;
 };
 
-import { safeStructuredClone } from '../utils/safeClone';
+import { safeClone } from './safeClone';
 
 const sanitizeContest = (data) => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
   const source = (data.simuladoRows && data.simuladoRows.length > 0)
-    ? repairContestHistory(safeStructuredClone(data))
+    ? repairContestHistory(safeClone(data))
     : data;
 
   // FORTRESS-01: Defensive initialization for all top-level keys
