@@ -168,8 +168,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const avgPenalty = penaltyValues.length > 0
                 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length
                 : 0;
+            const validCount = Math.max(brierValues.length, penaltyValues.length);
+            if (validCount === 0) return null;
+
             const label = rows[rows.length - 1]?.categoryName || categoryId;
-            return { categoryId, label, count: Math.max(brierValues.length, penaltyValues.length), avgBrier, avgPenalty };
+            return { categoryId, label, count: validCount, avgBrier, avgPenalty };
         })
         .filter(Boolean)
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
@@ -293,8 +296,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                             <div className={`w-2 h-2 shrink-0 rounded-full ${op.degraded ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)]' : 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'}`} />
                                             <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate">{displaySubject(row.label)}</p>
                                         </div>
-                                        <div className={`shrink-0 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                                            {op.degraded ? 'Degradado' : 'Estável'}
+                                        <div className="shrink-0 flex flex-col items-end gap-1">
+                                            <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                {op.degraded ? 'Degradado' : 'Estável'}
+                                            </div>
+                                            <span className="text-[9px] font-mono text-slate-500">n={row.count}</span>
                                         </div>
                                     </div>
                                     
