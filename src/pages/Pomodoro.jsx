@@ -1,7 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
-import { getLocalMidnight } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -14,7 +13,8 @@ const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
 // CORREÇÃO CRÍTICA: Proteção contra undefined no Painel IA
-function AICoachPanel({ activeSubject, stats }) {
+function AICoachPanel({ activeSubject }) {
+    const stats = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.studyLogs || EMPTY_ARRAY);
     const defaultInsight = {
         title: 'Sistema Ativo',
         text: 'Pronto para iniciar os seus ciclos de foco.',
@@ -120,7 +120,7 @@ function AICoachPanel({ activeSubject, stats }) {
 }
 
 // Focus Panel
-function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode, neuralQueue }) {
+function FocusPanel({ categories, activeSubject, onStartTask, neuralMode, neuralQueue }) {
     const recommendedTask = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         return getBestTask(categories);
@@ -194,8 +194,11 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
         // Se estiver em modo neural, priorizamos mostrar o resto da fila neural
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
-            const currentIndex = (neuralQueue || []).findIndex(t => t && (t.id || t.text) === currentTaskId);
-            return (neuralQueue || []).slice(currentIndex + 1).filter(Boolean).map(t => ({
+            const normalizedQueue = (neuralQueue || []).filter(Boolean);
+            const currentIndex = normalizedQueue.findIndex(t => (t.id || t.text) === currentTaskId);
+            const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex + 1) : normalizedQueue;
+
+            return pendingQueue.map(t => ({
                 ...t,
                 id: t.id || t.text,
                 catName: t.catName || t.category || 'Neural',
@@ -258,7 +261,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
             <div className="h-[60px]" />
 
-            <AICoachPanel activeSubject={activeSubject} stats={stats} />
+            <AICoachPanel activeSubject={activeSubject} />
 
             {recommendedTask && !activeSubject && (
                 <Motion.div
@@ -376,7 +379,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 }
 
 
-function PomodoroTopBar({ activeSubject, neuralMode, neuralQueue, isLayoutLocked, onToggleLock }) {
+function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
     const queueRemaining = Math.max(0, (neuralQueue?.length || 0) - 1);
 
     // 🛠️ Utilitário Radical: Extrai APENAS o identificador curto (ex: a1) como o assunto principal
@@ -449,8 +452,6 @@ export default function Pomodoro() {
     const contest = useAppStore(state => state.appState?.contests?.[activeId] || EMPTY_OBJECT);
     const categories = useAppStore(state => state.appState?.contests?.[activeId]?.categories || EMPTY_ARRAY);
     const settings = useAppStore(state => state.appState?.contests?.[activeId]?.settings || EMPTY_OBJECT);
-    const studyLogs = useAppStore(state => state.appState?.contests?.[activeId]?.studyLogs || EMPTY_ARRAY);
-    const user = useAppStore(state => state.appState?.contests?.[activeId]?.user || null);
 
     // Hidratação validada (Considerando a nova referência EMPTY_OBJECT)
     const isHydrated = !!activeId && contest !== EMPTY_OBJECT;
@@ -483,38 +484,6 @@ export default function Pomodoro() {
         localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(newState));
     };
 
-    const userStats = useMemo(() => {
-        if (!contest) return { pomodorosCompleted: currentSessions, consecutiveMinutes: 0, settings: null };
-
-        const now = new Date();
-        const startOfToday = getLocalMidnight().getTime();
-
-        let consecutiveStudyMinutes = 0;
-        const recentLogs = [...(studyLogs || [])]
-            .filter(log => new Date(log.date || 0).getTime() >= startOfToday)
-            .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-        let lastTimeBoundary = now.getTime();
-
-        for (const log of recentLogs) {
-            const logEnd = new Date(log.date || 0).getTime();
-            const gapInMinutes = Math.max(0, (lastTimeBoundary - logEnd) / (1000 * 60));
-
-            if (gapInMinutes > 90) {
-                break;
-            }
-
-            consecutiveStudyMinutes += (Number(log.minutes) || 0);
-            lastTimeBoundary = logEnd - ((Number(log.minutes) || 0) * 60 * 1000);
-        }
-
-        return {
-            pomodorosCompleted: currentSessions,
-            consecutiveMinutes: consecutiveStudyMinutes,
-            settings: settings,
-            user: user
-        };
-    }, [currentSessions, contest, studyLogs, settings, user]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
@@ -580,20 +549,23 @@ export default function Pomodoro() {
         const sessionId = forcedSessionId || Date.now().toString();
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
+        const taskId = task?.id || task?.text;
+
+        if (!taskId) return;
 
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
                 (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
-                    highPriority.push({ ...t, categoryId: cat.id, catName: cat.name });
+                    highPriority.push({ ...t, id: t.id || t.text, categoryId: cat.id, catName: cat.name });
                 });
             });
 
             const queue = [...highPriority];
-            let startIndex = queue.findIndex(t => t.id === task.id);
+            let startIndex = queue.findIndex(t => (t.id || t.text) === taskId);
 
             if (startIndex === -1) {
-                queue.unshift({ ...task, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
+                queue.unshift({ ...task, id: taskId, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
                 startIndex = 0;
             }
 
@@ -601,7 +573,7 @@ export default function Pomodoro() {
         } else {
             useAppStore.getState().setPomodoroActiveSubject({
                 categoryId: task.catId || task.categoryId,
-                taskId: task.id,
+                taskId,
                 category: task.catName || task.category,
                 task: task.text || task.title || 'Estudo',
                 priority: task.priority,
@@ -698,7 +670,6 @@ export default function Pomodoro() {
                     <PomodoroTopBar
                         activeSubject={activeSubject}
                         neuralMode={neuralMode}
-                        neuralQueue={neuralQueue}
                         isLayoutLocked={isLayoutLocked}
                         onToggleLock={toggleLayoutLock}
                     />
@@ -721,7 +692,6 @@ export default function Pomodoro() {
                     categories={categories || []}
                     activeSubject={activeSubject}
                     onStartTask={handleStartTask}
-                    stats={userStats}
                     neuralMode={neuralMode}
                     neuralQueue={neuralQueue}
                 />
