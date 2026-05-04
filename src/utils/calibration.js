@@ -12,16 +12,23 @@ export function summarizeCalibration(scores = [], options = {}) {
         return { avgBrier: 0, calibrationPenalty: 0 };
     }
 
-    const avgBrier = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
+    if (finiteScores.length === 0) return { avgBrier: 0, calibrationPenalty: 0 };
+    const avgBrier = finiteScores.reduce((a, b) => a + b, 0) / finiteScores.length;
     const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
     return { avgBrier, calibrationPenalty };
 }
 
 export function computeCalibrationDiagnostics(pairs = [], options = {}) {
-  const bins = Math.max(2, options.bins || 5);
+  const bins = Math.max(2, Number(options.bins) || 5);
   if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, reliability: [] };
-  
-  const sorted = [...pairs].sort((a, b) => a.probability - b.probability);
+
+  const cleanPairs = pairs
+    .map((p) => ({ probability: Number(p?.probability), observed: Number(p?.observed) }))
+    .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
+  if (cleanPairs.length === 0) return { ece: 0, reliability: [] };
+
+  const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
   const reliability = [];
   
@@ -34,7 +41,7 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
     const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
     const gap = Math.abs(meanPred - observedRate);
-    ece += (slice.length / pairs.length) * gap;
+    ece += (slice.length / cleanPairs.length) * gap;
     reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
   }
   return { ece, reliability };
@@ -49,14 +56,16 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
 
 export function computeRollingCalibrationParams(history = [], cfg = {}) {
   if (history.length === 0) {
-    return { baseline: cfg.baseline || 0.2, maxPenalty: cfg.maxPenalty || 0.3 };
+    return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3 };
   }
-  const windowDays = cfg.windowDays || 60;
+  const windowDays = Number(cfg.windowDays) || 60;
   const cutoff = Date.now() - (windowDays * 24 * 60 * 60 * 1000);
-  const recent = history.filter(h => (h.timestamp || 0) >= cutoff).slice(-(cfg.maxSamples || 20));
+  const maxSamples = Number(cfg.maxSamples) || 20;
+  const recent = history.filter(h => (h.timestamp || 0) >= cutoff).slice(-maxSamples);
   
-  if (recent.length < (cfg.minSamples || 4)) {
-      return { baseline: cfg.baseline || 0.2, maxPenalty: cfg.maxPenalty || 0.3 };
+  const minSamples = Number(cfg.minSamples) || 4;
+  if (recent.length < minSamples) {
+      return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3 };
   }
   
   // BUG-CALIB-01 FIX: ponderação exponencial pelo tempo (λ ≈ meia-vida 14 dias)

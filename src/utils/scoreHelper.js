@@ -12,6 +12,7 @@ export function getSyntheticTotal(maxScore = 100) {
 
 export function getSafeScore(historyRow, maxScore = 100) {
     if (!historyRow) return 0;
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
 
     if (historyRow.score != null) {
         let rawScore = historyRow.score;
@@ -20,10 +21,10 @@ export function getSafeScore(historyRow, maxScore = 100) {
         
         // BUGFIX M3: se isPercentage for true, tratamos o score existente como %
         if (historyRow.isPercentage) {
-            s = (s / 100) * maxScore;
+            s = (s / 100) * safeMaxScore;
         }
 
-        return Number.isFinite(s) ? Math.max(0, Math.min(maxScore, s)) : 0;
+        return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : 0;
     }
 
     const total = Number(historyRow.total) || 0;
@@ -34,13 +35,13 @@ export function getSafeScore(historyRow, maxScore = 100) {
     if (historyRow.isPercentage) {
         // FIX: score já foi verificado como null na L16, então usamos `correct` como valor percentual direto.
         const pValue = correct;
-        const scoreFromPercentage = (pValue / 100) * maxScore;
-        return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(maxScore, scoreFromPercentage)) : 0;
+        const scoreFromPercentage = (pValue / 100) * safeMaxScore;
+        return Number.isFinite(scoreFromPercentage) ? Math.max(0, Math.min(safeMaxScore, scoreFromPercentage)) : 0;
     }
 
     // Fallback de retrocompatibilidade para provas clássicas (correct / total)
     if (total > 0) {
-        return Math.max(0, Math.min(maxScore, (correct / total) * maxScore));
+        return Math.max(0, Math.min(safeMaxScore, (correct / total) * safeMaxScore));
     }
 
     return 0; // Prevenção de NaN
