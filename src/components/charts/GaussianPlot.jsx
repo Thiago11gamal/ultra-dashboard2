@@ -158,12 +158,10 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         return {
             pathData: path, areaPathData: areaPath, failAreaPathData: failPath,
-            range, xMin, targetVal, xp, yp,
-            asymmetricGaussianFn: (x) => hasValidKDE ? (getYAtX(pointsForArea, xp(x)) / baseHeightFactor) : asymmetricGaussian(x, meanVal, vizSdLeft, vizSdRight, baseHeightFactor),
-            median: meanVal, p25: meanVal - 0.674 * rawSdLeft, p75: meanVal + 0.674 * rawSdRight,
+            range, xMin, targetVal, xp,
             domainMin, domainMax, curveY: calculateCurveY
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, projectedMean, minScore, maxScore, unit]);
+    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, minScore, maxScore, unit]);
 
     // POSIÇÕES EXATAS (X e Y acoplados perfeitamente à montanha)
     const targetPos = xp(targetVal);

@@ -50,6 +50,8 @@ export function useMonteCarloWorker() {
             console.warn('[MC Worker] Not available, using main thread:', e.message);
         }
 
+        const cleanupPendingMap = pendingRequestsRef.current;
+
         return () => {
             // 🎯 RIGOR FIX: Usar a referência capturada na closure (worker) em vez do ref volátil
             if (worker) {
@@ -58,11 +60,12 @@ export function useMonteCarloWorker() {
             }
             
             // Limpa apenas os pendentes DESTE worker específico
-            for (const [id, pending] of pendingRequestsRef.current) {
+            const pendingMap = cleanupPendingMap;
+            for (const [id, pending] of pendingMap) {
                 if (pending.worker === worker) {
                     if (pending.timeoutId) clearTimeout(pending.timeoutId);
                     pending.reject(new Error('Worker foi encerrado (component unmounted).'));
-                    pendingRequestsRef.current.delete(id);
+                    pendingMap.delete(id);
                 }
             }
         };
