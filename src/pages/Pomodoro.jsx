@@ -565,7 +565,12 @@ export default function Pomodoro() {
             }));
         }
         setPomodoroActiveSubject(null);
-        const returnPath = location.state?.from ? `/${location.state.from}` : '/';
+        const fromRoute = String(location.state?.from || '').replace(/^\/+/, '');
+        const returnPath = fromRoute === 'dashboard'
+            ? '/'
+            : fromRoute && fromRoute !== 'pomodoro'
+                ? `/${fromRoute}`
+                : '/pomodoro';
         navigate(returnPath);
     };
 
