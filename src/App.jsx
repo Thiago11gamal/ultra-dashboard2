@@ -100,6 +100,7 @@ function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
+  const rescueAttemptsRef = useRef(0);
   const [isStoreHydrated, setIsStoreHydrated] = useState(() => useAppStore.persist.hasHydrated());
 
   useEffect(() => {
@@ -138,10 +139,12 @@ function MainLayout() {
     }
 
     // DASHBOARD RESCUE: If hydrated but activeId points to nowhere, pick the first available contest
-    if (isStoreHydrated && !headerData.exists) {
+    // Anti-loop protection: limit to 3 attempts
+    if (isStoreHydrated && !headerData.exists && rescueAttemptsRef.current < 3) {
       const keys = Object.keys(contestsMetaList || {});
       if (keys.length > 0) {
         console.warn("[Rescue] Concurso ativo inválido ou removido. Selecionando fallback:", keys[0]);
+        rescueAttemptsRef.current += 1;
         switchContest(keys[0]);
       }
     }

@@ -97,14 +97,28 @@ export default function Coach() {
     }, [simulados.length, history.length, setData]);
     */
 
+    const lastPersistRef = useRef(0);
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId) return;
+        
+        // RATE-LIMIT: Evita loops se muitas métricas forem emitidas em sequência rápida
+        const now = Date.now();
+        if (now - lastPersistRef.current < 500) return;
+        lastPersistRef.current = now;
+
         const avgBrier = Number(metric.avgBrier) || 0;
         const isDegraded = avgBrier >= CRITICAL_BRIER_THRESHOLD;
 
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
             const categoryHistory = current[metric.categoryId] || [];
+            
+            // Verificação de Redundância: Só salva se o Brier mudou significativamente (>1%)
+            const lastEntry = categoryHistory[categoryHistory.length - 1];
+            if (lastEntry && Math.abs(Number(lastEntry.avgBrier) - avgBrier) < 0.01 && !isDegraded) {
+                return prev; // No change needed
+            }
+
             const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
             const nextHistory = [...cleaned, metric].slice(-60);
@@ -205,7 +219,7 @@ export default function Coach() {
     const lastHashRef = useRef('');
 
     useEffect(() => {
-        if (!data?.categories) return;
+        if (!data?.categories || !isHydrated) return;
         if (analysisHash === lastHashRef.current) return;
         lastHashRef.current = analysisHash;
 
@@ -229,11 +243,17 @@ export default function Coach() {
         );
 
         setSuggestedFocus(result);
+
+        // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
         if (collectedMetrics.length > 0) {
-            collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+            const timer = setTimeout(() => {
+                collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+            }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
+            return () => clearTimeout(timer);
         }
     }, [
         analysisHash,
+        isHydrated,
         data?.categories, 
         data?.simuladoRows, 
         data?.studyLogs, 
