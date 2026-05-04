@@ -464,7 +464,6 @@ function GovernanceBanner({ data }) {
 }
 
 function RaioXDashboard({ data }) {
-    const auditLog = data?.calibrationAuditLog || [];
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
 
@@ -478,12 +477,14 @@ function RaioXDashboard({ data }) {
         return Number.isFinite(n) ? `${Math.round(n)}%` : '-';
     };
 
-    const sortedLogs = [...auditLog]
-        .sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
+    const sortedLogs = useMemo(() => {
+        const source = Array.isArray(data?.calibrationAuditLog) ? data.calibrationAuditLog : [];
+        return [...source].sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
+    }, [data]);
 
-    const filteredLogs = sortedLogs
+    const filteredLogs = useMemo(() => (sortedLogs
         .filter(log => filter === 'all' || (filter === 'degraded' && Boolean(log?.degraded)))
-        .slice(0, 50);
+        .slice(0, 50)), [sortedLogs, filter]);
 
     const latestWithReliability = sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
     const eceValues = sortedLogs.map(log => Number(log?.ece)).filter(Number.isFinite);
@@ -585,7 +586,7 @@ function RaioXDashboard({ data }) {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
-                                <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
+                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
                                     <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
