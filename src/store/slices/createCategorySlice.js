@@ -1,5 +1,5 @@
-import { generateId } from '../../utils/idGenerator';
 import { normalize } from '../../utils/normalization';
+import { safeClone } from '../safeClone';
 
 export const createCategorySlice = (set, get) => ({
     addCategory: (name) => set((state) => {
@@ -43,7 +43,7 @@ export const createCategorySlice = (set, get) => ({
                 id: generateId('trash'),
                 type: 'category',
                 contestId: state.appState.activeId,
-                data: structuredClone({
+                data: safeClone({
                     category: category,
                     studyLogs: activeData.studyLogs?.filter(l => l.categoryId === id) || [],
                     studySessions: activeData.studySessions?.filter(s => s.categoryId === id) || [],
