@@ -47,8 +47,24 @@ export const createSettingsSlice = (set) => ({
 
         nextState = validateAppState(nextState);
 
+        // SYNC SAFETY: guarantee a valid contests tree/activeId so every menu
+        // receives a coherent dataset after cloud/local merges.
+        const nextContests = (nextState.contests && typeof nextState.contests === 'object')
+            ? nextState.contests
+            : state.appState.contests;
+
+        const contestIds = Object.keys(nextContests || {});
+        const fallbackActiveId = contestIds[0] || state.appState.activeId;
+        const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
+            ? nextState.activeId
+            : fallbackActiveId;
+
         const { history, ...otherState } = nextState;
-        Object.assign(state.appState, otherState);
+        Object.assign(state.appState, {
+            ...otherState,
+            contests: nextContests,
+            activeId: nextActiveId
+        });
 
         state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
     }),
