@@ -468,9 +468,19 @@ function RaioXDashboard({ data }) {
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
 
-    const filteredLogs = auditLog
-        .filter(log => filter === 'all' || (filter === 'degraded' && log.degraded))
-        .sort((a, b) => b.timestamp - a.timestamp)
+    const toFiniteNumber = (value, fallback = 0) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    };
+
+    const toPercentLabel = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? `${Math.round(n)}%` : '-';
+    };
+
+    const filteredLogs = [...auditLog]
+        .filter(log => filter === 'all' || (filter === 'degraded' && Boolean(log?.degraded)))
+        .sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp))
         .slice(0, 50);
 
     const latestWithReliability = filteredLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
@@ -480,9 +490,9 @@ function RaioXDashboard({ data }) {
         const cat = log?.categoryName || 'Categoria';
         if (!acc[cat]) acc[cat] = [];
         acc[cat].push({
-            ts: Number(log?.timestamp) || 0,
-            brier: Number(log?.avgBrier) || 0,
-            ece: Number(log?.ece) || 0
+            ts: toFiniteNumber(log?.timestamp),
+            brier: toFiniteNumber(log?.avgBrier),
+            ece: toFiniteNumber(log?.ece)
         });
         return acc;
     }, {});
@@ -574,14 +584,14 @@ function RaioXDashboard({ data }) {
                         <tbody className="divide-y divide-white/5">
                             {filteredLogs.map((log, idx) => (
                                 <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{formatDateTimePtBR(log.timestamp)}</td>
+                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-2 text-[10px] text-white font-bold">{displaySubject(log.categoryName)}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier).toFixed(3) : '-'}</td>
                                     <td className={`py-3 px-2 text-[10px] font-mono ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{Number.isFinite(Number(log?.ece)) ? Number(log.ece).toFixed(3) : '-'}</td>
                                     <td className="py-3 px-2 text-[10px] text-amber-400 font-bold">
-                                        {log.calibrationPenalty > 0 ? `-${Math.round(log.calibrationPenalty * 100)}% (shrink)` : '-'}
+                                        {toFiniteNumber(log?.calibrationPenalty) > 0 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                                     </td>
-                                    <td className="py-3 px-2 text-[10px] text-white font-black">{Math.round(log.probability)}%</td>
+                                    <td className="py-3 px-2 text-[10px] text-white font-black">{toPercentLabel(log?.probability)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -612,8 +622,8 @@ function RaioXDashboard({ data }) {
                             return (
                                 <div key={idx} className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 transition-all hover:bg-white/[0.03]">
                                     <div className="flex items-center justify-between text-[10px]">
-                                        <span className="text-slate-400 font-bold">Bin {bin.bin}</span>
-                                        <span className="text-slate-500">n={bin.count}</span>
+                                        <span className="text-slate-400 font-bold">Bin {Number.isFinite(Number(bin?.bin)) ? Number(bin.bin) : '-'}</span>
+                                        <span className="text-slate-500">n={Number.isFinite(Number(bin?.count)) ? Number(bin.count) : 0}</span>
                                     </div>
                                     <div className="mt-1 text-[10px] text-slate-300">
                                         Pred {predPct}% · Real {obsPct}% · Gap {gapPct}%
@@ -651,7 +661,7 @@ function RaioXDashboard({ data }) {
                         {temporalSeries.map((point, idx) => (
                             <div key={idx} className="space-y-1">
                                 <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                                    <span>{formatDatePtBR(point.ts)}</span>
+                                    <span>{point.ts > 0 ? formatDatePtBR(point.ts) : '-'}</span>
                                     <span>Brier {point.brier.toFixed(3)} · ECE {point.ece.toFixed(3)}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
