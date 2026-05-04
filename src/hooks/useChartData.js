@@ -235,7 +235,8 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 }
             });
 
-            d.global_pct = totalW > 0 ? (weightedSum / totalW) : (activeCount > 0 ? sumScores / activeCount : 0);
+            const rawGlobal = totalW > 0 ? (weightedSum / totalW) : (activeCount > 0 ? sumScores / activeCount : 0);
+            d.global_pct = Number.isFinite(rawGlobal) ? Math.max(0, Math.min(maxScore, rawGlobal)) : 0;
         });
 
         return dates.map(d => dataByDate[d]);
