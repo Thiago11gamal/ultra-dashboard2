@@ -189,7 +189,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
-        const recommendedId = recommendedTask?.id;
+        const recommendedId = recommendedTask?.id || recommendedTask?.text;
         const currentTaskId = activeSubject?.taskId;
 
         // Se estiver em modo neural, priorizamos mostrar o resto da fila neural

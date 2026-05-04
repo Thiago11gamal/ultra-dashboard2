@@ -641,7 +641,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
             // Limpeza visual de todas as fases futuras para garantir sincronia
             workFillsRef.current.forEach((el, i) => {
-                if (el) el.style.width = (i < newState.sessions - 1 || (i === newState.sessions - 1 && newState.mode === 'break')) ? '100%' : '0%';
+                if (el) el.style.width = (i < newState.sessions - 1 || (i === newState.sessions - 1 && (newState.mode === 'break' || newState.mode === 'long_break'))) ? '100%' : '0%';
             });
             breakBallsRef.current.forEach((el, i) => {
                 if (el) el.style.height = (i < newState.sessions - 1) ? '100%' : '0%';
@@ -883,6 +883,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 ref={el => workFillsRef.current[i] = el}
                                                 className="h-full bg-blue-500 will-change-[width]"
                                                 style={{
+                                                    width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
+                                                        (i === sessions - 1 && mode === 'work') ?
+                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
                                             />
@@ -894,6 +898,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 ref={el => breakBallsRef.current[i] = el}
                                                 className="absolute bottom-0 w-full bg-emerald-500 will-change-[height]"
                                                 style={{
+                                                    height: (i < sessions - 1) ? '100%' :
+                                                        (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ?
+                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}
                                             />
