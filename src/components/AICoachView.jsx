@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
 import { useAppStore } from '../store/useAppStore';
@@ -91,7 +91,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                             <Zap size={14} className="text-amber-400 mt-0.5 shrink-0" />
                                             <p className="text-[10px] text-amber-300/90 leading-relaxed">
                                                 <span className="font-black text-amber-400 uppercase tracking-tighter mr-2">Ajuste de Calibração:</span> 
-                                                -{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%
+                                                -{Math.round((Number.isFinite(Number(task.analysis.monteCarlo.calibrationPenalty)) ? Number(task.analysis.monteCarlo.calibrationPenalty) : 0) * 100)}%
                                             </p>
                                         </div>
                                     )}
@@ -144,6 +144,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     };
 
     const hasPlan = coachPlan && coachPlan.length > 0;
+    const toFinite = (value, fallback = 0) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    };
     const calibrationSummary = Object.entries(calibrationHistoryByCategory)
         .map(([categoryId, history]) => {
             const rows = Array.isArray(history) ? history : [];
@@ -235,11 +239,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         style={{ backgroundSize: '200% auto' }}
                     >
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
-                        <motion.div
-                            animate={{ backgroundPosition: ['0% center', '200% center'] }}
-                            transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
-                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none animate-pulse" />
                         {loading ? (
                             <>
                                 <Loader2 size={18} className="animate-spin shrink-0 drop-shadow-md" />
@@ -296,12 +296,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         <div>
                                             <div className="flex justify-between text-[10px] mb-2 px-1">
                                                 <span className="text-slate-500 font-bold uppercase tracking-[0.1em]">Erro (Brier)</span>
-                                                <span className={`font-mono font-bold ${row.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{row.avgBrier.toFixed(3)}</span>
+                                                <span className={`font-mono font-bold ${toFinite(row.avgBrier) > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{toFinite(row.avgBrier).toFixed(3)}</span>
                                             </div>
                                             <div className="h-2 bg-white/[0.03] rounded-full overflow-hidden border border-white/[0.05]">
                                                 <div 
-                                                    className={`h-full transition-all duration-1000 ${row.avgBrier > 0.25 ? 'bg-gradient-to-r from-rose-500 to-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.3)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'}`}
-                                                    style={{ width: `${Math.min(100, (row.avgBrier / 0.5) * 100)}%` }}
+                                                    className={`h-full transition-all duration-1000 ${toFinite(row.avgBrier) > 0.25 ? 'bg-gradient-to-r from-rose-500 to-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.3)]' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'}`}
+                                                    style={{ width: `${Math.min(100, (toFinite(row.avgBrier) / 0.5) * 100)}%` }}
                                                 />
                                             </div>
                                         </div>
@@ -309,12 +309,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         <div className="flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/[0.03]">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shadow-inner">
-                                                    <Zap size={14} className={row.avgPenalty > 0.1 ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-slate-500'} />
+                                                    <Zap size={14} className={toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'text-slate-500'} />
                                                 </div>
                                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Penalidade</span>
                                             </div>
-                                            <span className={`text-[13px] font-black ${row.avgPenalty > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
-                                                -{Math.round(row.avgPenalty * 100)}%
+                                            <span className={`text-[13px] font-black ${toFinite(row.avgPenalty) > 0.1 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                                -{Math.round(toFinite(row.avgPenalty) * 100)}%
                                             </span>
                                         </div>
                                     </div>
