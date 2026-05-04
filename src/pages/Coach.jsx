@@ -97,15 +97,29 @@ export default function Coach() {
     const lastPersistRef = useRef(0);
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId) return;
-        
+
         // RATE-LIMIT: Evita loops se muitas métricas forem emitidas em sequência rápida
         const now = Date.now();
         if (now - lastPersistRef.current < 500) return;
         lastPersistRef.current = now;
 
-        const hasBrier = Number.isFinite(Number(metric.avgBrier));
-        const avgBrier = hasBrier ? Number(metric.avgBrier) : null;
-        const isDegraded = hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD;
+        const toFinite = (value, fallback = null) => {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : fallback;
+        };
+        const metricTimestamp = toFinite(metric?.timestamp, now);
+        const avgBrier = toFinite(metric?.avgBrier, null);
+        const isDegraded = avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD;
+        const reliability = Array.isArray(metric?.reliability) ? metric.reliability.slice(0, 20) : [];
+        const normalizedMetric = {
+            ...metric,
+            timestamp: metricTimestamp,
+            avgBrier,
+            ece: toFinite(metric?.ece, null),
+            probability: toFinite(metric?.probability, null),
+            calibrationPenalty: toFinite(metric?.calibrationPenalty, 0),
+            reliability
+        };
 
         setData(prev => {
             const current = prev.calibrationHistoryByCategory || {};
@@ -119,7 +133,7 @@ export default function Coach() {
 
             const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
-            const nextHistory = [...cleaned, metric].slice(-60);
+            const nextHistory = [...cleaned, normalizedMetric].slice(-60);
 
             const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (Date.now() - 1000 * 60 * 60 * 24 * 7));
             const recent7Brier = recent7.map(item => Number(item?.avgBrier)).filter(Number.isFinite);
@@ -139,7 +153,7 @@ export default function Coach() {
             };
 
             const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
-                ...metric,
+                ...normalizedMetric,
                 avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                 degraded: isDegraded,
                 source: 'coach'
@@ -156,10 +170,10 @@ export default function Coach() {
             };
         });
 
-        if (metric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
-            logCalibrationTelemetryEvent({ ...metric, eventType: 'high_penalty_alert' });
+        if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
+            logCalibrationTelemetryEvent({ ...normalizedMetric, eventType: 'high_penalty_alert' });
         } else {
-            logCalibrationTelemetryEvent(metric);
+            logCalibrationTelemetryEvent(normalizedMetric);
         }
 
         if (isDegraded) {
