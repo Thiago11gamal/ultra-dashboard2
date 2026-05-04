@@ -149,9 +149,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
 
-            // VIS-12 FIX: antes usava latestTimestamp (data do último evento) como âncora.
-            // Se o último evento foi há 30 dias, a janela "7d" calculava 37-30 dias atrás
-            // (completamente errado). Agora usa Date.now() como âncora correta.
+            // Janela móvel baseada no último evento disponível da categoria para
+            // manter o resumo consistente mesmo com histórico esparso.
             const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, Number(h?.timestamp) || 0), 0);
             const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => (h.timestamp || 0) >= sevenDaysAgo);
