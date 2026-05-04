@@ -80,7 +80,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
                         
                         {/* Bottom Decoration */}
                         <div className={`h-1.5 w-full bg-gradient-to-r ${type === 'danger' ? 'from-red-600 via-rose-500 to-orange-500' : 'from-purple-600 via-blue-500 to-emerald-500'} opacity-50`} />
-                    </motion.div>
+                    </Motion.div>
                 </div>
             )}
         </AnimatePresence>

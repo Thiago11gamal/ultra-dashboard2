@@ -126,7 +126,7 @@ export default function PromptModal({ isOpen, onClose, onConfirm, title, placeho
                         
                         {/* Bottom Decoration */}
                         <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-blue-500 to-emerald-500 opacity-50" />
-                    </motion.div>
+                    </Motion.div>
                 </div>
             )}
         </AnimatePresence>
