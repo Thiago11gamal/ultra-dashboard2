@@ -122,8 +122,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return { ...contest, categories: deduped };
     };
 
-    const mergeAppState = (local, cloud) => {
-        if (!cloud) {
+    const mergeAppState = (local, cloud, options = {}) => {
+        if (!cloud || typeof cloud !== 'object') {
             // Mesmo sem nuvem, rodamos a deduplicação no local para limpar o estado
             if (!local?.contests) return local;
             const cleanedContests = { ...local.contests };
@@ -133,7 +133,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             return { ...local, contests: cleanedContests };
         }
         if (!local) return cloud;
-
+ 
         // BUGFIX: Ignore malformed/legacy cloud payloads that don't contain the
         // canonical `contests` tree. Treating such payload as authoritative was
         // causing local panels to disappear on refresh (deletion sync branch).
@@ -147,10 +147,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 cleanedContests[id] = deduplicateCategoryNames(cleanedContests[id]);
             });
             return { ...local, contests: cleanedContests };
-        }
-
-        if (!cloud || typeof cloud !== 'object') {
-            return local;
         }
 
         const localContests = local.contests || {};
@@ -223,14 +219,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // Se um painel existe localmente mas NÃO está na nuvem, e a nuvem é MAIS RECENTE,
         // movemos para a lixeira em vez de deletar permanentemente.
         const localIds = Object.keys(localContests);
-
-        localIds.forEach(id => {
+ 
+        if (!options.nonDestructive) localIds.forEach(id => {
             if (!cloudContests[id]) {
                 const localTime = new Date(localContests[id]?.lastUpdated || 0).getTime();
                 
                 // Margem de 5s para evitar race conditions
                 if (cloudFullUpdate > localTime + 5000) {
-
+ 
                     console.warn(`[Sync] Movendo painel "${id}" para lixeira (removido na nuvem).`);
                     
                     // Move para o trash se ainda não estiver lá
@@ -387,9 +383,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             const isBootSync = !isParityValidatedRef.current;
             const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
-
+ 
             let shouldPullCloud = false;
-
+            let mergeMode = "normal";
+ 
             if (isBootSync) {
                 if (localWasJustEdited) {
                     logger.warn("[Sync] Bloqueio de Boot: Utilizador já iniciou edições locais.");
@@ -400,23 +397,23 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                     // com que backups defeituosos assombrassem o cache local sobrescrevendo-o.
                     const cloudUpdated = cloudUpdatedTime || 0;
                     const localUpdated = localUpdatedTime;
-
+ 
                     const activeId = appStateRef.current?.activeId;
                     const activeContest = appStateRef.current?.contests?.[activeId];
                     const contestCount = Object.keys(appStateRef.current?.contests || {}).length;
                     const localHasSubstantialContent = contestCount > 1 || 
                         (activeContest?.categories && activeContest.categories.length > 0) ||
                         (activeContest?.user?.name && activeContest.user.name !== "Estudante");
-
+ 
                     const localIsInitial = localUpdated <= 0 || !localHasSubstantialContent;
-
+ 
                     const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
                         (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
-
+ 
                     const cloudContestIds = Object.keys(cloudData.contests || {});
                     const localContestIds = Object.keys(appStateRef.current?.contests || {});
                     const cloudHasMissingLocalContests = cloudContestIds.some(id => !localContestIds.includes(id));
-
+ 
                     if (localIsInitial && cloudHasContent) {
                         logger.warn("[Sync] LOCAL VAZIO DETECTADO. Forçando pull da nuvem para resgate.");
                         shouldPullCloud = true;
@@ -428,8 +425,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                             logger.warn("[Sync] NUVEM POSSUI PAINÉIS AUSENTES LOCALMENTE. Aplicando merge de resgate.");
                             shouldPullCloud = true;
                         } else {
-                            logger.warn("[Sync] Divergência detectada (nuvem/local). Preservando local no boot.");
-                            shouldPullCloud = false;
+                            logger.warn("[Sync] Divergência detectada (nuvem/local). Aplicando merge não-destrutivo.");
+                            shouldPullCloud = true;
+                            mergeMode = "nonDestructive";
                         }
                     } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
                         logger.warn(`[Sync] NUVEM MAIS RECENTE (${Math.round((cloudUpdated - localUpdated) / 1000)}s). Aplicando pull.`);
@@ -439,7 +437,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                         shouldPullCloud = false;
                     }
                 }
-
+ 
                 if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
                     logger.warn("[Sync] BLOQUEIO DE RESGATE ATIVO. Recusando pull da nuvem para proteger dados locais.");
                     shouldPullCloud = false;
@@ -447,16 +445,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             } else {
                 shouldPullCloud = !localWasJustEdited;
             }
-
+ 
             const wasAlreadyValidated = isParityValidatedRef.current;
             confirmParity();
-
+ 
             if (shouldPullCloud) {
                 logger.debug('[Sync] Dado da nuvem → processando merge e deduplicação');
                 isCloudPullRef.current = true;
                 // SAFETY: Never call setAppState after unmount (avoids React warning + memory leak)
                 if (isMountedRef.current) {
-                    setAppState(prev => mergeAppState(prev, cloudData));
+                    setAppState(prev => mergeAppState(prev, cloudData, { nonDestructive: mergeMode === "nonDestructive" }));
                 }
                 lastSyncedRef.current = stateStringForSync(appStateRef.current);
                 setHasConflict(false);
