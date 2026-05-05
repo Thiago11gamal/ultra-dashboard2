@@ -210,9 +210,14 @@ export default function Coach() {
 
     const combinedHistory = useMemo(() => {
         const all = [...history];
-        simulados.forEach(s => {
+        const seen = new Set(all.map((item) => `${item?.id || ''}|${item?.date || ''}|${Number(item?.score)}`));
+        simulados.forEach((s) => {
             const hasScore = s?.score !== null && s?.score !== undefined && !Number.isNaN(Number(s.score));
-            if (s?.date && hasScore) all.push({ ...s, type: 'simulado' });
+            if (!s?.date || !hasScore) return;
+            const key = `${s?.id || ''}|${s.date}|${Number(s.score)}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            all.push({ ...s, type: 'simulado' });
         });
         return getSortedHistory(all);
     }, [history, simulados]);
@@ -223,15 +228,15 @@ export default function Coach() {
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
-        targetScore: userProfile?.targetProbability || 85,
+        targetScore: userProfile?.targetProbability ?? 85,
         timeIndex: -1,
         timelineDates: [],
         minScore: data?.minScore ?? 0,
         maxScore: currentMaxScore
     });
 
-    const projectedScore = mcStats?.projectedMean || 0;
-    const volatility = mcStats?.sd || 0;
+    const projectedScore = mcStats?.projectedMean ?? 0;
+    const volatility = mcStats?.sd ?? 0;
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => (Array.isArray(simulados) ? simulados.length : 0), [simulados]);
 
@@ -248,7 +253,7 @@ export default function Coach() {
         if (analysisHash === lastHashRef.current) return;
         lastHashRef.current = analysisHash;
 
-        const targetScore = userProfile?.targetProbability || 85;
+        const targetScore = userProfile?.targetProbability ?? 85;
         const collectedMetrics = [];
 
         const result = getSuggestedFocus(
@@ -307,7 +312,7 @@ export default function Coach() {
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
-            const targetScore = userProfile?.targetProbability || 85;
+            const targetScore = userProfile?.targetProbability ?? 85;
             const collectedMetrics = [];
 
             const newTasks = generateDailyGoals(

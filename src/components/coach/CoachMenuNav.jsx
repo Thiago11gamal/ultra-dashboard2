@@ -45,6 +45,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     };
 
     const activateTab = (tabKey) => {
+        if (!availableTabs.includes(tabKey)) return;
         onChangeTab(tabKey);
         focusTab(tabKey);
     };
@@ -62,7 +63,9 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         const currentIndex = availableTabs.indexOf(activeTab);
 
         if (isEnter || isSpace) {
-            activateTab(activeTab);
+            const focused = typeof document !== 'undefined' ? (document.activeElement?.id || '') : '';
+            const focusedTab = focused.replace('coach-tab-', '');
+            if (availableTabs.includes(focusedTab)) activateTab(focusedTab);
             return;
         }
 

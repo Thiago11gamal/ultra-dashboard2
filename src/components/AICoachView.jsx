@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
@@ -111,7 +111,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
-    const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || {};
+    const calibrationHistoryByCategory = useMemo(() => activeContest?.calibrationHistoryByCategory || {}, [activeContest?.calibrationHistoryByCategory]);
     const calibrationOps = activeContest?.calibrationOps || {};
     const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
@@ -133,22 +133,25 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
         }
 
-        startNeuralSession(sessionTasks, targetIndex !== -1 ? targetIndex : 0);
+        if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
+        const safeIndex = targetIndex !== -1 ? targetIndex : 0;
+        startNeuralSession(sessionTasks, safeIndex);
         navigate('/pomodoro');
     };
 
     const handleExport = async () => {
         setIsExporting(true);
-        await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
-        setIsExporting(false);
+        try {
+            await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const hasPlan = coachPlan && coachPlan.length > 0;
     const toFinite = (value, fallback = 0) => {
         const n = Number(value);
-        return Number.isFinite(n) ? n : fallback;
-    };
-    const calibrationSummary = Object.entries(calibrationHistoryByCategory)
+        return Number.isFinite(n) ? n : fallb    const calibrationSummary = useMemo(() => Object.entries(calibrationHistoryByCategory)
         .map(([categoryId, history]) => {
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
@@ -159,7 +162,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
- 
+  
             const brierValues = base.map(h => Number(h?.avgBrier)).filter(Number.isFinite);
             const penaltyValues = base.map(h => Number(h?.calibrationPenalty)).filter(Number.isFinite);
             const avgBrier = brierValues.length > 0
@@ -176,7 +179,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         })
         .filter(Boolean)
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
-        .slice(0, 6);
+        .slice(0, 6), [calibrationHistoryByCategory]);   .slice(0, 6);
 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
