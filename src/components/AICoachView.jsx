@@ -19,7 +19,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
-    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u024F]/g, '').trim();
+    // BUG-SAN-REGEX: a regex anterior era muito restritiva ([^\w\s\u00C0-\u024F]). 
+    // Ampliada para incluir pontuação essencial e outros alfabetos latinos estendidos.
+    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF\uFB00-\uFBFF]/g, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);

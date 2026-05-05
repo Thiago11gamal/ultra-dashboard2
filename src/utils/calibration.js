@@ -24,7 +24,7 @@ export function summarizeCalibration(scores = [], options = {}) {
 
 export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   const bins = Math.max(2, Number(options.bins) || 5);
-  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, reliability: [] };
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
 
   const cleanPairs = pairs
     .map((p) => ({
@@ -32,11 +32,15 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
       observed: Math.max(0, Math.min(1, Number(p?.observed)))
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
-  if (cleanPairs.length === 0) return { ece: 0, reliability: [] };
+  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
 
   const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
+  let mce = 0;
   const reliability = [];
+  const overallObserved = cleanPairs.reduce((a, b) => a + b.observed, 0) / cleanPairs.length;
+  let relTerm = 0;
+  let resTerm = 0;
   
   for (let i = 0; i < bins; i++) {
     const start = Math.floor(i * sorted.length / bins);
@@ -47,10 +51,24 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     const meanPred = slice.reduce((a, b) => a + b.probability, 0) / slice.length;
     const observedRate = slice.reduce((a, b) => a + b.observed, 0) / slice.length;
     const gap = Math.abs(meanPred - observedRate);
-    ece += (slice.length / cleanPairs.length) * gap;
+    const weight = slice.length / cleanPairs.length;
+    ece += weight * gap;
+    mce = Math.max(mce, gap);
+    relTerm += weight * ((meanPred - observedRate) ** 2);
+    resTerm += weight * ((observedRate - overallObserved) ** 2);
     reliability.push({ bin: i + 1, count: slice.length, meanPred, observedRate, gap });
   }
-  return { ece, reliability };
+  const uncertainty = overallObserved * (1 - overallObserved);
+  return {
+    ece,
+    mce,
+    reliability,
+    brierDecomposition: {
+      reliability: relTerm,
+      resolution: resTerm,
+      uncertainty
+    }
+  };
 }
 
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
@@ -110,3 +128,107 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
 export const CRITICAL_BRIER_THRESHOLD = 0.28;
 export const HIGH_PENALTY_THRESHOLD = 0.20;
 export const ALERT_COOLDOWN_MS = 1000 * 60 * 60 * 12; // 12h
+
+
+// -------- Advanced calibration tooling --------
+export function fitIsotonicCalibration(pairs = []) {
+  const clean = (pairs || [])
+    .map(p => ({ x: Number(p?.probability), y: Number(p?.observed) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
+    .map(p => ({ x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)), w: 1 }))
+    .sort((a, b) => a.x - b.x);
+  if (clean.length === 0) return [];
+
+  // PAV (Pool Adjacent Violators)
+  const blocks = clean.map(p => ({ minX: p.x, maxX: p.x, sumWY: p.y, sumW: 1, mean: p.y }));
+  let i = 0;
+  while (i < blocks.length - 1) {
+    if (blocks[i].mean <= blocks[i + 1].mean) { i++; continue; }
+    const merged = {
+      minX: blocks[i].minX,
+      maxX: blocks[i + 1].maxX,
+      sumWY: blocks[i].sumWY + blocks[i + 1].sumWY,
+      sumW: blocks[i].sumW + blocks[i + 1].sumW,
+      mean: 0
+    };
+    merged.mean = merged.sumWY / merged.sumW;
+    blocks.splice(i, 2, merged);
+    if (i > 0) i--;
+  }
+  return blocks.map(b => ({ minX: b.minX, maxX: b.maxX, value: b.mean }));
+}
+
+export function predictIsotonicProbability(probability01, model = []) {
+  const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+  if (!Array.isArray(model) || model.length === 0) return p;
+  const hit = model.find(b => p >= b.minX && p <= b.maxX);
+  if (hit) return Math.max(0, Math.min(1, Number(hit.value) || 0));
+  if (p < model[0].minX) return Math.max(0, Math.min(1, Number(model[0].value) || 0));
+  const last = model[model.length - 1];
+  return Math.max(0, Math.min(1, Number(last.value) || 0));
+}
+
+export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
+  const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+  const clean = (pairs || [])
+    .map(x => ({ probability: Number(x?.probability), observed: Number(x?.observed) }))
+    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed))
+    .map(x => ({ probability: Math.max(0, Math.min(1, x.probability)), observed: Math.max(0, Math.min(1, x.observed)) }));
+  if (clean.length < 4) return p;
+
+  const sorted = [...clean].sort((a, b) => a.probability - b.probability);
+  const bins = Math.max(2, Math.min(10, Number(options.bins) || Math.round(Math.sqrt(sorted.length))));
+  const alpha0 = Math.max(0.1, Number(options.alpha0) || 0.5);
+  const beta0 = Math.max(0.1, Number(options.beta0) || 0.5);
+
+  for (let i = 0; i < bins; i++) {
+    const start = Math.floor(i * sorted.length / bins);
+    const end = Math.floor((i + 1) * sorted.length / bins);
+    const slice = sorted.slice(start, end);
+    if (slice.length === 0) continue;
+    const lo = slice[0].probability;
+    const hi = slice[slice.length - 1].probability;
+    if (p < lo || p > hi) continue;
+    const succ = slice.reduce((a, b) => a + b.observed, 0);
+    const n = slice.length;
+    return (succ + alpha0) / (n + alpha0 + beta0);
+  }
+  return p;
+}
+
+export function conformalizedCalibrationInterval(probability01, pairs = [], alpha = 0.1) {
+  const p = Math.max(0, Math.min(1, Number(probability01) || 0));
+  const clean = (pairs || [])
+    .map(x => ({ probability: Number(x?.probability), observed: Number(x?.observed) }))
+    .filter(x => Number.isFinite(x.probability) && Number.isFinite(x.observed));
+  if (clean.length < 8) {
+    return { low: Math.max(0, p - 0.15), high: Math.min(1, p + 0.15), qHat: 0.15 };
+  }
+  const residuals = clean.map(x => Math.abs(Math.max(0, Math.min(1, x.probability)) - Math.max(0, Math.min(1, x.observed)))).sort((a,b)=>a-b);
+  const qIdx = Math.min(residuals.length - 1, Math.ceil((1 - Math.max(0.01, Math.min(0.4, alpha))) * (residuals.length + 1)) - 1);
+  const qHat = residuals[Math.max(0, qIdx)] || 0;
+  return { low: Math.max(0, p - qHat), high: Math.min(1, p + qHat), qHat };
+}
+
+export function computeStackingWeights(candidateProbs = [], observed = []) {
+  const k = Array.isArray(candidateProbs) ? candidateProbs.length : 0;
+  if (k === 0) return [];
+  const n = Array.isArray(observed) ? observed.length : 0;
+  if (n === 0) return new Array(k).fill(1 / k);
+
+  const losses = candidateProbs.map(series => {
+    if (!Array.isArray(series) || series.length !== n) return 1e6;
+    let acc = 0;
+    for (let i = 0; i < n; i++) {
+      const p = Math.max(0, Math.min(1, Number(series[i]) || 0));
+      const y = Math.max(0, Math.min(1, Number(observed[i]) || 0));
+      acc += (p - y) ** 2;
+    }
+    return acc / n;
+  });
+  const temp = 0.08;
+  const scores = losses.map(l => Math.exp(-l / temp));
+  const z = scores.reduce((a, b) => a + b, 0) || 1;
+  return scores.map(s => s / z);
+}
+

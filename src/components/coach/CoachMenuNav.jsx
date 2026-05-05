@@ -64,8 +64,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
         if (isEnter || isSpace) {
             const focused = typeof document !== 'undefined' ? (document.activeElement?.id || '') : '';
-            const focusedTab = focused.replace('coach-tab-', '');
-            if (availableTabs.includes(focusedTab)) activateTab(focusedTab);
+            // FIX-ACC: Only activate if the focus is actually ON a tab button.
+            // Previously, it could trigger if the list container had focus but not a specific tab.
+            if (focused.startsWith('coach-tab-')) {
+                const focusedTab = focused.replace('coach-tab-', '');
+                if (availableTabs.includes(focusedTab)) activateTab(focusedTab);
+            }
             return;
         }
 

@@ -1,6 +1,6 @@
 import { monteCarloSimulation } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
-import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics } from './calibration.js';
+import { computeBrierScore, summarizeCalibration, shrinkProbabilityToNeutral, computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability, calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights } from './calibration.js';
 
 // MATH-ADAPTIVE-SCALE FIX: adicionado parâmetro maxScore (default=100).
 // Antes, os scores em escala [0, maxScore] eram usados diretamente na fórmula q(0.25)*0.55,
@@ -18,7 +18,14 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
   const cleanScores = rawScores.map(s => (s / safeMax) * 100);
 
   const sorted = [...cleanScores].sort((a, b) => a - b);
-  const q = (p) => sorted[Math.max(0, Math.min(sorted.length - 1, Math.round((sorted.length - 1) * p)))];
+  const q = (p) => {
+    const idx = Math.max(0, Math.min(sorted.length - 1, (sorted.length - 1) * p));
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if (lo === hi) return sorted[lo];
+    const t = idx - lo;
+    return sorted[lo] * (1 - t) + sorted[hi] * t;
+  };
 
   let danger = Math.max(15, Math.min(45, q(0.25) * 0.55));
   let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
@@ -169,7 +176,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     }, 0);
     const firstDate = history[0]?.date || '';
     const lastDate = history[history.length - 1]?.date || '';
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}`;
+    const calibHash = `${cfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${cfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${cfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
+    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
@@ -187,6 +195,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         let avgBrier = 0;
         let ece = 0;
         let reliability = [];
+        let predObsPairs = [];
+        let rawPreds = [];
+        let observedSeq = [];
         if (enableAdaptiveCalibration && history.length >= 8) {
             const dynamicHorizon = Math.max(
                 cfg.MC_BACKTEST_HORIZON || 3,
@@ -194,7 +205,6 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             );
             const horizon = Math.min(dynamicHorizon, history.length - (cfg.MC_MIN_DATA_POINTS || 5));
             const brierScores = [];
-            const predObsPairs = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
                 const observed = history[history.length - i].score >= targetScore ? 1 : 0;
@@ -209,6 +219,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                     const p = Math.max(0, Math.min(1, (bt.probability || 0) / 100));
                     brierScores.push(computeBrierScore(p, observed));
                     predObsPairs.push({ probability: p, observed });
+                    rawPreds.push(p);
+                    observedSeq.push(observed);
                 } catch {
                     // ignore
                 }
@@ -229,25 +241,46 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 ece = diagnostics.ece;
                 reliability = diagnostics.reliability;
 
-                // Penalidade composta: Brier (nível) + ECE (calibração) com blending conservador.
+                // Penalidade composta: Brier (nível) + ECE + MCE (erro máximo local) com blending conservador.
                 const eceScaled = Math.max(0, Math.min(1, ece / 0.25));
+                const mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
+                const penaltyCap = adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25;
                 const composedPenalty = Math.min(
-                    adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25,
-                    (calibrationPenalty * 0.8) + (eceScaled * 0.2 * (adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25))
+                    penaltyCap,
+                    (calibrationPenalty * 0.7) + (eceScaled * 0.2 * penaltyCap) + (mceScaled * 0.1 * penaltyCap)
                 );
                 calibrationPenalty = composedPenalty;
             }
         }
 
+
+        let isotonicModel = [];
+        let stackingWeights = [0.34, 0.33, 0.33];
+        if (predObsPairs.length >= 6) {
+            isotonicModel = fitIsotonicCalibration(predObsPairs);
+            const isotonicSeries = rawPreds.map(p => predictIsotonicProbability(p, isotonicModel));
+            const bbqSeries = rawPreds.map(p => calibrateWithBBQ(p, predObsPairs));
+            stackingWeights = computeStackingWeights([rawPreds, isotonicSeries, bbqSeries], observedSeq);
+        }
+
         const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
+        const rawProb01 = rawProb / 100;
+        const isoProb01 = predictIsotonicProbability(rawProb01, isotonicModel);
+        const bbqProb01 = calibrateWithBBQ(rawProb01, predObsPairs);
+        const stackedProb01 = Math.max(0, Math.min(1,
+            (stackingWeights[0] || 0) * rawProb01 +
+            (stackingWeights[1] || 0) * isoProb01 +
+            (stackingWeights[2] || 0) * bbqProb01
+        ));
+
         const probability = enableAdaptiveCalibration
             ? shrinkProbabilityToNeutral(
-                rawProb,
+                stackedProb01 * 100,
                 calibrationPenalty,
                 cfg.MC_CALIBRATION_NEUTRAL_PCT || 50,
                 cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY || 0.5
             )
-            : rawProb;
+            : (stackedProb01 * 100);
 
         const extraLowSampleShrink = isLowSample
             ? Math.min(0.35, (lowSampleThreshold - history.length) / lowSampleThreshold)
@@ -263,6 +296,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
         const widenedCiHigh = Math.min(maxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
 
+        const conformal = conformalizedCalibrationInterval(stackedProb01, predObsPairs, 0.1);
+
         const finalResult = {
             probability: adjustedProbability,
             volatility: (Number(result.volatility) || 0) * (1 + (enableAdaptiveCalibration ? calibrationPenalty * 0.8 : 0)),
@@ -274,7 +309,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             ece,
             reliability,
             sampleSize: history.length,
-            lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4))
+            lowSampleAdjustment: Number(extraLowSampleShrink.toFixed(4)),
+            conformalLow: Number((conformal.low * 100).toFixed(2)),
+            conformalHigh: Number((conformal.high * 100).toFixed(2)),
+            conformalQ: Number(conformal.qHat.toFixed(4)),
+            stackingWeights
         };
 
         if (mcCache.size >= MC_CACHE_MAX) {

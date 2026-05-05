@@ -242,8 +242,10 @@ export default function Coach() {
     const analysisHash = useMemo(() => {
         // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
         // Usamos as referências dos arrays e valores de perfil para detectar mudanças reais.
-        return `${data?.simuladoRows?.length || 0}-${data?.studyLogs?.length || 0}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${data?.updatedAt || ''}`;
-    }, [data?.simuladoRows, data?.studyLogs, categories, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, data?.updatedAt]);
+        const scoreFingerprint = (data?.simuladoRows || []).slice(-10).map(s => `${s.id}-${s.score}`).join('|');
+        const studyFingerprint = (data?.studyLogs || []).slice(-5).map(l => `${l.id}-${l.date}`).join('|');
+        return `${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${data?.updatedAt || ''}`;
+    }, [data?.simuladoRows, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, data?.updatedAt]);
 
     const lastHashRef = useRef('');
 
