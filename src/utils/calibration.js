@@ -111,11 +111,9 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   });
   const avgBrier = sumCalibWeights > 0 ? sumWeightedBrier / sumCalibWeights : 0;
   const confidenceFactor = Math.min(1, recent.length / Math.max(minSamples, 1));
-  // Dynamic baseline with confidence-gating to avoid overreacting on short windows
   const dynamicBaseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
   const defaultBaseline = cfg.baseline ?? 0.2;
   const baseline = (dynamicBaseline * confidenceFactor) + (defaultBaseline * (1 - confidenceFactor));
-  // Penalty cap also confidence-aware
   const dynamicMaxPenalty = avgBrier > 0.25 ? 0.35 : 0.25;
   const defaultMaxPenalty = cfg.maxPenalty ?? 0.3;
   const maxPenalty = (dynamicMaxPenalty * confidenceFactor) + (defaultMaxPenalty * (1 - confidenceFactor));
@@ -139,7 +137,6 @@ export function fitIsotonicCalibration(pairs = []) {
     .sort((a, b) => a.x - b.x);
   if (clean.length === 0) return [];
 
-  // PAV (Pool Adjacent Violators)
   const blocks = clean.map(p => ({ minX: p.x, maxX: p.x, sumWY: p.y, sumW: 1, mean: p.y }));
   let i = 0;
   while (i < blocks.length - 1) {
@@ -232,3 +229,63 @@ export function computeStackingWeights(candidateProbs = [], observed = []) {
   return scores.map(s => s / z);
 }
 
+export function buildCalibrationDashboardSeries(events = []) {
+  const clean = (events || [])
+    .map(e => ({
+      timestamp: Number(e?.timestamp),
+      avgBrier: Number(e?.avgBrier),
+      ece: Number(e?.ece),
+      calibrationPenalty: Number(e?.calibrationPenalty),
+      probability: Number(e?.probability)
+    }))
+    .filter(e => Number.isFinite(e.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (clean.length === 0) {
+    return {
+      trend: [],
+      rolling7: [],
+      controlLimits: { brierMean: null, brierUpper95: null, brierLower95: null },
+      driftSignals: []
+    };
+  }
+
+  const briers = clean.map(e => Number.isFinite(e.avgBrier) ? e.avgBrier : null).filter(v => v !== null);
+  const mean = briers.length > 0 ? briers.reduce((a, b) => a + b, 0) / briers.length : null;
+  const sd = briers.length > 1
+    ? Math.sqrt(briers.reduce((acc, v) => acc + ((v - mean) ** 2), 0) / (briers.length - 1))
+    : 0;
+
+  const trend = clean.map(e => ({
+    timestamp: e.timestamp,
+    date: new Date(e.timestamp).toISOString().slice(0, 10),
+    avgBrier: Number.isFinite(e.avgBrier) ? e.avgBrier : null,
+    ece: Number.isFinite(e.ece) ? e.ece : null,
+    penalty: Number.isFinite(e.calibrationPenalty) ? e.calibrationPenalty : null,
+    probability: Number.isFinite(e.probability) ? e.probability : null
+  }));
+
+  const rolling7 = trend.map((row, idx) => {
+    const startTs = row.timestamp - (7 * 24 * 60 * 60 * 1000);
+    const win = trend.slice(0, idx + 1).filter(r => r.timestamp >= startTs && Number.isFinite(r.avgBrier));
+    const winMean = win.length > 0 ? (win.reduce((a, b) => a + b.avgBrier, 0) / win.length) : null;
+    return { timestamp: row.timestamp, date: row.date, avgBrier7d: winMean };
+  });
+
+  const controlLimits = mean === null
+    ? { brierMean: null, brierUpper95: null, brierLower95: null }
+    : {
+      brierMean: mean,
+      brierUpper95: mean + 2 * sd,
+      brierLower95: Math.max(0, mean - 2 * sd)
+    };
+
+  const driftSignals = trend.map((row) => {
+    const outOfControl = mean !== null && Number.isFinite(row.avgBrier)
+      ? row.avgBrier > (controlLimits.brierUpper95 ?? Infinity)
+      : false;
+    return { timestamp: row.timestamp, date: row.date, outOfControl };
+  });
+
+  return { trend, rolling7, controlLimits, driftSignals };
+}
