@@ -10,15 +10,28 @@ import { useToast } from '../hooks/useToast';
 
 export default function Tasks() {
     // FIX: Adicionado '?.' antes de '.categories' para evitar crash de hidratação
-    const categories = useAppStore(state => state.appState.contests[state.appState.activeId]?.categories || []);
+    const categories = useAppStore(state => Array.isArray(state.appState.contests[state.appState.activeId]?.categories) ? state.appState.contests[state.appState.activeId].categories : []);
     const { resetSimuladoStats } = useAppStore();
     const showToast = useToast();
-
+ 
     const handleReset = () => {
         if (!window.confirm('Resetar performance?')) return;
         resetSimuladoStats();
         showToast('Resetado com sucesso!', 'success');
     };
+ 
+    if (categories.length === 0) {
+        return (
+            <PageErrorBoundary pageName="Tarefas">
+                <div className="min-h-[50vh] flex items-center justify-center text-center px-4">
+                    <div>
+                        <p className="text-slate-300 font-bold uppercase tracking-wider text-xs">Sem tarefas cadastradas</p>
+                        <p className="text-slate-500 text-[11px] mt-1">Crie matérias e tarefas para liberar rankings e quadros de performance.</p>
+                    </div>
+                </div>
+            </PageErrorBoundary>
+        );
+    }
 
     return (<PageErrorBoundary pageName="Tarefas">
         <div className="space-y-10">

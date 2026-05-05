@@ -72,13 +72,19 @@ class PomodoroErrorBoundary extends React.Component {
 }
 
 function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUpdateStudyTime, onExit, isLayoutLocked, onSessionComplete }) {
-
+ 
+    const toPositiveMinutes = (value, fallback) => {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n <= 0) return fallback;
+        return Math.min(240, Math.max(1, Math.round(n)));
+    };
+ 
     const safeSettings = useMemo(() => Object.freeze({
-        pomodoroWork: settings?.pomodoroWork || 25,
-        pomodoroBreak: settings?.pomodoroBreak || 5,
-        pomodoroLongBreak: settings?.pomodoroLongBreak || 15,
-        soundEnabled: settings?.soundEnabled ?? true,
-        ...settings
+        ...settings,
+        pomodoroWork: toPositiveMinutes(settings?.pomodoroWork, 25),
+        pomodoroBreak: toPositiveMinutes(settings?.pomodoroBreak, 5),
+        pomodoroLongBreak: toPositiveMinutes(settings?.pomodoroLongBreak, 15),
+        soundEnabled: settings?.soundEnabled ?? true
     }), [settings]);
 
     const [savedState] = useState(() => {
