@@ -119,9 +119,10 @@ const ConsistencyCard = React.memo(({ consistency }) => (
 ));
 
 const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
+    const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
     const sdNum = parseFloat(cat.sd);
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
-    const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / maxSdVal) * 100);
+    const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100);
     const deltaNum = parseFloat(cat.delta);
     const sdBarColor = cat.color.replace('text-', 'bg-');
     const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
@@ -140,8 +141,8 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
             <div className="flex items-center gap-2 md:col-span-4 min-w-0">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(5 / maxSdVal) * 100}%` }} title="SD=5" />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${(15 / maxSdVal) * 100}%` }} title="SD=15" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (5 / safeMaxSdVal) * 100)}%` }} title="SD=5" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (15 / safeMaxSdVal) * 100)}%` }} title="SD=15" />
                 </div>
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
             </div>
