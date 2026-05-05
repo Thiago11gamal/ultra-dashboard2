@@ -389,7 +389,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData?.categoryStats, debouncedTarget, simulationData, minScore, maxScore, effectiveSimulateToday, projectDays]);
+    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status, minScore, maxScore, effectiveSimulateToday, projectDays]);
 
     // BUG-05 FIX: isFlashing declaration moved above (before first useEffect that uses it)
     useEffect(() => {
@@ -413,7 +413,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
             const today = getDateKey(new Date());
             const currentProb = Number(prob.toFixed(2));
-            const history = useAppStore.getState().appState.contests[activeId]?.monteCarloHistory || [];
+            const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
             const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
             const currentTarget = Number(debouncedTarget.toFixed(2));
             // Support both .probability (schema) and .prob (legacy/local)
@@ -438,12 +438,12 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const icWidth = ci95High - ci95Low;
         const saturation = Math.min(1, domainWidth > 0 ? icWidth / domainWidth : 1);
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
-        const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - targetScore) / domainWidth) * 100 : 0;
+        const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
         const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
         const pTrend = normalCDF_complement((targetScore - projectedMean) / Math.max(1, sd)) * 100;
 
         return { sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend };
-    }, [simulationData?.data, maxScore, minScore, targetScore, probability, projectedMean]);
+    }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean]);
 
     return {
         statsData,

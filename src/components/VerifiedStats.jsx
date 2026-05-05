@@ -275,7 +275,7 @@ export default function VerifiedStats({ categories = [], user }) {
     const updateWeight = React.useCallback((catId, value) => {
         const numeric = parseInt(value, 10);
         const sanitize = isNaN(numeric) ? 0 : Math.max(0, Math.min(999, numeric));
-        const updatedWeights = { ...weights, [catId]: sanitize };
+        const updatedWeights = { ...(weights || {}), [catId]: sanitize };
         setWeights(updatedWeights);
     }, [weights, setWeights]);
 
@@ -285,11 +285,11 @@ export default function VerifiedStats({ categories = [], user }) {
 
     React.useEffect(() => {
         const parsed = Number(targetScore);
-        if (!Number.isFinite(parsed)) return;
+        if (!Number.isFinite(parsed) || isNaN(parsed)) return;
 
         // Se o valor local já é igual ao da Store, não fazemos nada
         const currentStoreTarget = parseFloat(storeTarget);
-        if (Math.abs(parsed - currentStoreTarget) <= 0.01) return;
+        if (Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
@@ -350,7 +350,7 @@ export default function VerifiedStats({ categories = [], user }) {
         });
 
         const dailyHistory = Object.values(dailyMap)
-            .map(d => ({ date: new Date(d.date).toISOString(), score: d.scoreSum / d.weightSum }))
+            .map(d => ({ date: getDateKey(new Date(d.date)), score: d.scoreSum / d.weightSum }))
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         // 1. Progress State Analysis (using ProgressStateEngine)

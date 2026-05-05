@@ -313,7 +313,7 @@ export default function EvolutionChart({
         const days = Number.parseInt(timeWindow, 10);
         if (!Number.isFinite(days) || days <= 0 || chartData.length === 0) return chartData;
         const getDateMs = (item) => { if (!item?.date) return Number.NaN; const ms = new Date(item.date).getTime(); return Number.isNaN(ms) ? Number.NaN : ms; };
-        const lastValid = [...timeline].reverse().find(d => Number.isFinite(getDateMs(d)));
+        const lastValid = [...chartData].reverse().find(d => Number.isFinite(getDateMs(d)));
         if (!lastValid) return chartData;
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
         return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
@@ -322,7 +322,7 @@ export default function EvolutionChart({
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];
         return categories.map(cat => ({
-            subject: cat.name.replace(/Direito /gi, 'D. ').substring(0, 15),
+            subject: String(cat.name || 'Sem nome').replace(/Direito /gi, 'D. ').substring(0, 15),
             nivel: Math.round(categoryLevels[cat.id] || 0),
             meta: targetScore
         }));
@@ -350,8 +350,9 @@ export default function EvolutionChart({
                     return s + (getSafeScore(h, maxScore) / maxScore * tot);
                 }, 0));
 
-                const shortName = cat.name.length > 18 ? cat.name.substring(0, 16) + '…' : cat.name;
-                return { name: shortName, fullName: cat.name, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
+                const safeName = String(cat.name || 'Sem nome');
+                const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
+                return { name: shortName, fullName: safeName, questoes: totalQ, acertos: totalCorrect, color: cat.color, id: cat.id };
             })
             .filter(d => d.questoes > 0)
             .sort((a, b) => b.questoes - a.questoes);
