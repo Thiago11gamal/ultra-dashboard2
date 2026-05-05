@@ -252,9 +252,11 @@ export default function Coach() {
         // Usamos as referências dos arrays e valores de perfil para detectar mudanças reais.
         const scoreFingerprint = (data?.simuladoRows || []).slice(-15).map(s => `${s.id}-${s.score}-${s.date}`).join('|');
         const studyFingerprint = (data?.studyLogs || []).length;
-        const calibLen = Object.values(data?.calibrationHistoryByCategory || {}).reduce((acc, list) => acc + list.length, 0);
-        return `coach-v4.2-${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${calibLen}`;
-    }, [data?.simuladoRows, data?.studyLogs, data?.calibrationHistoryByCategory, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore]);
+        // IMPORTANTE: não usar calibrationHistory no hash. Essas métricas são
+        // persistidas pelo próprio efeito de análise e causavam reexecução em loop,
+        // congelando a navegação após abrir o Coach.
+        return `coach-v4.3-${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}`;
+    }, [data?.simuladoRows, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore]);
 
     const lastHashRef = useRef('');
 
