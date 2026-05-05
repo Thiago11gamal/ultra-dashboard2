@@ -23,7 +23,9 @@ export function getSortedHistory(history) {
             // Ordenação determinística por "dia UTC" para evitar variação por timezone do runtime.
             const utcA = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
             const utcB = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
-            return utcA - utcB;
+            if (utcA !== utcB) return utcA - utcB;
+            // Desempate determinístico intra-dia para evitar depender da estabilidade do sort do runtime.
+            return dateA.getTime() - dateB.getTime();
         });
 }
 
@@ -42,12 +44,20 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
     if (sortedHistory.length === 2) {
         const p0 = sortedHistory[0];
         const p1 = sortedHistory[1];
-        const dy = getSafeScore(p1, maxScore) - getSafeScore(p0, maxScore);
-        const dt = Math.max(1, (new Date(p1.date) - new Date(p0.date)) / (1000 * 60 * 60 * 24));
-        const slope = dy / dt;
-        const intercept = getSafeScore(p1, maxScore);
+        const t0 = new Date(p0.date).getTime();
+        const t1 = new Date(p1.date).getTime();
+        const now = Math.max(Date.now(), t1);
+        const x0 = -Math.max(0, (now - t0) / 86400000);
+        const x1 = -Math.max(0, (now - t1) / 86400000);
+        const y0 = getSafeScore(p0, maxScore);
+        const y1 = getSafeScore(p1, maxScore);
+        const dx = Math.max(1e-9, x1 - x0);
+        const slope = (y1 - y0) / dx;
+        // Intercepto consistente com o modelo y = slope*x + intercept em x=0 (momento "agora")
+        const intercept = y1 - (slope * x1);
         // BUGFIX M4: Utilizar prior variância estipulada em ~20 em vez de hardcode 2.0
         // Para dt altos, o standard error cai (mais certeza no slope).
+        const dt = Math.max(1, Math.abs((t1 - t0) / 86400000));
         const slopeStdError = Math.max(0.002 * maxScore, (maxScore * 0.045) / dt);
         return { slope, intercept, slopeStdError };
     }
