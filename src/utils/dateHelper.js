@@ -28,7 +28,7 @@ export const getDateKey = (rawDate) => {
         date = new Date(rawDate);
     }
 
-    if (Number.isNaN(date.getTime())) return null;
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
 
     // 🕒 PADRONIZAÇÃO LOCAL: MANAUS (America/Manaus | UTC-4)
     // Garante que o agrupamento de dias no Heatmap e Streaks ocorre sempre no mesmo fuso,
@@ -69,7 +69,7 @@ export const getLocalMidnight = (date = new Date()) => {
 
 export const formatDisplayDate = (dateStr) => {
     if (!dateStr) return '';
-    const parts = dateStr.split('-');
+    const parts = String(dateStr).split('-');
     if (parts.length < 3) return dateStr;
     return `${parts[2]}/${parts[1]}`;
 };
@@ -91,7 +91,8 @@ export const normalizeDate = (raw) => {
     } else {
         d = new Date(raw);
     }
-    if (isNaN(d.getTime())) return null;
+    if (!(d instanceof Date) || isNaN(d.getTime())) return null;
+    d.setHours(12, 0, 0, 0);
     return d;
 };
 
@@ -135,18 +136,21 @@ export const formatDuration = (decimalHours) => {
         hours += 1;
         minutes = 0;
     }
-    return `${hours}h${String(minutes).padStart(2, '0')}`;
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '0h00';
+    return `${hours}h${String(Math.max(0, minutes)).padStart(2, '0')}`;
 };
 
 export const formatDatePtBR = (date) => {
     try {
         if (!date) return '--/--/----';
+        const parsed = new Date(date);
+        if (Number.isNaN(parsed.getTime())) return '--/--/----';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
-        }).format(new Date(date));
+        }).format(parsed);
     } catch {
         return '--/--/----';
     }
@@ -155,6 +159,8 @@ export const formatDatePtBR = (date) => {
 export const formatDateTimePtBR = (date) => {
     try {
         if (!date) return '--/--/---- --:--:--';
+        const parsed = new Date(date);
+        if (Number.isNaN(parsed.getTime())) return '--/--/---- --:--:--';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
@@ -163,7 +169,7 @@ export const formatDateTimePtBR = (date) => {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit'
-        }).format(new Date(date));
+        }).format(parsed);
     } catch {
         return '--/--/---- --:--:--';
     }
@@ -172,10 +178,12 @@ export const formatDateTimePtBR = (date) => {
 export const formatWeekdayShortPtBR = (date) => {
     try {
         if (!date) return '';
+        const parsed = new Date(date);
+        if (Number.isNaN(parsed.getTime())) return '';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             weekday: 'short'
-        }).format(new Date(date)).replace('.', '').toUpperCase();
+        }).format(parsed).replace('.', '').toUpperCase();
     } catch {
         return '';
     }
