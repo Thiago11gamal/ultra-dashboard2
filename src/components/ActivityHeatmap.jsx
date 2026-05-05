@@ -99,7 +99,8 @@ function ActivityHeatmap({ studyLogs = [] }) {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setMonthOffset(m => m - 1)}
+                        onClick={() => setMonthOffset(m => Math.max(-24, m - 1))}
+                        disabled={monthOffset <= -24}
                         className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-transparent hover:border-white/10"
                     >
                         <ChevronLeft size={18} />
@@ -131,6 +132,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
                         <div
                             key={`${weekIndex}-${dayIndex}`}
                             tabIndex={day ? 0 : -1}
+                            role={day ? 'button' : undefined}
                             aria-label={day ? `${Math.round(Number(day.minutes) || 0)} minutos estudados em ${format(day.date, "dd 'de' MMMM", { locale: ptBR })}` : 'Sem dados de estudo'}
                             className={`
                                 w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative focus:outline-none focus:ring-2 focus:ring-emerald-400

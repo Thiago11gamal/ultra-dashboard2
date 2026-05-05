@@ -36,6 +36,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const [loading, setLoading] = useState(false);
 
     const updateRow = (index, field, value) => {
+        setError(null);
         // 1. Sanitização: Apenas números para campos numéricos
         let finalValue = value;
 
@@ -87,7 +88,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const addTenToAll = () => {
         const newRows = rows.map(row => ({
             ...row,
-            total: (parseInt(row.total, 10) || 0) + 10
+            total: Math.min(10000, (parseInt(row.total, 10) || 0) + 10)
         }));
         setRows(newRows);
     };
@@ -177,7 +178,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
         const rowsToProcess = rows.filter(r => r?.subject && (parseInt(r?.total, 10) > 0 || r?.score != null));
-        const validRowsForAnalysis = rowsToProcess.filter(r => r.topic);
+        const validRowsForAnalysis = rowsToProcess.filter(r => String(r.topic || '').trim());
 
         if (rowsToProcess.length === 0) {
             setError("Preencha o desempenho em pelo menos um assunto.");
@@ -292,7 +293,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setAnalysisData(data);
 
                 if (onAnalysisComplete) {
-                    onAnalysisComplete({ analysis: data, rawRows: rows });
+                    const cleanRows = rows.map(r => ({
+                        ...r,
+                        subject: String(r.subject || '').trim(),
+                        topic: String(r.topic || '').trim(),
+                    }));
+                    onAnalysisComplete({ analysis: data, rawRows: cleanRows });
                 }
 
             } catch (err) {

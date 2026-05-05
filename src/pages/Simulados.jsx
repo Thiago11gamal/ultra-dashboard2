@@ -125,14 +125,14 @@ export default function Simulados() {
             const prev = store.appState?.contests?.[store.appState?.activeId];
             if (!prev) throw new Error('Contest ativo não encontrado para salvar simulado');
             
-            const analysisResult = payload.analysis || payload;
-            const rawRows = payload.rawRows || [];
+            const analysisResult = payload?.analysis || payload || {};
+            const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
             
             // FIX 5: Clone estrutural nativo
             const newCategories = safeClone(Array.isArray(prev.categories) ? prev.categories : []);
             let totalProcessedDisciplines = 0;
 
-            const dataToProcess = analysisResult.disciplines || analysisResult;
+            const dataToProcess = analysisResult?.disciplines || analysisResult;
             const todayKey = getDateKey(normalizeDate(new Date()));
 
             const processStats = (targetName, stats) => {
@@ -210,6 +210,8 @@ export default function Simulados() {
                         ...r,
                         createdAt: r.createdAt || new Date().toISOString(),
                         validated: true,
+                        subject: String(r.subject || '').trim(),
+                        topic: String(r.topic || '').trim(),
                         correct: Math.max(0, Number(r.correct) || 0),
                         total: Math.max(0, Number(r.total) || 0)
                     }))
