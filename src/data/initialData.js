@@ -50,10 +50,18 @@ let exportRevokeTimeoutId = null;
 export const exportData = (state) => {
     // Export the currently active contest data mostly, or all?
     // Let's export ALL data structure for full backup
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    let serialized = '{}';
+    try {
+        serialized = JSON.stringify(state ?? {}, null, 2);
+    } catch {
+        // fallback para dados com referências circulares
+        serialized = JSON.stringify({ error: 'Falha ao serializar backup', timestamp: Date.now() }, null, 2);
+    }
+    const blob = new Blob([serialized], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
+    a.rel = 'noopener';
 
     // Use Local Date for filename
     const d = new Date();
@@ -63,7 +71,9 @@ export const exportData = (state) => {
     const dateStr = `${year}-${month}-${day}`;
 
     a.download = `ultra-dashboard-backup-${dateStr}.json`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
 
     // Fix: Delay URL revocation so the browser has time to start the download
     // BUGFIX (memory/data): evitar acúmulo de timeouts de revogação em exports sequenciais.
