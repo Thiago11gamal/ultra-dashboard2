@@ -140,9 +140,23 @@ export function computeAdaptiveSignal(scores = []) {
     const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
 
     const weightedMean = finiteScores.reduce((acc, s, i) => acc + (s * weighted[i]), 0) / Math.max(1e-9, sumW);
+
+    // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
+    const sorted = [...finiteScores].sort((a, b) => a - b);
+    const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+    const absDev = sorted.map(v => Math.abs(v - median)).sort((a, b) => a - b);
+    const mad = absDev.length % 2 === 0
+        ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
+        : absDev[Math.floor(absDev.length / 2)];
+    const robustSigma = Math.max(1e-6, 1.4826 * mad);
+    const huberK = 2.5 * robustSigma;
+
     const weightedVariance = finiteScores.reduce((acc, s, i) => {
         const d = s - weightedMean;
-        return acc + (weighted[i] * d * d);
+        const clipped = Math.max(-huberK, Math.min(huberK, d));
+        return acc + (weighted[i] * clipped * clipped);
     }, 0) / Math.max(1e-9, sumW);
     const sd = Math.sqrt(Math.max(0, weightedVariance));
     const lastDelta = finiteScores.length >= 2
