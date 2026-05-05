@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "npm run test:math",
     "test:math": "node scripts/test-math-engines.mjs"
   },
   "dependencies": {

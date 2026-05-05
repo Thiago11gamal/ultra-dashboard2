@@ -5,8 +5,9 @@
 // de chegar à produção.
 //
 // Para rodar:
-//   npx vitest run
-//   npx vitest --coverage   ← relatório de cobertura
+//   npm test                  ← suíte matemática padrão do projeto (offline-friendly)
+//   npx vitest run            ← opcional (quando vitest estiver disponível no ambiente)
+//   npx vitest --coverage     ← relatório de cobertura (opcional)
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
