@@ -120,21 +120,23 @@ const ConsistencyCard = React.memo(({ consistency }) => (
 
 const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
-    const sdNum = parseFloat(cat.sd);
+    const sdNum = Number.isFinite(parseFloat(cat.sd)) ? parseFloat(cat.sd) : 0;
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
     const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100);
-    const deltaNum = parseFloat(cat.delta);
-    const sdBarColor = cat.color.replace('text-', 'bg-');
-    const sdBarGlow = cat.color.replace('text-', 'shadow-') + '/30';
+    const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
+    const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
+    const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
+    const sdBarColor = safeColor.replace('text-', 'bg-');
+    const sdBarGlow = safeColor.replace('text-', 'shadow-') + '/30';
 
     return (
         <div className={`grid grid-cols-[1fr_auto_80px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] overflow-hidden ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
             <div className="col-span-1 md:col-span-3 flex items-center gap-2 min-w-0">
-                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${cat.bgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
+                <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${safeBgBorder.replace('border-', 'bg-').replace('/30', '')}`} />
                 <span className="text-sm font-bold text-slate-200 truncate">{cat.name}</span>
             </div>
             <div className="flex justify-center md:col-span-2">
-                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${cat.color} ${cat.bgBorder} bg-black/40`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${safeColor} ${safeBgBorder} bg-black/40`}>
                     {cat.status}
                 </span>
             </div>
@@ -144,7 +146,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (5 / safeMaxSdVal) * 100)}%` }} title="SD=5" />
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (15 / safeMaxSdVal) * 100)}%` }} title="SD=15" />
                 </div>
-                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${cat.color}`}>±{cat.sd}</span>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? sdNum.toFixed(0) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
                 {deltaNum > 0 ? (
