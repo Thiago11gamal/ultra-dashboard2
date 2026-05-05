@@ -270,6 +270,8 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     let sumResidualsWeighted = 0;
     let sumWeights = 0;
 
+    const residualSamples = [];
+
     const scoreRange = (maxScore - minScore) || maxScore || 1;
 
     for (let i = 1; i < sorted.length; i++) {
@@ -307,6 +309,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         sumSw += dailyVariance * weight;
         sumResidualsWeighted += clampedResidual * weight;
         sumWeights += weight;
+        residualSamples.push({ value: clampedResidual, weight });
     }
 
     const scaleFactorFallback = maxScore / 100;
@@ -319,9 +322,30 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     const bessel = n_res > 1 ? n_res / (n_res - 1) : 1;
     const mssdVariance = ((sumSw / sumWeights) - (expectedResidual * expectedResidual)) * bessel;
 
+    // Robustez avançada: variância baseada em MAD ponderado (resistente a outliers).
+    const weightedMedian = (arr) => {
+        if (!arr.length) return 0;
+        const sortedArr = [...arr].sort((a, b) => a.value - b.value);
+        const totalW = sortedArr.reduce((acc, it) => acc + it.weight, 0);
+        let accW = 0;
+        for (const it of sortedArr) {
+            accW += it.weight;
+            if (accW >= totalW * 0.5) return it.value;
+        }
+        return sortedArr[sortedArr.length - 1].value;
+    };
+
+    const medianResidual = weightedMedian(residualSamples);
+    const absDev = residualSamples.map(it => ({ value: Math.abs(it.value - medianResidual), weight: it.weight }));
+    const mad = weightedMedian(absDev);
+    const robustSigma = 1.4826 * mad; // Consistência assintótica com normal
+    const robustVariance = robustSigma * robustSigma;
+
+    // Blending robusto: prioriza MSSD, mas injeta estabilidade contra picos anômalos.
+    const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
 
     // REVISION: Standardized SD floor escalonado
-    return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), mssdVariance));
+    return Math.sqrt(Math.max(Math.pow(1.0 * scaleFactorFallback, 2), blendedVariance));
 }
 
 // -----------------------------
