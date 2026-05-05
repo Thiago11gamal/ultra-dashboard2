@@ -18,7 +18,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
         const n = Number(value);
         if (!Number.isFinite(n)) return 0;
         // Suporte a fontes heterogêneas: 0-1 (fração) e 0-100 (percentual)
-        return n < 1 ? n * 100 : n;
+        return n <= 1 ? n * 100 : n;
     };
 
     if (historyRow.score != null) {
