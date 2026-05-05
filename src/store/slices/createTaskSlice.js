@@ -62,6 +62,7 @@ export const createTaskSlice = (set, get) => ({
         let pendingXpDeduction = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData?.categories) return;
             const category = activeData.categories.find(c => c.id === categoryId);
             if (category) {
                 const task = category.tasks.find(t => t.id === taskId);
@@ -82,6 +83,7 @@ export const createTaskSlice = (set, get) => ({
     togglePriority: (categoryId, taskId) => set((state) => {
         const priorities = ['low', 'medium', 'high'];
         const activeData = state.appState.contests[state.appState.activeId];
+        if (!activeData?.categories) return;
         const category = activeData.categories.find(c => c.id === categoryId);
         if (!category) return;
 
