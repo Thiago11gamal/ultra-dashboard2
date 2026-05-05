@@ -9,13 +9,12 @@ import {
     estimateInterSubjectCorrelation 
 } from '../engine';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
-import { getSafeScore, getSyntheticTotal, formatValue } from '../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { normalCDF_complement } from '../engine/math/gaussian';
 import { 
     getConfidenceMultiplier, 
     winsorizeSeries, 
-    deriveAdaptiveConfig, 
     computeAdaptiveSignal 
 } from '../utils/adaptiveMath.js';
 
@@ -273,28 +272,22 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const [isFlashing, setIsFlashing] = useState(false);
 
     useEffect(() => {
-        if (!statsData) {
-            setSimulationData({ status: 'waiting', missing: 'data' });
-            return;
-        }
-
+        if (!statsData) return;
+ 
         let totalPoints = 0;
         statsData.categoryStats.forEach(cat => totalPoints += cat.n || 1);
-        if (totalPoints < 1) {
-            setSimulationData({ status: 'waiting', missing: 'count', count: totalPoints });
-            return;
-        }
-
+        if (totalPoints < 1) return;
+ 
         let cancelled = false;
         const isFuture = projectDays > 0;
-
+ 
         (async () => {
             try {
                 let result;
                 if (isFuture && statsData.globalHistory?.length > 0) {
                     const domain = maxScore - minScore;
                     const regularizedSD = regularizeVolatility(statsData.dailySD, projectDays, statsData.globalHistory.length, domain);
-
+ 
                     result = await runAnalysis({
                         values: statsData.globalHistory.map(h => h.score),
                         dates: statsData.globalHistory.map(h => h.date),
@@ -316,6 +309,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                         maxScore,
                     });
                 }
+ 
                 if (!cancelled) {
                     setSimulationData({ status: 'ready', data: result });
                     setIsFlashing(true);
@@ -353,9 +347,17 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 }
             }
         })();
-
+ 
         return () => { cancelled = true; };
-    }, [statsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore]);
+    }, [statsHash, runAnalysis, debouncedTarget, projectDays, minScore, maxScore, statsData]);
+ 
+    const effectiveSimulationData = useMemo(() => {
+        if (!statsData) return { status: 'waiting', missing: 'data' };
+        let totalPoints = 0;
+        statsData.categoryStats.forEach(cat => { totalPoints += cat.n || 1; });
+        if (totalPoints < 1) return { status: 'waiting', missing: 'count', count: totalPoints };
+        return simulationData;
+    }, [statsData, simulationData]);
 
     const perSubjectProbs = useMemo(() => {
         if (!statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
@@ -391,7 +393,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                 return { name: cat.name, prob: result.probability, mean: baseline, trend: cat.trend };
             })
             .sort((a, b) => a.prob - b.prob);
-    }, [statsData?.categoryStats, debouncedTarget, simulationData?.status, minScore, maxScore, effectiveSimulateToday, projectDays]);
+    }, [statsData, debouncedTarget, simulationData?.status, minScore, maxScore, effectiveSimulateToday, projectDays]);
 
     // BUG-05 FIX: isFlashing declaration moved above (before first useEffect that uses it)
     useEffect(() => {
@@ -449,7 +451,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
     return {
         statsData,
-        simulationData,
+        simulationData: effectiveSimulationData,
         perSubjectProbs,
         isFlashing,
         projectDays,
