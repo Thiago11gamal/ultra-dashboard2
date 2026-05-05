@@ -452,8 +452,7 @@ export function monteCarloSimulation(
         const time1 = new Date(h.date).getTime();
         const time0 = new Date(sortedHistory[i - 1].date).getTime();
 
-        const rawDays = Math.max(0.1, (time1 - time0) / 86400000);
-        const daysBetween = Math.min(90, rawDays);
+        const rawDays = Math.max(0.1, (time1 - time0) / (1000 * 60 * 60 * 24));
         // BUG-RESID-01 FIX: usar rawDays para remoção de drift (drift cobre todo o intervalo real)
         // O cap de 90 dias permanece apenas na variância O-U para estabilidade numérica
         const detrendedChange = actualChange - (rawDrift * rawDays);
