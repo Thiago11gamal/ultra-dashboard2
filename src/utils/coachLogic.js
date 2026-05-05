@@ -94,11 +94,10 @@ function getSRSBoost(daysSince, cfg) {
 function getCrunchMultiplier(daysToExam) {
     if (daysToExam === undefined || daysToExam === null || daysToExam > 60) return 1.0;
     if (daysToExam < 0) return 1.0;
-    if (daysToExam <= 3)  return 2.5;
-    if (daysToExam <= 7)  return 2.0;
-    if (daysToExam <= 14) return 1.5;
-    if (daysToExam <= 30) return 1.2;
-    if (daysToExam <= 60) return 1.1;
+    if (daysToExam <= 7)  return 2.5 - ((daysToExam) * (0.5 / 7));
+    if (daysToExam <= 14) return 2.0 - ((daysToExam - 7) * (0.5 / 7));
+    if (daysToExam <= 30) return 1.5 - ((daysToExam - 14) * (0.3 / 16));
+    if (daysToExam <= 60) return 1.2 - ((daysToExam - 30) * (0.1 / 30));
     return 1.0;
 }
 
@@ -136,12 +135,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     let daysToExam = null;
     if (options && options.user && options.user.goalDate) {
         try {
-            const examDate = new Date(options.user.goalDate);
+            const examDate = normalizeDate(options.user.goalDate);
             // FIX: Proteger contra datas inválidas na string
-            if (!isNaN(examDate.getTime())) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                daysToExam = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            if (examDate && !isNaN(examDate.getTime())) {
+                const today = normalizeDate(new Date());
+                daysToExam = Math.round((examDate.getTime() - today.getTime()) / MS_PER_DAY);
             }
         } catch {
             console.warn("[CoachLogic] Invalid goalDate:", options.user.goalDate);
@@ -173,7 +171,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     let timeWeight = Math.exp(-K * days);
                     if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
                     
-                    const volumeWeight = Math.sqrt(Math.max(1, Number(s.total) || getSyntheticTotal(maxScore)));
+                    const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
+                    const volumeWeight = Math.sqrt(Math.min(rawTotal, maxScore * 2));
                     const peso = timeWeight * volumeWeight;
                     
                     weightedSum += sScore * peso;
@@ -202,7 +201,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }
 
         // 2. Days Since Last Study
-        let daysSinceLastStudy = 30;
+        let daysSinceLastStudy = 0;
+        let recencyUnknown = true;
         let lastDate = normalizeDate(new Date(0));
 
         if (simuladosWithMaxScore.length > 0) {
@@ -210,7 +210,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             if (simDate > lastDate) lastDate = simDate;
         }
 
-        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === categoryId);
+        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === categoryId && !!normalizeDate(log.date));
         if (categoryStudyLogs.length > 0) {
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
@@ -220,6 +220,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         if (lastDate.getTime() > 0) {
             const today = normalizeDate(new Date());
             daysSinceLastStudy = getDaysDiff(today, lastDate);
+            recencyUnknown = false;
         }
 
         // 3. Trend (Garantir 10 mais recentes para cálculo de tendência)
@@ -334,7 +335,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const totalHours = totalMinutes / 60;
 
         const oneWeekAgo = normalizeDate(new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
-        const recentLogs = categoryStudyLogs.filter(log => normalizeDate(log.date).getTime() >= oneWeekAgo);
+        const recentLogs = categoryStudyLogs.filter(log => {
+            const d = normalizeDate(log.date);
+            return d && d.getTime() >= oneWeekAgo;
+        });
         const recentHours = recentLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0) / 60;
         const recentStudyDays = new Set(recentLogs.map(log => normalizeDate(log.date).getTime())).size;
 
@@ -343,7 +347,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let srsBoost = 0;
         let srsLabel = null;
 
-        if (hasData && (daysToExam === null || daysToExam >= 0)) {
+        if (hasData && !recencyUnknown && (daysToExam === null || daysToExam >= 0)) {
             const srsResult = getSRSBoost(daysSinceLastStudy, cfg);
             srsBoost = srsResult.boost;
             srsLabel = srsResult.label;
