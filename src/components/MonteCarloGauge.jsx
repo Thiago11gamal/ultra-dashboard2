@@ -38,9 +38,9 @@ export default function MonteCarloGauge({
         setLocalSimulateToday(Boolean(simulateToday));
     }, [simulateToday]);
 
-    const activeId = useAppStore(state => state.appState.activeId);
-    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
-    const activeUser = useAppStore(state => state.appState.contests[activeId]?.user);
+    const activeId = useAppStore(state => state.appState?.activeId);
+    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
+    const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
 
     // Prioritize sync prop if provided
     const showPerSubject = syncShowSubjects !== undefined ? syncShowSubjects : localShowPerSubject;
