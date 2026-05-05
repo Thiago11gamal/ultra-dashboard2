@@ -39,7 +39,7 @@ export function CompareChart({
     const solveCollisions = (points) => {
         if (!points.length) return [];
         const sorted = [...points].sort((a, b) => b.value - a.value);
-        const yPos = sorted.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        const yPos = sorted.map(p => ({ ...p, yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : 0 }));
         const DIST = 9;
         for (let i = 1; i < yPos.length; i++) {
             if (yPos[i - 1].yPos - yPos[i].yPos < DIST) {
@@ -102,7 +102,7 @@ export function CompareChart({
 
         const offset = getOffset(type, value, index, viewBox);
         const xOff = isMc ? 12 : 10;
-        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{Number(value).toFixed(2)}{unit}</text>;
+        return <text x={x + xOff} y={y + 4 + offset} fill={color} fontSize={11} fontWeight="black" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{(Number.isFinite(Number(value)) ? Number(value) : 0).toFixed(2)}{unit}</text>;
     };
 
     let gainBase = 'dataMin';

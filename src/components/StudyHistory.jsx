@@ -64,6 +64,7 @@ const StudyHistory = React.memo(function StudyHistory({
 
         return Math.max(diffWeeks, 1);
     }, [studySessions, currentTime]); // BUG-23 FIX: currentTime adicionado
+
     // Calculate stats
     const stats = useMemo(() => {
         const now = new Date();
@@ -111,7 +112,8 @@ const StudyHistory = React.memo(function StudyHistory({
         const totalSessions = studySessions.length;
 
         // Max for chart scaling
-        const maxDayMinutes = Math.max(...weekData.map(d => d.minutes), 30);
+        // BUG-110: Garantir que minutes seja numérico antes de Math.max
+        const maxDayMinutes = Math.max(...weekData.map(d => Number(d.minutes) || 0), 30);
 
         return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
     }, [studySessions, selectedWeekOffset]);
@@ -132,13 +134,13 @@ const StudyHistory = React.memo(function StudyHistory({
         const safeName = String(name || '').toLowerCase();
         const cat = categories.find(c => String(c?.name || '').toLowerCase() === safeName);
         if (cat?.color) return cat.color;
- 
+
         // Palette fallback for consistent coloring of unknown subjects
         const palette = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4'];
         let hash = 0;
-        const nameToHash = safeName || 'default';
-        for (let i = 0; i < nameToHash.length; i++) {
-            hash = nameToHash.charCodeAt(i) + ((hash << 5) - hash);
+        const source = safeName || 'desconhecido';
+        for (let i = 0; i < source.length; i++) {
+            hash = source.charCodeAt(i) + ((hash << 5) - hash);
         }
         return palette[Math.abs(hash) % palette.length];
     };

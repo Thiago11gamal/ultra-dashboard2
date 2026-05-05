@@ -259,13 +259,17 @@ export default function EvolutionChart({
             "Nível Bayesiano": d[`bay_${focusCategory.id}`],
             "Bay CI Low": d[`bay_ci_low_${focusCategory.id}`],
             "Bay CI High": d[`bay_ci_high_${focusCategory.id}`],
-            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] : null,
+            "Banda Bayesiana": d[`bay_ci_low_${focusCategory.id}`] != null && Number.isFinite(d[`bay_ci_low_${focusCategory.id}`]) 
+                ? [d[`bay_ci_low_${focusCategory.id}`], d[`bay_ci_high_${focusCategory.id}`]] 
+                : null,
             "Média Histórica": d[`stats_${focusCategory.id}`]
         }));
 
         if (mcProjectionSeries && pts.length > 0) {
             const lastIdx = pts.length - 1;
-            const currentLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
+            // HARDENING: Garantir que currentLevel seja finito
+            const rawLevel = pts[lastIdx]["Nível Bayesiano"] ?? pts[lastIdx]["Nota Bruta"] ?? categoryLevels[focusCategory?.id] ?? mcProjectionSeries?.mc_p50 ?? 0;
+            const currentLevel = Number.isFinite(rawLevel) ? rawLevel : 0;
             const futurePoints = [];
             const steps = 6;
             for (let i = 1; i <= steps; i++) {
@@ -275,8 +279,14 @@ export default function EvolutionChart({
                 const bandLow = currentLevel + (mcProjectionSeries.mc_band[0] - currentLevel) * weight;
                 const bandHigh = currentLevel + (mcProjectionSeries.mc_band[1] - currentLevel) * weight;
 
-                const [year, month, day] = pts[lastIdx].date.split('-');
-                const interDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+                const rawDate = String(pts[lastIdx].date || '');
+                const [year, month, day] = rawDate.split('-');
+                const y = parseInt(year, 10);
+                const m = parseInt(month, 10);
+                const d = parseInt(day, 10);
+                const interDate = Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)
+                    ? new Date(y, m - 1, d)
+                    : new Date();
                 interDate.setDate(interDate.getDate() + Math.round(projectDays * t));
 
                 const yFut = interDate.getFullYear();

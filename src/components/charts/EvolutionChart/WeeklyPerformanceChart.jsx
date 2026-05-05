@@ -190,7 +190,9 @@ const WeeklyPerformanceChart = ({
                                                         </span>
                                                     </div>
                                                     <span className="text-xs font-black text-white">
-                                                        {entry.value !== null ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value)) : 'N/A'}
+                                                        {entry.value != null && Number.isFinite(Number(entry.value))
+                                                            ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
+                                                            : 'N/A'}
                                                     </span>
                                                 </div>
                                             ))}

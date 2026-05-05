@@ -37,6 +37,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 dateObj = new Date(log.date);
             }
 
+            if (Number.isNaN(dateObj.getTime())) return;
             const dateStr = dateObj.toLocaleDateString('pt-BR');
 
             // Determine friendly day label

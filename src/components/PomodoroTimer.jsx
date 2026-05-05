@@ -121,6 +121,19 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const [timeLeft, setTimeLeft] = useState(() => getSavedState('timeLeft', initialTime));
     const [isRunning, setIsRunning] = useState(() => getSavedState('isRunning', false));
     const [speed, setSpeed] = useState(() => getSavedState('speed', 1));
+    const [isMuted, setIsMuted] = useState(() => {
+        try {
+            return localStorage.getItem('pomodoro_muted') === 'true';
+        } catch { return false; }
+    });
+
+    const toggleMute = () => {
+        setIsMuted(prev => {
+            const newVal = !prev;
+            try { localStorage.setItem('pomodoro_muted', String(newVal)); } catch { }
+            return newVal;
+        });
+    };
 
     // Refs de Controle e Performance
     const stateRefs = useRef({
@@ -745,6 +758,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                     </div>
                 </div>
 
+                <div className="w-full flex justify-end px-4 -mb-8">
+                     <button 
+                        onClick={toggleMute}
+                        className="p-3 bg-slate-900/40 border border-white/5 rounded-xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
+                        title={isMuted ? "Ativar Áudio" : "Mudar para Silencioso"}
+                    >
+                        {isMuted ? <Lock size={18} className="text-red-400" /> : <Unlock size={18} className="text-emerald-400" />}
+                    </button>
+                </div>
+
                 <div
                     style={{ backgroundImage: 'url(/wood-texture.png)', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}
                     className="w-full border-[6px] border-[#3f2e26] pt-32 pb-16 px-6 sm:px-10 rounded-2xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
@@ -849,6 +872,23 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">PULAR</span>
                         </div>
                     </div>
+
+                    {/* Botão de Abandono Crítico */}
+                    {!isProtocolInactive && (
+                        <div className="w-full max-w-xs mt-8 pt-4 border-t border-white/5">
+                            <button
+                                onClick={() => {
+                                    if (window.confirm("Deseja realmente abandonar a sessão? O progresso não salvo será perdido.")) {
+                                        handleManualExit();
+                                    }
+                                }}
+                                className="w-full flex items-center justify-center gap-3 p-4 bg-red-950/20 hover:bg-red-900/40 border border-red-500/20 rounded-xl transition-all group"
+                            >
+                                <RotateCcw size={16} className="text-red-500 group-hover:rotate-[-90deg] transition-transform duration-500" />
+                                <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Abortar Protocolo</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="w-full px-10 py-8 rounded-none bg-[#b08e6b] border-2 border-[#94785a] shadow-xl">

@@ -34,8 +34,8 @@ export function getSafeScore(historyRow, maxScore = 100) {
         return Number.isFinite(s) ? Math.max(0, Math.min(safeMaxScore, s)) : 0;
     }
 
-    const total = Number(historyRow.total) || 0;
-    const correct = Number(historyRow.correct) || 0;
+    const total = (Number.isFinite(Number(historyRow.total)) ? Number(historyRow.total) : 0);
+    const correct = (Number.isFinite(Number(historyRow.correct)) ? Number(historyRow.correct) : 0);
 
     // PRIORIDADE MÁXIMA: Flag isPercentage deve ser respeitada mesmo que total > 0.
     // Isso evita corrupção de dados em registros híbridos de bancos legados.
@@ -61,8 +61,7 @@ export function getSafeScore(historyRow, maxScore = 100) {
  */
 export function formatPercent(value) {
     if (value === null || value === undefined) return '0%';
-    const num = Number(value);
-    if (isNaN(num)) return '0%';
+    const num = (Number.isFinite(Number(value)) ? Number(value) : 0);
     
     // Remove trailing zeros and unnecessary decimal point
     const formatted = parseFloat(num.toFixed(2));
@@ -77,8 +76,7 @@ export function formatPercent(value) {
  */
 export function formatValue(value) {
     if (value === null || value === undefined) return '0';
-    const num = Number(value);
-    if (isNaN(num)) return '0';
+    const num = (Number.isFinite(Number(value)) ? Number(value) : 0);
     
     // Remove trailing zeros and unnecessary decimal point
     return String(parseFloat(num.toFixed(2)));
