@@ -36,8 +36,8 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     return Math.sqrt(regularizedVariance);
 }
 
-export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
-    const activeId = useAppStore(state => state.appState.activeId);
+export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode: _forcedMode, effectiveSimulateToday }) {
+    const activeId = useAppStore(state => state.appState?.activeId);
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
     
@@ -120,7 +120,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         if (isNaN(goal.getTime())) return 30;
         const diffTime = goal.getTime() - currentDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 0;
+        const safeDays = diffDays > 0 ? diffDays : 0;
+        return Math.min(3650, safeDays);
     }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
 
     const statsData = useMemo(() => {
@@ -153,7 +154,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
 
                 if (history.length === 0) return;
 
-                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[cat.id || cat.name] ?? 0);
+                const weightKey = cat.id || cat.name;
+                const weight = sanitizeWeightUnit((debouncedWeights ?? effectiveWeights)[weightKey] ?? 0);
 
                 const baye = computeBayesianLevel(history, 1, 1, catMaxScore);
                 const stats = computeCategoryStats(history, weight, 60, catMaxScore);
@@ -163,8 +165,8 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
                     totalWeight += weight;
                     weightedBayesianAlpha += baye.alpha * weight;
                     weightedBayesianBeta += baye.beta * weight;
-                    weightsByName[cat.name] = weight;
-                    maxScoreByName[cat.name] = catMaxScore;
+                    weightsByName[weightKey] = weight;
+                    maxScoreByName[weightKey] = catMaxScore;
 
                     history.forEach(h => {
                         const dk = getDateKey(h.date);
@@ -410,7 +412,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const prob = Number.isFinite(rawProb) ? rawProb : 0;
         const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
 
-        if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling) {
+        if (simulationData?.status === 'ready' && Number.isFinite(prob) && prob > 0 && !effectiveSimulateToday && !isTimeTraveling && activeId) {
             const today = getDateKey(new Date());
             const currentProb = Number(prob.toFixed(2));
             const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
@@ -440,7 +442,7 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
         const projectionConfidence = Math.max(0, 1 - Math.pow(saturation, 1.5));
         const pBaseline = (domainWidth > 0) ? Math.max(0, (maxScore - debouncedTarget) / domainWidth) * 100 : 0;
         const pAdjusted = probability * projectionConfidence + pBaseline * (1 - projectionConfidence);
-        const pTrend = normalCDF_complement((targetScore - projectedMean) / Math.max(1, sd)) * 100;
+        const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / Math.max(1, sd)) * 100;
 
         return { sd, sdLeft, sdRight, ci95Low, ci95High, saturation, projectionConfidence, pAdjusted, pTrend };
     }, [simulationData?.data, maxScore, minScore, debouncedTarget, probability, projectedMean]);

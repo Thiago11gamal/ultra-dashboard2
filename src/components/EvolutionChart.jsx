@@ -112,7 +112,8 @@ export default function EvolutionChart({
         goal.setHours(0, 0, 0, 0);
         if (isNaN(goal.getTime())) return 30;
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 1;
+        const safeDays = diffDays > 0 ? diffDays : 1;
+        return Math.min(3650, safeDays);
     }, [goalDate]);
 
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
@@ -166,7 +167,9 @@ export default function EvolutionChart({
     const [mcResult, setMcResult] = useState(null);
     const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
-    const historyArray = focusCategory?.simuladoStats?.history ?? EMPTY_ARRAY;
+    const historyArray = Array.isArray(focusCategory?.simuladoStats?.history)
+        ? focusCategory.simuladoStats.history
+        : EMPTY_ARRAY;
     const historyHash = useMemo(() =>
         historyArray.map(h => `${h?.date || 'nodate'}:${h?.score ?? h?.correct ?? 0}`).join('|'),
         [historyArray]
@@ -317,7 +320,7 @@ export default function EvolutionChart({
         if (!lastValid) return chartData;
         const limit = getDateMs(lastValid) - (days * 24 * 60 * 60 * 1000);
         return chartData.filter(d => { const ms = getDateMs(d); return Number.isFinite(ms) && ms >= limit; });
-    }, [chartData, timeWindow, timeline]);
+    }, [chartData, timeWindow]);
 
     const radarData = useMemo(() => {
         if (!categories || !categories.length) return [];
