@@ -28,6 +28,14 @@
 // sem esmagar o Desvio Padrão Agregado (Pooled SD) do candidato.
 export const INTER_SUBJECT_CORRELATION = 0.25;
 
+export function computeEffectiveSampleSizeFromWeights(weights = []) {
+    const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
+    if (clean.length === 0) return 0;
+    const sumW = clean.reduce((a, b) => a + b, 0);
+    const sumW2 = clean.reduce((a, b) => (a + (b * b)), 0);
+    return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
+}
+
 // FIX 2.3: Proteção estrita contra a injeção de parâmetros corrompidos (null/NaN) do DB
 export function computeWeightedVariance(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
     if (!Array.isArray(stats) || stats.length === 0) return 0;
@@ -149,7 +157,8 @@ export function estimateInterSubjectCorrelation(
     let sumZ = 0;
     let sumW = 0;
     pairwise.forEach(p => {
-        const w = Math.sqrt(p.n);
+        // Peso informacional assintoticamente ótimo para Fisher Z ~ N(0, 1/(n-3))
+        const w = Math.max(1, p.n - 3);
         // Fisher Z transform: Z = 0.5 * ln((1+r)/(1-r))
         // BUGFIX GEMINI: Permitir correlações negativas no cálculo para não inflar a média
         const r = Math.max(-0.999, Math.min(0.999, p.corr));
@@ -162,8 +171,11 @@ export function estimateInterSubjectCorrelation(
     // Inverse Fisher Z: r = (exp(2z) - 1) / (exp(2z) + 1)
     const empirical = (Math.exp(2 * avgZ) - 1) / (Math.exp(2 * avgZ) + 1);
 
-    const avgOverlap = pairwise.reduce((acc, p) => acc + p.n, 0) / pairwise.length;
-    const shrink = avgOverlap / (avgOverlap + 10); // conservative shrinkage
+    const overlaps = pairwise.map(p => p.n);
+    const avgOverlap = overlaps.reduce((acc, n) => acc + n, 0) / overlaps.length;
+    const essPairs = computeEffectiveSampleSizeFromWeights(pairwise.map(p => Math.max(1, p.n - 3)));
+    // Shrinkage empírico-bayesiano: usa overlap médio e ESS para evitar overfit em poucos pares.
+    const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
     const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
     return Math.max(0, Math.min(1, blended));
@@ -196,5 +208,6 @@ export default {
     computeWeightedVariance,
     computePooledSD,
     getVarianceBreakdown,
-    estimateInterSubjectCorrelation
+    estimateInterSubjectCorrelation,
+    computeEffectiveSampleSizeFromWeights
 };
