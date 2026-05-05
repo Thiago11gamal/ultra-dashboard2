@@ -41,7 +41,15 @@ export function getConfidenceMultiplier(sampleSize) {
         30: 2.042
     };
 
-    if (df <= 30) return smallSampleTCritical[df];
+    if (df <= 30) {
+        const lowDf = Math.floor(df);
+        const highDf = Math.ceil(df);
+        const lowT = smallSampleTCritical[lowDf] ?? smallSampleTCritical[1];
+        const highT = smallSampleTCritical[highDf] ?? smallSampleTCritical[30];
+        if (lowDf === highDf) return lowT;
+        const w = df - lowDf;
+        return (lowT * (1 - w)) + (highT * w);
+    }
 
     // Aproximação assintótica para df altos (erro pequeno para df > 30)
     const z = 1.959963984540054;
