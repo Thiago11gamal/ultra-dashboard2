@@ -9,7 +9,7 @@ import { useToast } from '../hooks/useToast';
 
 export default function Retention() {
     const categories = useAppStore(state => {
-        const activeContest = state.appState.contests[state.appState.activeId];
+        const activeContest = state.appState?.contests?.[state.appState?.activeId];
         return activeContest?.categories || [];
     });
     const navigate = useNavigate();
@@ -18,13 +18,17 @@ export default function Retention() {
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
 
     const handleSelectCategory = (cat) => {
+        if (!cat?.id) {
+            showToast('Categoria inválida para retenção.', 'warning');
+            return;
+        }
         const targetTaskId = cat.selectedTask ? cat.selectedTask.id : cat.tasks?.[0]?.id;
         
         // FIX: Tratamento correto caso não haja tasks
         if (targetTaskId) {
             navigate('/pomodoro', { state: { categoryId: cat.id, taskId: targetTaskId, from: 'retention' } });
         } else {
-            showToast(`Crie pelo menos uma tarefa em "${cat.name}" para iniciar os estudos.`, 'warning');
+            showToast(`Crie pelo menos uma tarefa em "${cat?.name || 'Sem nome'}" para iniciar os estudos.`, 'warning');
         }
     };
 

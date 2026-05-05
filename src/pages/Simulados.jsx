@@ -10,7 +10,7 @@ import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
 
 export default function Simulados() {
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
 
@@ -122,7 +122,8 @@ export default function Simulados() {
         try {
             // FIX 1: Obtenha o estado síncrono atual FORA do updater
             const store = useAppStore.getState();
-            const prev = store.appState.contests[store.appState.activeId];
+            const prev = store.appState?.contests?.[store.appState?.activeId];
+            if (!prev) throw new Error('Contest ativo não encontrado para salvar simulado');
             
             const analysisResult = payload.analysis || payload;
             const rawRows = payload.rawRows || [];
@@ -153,20 +154,20 @@ export default function Simulados() {
                     const history = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history.filter(Boolean) : [];
                     const historyWithCurrent = history.slice(-49);
                     
-                    const finalC = Number(stats.totalCorrect || 0);
-                    const finalQ = Number(stats.totalQuestions || 0);
+                    const finalC = Math.max(0, Number(stats.totalCorrect || 0));
+                    const finalQ = Math.max(0, Number(stats.totalQuestions || 0));
 
                     if (finalQ > 0) {
                         const maxScore = Number(cat.maxScore) || 100;
                         historyWithCurrent.push({
-                            date: new Date().toISOString(),
+                            date: todayKey,
                             correct: finalC,
                             total: finalQ,
                             // BUG-FIX: isPercentage:true não deve ser setado aqui — esse flag
                             // é reservado para rows legados onde 'correct' era o score percentual.
                             // Setá-lo em entradas novas (onde score já está calculado corretamente)
                             // fazia o repairContestHistory aplicar conversão dupla.
-                            score: (finalC / finalQ) * maxScore,
+                            score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
                             topics: stats.topics || []
                         });
 
@@ -208,7 +209,9 @@ export default function Simulados() {
                     .map(r => ({
                         ...r,
                         createdAt: r.createdAt || new Date().toISOString(),
-                        validated: true
+                        validated: true,
+                        correct: Math.max(0, Number(r.correct) || 0),
+                        total: Math.max(0, Number(r.total) || 0)
                     }))
             ].slice(-300);
 
@@ -226,11 +229,13 @@ export default function Simulados() {
                 subject: 'Simulado Geral'
             };
 
-            const updatedSimulados = [...(prev.simulados || []), newSimuladoEvent].slice(-100);
+            const existingSimulados = Array.isArray(prev.simulados) ? prev.simulados.filter(Boolean) : [];
+            const withoutDuplicateToday = existingSimulados.filter(s => !(s?.date === todayKey && s?.type === 'auto-analyzer'));
+            const updatedSimulados = [...withoutDuplicateToday, newSimuladoEvent].slice(-100);
 
             // Commit atômico (functional updater para evitar sobrescrever mudanças concorrentes)
             setData(current => ({
-                ...current,
+                ...(current || {}),
                 categories: newCategories,
                 simuladoRows: validatedRows,
                 simulados: updatedSimulados,

@@ -7,7 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 
 export default function Activity() {
-    const data = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const data = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const setData = useAppStore(state => state.setData);
     const showToast = useToast();
     const [showResetModal, setShowResetModal] = useState(false);
@@ -17,7 +17,7 @@ export default function Activity() {
         if (!data) return null;
         
         const studyLogs = data.studyLogs || [];
-        const validSimulados = (data.simuladoRows || []).filter(r => r.validated && r.total > 0 && r.correct !== undefined);
+        const validSimulados = (data.simuladoRows || []).filter(r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined);
         const totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
         const totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
 
@@ -30,7 +30,8 @@ export default function Activity() {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
         studyLogs.forEach(log => {
-            const d = new Date(log.date);
+            const d = new Date(log?.date);
+            if (Number.isNaN(d.getTime())) return;
             const hr = d.getHours();
             const day = d.getDay();
             if (hr < 7) studiedEarly = true;
@@ -38,7 +39,7 @@ export default function Activity() {
             if (day === 0 || day === 6) studiedWeekend = true;
 
             if (d.getTime() >= startOfToday) {
-                pomodorosToday += (Number(log.minutes) || 0) / 25;
+                pomodorosToday += Math.max(0, Number(log?.minutes) || 0) / 25;
             }
         });
 
@@ -62,9 +63,9 @@ export default function Activity() {
     }
 
     const handleResetXP = () => {
-        setData(prev => ({ 
-            ...prev, 
-            user: { ...prev.user, xp: 0, level: 1, achievements: [], streak: 0 } 
+        setData(prev => ({
+            ...(prev || {}),
+            user: { ...(prev?.user || {}), xp: 0, level: 1, achievements: [], streak: 0 }
         }));
         setShowResetModal(false);
         showToast('Nível, XP e Troféus Resetados!', 'success');
