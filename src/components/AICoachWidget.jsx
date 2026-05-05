@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-/* eslint-disable no-unused-vars */
-import { motion, AnimatePresence } from 'framer-motion';
-/* eslint-enable no-unused-vars */
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+
 import {
     BrainCircuit, Zap, Target, Sparkles,
     ChevronDown, AlertTriangle, TrendingDown,
@@ -11,6 +10,18 @@ import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
+
+
+function renderRecommendation(text) {
+    const safeText = String(text || '');
+    const parts = safeText.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={`rec-${idx}`} className="text-white not-italic">{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={`rec-${idx}`}>{part}</React.Fragment>;
+    });
+}
 
 function getUrgencyConfig(score, status = '') {
     const s = status.toLowerCase();
@@ -46,7 +57,7 @@ function getUrgencyConfig(score, status = '') {
 
 function MetricChip({ label, value, index }) {
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05, duration: 0.4 }}
@@ -56,7 +67,7 @@ function MetricChip({ label, value, index }) {
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
             <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 leading-none truncate group-hover/chip:text-slate-400 transition-colors pl-1">{label}</span>
             <span className="text-sm font-black text-slate-100 tracking-tight leading-none truncate pl-1">{value}</span>
-        </motion.div>
+        </Motion.div>
     );
 }
 
@@ -69,7 +80,7 @@ function UrgencyBar({ score, cfg }) {
                 <span className={`text-[11px] font-black ${cfg.accent}`}>{Math.round(pct)}</span>
             </div>
             <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
+                <Motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
@@ -92,17 +103,12 @@ export default function AICoachWidget({ suggestion }) {
     // getUrgencyConfig e UrgencyBar esperam escala 0–100.
     // Usar normalizedScore que já está normalizado pela função calculateUrgency.
     const urgencyScore = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
-    const statusLabel = urgency.humanReadable?.Status ?? '';
-
-    // Check if category is degraded from calibrationOps
-    const calibrationOps = activeContest?.calibrationOps || {};
-    const isDegraded = calibrationOps[suggestion.id]?.degraded;
-
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
+    const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
 
     return (
-        <motion.div
+        <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className={`relative mb-8 w-full rounded-3xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-visible group/widget`}
@@ -118,7 +124,7 @@ export default function AICoachWidget({ suggestion }) {
                 style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
             {/* Scanning Laser */}
-            <motion.div
+            <Motion.div
                 animate={{ top: ['-10%', '110%'] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
                 className={`absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-30 pointer-events-none z-10`}
@@ -130,7 +136,7 @@ export default function AICoachWidget({ suggestion }) {
                     <div className="flex items-center gap-4 min-w-0 flex-1">
                         <div className="relative flex items-center justify-center w-12 h-12 shrink-0 rounded-2xl bg-black/40 border border-white/10">
                             <div className={`w-2.5 h-2.5 rounded-full ${cfg.pulse} shadow-[0_0_12px_rgba(255,255,255,0.5)]`} />
-                            <motion.div
+                            <Motion.div
                                 animate={{ scale: [1, 2, 1], opacity: [0.4, 0, 0.4] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                                 className={`absolute inset-0 rounded-2xl ${cfg.pulse}`}
@@ -148,24 +154,24 @@ export default function AICoachWidget({ suggestion }) {
 
                     <div className="flex flex-wrap items-center gap-3">
                         {urgency.crunchMultiplier > 1 && (
-                            <motion.div
+                            <Motion.div
                                 animate={{ opacity: [1, 0.6, 1] }}
                                 transition={{ duration: 1.5, repeat: Infinity }}
                                 className="flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest shrink-0"
                             >
                                 <AlertTriangle size={12} className="shrink-0" />
                                 <span className="whitespace-nowrap">CRÍTICO ×{urgency.crunchMultiplier}</span>
-                            </motion.div>
+                            </Motion.div>
                         )}
                         {isDegraded && (
-                             <motion.div
+                             <Motion.div
                                 animate={{ opacity: [1, 0.7, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                                 className="flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(244,63,94,0.2)] shrink-0"
                              >
                                 <Database size={12} className="text-rose-400 shrink-0" />
                                 <span className="whitespace-nowrap">CALIBRAÇÃO DEGRADADA</span>
-                             </motion.div>
+                             </Motion.div>
                         )}
                         <div className={`flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl border text-[11px] font-black uppercase tracking-[0.15em] ${cfg.badge} shadow-lg shadow-black/20 shrink-0`}>
                             <TierIcon size={12} className="shrink-0" />
@@ -215,7 +221,7 @@ export default function AICoachWidget({ suggestion }) {
                             <div className="space-y-6">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.recommendation && (
-                                    <motion.div
+                                    <Motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 group/quote"
@@ -224,13 +230,11 @@ export default function AICoachWidget({ suggestion }) {
                                         <div className="p-5">
                                             {/* VIS-10 FIX: substituir **texto** por <strong> antes de renderizar.
                                                 Antes, os asteriscos duplos apareciam literais no texto. */}
-                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors"
-                                               dangerouslySetInnerHTML={{
-                                                   __html: `"${(suggestion.urgency.recommendation || '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white not-italic">$1</strong>')}"`
-                                               }}
-                                            />
+                                            <p className="text-xs text-slate-400 leading-relaxed font-medium italic group-hover/quote:text-slate-200 transition-colors">
+                                                "{renderRecommendation(suggestion.urgency.recommendation)}"
+                                            </p>
                                         </div>
-                                    </motion.div>
+                                    </Motion.div>
                                 )}
                             </div>
                         </div>
@@ -243,14 +247,14 @@ export default function AICoachWidget({ suggestion }) {
                             >
                                 <BrainCircuit size={14} className={`${showMatrix ? cfg.accent : 'text-slate-600'} transition-colors`} />
                                 Matriz de Telemetria
-                                <motion.div animate={{ rotate: showMatrix ? 180 : 0 }} transition={{ duration: 0.3 }}>
+                                <Motion.div animate={{ rotate: showMatrix ? 180 : 0 }} transition={{ duration: 0.3 }}>
                                     <ChevronDown size={14} />
-                                </motion.div>
+                                </Motion.div>
                             </button>
 
                             <AnimatePresence>
                                 {showMatrix && (
-                                    <motion.div
+                                    <Motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
@@ -258,8 +262,8 @@ export default function AICoachWidget({ suggestion }) {
                                         className="overflow-hidden"
                                     >
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 pt-6">
-                                            {Object.entries(urgency.humanReadable || {}).map(([k, v], i) => (
-                                                <MetricChip key={k} label={k} value={v} index={i} />
+                                            {sortedHumanReadable.map(([k, v], i) => (
+                                                <MetricChip key={`metric-${k}-${i}`} label={k} value={v} index={i} />
                                             ))}
                                         </div>
                                         {urgency?.monteCarlo?.explainability?.note && (
@@ -278,7 +282,7 @@ export default function AICoachWidget({ suggestion }) {
                                                 </p>
                                             </div>
                                         )}
-                                    </motion.div>
+                                    </Motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
@@ -286,6 +290,6 @@ export default function AICoachWidget({ suggestion }) {
                 )}
 
             </div>
-        </motion.div>
+        </Motion.div>
     );
 }

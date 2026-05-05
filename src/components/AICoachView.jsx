@@ -14,18 +14,22 @@ import { displaySubject } from '../utils/displaySubject';
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const fullText = task.text || task.title || '';
-    const parts = fullText.split(':');
-    const hasDetails = parts.length > 1;
+    const separatorIndex = fullText.indexOf(':');
+    const hasDetails = separatorIndex !== -1;
 
-    let subjectPart = hasDetails ? parts[0] : fullText;
-    let actionPart = hasDetails ? parts.slice(1).join(':').trim() : 'Revisão Geral';
+    let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
+    let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
     subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF]/g, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
     if (topicMatch) { topicPart = topicMatch[1]; actionPart = topicMatch[2].trim(); }
 
-    const displayAssunto = topicPart && topicPart.length > 3 ? topicPart : (actionPart.length > 50 ? actionPart.substring(0, 47) + '…' : actionPart);
+    const truncateGrapheme = (text, max = 50) => {
+        const chars = Array.from(text || '');
+        return chars.length > max ? `${chars.slice(0, max - 3).join('')}…` : text;
+    };
+    const displayAssunto = topicPart && topicPart.length > 3 ? topicPart : truncateGrapheme(actionPart, 50);
     const displayMeta = topicPart ? actionPart : (actionPart !== 'Revisão Geral' ? actionPart : 'Foco em exercícios e revisão');
 
     const CARD_COLORS = [
@@ -78,8 +82,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                     <p className="text-[11px] text-slate-400 leading-relaxed bg-black/40 p-4 rounded-2xl border border-white/5 font-medium">{task.analysis.reason}</p>
                                     {task.analysis.metrics && (
                                         <div className="flex flex-wrap gap-2 pt-1">
-                                            {Object.entries(task.analysis.metrics).map(([key, value]) => (
-                                                <div key={key} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-xl flex items-center gap-2">
+                                            {Object.entries(task.analysis.metrics).map(([key, value], idx) => (
+                                                <div key={`metric-${key}-${idx}`} className="bg-white/[0.03] border border-white/5 px-3 py-2 rounded-xl flex items-center gap-2">
                                                     <span className="text-[9px] text-slate-600 uppercase tracking-widest font-black">{key}</span>
                                                     <span className="text-[11px] font-mono text-slate-300 font-bold">{value}</span>
                                                 </div>

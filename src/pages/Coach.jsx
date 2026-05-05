@@ -143,11 +143,11 @@ export default function Coach() {
                 return prev; // No change needed
             }
 
-            const cutoff = Date.now() - CALIBRATION_HISTORY_RETENTION_MS;
+            const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
             const cleaned = categoryHistory.filter(item => Number(item?.timestamp || 0) >= cutoff);
             const nextHistory = [...cleaned, normalizedMetric].slice(-60);
 
-            const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (Date.now() - 1000 * 60 * 60 * 24 * 7));
+            const recent7 = nextHistory.filter(item => Number(item?.timestamp || 0) >= (now - 1000 * 60 * 60 * 24 * 7));
             const recent7Brier = recent7.map(item => Number(item?.avgBrier)).filter(Number.isFinite);
             const avgBrier7d = recent7Brier.length > 0
                 ? recent7Brier.reduce((acc, val) => acc + val, 0) / recent7Brier.length
@@ -160,7 +160,7 @@ export default function Coach() {
                     avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                     sample7d: recent7.length,
                     degraded: isDegraded,
-                    updatedAt: Date.now()
+                    updatedAt: now
                 }
             };
 
@@ -243,8 +243,8 @@ export default function Coach() {
     const analysisHash = useMemo(() => {
         // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
         // Usamos as referências dos arrays e valores de perfil para detectar mudanças reais.
-        return `${data?.simuladoRows?.length || 0}-${data?.studyLogs?.length || 0}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}`;
-    }, [data?.simuladoRows, data?.studyLogs, categories, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore]);
+        return `${data?.simuladoRows?.length || 0}-${data?.studyLogs?.length || 0}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${data?.updatedAt || ''}`;
+    }, [data?.simuladoRows, data?.studyLogs, categories, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, data?.updatedAt]);
 
     const lastHashRef = useRef('');
 
@@ -306,6 +306,12 @@ export default function Coach() {
             }
         }
     }, [projectedScore, updateCoachScore]);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
 
     const handleGenerateGoals = useCallback(() => {
         if (!data?.categories) return;
