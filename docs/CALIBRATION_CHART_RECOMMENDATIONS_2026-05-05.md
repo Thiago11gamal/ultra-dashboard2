@@ -34,6 +34,7 @@ Pronta para ligar em gráficos Recharts sem refatorar o motor principal.
 
 
 ## Detalhamento: Reliability Diagram com contagem por bin
+
 ### O que é
 É um gráfico de calibração que compara:
 - **Eixo X**: probabilidade média prevista pelo modelo em cada bin.

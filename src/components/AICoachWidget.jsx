@@ -104,6 +104,11 @@ export default function AICoachWidget({ suggestion }) {
     // Usar normalizedScore que já está normalizado pela função calculateUrgency.
     const urgencyScore = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
     const statusLabel = String(urgency.humanReadable?.Status ?? '');
+
+    // Check if category is degraded from calibrationOps
+    const calibrationOps = activeContest?.calibrationOps || {};
+    const isDegraded = calibrationOps[suggestion.id]?.degraded;
+
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));

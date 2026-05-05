@@ -207,12 +207,8 @@ export default function Coach() {
         }
     }, [setData]);
 
+    // BUG-26: Deduplicating history entries by timestamp to prevent duplicate samples
     const combinedHistory = useMemo(() => {
-        const all = [...history];
-        const seen = new Set(all.map((item) => `${item?.id ?? ''}|${item?.date ?? ''}|${Number(item?.score ?? 0)}`));
-        simulados.forEach((s) => {
-            const hasScore = s?.score !== null && s?.score !== undefined && !Number.isNaN(Number(s.score));
-            if (!s?.date || !hasScore) return;
             const key = `${s?.id ?? ''}|${s.date}|${Number(s.score)}`;
             if (seen.has(key)) return;
             seen.add(key);

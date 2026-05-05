@@ -41,6 +41,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             }
         }
     }
+    // MATH-05/10 FIX: Use same effective target for empirical and analytic
+    // Clamp target to simulation domain
+    const effectiveTarget = Math.max(minScore, Math.min(maxScore, targetScore));
+
     const rawTarget = Number.isFinite(targetScore) ? targetScore : 0;
     const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
 

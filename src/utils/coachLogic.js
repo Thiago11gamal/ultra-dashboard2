@@ -91,13 +91,6 @@ function getSRSBoost(daysSince, cfg) {
     return { boost: 0, label: null };
 }
 
-function getCrunchMultiplier(daysToExam) {
-    if (daysToExam === undefined || daysToExam === null || daysToExam < 0) return 1.0;
-    if (daysToExam > 60) return 1.0;
-
-    // Curva contínua (logística) para evitar saltos bruscos nas fronteiras 7/14/30 dias.
-    // Produz aproximadamente: D0≈2.45, D7≈2.1, D14≈1.8, D30≈1.35, D60≈1.0
-    const x = Number(daysToExam);
     const steepness = 0.12;
     const midpoint = 15;
     const logistic = 1 / (1 + Math.exp(steepness * (x - midpoint)));

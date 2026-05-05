@@ -19,9 +19,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
-    // BUG-SAN-REGEX: a regex anterior era muito restritiva ([^\w\s\u00C0-\u024F]). 
-    // Ampliada para incluir pontuação essencial e outros alfabetos latinos estendidos.
-    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF\uFB00-\uFBFF]/g, '').trim();
+    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF]/g, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
@@ -57,7 +55,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
-                        onStartPomodoro?.(task);
+                        onStartPomodoro(task);
                     }}
                     className="w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:bg-violet-600 hover:text-white transition-all shadow-xl"
                 >
@@ -159,19 +157,18 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         const n = Number(value);
         return Number.isFinite(n) ? n : fallback;
     };
-
     const calibrationSummary = useMemo(() => Object.entries(calibrationHistoryByCategory)
         .map(([categoryId, history]) => {
             const rows = Array.isArray(history) ? history : [];
             if (rows.length === 0) return null;
-
+ 
             // Janela móvel baseada no último evento disponível da categoria para
             // manter o resumo consistente mesmo com histórico esparso.
             const latestTimestamp = rows.reduce((mx, h) => Math.max(mx, toFinite(h?.timestamp)), 0);
             const sevenDaysAgo = latestTimestamp - 7 * 24 * 60 * 60 * 1000;
             const recent = rows.filter(h => toFinite(h?.timestamp) >= sevenDaysAgo);
             const base = recent.length > 0 ? recent : rows;
-
+ 
             const brierValues = base.map(h => Number(h?.avgBrier)).filter(Number.isFinite);
             const penaltyValues = base.map(h => Number(h?.calibrationPenalty)).filter(Number.isFinite);
             const avgBrier = brierValues.length > 0
