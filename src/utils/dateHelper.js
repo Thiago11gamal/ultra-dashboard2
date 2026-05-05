@@ -126,13 +126,21 @@ export const formatTimeAgo = (date) => {
  * Formata horas decimais (ex: 1.25) para o formato "1h15".
  */
 export const formatDuration = (decimalHours) => {
-    const hours = Math.floor(decimalHours || 0);
-    const minutes = Math.round(((decimalHours || 0) - hours) * 60);
+    const safe = Number.isFinite(Number(decimalHours)) ? Number(decimalHours) : 0;
+    const normalized = Math.max(0, safe);
+    let hours = Math.floor(normalized);
+    let minutes = Math.round((normalized - hours) * 60);
+    // BUGFIX: 1.999h virava "1h60"; normalizar carry para horas.
+    if (minutes >= 60) {
+        hours += 1;
+        minutes = 0;
+    }
     return `${hours}h${String(minutes).padStart(2, '0')}`;
 };
 
 export const formatDatePtBR = (date) => {
     try {
+        if (!date) return '--/--/----';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
@@ -146,6 +154,7 @@ export const formatDatePtBR = (date) => {
 
 export const formatDateTimePtBR = (date) => {
     try {
+        if (!date) return '--/--/---- --:--:--';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             day: '2-digit',
@@ -162,6 +171,7 @@ export const formatDateTimePtBR = (date) => {
 
 export const formatWeekdayShortPtBR = (date) => {
     try {
+        if (!date) return '';
         return new Intl.DateTimeFormat('pt-BR', {
             timeZone: APP_TIMEZONE,
             weekday: 'short'
