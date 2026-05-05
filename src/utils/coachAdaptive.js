@@ -47,15 +47,37 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
 export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = {}) {
   const p = Math.max(0, Math.min(100, Number(probability) || 0));
-  const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER));
-  const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE));
-
+  const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
+  const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
   const center = (d + s) / 2;
-  const range = (s - d) || 1;
-  const normalized = (p - center) / (range / 2);
-  const boost = 1 / (1 + Math.exp(normalized * 3.5));
-  const volatilityMultiplier = Math.max(0.7, Math.min(1.3, (volatility || 5) / 5));
-  return Math.min(2.0, boost * volatilityMultiplier);
+
+  // Curva logística centrada no ponto médio entre perigo e segurança.
+  // Produz uma transição suave de MC_BOOST_SAFE_PENALTY (-8) até MC_BOOST_DANGER_MAX (25).
+  const width = Math.max(8, (s - d) / 2);
+  const k = 4 / width; // Fator de inclinação para cobrir a transição no range
+  const z = (center - p) * k;
+  const sigmoid = 1 / (1 + Math.exp(-z));
+
+  const maxBoost = (Number(cfg.MC_BOOST_DANGER_BASE) || 12) + (Number(cfg.MC_BOOST_DANGER_RANGE) || 13);
+  const minBoost = Number(cfg.MC_BOOST_SAFE_PENALTY) || -8;
+  let boost = minBoost + (maxBoost - minBoost) * sigmoid;
+
+  // MATH-FIX: Se a volatilidade for alta, reduzimos o 'alívio' (boost negativo).
+  // Não permitimos que o usuário relaxe se a incerteza estatística for grande.
+  const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (maxScore / 100);
+  if (Number.isFinite(volatility) && volatility >= lowVolLimit && boost < 0) {
+    boost *= 0.25;
+  }
+
+  let riskLabel = 'ok';
+  if (p < d) riskLabel = 'critical';
+  else if (p < center) riskLabel = 'moderate';
+  else if (p >= s && boost < 0) riskLabel = 'safe';
+
+  return { 
+    boost: Number(boost.toFixed(4)), 
+    riskLabel 
+  };
 }
 
 export function deriveBacktestWeights(scores = [], maxScore = 100) {
