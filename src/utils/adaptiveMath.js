@@ -19,6 +19,12 @@ export function getConfidenceMultiplier(sampleSize) {
 export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     if (!Array.isArray(values) || values.length < 5) return values || [];
 
+    // Sanitiza percentis para evitar intervalos inválidos (ex: lower > upper)
+    const lowerClamped = Number.isFinite(lowerPct) ? Math.min(1, Math.max(0, lowerPct)) : 0.05;
+    const upperClamped = Number.isFinite(upperPct) ? Math.min(1, Math.max(0, upperPct)) : 0.95;
+    const lowQ = Math.min(lowerClamped, upperClamped);
+    const highQ = Math.max(lowerClamped, upperClamped);
+
     const finiteValues = values.filter(v => Number.isFinite(v));
     if (finiteValues.length < 5) {
         const fallback = finiteValues.length > 0
@@ -28,8 +34,8 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     }
 
     const sorted = [...finiteValues].sort((a, b) => a - b);
-    const lowIndex = Math.floor((sorted.length - 1) * lowerPct);
-    const highIndex = Math.ceil((sorted.length - 1) * upperPct);
+    const lowIndex = Math.floor((sorted.length - 1) * lowQ);
+    const highIndex = Math.ceil((sorted.length - 1) * highQ);
     const medianIndex = Math.floor((sorted.length - 1) * 0.5);
     const low = sorted[Math.max(0, lowIndex)];
     const high = sorted[Math.min(sorted.length - 1, highIndex)];
