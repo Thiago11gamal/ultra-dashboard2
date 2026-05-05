@@ -34,9 +34,10 @@ export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
  */
 export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
     const points = [];
-    const stepSize = (xMax - xMin) / steps;
+    const safeSteps = Number.isFinite(steps) ? Math.max(1, Math.floor(steps)) : 1;
+    const stepSize = (xMax - xMin) / safeSteps;
 
-    for (let i = 0; i <= steps; i++) {
+    for (let i = 0; i <= safeSteps; i++) {
         const x = xMin + stepSize * i;
         const y = asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor);
         points.push({ x, y });
