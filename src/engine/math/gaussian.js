@@ -92,9 +92,12 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     const stepSize = (plotMax - plotMin) / plotSteps;
 
     // Silverman's Rule of Thumb para suavização ideal do Kernel
+    const safeSimCount = Number.isFinite(safeSimulations) && safeSimulations > 0
+        ? safeSimulations
+        : Math.max(1, allScores.length);
     const iqr = getPercentile(allScores, 0.75) - getPercentile(allScores, 0.25);
     const scottFactor = iqr > 0 ? Math.min(projectedSD, iqr / 1.34) : projectedSD;
-    const h = 0.9 * scottFactor * Math.pow(safeSimulations, -0.2);
+    const h = 0.9 * scottFactor * Math.pow(safeSimCount, -0.2);
 
     // REVISION: KDE using 300 Bins for higher UI resolution
     const BIN_COUNT = 300;
@@ -121,7 +124,7 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
 
     // FIX MATEMÁTICO: A normalização usa a base total de simulações para 
     // evitar inflar o pico visual quando há muitos outliers fora da tela.
-    const normFactor = 1 / (safeSimulations * bandwidth * Math.sqrt(2 * Math.PI));
+    const normFactor = 1 / (safeSimCount * bandwidth * Math.sqrt(2 * Math.PI));
 
     let maxY = 0;
     const rawData = [];
