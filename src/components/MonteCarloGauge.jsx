@@ -241,14 +241,14 @@ export default function MonteCarloGauge({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-6">
-                {[
-                    { label: "Sua Meta", val: `${formatValue(safe(targetScore))}${unit}`, color: "text-rose-500" },
-                    { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(safe(currentMean))}${unit}`, color: "text-white" },
-                    { label: "Projeção", val: `${formatValue(safe(projectedMean))}${unit}`, color: "text-blue-400" },
-                    { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
-                    { label: "Incerteza", val: `-${formatValue(sdLeft)} / +${formatValue(sdRight)}`, color: "text-amber-400", small: true },
-                    { label: "IC 95%", val: `${formatValue(safe(ci95Low))}–${formatValue(safe(ci95High))}${unit}`, color: "text-green-500/80", small: true }
-                ].map((m, i) => (
+                    {[
+                        { label: "Sua Meta", val: `${formatValue(safe(targetScore))}${unit}`, color: "text-rose-500" },
+                        { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(safe(currentMean))}${unit}`, color: "text-white" },
+                        { label: "Projeção", val: `${formatValue(safe(projectedMean))}${unit}`, color: "text-blue-400" },
+                        { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
+                        { label: "Incerteza", val: `-${formatValue(sdLeft)} / +${formatValue(sdRight)}`, color: "text-amber-400", small: true },
+                        { label: "IC 95%", val: `${formatValue(safe(ci95Low))}–${formatValue(safe(ci95High))}${unit}`, color: "text-green-500/80", small: true }
+                    ].map((m, i) => (
                     <div key={i} className="bg-black/30 p-2 rounded-xl border border-white/5 flex flex-col items-center justify-center min-h-[56px]">
                         <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">{m.label}</span>
                         <span className={`${m.small ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm'} font-black ${m.color} truncate w-full text-center`}>{m.val}</span>
