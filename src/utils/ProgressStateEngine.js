@@ -64,35 +64,43 @@ export function analyzeProgressState(scores, config = {}) {
 
     const recentData = sortedScores.slice(-safeWindowSize);
     const recentScores = recentData.map(d => typeof d === 'object' ? d.score : d);
+
+    // FIX MATH-2026-05-05: Sanitizar score para manter mean/variance/slope estáveis com entradas inválidas.
+    const finiteRecentScores = recentScores.map(v => Number.isFinite(v) ? v : 0);
+
+    // FIX LOGIC-2026-05-05: Evitar Date.now() múltiplo (não determinístico) dentro do mesmo cálculo.
+    // Captura uma âncora temporal única para estabilidade reprodutível.
+    const syntheticNow = Date.now();
+
     // FIX: Prevenir a contaminação matemática por 'NaN' se a data for inválida ou inexistente.
     const recentDates = recentData.map((d, index) => {
         if (typeof d === 'object') {
             const time = new Date(d.date).getTime();
             // Se a data for inválida, criamos uma data sintética linear baseada no índice para não quebrar o declive
-            return isNaN(time) ? Date.now() + (index * 86400000) : time; 
+            return isNaN(time) ? syntheticNow + (index * 86400000) : time; 
         }
         // Se d for primitivo, simula um intervalo de 1 dia por teste
-        return Date.now() + (index * 86400000); 
+        return syntheticNow + (index * 86400000); 
     });
 
     // 5.1 Mean (Absolute Level)
-    const mean = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+    const mean = finiteRecentScores.reduce((a, b) => a + b, 0) / finiteRecentScores.length;
 
     // 5.2 Delta (Mean Absolute Variation)
     let variationTotal = 0;
-    for (let i = 1; i < recentScores.length; i++) {
-        variationTotal += Math.abs(recentScores[i] - recentScores[i - 1]);
+    for (let i = 1; i < finiteRecentScores.length; i++) {
+        variationTotal += Math.abs(finiteRecentScores[i] - finiteRecentScores[i - 1]);
     }
-    const delta = variationTotal / (recentScores.length - 1);
+    const delta = variationTotal / (finiteRecentScores.length - 1);
 
     // 5.3 Variance (Consistency)
-    const variance = recentScores.reduce((acc, score) =>
-        acc + Math.pow(score - mean, 2), 0) / (recentScores.length - 1);
+    const variance = finiteRecentScores.reduce((acc, score) =>
+        acc + Math.pow(score - mean, 2), 0) / (finiteRecentScores.length - 1);
 
     // 5.4 Trend (Linear Regression Slope - TIME AWARE)
     // 🎯 MATH BUG FIX: Transição da Regressão Linear do índice (Cego ao tempo) 
     // para o eixo X de dias reais passados.
-    const n = recentScores.length;
+    const n = finiteRecentScores.length;
     const startTime = recentDates[0] || Date.now();
     const xDays = recentDates.map(d => (d - startTime) / 86400000);
     const xMean = xDays.reduce((a, b) => a + b, 0) / n;
@@ -101,7 +109,7 @@ export function analyzeProgressState(scores, config = {}) {
     let denominator = 0;
 
     for (let i = 0; i < n; i++) {
-        numerator += (xDays[i] - xMean) * (recentScores[i] - mean);
+        numerator += (xDays[i] - xMean) * (finiteRecentScores[i] - mean);
         denominator += Math.pow(xDays[i] - xMean, 2);
     }
 
