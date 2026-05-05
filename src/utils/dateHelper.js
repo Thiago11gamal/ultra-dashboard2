@@ -123,6 +123,7 @@ export const formatTimeAgo = (date) => {
     if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
     return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
 };
+
 /**
  * Formata horas decimais (ex: 1.25) para o formato "1h15".
  */
