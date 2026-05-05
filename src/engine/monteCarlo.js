@@ -119,6 +119,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let rawHigh = statisticalCi95High;
 
     const empiricalProbability = (success / safeSimulations) * 100;
+    // Suavização Bayesiana (Jeffreys prior) para reduzir ruído em baixa amostra.
+    const posteriorAlpha = success + 0.5;
+    const posteriorBeta = (safeSimulations - success) + 0.5;
+    const bayesEmpiricalProbability = (posteriorAlpha / (posteriorAlpha + posteriorBeta)) * 100;
     const displayMean = bayesianCI ? safeMean : projectedMean;
 
     // FORÇAR INCERTEZA MÍNIMA: Evitar que o cone colapse num traço liso na UI
@@ -164,11 +168,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const rawLeft = getPercentile(allScores, 0.16);
     const rawRight = getPercentile(allScores, 0.84);
 
-    const finiteEmpiricalProbability = Number.isFinite(empiricalProbability) ? empiricalProbability : 0;
+    const finiteEmpiricalProbability = Number.isFinite(bayesEmpiricalProbability) ? bayesEmpiricalProbability : 0;
     const finiteAnalyticalProbability = Number.isFinite(analyticalProbability) ? analyticalProbability : 0;
     const empiricalVsAnalyticalGap = Math.abs(finiteEmpiricalProbability - finiteAnalyticalProbability);
     const lowSimulation = safeSimulations < 1200;
     const highTruncationStress = truncNormFactor < 1e-6;
+    const pHat = finiteEmpiricalProbability / 100;
+    const empiricalStdErr = Math.sqrt(Math.max(1e-12, (pHat * (1 - pHat)) / Math.max(1, safeSimulations))) * 100;
 
     // Fusão adaptativa avançada (empírico + analítico):
     // - peso analítico cresce com tamanho amostral efetivo
@@ -176,7 +182,8 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // - penaliza divergência alta entre os dois estimadores
     const sampleConfidence = Math.min(1, Math.max(0, (safeSimulations - 200) / 4800));
     const truncationPenalty = highTruncationStress ? 0.55 : 1;
-    const disagreementPenalty = Math.max(0.35, 1 - (empiricalVsAnalyticalGap / 35));
+    const uncertaintyScaledGap = empiricalVsAnalyticalGap / Math.max(1, empiricalStdErr * 2.2);
+    const disagreementPenalty = Math.max(0.35, 1 - (uncertaintyScaledGap / 6));
     const analyticalWeight = Math.min(0.9, Math.max(0.1, sampleConfidence * truncationPenalty * disagreementPenalty));
 
     const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
@@ -191,6 +198,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
             ? 'blended_low_sample_policy'
             : (highTruncationStress ? 'blended_truncated_policy' : 'blended_adaptive_policy'),
         analyticalWeight: Number(analyticalWeight.toFixed(4)),
+        empiricalStdErr: Number(empiricalStdErr.toFixed(4)),
+        empiricalProbabilityRaw: Number(empiricalProbability.toFixed(4)),
+        empiricalProbabilityBayes: Number(finiteEmpiricalProbability.toFixed(4)),
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
         // sd = estatístico (não visual), para evitar viés de interpretação
         sd: Number(projectedSD.toFixed(2)),
