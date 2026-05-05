@@ -2,9 +2,11 @@
  * Utilitários de Matemática Adaptativa para o Motor Estatístico
  */
 
-export function getConfidenceMultiplier(sampleSize) {
+export function getConfidenceMultiplier(sampleSize, options = {}) {
     const nRaw = Number(sampleSize);
-    const n = Math.max(1, Number.isFinite(nRaw) ? nRaw : 1);
+    const allowFractional = options?.allowFractional === true;
+    const nBase = Number.isFinite(nRaw) ? nRaw : 1;
+    const n = Math.max(1, allowFractional ? nBase : Math.round(nBase));
     const df = Math.max(1, n - 1);
 
     // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
@@ -159,11 +161,18 @@ export function computeAdaptiveSignal(scores = []) {
         return acc + (weighted[i] * clipped * clipped);
     }, 0) / Math.max(1e-9, sumW);
     const sd = Math.sqrt(Math.max(0, weightedVariance));
-    const lastDelta = finiteScores.length >= 2
-        ? finiteScores[finiteScores.length - 1] - finiteScores[finiteScores.length - 2]
+    // Reduz sensibilidade a ruído usando média dos últimos deltas (até 4 passos).
+    const k = Math.min(4, Math.max(1, finiteScores.length - 1));
+    const recentDeltas = [];
+    for (let i = finiteScores.length - k; i < finiteScores.length; i++) {
+        if (i <= 0) continue;
+        recentDeltas.push(finiteScores[i] - finiteScores[i - 1]);
+    }
+    const avgRecentDelta = recentDeltas.length > 0
+        ? recentDeltas.reduce((a, b) => a + b, 0) / recentDeltas.length
         : 0;
     // BUGFIX: quando sd≈0, qualquer delta pequeno explodia numericamente.
-    const trendStrength = sd > 1e-9 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
+    const trendStrength = sd > 1e-9 ? Math.min(2.5, Math.abs(avgRecentDelta) / sd) : 0;
 
     const ciInflationRaw = 1 + (trendStrength * cfg.trendSensitivity);
     const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));

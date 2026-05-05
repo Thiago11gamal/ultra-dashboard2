@@ -20,10 +20,10 @@ export function getSortedHistory(history) {
         .sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
-            // BUGFIX M2: Use local time methods to avoid UTC-offset grouping errors in regions like Brazil.
-            const local_A = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
-            const local_B = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
-            return local_A - local_B;
+            // Ordenação determinística por "dia UTC" para evitar variação por timezone do runtime.
+            const utcA = Date.UTC(dateA.getUTCFullYear(), dateA.getUTCMonth(), dateA.getUTCDate());
+            const utcB = Date.UTC(dateB.getUTCFullYear(), dateB.getUTCMonth(), dateB.getUTCDate());
+            return utcA - utcB;
         });
 }
 
