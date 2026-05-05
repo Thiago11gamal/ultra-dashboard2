@@ -155,6 +155,9 @@ export default function MonteCarloGauge({
     else if (prob > 20) baseMessage = "IMPROVISADOR";
 
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
+    const projectionDelta = safe(projectedMean) - safe(currentMean);
+    const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.5;
+    const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${unit}`;
 
     return (
         <div className={`glass p-4 sm:p-5 rounded-2xl sm:rounded-[2rem] relative flex flex-col border-l-4 border-blue-500 bg-slate-900 group transition-all duration-500 shadow-2xl w-full h-fit self-start static lg:sticky lg:top-28 ${isFlashing ? 'opacity-90 scale-[0.99]' : ''}`}>
@@ -242,6 +245,7 @@ export default function MonteCarloGauge({
                     { label: "Sua Meta", val: `${formatValue(safe(targetScore))}${unit}`, color: "text-rose-500" },
                     { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(safe(currentMean))}${unit}`, color: "text-white" },
                     { label: "Projeção", val: `${formatValue(safe(projectedMean))}${unit}`, color: "text-blue-400" },
+                    { label: "Δ Futuro vs Hoje", val: projectionDeltaLabel, color: isProjectionNearCurrent ? "text-amber-300" : "text-cyan-300" },
                     { label: "Incerteza", val: `-${formatValue(sdLeft)} / +${formatValue(sdRight)}`, color: "text-amber-400", small: true },
                     { label: "IC 95%", val: `${formatValue(safe(ci95Low))}–${formatValue(safe(ci95High))}${unit}`, color: "text-green-500/80", small: true }
                 ].map((m, i) => (

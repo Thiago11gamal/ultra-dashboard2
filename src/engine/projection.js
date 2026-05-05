@@ -590,7 +590,11 @@ export function monteCarloSimulation(
     // 2. O Atrator (μ - Mu).
     // Até onde o aluno naturally chegaria com a tendência atual.
     // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
-    const effectiveAttractorDays = 45 * Math.log(1 + simulationDays / 45);
+    // MATH-06: Tornar o damping adaptativo ao tamanho de amostra.
+    // - Baixo N: amortização mais forte (mais conservador para evitar overfit de tendência)
+    // - Alto N: amortização mais permissiva (evita colar demais "Hoje" e "Futuro")
+    const adaptiveDampingBase = sortedHistory.length < 8 ? 30 : (sortedHistory.length < 20 ? 45 : 60);
+    const effectiveAttractorDays = adaptiveDampingBase * Math.log(1 + simulationDays / adaptiveDampingBase);
 
     // BUG 1 FIX: Adicionar uma salvaguarda para o escopo do domínio 
     // antes do loop de simulação para evitar colapso de domínio.
