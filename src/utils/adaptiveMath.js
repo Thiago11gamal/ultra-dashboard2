@@ -62,7 +62,7 @@ export function getConfidenceMultiplier(sampleSize) {
 }
 
 export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
-    if (!Array.isArray(values) || values.length < 5) return values || [];
+    if (!Array.isArray(values)) return [];
 
     // Sanitiza percentis para evitar intervalos inválidos (ex: lower > upper)
     const lowerClamped = Number.isFinite(lowerPct) ? Math.min(1, Math.max(0, lowerPct)) : 0.05;
