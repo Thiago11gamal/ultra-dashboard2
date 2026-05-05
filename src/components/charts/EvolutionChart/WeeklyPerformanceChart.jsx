@@ -7,11 +7,9 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    Legend,
-    ResponsiveContainer,
-    Area
+    ResponsiveContainer
 } from 'recharts';
-import { getDateKey, formatDisplayDate, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper';
+import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
 
 const WeeklyPerformanceChart = ({
@@ -22,6 +20,8 @@ const WeeklyPerformanceChart = ({
     maxScore = 100,
     unit = '%'
 }) => {
+    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `wp_barGrad_${instanceId}`;
     const neonShadowId = `wp_neonShadow_${instanceId}`;
@@ -64,19 +64,19 @@ const WeeklyPerformanceChart = ({
                     if (hDate === dateKey) {
                         let q = Number(h.total) || 0;
                         if (q === 0 && h.score != null) {
-                            q = getSyntheticTotal(maxScore);
+                            q = getSyntheticTotal(safeMaxScore);
                         }
                         if (q < 1) return; // Skip invalid entries
 
-                        const score = getSafeScore(h, maxScore);
-                        correctTotal += (score / maxScore) * q;
+                        const score = getSafeScore(h, safeMaxScore);
+                        correctTotal += (score / safeMaxScore) * q;
                         questionsTotal += q;
                     }
                 });
             });
 
             const acertos = questionsTotal > 0
-                ? Number(((correctTotal / questionsTotal) * maxScore).toFixed(2))
+                ? Number(((correctTotal / questionsTotal) * safeMaxScore).toFixed(2))
                 : null;
 
             days.push({
@@ -87,7 +87,7 @@ const WeeklyPerformanceChart = ({
             });
         }
         return days;
-    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, maxScore]);
+    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore]);
 
     return (
         <div className="w-full h-[320px] sm:h-[400px] flex flex-col">
@@ -165,8 +165,8 @@ const WeeklyPerformanceChart = ({
                             axisLine={false}
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10 }}
-                            tickFormatter={(v) => `${v}${unit}`}
-                            domain={[0, maxScore]}
+                            tickFormatter={(v) => `${v}${safeUnit}`}
+                            domain={[0, safeMaxScore]}
                         />
 
                         <Tooltip
@@ -190,7 +190,7 @@ const WeeklyPerformanceChart = ({
                                                         </span>
                                                     </div>
                                                     <span className="text-xs font-black text-white">
-                                                        {entry.value !== null ? (entry.name === 'acertos' ? `${entry.value}${unit}` : formatDuration(entry.value)) : 'N/A'}
+                                                        {entry.value !== null ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value)) : 'N/A'}
                                                     </span>
                                                 </div>
                                             ))}

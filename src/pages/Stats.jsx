@@ -22,10 +22,13 @@ export default function Stats() {
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs]);
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories]);
 
-    if (categories.length === 0) {
+    if (!Array.isArray(categories) || categories.length === 0) {
         return (
-            <div className="flex items-center justify-center min-h-[80vh]">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <div className="text-center text-slate-400">
+                    <p className="font-bold uppercase tracking-wider text-xs">Sem dados de estatísticas</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Adicione simulados para liberar o painel completo.</p>
+                </div>
             </div>
         );
     }

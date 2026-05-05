@@ -75,8 +75,9 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
                     if (bayAlpha < retentionFloor) {
                         const currentN = bayAlpha + bayBeta;
                         const currentP = (currentN > 0 && bayAlpha > 0) ? bayAlpha / currentN : 0.01;
+                        const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
                         bayAlpha = retentionFloor;
-                        bayBeta = bayAlpha * ((1 - currentP) / currentP);
+                        bayBeta = bayAlpha * ((1 - safeP) / safeP);
                     }
                 }
 
@@ -191,7 +192,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const snap = cumulativeByDate[date];
                 if (!snap) return;
 
-                const { stats, last } = snap;
+                const { stats } = snap;
                 const exact = exactByDate[date];
 
                 const correct = exact ? exact.correct : 0;
@@ -224,7 +225,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 const score = d[`bay_${cat.id}`] ?? d[`raw_${cat.id}`];
                 const w = weights[cat.id] ?? weights[cat.name] ?? 0;
                 
-                if (Number.isFinite(score)) {
+                if (Number.isFinite(score) && score !== null) {
                     if (w > 0) {
                         weightedSum += score * w;
                         totalW += w;

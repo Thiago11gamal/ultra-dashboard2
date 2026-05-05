@@ -25,7 +25,9 @@ const getMondayStr = (dateStr) => {
 
 // Formatação legível para o XAxis
 const formatWeek = (isoString) => {
+    if (!isoString || typeof isoString !== 'string') return '--/--';
     const [year, month, day] = isoString.split('-');
+    if (!year || !month || !day) return '--/--';
     return `${day}/${month}`;
 };
 
@@ -51,7 +53,10 @@ export const WeeklyEvolutionView = ({
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
-                itemsMap[cat.id] = { name: cat.name.replace(/Direito /gi, 'D. ').substring(0, 12), color: cat.color };
+                if (!cat?.id) return;
+                const safeName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ').substring(0, 12);
+                const safeColor = typeof cat.color === 'string' ? cat.color : '#64748b';
+                itemsMap[cat.id] = { name: safeName, color: safeColor };
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
@@ -151,7 +156,8 @@ export const WeeklyEvolutionView = ({
 
                 if (currentData && currentData.total > 0) {
                     // 1. Calcula o percentual da semana atual
-                    const currentPct = Number(((currentData.correct / currentData.total) * maxScore).toFixed(2));
+                    const rawPct = (currentData.correct / currentData.total) * maxScore;
+                    const currentPct = Number(Math.max(0, Math.min(maxScore, rawPct)).toFixed(2));
                     dataPoint[id] = currentPct;
 
                     // 2. Calcula o Delta se houver registro anterior
@@ -247,8 +253,9 @@ export const WeeklyEvolutionView = ({
                     </p>
                     <div className="space-y-3">
                         {payload.map((entry, idx) => {
-                            const isDelta = entry.dataKey.startsWith('delta_');
-                            const baseKey = isDelta ? entry.dataKey.replace('delta_', '') : entry.dataKey;
+                            const dataKey = String(entry.dataKey || '');
+                            const isDelta = dataKey.startsWith('delta_');
+                            const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
 
                             // Se a key tá oculta no click, pula no Tooltip pra manter sincro visual
                             if (hiddenKeys[baseKey]) return null;
