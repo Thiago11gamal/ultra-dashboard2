@@ -13,16 +13,20 @@
  */
 export const getPercentile = (arr, p) => {
     if (!arr || arr.length === 0) return 0;
+
+    const finite = Array.from(arr).filter(v => Number.isFinite(v));
+    if (finite.length === 0) return 0;
+    const sorted = [...finite].sort((a, b) => a - b);
     
     // NOVAS PROTEÇÕES
     if (!Number.isFinite(p)) return 0;
-    if (p <= 0) return arr[0]; // Retorna primeiro elemento se percentil <= 0
-    if (p >= 1) return arr[arr.length - 1]; // Retorna último elemento se percentil >= 1
+    if (p <= 0) return sorted[0]; // Retorna primeiro elemento se percentil <= 0
+    if (p >= 1) return sorted[sorted.length - 1]; // Retorna último elemento se percentil >= 1
     
-    const idx = (arr.length - 1) * p;
+    const idx = (sorted.length - 1) * p;
     const lower = Math.floor(idx);
     const upper = Math.ceil(idx);
-    if (lower === upper) return arr[lower];
+    if (lower === upper) return sorted[lower];
     const weight = idx - lower;
-    return arr[lower] * (1 - weight) + arr[upper] * weight;
+    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 };
