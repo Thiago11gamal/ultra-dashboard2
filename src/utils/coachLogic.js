@@ -128,10 +128,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     const rawMaxScore = Number(options.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
+    const rawMinScore = Number(options.minScore ?? 0);
+    const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
     const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
-    const targetScore = Math.min(maxScore, Math.max(0, unclampedTarget));
+    const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
     const rawWeight = (safeCategory.weight !== undefined && safeCategory.weight > 0) ? safeCategory.weight : 5;
     // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
     // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
@@ -256,7 +258,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, 10), maxScore);
         const mssdVolatility = mcHistory.length >= 3
             ? calculateVolatility(mcHistory, maxScore)
-            : (lastNScores.length >= 2 ? standardDeviation(lastNScores, maxScore) : (lastNScores.length === 1 ? 5 : 10)); // Higher fallback for uncertainty
+            : (lastNScores.length >= 2
+                ? standardDeviation(lastNScores, maxScore)
+                : (lastNScores.length === 1 ? maxScore * 0.05 : maxScore * 0.1)); // scale-aware fallback uncertainty
 
         // ─────────────────────────────────────────────────────────
         // MC-04: Monte Carlo leve — probabilidade real de bater a meta

@@ -166,7 +166,13 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const finiteEmpiricalProbability = Number.isFinite(empiricalProbability) ? empiricalProbability : 0;
     const finiteAnalyticalProbability = Number.isFinite(analyticalProbability) ? analyticalProbability : 0;
-    const recommendedProbability = safeSimulations < 1200
+    const empiricalVsAnalyticalGap = Math.abs(finiteEmpiricalProbability - finiteAnalyticalProbability);
+    const lowSimulation = safeSimulations < 1200;
+    const highTruncationStress = truncNormFactor < 1e-6;
+
+    // Política adaptativa: em baixa amostra ou forte truncamento, priorizar empírico;
+    // caso contrário, priorizar analítico (mais estável).
+    const recommendedProbability = (lowSimulation || highTruncationStress || empiricalVsAnalyticalGap > 12)
         ? finiteEmpiricalProbability
         : finiteAnalyticalProbability;
 
@@ -174,7 +180,9 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         probability: finiteEmpiricalProbability,
         analyticalProbability: finiteAnalyticalProbability,
         recommendedProbability,
-        probabilityPolicy: safeSimulations < 1200 ? 'empirical_low_sample' : 'analytical_high_sample',
+        probabilityPolicy: (lowSimulation || highTruncationStress || empiricalVsAnalyticalGap > 12)
+            ? 'empirical_adaptive_policy'
+            : 'analytical_adaptive_policy',
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
         // sd = estatístico (não visual), para evitar viés de interpretação
         sd: Number(projectedSD.toFixed(2)),
@@ -219,7 +227,10 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             maxScore: objMaxScore,
         } = inputOrMean;
 
-        const resolvedTarget = objTargetScore ?? Number(meta || 0);
+        const domainMin = Number.isFinite(objMinScore) ? objMinScore : 0;
+        const domainMax = Number.isFinite(objMaxScore) ? objMaxScore : 100;
+        const rawResolvedTarget = objTargetScore ?? Number(meta || 0);
+        const resolvedTarget = Math.max(domainMin, Math.min(domainMax, Number(rawResolvedTarget)));
 
         const mergedOptions = {
             forcedVolatility: objForcedVolatility,
