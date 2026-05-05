@@ -210,11 +210,11 @@ export default function Coach() {
 
     const combinedHistory = useMemo(() => {
         const all = [...history];
-        const seen = new Set(all.map((item) => `${item?.id || ''}|${item?.date || ''}|${Number(item?.score)}`));
+        const seen = new Set(all.map((item) => `${item?.id ?? ''}|${item?.date ?? ''}|${Number(item?.score ?? 0)}`));
         simulados.forEach((s) => {
             const hasScore = s?.score !== null && s?.score !== undefined && !Number.isNaN(Number(s.score));
             if (!s?.date || !hasScore) return;
-            const key = `${s?.id || ''}|${s.date}|${Number(s.score)}`;
+            const key = `${s?.id ?? ''}|${s.date}|${Number(s.score)}`;
             if (seen.has(key)) return;
             seen.add(key);
             all.push({ ...s, type: 'simulado' });

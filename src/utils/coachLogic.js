@@ -92,13 +92,18 @@ function getSRSBoost(daysSince, cfg) {
 }
 
 function getCrunchMultiplier(daysToExam) {
-    if (daysToExam === undefined || daysToExam === null || daysToExam > 60) return 1.0;
-    if (daysToExam < 0) return 1.0;
-    if (daysToExam <= 7)  return 2.5 - ((daysToExam) * (0.5 / 7));
-    if (daysToExam <= 14) return 2.0 - ((daysToExam - 7) * (0.5 / 7));
-    if (daysToExam <= 30) return 1.5 - ((daysToExam - 14) * (0.3 / 16));
-    if (daysToExam <= 60) return 1.2 - ((daysToExam - 30) * (0.1 / 30));
-    return 1.0;
+    if (daysToExam === undefined || daysToExam === null || daysToExam < 0) return 1.0;
+    if (daysToExam > 60) return 1.0;
+
+    // Curva contínua (logística) para evitar saltos bruscos nas fronteiras 7/14/30 dias.
+    // Produz aproximadamente: D0≈2.45, D7≈2.1, D14≈1.8, D30≈1.35, D60≈1.0
+    const x = Number(daysToExam);
+    const steepness = 0.12;
+    const midpoint = 15;
+    const logistic = 1 / (1 + Math.exp(steepness * (x - midpoint)));
+    const scaled = 1 + (1.5 * logistic);
+
+    return Math.max(1.0, Math.min(2.5, scaled));
 }
 
 // MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.
@@ -124,7 +129,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const rawMaxScore = Number(options.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
     const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
-    const targetScore = Number.isFinite(rawTargetScore) ? rawTargetScore : (maxScore * 0.8);
+    const fallbackTarget = maxScore * 0.8;
+    const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
+    const targetScore = Math.min(maxScore, Math.max(0, unclampedTarget));
     const rawWeight = (safeCategory.weight !== undefined && safeCategory.weight > 0) ? safeCategory.weight : 5;
     // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
     // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
@@ -259,7 +266,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             calibrationBaseline: rollingCalibration.baseline,
             calibrationMaxPenalty: rollingCalibration.maxPenalty
         };
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, categoryId, maxScore, mcAdaptive);
+        const adaptiveSimCount = lastNScores.length <= 5 ? Math.max(cfg.MC_SIMULATIONS, 1200) : cfg.MC_SIMULATIONS;
+        const effectiveCfg = { ...cfg, MC_SIMULATIONS: adaptiveSimCount };
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, effectiveCfg, categoryId, maxScore, mcAdaptive);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 

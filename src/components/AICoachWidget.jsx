@@ -93,7 +93,7 @@ function UrgencyBar({ score, cfg }) {
 
 export default function AICoachWidget({ suggestion }) {
     const [showMatrix, setShowMatrix] = useState(false);
-    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
 
     if (!suggestion) return null;
 
@@ -103,6 +103,7 @@ export default function AICoachWidget({ suggestion }) {
     // getUrgencyConfig e UrgencyBar esperam escala 0–100.
     // Usar normalizedScore que já está normalizado pela função calculateUrgency.
     const urgencyScore = suggestion?.urgency?.normalizedScore ?? suggestion?.urgency?.score ?? 0;
+    const statusLabel = String(urgency.humanReadable?.Status ?? '');
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));

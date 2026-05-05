@@ -143,15 +143,15 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
 
     const phiMin    = normalCDF_complement((minScore - safeMean) / safeSD); 
     const phiMax    = normalCDF_complement((maxScore - safeMean) / safeSD); 
-    const phiTarget = normalCDF_complement((rawTarget - safeMean) / safeSD); 
+    const phiTarget = normalCDF_complement((effectiveTarget - safeMean) / safeSD); 
     
     const truncNormFactor = Math.max(1e-10, phiMin - phiMax);
     const clampedPhiTarget = Math.max(phiMax, Math.min(phiMin, phiTarget));
 
     let analyticalProbability;
-    if (rawTarget >= maxScore) {
+    if (effectiveTarget >= maxScore) {
         analyticalProbability = 0;
-    } else if (rawTarget <= minScore) {
+    } else if (effectiveTarget <= minScore) {
         analyticalProbability = 100;
     } else {
         analyticalProbability = truncNormFactor > 1e-18 
