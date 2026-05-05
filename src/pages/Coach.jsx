@@ -360,7 +360,7 @@ export default function Coach() {
             // um ID de timeout expirado que mascararia novos agendamentos.
             timeoutRef.current = null;
         }, 1500);
-    }, [data, setData, showToast, persistCalibrationMetric, userProfile?.targetProbability]);
+    }, [data, coachLoading, setData, showToast, persistCalibrationMetric, userProfile?.targetProbability]);
 
     const handleClearHistory = useCallback(() => {
         setData(prev => ({ ...prev, coachPlan: [] }));
