@@ -33,6 +33,8 @@ export function asymmetricGaussian(x, mean, sdLeft, sdRight, heightFactor = 1) {
  * Generates SVG path points for a Gaussian curve
  */
 export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight, heightFactor, xp, yp) {
+    const safeXp = typeof xp === 'function' ? xp : (v) => v;
+    const safeYp = typeof yp === 'function' ? yp : (v) => v;
     const points = [];
     const safeSteps = Number.isFinite(steps) ? Math.max(1, Math.floor(steps)) : 1;
     const stepSize = (xMax - xMin) / safeSteps;
@@ -51,7 +53,7 @@ export function generateGaussianPoints(xMin, xMax, steps, mean, sdLeft, sdRight,
     // Sort to maintain chronological path order
     return points
         .sort((a, b) => a.x - b.x)
-        .map(p => `${xp(p.x)},${yp(p.y)}`);
+        .map(p => `${safeXp(p.x)},${safeYp(p.y)}`);
 }
 
 /**
