@@ -4,16 +4,53 @@
 
 export function getConfidenceMultiplier(sampleSize) {
     const n = Math.max(1, Number(sampleSize) || 1);
-    if (n <= 2) return 2.8;
-
-    // Aproximação contínua do t crítico bicaudal 95%
-    const z = 1.959963984540054;
     const df = Math.max(1, n - 1);
+
+    // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
+    // Evita subestimar IC quando n é baixo.
+    const smallSampleTCritical = {
+        1: 12.706,
+        2: 4.303,
+        3: 3.182,
+        4: 2.776,
+        5: 2.571,
+        6: 2.447,
+        7: 2.365,
+        8: 2.306,
+        9: 2.262,
+        10: 2.228,
+        11: 2.201,
+        12: 2.179,
+        13: 2.160,
+        14: 2.145,
+        15: 2.131,
+        16: 2.120,
+        17: 2.110,
+        18: 2.101,
+        19: 2.093,
+        20: 2.086,
+        21: 2.080,
+        22: 2.074,
+        23: 2.069,
+        24: 2.064,
+        25: 2.060,
+        26: 2.056,
+        27: 2.052,
+        28: 2.048,
+        29: 2.045,
+        30: 2.042
+    };
+
+    if (df <= 30) return smallSampleTCritical[df];
+
+    // Aproximação assintótica para df altos (erro pequeno para df > 30)
+    const z = 1.959963984540054;
     const c1 = (Math.pow(z, 3) + z) / (4 * df);
     const c2 = (5 * Math.pow(z, 5) + 16 * Math.pow(z, 3) + 3 * z) / (96 * df * df);
     const tApprox = z + c1 + c2;
 
-    return Math.max(1.96, Math.min(3.2, tApprox));
+    // Limites de sanidade (sem truncar agressivamente amostras pequenas)
+    return Math.max(1.96, Math.min(6.0, tApprox));
 }
 
 export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
