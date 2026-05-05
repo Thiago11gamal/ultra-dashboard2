@@ -228,6 +228,14 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
                 const diagnostics = computeCalibrationDiagnostics(predObsPairs, { bins: adaptiveBins });
                 ece = diagnostics.ece;
                 reliability = diagnostics.reliability;
+
+                // Penalidade composta: Brier (nível) + ECE (calibração) com blending conservador.
+                const eceScaled = Math.max(0, Math.min(1, ece / 0.25));
+                const composedPenalty = Math.min(
+                    adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25,
+                    (calibrationPenalty * 0.8) + (eceScaled * 0.2 * (adaptive?.calibrationMaxPenalty ?? cfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25))
+                );
+                calibrationPenalty = composedPenalty;
             }
         }
 

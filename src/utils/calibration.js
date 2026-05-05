@@ -14,9 +14,12 @@ export function summarizeCalibration(scores = [], options = {}) {
 
     const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
     if (finiteScores.length === 0) return { avgBrier: 0, calibrationPenalty: 0 };
-    const avgBrier = finiteScores.reduce((a, b) => a + b, 0) / finiteScores.length;
+    const sorted = [...finiteScores].sort((a, b) => a - b);
+    const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
+    const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
+    const avgBrier = core.reduce((a, b) => a + b, 0) / core.length;
     const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
-    return { avgBrier, calibrationPenalty };
+    return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
 }
 
 export function computeCalibrationDiagnostics(pairs = [], options = {}) {
@@ -54,17 +57,21 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
     const p = Math.max(0, Math.min(100, Number(probabilityPct) || 0));
     const limit = Math.max(0, Math.min(1, Number(maxAppliedPenalty) || 0.5));
     const k = Math.max(0, Math.min(limit, Number(penalty) || 0));
-    return p * (1 - k) + neutralPct * k;
+    const neutral = Math.max(0, Math.min(100, Number(neutralPct) || 50));
+    return p * (1 - k) + neutral * k;
 }
 
 export function computeRollingCalibrationParams(history = [], cfg = {}) {
-  if (history.length === 0) {
+  const safeHistory = Array.isArray(history) ? history : [];
+  if (safeHistory.length === 0) {
     return { baseline: cfg.baseline ?? 0.2, maxPenalty: cfg.maxPenalty ?? 0.3 };
   }
   const windowDays = Number(cfg.windowDays) || 60;
   const cutoff = Date.now() - (windowDays * 24 * 60 * 60 * 1000);
   const maxSamples = Number(cfg.maxSamples) || 20;
-  const recent = history.filter(h => (h.timestamp || 0) >= cutoff).slice(-maxSamples);
+  const recent = safeHistory
+    .filter(h => Number.isFinite(Number(h?.timestamp)) && Number(h.timestamp) >= cutoff)
+    .slice(-maxSamples);
   
   const minSamples = Number(cfg.minSamples) || 4;
   if (recent.length < minSamples) {
@@ -85,12 +92,17 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     sumCalibWeights += w;
   });
   const avgBrier = sumCalibWeights > 0 ? sumWeightedBrier / sumCalibWeights : 0;
-  // Dynamic baseline based on recent performance
-  const baseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
-  // Conservative max penalty if performance is poor
-  const maxPenalty = avgBrier > 0.25 ? 0.35 : 0.25;
+  const confidenceFactor = Math.min(1, recent.length / Math.max(minSamples, 1));
+  // Dynamic baseline with confidence-gating to avoid overreacting on short windows
+  const dynamicBaseline = Math.max(0.12, Math.min(0.25, avgBrier * 0.9));
+  const defaultBaseline = cfg.baseline ?? 0.2;
+  const baseline = (dynamicBaseline * confidenceFactor) + (defaultBaseline * (1 - confidenceFactor));
+  // Penalty cap also confidence-aware
+  const dynamicMaxPenalty = avgBrier > 0.25 ? 0.35 : 0.25;
+  const defaultMaxPenalty = cfg.maxPenalty ?? 0.3;
+  const maxPenalty = (dynamicMaxPenalty * confidenceFactor) + (defaultMaxPenalty * (1 - confidenceFactor));
   
-  return { baseline, maxPenalty };
+  return { baseline, maxPenalty, confidenceFactor };
 }
 
 

@@ -186,7 +186,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         })
         .filter(Boolean)
         .sort((a, b) => b.avgPenalty - a.avgPenalty)
-        .slice(0, 6), [calibrationHistoryByCategory]);   .slice(0, 6);
+        .slice(0, 6), [calibrationHistoryByCategory]);
 
     return (
         <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
