@@ -46,6 +46,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 }
 
 export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = {}) {
+  const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   const p = Math.max(0, Math.min(100, Number(probability) || 0));
   const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
@@ -64,7 +65,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
 
   // MATH-FIX: Se a volatilidade for alta, reduzimos o 'alívio' (boost negativo).
   // Não permitimos que o usuário relaxe se a incerteza estatística for grande.
-  const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (maxScore / 100);
+  const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (safeMaxScore / 100);
   if (Number.isFinite(volatility) && volatility >= lowVolLimit && boost < 0) {
     boost *= 0.25;
   }

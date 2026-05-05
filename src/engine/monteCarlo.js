@@ -45,11 +45,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Clamp target to simulation domain
     const effectiveTarget = Math.max(minScore, Math.min(maxScore, targetScore));
 
-    const rawTarget = Number.isFinite(targetScore) ? targetScore : 0;
     const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
 
     if (safeSD < 1e-5) {
-        const prob = safeMean >= rawTarget ? 100 : 0;
+        const prob = safeMean >= effectiveTarget ? 100 : 0;
         return {
             probability: prob,
             analyticalProbability: prob,

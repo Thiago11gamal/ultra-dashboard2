@@ -84,7 +84,7 @@ function weightedRegression(history, lambda = 0.08, maxScore = 100) {
 
     const denom = Sw * Sxx - Sx * Sx;
 
-    if (denom === 0) {
+    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-10) {
         return { slope: 0, intercept: 0, slopeStdError: 0 };
     }
 
@@ -244,7 +244,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
     // Antes retornava 1.5 fixo, o que inflava o sigma para maxScore < 100 e deflava para > 100.
     const scaleFactorEarly = maxScore / 100;
     if (sorted.length < 2) {
-        return 1.5 * scaleFactorEarly;
+        return Math.max(0.75 * scaleFactorEarly, Math.min(2.5 * scaleFactorEarly, 1.2 * scaleFactorEarly));
     }
 
     // BUGFIX M1: Para exatamente 2 pontos (1 resíduo), a centralização falha. 
@@ -294,7 +294,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
 
         // BUG 1 FIX: Standardize by binomial volatility to remove boundary effect
         const pPrev = Math.max(0.001, Math.min(0.999, (prevScore - minScore) / scoreRange));
-        const historicalBinomialVol = Math.pow(Math.max(0.05, 4 * pPrev * (1 - pPrev)), 0.5);
+        const historicalBinomialVol = Math.pow(Math.max(0.12, 4 * pPrev * (1 - pPrev)), 0.5);
 
         const residual = (detrendedDiff / timeScaleVol) / historicalBinomialVol;
 
@@ -464,7 +464,7 @@ export function monteCarloSimulation(
 
         const currentScoreRange = (maxScore - minScore) || maxScore || 1;
         const pPrev = Math.max(0.001, Math.min(0.999, (prev - minScore) / currentScoreRange));
-        const historicalBinomialVol = Math.pow(Math.max(0.05, 4 * pPrev * (1 - pPrev)), 0.5);
+        const historicalBinomialVol = Math.pow(Math.max(0.12, 4 * pPrev * (1 - pPrev)), 0.5);
 
         return (detrendedChange / timeScale) / historicalBinomialVol;
     }).slice(1) : [];
