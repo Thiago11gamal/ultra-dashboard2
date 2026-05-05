@@ -590,10 +590,22 @@ export function monteCarloSimulation(
     // 2. O Atrator (μ - Mu).
     // Até onde o aluno naturally chegaria com a tendência atual.
     // MELHORIA 1: Diminishing Returns (Log-Damping do tempo) para o atrator Monte Carlo.
-    // MATH-06: Tornar o damping adaptativo ao tamanho de amostra.
-    // - Baixo N: amortização mais forte (mais conservador para evitar overfit de tendência)
-    // - Alto N: amortização mais permissiva (evita colar demais "Hoje" e "Futuro")
-    const adaptiveDampingBase = sortedHistory.length < 8 ? 30 : (sortedHistory.length < 20 ? 45 : 60);
+    // MATH-07: Damping adaptativo contínuo por confiabilidade do sinal.
+    // O modelo antigo usava thresholds discretos de N, o que criava "degraus" artificiais
+    // quando o usuário cruzava um limiar (ex.: n=19 -> n=20).
+    // Agora usamos um score contínuo [0..1] combinando:
+    // - suporte amostral (n),
+    // - qualidade do sinal de tendência (|drift| / driftUncertainty),
+    // - regime de ruído (volatilidade relativa ao range).
+    const n = sortedHistory.length;
+    const nConfidence = 1 - Math.exp(-n / 12); // satura gradualmente, sem salto
+    const trendSNR = Math.abs(drift) / Math.max(0.05 * scaleFactorFallback, driftUncertainty, 1e-6);
+    const trendConfidence = Math.tanh(trendSNR / 2); // 0..1 robusto
+    const volPenalty = Math.min(1, normalizedVol / 18); // alta vol reduz permissividade
+    const confidenceScore = Math.max(0, Math.min(1, (0.5 * nConfidence) + (0.35 * trendConfidence) + (0.15 * (1 - volPenalty))));
+
+    // Base no intervalo [30, 60]: menor base => mais amortização; maior base => mais carry de tendência.
+    const adaptiveDampingBase = 30 + (30 * confidenceScore);
     const effectiveAttractorDays = adaptiveDampingBase * Math.log(1 + simulationDays / adaptiveDampingBase);
 
     // BUG 1 FIX: Adicionar uma salvaguarda para o escopo do domínio 
