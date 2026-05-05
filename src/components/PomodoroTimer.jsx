@@ -96,7 +96,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 saved.activeTaskId === activeSubject.taskId) {
                 return saved;
             }
-        } catch (_) { }
+        } catch (error) {
+            console.error('Failed to parse pomodoroState:', error);
+        }
         return null;
     });
 
@@ -130,7 +132,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     const toggleMute = () => {
         setIsMuted(prev => {
             const newVal = !prev;
-            try { localStorage.setItem('pomodoro_muted', String(newVal)); } catch { }
+            try { localStorage.setItem('pomodoro_muted', String(newVal)); } catch (error) {
+                console.error('Failed to set pomodoro_muted:', error);
+            }
             return newVal;
         });
     };
@@ -146,40 +150,44 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         accumulatedMinutes
     });
 
-    // 🛡️ [SHIELD-REF] Sincronização Imediata: Atualizamos as refs no corpo da renderização
-    // Isso garante que skips/pauses disparados logo após um render usem valores 100% atuais.
-    stateRefs.current = {
-        ...stateRefs.current,
-        mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
-    };
+    // 🛡️ [SHIELD-REF] Sincronização Imediata: Atualizamos as refs via Effect
+    // Isso garante que skips/pauses disparados por eventos (que ocorrem após o render) usem valores 100% atuais.
+    useEffect(() => {
+        stateRefs.current = {
+            ...stateRefs.current,
+            mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes
+        };
+        // BUG-04 FIX (Corrigido): Só deixamos o estado do React atualizar a Ref
+        // se o cronómetro estiver PARADO (ex: trocou de tarefa, pausou ou resetou).
+        // Se estiver rodando, a Ref é soberana e não pode ser tocada pelo React!
+        if (!isRunning) {
+            stateRefs.current.timeLeft = timeLeft;
+        }
+    }, [mode, isRunning, sessions, targetCycles, completedCycles, accumulatedMinutes, timeLeft]);
 
-    // BUG-04 FIX (Corrigido): Só deixamos o estado do React atualizar a Ref
-    // se o cronómetro estiver PARADO (ex: trocou de tarefa, pausou ou resetou).
-    // Se estiver rodando, a Ref é soberana e não pode ser tocada pelo React!
-    if (!isRunning) {
-        stateRefs.current.timeLeft = timeLeft;
-    }
 
-
+    const syncChannel = useMemo(() => typeof window !== 'undefined' ? new BroadcastChannel('pomodoro_sync') : null, []);
     const speedRef = useRef(1);
     useEffect(() => {
         speedRef.current = speed;
         // Broadcast speed change to other tabs
         try {
-            syncChannelRef.current?.postMessage({
+            syncChannel?.postMessage({
                 type: 'SPEED_CHANGE',
                 speed,
                 tabId: STABLE_TAB_ID
             });
-        } catch (_) { }
-    }, [speed]);
+        } catch (error) {
+            console.error('Failed to post SPEED_CHANGE message:', error);
+        }
+    }, [speed, syncChannel]);
+
 
     const transitionTimeoutRef = useRef(null);
-    const isTransitioningRef = useRef(false);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
     const alarmAudioRef = useRef(null);
-    const syncChannelRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
     const cleanupTimeoutRef = useRef(null);
@@ -190,6 +198,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 clearTimeout(transitionTimeoutRef.current);
                 transitionTimeoutRef.current = null;
             }
+            setIsTransitioning(false);
             if (cleanupTimeoutRef.current) {
                 clearTimeout(cleanupTimeoutRef.current);
                 cleanupTimeoutRef.current = null;
@@ -253,13 +262,14 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     // 🛡️ [SHIELD-04] Sincronização de Estado Local com o Store
     // Garante que o cronómetro reseta quando mudamos de tarefa ou modo via Sidebar/Store
     useEffect(() => {
-        if (!isTransitioningRef.current) {
+        if (!isTransitioning) {
             const newTotalTime = mode === 'work' ? (safeSettings.pomodoroWork || 25) * 60 : (mode === 'long_break' ? (safeSettings.pomodoroLongBreak || 15) * 60 : (safeSettings.pomodoroBreak || 5) * 60);
 
             // Só resetamos se não estiver a correr ou se a tarefa mudou completamente
             const taskChanged = activeSubject?.taskId !== stateRefs.current.lastTaskId;
             if (!stateRefs.current.isRunning || taskChanged) {
-                setTimeLeft(newTotalTime);
+                // 🛡️ [FIX-SET-STATE] Deferimos a atualização do estado para evitar "cascading renders"
+                setTimeout(() => setTimeLeft(newTotalTime), 0);
                 stateRefs.current.timeLeft = newTotalTime;
                 stateRefs.current.lastTaskId = activeSubject?.taskId;
 
@@ -271,7 +281,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
             }
         }
-    }, [activeSubject?.taskId, mode, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
+    }, [activeSubject?.taskId, mode, safeSettings, isTransitioning]);
 
 
     // 🟢 CÓDIGO NOVO 2: Garbage Collector Manual para as Refs dos Ciclos (B-09 FIX)
@@ -325,122 +335,124 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         });
     }, [mode, sessions, targetCycles, safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak]);
 
-    const [uiPosition, setUiPosition] = useState(() => {
+    const [uiPosition] = useState(() => {
         try {
             const saved = localStorage.getItem('pomodoroPosition');
             return saved !== null ? JSON.parse(saved) : { x: 0, y: 0 };
-        } catch (_) {
-            console.warn('[Shield] Failed to load UI position');
+        } catch (error) {
+            console.warn('[Shield] Failed to load UI position:', error);
             return { x: 0, y: 0 };
         }
     });
 
     // 🛡️ [SHIELD-04] Persistência de UI
     useEffect(() => {
-        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch (_) { }
+        try { localStorage.setItem('pomodoroLayoutLocked', JSON.stringify(isLayoutLocked)); } catch (error) {
+            console.error('Failed to save pomodoroLayoutLocked:', error);
+        }
     }, [isLayoutLocked]);
 
     useEffect(() => {
-        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch (_) { }
+        try { localStorage.setItem('pomodoroPosition', JSON.stringify(uiPosition)); } catch (error) {
+            console.error('Failed to save pomodoroPosition:', error);
+        }
     }, [uiPosition]);
 
 
     // Sincronização Multi-Aba Robusta (Protocolo V2)
     useEffect(() => {
-        try {
-            syncChannelRef.current = new BroadcastChannel('pomodoro_sync');
-            syncChannelRef.current.onmessage = (event) => {
-                const { type, tabId, toMode, timeLeft: incomingTime, speed: incomingSpeed, targetCycles: incomingTarget, sessions: incomingSessions } = event.data || {};
+        if (!syncChannel) return;
 
-                // Ignorar mensagens da própria aba ou se o tabId não coincidir (se estivéssemos a filtrar por isso)
-                if (tabId === STABLE_TAB_ID) return;
+        const handleMessage = (event) => {
+            const { type, tabId, timeLeft: incomingTime, speed: incomingSpeed, targetCycles: incomingTarget } = event.data || {};
 
-                switch (type) {
-                    case 'START_SESSION':
-                        setIsRunning(true);
-                        stateRefs.current.isRunning = true;
-                        if (Number.isFinite(incomingTime) && incomingTime >= 0) {
-                            setTimeLeft(incomingTime);
-                            stateRefs.current.timeLeft = incomingTime;
-                        }
-                        showToast('Protocolo ativo em outra aba 🖥️', 'info');
-                        break;
+            // Ignorar mensagens da própria aba ou se o tabId não coincidir (se estivéssemos a filtrar por isso)
+            if (tabId === STABLE_TAB_ID) return;
 
-                    case 'PAUSE_SESSION':
-                        setIsRunning(false);
-                        stateRefs.current.isRunning = false;
-                        if (Number.isFinite(incomingTime) && incomingTime >= 0) {
-                            setTimeLeft(incomingTime);
-                            stateRefs.current.timeLeft = incomingTime;
-                        }
-                        break;
+            switch (type) {
+                case 'START_SESSION':
+                    setIsRunning(true);
+                    stateRefs.current.isRunning = true;
+                    if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                        setTimeLeft(incomingTime);
+                        stateRefs.current.timeLeft = incomingTime;
+                    }
+                    showToast('Protocolo ativo em outra aba 🖥️', 'info');
+                    break;
 
-                    case 'SPEED_CHANGE':
-                        if ([1, 10, 100].includes(Number(incomingSpeed))) {
-                            setSpeed(Number(incomingSpeed));
-                            speedRef.current = Number(incomingSpeed);
-                        }
-                        break;
+                case 'PAUSE_SESSION':
+                    setIsRunning(false);
+                    stateRefs.current.isRunning = false;
+                    if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                        setTimeLeft(incomingTime);
+                        stateRefs.current.timeLeft = incomingTime;
+                    }
+                    break;
 
-                    case 'TARGET_CYCLES_CHANGE':
-                        if (Number.isFinite(incomingTarget)) {
-                            syncPomodoroState({ targetCycles: Math.max(1, Math.round(incomingTarget)) });
-                        }
-                        break;
+                case 'SPEED_CHANGE':
+                    if ([1, 10, 100].includes(Number(incomingSpeed))) {
+                        setSpeed(Number(incomingSpeed));
+                        speedRef.current = Number(incomingSpeed);
+                    }
+                    break;
 
-                    case 'TIMER_RESET':
-                    case 'PHASE_SKIP':
-                    case 'PHASE_COMPLETE':
-                    case 'PHASE_REWIND':
-                        // Reset/Troca de fase forçada por outra aba
-                        setIsRunning(false);
-                        stateRefs.current.isRunning = false;
+                case 'TARGET_CYCLES_CHANGE':
+                    if (Number.isFinite(incomingTarget)) {
+                        syncPomodoroState({ targetCycles: Math.max(1, Math.round(incomingTarget)) });
+                    }
+                    break;
 
-                        // Sincronização Atómica: Carregamos o estado mais recente do Store/LocalStorage
-                        // O Store já deve ter sido atualizado pela outra aba (se estiver no mesmo domínio/storage)
-                        // mas forçamos a atualização local para garantir consistência visual.
-                        try {
-                            const saved = JSON.parse(localStorage.getItem('pomodoroState'));
-                            if (saved && saved.activeTaskId === activeSubjectRef.current?.taskId) {
-                                // Atualizamos o Store local com os dados vindos da outra aba
-                                syncPomodoroState({
-                                    mode: saved.mode,
-                                    sessions: saved.sessions,
-                                    completedCycles: saved.completedCycles,
-                                    accumulatedMinutes: saved.accumulatedMinutes,
-                                    targetCycles: saved.targetCycles
-                                });
+                case 'TIMER_RESET':
+                case 'PHASE_SKIP':
+                case 'PHASE_COMPLETE':
+                case 'PHASE_REWIND':
+                    // Reset/Troca de fase forçada por outra aba
+                    setIsRunning(false);
+                    stateRefs.current.isRunning = false;
 
-                                // Atualizamos as Refs e o Estado Local do Timer
-                                if (Number.isFinite(saved.timeLeft) && saved.timeLeft >= 0) {
-                                    setTimeLeft(saved.timeLeft);
-                                    stateRefs.current.timeLeft = saved.timeLeft;
-                                }
-                                if (saved.mode !== undefined) {
-                                    stateRefs.current.mode = saved.mode;
-                                }
+                    // Sincronização Atómica: Carregamos o estado mais recente do Store/LocalStorage
+                    // O Store já deve ter sido atualizado pela outra aba (se estiver no mesmo domínio/storage)
+                    // mas forçamos a atualização local para garantir consistência visual.
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+                        if (saved && saved.activeTaskId === activeSubjectRef.current?.taskId) {
+                            // Atualizamos o Store local com os dados vindos da outra aba
+                            syncPomodoroState({
+                                mode: saved.mode,
+                                sessions: saved.sessions,
+                                completedCycles: saved.completedCycles,
+                                accumulatedMinutes: saved.accumulatedMinutes,
+                                targetCycles: saved.targetCycles
+                            });
 
-                                // Feedback visual instantâneo no relógio
-                                if (clockRef.current) {
-                                    clockRef.current.textContent = formatTime(saved.timeLeft);
-                                }
+                            // Atualizamos as Refs e o Estado Local do Timer
+                            if (Number.isFinite(saved.timeLeft) && saved.timeLeft >= 0) {
+                                setTimeLeft(saved.timeLeft);
+                                stateRefs.current.timeLeft = saved.timeLeft;
                             }
-                        } catch (_) { }
-                        break;
-                }
-            };
-        } catch (e) {
-            console.warn('[Pomodoro] BroadcastChannel not supported:', e);
-        }
-        return () => {
-            try {
-                if (syncChannelRef.current) {
-                    syncChannelRef.current.onmessage = null;
-                    syncChannelRef.current.close();
-                }
-            } catch (_) { }
+                            if (saved.mode !== undefined) {
+                                stateRefs.current.mode = saved.mode;
+                            }
+
+                            // Feedback visual instantâneo no relógio
+                            if (clockRef.current) {
+                                clockRef.current.textContent = formatTime(saved.timeLeft);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to sync state from localStorage:', error);
+                    }
+                    break;
+            }
         };
-    }, [showToast, syncPomodoroState]);
+
+        syncChannel.addEventListener('message', handleMessage);
+
+        return () => {
+            syncChannel.removeEventListener('message', handleMessage);
+            syncChannel.close();
+        };
+    }, [syncChannel, showToast, syncPomodoroState]);
 
     // Fallback de segurança: O storage event é opcional quando o BroadcastChannel está ativo, 
     // mas pode ser útil se o utilizador abrir o dashboard num navegador muito antigo.
@@ -448,13 +460,17 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
 
     // B-05 FIX: Cleanup do áudio para evitar memory leak
     useEffect(() => {
-        try { alarmAudioRef.current = new Audio('/sounds/alarm.wav'); } catch (_) { }
+        try { alarmAudioRef.current = new Audio('/sounds/alarm.wav'); } catch (error) {
+            console.error('Failed to load alarm audio:', error);
+        }
         return () => {
             if (alarmAudioRef.current) {
                 try {
                     alarmAudioRef.current.pause();
                     alarmAudioRef.current.src = '';
-                } catch (_) { }
+                } catch (error) {
+                    console.error('Failed to cleanup alarm audio:', error);
+                }
                 alarmAudioRef.current = null;
             }
         };
@@ -479,7 +495,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                 ...overrides
             };
             localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
-        } catch (e) { }
+        } catch (error) {
+            console.error('Failed to save pomodoroState:', error);
+        }
     }, [activeSubject]);
 
     useEffect(() => {
@@ -491,8 +509,8 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [savePomodoroState]);
 
     const transitionSession = useCallback((completedMode, source = 'natural') => {
-        if (isTransitioningRef.current) return;
-        isTransitioningRef.current = true;
+        if (isTransitioning) return;
+        setIsTransitioning(true);
 
         setIsRunning(false);
         stateRefs.current.isRunning = false;
@@ -500,7 +518,11 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         const isManual = source !== 'natural';
 
         if (source === 'natural' && safeSettings.soundEnabled) {
-            try { alarmAudioRef.current?.play().catch(() => { }); } catch (_) { }
+            try { alarmAudioRef.current?.play().catch((error) => {
+                console.error('Failed to play alarm audio:', error);
+            }); } catch (error) {
+                console.error('Critical failure playing alarm:', error);
+            }
         }
 
         const currentSessions = stateRefs.current.sessions;
@@ -535,7 +557,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
         transitionTimeoutRef.current = setTimeout(() => {
             // 🟢 CÓDIGO NOVO 3: Proteção contra desmontagem súbita (Race Condition Fix)
             if (!isMountedRef.current || !clockRef.current) {
-                isTransitioningRef.current = false;
+                setIsTransitioning(false);
                 transitionTimeoutRef.current = null;
                 return; // Aborta a atualização visual se o componente já não existe
             }
@@ -562,17 +584,19 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
 
             try {
-                syncChannelRef.current?.postMessage({ type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE', toMode: newState.mode, tabId: STABLE_TAB_ID });
-            } catch (_) { }
+                syncChannel?.postMessage({ type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE', toMode: newState.mode, tabId: STABLE_TAB_ID });
+            } catch (error) {
+                console.error('Failed to post PHASE message:', error);
+            }
 
-            isTransitioningRef.current = false;
+            setIsTransitioning(false);
 
             if (isEndingCycle) {
                 // B-08 FIX: Passar flag de conclusão natural
                 safeOnFullCycleComplete(finalMinutes, source === 'natural');
             }
         }, 50);
-    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, activeSubject, safeOnFullCycleComplete]);
+    }, [safeSettings, completePomodoroPhase, savePomodoroState, safeOnUpdateStudyTime, activeSubject, safeOnFullCycleComplete, onSessionComplete, syncChannel, isTransitioning]);
 
     // Motor de Animação Blindado e Otimizado
     // O loop só roda quando isRunning é true, poupando CPU/GPU significativamente.
@@ -638,8 +662,10 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
     }, [isRunning, safeSettings, transitionSession]);
 
     const reset = () => {
-        if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
+        if (isTransitioning) return;
+        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (error) {
+            console.error('Failed to reset alarm audio:', error);
+        } }
 
         const currentMode = stateRefs.current.mode;
         const currentSessions = stateRefs.current.sessions;
@@ -675,7 +701,9 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
             savePomodoroState({ isRunning: false, timeLeft: resetTime, mode: newState.mode });
-            try { syncChannelRef.current?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: STABLE_TAB_ID }); } catch (_) { }
+            try { syncChannel?.postMessage({ type: 'PHASE_REWIND', toMode: newState.mode, tabId: STABLE_TAB_ID }); } catch (error) {
+                console.error('Failed to post PHASE_REWIND message:', error);
+            }
 
         } else {
             // SE O TEMPO ESTAVA CORRENDO: Apenas reinicia o tempo da sessão atual!
@@ -698,13 +726,17 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
             if (svgCircleRef.current) svgCircleRef.current.style.strokeDashoffset = (2 * Math.PI * 110);
 
             savePomodoroState({ isRunning: false, timeLeft: currentTotalTime });
-            try { syncChannelRef.current?.postMessage({ type: 'TIMER_RESET', tabId: STABLE_TAB_ID }); } catch (_) { }
+            try { syncChannel?.postMessage({ type: 'TIMER_RESET', tabId: STABLE_TAB_ID }); } catch (error) {
+                console.error('Failed to post TIMER_RESET message:', error);
+            }
         }
     };
 
     const skip = () => {
-        if (isTransitioningRef.current) return;
-        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (_) { } }
+        if (isTransitioning) return;
+        if (alarmAudioRef.current) { try { alarmAudioRef.current.pause(); alarmAudioRef.current.currentTime = 0; } catch (error) {
+            console.error('Failed to reset alarm audio on skip:', error);
+        } }
 
         // B-10 FIX: Usar refs para evitar estado "stale" do React durante skip
         const s = stateRefs.current.sessions;
@@ -853,12 +885,14 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                     }
 
                                     try {
-                                        syncChannelRef.current?.postMessage({
+                                        syncChannel?.postMessage({
                                             type: next ? 'START_SESSION' : 'PAUSE_SESSION',
                                             timeLeft: stateRefs.current.timeLeft,
                                             tabId: STABLE_TAB_ID
                                         });
-                                    } catch (_) { }
+                                    } catch (error) {
+                                        console.error('Failed to post session status message:', error);
+                                    }
                                 }}
                                 disabled={isProtocolInactive}
                                 className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex items-center justify-center border-4 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isRunning ? 'bg-stone-100 text-black border-white' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_40px_rgba(34,197,94,0.3)]'}`}
@@ -902,12 +936,16 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                             const current = stateRefs.current;
                                             const newTarget = Math.max(current.completedCycles < 1 ? 1 : current.completedCycles, current.targetCycles - 1);
                                             setTargetCycles(newTarget);
-                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (_) { }
+                                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {
+                                                console.error('Failed to post TARGET_CYCLES_CHANGE message:', error);
+                                            }
                                         }} disabled={!activeSubject || targetCycles <= 1} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">-</button>
                                         <button onClick={() => {
                                             const newTarget = targetCycles + 1;
                                             setTargetCycles(newTarget);
-                                            try { syncChannelRef.current?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (_) { }
+                                            try { syncChannel?.postMessage({ type: 'TARGET_CYCLES_CHANGE', targetCycles: newTarget, tabId: STABLE_TAB_ID }); } catch (error) {
+                                                console.error('Failed to post TARGET_CYCLES_CHANGE message (plus):', error);
+                                            }
                                         }} disabled={!activeSubject} className="w-6 h-6 rounded bg-white/10 text-[#2d1a12] font-bold text-xs">+</button>
                                     </div>
                                 </div>
@@ -929,7 +967,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 style={{
                                                     width: (i < sessions - 1 || (i === sessions - 1 && (mode === 'break' || mode === 'long_break'))) ? '100%' :
                                                         (i === sessions - 1 && mode === 'work') ?
-                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            (isTransitioning ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
                                                             : '0%',
                                                     transition: isRunning ? 'none' : 'width 0.3s ease'
                                                 }}
@@ -944,7 +982,7 @@ function PomodoroTimer({ settings = {}, activeSubject, onFullCycleComplete, onUp
                                                 style={{
                                                     height: (i < sessions - 1) ? '100%' :
                                                         (sessions === i + 1 && (mode === 'break' || mode === 'long_break')) ?
-                                                            (isTransitioningRef.current ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
+                                                            (isTransitioning ? '100%' : `${(1 - Math.max(0, timeLeft) / (totalTime || 1)) * 100}%`)
                                                             : '0%',
                                                     transition: isRunning ? 'none' : 'height 0.3s ease'
                                                 }}

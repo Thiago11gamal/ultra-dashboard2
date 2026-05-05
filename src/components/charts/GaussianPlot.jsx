@@ -18,8 +18,8 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
     const successColor = '#22c55e';
 
     const {
-        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp, yp,
-        asymmetricGaussianFn, median, p25, p75, domainMin, domainMax, curveY
+        pathData, areaPathData, failAreaPathData, range, xMin, targetVal, xp,
+        domainMin, domainMax, curveY
     } = useMemo(() => {
         const meanVal = mean ?? 0;
         const targetVal = targetScore ?? 70;
@@ -146,9 +146,6 @@ export const GaussianPlot = ({ mean, sd, low95, high95, targetScore, currentMean
 
         const areaPath = areaPoints.length > 2 ? `M ${areaPoints.join(' L ')} Z` : '';
         const failPath = failPoints.length > 2 ? `M ${failPoints.join(' L ')} Z` : '';
-
-        const rawSdLeft = Math.max(1, propSdLeft ?? sd);
-        const rawSdRight = Math.max(1, propSdRight ?? sd);
 
         // FUNÇÃO MATADORA DE BUGS: Descobre exatamente o 'Top Y' do pixel da curva para qualquer valor X.
         const calculateCurveY = (x) => {

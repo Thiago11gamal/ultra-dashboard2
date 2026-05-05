@@ -182,7 +182,7 @@ export const SubtopicsPerformanceChart = React.memo(({ categories = [], focusSub
         });
 
         return { timeSeriesData: series, uniqueTopics: topTopics };
-    }, [relevantCategories, limitMs, maxScore, targetScorePct]);
+    }, [relevantCategories, limitMs, maxScore]);
 
 
     // Removido o early return daqui para colocá-lo dentro do render principal.

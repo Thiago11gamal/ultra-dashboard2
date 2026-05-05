@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { Activity, TrendingUp, BarChart2, Trophy, Calendar, AlertCircle } from 'lucide-react';
 import { calculateStudyStreak, analyzeSubjectBalance, analyzeEfficiency } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
-import { formatValue, formatPercent } from '../utils/scoreHelper';
+import { formatValue } from '../utils/scoreHelper';
 
 const getEfficiencyTheme = (score) => {
     if (score >= 85) return {
@@ -70,7 +70,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             } else {
                 goal = new Date(raw);
             }
-        } catch (e) { return null; }
+        } catch (error) {
+            console.error('Failed to parse goalDate in StatsCards:', error);
+            return null;
+        }
 
         if (!goal || isNaN(goal.getTime())) return null;
         goal.setHours(12, 0, 0, 0);
@@ -274,7 +277,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     return new Date(raw.seconds * 1000).toISOString().split('T')[0];
                                 }
                                 return String(raw).trim().split('T')[0];
-                            } catch (e) { return ''; }
+                                } catch (error) {
+                                    console.error('Failed to format goalDate for input:', error);
+                                    return '';
+                                }
                         })()}
                         onChange={(e) => onUpdateGoalDate(e.target.value)}
                         className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
@@ -306,7 +312,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                     }
                                     if (isNaN(g.getTime())) return 'INVÁLIDA';
                                     return g.toLocaleDateString('pt-BR');
-                                } catch (e) { return 'INVÁLIDA'; }
+                                    } catch (error) {
+                                        console.error('Failed to format goalDate for display:', error);
+                                        return 'INVÁLIDA';
+                                    }
                             })() : 'ESCOLHER'}
                         </div>
                     </div>

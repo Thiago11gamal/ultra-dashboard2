@@ -1,10 +1,10 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const PageHeader = ({ title, description }) => {
     return (
         <div className="mb-8">
-            <motion.div
+            <Motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
@@ -16,7 +16,7 @@ const PageHeader = ({ title, description }) => {
                     {description}
                 </p>
                 <div className="mt-4 h-1 w-20 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" />
-            </motion.div>
+            </Motion.div>
         </div>
     );
 };

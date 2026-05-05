@@ -95,7 +95,6 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     <tbody className="divide-y divide-white/[0.03] text-xs">
                         {subtopics.map((item, index) => {
                             const { total: totalQuestions, correct: totalCorrect, wrong: totalWrong, balance: netBalance, percent: percentCorrect } = item;
-                            const isTopThree = index < 3 && totalQuestions > 0;
                             const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
 
                             return (

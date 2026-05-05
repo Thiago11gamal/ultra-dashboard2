@@ -99,11 +99,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     // -----------------------------------------------------------------------
     const _normName = normalize;
 
-    const deduplicateCategoryNames = (contest) => {
+    const deduplicateCategoryNames = useCallback((contest) => {
         if (!Array.isArray(contest?.categories)) return contest;
         const nameMap = {};
         contest.categories.forEach(cat => {
-            const key = _normName(cat.name);
+            const key = normalize(cat.name);
             const richness = (c) => {
                 const h = c.simuladoStats?.history;
                 const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
@@ -121,9 +121,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const deduped = Object.values(nameMap);
         if (deduped.length === contest.categories.length) return contest;
         return { ...contest, categories: deduped };
-    };
+    }, []);
 
-    const mergeAppState = (local, cloud, options = {}) => {
+    const mergeAppState = useCallback((local, cloud, options = {}) => {
         if (!cloud || typeof cloud !== 'object') {
             // Mesmo sem nuvem, rodamos a deduplicação no local para limpar o estado
             if (!local?.contests) return local;
@@ -302,7 +302,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             version: Math.max(local.version ?? 0, cloud.version ?? 0),
             lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()
         };
-    };
+    }, [deduplicateCategoryNames]);
 
     // BUG-14 FIX: Include a fast content fingerprint (category count + total tasks)
     // so that mutations that don't increment version (e.g. cloud-originated) are still detected.
@@ -505,7 +505,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             setCloudStatus('idle');
             clearTimeout(safetyBootTimeout);
         };
-    }, [currentUser?.uid, setAppState, confirmParity]);
+    }, [currentUser?.uid, setAppState, confirmParity, mergeAppState]);
 
     useEffect(() => {
         isParityValidatedRef.current = false;

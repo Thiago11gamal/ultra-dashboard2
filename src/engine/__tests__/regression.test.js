@@ -32,16 +32,7 @@ function makeHistory(scores, maxScore = 100) {
     }));
 }
 
-function makeHistoryPct(pcts) {
-    const today = Date.now();
-    return pcts.map((pct, i) => ({
-        score: pct,
-        isPercentage: true,
-        total: 0,
-        correct: 0,
-        date: new Date(today - (pcts.length - i) * 86400000).toISOString().slice(0, 10),
-    }));
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BUG-FIXED: isPercentage — score nunca excede maxScore

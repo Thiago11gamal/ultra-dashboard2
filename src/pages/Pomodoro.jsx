@@ -576,7 +576,10 @@ export default function Pomodoro() {
         try {
             const saved = localStorage.getItem('pomodoroLayoutLocked');
             return saved !== null ? JSON.parse(saved) : true;
-        } catch (_) { return true; }
+        } catch (error) {
+            console.error('Failed to parse pomodoroLayoutLocked:', error);
+            return true;
+        }
     });
 
     const toggleLayoutLock = () => {
