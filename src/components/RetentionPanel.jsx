@@ -18,7 +18,7 @@ const calculateRetention = (lastStudiedAt) => {
     const days = diffHours / 24;
     // BUG 6 FIX: Use S=7 days instead of 3 to better match spaced repetition retention
     // With S=3, after 3 days retention drops to ~36% — too aggressive for studied content
-    const val = Math.round(100 * Math.exp(-days / 7));
+    const val = Math.max(0, Math.min(100, Math.round(100 * Math.exp(-days / 7))));
 
     if (val >= 80) return { val, status: 'fresh', label: 'Ótimo', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'border-emerald-500/30' };
     if (val >= 60) return { val, status: 'good', label: 'Bom', color: 'text-green-400', bg: 'bg-green-500', border: 'border-green-500/30' };
@@ -133,6 +133,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
         return categories
             .filter(cat => cat && (cat.id || cat.name))
             .map(cat => {
+                const safeCategoryName = String(cat.name || 'Sem nome');
                 // Calculate retention for each task
                 const tasksWithRetention = (Array.isArray(cat.tasks) ? cat.tasks : []).filter(Boolean).map(task => ({
                     ...task,
@@ -164,6 +165,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                 return {
                     ...cat,
+                    name: safeCategoryName,
                     retention: categoryRetention,
                     timeAgo: formatTimeAgo(cat.lastStudiedAt),
                     tasksWithRetention,

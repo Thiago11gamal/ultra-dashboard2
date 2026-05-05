@@ -279,6 +279,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
                 const totalC = validRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+                const analyzedTopics = validRows.length;
+                const analyzedSubjects = new Set(validRows.map(r => String(r.subject || '').trim()).filter(Boolean)).size;
+                const rowCoverage = rows.length > 0 ? (analyzedTopics / rows.length) * 100 : 0;
+
+                const confidenceScore = Math.max(0, Math.min(100,
+                    Math.round(
+                        Math.min(1, totalQ / 200) * 55 +
+                        Math.min(1, analyzedTopics / 12) * 25 +
+                        Math.min(1, analyzedSubjects / 6) * 20
+                    )
+                ));
+
+                const confidenceLabel =
+                    confidenceScore >= 75 ? 'Alta' :
+                        confidenceScore >= 45 ? 'Média' : 'Baixa';
 
                 let generalInsight = "";
                 if (globalPct >= 80) generalInsight = `Resultado Incrível! ${globalPct}%. Caminho certo.`;
@@ -287,7 +302,15 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
                 const data = {
                     disciplines,
-                    generalInsight
+                    generalInsight,
+                    confidence: {
+                        score: confidenceScore,
+                        label: confidenceLabel,
+                        analyzedTopics,
+                        analyzedSubjects,
+                        totalQuestions: totalQ,
+                        rowCoverage: Number(rowCoverage.toFixed(1))
+                    }
                 };
 
                 setAnalysisData(data);
@@ -464,6 +487,26 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                     <p className="text-slate-300 text-sm leading-relaxed">"{analysisData.generalInsight}"</p>
                                 </div>
                             </div>
+
+                            {analysisData.confidence && (
+                                <div className="p-4 bg-slate-800/60 border border-slate-700/60 rounded-2xl">
+                                    <div className="flex items-center justify-between gap-3 mb-2">
+                                        <h4 className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest">Confiabilidade da análise</h4>
+                                        <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${analysisData.confidence.label === 'Alta' ? 'text-green-300 border-green-500/30 bg-green-500/10' : analysisData.confidence.label === 'Média' ? 'text-yellow-300 border-yellow-500/30 bg-yellow-500/10' : 'text-red-300 border-red-500/30 bg-red-500/10'}`}>
+                                            {analysisData.confidence.label}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-2 bg-slate-900/80 rounded-full overflow-hidden border border-white/5 mb-2">
+                                        <div className="h-full bg-cyan-500 transition-all duration-700" style={{ width: `${analysisData.confidence.score}%` }} />
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-slate-300">
+                                        <span>Score: <strong>{analysisData.confidence.score}%</strong></span>
+                                        <span>Tópicos: <strong>{analysisData.confidence.analyzedTopics}</strong></span>
+                                        <span>Matérias: <strong>{analysisData.confidence.analyzedSubjects}</strong></span>
+                                        <span>Cobertura: <strong>{analysisData.confidence.rowCoverage}%</strong></span>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Cards por disciplina */}
                             {analysisData.disciplines.map((disc, idx) => {
