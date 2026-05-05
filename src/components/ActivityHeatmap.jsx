@@ -20,10 +20,11 @@ function ActivityHeatmap({ studyLogs = [] }) {
 
         const studyMap = {};
         studyLogs.forEach(log => {
-            const rawDate = normalizeDate(log.date);
+            const rawDate = normalizeDate(log?.date);
             if (!rawDate) return;
             const dateKey = format(rawDate, 'yyyy-MM-dd');
-            studyMap[dateKey] = (studyMap[dateKey] || 0) + (log.minutes || 0);
+            const minutes = Math.max(0, Number(log?.minutes) || 0);
+            studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
         });
 
         const weeks = [];
@@ -130,7 +131,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
                         <div
                             key={`${weekIndex}-${dayIndex}`}
                             tabIndex={day ? 0 : -1}
-                            aria-label={day ? `${Math.round(day.minutes)} minutos estudados em ${format(day.date, "dd 'de' MMMM", { locale: ptBR })}` : 'Sem dados de estudo'}
+                            aria-label={day ? `${Math.round(Number(day.minutes) || 0)} minutos estudados em ${format(day.date, "dd 'de' MMMM", { locale: ptBR })}` : 'Sem dados de estudo'}
                             className={`
                                 w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative focus:outline-none focus:ring-2 focus:ring-emerald-400
                                 ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}

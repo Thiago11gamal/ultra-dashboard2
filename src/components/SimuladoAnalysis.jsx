@@ -4,6 +4,7 @@ import { normalize, aliases } from '../utils/normalization';
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [] }) {
+    const analysisTimeoutRef = React.useRef(null);
 
 
     // Bug fix: `r.id || row-${idCounter.current++}` still mutated idCounter.current
@@ -22,11 +23,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Bug Fix: track mount status for async operations
     const isMounted = React.useRef(true);
     React.useEffect(() => {
-        return () => { isMounted.current = false; };
+        return () => {
+            isMounted.current = false;
+            if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+        };
     }, []);
 
     const setRows = (newRows) => {
-        if (onRowsChange) onRowsChange(newRows);
+        if (onRowsChange) onRowsChange(Array.isArray(newRows) ? newRows : []);
     };
 
     const [loading, setLoading] = useState(false);
@@ -41,12 +45,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             const val = rawString === '' ? '' : parseInt(rawString, 10);
 
             if (field === 'correct') {
-                const currentTotal = parseInt(rows[index].total, 10) || 0;
+                const currentTotal = parseInt(rows[index]?.total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
                 if (currentTotal > 0 && val !== '' && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
-                const currentCorrect = parseInt(rows[index].correct, 10) || 0;
+                const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
                 // If Total is reduced below Correct, clamp Correct
                 if (val !== '' && val < currentCorrect) {
                     const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val, score: 100 } : r);
@@ -60,9 +64,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 const updatedRow = { ...row, [field]: finalValue };
-                const c = parseFloat(updatedRow.correct) || 0;
-                const t = parseFloat(updatedRow.total) || 0;
-                updatedRow.score = t > 0 ? (c / t) * 100 : 0;
+                const c = Math.max(0, parseFloat(updatedRow.correct) || 0);
+                const t = Math.max(0, parseFloat(updatedRow.total) || 0);
+                updatedRow.score = t > 0 ? Math.min(100, (c / t) * 100) : 0;
                 return updatedRow;
             }
             return row;
@@ -172,7 +176,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         }
 
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
-        const rowsToProcess = rows.filter(r => r.subject && (parseInt(r.total, 10) > 0 || r.score != null));
+        const rowsToProcess = rows.filter(r => r?.subject && (parseInt(r?.total, 10) > 0 || r?.score != null));
         const validRowsForAnalysis = rowsToProcess.filter(r => r.topic);
 
         if (rowsToProcess.length === 0) {
@@ -192,7 +196,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // It will be overwritten once the 800ms delay finishes.
 
         // Simulate processing time for UX
-        setTimeout(() => {
+        if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+        analysisTimeoutRef.current = setTimeout(() => {
             if (!isMounted.current) return;
             try {
                 // Local Analysis Logic
@@ -212,8 +217,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         };
                     }
 
-                    const total = parseInt(row.total, 10) || 0;
-                    const correct = parseInt(row.correct, 10) || 0;
+                    const total = Math.max(0, parseInt(row.total, 10) || 0);
+                    const correct = Math.max(0, parseInt(row.correct, 10) || 0);
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';

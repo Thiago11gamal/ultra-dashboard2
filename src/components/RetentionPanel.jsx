@@ -34,6 +34,7 @@ const formatTimeAgo = (date) => {
     const parsed = normalizeDate(date);
     const diff = Date.now() - (parsed ? parsed.getTime() : new Date(date).getTime());
     const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (!Number.isFinite(hours) || hours < 0) return 'Agora há pouco';
     const days = Math.floor(hours / 24);
     const weeks = Math.floor(days / 7);
     const months = Math.floor(days / 30);
@@ -48,9 +49,10 @@ const formatTimeAgo = (date) => {
 
 // Retention Ring Component
 const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
+    const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (value / 100) * circumference;
+    const offset = circumference - (safeValue / 100) * circumference;
 
     return (
         <div className="relative" style={{ width: size, height: size }}>
@@ -79,7 +81,7 @@ const RetentionRing = ({ value, size = 48, strokeWidth = 3, color }) => {
                 />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-xs font-bold ${color}`}>{formatValue(value)}%</span>
+                <span className={`text-xs font-bold ${color}`}>{formatValue(safeValue)}%</span>
             </div>
         </div>
     );
@@ -90,7 +92,7 @@ const RetentionBar = ({ value, bg }) => (
     <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
         <div
             className={`h-full rounded-full transition-all duration-500 ${bg}`}
-            style={{ width: `${value}%` }}
+            style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }}
         />
     </div>
 );
@@ -129,9 +131,10 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
     // Calculate retention for all categories and their tasks
     const retentionData = useMemo(() => {
         return categories
+            .filter(cat => cat && (cat.id || cat.name))
             .map(cat => {
                 // Calculate retention for each task
-                const tasksWithRetention = (cat.tasks || []).map(task => ({
+                const tasksWithRetention = (Array.isArray(cat.tasks) ? cat.tasks : []).filter(Boolean).map(task => ({
                     ...task,
                     retention: calculateRetention(task.lastStudiedAt || task.completedAt),
                     timeAgo: formatTimeAgo(task.lastStudiedAt || task.completedAt)
