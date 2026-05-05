@@ -20,7 +20,6 @@ export default defineConfig({
           charts: ['recharts', 'html2canvas', 'jspdf'],
           motion: ['framer-motion'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
-          ai: ['@google/generative-ai'],
           graphics: ['three', 'tsparticles', 'react-tsparticles'],
         },
       },
