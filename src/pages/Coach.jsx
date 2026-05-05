@@ -265,35 +265,45 @@ export default function Coach() {
         if (analysisHash === lastHashRef.current) return;
         lastHashRef.current = analysisHash;
 
-        const targetScore = userProfile?.targetProbability ?? 85;
-        const collectedMetrics = [];
+        let metricsTimer = null;
+        // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
+        // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
+        // lateral não fica "preso" aguardando cálculo síncrono.
+        const analysisTimer = setTimeout(() => {
+            const targetScore = userProfile?.targetProbability ?? 85;
+            const collectedMetrics = [];
 
-        const result = getSuggestedFocus(
-            data.categories,
-            data.simuladoRows || [],
-            data.studyLogs || [],
-            {
-                user: data.user,
-                targetScore,
-                maxScore: data.maxScore ?? 100,
-                calibrationHistoryByCategory: calibrationHistoryRef.current,
-                onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                config: {
-                    MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+            const result = getSuggestedFocus(
+                data.categories,
+                data.simuladoRows || [],
+                data.studyLogs || [],
+                {
+                    user: data.user,
+                    targetScore,
+                    maxScore: data.maxScore ?? 100,
+                    calibrationHistoryByCategory: calibrationHistoryRef.current,
+                    onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                    config: {
+                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                    }
                 }
+            );
+
+            setSuggestedFocus(result);
+            setIsAnalyzing(false);
+
+            // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
+            if (collectedMetrics.length > 0) {
+                metricsTimer = setTimeout(() => {
+                    collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
+                }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
             }
-        );
+        }, 0);
 
-        setSuggestedFocus(result);
-        setIsAnalyzing(false);
-
-        // PERSISTENCE BATCHING: Só persiste se houver métricas relevantes e evita loop imediato
-        if (collectedMetrics.length > 0) {
-            const timer = setTimeout(() => {
-                collectedMetrics.forEach(metric => persistCalibrationMetric(metric));
-            }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
-            return () => clearTimeout(timer);
-        }
+        return () => {
+            clearTimeout(analysisTimer);
+            if (metricsTimer) clearTimeout(metricsTimer);
+        };
     }, [
         analysisHash,
         isHydrated,
