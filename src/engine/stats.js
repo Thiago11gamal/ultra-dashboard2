@@ -27,12 +27,25 @@ export function standardDeviation(arr, maxScore = 100, customMean = null) {
         ? clean.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / (n - 1)
         : 0;
 
+    // Robustez adicional: MAD reduz influência de outliers em séries curtas/ruidosas.
+    const sorted = [...clean].sort((a, b) => a - b);
+    const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+    const absDev = sorted.map(v => Math.abs(v - median)).sort((a, b) => a - b);
+    const mad = absDev.length % 2 === 0
+        ? (absDev[absDev.length / 2 - 1] + absDev[absDev.length / 2]) / 2
+        : absDev[Math.floor(absDev.length / 2)];
+    const robustSigma = 1.4826 * mad;
+    const robustVar = robustSigma * robustSigma;
+    const blendedSampleVar = (0.8 * sampleVar) + (0.2 * robustVar);
+
     // MATH FIX: O prior de incerteza (POPULATION_SD) deve ser ancorado na escala do concurso (maxScore)
     const POPULATION_SD = safeMaxScore * POPULATION_SD_FACTOR;
     const KAPPA = 1;
 
     const adjustedVar =
-        ((n - 1) * sampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
+        ((n - 1) * blendedSampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) /
         ((n - 1) + KAPPA);
 
     const finalSdFloor = MIN_SD_FLOOR * safeMaxScore;
