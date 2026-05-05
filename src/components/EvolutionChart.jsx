@@ -78,12 +78,6 @@ export default function EvolutionChart({
     const [activeEngine, setActiveEngine] = useState("bayesian");
     const [focusSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
-    // Sincroniza o foco da matéria quando as categorias mudam (ex: se a focada foi excluída)
-    useEffect(() => {
-        if (categories.length > 0 && !categories.find(c => c.id === focusSubjectId)) {
-            setFocusSubjectId(categories[0]?.id);
-        }
-    }, [categories, focusSubjectId]);
 
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || {});
@@ -180,9 +174,13 @@ export default function EvolutionChart({
 
     useEffect(() => {
         setMcProjectionSeries(null);
-        if (!focusCategory?.simuladoStats?.history) return;
+        setMcResult(null);
+        if (!Array.isArray(historyArray) || historyArray.length === 0) {
+            setMcLoading(false);
+            return;
+        }
 
-        const hist = [...focusCategory.simuladoStats.history]
+        const hist = [...historyArray]
             .filter(h => h && h.date) // <--- FILTRO DE SEGURANÇA ADICIONADO AQUI
             .map(h => {
                 const dateKey = getDateKey(h.date);
@@ -249,7 +247,7 @@ export default function EvolutionChart({
         })();
 
         return () => { cancelled = true; };
-    }, [focusCategory?.id, focusCategory?.simuladoStats?.history, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
+    }, [focusCategory?.id, historyArray, historyHash, targetScore, projectDays, runAnalysis, minScore, maxScore]);
 
     const compareData = useMemo(() => {
         if (!focusCategory) return timeline;

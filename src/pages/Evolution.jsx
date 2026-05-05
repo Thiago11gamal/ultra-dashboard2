@@ -11,7 +11,9 @@ export default function Evolution() {
     // Previne re-renders pesados quando o Pomodoro ou outros dados do contest mudam mas não afetam o gráfico.
     const { categories, studyLogs, monteCarloHistory, user, unit, minScore, maxScore } = useAppStore(
         useShallow(state => {
-            const contest = state.appState.contests[state.appState.activeId] || {};
+            const contests = state?.appState?.contests || {};
+            const activeId = state?.appState?.activeId;
+            const contest = contests[activeId] || {};
             return {
                 categories: contest.categories ?? EMPTY_ARRAY,
                 studyLogs: contest.studyLogs ?? EMPTY_ARRAY,

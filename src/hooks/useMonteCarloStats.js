@@ -38,7 +38,7 @@ function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
 
 export function useMonteCarloStats({ categories, goalDate, targetScore, timeIndex, timelineDates, minScore, maxScore, forcedMode, effectiveSimulateToday }) {
     const activeId = useAppStore(state => state.appState.activeId);
-    const weights = useAppStore(state => state.appState.contests[activeId]?.mcWeights || {});
+    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || {});
     const equalWeightsMode = useAppStore(state => state.appState.mcEqualWeights ?? true);
     
     const setWeights = useAppStore(state => state.setMonteCarloWeights);

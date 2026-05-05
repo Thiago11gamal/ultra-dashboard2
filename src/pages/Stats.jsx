@@ -11,7 +11,9 @@ import { useShallow } from 'zustand/react/shallow';
 export default function Stats() {
     // FIX: Extração granular blindada contra renders desnecessários
     const { categories, studyLogs, user } = useAppStore(useShallow(state => {
-        const contest = state.appState.contests[state.appState.activeId] || {};
+        const contests = state?.appState?.contests || {};
+        const activeId = state?.appState?.activeId;
+        const contest = contests[activeId] || {};
         return {
             categories: contest.categories || [],
             studyLogs: contest.studyLogs || [],
