@@ -87,10 +87,12 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const sorted = [...finiteValues].sort((a, b) => a - b);
     const lowIndex = Math.floor((sorted.length - 1) * lowQ);
     const highIndex = Math.ceil((sorted.length - 1) * highQ);
-    const medianIndex = Math.floor((sorted.length - 1) * 0.5);
     const low = sorted[Math.max(0, lowIndex)];
     const high = sorted[Math.min(sorted.length - 1, highIndex)];
-    const median = sorted[Math.max(0, Math.min(sorted.length - 1, medianIndex))];
+    const mid = sorted.length / 2;
+    const median = sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[Math.floor(mid)];
 
     return values.map((v) => {
         if (!Number.isFinite(v)) return median;

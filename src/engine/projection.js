@@ -14,7 +14,7 @@ import { Z_95 } from './math/constants.js';
 
 // Helper: Ensure history is sorted by date and filter out invalid dates
 export function getSortedHistory(history) {
-    if (!history) return [];
+    if (!Array.isArray(history)) return [];
     return [...history]
         .filter(h => h && h.date && !isNaN(new Date(h.date).getTime()))
         .sort((a, b) => {
