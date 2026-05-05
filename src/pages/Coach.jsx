@@ -313,7 +313,7 @@ export default function Coach() {
     }, []);
 
     const handleGenerateGoals = useCallback(() => {
-        if (!data?.categories) return;
+        if (!data?.categories || coachLoading) return;
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {

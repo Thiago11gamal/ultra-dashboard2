@@ -19,7 +19,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 
     let subjectPart = hasDetails ? fullText.slice(0, separatorIndex) : fullText;
     let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : 'Revisão Geral';
-    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u00FF]/g, '').trim();
+    subjectPart = subjectPart.replace(/Foco em /i, '').replace(/[^\w\s\u00C0-\u024F]/g, '').trim();
 
     let topicPart = '';
     const topicMatch = actionPart.match(/^\[(.*?)\]\s*(.*)/);
