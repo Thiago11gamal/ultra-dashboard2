@@ -23,10 +23,10 @@
 
 ### 1) Projection / Monte Carlo (`projection.js`, `monteCarlo.js`)
 **Pontos fortes**
-- Detrending com WLS e controles para low-N.
+- Detrending with WLS e controles para low-N.
 - Volatilidade com padronização por variância binomial histórica.
 - Incerteza angular + variância diária separadas (conceitualmente correto para previsão de observação futura).
-- MC with blended policy (empirical + analytical) and deterministic fallback in SD ~ 0.
+- MC com política blended (empírico + analítico) e fallback determinístico em SD ~ 0.
 
 **Pontos de atenção**
 - Alguns tetos e clamps são heurísticos (ex.: limites de drift, caps de penalidade, banda mínima visual).
@@ -34,36 +34,36 @@
 
 ### 2) Variance engine (`variance.js`)
 **Pontos fortes**
-- Formula of variance combination with partial correlation (`rho`) is correct for linear combination.
-- Fisher-z for averaging correlations + shrinkage by overlap/ESS greatly improves stability.
-- Defensive weight normalization protects against corrupted inputs.
+- Fórmula de combinação de variância com correlação parcial (`rho`) está correta para combinação linear.
+- Fisher-z para média de correlações + shrinkage por overlap/ESS melhora muito estabilidade.
+- Normalização defensiva de pesos protege contra inputs corrompidos.
 
 **Pontos de atenção**
-- Fixed base `rho` (0.25) may still be high/low in some scenarios; ideally adjust by cohort/contest.
+- `rho` fixo base (0.25) ainda pode ser alto/baixo em alguns cenários; ideal ajustar por coorte/concurso.
 
 ### 3) Bayesian/core stats (`stats.js`)
 **Pontos fortes**
-- Beta-Binomial model with time decay and retention floor preserving proportion (good coherence).
-- CI with Agresti-Coull + predictive variance (epistemic + aleatory) improves realism.
-- `standardDeviation` with robust blend (sample + MAD) reduces noise from outliers.
+- Modelo Beta-Binomial com decaimento temporal e piso de retenção preservando proporção (boa coerência).
+- IC com Agresti-Coull + variância preditiva (epistêmica + aleatória) melhora realismo.
+- `standardDeviation` com blend robusto (sample + MAD) reduz ruído por outliers.
 
 **Pontos de atenção**
-- `MAX_EFFECTIVE_N` is a global hyperparameter; can be calibrated by domain for fairness between very different volume profiles.
+- `MAX_EFFECTIVE_N` é um hiperparâmetro global; pode ser calibrado por domínio para justiça entre perfis de volume muito distintos.
 
 ### 4) Adaptive engines (`adaptiveMath.js`, `adaptiveEngine.js`, `coachAdaptive.js`)
 **Pontos fortes**
-- Adaptation by dynamic half-life, winsorization, and effective sample size.
-- New MAD+Huber robustness in `computeAdaptiveSignal` reduces trend explosions.
-- Adaptive calibration (Brier/ECE/MCE/isotonic/BBQ/stacking) is an advanced and appropriate architecture.
+- Adaptação por half-life dinâmica, winsorização e efetive sample size.
+- Nova robustez MAD+Huber em `computeAdaptiveSignal` reduz explosões de tendência.
+- Calibração adaptativa (Brier/ECE/MCE/isotônica/BBQ/stacking) é arquitetura avançada e adequada.
 
 **Pontos de atenção**
-- Some risk/boost thresholds are still mostly heuristic.
-- Recommended to automatically calibrate via backtests stratified by contest.
+- Alguns thresholds de risco/boost ainda são majoritariamente heurísticos.
+- Recomendado calibrar automaticamente por backtests estratificados por concurso.
 
 ## Justiça matemática (fairness)
-- **Scale:** mostly preserved (several `maxScore` fixes already applied).
-- **Low-sample users:** protected by prior/shrinkage/caps; reduces early overconfidence.
-- **High-performance users:** recent improvements reduced artificial truncations, but there are still caps that may limit extremes (by security design).
+- **Escala:** majoritariamente preservada (vários fixes de `maxScore` já aplicados).
+- **Low-sample users:** protegidos por prior/shrinkage/caps; reduz overconfidence precoce.
+- **High-performance users:** melhorias recentes reduziram truncamentos artificiais, mas ainda há caps que podem limitar extremos (por design de segurança).
 
 ## Melhorias recomendadas (prioridade)
 1. **Auto-calibração de hiperparâmetros por coorte**
