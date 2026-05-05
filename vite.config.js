@@ -17,7 +17,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
-          charts: ['recharts', 'html2canvas', 'jspdf'],
+          charts: ['recharts', 'html-to-image', 'jspdf'],
           motion: ['framer-motion'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
           graphics: ['three', 'tsparticles', 'react-tsparticles'],
