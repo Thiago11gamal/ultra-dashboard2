@@ -71,7 +71,9 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const highQ = Math.max(lowerClamped, upperClamped);
 
     const finiteValues = values.filter(v => Number.isFinite(v));
-    if (finiteValues.length === 0) return [];
+    // BUGFIX (data-shape): preservar o comprimento da série mesmo sem valores finitos.
+    // Alguns consumidores assumem alinhamento 1:1 com a série original.
+    if (finiteValues.length === 0) return values.map(() => 0);
     if (finiteValues.length < 5) {
         const fallback = finiteValues.length > 0
             ? finiteValues.reduce((a, b) => a + b, 0) / finiteValues.length
