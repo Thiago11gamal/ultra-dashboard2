@@ -115,7 +115,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const coachPlanner = activeContest?.coachPlanner || {};
     const coachPlan = activeContest?.coachPlan || [];
-    const calibrationHistoryByCategory = useMemo(() => activeContest?.calibrationHistoryByCategory || {}, [activeContest?.calibrationHistoryByCategory]);
+    const emptyHistoryByCategory = useMemo(() => ({}), []);
+    const calibrationHistoryByCategory = activeContest?.calibrationHistoryByCategory || emptyHistoryByCategory;
     const calibrationOps = activeContest?.calibrationOps || {};
     const calibrationAuditLog = activeContest?.calibrationAuditLog || [];
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
