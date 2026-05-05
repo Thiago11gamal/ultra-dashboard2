@@ -406,8 +406,12 @@ export function useMonteCarloStats({ categories, goalDate, targetScore, timeInde
     const probability = simulationData?.data?.probability ?? 0;
     const rawProjectedMean = simulationData?.data?.projectedMean ?? simulationData?.data?.mean ?? 0;
     const projectedMean = Math.max(minScore, Math.min(maxScore, rawProjectedMean));
-    const rawCurrentMean = simulationData?.data?.currentMean ?? 0;
-    const currentMean = (rawCurrentMean === 0 && projectedMean > 0) ? projectedMean : rawCurrentMean;
+    const rawCurrentMean = simulationData?.data?.currentMean;
+    // BUGFIX: não mascarar o "Hoje" com a projeção futura quando currentMean vem ausente/zero.
+    // Prioridade: valor retornado pelo motor -> bayesianMean do estado -> projectedMean apenas como último fallback.
+    const currentMean = Number.isFinite(Number(rawCurrentMean))
+        ? Number(rawCurrentMean)
+        : (Number.isFinite(Number(statsData?.bayesianMean)) ? Number(statsData.bayesianMean) : projectedMean);
 
     useEffect(() => {
         const rawProb = Number(simulationData?.data?.probability);
