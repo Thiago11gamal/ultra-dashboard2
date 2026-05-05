@@ -190,7 +190,7 @@ export default function Simulados() {
                 dataToProcess.forEach(disc => {
                     if (disc && disc.name) processStats(disc.name, disc);
                 });
-            } else {
+            } else if (dataToProcess && typeof dataToProcess === 'object') {
                 Object.entries(dataToProcess || {}).forEach(([rawSubject, stats]) => {
                     if (rawSubject && stats) processStats(rawSubject, stats);
                 });
@@ -204,7 +204,7 @@ export default function Simulados() {
             const validatedRows = [
                 ...rowsToKeep,
                 ...rawRows
-                    .filter(r => r && r.subject && r.topic && (Number(r.total) > 0))
+                    .filter(r => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0)
                     .map(r => ({
                         ...r,
                         createdAt: r.createdAt || new Date().toISOString(),

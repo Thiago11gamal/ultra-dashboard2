@@ -45,7 +45,8 @@ export default function Dashboard() {
     }), [categories, simuladoRows, studyLogs, user, pomodorosCompleted]);
 
     const setGoalDate = React.useCallback((d) => setData(draft => {
-        draft.user.goalDate = d;
+        if (!draft.user) draft.user = {};
+        draft.user.goalDate = d || null;
     }), [setData]);
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
@@ -76,7 +77,8 @@ export default function Dashboard() {
                     });
                 }
             });
-            showToast(`Iniciando estudos: ${cat.name} - ${tsk.title}`, 'success');
+            const taskLabel = tsk.title || tsk.text || 'Estudo';
+            showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
             navigate('/pomodoro');
         }
     }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
