@@ -6,10 +6,40 @@ import { getPercentile } from './math/percentile.js';
 
 export { getPercentile };
 
+const DEFAULT_SIMULATIONS = 5000;
+const MAX_SIMULATIONS = 50000;
+const DEFAULT_DOMAIN_MIN = 0;
+const DEFAULT_DOMAIN_MAX = 100;
+
+function toFiniteNumber(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function sanitizeDomain(minScore, maxScore) {
+    const rawMin = toFiniteNumber(minScore, DEFAULT_DOMAIN_MIN);
+    const rawMax = toFiniteNumber(maxScore, DEFAULT_DOMAIN_MAX);
+    if (rawMin <= rawMax) {
+        return { minScore: rawMin, maxScore: rawMax };
+    }
+    // Auto-correct invalid domain (min > max) to preserve resilience.
+    return { minScore: rawMax, maxScore: rawMin };
+}
+
+function sanitizeSimulations(simulations) {
+    // DOS GUARD: evita consumo extremo de CPU com entradas hostis/acidentais.
+    const normalized = Math.floor(toFiniteNumber(simulations, DEFAULT_SIMULATIONS));
+    return clamp(normalized, 1, MAX_SIMULATIONS);
+}
+
 export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulations, seed, currentMean, categoryName, bayesianCI) {
     let mean = typeof meanOrObj === 'number' ? meanOrObj : 0;
-    let minScore = 0;
-    let maxScore = 100;
+    let minScore = DEFAULT_DOMAIN_MIN;
+    let maxScore = DEFAULT_DOMAIN_MAX;
 
     if (typeof meanOrObj === 'object' && meanOrObj !== null) {
         mean = meanOrObj.mean ?? mean;
@@ -23,6 +53,10 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
         minScore = meanOrObj.minScore ?? minScore;
         maxScore = meanOrObj.maxScore ?? maxScore;
     }
+
+    const safeDomain = sanitizeDomain(minScore, maxScore);
+    minScore = safeDomain.minScore;
+    maxScore = safeDomain.maxScore;
 
     const safeMean = Number.isFinite(mean) ? mean : 0;
     let safeSD = Number.isFinite(sd) && sd > 0 ? sd : 0; 
@@ -45,11 +79,12 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     // Clamp target to simulation domain
     const effectiveTarget = Math.max(minScore, Math.min(maxScore, targetScore));
 
-    const safeSimulations = Math.max(1, Math.floor(simulations || 5000));
+    const safeSimulations = sanitizeSimulations(simulations);
 
     if (safeSD < 1e-5) {
         const prob = safeMean >= effectiveTarget ? 100 : 0;
         return {
+            simulationCount: safeSimulations,
             probability: prob,
             analyticalProbability: prob,
             recommendedProbability: prob,
@@ -191,6 +226,7 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const recommendedProbability = Math.min(100, Math.max(0, blendedProbability));
 
     return {
+        simulationCount: safeSimulations,
         probability: finiteEmpiricalProbability,
         analyticalProbability: finiteAnalyticalProbability,
         recommendedProbability,
@@ -245,17 +281,20 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             maxScore: objMaxScore,
         } = inputOrMean;
 
-        const domainMin = Number.isFinite(objMinScore) ? objMinScore : 0;
-        const domainMax = Number.isFinite(objMaxScore) ? objMaxScore : 100;
+        const safeDomain = sanitizeDomain(objMinScore, objMaxScore);
+        const domainMin = safeDomain.minScore;
+        const domainMax = safeDomain.maxScore;
         const rawResolvedTarget = objTargetScore ?? Number(meta || 0);
-        const resolvedTarget = Math.max(domainMin, Math.min(domainMax, Number(rawResolvedTarget)));
+        const resolvedTarget = clamp(toFiniteNumber(rawResolvedTarget, domainMin), domainMin, domainMax);
+        const safeSimulations = sanitizeSimulations(simulations);
+        const safeProjectionDays = Math.max(1, Math.floor(toFiniteNumber(projectionDays, 90)));
 
         const mergedOptions = {
             forcedVolatility: objForcedVolatility,
             forcedBaseline: objForcedBaseline,
             currentMean: objCurrentMean,
-            minScore: objMinScore,
-            maxScore: objMaxScore,
+            minScore: domainMin,
+            maxScore: domainMax,
             ...options,
         };
 
@@ -266,25 +305,22 @@ export function runMonteCarloAnalysis(inputOrMean, pooledSD, targetScore, option
             }))
             .filter((row) => Number.isFinite(row.score));
 
-        return monteCarloSimulation(history, resolvedTarget, projectionDays, simulations, mergedOptions);
+        return monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
     }
 
-    const sanitize = (val) => {
-        const n = Number(val);
-        return Number.isFinite(n) ? n : 0;
-    };
+    const safeDomain = sanitizeDomain(options.minScore, options.maxScore);
 
     return simulateNormalDistribution({
-        mean: sanitize(inputOrMean),
-        sd: sanitize(pooledSD),
-        targetScore: sanitize(targetScore),
-        simulations: options.simulations,
+        mean: toFiniteNumber(inputOrMean, 0),
+        sd: toFiniteNumber(pooledSD, 0),
+        targetScore: clamp(toFiniteNumber(targetScore, safeDomain.minScore), safeDomain.minScore, safeDomain.maxScore),
+        simulations: sanitizeSimulations(options.simulations),
         seed: options.seed,
         currentMean: options.currentMean,
         categoryName: options.categoryName,
         bayesianCI: options.bayesianCI,
-        minScore: options.minScore ?? 0,
-        maxScore: options.maxScore ?? 100,
+        minScore: safeDomain.minScore,
+        maxScore: safeDomain.maxScore,
     });
 }
 

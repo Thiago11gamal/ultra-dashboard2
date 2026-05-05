@@ -20,6 +20,18 @@ const deterministic = simulateNormalDistribution({
   simulations: 300
 });
 addCheck('monteCarlo deterministic clamp target', deterministic.probability === 0, deterministic.probability);
+addCheck('monteCarlo simulation cap applied', deterministic.simulationCount === 300, deterministic.simulationCount);
+
+const invertedDomain = simulateNormalDistribution({
+  mean: 70,
+  sd: 0,
+  targetScore: 95,
+  minScore: 100,
+  maxScore: 0,
+  simulations: 99999999
+});
+addCheck('monteCarlo sanitizes inverted domain', invertedDomain.probability === 0, invertedDomain.probability);
+addCheck('monteCarlo clamps huge simulations to cap', invertedDomain.simulationCount === 50000, invertedDomain.simulationCount);
 
 const history = [
   { score: 50, date: '2026-01-01' },
