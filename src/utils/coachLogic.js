@@ -98,9 +98,6 @@ function getCrunchMultiplier(daysToExam) {
     if (daysToExam <= 7)  return 2.0;
     if (daysToExam <= 14) return 1.5;
     if (daysToExam <= 30) return 1.2;
-    // MATH-CRUNCH-GAP FIX: faltava bracket para 31–60 dias.
-    // Antes: dia 30 → 1.2, dia 31 → 1.0 (queda brusca de 16.7%).
-    // Agora: transição suave 31–60 → 1.1 (degrau intermediário).
     if (daysToExam <= 60) return 1.1;
     return 1.0;
 }
@@ -113,7 +110,9 @@ function getCrunchMultiplier(daysToExam) {
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const logger = options.logger;
-    const calibrationHistory = options.calibrationHistoryByCategory?.[category.id] || [];
+    const safeCategory = category || {};
+    const categoryId = safeCategory.id;
+    const calibrationHistory = options.calibrationHistoryByCategory?.[categoryId] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
         maxPenalty: cfg.MC_CALIBRATION_MAX_PENALTY,
@@ -127,7 +126,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
     const rawTargetScore = Number(options.targetScore ?? (maxScore * 0.8));
     const targetScore = Number.isFinite(rawTargetScore) ? rawTargetScore : (maxScore * 0.8);
-    const rawWeight = (category.weight !== undefined && category.weight > 0) ? category.weight : 5;
+    const rawWeight = (safeCategory.weight !== undefined && safeCategory.weight > 0) ? safeCategory.weight : 5;
     // MATH-WEIGHT-ASYMMETRY FIX: era rawWeight * 10, cujo teto (rawWeight=10 → weight=100 → deviation=0)
     // nunca produzia multiplier > 1.0 — nem a matéria mais importante recebia bônus de recência.
     // Com * 20: rawWeight=5 (médio) = ponto neutro (mult=1.0), rawWeight=10 = mult=1.5, rawWeight=1 = mult=0.6.
@@ -151,7 +150,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
     try {
         // 1. Weighted Average Score
-        const catNormalized = normalize(category?.name || "Sem Nome");
+        const catNormalized = normalize(safeCategory?.name || "Sem Nome");
         const relevantSimulados = (simulados || []).filter(s => s && normalize(s.subject) === catNormalized);
         relevantSimulados.sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
         const simuladosWithMaxScore = relevantSimulados;
@@ -174,9 +173,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     let timeWeight = Math.exp(-K * days);
                     if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
                     
-                    // MATH FIX: Falácia Ecológica (Volume Weighting)
-                    // Ponderar logaritmicamente pelo volume previne que mini-testes
-                    // sobreponham exames massivos mais antigos.
                     const volumeWeight = Math.sqrt(Math.max(1, Number(s.total) || getSyntheticTotal(maxScore)));
                     const peso = timeWeight * volumeWeight;
                     
@@ -209,13 +205,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         let daysSinceLastStudy = 30;
         let lastDate = normalizeDate(new Date(0));
 
-        // CORREÇÃO: Usar o array com as datas mais recentes primeiro
         if (simuladosWithMaxScore.length > 0) {
             const simDate = normalizeDate(simuladosWithMaxScore[0].date);
             if (simDate > lastDate) lastDate = simDate;
         }
 
-        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === category.id);
+        const categoryStudyLogs = (studyLogs || []).filter(log => log?.categoryId === categoryId);
         if (categoryStudyLogs.length > 0) {
             const sortedLogs = [...categoryStudyLogs].sort((a, b) => normalizeDate(b.date).getTime() - normalizeDate(a.date).getTime());
             const logDate = normalizeDate(sortedLogs[0].date);
@@ -263,14 +258,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             calibrationBaseline: rollingCalibration.baseline,
             calibrationMaxPenalty: rollingCalibration.maxPenalty
         };
-        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, category.id, maxScore, mcAdaptive);
+        const mcResult = runCoachMonteCarlo(simuladosWithMaxScore, targetScore, cfg, categoryId, maxScore, mcAdaptive);
         const mcProbability = mcResult ? mcResult.probability : null;
         const mcHasData = mcResult !== null;
 
         if (mcHasData && typeof options.onCalibrationMetric === 'function') {
             options.onCalibrationMetric({
-                categoryId: category.id,
-                categoryName: category.name,
+                categoryId,
+                categoryName: safeCategory?.name,
                 avgBrier: Number((mcResult.avgBrier || 0).toFixed(4)),
                 ece: Number((mcResult.ece || 0).toFixed(4)),
                 reliability: Array.isArray(mcResult.reliability) ? mcResult.reliability : [],
@@ -331,7 +326,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
 
         // D. Priority Boost
-        const hasHighPriorityTasks = category.tasks?.some(t => !t.completed && t.priority === 'high') || false;
+        const hasHighPriorityTasks = safeCategory.tasks?.some(t => !t.completed && t.priority === 'high') || false;
         const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
 
         // E. Burnout detection
@@ -397,12 +392,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
 
         if (mcHasData && mcRiskLabel === 'critical') {
             const burnoutNote = isBurnoutRisk ? ' (⚠️ Sinais de estafa — mude o método, não descanse.)' : '';
-            // BUG-19 FIX: mcProbability já está em 0-100, não multiplicar por 100
             recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${burnoutNote}`;
         } else if (isBurnoutRisk) {
             recommendation = `🛑 Risco de Estafa: Você estudou pesadamente nos últimos dias mas a nota não reagiu. Descanse.`;
         } else if (mcHasData && mcRiskLabel === 'safe') {
-            // BUG-19 FIX: mcProbability já está em escala 0-100
             recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
         } else if (srsBoost > 0) {
             recommendation = `${srsLabel} - Não pule essa revisão!`;
@@ -440,7 +433,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 isBurnoutRisk,
                 crunchMultiplier: Number(crunchMultiplier.toFixed(2)),
                 monteCarlo: mcHasData ? {
-                    // BUG-19 FIX: mcProbability já está em 0-100, não multiplicar
                     probability: Number(mcProbability.toFixed(2)),
                     probabilityRaw: mcProbability,
                     thresholds: {
@@ -484,7 +476,6 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                     "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                     "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
                     "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
-                    // BUG-19 FIX: mcProbability já está em 0-100
                     "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
                     "Peso da Matéria": weightLabel,
                     "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
@@ -502,7 +493,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         };
 
         if (typeof logger === 'function') {
-            try { logger({ categoryId: category.id, name: category.name, urgency: result }); } catch { /* ignore */ }
+            try { logger({ categoryId, name: safeCategory?.name, urgency: result }); } catch { /* ignore */ }
         }
 
         return result;
@@ -706,9 +697,6 @@ const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
     const targetScore = options.targetScore ?? 80;
     const maxScore = options.maxScore ?? 100;
-    // LOGIC-DEFAULT-CONFIG FIX: antes, as comparações de MC threshold (MC_PROB_DANGER,
-    // MC_PROB_SAFE, MC_VOLATILITY_HIGH) usavam DEFAULT_CONFIG diretamente, ignorando
-    // qualquer override passado em options.config. Agora o cfg mesclado é a fonte única.
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
 
     const ranked = categories.map(cat => ({
@@ -734,8 +722,6 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const totalHours = recentLogs.reduce((acc, l) => acc + (Number(l.minutes) || 0), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => {
             const sTotal = Number(s.total) || 0;
-            // FIX: Se o simulado tem nota mas não registrou o total de questões (cadastro só em %), 
-            // assumimos um peso sintético para evitar divisão por zero no questionsPerHour.
             if (sTotal === 0 && s.score != null) {
                 return acc + (maxScore > 0 ? Math.min(maxScore, 80) : 80);
             }
