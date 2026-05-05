@@ -71,6 +71,7 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     const highQ = Math.max(lowerClamped, upperClamped);
 
     const finiteValues = values.filter(v => Number.isFinite(v));
+    if (finiteValues.length === 0) return [];
     if (finiteValues.length < 5) {
         const fallback = finiteValues.length > 0
             ? finiteValues.reduce((a, b) => a + b, 0) / finiteValues.length
@@ -104,7 +105,8 @@ export function deriveAdaptiveConfig(scores = []) {
     const halfLife = Math.max(2, Math.round(Math.min(14, Math.sqrt(Math.max(1, n)) * (1 + cv))));
     const lambda = Math.pow(0.5, 1 / halfLife);
     const dynamicTail = Math.min(0.12, Math.max(0.03, 0.08 * (1 / Math.sqrt(Math.max(1, n))) + (cv * 0.02)));
-    const trendSensitivity = 0.05 + Math.min(0.07, cv * 0.04);
+    // BUGFIX: sensibilidade mínima muito alta ampliava ruído em séries curtas.
+    const trendSensitivity = 0.03 + Math.min(0.06, cv * 0.04);
     const maxCIInflation = 1.1 + Math.min(0.25, cv * 0.12);
 
     return {
@@ -143,7 +145,8 @@ export function computeAdaptiveSignal(scores = []) {
     const lastDelta = finiteScores.length >= 2
         ? finiteScores[finiteScores.length - 1] - finiteScores[finiteScores.length - 2]
         : 0;
-    const trendStrength = sd > 0 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
+    // BUGFIX: quando sd≈0, qualquer delta pequeno explodia numericamente.
+    const trendStrength = sd > 1e-9 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
 
     const ciInflation = Math.min(cfg.maxCIInflation, 1 + (trendStrength * cfg.trendSensitivity));
 
