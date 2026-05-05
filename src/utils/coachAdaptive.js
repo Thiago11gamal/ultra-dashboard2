@@ -51,54 +51,22 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE));
 
   const center = (d + s) / 2;
-  const width = Math.max(8, (s - d) / 2);
-  const k = 4 / width;
-  const z = (center - p) * k;
-  const sigmoid = 1 / (1 + Math.exp(-z));
-
-  const maxBoost = cfg.MC_BOOST_DANGER_BASE + cfg.MC_BOOST_DANGER_RANGE;
-  let boost = cfg.MC_BOOST_SAFE_PENALTY + (maxBoost - cfg.MC_BOOST_SAFE_PENALTY) * sigmoid;
-
-  const lowVolLimit = (cfg.MC_VOLATILITY_HIGH * 0.7) * (maxScore / 100);
-  if (Number.isFinite(volatility) && volatility >= lowVolLimit && boost < 0) {
-    boost *= 0.25;
-  }
-
-  let riskLabel = 'ok';
-  if (p < d) riskLabel = 'critical';
-  else if (p < center) riskLabel = 'moderate';
-  else if (p >= s && boost < 0) riskLabel = 'safe';
-
-  return { boost, riskLabel };
+  const range = (s - d) || 1;
+  const normalized = (p - center) / (range / 2);
+  const boost = 1 / (1 + Math.exp(normalized * 3.5));
+  const volatilityMultiplier = Math.max(0.7, Math.min(1.3, (volatility || 5) / 5));
+  return Math.min(2.0, boost * volatilityMultiplier);
 }
 
 export function deriveBacktestWeights(scores = [], maxScore = 100) {
-  const clean = (scores || []).map(Number).filter(Number.isFinite);
-  if (clean.length < 6) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 0, uplift: 0 };
-
-  const split = Math.max(3, Math.floor(clean.length * 0.7));
-  const train = clean.slice(0, split);
-  const test = clean.slice(split);
-  if (test.length === 0) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 0, uplift: 0 };
-
-  const trainMean = train.reduce((a, b) => a + b, 0) / train.length;
-  const trainDelta = train.length >= 2 ? (train[train.length - 1] - train[0]) / (train.length - 1) : 0;
-
-  const baselineMae = test.reduce((acc, y) => acc + Math.abs(y - trainMean), 0) / test.length;
-  const trendMae = test.reduce((acc, y, i) => {
-    const pred = train[train.length - 1] + trainDelta * (i + 1);
-    return acc + Math.abs(y - pred);
-  }, 0) / test.length;
-
-  const rankQualityRaw = baselineMae > 1e-4 ? (baselineMae - trendMae) / baselineMae : 0;
-  const rankQuality = Math.max(-0.5, Math.min(0.5, rankQualityRaw));
-
-  const testMean = test.reduce((a, b) => a + b, 0) / test.length;
-  const upliftRaw = (testMean - trainMean) / Math.max(1, maxScore);
-  const uplift = Math.max(-0.3, Math.min(0.3, upliftRaw));
-
-  const scoreWeight = Math.max(0.8, Math.min(1.2, 1 - rankQuality * 0.25));
-  const recencyWeight = Math.max(0.75, Math.min(1.25, 1 - rankQuality * 0.2 - uplift * 0.25));
+  const n = scores.length;
+  if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0 };
+  const last = scores[n - 1];
+  const prev = scores[n - 2];
+  const uplift = last - prev;
+  const scoreWeight = Math.max(0.85, Math.min(1.2, 1 + (uplift / (maxScore || 100)) * 0.4));
+  const recencyWeight = Math.max(0.9, Math.min(1.15, 1 + (n / 50) * 0.15));
+  const rankQuality = scores.filter(s => s >= (maxScore * 0.7)).length / n;
   const instabilityWeight = Math.max(0.8, Math.min(1.25, 1 - rankQuality * 0.15 + (uplift < 0 ? 0.15 : -0.05)));
 
   return { scoreWeight, recencyWeight, instabilityWeight, rankQuality, uplift };
@@ -124,7 +92,8 @@ export function simuladosToHistory(simulados, maxScore = 100) {
             if (ta !== tb) return ta - tb;
             return a._idx - b._idx;
         })
-        .map(({ score, date }) => ({ score, date }));
+        .map(({ score, date }) => ({ score, date }))
+        .filter(item => typeof item.date === 'string' && item.date.length === 10);
 }
 
 const mcCache = new Map();
@@ -159,6 +128,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
  * MC-02: Monte Carlo leve para uso no Coach.
  */
 export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90) {
+    const safeTargetScore = Number.isFinite(Number(targetScore)) ? Number(targetScore) : Math.max(0, maxScore * 0.8);
     const history = simuladosToHistory(relevantSimulados, maxScore);
     if (history.length < (cfg.MC_MIN_DATA_POINTS || 5)) return null;
     const lowSampleThreshold = Math.max(Number(cfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (cfg.MC_MIN_DATA_POINTS || 5) + 2);
@@ -177,13 +147,13 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const firstDate = history[0]?.date || '';
     const lastDate = history[history.length - 1]?.date || '';
     const calibHash = `${cfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${cfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${cfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${cfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${cfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
-    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${targetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}`;
+    const hash = `${categoryId}-${maxScore}-${history.length}-${Number(sumCorrect).toFixed(2)}-${safeTargetScore}-${sequenceChecksum}-${firstDate}-${lastDate}-${days}-${calibHash}`;
     if (mcCache.has(hash)) return mcCache.get(hash);
 
     try {
         const result = monteCarloSimulation(
             history,
-            targetScore,
+            safeTargetScore,
             days,
             adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800,
             { maxScore }
@@ -207,11 +177,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             const brierScores = [];
             for (let i = 1; i <= horizon; i++) {
                 const train = history.slice(0, history.length - i);
-                const observed = history[history.length - i].score >= targetScore ? 1 : 0;
+                const observed = history[history.length - i].score >= safeTargetScore ? 1 : 0;
                 try {
                     const bt = monteCarloSimulation(
                         train,
-                        targetScore,
+                        safeTargetScore,
                         days,
                         Math.min(500, Math.max(200, Math.floor((adaptive?.mcSimulations || cfg.MC_SIMULATIONS || 800) * 0.35))),
                         { maxScore }
@@ -313,7 +283,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             conformalLow: Number((conformal.low * 100).toFixed(2)),
             conformalHigh: Number((conformal.high * 100).toFixed(2)),
             conformalQ: Number(conformal.qHat.toFixed(4)),
-            stackingWeights
+            stackingWeights,
+            dataQuality: {
+                historySize: history.length,
+                predObsPairs: predObsPairs.length,
+                calibrationEnabled: enableAdaptiveCalibration
+            }
         };
 
         if (mcCache.size >= MC_CACHE_MAX) {

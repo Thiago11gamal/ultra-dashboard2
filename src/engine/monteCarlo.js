@@ -96,9 +96,6 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     let welfordCount = 0;
 
     const allScores = new Float64Array(safeSimulations);
-    // FIX-TARGET6: usar effectiveTarget (clamped) no success count em vez de rawTarget.
-    // rawTarget fora de [minScore, maxScore] produzia 0% ou 100% por acidente da normal truncada.
-    const effectiveTarget = Math.max(minScore, Math.min(maxScore, rawTarget));
 
     for (let i = 0; i < safeSimulations; i++) {
         let score = sampleTruncatedNormal(safeMean, safeSD, minScore, maxScore, rng);

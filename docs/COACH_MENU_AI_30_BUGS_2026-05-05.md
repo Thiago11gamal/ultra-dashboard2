@@ -15,7 +15,7 @@ Escopo linha a linha:
 5. **Hash de análise depende só de comprimentos e poucos campos**: mudanças reais no conteúdo (mesmo tamanho) não reprocessam `getSuggestedFocus`. (`Coach.jsx:238-242`, `246-270`)
 6. **`history`/`simulados` memoizados por objeto `data` inteiro**: mutações parciais podem gerar recomputações grandes desnecessárias. (`Coach.jsx:56-57`)
 7. **`startNeuralSession` pode receber `targetIndex` inválido em lista vazia**: fallback para `0` mesmo com `sessionTasks=[]` cria sessão inconsistente. (`AICoachView.jsx:130-137`)
-8. **`onGenerateGoals` é passado à view sem guardas de concorrência externa**: botão pode ser acionado em múltiplos pontos enquanto `coachLoading` já está true. (`Coach.jsx:305-320`, `AICoachView.jsx` toolbar)
+8. **`onGenerateGoals` é passado à view sem guardas de concorrência externa**: botão pode ser acionado em múltiplos pontos enquanto `coachLoading` já está true. (`Coach.jsx:305-320`, `AICoachView.jsx} toolbar)
 9. **Parser de texto de tarefa é frágil (`split(':')`)**: tarefas com múltiplos dois-pontos em nomes/labels truncam sem semântica correta. (`AICoachView.jsx:16-22`)
 10. **`subjectPart` remove caracteres não-ASCII ampliados incompletamente**: regex preserva faixa limitada e pode degradar nomes com símbolos válidos. (`AICoachView.jsx:22`)
 

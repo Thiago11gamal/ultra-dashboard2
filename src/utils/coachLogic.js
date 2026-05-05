@@ -83,20 +83,27 @@ const getDaysDiff = (newer, older) => {
     return Math.max(0, Math.floor((newerDate.getTime() - olderDate.getTime()) / MS_PER_DAY));
 };
 
-function getSRSBoost(daysSince, cfg) {
-    if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
-    if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: `Revisão de 7 dias${daysSince > 10 ? ' [ATRASADA]' : ''}` };
-    if (daysSince >= 3) return { boost: cfg.SRS_BOOST * 1.0, label: `Revisão de 3 dias${daysSince > 4 ? ' [ATRASADA]' : ''}` };
-    if (daysSince >= 1) return { boost: cfg.SRS_BOOST * 0.7, label: `Revisão de 24h${daysSince > 1 ? ' [ATRASADA]' : ''}` };
-    return { boost: 0, label: null };
-}
+function getCrunchMultiplier(daysToExam) {
+    if (daysToExam === undefined || daysToExam === null || daysToExam < 0) return 1.0;
+    if (daysToExam > 60) return 1.0;
 
+    // Curva contínua (logística) para evitar saltos bruscos nas fronteiras 7/14/30 dias.
+    // Produz aproximadamente: D0≈2.45, D7≈2.1, D14≈1.8, D30≈1.35, D60≈1.0
+    const x = Number(daysToExam);
     const steepness = 0.12;
     const midpoint = 15;
     const logistic = 1 / (1 + Math.exp(steepness * (x - midpoint)));
     const scaled = 1 + (1.5 * logistic);
 
     return Math.max(1.0, Math.min(2.5, scaled));
+}
+
+function getSRSBoost(daysSince, cfg) {
+    if (daysSince >= 30) return { boost: cfg.SRS_BOOST * 2.0, label: "Revisão Crítica (30+ dias)" };
+    if (daysSince >= 7) return { boost: cfg.SRS_BOOST * 1.4, label: `Revisão de 7 dias${daysSince > 10 ? ' [ATRASADA]' : ''}` };
+    if (daysSince >= 3) return { boost: cfg.SRS_BOOST * 1.0, label: `Revisão de 3 dias${daysSince > 4 ? ' [ATRASADA]' : ''}` };
+    if (daysSince >= 1) return { boost: cfg.SRS_BOOST * 0.7, label: `Revisão de 24h${daysSince > 1 ? ' [ATRASADA]' : ''}` };
+    return { boost: 0, label: null };
 }
 
 // MATH-03 / LEAK-01 FIX: Expose cache invalidation for session/contest changes.

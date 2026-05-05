@@ -209,10 +209,21 @@ export default function Coach() {
 
     // BUG-26: Deduplicating history entries by timestamp to prevent duplicate samples
     const combinedHistory = useMemo(() => {
-            const key = `${s?.id ?? ''}|${s.date}|${Number(s.score)}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            all.push({ ...s, type: 'simulado' });
+        const seen = new Set();
+        const all = [];
+        (history || []).forEach(h => {
+            const key = `${h.id ?? ''}|${h.date}|${Number(h.score)}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                all.push({ ...h, type: 'simulado' });
+            }
+        });
+        (simulados || []).forEach(s => {
+            const key = `${s.id ?? ''}|${s.date}|${Number(s.score)}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                all.push({ ...s, type: 'simulado' });
+            }
         });
         return getSortedHistory(all);
     }, [history, simulados]);
@@ -238,10 +249,11 @@ export default function Coach() {
     const analysisHash = useMemo(() => {
         // HASH-GUARD: Evita loop infinito se a análise persistir métricas que alteram o 'data'.
         // Usamos as referências dos arrays e valores de perfil para detectar mudanças reais.
-        const scoreFingerprint = (data?.simuladoRows || []).slice(-10).map(s => `${s.id}-${s.score}`).join('|');
-        const studyFingerprint = (data?.studyLogs || []).slice(-5).map(l => `${l.id}-${l.date}`).join('|');
-        return `${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${data?.updatedAt || ''}`;
-    }, [data?.simuladoRows, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, data?.updatedAt]);
+        const scoreFingerprint = (data?.simuladoRows || []).slice(-15).map(s => `${s.id}-${s.score}-${s.date}`).join('|');
+        const studyFingerprint = (data?.studyLogs || []).length;
+        const calibLen = Object.values(calibrationHistoryByCategory || {}).reduce((acc, list) => acc + list.length, 0);
+        return `coach-v4.2-${scoreFingerprint}-${studyFingerprint}-${categories.length}-${userProfile?.goalDate}-${userProfile?.targetProbability}-${currentMaxScore}-${calibLen}`;
+    }, [data?.simuladoRows, data?.studyLogs, categories.length, userProfile?.goalDate, userProfile?.targetProbability, currentMaxScore, calibrationHistoryByCategory]);
 
     const lastHashRef = useRef('');
 
