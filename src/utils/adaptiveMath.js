@@ -3,7 +3,8 @@
  */
 
 export function getConfidenceMultiplier(sampleSize) {
-    const n = Math.max(1, Number(sampleSize) || 1);
+    const nRaw = Number(sampleSize);
+    const n = Math.max(1, Number.isFinite(nRaw) ? nRaw : 1);
     const df = Math.max(1, n - 1);
 
     // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
@@ -150,7 +151,8 @@ export function computeAdaptiveSignal(scores = []) {
     // BUGFIX: quando sd≈0, qualquer delta pequeno explodia numericamente.
     const trendStrength = sd > 1e-9 ? Math.min(2.5, Math.abs(lastDelta) / sd) : 0;
 
-    const ciInflation = Math.min(cfg.maxCIInflation, 1 + (trendStrength * cfg.trendSensitivity));
+    const ciInflationRaw = 1 + (trendStrength * cfg.trendSensitivity);
+    const ciInflation = Math.max(1, Math.min(cfg.maxCIInflation, ciInflationRaw));
 
     return { effectiveN, trendStrength, adaptiveWinsor: { low: cfg.lowWinsor, high: cfg.highWinsor }, ciInflation };
 }
