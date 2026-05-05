@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { getSafeScore } from '../../utils/scoreHelper.js';
 import { computeBayesianLevel, standardDeviation } from '../stats.js';
-import { calculateVolatility, calculateSlope, monteCarloSimulation } from '../projection.js';
+import { calculateVolatility, calculateSlope, monteCarloSimulation, computeAdaptiveDampingBase } from '../projection.js';
 import { simulateNormalDistribution } from '../monteCarlo.js';
 import { normalCDF_complement, sampleTruncatedNormal } from '../math/gaussian.js';
 import { mulberry32 } from '../random.js';
@@ -336,6 +336,26 @@ describe('BUG-FIXED: sampleTruncatedNormal — dentro do domínio', () => {
             expect(s).toBeGreaterThanOrEqual(40);
             expect(s).toBeLessThanOrEqual(120);
         }
+    });
+});
+
+describe('MATH-07: computeAdaptiveDampingBase — contínuo e estável', () => {
+    it('sempre retorna dentro de [30, 60]', () => {
+        const values = [
+            computeAdaptiveDampingBase({ sampleSize: 0, drift: 0, driftUncertainty: 999, normalizedVol: 200, scaleFactor: 1 }),
+            computeAdaptiveDampingBase({ sampleSize: 10, drift: 0.2, driftUncertainty: 0.3, normalizedVol: 10, scaleFactor: 1 }),
+            computeAdaptiveDampingBase({ sampleSize: 200, drift: 3, driftUncertainty: 0.05, normalizedVol: 2, scaleFactor: 1 }),
+        ];
+        values.forEach(v => {
+            expect(v).toBeGreaterThanOrEqual(30);
+            expect(v).toBeLessThanOrEqual(60);
+        });
+    });
+
+    it('cresce com evidência (mais N e melhor SNR)', () => {
+        const low = computeAdaptiveDampingBase({ sampleSize: 4, drift: 0.02, driftUncertainty: 0.8, normalizedVol: 20, scaleFactor: 1 });
+        const high = computeAdaptiveDampingBase({ sampleSize: 40, drift: 0.8, driftUncertainty: 0.2, normalizedVol: 6, scaleFactor: 1 });
+        expect(high).toBeGreaterThan(low);
     });
 });
 

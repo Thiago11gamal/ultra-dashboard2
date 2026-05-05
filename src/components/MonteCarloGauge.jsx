@@ -240,7 +240,7 @@ export default function MonteCarloGauge({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
                     {[
                         { label: "Sua Meta", val: `${formatValue(safe(targetScore))}${unit}`, color: "text-rose-500" },
                         { label: isTimeTraveling ? "Nesse Dia" : "Hoje", val: `${formatValue(safe(currentMean))}${unit}`, color: "text-white" },

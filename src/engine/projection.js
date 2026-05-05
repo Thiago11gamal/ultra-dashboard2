@@ -358,6 +358,21 @@ export function getRandomElement(arr, rng) {
     return arr[safeIdx];
 }
 
+export function computeAdaptiveDampingBase({ sampleSize, drift, driftUncertainty, normalizedVol, scaleFactor = 1 }) {
+    const n = Math.max(0, Number(sampleSize) || 0);
+    const safeDrift = Number.isFinite(drift) ? drift : 0;
+    const safeUncertainty = Math.max(1e-6, Number(driftUncertainty) || 0);
+    const safeScale = Math.max(1e-6, Number(scaleFactor) || 1);
+    const safeNormVol = Math.max(0, Number(normalizedVol) || 0);
+
+    const nConfidence = 1 - Math.exp(-n / 12);
+    const trendSNR = Math.abs(safeDrift) / Math.max(0.05 * safeScale, safeUncertainty);
+    const trendConfidence = Math.tanh(trendSNR / 2);
+    const volPenalty = Math.min(1, safeNormVol / 18);
+    const confidenceScore = Math.max(0, Math.min(1, (0.5 * nConfidence) + (0.35 * trendConfidence) + (0.15 * (1 - volPenalty))));
+    return 30 + (30 * confidenceScore);
+}
+
 export function monteCarloSimulation(
     history,
     targetScore = 85,
@@ -597,15 +612,14 @@ export function monteCarloSimulation(
     // - suporte amostral (n),
     // - qualidade do sinal de tendência (|drift| / driftUncertainty),
     // - regime de ruído (volatilidade relativa ao range).
-    const n = sortedHistory.length;
-    const nConfidence = 1 - Math.exp(-n / 12); // satura gradualmente, sem salto
-    const trendSNR = Math.abs(drift) / Math.max(0.05 * scaleFactorFallback, driftUncertainty, 1e-6);
-    const trendConfidence = Math.tanh(trendSNR / 2); // 0..1 robusto
-    const volPenalty = Math.min(1, normalizedVol / 18); // alta vol reduz permissividade
-    const confidenceScore = Math.max(0, Math.min(1, (0.5 * nConfidence) + (0.35 * trendConfidence) + (0.15 * (1 - volPenalty))));
-
     // Base no intervalo [30, 60]: menor base => mais amortização; maior base => mais carry de tendência.
-    const adaptiveDampingBase = 30 + (30 * confidenceScore);
+    const adaptiveDampingBase = computeAdaptiveDampingBase({
+        sampleSize: sortedHistory.length,
+        drift,
+        driftUncertainty,
+        normalizedVol,
+        scaleFactor: scaleFactorFallback,
+    });
     const effectiveAttractorDays = adaptiveDampingBase * Math.log(1 + simulationDays / adaptiveDampingBase);
 
     // BUG 1 FIX: Adicionar uma salvaguarda para o escopo do domínio 
