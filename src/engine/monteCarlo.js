@@ -170,19 +170,27 @@ export function simulateNormalDistribution(meanOrObj, sd, targetScore, simulatio
     const lowSimulation = safeSimulations < 1200;
     const highTruncationStress = truncNormFactor < 1e-6;
 
-    // Política adaptativa: em baixa amostra ou forte truncamento, priorizar empírico;
-    // caso contrário, priorizar analítico (mais estável).
-    const recommendedProbability = (lowSimulation || highTruncationStress || empiricalVsAnalyticalGap > 12)
-        ? finiteEmpiricalProbability
-        : finiteAnalyticalProbability;
+    // Fusão adaptativa avançada (empírico + analítico):
+    // - peso analítico cresce com tamanho amostral efetivo
+    // - reduz peso analítico sob truncamento extremo
+    // - penaliza divergência alta entre os dois estimadores
+    const sampleConfidence = Math.min(1, Math.max(0, (safeSimulations - 200) / 4800));
+    const truncationPenalty = highTruncationStress ? 0.55 : 1;
+    const disagreementPenalty = Math.max(0.35, 1 - (empiricalVsAnalyticalGap / 35));
+    const analyticalWeight = Math.min(0.9, Math.max(0.1, sampleConfidence * truncationPenalty * disagreementPenalty));
+
+    const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
+        + (finiteEmpiricalProbability * (1 - analyticalWeight));
+    const recommendedProbability = Math.min(100, Math.max(0, blendedProbability));
 
     return {
         probability: finiteEmpiricalProbability,
         analyticalProbability: finiteAnalyticalProbability,
         recommendedProbability,
-        probabilityPolicy: (lowSimulation || highTruncationStress || empiricalVsAnalyticalGap > 12)
-            ? 'empirical_adaptive_policy'
-            : 'analytical_adaptive_policy',
+        probabilityPolicy: lowSimulation
+            ? 'blended_low_sample_policy'
+            : (highTruncationStress ? 'blended_truncated_policy' : 'blended_adaptive_policy'),
+        analyticalWeight: Number(analyticalWeight.toFixed(4)),
         mean: Number((bayesianCI ? safeMean : displayMean).toFixed(2)),
         // sd = estatístico (não visual), para evitar viés de interpretação
         sd: Number(projectedSD.toFixed(2)),

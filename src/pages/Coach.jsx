@@ -107,15 +107,14 @@ export default function Coach() {
             const n = Number(value);
             return Number.isFinite(n) ? n : fallback;
         };
-        const metricTimestamp = toFinite(metric?.timestamp, now);
+        const metricTimestamp = metric?.timestamp || now;
+        const normalizedCategoryId = getSafeId(metric?.categoryId || metric?.categoryName);
         const avgBrier = toFinite(metric?.avgBrier, null);
         const ece = toFinite(metric?.ece, null);
         const probability = toFinite(metric?.probability, null);
         const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
-        const isDegraded = avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD;
-        const reliability = Array.isArray(metric?.reliability) ? metric.reliability.slice(0, 20) : [];
-        const normalizedCategoryId = String(metric.categoryId).trim();
-        if (!normalizedCategoryId) return;
+        const reliability = Array.isArray(metric?.reliability) ? metric.reliability : [];
+        const isDegraded = metric?.degraded === true || calibrationPenalty >= HIGH_PENALTY_THRESHOLD;
 
         // DATA-QUALITY GATE: evita persistir eventos vazios/ruins que poluem histórico e painéis.
         const hasUsefulSignal = avgBrier !== null || ece !== null || probability !== null || calibrationPenalty > 0 || reliability.length > 0;
