@@ -44,6 +44,8 @@ export const INITIAL_DATA = {
     }
 };
 
+let exportRevokeTimeoutId = null;
+
 // Export data as JSON file
 export const exportData = (state) => {
     // Export the currently active contest data mostly, or all?
@@ -64,7 +66,10 @@ export const exportData = (state) => {
     a.click();
 
     // Fix: Delay URL revocation so the browser has time to start the download
-    setTimeout(() => {
+    // BUGFIX (memory/data): evitar acúmulo de timeouts de revogação em exports sequenciais.
+    if (exportRevokeTimeoutId) clearTimeout(exportRevokeTimeoutId);
+    exportRevokeTimeoutId = setTimeout(() => {
         URL.revokeObjectURL(url);
+        exportRevokeTimeoutId = null;
     }, 100);
 };
