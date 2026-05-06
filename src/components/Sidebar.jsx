@@ -46,6 +46,8 @@ export default function Sidebar({
     const [contestsExpanded, setContestsExpanded] = React.useState(false);
     const [settingsExpanded, setSettingsExpanded] = React.useState(false);
     const [contestToDelete, setContestToDelete] = React.useState(null);
+    const contestEntries = React.useMemo(() => Object.entries(contests || {}), [contests]);
+    const isSingleContest = contestEntries.length <= 1;
 
     React.useEffect(() => {
         const width = collapsed ? '70px' : '280px';
@@ -58,10 +60,10 @@ export default function Sidebar({
     }, [collapsed]);
 
     React.useEffect(() => {
-        if (!collapsed && contests && Object.keys(contests).length > 0 && !contestsExpanded) {
+        if (!collapsed && contestEntries.length > 0 && !contestsExpanded) {
             setContestsExpanded(true);
         }
-    }, [collapsed, contests, contestsExpanded]);
+    }, [collapsed, contestEntries.length, contestsExpanded]);
 
     const closeMobileSidebar = () => {
         if (window.innerWidth >= 1024) return;
@@ -171,10 +173,9 @@ export default function Sidebar({
 
                         <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
-                                {contests && Object.entries(contests).map(([id, contestData]) => {
+                                {contestEntries.map(([id, contestData]) => {
                                     const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
                                     const isActive = id === activeContestId;
-                                    const isOnlyContest = Object.keys(contests || {}).length <= 1;
                                     return (
                                         <div
                                             key={id}
@@ -202,11 +203,11 @@ export default function Sidebar({
                                                 type="button"
                                                 onClick={(e) => { 
                                                     e.stopPropagation(); 
-                                                    if (!isOnlyContest) setContestToDelete({ id, name });
+                                                    if (!isSingleContest) setContestToDelete({ id, name });
                                                 }}
-                                                disabled={isOnlyContest}
-                                                title={isOnlyContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
-                                                className={`p-1 transition-opacity ${isOnlyContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
+                                                disabled={isSingleContest}
+                                                title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
+                                                className={`p-1 transition-opacity ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
                                             >
                                                 <Trash2 size={12} />
                                             </button>
