@@ -413,7 +413,7 @@ export default function Coach() {
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="flex items-center gap-6 bg-slate-900/40 border border-white/5 p-4 rounded-3xl backdrop-blur-md">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 bg-slate-900/40 border border-white/5 p-3 sm:p-4 rounded-3xl backdrop-blur-md w-full md:w-auto">
                         <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat
@@ -472,7 +472,7 @@ export default function Coach() {
 
 function QuickStat({ label, value, color, icon }) {
     return (
-        <div className="flex flex-col min-w-[80px]">
+        <div className="flex flex-col min-w-[78px] sm:min-w-[80px]">
             <div className="flex items-center gap-1.5 mb-1.5">
                 <span className={`${color} opacity-60`}>{icon}</span>
                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">{label}</span>

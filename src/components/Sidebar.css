@@ -297,9 +297,10 @@
     height: 100vh;
     left: 0;
     transform: translateX(-100%);
-    width: 260px;
+    width: min(86vw, 320px);
     z-index: 50;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 
   .sidebar-open {
