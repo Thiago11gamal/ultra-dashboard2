@@ -481,7 +481,7 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     };
 
     return (
-        <div className="w-full max-w-[min(95vw,600px)] mb-6 rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-8 py-10 shadow-2xl relative overflow-hidden group mx-auto">
+        <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-none sm:rounded-2xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
             {/* Efeito de brilho sutil no topo da madeira */}
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
 
@@ -805,9 +805,9 @@ export default function Pomodoro() {
     }
 
     return (<PageErrorBoundary pageName="Pomodoro">
-        <div className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-8 px-0 sm:px-3">
-            <div className="flex flex-col 2xl:flex-row gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-0 sm:px-4">
-                <div className="flex-1 flex flex-col items-center min-w-0">
+        <div className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-0 sm:px-3">
+            <div className="flex flex-col 2xl:flex-row gap-0 sm:gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-0 sm:px-4">
+                <div className="flex-1 flex flex-col items-center min-w-0 w-full">
                     <PomodoroTopBar
                         activeSubject={activeSubject}
                         neuralMode={neuralMode}
