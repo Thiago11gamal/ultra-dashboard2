@@ -1,7 +1,7 @@
 import React from 'react';
 
-export const EvolutionHeatmap = ({ heatmapData, targetScore, unit = '%' }) => {
-    const { dates, rows } = heatmapData;
+export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) => {
+    const { dates = [], rows = [] } = heatmapData || {};
 
     const cellColor = (pct) => {
         if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b' };

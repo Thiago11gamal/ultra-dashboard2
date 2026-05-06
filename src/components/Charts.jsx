@@ -47,10 +47,10 @@ export default function Charts({ data, compact = false }) {
     const instanceId = React.useId().replace(/:/g, '');
     const gradId = `barGradient_${instanceId}`;
     const shadowId = `barShadow_${instanceId}`;
-
+ 
     // Ensure categories exists from data prop or fallback
     const categories = React.useMemo(() => data?.categories || [], [data?.categories]);
-
+ 
     // Pie chart data - tasks per category
     const pieData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
@@ -59,10 +59,10 @@ export default function Charts({ data, compact = false }) {
             value: tasks.length,
             total: tasks.length,
             completed: tasks.filter(t => t.completed).length,
-            color: cat.color,
+            color: cat.color || CHART_COLORS.primary,
         };
     }), [categories]);
-
+ 
     // Bar chart data - completed vs total per category
     const barData = React.useMemo(() => categories.map(cat => {
         const tasks = cat.tasks || [];
@@ -70,7 +70,7 @@ export default function Charts({ data, compact = false }) {
             name: cat.name && cat.name.length > 12 ? cat.name.substring(0, 10) + '...' : (cat.name || 'Unlabeled'),
             total: tasks.length,
             completed: tasks.filter(t => t.completed).length,
-            color: cat.color,
+            color: cat.color || CHART_COLORS.primary,
         };
     }), [categories]);
 
