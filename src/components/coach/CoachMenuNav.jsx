@@ -13,7 +13,7 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
-            className={`group relative overflow-visible flex-1 lg:flex-none min-w-0 rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
+            className={`group relative overflow-hidden min-w-0 rounded-2xl px-3 sm:px-4 py-3 sm:py-3.5 border transition-all duration-300 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 to-violet-600 border-white/20 text-white shadow-xl shadow-indigo-900/40 ring-1 ring-white/20'
                     : 'bg-slate-900/80 border-white/[0.08] text-slate-400 hover:bg-slate-800 hover:border-white/20'}
@@ -24,8 +24,8 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
                     <Icon size={14} strokeWidth={2.5} className={`shrink-0 ${active ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-slate-400'}`} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.1em] leading-snug whitespace-normal">{label}</p>
-                    <p className={`text-[10px] font-bold leading-tight mt-0.5 whitespace-normal uppercase tracking-widest ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.08em] leading-snug break-words">{label}</p>
+                    <p className={`text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.12em] break-words ${active ? 'text-indigo-100/90' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         {subtitle}
                     </p>
                 </div>
@@ -92,7 +92,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
 
     return (
         <div className="mb-8 p-1">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                 <div className="min-w-0 pb-2 lg:pb-0 px-2">
                     <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5">Navegação</p>
                     <h3 className="text-xl font-black text-white tracking-tight">Central de Estratégia</h3>
@@ -103,7 +103,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto"
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[520px]"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}
