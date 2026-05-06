@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
-import { calculateSlope } from '../engine';
+import { calculateSlope, getSortedHistory } from '../engine';
 
 const PerformanceTable = ({ categories = [] }) => {
 
@@ -67,14 +67,15 @@ const PerformanceTable = ({ categories = [] }) => {
                             const pctBar = percentCorrect;
 
                             // Dynamic Trend calculation instead of relying on static store value
-                            const trendHistory = [...history]
-                                .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)) // FIX: String compare safe for YYYY-MM-DD keys
-                                .slice(-10).map(h => ({
+                            const trendHistory = getSortedHistory(history)
+                                .slice(-10)
+                                .map(h => ({
                                     score: getSafeScore(h, ms),
                                     date: h.date
                                 }));
-                            const trendValue = history.length >= 3 ? calculateSlope(trendHistory) : 0;
-                            const currentTrend = trendValue > 0.0167 ? 'up' : trendValue < -0.0167 ? 'down' : 'stable';
+                            const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms) : 0;
+                            const trendTolerance = 0.0167 * (ms / 100);
+                            const currentTrend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
 
                             const isTopThree = index < 3 && totalQuestions > 0;
                             const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
@@ -170,7 +171,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                     {/* Tendência Icon Box */}
                                     <td className="p-5 text-center border-l border-white/5">
                                         <div className="flex justify-center">
-                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden">
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden" title={`Tendência recente: ${trendValue > 0 ? '+' : ''}${trendValue.toFixed(3)} pts/registro`}>
                                                 <div className="z-10 relative">{trendIcon}</div>
                                                 {currentTrend !== 'stable' && (
                                                     <div className={`absolute inset-0 blur-lg transition-opacity duration-700 opacity-0 group-hover:opacity-30 ${currentTrend === 'up' ? 'bg-green-500' : 'bg-red-500'
