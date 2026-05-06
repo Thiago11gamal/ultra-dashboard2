@@ -244,6 +244,7 @@ export default function Coach() {
 
     const projectedScore = mcStats?.projectedMean ?? 0;
     const volatility = mcStats?.sd ?? 0;
+    const normalizedVolatility = useMemo(() => ((volatility / currentMaxScore) * 100), [volatility, currentMaxScore]);
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
@@ -413,7 +414,7 @@ export default function Coach() {
                     />
                     
                     <div className="flex items-center gap-6 bg-slate-900/40 border border-white/5 p-4 rounded-3xl backdrop-blur-md">
-                        <QuickStat label="Volatilidade" value={`${volatility.toFixed(1)}%`} color="text-rose-400" icon={<Zap size={14} />} />
+                        <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
                         <div className="w-px h-10 bg-white/5" />
                         <QuickStat
                             label="Tendência"
@@ -636,7 +637,7 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
                 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-white/5">
@@ -664,9 +665,9 @@ function RaioXDashboard({ data }) {
                         </tbody>
                     </table>
                     {filteredLogs.length === 0 && (
-                        <div className="py-12 text-center space-y-2">
-                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum evento registrado</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[250px] mx-auto leading-tight">
+                        <div className="py-12 text-center space-y-2 px-4">
+                            <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
                                 Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
                             </p>
                         </div>
@@ -674,9 +675,9 @@ function RaioXDashboard({ data }) {
                 </div>
             </div>
             <div className="p-2 border-t border-white/5 pt-8">
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-5 gap-3">
                     <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
-                    <span className="text-[10px] font-black text-cyan-300">
+                    <span className="text-[10px] font-black text-cyan-300 shrink-0">
                         {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
                     </span>
                 </div>
@@ -704,7 +705,7 @@ function RaioXDashboard({ data }) {
                 )}
             </div>
             <div className="p-2 border-t border-white/5 pt-8">
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-5 gap-3">
                     <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
                     {categoryNames.length > 1 ? (
                         <select
