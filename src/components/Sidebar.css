@@ -44,15 +44,13 @@
 }
 
 .sidebar-logo span {
-  font-size: 0.95rem;
-  font-weight: 800;
-  background: linear-gradient(to right, #fff, #94a3b8);
+  font-size: 1.1rem;
+  font-weight: 850;
+  background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   white-space: nowrap;
   letter-spacing: -0.02em;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  transform-origin: left;
 }
 
 .sidebar.collapsed .sidebar-logo span {
@@ -64,10 +62,8 @@
 /* Divisor */
 .sidebar-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05), transparent);
-  margin: 8px 0;
-  width: 100%;
-  transition: opacity 0.3s;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
+  margin: 12px 10px;
 }
 
 .sidebar.collapsed .sidebar-divider {
@@ -76,31 +72,32 @@
 
 /* Hierarquia de Itens (Concursos) */
 .nested-container {
-  margin-left: 20px;
-  padding-left: 12px;
-  border-left: 1.5px solid rgba(16, 185, 129, 0.15);
-  /* Emerald 500 */
+  padding-left: 20px;
   position: relative;
-  transition: border-color 0.3s ease;
 }
 
-.nested-container:hover {
-  border-left-color: rgba(16, 185, 129, 0.4);
+.nested-container::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
 }
 
 .nested-item-marker {
-  position: absolute;
-  left: -12px;
-  top: 50%;
-  width: 8px;
-  height: 1.5px;
-  background: rgba(16, 185, 129, 0.15);
-  transition: all 0.3s ease;
+  width: 3px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  margin-right: 8px;
+  transition: all 0.3s;
 }
 
-.sidebar-item:hover .nested-item-marker {
-  width: 12px;
-  background: rgba(16, 185, 129, 0.6);
+.sidebar-item.active .nested-item-marker {
+  background: var(--item-color, #818cf8);
+  box-shadow: 0 0 8px var(--item-color-alpha, rgba(129, 140, 248, 0.5));
 }
 
 .sidebar.collapsed .nested-container {
@@ -110,7 +107,11 @@
 }
 
 .nested-container .sidebar-item {
-  color: #8b5cf6;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .nested-container .sidebar-item svg {
@@ -372,4 +373,11 @@
 
 .sidebar-item.active:hover {
   transform: translateX(0);
+}
+
+.coach-ia-item.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.25) 100%) !important;
+  box-shadow: 
+    0 4px 15px rgba(99, 102, 241, 0.15),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.3) !important;
 }

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { Target, Hash, Wallet, Minus } from 'lucide-react';
+import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown } from 'lucide-react';
 import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
+import { calculateSlope, getSortedHistory } from '../engine';
 
 const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
@@ -23,7 +24,8 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         categoryIcon: cat.icon,
                         correct: 0,
                         wrong: 0,
-                        total: 0
+                        total: 0,
+                        trendHistory: []
                     };
                 }
             });
@@ -45,11 +47,13 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             categoryIcon: cat.icon,
                             correct: 0,
                             wrong: 0,
-                            total: 0
+                            total: 0,
+                            trendHistory: []
                         };
                     }
 
-                    const total = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 10;
+                    const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
+                    const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
                     const correctCount = total > 0
                         ? Math.round((getSafeScore(t, maxScore) / maxScore) * total)
                         : (Number(t.correct) || 0);
@@ -59,6 +63,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     topicMap[key].correct += correctCount;
                     topicMap[key].wrong += wrongCount;
                     topicMap[key].total += total;
+                    if (h.date && Number.isFinite(Number(getSafeScore(t, maxScore)))) {
+                        topicMap[key].trendHistory.push({ date: h.date, score: getSafeScore(t, maxScore) });
+                    }
                 });
             });
         });
@@ -67,7 +74,11 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
             .map(t => {
                 const balance = t.correct - t.wrong;
                 const percent = t.total > 0 ? Math.round((t.correct / t.total) * maxScore) : 0;
-                return { ...t, balance, percent };
+                const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
+                const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, maxScore) : 0;
+                const trendTolerance = 0.0167 * (maxScore / 100);
+                const trend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
+                return { ...t, balance, percent, trendValue, trend };
             })
             .sort((a, b) => b.balance - a.balance);
 
@@ -151,8 +162,14 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                     </td>
                                     <td className="p-5 text-center align-middle border-l border-white/5">
                                         <div className="flex justify-center">
-                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 shadow-inner">
-                                                <Minus size={16} className="text-slate-600 opacity-50" />
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 shadow-inner" title={`Tendência recente: ${item.trendValue > 0 ? '+' : ''}${(item.trendValue || 0).toFixed(3)} pts/registro`}>
+                                                {item.trend === 'up' ? (
+                                                    <TrendingUp size={16} className="text-emerald-400" />
+                                                ) : item.trend === 'down' ? (
+                                                    <TrendingDown size={16} className="text-rose-400" />
+                                                ) : (
+                                                    <Minus size={16} className="text-slate-600 opacity-50" />
+                                                )}
                                             </div>
                                         </div>
                                     </td>

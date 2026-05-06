@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
+import { getSafeScore } from '../utils/scoreHelper';
 
 const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, isMVP = false, subtitle }) => {
     return (
@@ -98,7 +99,12 @@ function PersonalRanking({ categories = [] }) {
             const stats = cat.simuladoStats || { history: [] };
             const history = stats.history || [];
             const total = history.reduce((acc, h) => acc + Number(h.total || 0), 0);
-            const correct = history.reduce((acc, h) => acc + Number(h.correct || 0), 0);
+            const ms = cat.maxScore ?? 100;
+            const correct = history.reduce((acc, h) => {
+                const t = Number(h.total) || 0;
+                const c = t > 0 ? (getSafeScore(h, ms) / ms) * t : 0;
+                return acc + c;
+            }, 0);
             const wrong = total - correct;
             const balance = correct - wrong;
 
