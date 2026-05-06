@@ -8,7 +8,13 @@ const VolumeRanking = ({ categories = [] }) => {
         const stats = categories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
             const history = simStats.history || [];
-            const total = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
+            const total = history.reduce((acc, h) => {
+                const parsedTotal = parseInt(h.total, 10);
+                if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
+
+                const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
+                return acc + Math.max(0, fallback);
+            }, 0);
             return { ...cat, totalVolume: total };
         });
 

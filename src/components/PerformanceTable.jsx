@@ -60,9 +60,10 @@ const PerformanceTable = ({ categories = [] }) => {
                             const ms = category.maxScore ?? 100;
 
                             const totalQuestions = history.reduce((acc, h) => acc + (parseInt(h.total, 10) || 0), 0);
-                            const totalCorrect = history.reduce((acc, h) => acc + (getSafeScore(h, ms) / ms * (Number(h.total) || 0)), 0);
+                            const totalCorrectRaw = history.reduce((acc, h) => acc + (getSafeScore(h, ms) / ms * (Number(h.total) || 0)), 0);
+                            const totalCorrect = Math.max(0, Math.round(totalCorrectRaw));
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
-                            const netBalance = Math.round(totalCorrect - totalWrong);
+                            const netBalance = totalCorrect - totalWrong;
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
                             const pctBar = percentCorrect;
 
@@ -139,7 +140,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                                 <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden opacity-50"></div>
                                             )}
                                             <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
-                                                <span className="text-green-500">{Math.round(totalCorrect)} AC</span>
+                                                <span className="text-green-500">{totalCorrect} AC</span>
                                                 <span className="text-red-500">{Math.round(totalWrong)} ER</span>
                                             </div>
                                         </div>
@@ -197,24 +198,5 @@ const PerformanceTable = ({ categories = [] }) => {
                     </tbody>
                 </table>
             </div>
-
-            {/* Footer Stats Summary */}
-            <div className="bg-slate-950/60 p-5 border-t border-white/5 flex items-center justify-center gap-12 text-[10px] uppercase font-black tracking-[0.15em] text-slate-500">
-                <div className="flex items-center gap-2.5 group cursor-help">
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] group-hover:scale-125 transition-transform" />
-                    <span className="group-hover:text-green-400 transition-colors">Dominante</span>
-                </div>
-                <div className="flex items-center gap-2.5 group cursor-help">
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.6)] group-hover:scale-125 transition-transform" />
-                    <span className="group-hover:text-yellow-400 transition-colors">Em Evolução</span>
-                </div>
-                <div className="flex items-center gap-2.5 group cursor-help">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)] group-hover:scale-125 transition-transform" />
-                    <span className="group-hover:text-red-400 transition-colors">Crítico</span>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export default PerformanceTable;
