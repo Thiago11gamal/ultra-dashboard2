@@ -23,6 +23,7 @@ export const mapRetentionData = (categories = []) => {
             // CORREÇÃO: Math.max(0, ...) impede que relógios adiantados
             // gerem um tempo negativo, o que invertia a curva de decaimento Exponencial.
             const days = Math.max(0, (now - last) / (1000 * 60 * 60 * 24));
+            if (!Number.isFinite(days)) return;
 
             // CÁLCULO DE MEIA-VIDA DINÂMICA (Anti-Punição de Maestria)
             // Assuntos consolidados (muitas questões ou alta precisão) esquecem mais devagar.
@@ -49,6 +50,7 @@ export const mapRetentionData = (categories = []) => {
                     const parsedTask = normalizeDate(task.lastStudiedAt || task.completedAt);
                     const last = parsedTask ? parsedTask.getTime() : new Date(task.lastStudiedAt || task.completedAt).getTime();
                     const days = Math.max(0, (now - last) / (1000 * 60 * 60 * 24));
+                    if (!Number.isFinite(days)) return;
                     
                     // Tasks individuais usam half-life padrão 7 a menos que a categoria seja mestre
                     let halfLife = 7;
@@ -59,7 +61,7 @@ export const mapRetentionData = (categories = []) => {
                     
                     if (days >= 1) { // Only show items that have at least 1 day without revision
                         data.push({
-                            nomeTopico: task.text || task.title,
+                            nomeTopico: task.text || task.title || 'Tarefa sem nome',
                             diasSemRevisao: Math.floor(days),
                             nivelCritico: 100 - retention // INVERSÃO
                         });
@@ -140,8 +142,9 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
  */
 export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     const hoursMap = {};
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     
-    studyLogs.forEach(log => {
+    logsArray.forEach(log => {
         const cat = categories.find(c => c.id === log.categoryId);
         const name = cat ? cat.name : 'Outros';
         const actualMinutes = Number(log.minutes) || Number(log.duration) || 0;
