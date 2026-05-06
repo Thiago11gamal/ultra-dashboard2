@@ -84,6 +84,11 @@ export default function EvolutionChart({
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore);
     const { runAnalysis } = useMonteCarloWorker();
     const [mcLoading, setMcLoading] = useState(false);
+    const safeGlobalMetrics = useMemo(() => ({
+        totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
+        totalCorrect: Number(globalMetrics?.totalCorrect) || 0,
+        globalAccuracy: Number.isFinite(Number(globalMetrics?.globalAccuracy)) ? Number(globalMetrics.globalAccuracy) : 0,
+    }), [globalMetrics]);
 
     const projectDays = useMemo(() => {
         if (!goalDate) return 30;
@@ -634,11 +639,11 @@ export default function EvolutionChart({
             ` }} />
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
-                <KpiCard value={globalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
-                <KpiCard value={globalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
+                <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
+                <KpiCard value={safeGlobalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
                 <div className="col-span-2 sm:col-span-1">
                     <KpiCard
-                        value={`${globalMetrics.globalAccuracy.toFixed(2)}%`}
+                        value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
                         label="Precisão Global" color="#fb923c" icon="⚡"
                     />
                 </div>

@@ -18,7 +18,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%' }) 
     );
 
     return (
-        <div className="w-full overflow-x-auto custom-scrollbar pb-32">
+        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10">
             <div className="flex flex-wrap items-center gap-3 mb-4 text-[10px] text-slate-400">
                 {[
                     { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${Math.round(targetScore * 0.6)}${unit}` },
