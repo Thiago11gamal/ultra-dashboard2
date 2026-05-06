@@ -289,7 +289,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.02, zIndex: 100 }}
-            className={`flex flex-col w-full xl:w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full 2xl:w-[520px] shrink-0 relative group p-2 ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-1">
                 {!isPanelLocked && (
@@ -806,7 +806,7 @@ export default function Pomodoro() {
 
     return (<PageErrorBoundary pageName="Pomodoro">
         <div className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-8 px-2 sm:px-3">
-            <div className="flex flex-col xl:flex-row gap-6 xl:gap-10 items-start justify-center w-full max-w-[1440px] mx-auto px-2 sm:px-4">
+            <div className="flex flex-col 2xl:flex-row gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-2 sm:px-4">
                 <div className="flex-1 flex flex-col items-center min-w-0">
                     <PomodoroTopBar
                         activeSubject={activeSubject}
