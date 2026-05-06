@@ -183,6 +183,9 @@
 
 .sidebar-item span {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
   opacity: 1;
   transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   transform: translateX(0);
@@ -309,6 +312,7 @@
   }
 
   .sidebar-item {
+    min-height: 46px;
     padding: 12px 14px;
     border-radius: 14px;
     border: 1px solid rgba(148, 163, 184, 0.22);
@@ -320,6 +324,11 @@
   .sidebar-item.active {
     background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.35)) 0%, rgba(15, 23, 42, 0.9) 100%);
     border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.54));
+  }
+
+  .sidebar-item:hover,
+  .sidebar-item.active:hover {
+    transform: none;
   }
 
   .coach-ia-item {
