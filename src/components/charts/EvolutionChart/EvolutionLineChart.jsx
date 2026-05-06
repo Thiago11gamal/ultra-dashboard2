@@ -129,7 +129,7 @@ export function EvolutionLineChart({
     };
 
     return (
-        <div className="h-[250px] sm:h-[450px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0">
+        <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ResponsiveContainer width="100%" height="100%" className="outline-none focus:outline-none focus:ring-0">
                 {/* CORREÇÃO AQUI: Aumentamos margin bottom para 20 e adicionamos padding interno no Eixo X */}
                 <ComposedChart data={enhancedChartData} margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
