@@ -210,4 +210,21 @@ const PerformanceTable = ({ categories = [] }) => {
                 </table>
             </div>
 
+            {/* Footer Stats Summary */}
+            <div className="bg-slate-950/60 p-5 border-t border-white/5 flex items-center justify-center gap-12 text-[10px] uppercase font-black tracking-[0.15em] text-slate-500">
+                {[
+                    { label: 'Dominante', dot: 'bg-green-500', hover: 'group-hover:text-green-400', glow: 'shadow-[0_0_10px_rgba(34,197,94,0.6)]' },
+                    { label: 'Em Evolução', dot: 'bg-yellow-500', hover: 'group-hover:text-yellow-400', glow: 'shadow-[0_0_10px_rgba(234,179,8,0.6)]' },
+                    { label: 'Crítico', dot: 'bg-red-500', hover: 'group-hover:text-red-400', glow: 'shadow-[0_0_10px_rgba(239,68,68,0.6)]' }
+                ].map((item) => (
+                    <div key={item.label} className="flex items-center gap-2.5 group cursor-help">
+                        <div className={`w-2.5 h-2.5 rounded-full ${item.dot} ${item.glow} group-hover:scale-125 transition-transform`} />
+                        <span className={`${item.hover} transition-colors`}>{item.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 export default PerformanceTable;
