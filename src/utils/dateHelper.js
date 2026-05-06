@@ -8,8 +8,8 @@ export const getDateKey = (rawDate) => {
     let date;
 
     // Suporte a Firebase Timestamp (seconds/nanoseconds)
-    if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
-        const secs = rawDate.seconds || rawDate._seconds;
+    if (typeof rawDate === 'object' && (rawDate.seconds != null || rawDate._seconds != null)) {
+        const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
         date = new Date(secs * 1000);
     } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
         // Suporte ao padrão DD/MM/YYYY (importação/CSV)
