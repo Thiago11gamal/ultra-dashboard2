@@ -235,8 +235,8 @@ export default function AICoachPlanner() {
                                 </div>
                             </div>
                         </div>
-                        <div className="pb-4">
-                            <div className="flex gap-3 min-w-[1500px] min-h-[520px]">
+                        <div className="pb-4 overflow-x-auto overflow-y-hidden no-scrollbar [touch-action:pan-x]">
+                            <div className="flex gap-3 min-w-[1500px] min-h-[520px] pr-2">
                                 {DAYS.map((day) => (
                                     <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
                                         <div className={`mb-5 rounded-2xl border ${day.border} ${day.bg} p-4 relative overflow-visible backdrop-blur-md group/header transition-all duration-500 hover:shadow-[0_0_20px_-5px_rgba(255,255,255,0.05)]`}>
