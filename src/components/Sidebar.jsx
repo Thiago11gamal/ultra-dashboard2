@@ -65,6 +65,13 @@ export default function Sidebar({
         }
     }, [collapsed, contestEntries.length, contestsExpanded]);
 
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (isOpen && window.innerWidth < 1024 && collapsed) {
+            setCollapsed(false);
+        }
+    }, [collapsed, isOpen, setCollapsed]);
+
     const closeMobileSidebar = () => {
         if (window.innerWidth >= 1024) return;
         if (isOpen) {
@@ -140,6 +147,7 @@ export default function Sidebar({
                         type="button"
                         className="lg:hidden p-2 text-slate-500 hover:text-white"
                         onClick={onToggle}
+                        aria-label="Fechar menu lateral"
                     >
                         <X size={20} />
                     </button>
@@ -164,6 +172,8 @@ export default function Sidebar({
                             }}
                             className="sidebar-item group justify-between"
                             title="Meus Concursos"
+                            aria-expanded={contestsExpanded && !collapsed}
+                            aria-controls="sidebar-contests-panel"
                         >
                             <div className="flex items-center gap-3">
                                 <Sparkles size={18} className="text-violet-400" />
@@ -171,7 +181,7 @@ export default function Sidebar({
                             </div>
                         </button>
 
-                        <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div id="sidebar-contests-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
                                     const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
@@ -190,7 +200,7 @@ export default function Sidebar({
                                             onKeyDown={(e) => {
                                                 if (e.key === "Enter" || e.key === " ") {
                                                     e.preventDefault();
-                                                    onSwitchContest(id);
+                                                    if (id !== activeContestId) onSwitchContest(id);
                                                     closeMobileSidebar();
                                                 }
                                             }}
@@ -288,12 +298,14 @@ export default function Sidebar({
                                 }}
                                 className="sidebar-item group"
                                 title="Configurações"
+                                aria-expanded={settingsExpanded && !collapsed}
+                                aria-controls="sidebar-settings-panel"
                             >
                                 <Settings size={18} className="text-slate-400" />
                                 <span>Configurações</span>
                             </button>
 
-                            <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div id="sidebar-settings-panel" className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         type="button"
