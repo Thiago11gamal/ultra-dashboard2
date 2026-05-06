@@ -51,14 +51,18 @@ export function AuthProvider({ children }) {
     }, []);
 
     const logout = useCallback(async () => {
-        if (!auth || isLocalMode) return Promise.resolve();
-        await signOut(auth);
-        
+        if (auth && !isLocalMode) {
+            await signOut(auth);
+        }
+
         // 🎯 DATA LEAK PROTECTION: Limpa a memória RAM do app imediatamente após o logout
+        // também no modo local/offline para evitar vazamento de dados entre sessões.
         useAppStore.getState().resetStore();
         if (useAppStore.temporal) {
             useAppStore.temporal.getState().clear();
         }
+
+        return Promise.resolve();
     }, []);
 
     useEffect(() => {
