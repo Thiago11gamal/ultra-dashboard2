@@ -57,6 +57,12 @@ export default function Sidebar({
         }
     }, [collapsed]);
 
+    React.useEffect(() => {
+        if (!collapsed && contests && Object.keys(contests).length > 0 && !contestsExpanded) {
+            setContestsExpanded(true);
+        }
+    }, [collapsed, contests, contestsExpanded]);
+
     const closeMobileSidebar = () => {
         if (window.innerWidth >= 1024) return;
         if (isOpen) {
@@ -168,14 +174,24 @@ export default function Sidebar({
                                 {contests && Object.entries(contests).map(([id, contestData]) => {
                                     const name = typeof contestData === 'string' ? contestData : contestData?.user?.name || 'Sem nome';
                                     const isActive = id === activeContestId;
+                                    const isOnlyContest = Object.keys(contests || {}).length <= 1;
                                     return (
                                         <div
                                             key={id}
-                                            className={`sidebar-item group !py-2 relative ${isActive ? 'active' : ''}`}
+                                            role="button"
+                                            tabIndex={0}
+                                            className={`sidebar-item group !py-2 relative w-full text-left ${isActive ? 'active' : ''}`}
                                             title={name}
                                             onClick={() => {
                                                 onSwitchContest(id);
                                                 closeMobileSidebar();
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    onSwitchContest(id);
+                                                    closeMobileSidebar();
+                                                }
                                             }}
                                         >
                                             <div className="nested-item-marker"></div>
@@ -186,9 +202,11 @@ export default function Sidebar({
                                                 type="button"
                                                 onClick={(e) => { 
                                                     e.stopPropagation(); 
-                                                    setContestToDelete({ id, name });
+                                                    if (!isOnlyContest) setContestToDelete({ id, name });
                                                 }}
-                                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
+                                                disabled={isOnlyContest}
+                                                title={isOnlyContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
+                                                className={`p-1 transition-opacity ${isOnlyContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400'}`}
                                             >
                                                 <Trash2 size={12} />
                                             </button>
