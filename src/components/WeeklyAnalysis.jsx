@@ -4,17 +4,19 @@ import { normalizeDate, formatDuration } from '../utils/dateHelper';
 
 export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+
     const { groups, stats } = useMemo(() => {
-        if (!studyLogs || studyLogs.length === 0) return { groups: [], stats: null };
+        if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
         // 1. Calculate Stats
         // BUG FIX: log.minutes might be undefined/null → guard with || 0 to avoid NaN
-        const totalMinutes = studyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const totalSessions = studyLogs.length;
+        const totalMinutes = logsArray.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+        const totalSessions = logsArray.length;
 
         // Find top category
         const catCounts = {};
-        studyLogs.forEach(log => {
+        logsArray.forEach(log => {
             const catId = log.categoryId;
             // Bug fix: guard log.minutes with Number() to prevent string concatenation
             catCounts[catId] = (catCounts[catId] || 0) + (Number(log.minutes) || 0);
@@ -24,7 +26,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
         // 2. Group by Date then by Category
         // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
-        const sortedLogs = [...studyLogs].sort((a, b) => (normalizeDate(b.date)?.getTime() ?? 0) - (normalizeDate(a.date)?.getTime() ?? 0));
+        const sortedLogs = [...logsArray].sort((a, b) => (normalizeDate(b.date)?.getTime() ?? 0) - (normalizeDate(a.date)?.getTime() ?? 0));
         const grouped = {};
 
         sortedLogs.forEach(log => {
@@ -75,7 +77,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
 
             // Category Grouping
-            const category = categories.find(c => c.id === log.categoryId);
+            const category = categories.find(c => String(c.id) === String(log.categoryId));
             const categoryId = log.categoryId;
             const categoryName = category ? category.name : 'Desconhecido';
             const categoryColor = category?.color || '#a855f7';
@@ -92,7 +94,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
             let taskTitle = '-';
             if (category && log.taskId) {
-                const task = category.tasks?.find(t => t.id === log.taskId);
+                const task = category.tasks?.find(t => String(t.id) === String(log.taskId));
                 // Bug fix: data model stores task.text, not task.title
                 if (task) taskTitle = task.text || task.title || '-';
             }
@@ -100,23 +102,18 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             // Check if this task is already in the list for this day (Merge strategy)
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
             const existingLogIndex = targetGroup.logs.findIndex(l =>
-                (log.taskId && l.taskId === log.taskId) || (!log.taskId && l.taskTitle === taskTitle)
+                (log.taskId && String(l.taskId) === String(log.taskId)) || (!log.taskId && l.taskTitle === taskTitle)
             );
 
             if (existingLogIndex >= 0) {
-                // Create new object instead of mutating in-place
-                // E-02 FIX: guard || 0 para evitar NaN quando log.minutes é undefined
-                targetGroup.logs[existingLogIndex] = {
-                    ...targetGroup.logs[existingLogIndex],
-                    minutes: (Number(targetGroup.logs[existingLogIndex].minutes) || 0) + (Number(log.minutes) || 0)
-                };
+                targetGroup.logs[existingLogIndex].minutes += (Number(log.minutes) || 0);
             } else {
                 targetGroup.logs.push({
-                    ...log,
-                    timeStr: dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    categoryName,
+                    id: log.id,
+                    taskId: log.taskId,
                     taskTitle,
-                    categoryColor
+                    minutes: (Number(log.minutes) || 0),
+                    date: log.date
                 });
             }
 
@@ -143,13 +140,13 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         });
 
         return { groups: finalGroups, stats: { totalMinutes, totalSessions, topCategory } };
-    }, [studyLogs, categories]);
+    }, [logsArray, categories]);
 
     const formatTime = (minutes) => {
         return formatDuration(minutes / 60);
     };
 
-    if (!studyLogs || studyLogs.length === 0) {
+    if (!logsArray || logsArray.length === 0) {
         return (
             <div className="glass p-12 flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[400px]">
                 <BookOpen size={64} className="mb-6 animate-pulse" />
