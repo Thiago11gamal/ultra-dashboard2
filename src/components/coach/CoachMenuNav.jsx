@@ -17,6 +17,7 @@ function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId,
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 to-violet-600 border-white/20 text-white shadow-xl shadow-indigo-900/40 ring-1 ring-white/20'
                     : 'bg-slate-900/80 border-white/[0.08] text-slate-400 hover:bg-slate-800 hover:border-white/20'}
+                ${!active ? 'mobile-menu-tab-idle' : 'mobile-menu-tab-active'}
                 ${disabled ? 'opacity-60 cursor-not-allowed hover:bg-slate-900/80 hover:border-white/[0.08]' : ''}`}
         >
             <div className="flex items-center gap-3 min-w-0 pl-1">
@@ -91,7 +92,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     };
 
     return (
-        <div className="mb-8 p-1">
+        <div className="mb-8 p-1 sm:p-2 rounded-3xl border border-violet-500/20 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_42px_rgba(2,6,23,0.45)]">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                 <div className="min-w-0 pb-2 lg:pb-0 px-2">
                     <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5">Navegação</p>
@@ -103,7 +104,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[520px]"
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[520px] coach-mobile-tabs"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}

@@ -250,7 +250,7 @@ export default function Sidebar({
                                         <Link
                                             key={item.path}
                                             to={item.path}
-                                            className={`sidebar-item ${isActive ? 'active' : ''}`}
+                                            className={`sidebar-item ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''}`}
                                             aria-current={isActive ? "page" : undefined}
                                             style={{
                                                 '--item-color': item.color,
