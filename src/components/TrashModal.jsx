@@ -2,6 +2,23 @@ import React from 'react';
 import { X, RotateCcw, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
+const getTrashItemMeta = (item) => {
+    const isContest = item?.type === 'contest';
+    const isCategory = item?.type === 'category';
+
+    const title = isContest
+        ? (item?.data?.contestName || item?.data?.name || 'Painel sem nome')
+        : (item?.data?.category?.name || item?.data?.name || 'Matéria sem nome');
+
+    const icon = isContest
+        ? '📊'
+        : (item?.data?.category?.icon || item?.data?.icon || '📚');
+
+    const subtitle = isContest ? 'Painel Completo' : (isCategory ? 'Matéria' : 'Item');
+
+    return { title, icon, subtitle, isContest };
+};
+
 const TrashModalContent = ({ isOpen, onClose }) => {
     const trash = useAppStore(state => state.appState.trash);
     const restoreFromTrash = useAppStore(state => state.restoreFromTrash);
@@ -36,17 +53,19 @@ const TrashModalContent = ({ isOpen, onClose }) => {
                             <p>Sua lixeira está vazia.</p>
                         </div>
                     ) : (
-                        trash.map(item => (
+                        [...trash].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt)).map(item => {
+                            const meta = getTrashItemMeta(item);
+                            return (
                             <div key={item.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${item.type === 'contest' ? 'bg-purple-500/20' : 'bg-blue-500/20'}`}>
-                                    {item.type === 'contest' ? '📊' : (item.data.icon || '📚')}
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${meta.isContest ? 'bg-purple-500/20' : 'bg-blue-500/20'}`}>
+                                    {meta.icon}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-white font-semibold truncate text-sm">
-                                        {item.data.name || 'Item sem nome'}
+                                        {meta.title}
                                     </h4>
                                     <p className="text-xs text-slate-400">
-                                        {item.type === 'contest' ? 'Painel Completo' : 'Matéria'} • Excluído em {new Date(item.deletedAt).toLocaleDateString('pt-BR')}
+                                        {meta.subtitle} • Excluído em {new Date(item.deletedAt).toLocaleDateString('pt-BR')}
                                     </p>
                                 </div>
                                 <button
@@ -57,7 +76,8 @@ const TrashModalContent = ({ isOpen, onClose }) => {
                                     Restaurar
                                 </button>
                             </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
 
