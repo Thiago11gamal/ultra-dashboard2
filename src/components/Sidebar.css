@@ -1,8 +1,8 @@
 /* Layout Base do Menu */
 .sidebar {
   width: 280px;
-  background-color: #08090f;
-  border-right: 1px solid rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, #060810 0%, #0a1020 100%);
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -15,7 +15,7 @@
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
   
   padding: 24px 0px 24px 12px;
-  box-shadow: 6px 0 20px rgba(0, 0, 0, 0.22);
+  box-shadow: 10px 0 30px rgba(2, 6, 23, 0.45);
   overflow-x: hidden !important;
 }
 
@@ -139,7 +139,7 @@
 .sidebar-nav-label {
   font-size: 0.65rem;
   font-weight: 800;
-  color: #8b5cf6;
+  color: #c4b5fd;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   padding: 12px 8px 8px;
@@ -158,13 +158,13 @@
   gap: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  color: #ffffff;
+  color: #e5e7eb;
   text-decoration: none;
   font-weight: 500;
   font-size: 0.85rem;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  background: transparent;
+  background: rgba(15, 23, 42, 0.28);
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
@@ -176,7 +176,7 @@
 .sidebar-item svg {
   width: 18px;
   height: 18px;
-  opacity: 0.6;
+  opacity: 0.82;
   transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
 }
@@ -190,8 +190,8 @@
 
 /* Hover State */
 .sidebar-item:hover {
-  background: var(--item-color-alpha, rgba(255, 255, 255, 0.08));
-  color: #f8fafc;
+  background: linear-gradient(90deg, var(--item-color-alpha, rgba(255, 255, 255, 0.11)) 0%, rgba(15, 23, 42, 0.65) 100%);
+  color: #ffffff;
   transform: translateX(2px);
   border-color: var(--item-color-alpha, rgba(255,255,255,0.12));
 }
@@ -203,11 +203,11 @@
 
 /* Active State */
 .sidebar-item.active {
-  background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.15)) 0%, transparent 100%);
-  border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+  background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.24)) 0%, rgba(15, 23, 42, 0.7) 100%);
+  border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.42));
   color: #ffffff;
   font-weight: 800;
-  box-shadow: inset 3px 0 0 0 var(--item-color, #818cf8), 0 4px 16px var(--item-color-alpha, rgba(129, 140, 248, 0.16));
+  box-shadow: inset 3px 0 0 0 var(--item-color, #818cf8), 0 6px 18px var(--item-color-alpha, rgba(129, 140, 248, 0.24));
 }
 
 .sidebar-item.active svg {
@@ -298,10 +298,10 @@
     z-index: 50;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
-    border-right: 1px solid rgba(139, 92, 246, 0.28);
+    border-right: 1px solid rgba(167, 139, 250, 0.42);
     background:
-      radial-gradient(130% 90% at 100% 0%, rgba(139, 92, 246, 0.12) 0%, rgba(8, 9, 15, 0) 55%),
-      linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(8, 9, 15, 0.98) 100%);
+      radial-gradient(130% 90% at 100% 0%, rgba(139, 92, 246, 0.2) 0%, rgba(8, 9, 15, 0) 55%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.99) 0%, rgba(6, 10, 22, 0.99) 100%);
   }
 
   .sidebar .custom-scrollbar {
@@ -311,15 +311,15 @@
   .sidebar-item {
     padding: 12px 14px;
     border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.72);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
 
   .sidebar-item.active {
-    background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.22)) 0%, rgba(15, 23, 42, 0.74) 100%);
-    border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.35));
+    background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.35)) 0%, rgba(15, 23, 42, 0.9) 100%);
+    border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.54));
   }
 
   .coach-ia-item {
