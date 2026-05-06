@@ -60,10 +60,10 @@ export default function Sidebar({
     }, [collapsed]);
 
     React.useEffect(() => {
-        if (!collapsed && contestEntries.length > 0 && !contestsExpanded) {
+        if (!collapsed && contestEntries.length > 0) {
             setContestsExpanded(true);
         }
-    }, [collapsed, contestEntries.length, contestsExpanded]);
+    }, [collapsed, contestEntries.length]);
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return;
